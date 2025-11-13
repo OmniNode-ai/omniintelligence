@@ -1,0 +1,208 @@
+# CODEOWNERS - Automated Reviewer Assignment
+# This file defines code ownership and automatic reviewer assignment for the Archon project
+#
+# Syntax: path-pattern @username @team-name
+# Lines starting with # are comments
+# Order matters - later matches take precedence
+
+# =============================================================================
+# Global Ownership
+# =============================================================================
+
+# Default owners for everything in the repository
+* @architecture-team
+
+# =============================================================================
+# Core Services & Architecture
+# =============================================================================
+
+# Python backend services (Server, MCP, Agents)
+python/ @backend-team @architecture-team
+python/src/ @backend-team @architecture-team
+python/tests/ @backend-team @qa-team
+
+# Server-specific code
+python/src/archon_server/ @backend-team @server-team
+python/src/mcp_server/ @mcp-team @protocol-team
+python/src/agents/ @agents-team @ai-team
+
+# Configuration and environment
+python/pyproject.toml @backend-team @devops-team
+python/uv.lock @backend-team @devops-team
+python/.env.* @devops-team @security-team
+
+# =============================================================================
+# Frontend & UI
+# =============================================================================
+
+# React frontend application
+archon-ui-main/ @frontend-team @ui-ux-team
+archon-ui-main/src/ @frontend-team
+archon-ui-main/public/ @frontend-team @assets-team
+archon-ui-main/package.json @frontend-team @devops-team
+archon-ui-main/package-lock.json @frontend-team @devops-team
+
+# UI Components and styling
+archon-ui-main/src/components/ @frontend-team @ui-ux-team
+archon-ui-main/src/styles/ @ui-ux-team @design-team
+
+# =============================================================================
+# Infrastructure & DevOps
+# =============================================================================
+
+# Docker configuration
+Dockerfile* @devops-team @architecture-team
+docker-compose*.yml @devops-team @architecture-team
+.dockerignore @devops-team
+
+# Kubernetes and deployment
+k8s/ @devops-team @sre-team
+deploy/ @devops-team @sre-team
+scripts/ @devops-team @backend-team
+
+# CI/CD and GitHub configuration
+.github/ @devops-team @architecture-team
+.github/workflows/ @devops-team @ci-cd-team
+.github/ISSUE_TEMPLATE/ @product-team @qa-team
+
+# =============================================================================
+# Quality Gates & Standards
+# =============================================================================
+
+# PR workflow and quality gate configuration
+.github/workflows/pr-workflow.yml @architecture-team @qa-team @devops-team
+.github/pull_request_template.md @architecture-team @qa-team
+.github/branch-protection-config.json @devops-team @architecture-team
+
+# Code quality configuration
+.pre-commit-config.yaml @backend-team @devops-team
+.gitignore @devops-team
+.editorconfig @backend-team @frontend-team
+
+# =============================================================================
+# Documentation & Specifications
+# =============================================================================
+
+# Documentation and README files
+*.md @documentation-team @architecture-team
+README* @documentation-team @product-team
+CLAUDE.md @architecture-team @ai-team
+CHANGELOG* @product-team @release-team
+
+# Documentation directories
+docs/ @documentation-team @architecture-team
+guides/ @documentation-team @training-team
+
+# API documentation
+python/src/*/openapi.json @api-team @documentation-team
+openapi/ @api-team @backend-team
+
+# =============================================================================
+# Database & Data
+# =============================================================================
+
+# Database migrations and schema
+python/src/*/migrations/ @database-team @backend-team
+python/src/*/models/ @database-team @backend-team
+sql/ @database-team @data-team
+
+# Data processing and RAG system
+python/src/*/rag/ @ai-team @data-team
+python/src/*/knowledge/ @ai-team @data-team
+
+# =============================================================================
+# AI & Intelligence Systems
+# =============================================================================
+
+# AI agents and intelligence services
+python/src/agents/ @ai-team @agents-team
+services/intelligence/ @ai-team @ml-team
+services/search/ @ai-team @search-team
+
+# Agent configuration and prompts
+agents/ @ai-team @agents-team @prompt-engineering-team
+
+# =============================================================================
+# Security & Compliance
+# =============================================================================
+
+# Security configuration
+.security/ @security-team
+security/ @security-team @compliance-team
+
+# Environment and secrets (template files only)
+.env.example @devops-team @security-team
+.env.template @devops-team @security-team
+
+# =============================================================================
+# Testing & Quality Assurance
+# =============================================================================
+
+# Test configuration and utilities
+pytest.ini @qa-team @backend-team
+conftest.py @qa-team @backend-team
+test_*.py @qa-team @backend-team
+
+# End-to-end tests
+e2e/ @qa-team @frontend-team @backend-team
+tests/e2e/ @qa-team @integration-team
+
+# Performance tests
+tests/performance/ @performance-team @qa-team
+tests/load/ @performance-team @sre-team
+
+# =============================================================================
+# Release & Deployment
+# =============================================================================
+
+# Release configuration
+release/ @release-team @product-team
+CHANGELOG.md @release-team @product-team
+
+# Version files
+VERSION @release-team @devops-team
+version.json @release-team @devops-team
+
+# =============================================================================
+# Special Cases & Overrides
+# =============================================================================
+
+# Critical system files require architecture team approval
+python/src/*/core/ @architecture-team @senior-engineers
+python/src/*/registry/ @architecture-team @backend-team
+
+# Performance-critical code requires performance team review
+python/src/*/optimization/ @performance-team @architecture-team
+python/src/*/cache/ @performance-team @backend-team
+
+# Security-sensitive code requires security team review
+python/src/*/auth/ @security-team @backend-team
+python/src/*/encryption/ @security-team @crypto-team
+
+# =============================================================================
+# Team Definitions (for reference)
+# =============================================================================
+
+# Core Teams:
+# @architecture-team - System architecture and design decisions
+# @backend-team - Python services and API development
+# @frontend-team - React UI and user experience
+# @devops-team - Infrastructure, deployment, and CI/CD
+# @qa-team - Quality assurance and testing
+# @ai-team - AI/ML systems and agent development
+
+# Specialized Teams:
+# @security-team - Security and compliance
+# @performance-team - Performance optimization
+# @documentation-team - Technical documentation
+# @product-team - Product requirements and features
+# @release-team - Release management and deployment
+# @data-team - Data processing and analytics
+
+# Domain Expert Teams:
+# @server-team - Archon server specialists
+# @mcp-team - Model Context Protocol experts
+# @agents-team - AI agents and orchestration
+# @ui-ux-team - User interface and experience design
+# @database-team - Database and schema management
+# @api-team - API design and integration

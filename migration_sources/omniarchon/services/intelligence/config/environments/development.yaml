@@ -1,0 +1,130 @@
+# Development Environment Quality Gates Configuration
+# Version: 1.0
+# Purpose: Relaxed thresholds for rapid development and iteration
+
+version: "1.0"
+environment: "development"
+description: "Development environment with relaxed quality gates for rapid iteration"
+
+# Override global settings for development
+global:
+  enabled: true
+  fail_fast: false
+  parallel_execution: true
+  timeout_seconds: 600  # Longer timeout for dev
+  retry:
+    enabled: true
+    max_attempts: 2
+    backoff_seconds: 3
+  notifications:
+    enabled: false  # Disable notifications in dev
+
+# Development-specific gate overrides
+quality_gates:
+
+  onex_compliance:
+    enabled: true
+    blocking: false  # Warning only in dev
+    threshold: 0.75  # Relaxed from 0.95 to 0.75
+    rules:
+      naming_conventions:
+        strictness: "moderate"  # Relaxed from strict
+      contract_usage:
+        required: true  # Still require contracts
+      anti_patterns:
+        max_violations: 5  # Allow some violations in dev
+
+  test_coverage:
+    enabled: true
+    blocking: false  # Warning only in dev
+    threshold: 0.70  # Relaxed from 0.90 to 0.70
+    coverage_types:
+      line_coverage:
+        threshold: 0.70
+      branch_coverage:
+        threshold: 0.60  # Relaxed
+      function_coverage:
+        threshold: 0.75  # Relaxed
+    critical_paths:
+      threshold: 0.80  # Relaxed from 1.0 to 0.80
+
+  code_quality:
+    enabled: true
+    blocking: false
+    threshold: 0.50  # Relaxed from 0.70 to 0.50
+    checks:
+      complexity:
+        metrics:
+          cyclomatic_complexity:
+            threshold: 15  # Increased from 10
+          cognitive_complexity:
+            threshold: 20  # Increased from 15
+          max_function_lines:
+            threshold: 75  # Increased from 50
+      duplication:
+        max_percentage: 10.0  # Increased from 5.0
+      maintainability:
+        min_grade: "C"  # Relaxed from B to C
+      code_smells:
+        max_smells: 50  # Increased from 10
+
+  performance:
+    enabled: true
+    blocking: false
+    thresholds:
+      pattern_extraction:
+        max_duration_ms: 500  # Relaxed from 200
+      vector_search:
+        max_duration_ms: 300  # Relaxed from 100
+      storage_query:
+        max_duration_ms: 150  # Relaxed from 50
+      api_endpoint:
+        max_duration_ms: 1000  # Relaxed from 500
+    regression_detection:
+      enabled: false  # Disable in dev
+
+  security:
+    enabled: true
+    blocking: false  # Warning only in dev
+    severity_threshold: "high"  # Only block on high/critical
+    scans:
+      dependency_vulnerabilities:
+        severity_levels:
+          critical: 0
+          high: 2  # Allow some high severity in dev
+          medium: 999
+          low: 999
+      code_vulnerabilities:
+        enabled: true
+      secret_detection:
+        enabled: true  # Still important in dev
+
+  multi_model_consensus:
+    enabled: false  # Disable in dev for speed
+    # Override to enable for specific critical changes only
+
+# Relaxed exemption rules for development
+exemptions:
+  enabled: true
+  require_justification: false  # No justification needed in dev
+  require_approval: false  # No approval needed in dev
+  approval_process:
+    min_approvals: 0
+
+# Minimal notifications for development
+notifications:
+  channels:
+    slack:
+      enabled: false
+    email:
+      enabled: false
+
+reporting:
+  enabled: true
+  frequency: "daily"
+  formats:
+    - "json"
+
+metadata:
+  last_reviewed: "2025-10-02"
+  notes: "Development environment optimized for rapid iteration and learning"

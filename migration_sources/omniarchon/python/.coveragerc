@@ -1,0 +1,119 @@
+# Coverage.py Configuration for Archon
+# Target: 80% minimum coverage across all modules
+
+[run]
+# Source code directories to measure
+source = src
+
+# Omit specific files and directories from coverage measurement
+omit =
+    # Test files
+    tests/*
+    */tests/*
+
+    # Migrations
+    */migrations/*
+
+    # Init files (usually just imports)
+    */__init__.py
+
+    # Virtual environment
+    .venv/*
+    */site-packages/*
+
+    # Configuration files
+    */config.py
+    */settings.py
+
+    # Development utilities
+    */dev_utils/*
+    */debug/*
+
+# Enable branch coverage (not just line coverage)
+branch = True
+
+# Measure coverage during multiprocessing
+concurrency = multiprocessing
+
+# Parallel mode for concurrent test execution
+parallel = True
+
+[report]
+# Minimum coverage threshold (fail if below 80%)
+fail_under = 80.0
+
+# Precision for coverage percentages
+precision = 2
+
+# Show missing lines in coverage report
+show_missing = True
+
+# Skip empty files
+skip_empty = True
+
+# Skip covered files in report (show only files needing attention)
+skip_covered = False
+
+# Sort report by coverage percentage (ascending)
+sort = Cover
+
+# Exclude lines from coverage (e.g., defensive code, debug statements)
+exclude_lines =
+    # Standard pragma for excluding lines
+    pragma: no cover
+
+    # Don't complain about missing debug-only code
+    def __repr__
+    def __str__
+
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+    # Don't complain about abstract methods
+    @(abc\.)?abstractmethod
+
+    # Don't complain about protocol methods
+    @(typing\.)?Protocol
+
+    # Don't complain about overload definitions
+    @(typing\.)?overload
+
+    # Don't complain about pass statements (often in protocols/ABCs)
+    ^\s*pass\s*$
+
+    # Don't complain about ellipsis (often in type stubs)
+    ^\s*\.\.\.\s*$
+
+[html]
+# HTML report output directory
+directory = htmlcov
+
+# Include timestamp in HTML report
+show_contexts = True
+
+[xml]
+# XML report output file (for CI/CD and Codecov)
+output = coverage.xml
+
+[paths]
+# Map paths for parallel/distributed coverage collection
+source =
+    src/
+    */src/
+
+# Handle different working directories
+tests =
+    tests/
+    */tests/
+
+[coverage:paths]
+# Map coverage paths across different environments (local, CI, Docker)
+source =
+    src
+    /app/src
+    */omniarchon/python/src

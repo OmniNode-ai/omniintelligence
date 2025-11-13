@@ -1,0 +1,54 @@
+ARCHON SERVICE HEALTH VERIFICATION
+Generated: 2025-10-30 14:32 UTC
+Correlation ID: D486FDA2-282C-443B-A4A7-C1D7B91261EB
+
+EXECUTIVE SUMMARY
+═════════════════
+Status: ✅ OPERATIONAL WITH WARNINGS
+Core Services: 9/9 Healthy (0 restarts)
+Critical Issues: 0
+Warnings: 3 (non-blocking)
+
+SERVICE STATUS
+══════════════
+✅ archon-intelligence (3h uptime) - All subsystems operational
+✅ archon-bridge (3h uptime) - Event translation working
+✅ archon-search (19h uptime) - RAG queries operational
+✅ archon-kafka-consumer (19h uptime) - Active polling
+✅ archon-server (16h uptime) - Main API responding
+✅ Qdrant - 7 collections, 1.8ms response time
+✅ Memgraph - Connected via Docker network
+✅ Valkey - Connected, cold cache warming up
+✅ Network - Remote server (192.168.86.200) accessible
+
+WARNINGS
+════════
+1. Kafka Consumer - Intermittent Redpanda connection errors
+   • Poll count: 10870 (consumer still active)
+   • Recommendation: Monitor remote Redpanda health
+
+2. Valkey Cache - Degraded (0% hit rate)
+   • Cold cache, expected to warm up with usage
+   • Memory: 1.01MB / 512MB (0.2%)
+
+3. Supabase - Disconnected
+   • Expected behavior (migration completed)
+   • No action required
+
+INTELLIGENCE SUBSYSTEMS
+════════════════════════
+✅ Pattern Learning - 7.69ms response time
+✅ Pattern Traceability - 57.29ms response time
+✅ 78 Intelligence APIs operational
+
+READINESS
+═════════
+System is READY for pipeline execution:
+- Event bus connectivity established
+- Vector and graph databases accessible
+- All intelligence APIs responding
+- Resource usage within normal limits
+
+FILES GENERATED
+═══════════════
+- /Volumes/PRO-G40/Code/omniarchon/service_health_report_20251030_1432.txt

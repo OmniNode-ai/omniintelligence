@@ -1,0 +1,159 @@
+# Custom Quality Rules for OmniArchon Project
+# Service architecture and API validation rules
+# Created: 2025-10-15
+
+project_id: omniarchon
+description: "Quality rules for microservices and intelligence APIs"
+
+custom_rules:
+  # Architectural Rules - Service Patterns
+  - rule_id: "require_async_handlers"
+    description: "Event handlers must be async"
+    rule_type: "architectural"
+    severity: "critical"
+    pattern: "async\\s+def\\s+handle_event\\s*\\("
+    weight: 0.2
+    enabled: true
+
+  - rule_id: "require_base_handler"
+    description: "Event handlers must inherit from BaseEventHandler"
+    rule_type: "architectural"
+    severity: "critical"
+    requires: "BaseEventHandler"
+    weight: 0.15
+    enabled: true
+
+  - rule_id: "require_response_publisher"
+    description: "Handlers should use BaseResponsePublisher"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "BaseResponsePublisher|publish_response"
+    weight: 0.1
+    enabled: true
+
+  # FastAPI Rules
+  - rule_id: "require_router_tags"
+    description: "API routers must have tags"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "APIRouter\\(.*tags="
+    weight: 0.08
+    enabled: true
+
+  - rule_id: "require_response_models"
+    description: "API endpoints should specify response_model"
+    rule_type: "pattern"
+    severity: "suggestion"
+    pattern: "response_model="
+    weight: 0.05
+    enabled: true
+
+  # Kafka Integration Rules
+  - rule_id: "require_envelope_handling"
+    description: "Event handlers should work with ModelEventEnvelope"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "ModelEventEnvelope|envelope\\.payload"
+    weight: 0.1
+    enabled: true
+
+  - rule_id: "require_correlation_id"
+    description: "Event handlers should extract correlation_id"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "correlation_id"
+    weight: 0.08
+    enabled: true
+
+  # Error Handling Rules
+  - rule_id: "require_try_except"
+    description: "Public methods should have try-except blocks"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "try:"
+    weight: 0.1
+    enabled: true
+
+  - rule_id: "require_error_logging"
+    description: "Exception handlers should log errors"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "logger\\.(?:error|exception)"
+    weight: 0.08
+    enabled: true
+
+  # Type Safety Rules
+  - rule_id: "forbid_any_types"
+    description: "Any types should be avoided"
+    rule_type: "pattern"
+    severity: "warning"
+    forbids: ":\\s*Any\\b"
+    weight: 0.1
+    enabled: true
+
+  - rule_id: "require_type_hints"
+    description: "Functions should have type hints"
+    rule_type: "pattern"
+    severity: "suggestion"
+    pattern: "def\\s+\\w+\\([^)]*\\)\\s*->"
+    weight: 0.05
+    enabled: true
+
+  # Metric Rules
+  - rule_id: "max_function_complexity"
+    description: "Function complexity must be < 12"
+    rule_type: "metric"
+    severity: "warning"
+    max_complexity: 12
+    weight: 0.12
+    enabled: true
+
+  - rule_id: "max_function_length"
+    description: "Functions should be < 80 lines"
+    rule_type: "metric"
+    severity: "warning"
+    max_length: 80
+    weight: 0.08
+    enabled: true
+
+  - rule_id: "min_docstring_coverage"
+    description: "At least 80% of functions should have docstrings"
+    rule_type: "metric"
+    severity: "warning"
+    min_docstring_coverage: 0.8
+    weight: 0.1
+    enabled: true
+
+  # Database Rules
+  - rule_id: "require_async_db"
+    description: "Database operations should be async"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "async\\s+def\\s+\\w+.*(?:execute|fetch|query)"
+    weight: 0.08
+    enabled: true
+
+  - rule_id: "forbid_sql_injection"
+    description: "Direct SQL string formatting is forbidden"
+    rule_type: "pattern"
+    severity: "critical"
+    forbids: "f['\"]SELECT.*\\{|%s.*SELECT"
+    weight: 0.2
+    enabled: true
+
+  # Performance Rules
+  - rule_id: "suggest_caching"
+    description: "Consider caching for frequently called functions"
+    rule_type: "pattern"
+    severity: "suggestion"
+    pattern: "@cache|@lru_cache|CacheManager"
+    weight: 0.03
+    enabled: true
+
+  - rule_id: "suggest_connection_pooling"
+    description: "Use connection pooling for external services"
+    rule_type: "pattern"
+    severity: "suggestion"
+    pattern: "(?:httpx\\.AsyncClient|aiohttp\\.ClientSession|asyncpg\\.create_pool)"
+    weight: 0.03
+    enabled: true

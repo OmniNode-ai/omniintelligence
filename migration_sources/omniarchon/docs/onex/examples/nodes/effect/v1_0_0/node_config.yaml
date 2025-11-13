@@ -1,0 +1,268 @@
+# Node Configuration for Canary Impure Tool - Tier 3 Reference Implementation
+# This configuration defines the operational parameters, resource requirements,
+# and runtime behavior for the impure/side effect canary tool.
+
+# === BASIC NODE INFORMATION ===
+node_name: canary_impure_tool
+node_version: {"major": 1, "minor": 0, "patch": 0}
+node_tier: 3
+node_classification: impure_side_effect
+node_type: tool
+tool_type: canary
+
+# === PERFORMANCE CONFIGURATION ===
+performance:
+  # Execution constraints (highest due to side effects)
+  max_execution_time_ms: 30000
+  max_memory_usage_mb: 512
+  max_cpu_usage_percent: 75
+
+  # Concurrency settings (lowest due to side effect coordination)
+  max_concurrent_executions: 10
+  execution_pool_size: 3
+
+  # Caching configuration (limited due to side effects)
+  enable_result_caching: false
+  cache_ttl_seconds: 60
+  max_cache_entries: 100
+
+# === RESOURCE REQUIREMENTS ===
+resource_requirements:
+  # Minimum requirements (highest for side effect management)
+  min_memory_mb: 128
+  min_cpu_cores: 2
+  min_disk_space_mb: 100
+
+  # Recommended requirements
+  recommended_memory_mb: 256
+  recommended_cpu_cores: 4
+  recommended_disk_space_mb: 500
+
+  # Network requirements (required for external integrations)
+  requires_network_access: true
+  requires_external_apis: true
+  allowed_domains: ["httpbin.org", "jsonplaceholder.typicode.com", "postman-echo.com"]
+
+  # Storage requirements (requires persistence for audit and rollback)
+  requires_persistent_storage: true
+  requires_temp_storage: true
+  temp_storage_mb: 200
+
+# === RUNTIME CONFIGURATION ===
+runtime:
+  # Environment settings
+  environment_variables:
+    ONEX_LOG_LEVEL: "INFO"
+    ONEX_ENABLE_METRICS: "true"
+    ONEX_CORRELATION_TRACKING: "true"
+    ONEX_AUDIT_LOGGING: "true"
+    ONEX_SANDBOX_MODE: "true"
+
+  # Startup configuration
+  startup_timeout_ms: 5000
+  graceful_shutdown_timeout_ms: 10000
+  health_check_interval_ms: 3000
+
+  # Input validation
+  strict_input_validation: true
+  validate_schema_versions: true
+  allow_unknown_fields: false
+
+# === MONITORING CONFIGURATION ===
+monitoring:
+  # Metrics collection
+  enable_performance_metrics: true
+  enable_business_metrics: true
+  enable_error_metrics: true
+  enable_security_metrics: true
+  enable_side_effect_metrics: true
+
+  # Health checking
+  health_check_endpoint: "/health"
+  readiness_check_endpoint: "/ready"
+  liveness_check_endpoint: "/alive"
+
+  # Alerting thresholds
+  error_rate_threshold_percent: 1.0
+  latency_threshold_ms: 5000
+  memory_usage_threshold_percent: 70.0
+  side_effect_failure_threshold_percent: 5.0
+
+# === SECURITY CONFIGURATION ===
+security:
+  # Input sanitization
+  enable_input_sanitization: true
+  max_input_size_bytes: 5242880 # 5MB
+
+  # Access controls
+  require_authentication: false
+  require_authorization: false
+
+  # Audit settings
+  enable_audit_logging: true
+  audit_sensitive_data: true
+  audit_all_operations: true
+  audit_retention_days: 90
+
+  # Sandbox settings (critical for side effects)
+  sandbox_mode: true
+  restrict_file_access: true
+  allowed_file_paths: ["/tmp/", "/var/tmp/"]
+  restrict_network_access: true
+  allowed_network_hosts: ["httpbin.org", "jsonplaceholder.typicode.com"]
+
+# === INTEGRATION CONFIGURATION ===
+integration:
+  # Event bus integration
+  enable_event_emission: true
+  event_bus_timeout_ms: 2000
+
+  # Registry integration
+  enable_registry_lookup: true
+  registry_timeout_ms: 1000
+
+  # Correlation tracking
+  enable_correlation_id: true
+  propagate_correlation_id: true
+
+  # Mixin configurations
+  mixins:
+    introspection_publisher:
+      enabled: true
+      publish_interval_ms: 5000
+    node_id_from_contract:
+      enabled: true
+      cache_node_id: true
+    event_listener:
+      enabled: true
+      max_event_queue_size: 500
+
+# === RETRY CONFIGURATION ===
+retry:
+  # Retry policy for operations
+  max_retry_attempts: 2
+  initial_retry_delay_ms: 500
+  max_retry_delay_ms: 5000
+  retry_exponential_backoff: true
+
+  # Retry conditions
+  retry_on_timeout: true
+  retry_on_network_error: true
+  retry_on_validation_error: false
+  retry_on_side_effect_failure: false # Never retry side effects
+
+# === TESTING CONFIGURATION ===
+testing:
+  # Test mode settings
+  enable_test_mode: true
+  test_data_retention_hours: 72
+
+  # Mock configurations
+  enable_mock_dependencies: true
+  mock_configuration_path: "./mock_configurations/"
+
+  # Workflow testing
+  workflow_testing_enabled: true
+  workflow_test_timeout_ms: 30000
+  max_workflow_test_parallel: 2
+
+# === FEATURE FLAGS ===
+feature_flags:
+  # Functional features
+  enable_file_operations: true
+  enable_http_requests: true
+  enable_database_operations: false # Disabled for canary
+  enable_email_operations: false # Disabled for canary
+  enable_audit_logging: true
+
+  # Performance features
+  enable_result_memoization: false # Disabled for side effects
+  enable_batch_processing: false
+  enable_async_operations: true
+
+  # Security features
+  enable_sandbox_enforcement: true
+  enable_security_scanning: true
+  enable_rollback_tracking: true
+
+  # Debugging features
+  enable_debug_logging: false
+  enable_trace_logging: false
+  enable_profiling: false
+
+# === SIDE EFFECT MANAGEMENT ===
+side_effect_management:
+  # Rollback configuration
+  enable_rollback_tracking: true
+  auto_rollback_on_error: false
+  rollback_timeout_ms: 10000
+
+  # Audit configuration
+  audit_all_side_effects: true
+  audit_before_execution: true
+  audit_after_execution: true
+
+  # Safety measures
+  require_confirmation_for_destructive: false
+  enable_dry_run_mode: true
+  max_side_effects_per_operation: 10
+
+# === EXTERNAL INTEGRATIONS ===
+external_integrations:
+  # HTTP client configuration
+  http_client:
+    timeout_ms: 10000
+    max_redirects: 3
+    max_response_size_mb: 10
+    user_agent: "ONEX-Canary-Impure-Tool/1.0.0"
+
+  # File system configuration
+  file_system:
+    max_file_size_mb: 100
+    allowed_extensions: [".txt", ".json", ".yaml", ".log"]
+    virus_scanning: false
+
+  # Database configuration (disabled for canary)
+  database:
+    enabled: false
+
+# === VALIDATION RULES ===
+validation:
+  # Input validation rules
+  input_rules:
+    action:
+      required: true
+      allowed_types: ["lifecycle", "operation", "validation", "management", "query", "side_effect", "external_integration"]
+    version:
+      required: true
+      format: "semver"
+    side_effect_operation:
+      required: true
+      allowed_values: ["file_write", "file_read", "file_delete", "http_request", "database_query", "external_api_call", "email_send", "audit_log"]
+    sandbox_mode:
+      required: false
+      default: true
+
+  # Output validation rules
+  output_rules:
+    status:
+      required: true
+      allowed_values: ["success", "error", "warning", "info"]
+    version:
+      required: true
+      format: "semver"
+    side_effect_result:
+      required: true
+    security_assessment:
+      required: true
+
+# === METADATA ===
+metadata:
+  created_at: "2025-07-29"
+  last_modified_at: "2025-07-29"
+  author: "ONEX Framework Team"
+  description: "Node configuration for Tier 3 Impure/Side Effect canary tool"
+  documentation_url: "https://docs.onex.ai/canary/impure-tool"
+  support_contact: "support@onex.ai"
+
+hash: TBD_GENERATE_AFTER_CREATION

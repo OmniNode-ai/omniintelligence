@@ -1,0 +1,22 @@
+agent_domain: omniarchon_tickets
+agent_purpose: Processes Archon tickets through OmniAgent's automated code generation
+  system. Monitors for "AI IDE Agent" tasks and generates code implementations with
+  intelligent project context integration.
+agent_title: "\U0001F527 Enhanced Framework Integration"
+agent_description: Processes Archon tickets through OmniAgent's automated code generation
+  system. Monitors for "AI IDE Agent" tasks and generates code implementations with
+  intelligent project context integration.
+agent_context: general
+domain_query: omniarchon_tickets patterns best practices
+implementation_query: omniarchon_tickets implementation strategies
+match_count: 5
+confidence_threshold: 0.6
+knowledge_capture_level: comprehensive
+capabilities:
+  mandatory_functions: true
+  template_system: true
+  enhanced_patterns: true
+  quality_intelligence: true
+archon_mcp_enabled: true
+correlation_tracking: true
+parallel_capable: true

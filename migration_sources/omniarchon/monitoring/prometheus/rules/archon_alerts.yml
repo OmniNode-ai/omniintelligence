@@ -1,0 +1,355 @@
+# Archon Production Monitoring Alert Rules
+# Comprehensive alerting for microservices application monitoring
+
+groups:
+  - name: archon_system_alerts
+    interval: 30s
+    rules:
+      # High CPU Usage Alert
+      - alert: ArchonHighCPUUsage
+        expr: archon_system_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          component: system
+        annotations:
+          summary: "High CPU usage detected on {{ $labels.service }}"
+          description: "CPU usage is {{ $value }}% for more than 5 minutes on service {{ $labels.service }}"
+          runbook: "https://docs.archon.dev/runbooks/high-cpu"
+
+      # Critical CPU Usage Alert
+      - alert: ArchonCriticalCPUUsage
+        expr: archon_system_cpu_usage_percent > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: "{{ $labels.service }}"
+          component: system
+        annotations:
+          summary: "Critical CPU usage detected on {{ $labels.service }}"
+          description: "CPU usage is {{ $value }}% for more than 2 minutes on service {{ $labels.service }}"
+          action_required: "immediate"
+
+      # High Memory Usage Alert
+      - alert: ArchonHighMemoryUsage
+        expr: (archon_system_memory_usage_bytes{type="used"} / archon_system_memory_usage_bytes{type="total"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          component: system
+        annotations:
+          summary: "High memory usage detected on {{ $labels.service }}"
+          description: "Memory usage is {{ $value }}% for more than 5 minutes on service {{ $labels.service }}"
+
+      # Critical Memory Usage Alert
+      - alert: ArchonCriticalMemoryUsage
+        expr: (archon_system_memory_usage_bytes{type="used"} / archon_system_memory_usage_bytes{type="total"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: "{{ $labels.service }}"
+          component: system
+        annotations:
+          summary: "Critical memory usage detected on {{ $labels.service }}"
+          description: "Memory usage is {{ $value }}% for more than 2 minutes on service {{ $labels.service }}"
+          action_required: "immediate"
+
+      # Low Disk Space Alert
+      - alert: ArchonLowDiskSpace
+        expr: (archon_system_disk_usage_bytes{type="used"} / archon_system_disk_usage_bytes{type="total"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          component: storage
+        annotations:
+          summary: "Low disk space detected on {{ $labels.service }}"
+          description: "Disk usage is {{ $value }}% for more than 5 minutes on service {{ $labels.service }}"
+
+      # Critical Disk Space Alert
+      - alert: ArchonCriticalDiskSpace
+        expr: (archon_system_disk_usage_bytes{type="used"} / archon_system_disk_usage_bytes{type="total"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: "{{ $labels.service }}"
+          component: storage
+        annotations:
+          summary: "Critical disk space detected on {{ $labels.service }}"
+          description: "Disk usage is {{ $value }}% for more than 2 minutes on service {{ $labels.service }}"
+          action_required: "immediate"
+
+  - name: archon_application_alerts
+    interval: 15s
+    rules:
+      # Service Down Alert
+      - alert: ArchonServiceDown
+        expr: up{job=~"archon-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+          component: application
+        annotations:
+          summary: "Archon service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+          action_required: "immediate"
+
+      # High Error Rate Alert
+      - alert: ArchonHighErrorRate
+        expr: |
+          (
+            rate(archon_http_requests_total{status_code=~"5.."}[5m]) /
+            rate(archon_http_requests_total[5m])
+          ) * 100 > 5
+        for: 3m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          component: application
+        annotations:
+          summary: "High error rate detected on {{ $labels.service }}"
+          description: "Error rate is {{ $value }}% for more than 3 minutes on service {{ $labels.service }}"
+
+      # Critical Error Rate Alert
+      - alert: ArchonCriticalErrorRate
+        expr: |
+          (
+            rate(archon_http_requests_total{status_code=~"5.."}[5m]) /
+            rate(archon_http_requests_total[5m])
+          ) * 100 > 15
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.service }}"
+          component: application
+        annotations:
+          summary: "Critical error rate detected on {{ $labels.service }}"
+          description: "Error rate is {{ $value }}% for more than 1 minute on service {{ $labels.service }}"
+          action_required: "immediate"
+
+      # High Response Time Alert
+      - alert: ArchonHighResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(archon_http_request_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 3m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          endpoint: "{{ $labels.endpoint }}"
+          component: performance
+        annotations:
+          summary: "High response time detected on {{ $labels.service }}"
+          description: "95th percentile response time is {{ $value }}s for endpoint {{ $labels.endpoint }}"
+
+      # Critical Response Time Alert
+      - alert: ArchonCriticalResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(archon_http_request_duration_seconds_bucket[5m])
+          ) > 5.0
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.service }}"
+          endpoint: "{{ $labels.endpoint }}"
+          component: performance
+        annotations:
+          summary: "Critical response time detected on {{ $labels.service }}"
+          description: "95th percentile response time is {{ $value }}s for endpoint {{ $labels.endpoint }}"
+          action_required: "immediate"
+
+      # RAG Query Performance Alert
+      - alert: ArchonSlowRAGQueries
+        expr: |
+          histogram_quantile(0.95,
+            rate(archon_rag_query_duration_seconds_bucket[5m])
+          ) > 10.0
+        for: 3m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          query_type: "{{ $labels.query_type }}"
+          component: rag
+        annotations:
+          summary: "Slow RAG queries detected on {{ $labels.service }}"
+          description: "95th percentile RAG query time is {{ $value }}s for type {{ $labels.query_type }}"
+
+  - name: archon_database_alerts
+    interval: 30s
+    rules:
+      # Database Connection Alert
+      - alert: ArchonDatabaseConnectionsHigh
+        expr: archon_database_connections > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          component: database
+        annotations:
+          summary: "High database connections on {{ $labels.service }}"
+          description: "Database connections count is {{ $value }} for more than 5 minutes"
+
+      # PostgreSQL Connection Alert
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+          action_required: "immediate"
+
+      # PostgreSQL High Connections
+      - alert: PostgreSQLHighConnections
+        expr: pg_stat_activity_count / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "PostgreSQL high connections"
+          description: "PostgreSQL connection usage is {{ $value }}%"
+
+      # Redis Connection Alert
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute"
+          action_required: "immediate"
+
+      # Redis High Memory Usage
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value }}%"
+
+  - name: archon_business_alerts
+    interval: 60s
+    rules:
+      # WebSocket Connection Alert
+      - alert: ArchonHighWebSocketConnections
+        expr: archon_websocket_connections > 100
+        for: 10m
+        labels:
+          severity: info
+          service: "{{ $labels.service }}"
+          component: websocket
+        annotations:
+          summary: "High WebSocket connections on {{ $labels.service }}"
+          description: "WebSocket connections count is {{ $value }} for more than 10 minutes"
+
+      # Background Task Alert
+      - alert: ArchonHighPendingTasks
+        expr: archon_background_tasks{status="pending"} > 50
+        for: 15m
+        labels:
+          severity: warning
+          service: "{{ $labels.service }}"
+          component: background_tasks
+        annotations:
+          summary: "High pending background tasks on {{ $labels.service }}"
+          description: "Pending background tasks count is {{ $value }} for more than 15 minutes"
+
+      # Intelligence Analysis Rate Alert
+      - alert: ArchonHighIntelligenceLoad
+        expr: rate(archon_intelligence_analysis_total[5m]) > 10
+        for: 10m
+        labels:
+          severity: info
+          service: "{{ $labels.service }}"
+          component: intelligence
+        annotations:
+          summary: "High intelligence analysis load on {{ $labels.service }}"
+          description: "Intelligence analysis rate is {{ $value }}/sec for more than 10 minutes"
+
+  - name: archon_container_alerts
+    interval: 30s
+    rules:
+      # Container High CPU
+      - alert: ArchonContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name=~"archon-.*"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+          component: container
+        annotations:
+          summary: "High CPU usage in container {{ $labels.name }}"
+          description: "Container CPU usage is {{ $value }}% for more than 5 minutes"
+
+      # Container High Memory
+      - alert: ArchonContainerHighMemory
+        expr: |
+          (
+            container_memory_usage_bytes{name=~"archon-.*"} /
+            container_spec_memory_limit_bytes{name=~"archon-.*"}
+          ) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+          component: container
+        annotations:
+          summary: "High memory usage in container {{ $labels.name }}"
+          description: "Container memory usage is {{ $value }}% for more than 5 minutes"
+
+      # Container Restart Alert
+      - alert: ArchonContainerRestart
+        expr: increase(container_restarts_total{name=~"archon-.*"}[1h]) > 0
+        labels:
+          severity: warning
+          container: "{{ $labels.name }}"
+          component: container
+        annotations:
+          summary: "Container {{ $labels.name }} has restarted"
+          description: "Container {{ $labels.name }} has restarted {{ $value }} times in the last hour"
+
+  - name: archon_predictive_alerts
+    interval: 300s # Run every 5 minutes
+    rules:
+      # Memory Usage Trend Alert (Predictive)
+      - alert: ArchonMemoryUsageTrending
+        expr: |
+          predict_linear(
+            archon_system_memory_usage_bytes{type="used"}[2h], 4 * 3600
+          ) / archon_system_memory_usage_bytes{type="total"} * 100 > 95
+        for: 10m
+        labels:
+          severity: info
+          service: "{{ $labels.service }}"
+          component: prediction
+        annotations:
+          summary: "Memory usage trending high on {{ $labels.service }}"
+          description: "Memory usage is predicted to exceed 95% in 4 hours based on current trend"
+
+      # Disk Usage Trend Alert (Predictive)
+      - alert: ArchonDiskUsageTrending
+        expr: |
+          predict_linear(
+            archon_system_disk_usage_bytes{type="used"}[6h], 24 * 3600
+          ) / archon_system_disk_usage_bytes{type="total"} * 100 > 95
+        for: 30m
+        labels:
+          severity: info
+          service: "{{ $labels.service }}"
+          component: prediction
+        annotations:
+          summary: "Disk usage trending high on {{ $labels.service }}"
+          description: "Disk usage is predicted to exceed 95% in 24 hours based on current trend"

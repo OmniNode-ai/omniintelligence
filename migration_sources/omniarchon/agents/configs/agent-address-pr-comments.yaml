@@ -1,0 +1,20 @@
+agent_domain: address_pr_comments
+agent_purpose: Address PR review feedback with automatic remote sync and ONEX standards
+  compliance
+agent_title: "\U0001F9E0 Intelligence Integration"
+agent_description: Address PR review feedback with automatic remote sync and ONEX
+  standards compliance
+agent_context: development
+domain_query: PR review feedback implementation
+implementation_query: pull request management automation
+match_count: 5
+confidence_threshold: 0.6
+knowledge_capture_level: comprehensive
+capabilities:
+  mandatory_functions: true
+  template_system: true
+  enhanced_patterns: true
+  quality_intelligence: true
+archon_mcp_enabled: true
+correlation_tracking: true
+parallel_capable: true

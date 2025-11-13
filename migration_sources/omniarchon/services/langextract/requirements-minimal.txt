@@ -1,0 +1,47 @@
+# LangExtract Service Dependencies - Minimal Version
+# For fast builds and core functionality
+
+# Build dependencies
+setuptools>=65.0.0
+wheel>=0.38.0
+
+# Core FastAPI and ASGI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP client for service communication
+httpx>=0.28.1
+
+# Essential text processing
+langdetect>=1.0.9
+textstat>=0.7.3
+python-magic>=0.4.27
+
+# Document processing (essential only)
+beautifulsoup4>=4.12.2
+markdown>=3.5.1
+
+# Graph database integration
+neo4j>=5.15.0
+
+# Database and storage
+supabase==2.15.1
+asyncpg>=0.29.0
+qdrant-client>=1.6.0
+numpy>=1.24.3
+requests>=2.31.0
+python-multipart>=0.0.6
+
+# Data validation
+jsonschema>=4.20.0
+
+# Async support
+aiofiles>=23.2.1
+
+# Logging
+loguru>=0.7.2
+
+# Performance
+orjson>=3.9.10

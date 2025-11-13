@@ -1,0 +1,19 @@
+agent_domain: rag_update
+agent_purpose: RAG knowledge update specialist for capturing and storing intelligence
+  from agent outcomes
+agent_title: ONEX Anti-YOLO Method + BFROS Framework
+agent_description: RAG knowledge update specialist for capturing and storing intelligence
+  from agent outcomes
+agent_context: research
+domain_query: knowledge retrieval search patterns
+implementation_query: RAG system optimization
+match_count: 5
+confidence_threshold: 0.6
+knowledge_capture_level: comprehensive
+capabilities:
+  mandatory_functions: true
+  template_system: true
+  enhanced_patterns: true
+  quality_intelligence: true
+correlation_tracking: true
+parallel_capable: true

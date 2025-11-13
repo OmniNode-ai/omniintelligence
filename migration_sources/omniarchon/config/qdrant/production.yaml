@@ -1,0 +1,81 @@
+# Qdrant Production Configuration for Archon
+# Phase 5C: Advanced Search Intelligence with Quality-Weighted Vector Indexing
+
+service:
+  # Network Configuration
+  host: 0.0.0.0
+  http_port: 6333
+  grpc_port: 6334
+  max_request_size_mb: 32
+  max_workers: 0  # Auto-detect based on CPU cores
+
+  # CORS disabled for internal service communication
+  cors: false
+
+  # Enable telemetry collection for monitoring
+  telemetry_disabled: false
+
+storage:
+  # Storage paths
+  storage_path: /qdrant/storage
+  snapshots_path: /qdrant/snapshots
+  temp_path: /tmp/qdrant
+
+  # Performance settings for high-throughput vector operations
+  on_disk_payload: true
+  write_consistency_factor: 1
+
+  # WAL (Write-Ahead Log) configuration for durability
+  wal:
+    wal_capacity_mb: 64
+    wal_segments_ahead: 2
+
+  # Optimization settings for 1536-dimensional vectors
+  optimizers:
+    # Memory management
+    deleted_threshold: 0.2
+    vacuum_min_vector_number: 1000
+    default_segment_number: 4  # Optimized for balanced read/write performance
+    max_segment_size_kb: 20000000  # 20GB segments for large-scale indexing
+
+    # Memory mapping thresholds
+    memmap_threshold_kb: 500000  # 500MB before using memory mapping
+    indexing_threshold_kb: 50000  # 50MB before building HNSW index
+
+    # Flush settings for batch operations
+    flush_interval_sec: 30
+    max_optimization_threads: 2
+
+# Cluster configuration (single-node for now, ready for scaling)
+cluster:
+  enabled: false
+
+# Security configuration
+# Note: In production, consider enabling TLS and authentication
+tls:
+  cert: null
+  key: null
+
+# Logging configuration
+log_level: "INFO"
+
+# Performance monitoring
+service_metrics:
+  enabled: true
+
+# Backup and recovery
+hnsw_config:
+  # Default HNSW parameters optimized for 1536-dimensional vectors
+  m: 16              # Number of bi-directional links created for every new element during construction
+  ef_construct: 200  # Size of the dynamic candidate list during construction
+  full_scan_threshold: 10000  # Use brute force for small collections
+
+# Resource limits and quotas
+limits:
+  # Request limits
+  max_vectors_per_request: 10000
+  max_payload_size_mb: 10
+
+  # Collection limits
+  max_collections: 100
+  max_vectors_per_collection: 10000000  # 10M vectors per collection

@@ -1,0 +1,213 @@
+# Real Integration Tests CI Workflow (Example)
+#
+# This is an EXAMPLE workflow for running real integration tests in CI.
+# To enable:
+#   1. Rename to real-integration-tests.yml
+#   2. Customize service versions and configuration
+#   3. Add secrets if needed
+#   4. Test locally first
+#
+# Note: Real integration tests require Docker services and take longer.
+# Consider running on:
+#   - Schedule (nightly)
+#   - Manual trigger
+#   - Main branch only
+
+name: Real Integration Tests
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+
+  # Scheduled (nightly at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+
+  # On push to main (optional)
+  # push:
+  #   branches: [ main ]
+
+  # On pull request (optional - may be too slow)
+  # pull_request:
+  #   branches: [ main ]
+
+jobs:
+  real-integration-tests:
+    name: Real Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # Qdrant Vector Database
+      qdrant:
+        image: qdrant/qdrant:v1.7.4
+        ports:
+          - 6334:6333  # Map to test port
+        env:
+          QDRANT__SERVICE__HTTP_PORT: 6333
+          QDRANT__LOG_LEVEL: WARN
+        options: >-
+          --health-cmd "wget -q --spider http://localhost:6333/readyz || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 30s
+
+      # Memgraph Knowledge Graph
+      memgraph:
+        image: memgraph/memgraph:2.15.1
+        ports:
+          - 7688:7687  # Map to test port
+        env:
+          MEMGRAPH_LOG_LEVEL: WARNING
+        options: >-
+          --health-cmd "curl -f http://localhost:3000 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+          --health-start-period 15s
+
+      # PostgreSQL (if needed for tests)
+      postgres:
+        image: postgres:15-alpine
+        ports:
+          - 5433:5432  # Map to test port
+        env:
+          POSTGRES_USER: archon_test
+          POSTGRES_PASSWORD: archon_test_password_2025
+          POSTGRES_DB: archon_test
+        options: >-
+          --health-cmd "pg_isready -U archon_test -d archon_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 20s
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: ./python
+        run: |
+          poetry install --with dev
+
+      - name: Start Kafka (Redpanda)
+        run: |
+          docker run -d --name redpanda \
+            -p 9092:9092 \
+            docker.redpanda.com/redpandadata/redpanda:latest \
+            redpanda start \
+              --overprovisioned \
+              --smp 1 \
+              --memory 1G \
+              --reserve-memory 0M \
+              --node-id 0 \
+              --check=false \
+              --kafka-addr 0.0.0.0:9092 \
+              --advertise-kafka-addr localhost:9092
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 10
+
+          # Check Qdrant
+          curl -f http://localhost:6334/readyz || exit 1
+
+          # Check Kafka/Redpanda
+          docker exec redpanda rpk cluster info || exit 1
+
+          echo "All services ready!"
+
+      - name: Run real integration tests
+        working-directory: ./python
+        env:
+          TEST_KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+          TEST_QDRANT_URL: http://localhost:6334
+          TEST_MEMGRAPH_URI: bolt://localhost:7688
+          REAL_INTEGRATION_TESTS: "true"
+        run: |
+          poetry run pytest \
+            --real-integration \
+            tests/real_integration/ \
+            -v \
+            --tb=short \
+            --maxfail=5 \
+            --durations=10 \
+            --junit-xml=test-results/junit.xml \
+            --html=test-reports/report.html \
+            --self-contained-html
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-integration-test-results
+          path: |
+            python/test-results/
+            python/test-reports/
+          retention-days: 30
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs
+          path: |
+            /var/log/docker/
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Stop Redpanda
+          docker stop redpanda || true
+          docker rm redpanda || true
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "### Real Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f python/test-results/junit.xml ]; then
+            # Parse test results
+            TOTAL=$(grep -oP 'tests="\K[^"]+' python/test-results/junit.xml | head -1)
+            FAILURES=$(grep -oP 'failures="\K[^"]+' python/test-results/junit.xml | head -1)
+            ERRORS=$(grep -oP 'errors="\K[^"]+' python/test-results/junit.xml | head -1)
+            SKIPPED=$(grep -oP 'skipped="\K[^"]+' python/test-results/junit.xml | head -1)
+            PASSED=$((TOTAL - FAILURES - ERRORS - SKIPPED))
+
+            echo "- **Total Tests**: $TOTAL" >> $GITHUB_STEP_SUMMARY
+            echo "- **Passed**: ✅ $PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed**: ❌ $FAILURES" >> $GITHUB_STEP_SUMMARY
+            echo "- **Errors**: ⚠️ $ERRORS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Skipped**: ⏭️ $SKIPPED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Test results not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        # Add notification step (Slack, email, etc.)
+        run: |
+          echo "Real integration tests failed!"
+          # Example: curl -X POST $SLACK_WEBHOOK_URL -d '{"text": "Real integration tests failed"}'
+
+# Optional: Matrix strategy for multiple Python versions
+# strategy:
+#   matrix:
+#     python-version: ['3.10', '3.11', '3.12']
+#   fail-fast: false

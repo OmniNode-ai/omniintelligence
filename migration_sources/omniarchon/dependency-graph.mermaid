@@ -1,0 +1,268 @@
+graph TB
+    %% Agent Framework Comprehensive Dependency Graph
+    %% Agent-4: Dependency Mapping Specialist - Day 1.5 Analysis
+    %% Visualizes all dependencies from Agents 1-3 with conflicts highlighted
+
+    %% LEGEND AND STYLING
+    classDef mandatory fill:#ff6b6b,stroke:#ff4757,stroke-width:3px,color:#fff
+    classDef optional fill:#4ecdc4,stroke:#26a69a,stroke-width:2px,color:#fff
+    classDef template fill:#ffe66d,stroke:#ff9f43,stroke-width:2px,color:#000
+    classDef conflict fill:#ff4757,stroke:#c44569,stroke-width:4px,color:#fff
+    classDef performance fill:#a55eea,stroke:#8b13d4,stroke-width:3px,color:#fff
+    classDef circular fill:#fd79a8,stroke:#e84393,stroke-width:4px,color:#fff
+
+    %% AGENT-1 MANDATORY FUNCTIONS (TOP LEVEL)
+    subgraph AGENT1["🔴 AGENT-1: MANDATORY FUNCTIONS (47 Total)"]
+
+        subgraph PHIL["Core Philosophy (6)"]
+            M1[Single Responsibility]:::mandatory
+            M2[Context Inheritance]:::mandatory
+            M3[Systematic Workflows]:::mandatory
+            M4[Quality Gates]:::mandatory
+            M5[Intelligent Coordination]:::mandatory
+            M6[Parallel Efficiency]:::mandatory
+        end
+
+        subgraph METH["Methodologies (2)"]
+            M7[ONEX Anti-YOLO]:::mandatory
+            M8[BFROS Framework]:::mandatory
+        end
+
+        subgraph CONTEXT["Context Protocols (2)"]
+            M9[INHERITANCE_CONTEXT]:::mandatory
+            M10[PARALLEL_INHERITANCE_CONTEXT]:::mandatory
+        end
+
+        subgraph INTEL["Intelligence Gathering (6)"]
+            M11[gather_debug_intelligence]:::mandatory
+            M12[gather_domain_standards]:::mandatory
+            M13[gather_performance_quality]:::mandatory
+            M14[gather_collaboration_intelligence]:::mandatory
+            M15[gather_comprehensive_intelligence]:::mandatory
+            M16[execute_task_with_intelligence]:::mandatory
+        end
+
+        subgraph DEBUG["Debug Intelligence (5)"]
+            M17[capture_debug_on_error]:::mandatory
+            M18[capture_debug_session]:::mandatory
+            M19[capture_success_pattern]:::mandatory
+            M20[store_debug_intelligence]:::mandatory
+            M21[store_intelligence_locally]:::mandatory
+        end
+
+        subgraph PERF["Performance Thresholds (33)"]
+            P1[Agent Init <1000ms]:::performance
+            P2[Intelligence <100ms]:::performance
+            P3[Context Transfer <500ms]:::performance
+            P4[Quality Gate <200ms]:::performance
+            P5[Parallel 60-80% Improvement]:::performance
+        end
+    end
+
+    %% AGENT-2 PATTERN HIERARCHY (5 LEVELS)
+    subgraph AGENT2["🟡 AGENT-2: PATTERN RELATIONSHIPS (67 Patterns)"]
+
+        subgraph L1["Level 1: Foundational (5)"]
+            CDP001[CDP-001: Single Responsibility]:::mandatory
+            CDP002[CDP-002: Context Inheritance]:::mandatory
+            CDP003[CDP-003: Systematic Workflow]:::mandatory
+            MFP001[MFP-001: UPVED Methodology]:::mandatory
+            MFP002[MFP-002: BFROS Framework]:::mandatory
+        end
+
+        subgraph L2["Level 2: Core Capabilities (6)"]
+            CMP001[CMP-001: Context Protocol]:::mandatory
+            AAP001[AAP-001: Delegation Pattern]:::mandatory
+            AAP005[AAP-005: Result Validation]:::mandatory
+            AAP007[AAP-007: Error Recovery]:::mandatory
+            IGP001[IGP-001: Intelligence Gathering]:::mandatory
+            DIP001[DIP-001: Debug Intelligence]:::mandatory
+        end
+
+        subgraph L3["Level 3: Coordination (5)"]
+            WCP001[WCP-001: Sequential Workflow]:::mandatory
+            CDP005[CDP-005: Coordination]:::mandatory
+            CMP003[CMP-003: Lifecycle]:::mandatory
+            QAP001[QAP-001: Sequential Validation]:::mandatory
+            IGP006[IGP-006: Intelligence Framework]:::mandatory
+        end
+
+        subgraph L4["Level 4: Parallel (6)"]
+            CDP006[CDP-006: Parallel Efficiency]:::optional
+            AAP002[AAP-002: Parallel Delegation]:::optional
+            CMP002[CMP-002: Parallel Context]:::optional
+            WCP002[WCP-002: Parallel Workflow]:::optional
+            WCP004[WCP-004: Sync Points]:::optional
+            QAP002[QAP-002: Parallel Validation]:::optional
+        end
+
+        subgraph L5["Level 5: Advanced (4)"]
+            WCP003[WCP-003: Hybrid Workflow]:::optional
+            QAP003[QAP-003: Quality Gates Parallel]:::optional
+            EHP007[EHP-007: Coordinated Recovery]:::optional
+            EHP008[EHP-008: Load Rebalancing]:::optional
+        end
+    end
+
+    %% AGENT-3 TEMPLATE HIERARCHY (4 LEVELS)
+    subgraph AGENT3["🟠 AGENT-3: TEMPLATE HIERARCHY (8 Templates)"]
+
+        subgraph T1["Template Level 1: Foundation"]
+            T1_1[repository_context_detection.py<br/>432 lines]:::template
+            T1_2[comprehensive_error_handling.py<br/>1226 lines]:::template
+        end
+
+        subgraph T2["Template Level 2: Core Integration"]
+            T2_1[archon_context_establishment.py<br/>Depends on T1]:::template
+            T2_2[orchestrated_intelligence_research.py<br/>689 lines]:::template
+        end
+
+        subgraph T3["Template Level 3: Enhanced"]
+            T3_1[intelligence_informed_execution.py<br/>960 lines]:::template
+            T3_2[real_time_progress_tracking.py<br/>456 lines]:::template
+            T3_3[unified_knowledge_capture.py<br/>573 lines]:::template
+        end
+
+        subgraph T4["Template Level 4: Advanced"]
+            T4_1[parallel_agent_coordination.py<br/>752 lines]:::template
+        end
+    end
+
+    %% CRITICAL DEPENDENCY CHAINS (AGENT-2)
+    subgraph CHAINS["🔥 CRITICAL DEPENDENCY CHAINS (8 Total)"]
+        CHAIN1[Sequential Execution Chain<br/>CDP-001→CDP-002→CMP-001→AAP-001→WCP-001]
+        CHAIN2[Parallel Execution Chain<br/>CDP-001→CDP-002→CDP-005→CDP-006→CMP-002→AAP-002→WCP-002→WCP-004]
+        CHAIN3[Intelligence Chain<br/>CDP-003→IGP-001→IGP-006→IGP-007]
+        CHAIN4[Debug Intelligence Chain<br/>CDP-003→DIP-001→DIP-002→DIP-003→DIP-004→DIP-005]
+        CHAIN5[Quality Assurance Chain<br/>CDP-003→AAP-005→QAP-001→CDP-004 🔄 CIRCULAR]:::circular
+        CHAIN6[Error Handling Chain<br/>CDP-003→AAP-007→EHP-001→EHP-002→EHP-003→EHP-004]
+        CHAIN7[Context Management Chain<br/>CDP-002→CMP-001→CMP-003→AAP-003]
+        CHAIN8[Coordination Chain<br/>CDP-002→CDP-005→AAP-001→WCP-005→WCP-006→WCP-007]
+    end
+
+    %% IDENTIFIED CONFLICTS
+    subgraph CONFLICTS["❌ IDENTIFIED CONFLICTS"]
+        CONF1[Smart Context Refresh<br/>MISSING PATTERN]:::conflict
+        CONF2[Performance Violations<br/>38x Intelligence Overhead]:::conflict
+        CONF3[Template Init >1000ms<br/>Violates Agent-1 Threshold]:::conflict
+        CONF4[Context Template Cycle<br/>Level 2↔3 Dependencies]:::circular
+        CONF5[Parallel Pattern Conflicts<br/>Mandatory vs Optional]:::conflict
+    end
+
+    %% CORE DEPENDENCY RELATIONSHIPS
+
+    %% Agent-1 to Agent-2 Mappings
+    M1 --> CDP001
+    M2 --> CDP002
+    M3 --> CDP003
+    M4 --> CDP004["CDP-004: Quality Gates<br/>⚠️ CIRCULAR DEPENDENCY"]:::circular
+    M5 --> CDP005
+    M6 --> CDP006
+    M7 --> MFP001
+    M8 --> MFP002
+    M9 --> CMP001
+    M10 --> CMP002
+
+    %% Intelligence Function Mappings
+    M11 --> IGP002[IGP-002: Debug Intelligence Research]:::mandatory
+    M12 --> IGP003[IGP-003: Domain Standards]:::mandatory
+    M13 --> IGP004[IGP-004: Performance Quality]:::mandatory
+    M14 --> IGP005[IGP-005: Collaboration Intelligence]:::mandatory
+    M15 --> IGP006
+    M16 --> IGP007[IGP-007: Intelligence Execution]:::mandatory
+
+    %% Debug Intelligence Mappings
+    M17 --> DIP002[DIP-002: Error Capture]:::mandatory
+    M18 --> DIP003[DIP-003: Session Capture]:::mandatory
+    M19 --> DIP004[DIP-004: Success Capture]:::mandatory
+    M20 --> DIP005[DIP-005: Storage System]:::mandatory
+    M21 --> DIP006[DIP-006: Fallback Storage]:::mandatory
+
+    %% Agent-2 Pattern Dependencies (showing key relationships)
+    CDP001 --> AAP001
+    CDP002 --> CMP001
+    CDP002 --> CMP002
+    CDP003 --> IGP001
+    CDP003 --> DIP001
+    CDP003 --> AAP005
+    CDP003 --> AAP007
+
+    CMP001 --> AAP001
+    AAP001 --> WCP001
+    AAP001 --> CDP005
+
+    CDP005 --> CDP006
+    CDP006 --> AAP002
+    CDP006 --> WCP002
+    AAP002 --> WCP002
+    WCP002 --> WCP004
+
+    IGP001 --> IGP006
+    IGP006 --> IGP007
+
+    AAP005 --> QAP001
+    QAP001 --> CDP004
+    CDP004 -.->|CIRCULAR| QAP001
+
+    %% Agent-2 to Agent-3 Template Mappings
+    CDP002 --> T1_1
+    CDP003 --> T1_2
+
+    CMP001 --> T2_1
+    IGP001 --> T2_2
+    IGP006 --> T2_2
+
+    IGP007 --> T3_1
+    AAP005 --> T3_2
+    DIP001 --> T3_3
+
+    CDP006 --> T4_1
+    AAP002 --> T4_1
+    WCP002 --> T4_1
+
+    %% Template Level Dependencies
+    T1_1 --> T2_1
+    T1_1 --> T2_2
+    T1_2 --> T2_1
+    T1_2 --> T2_2
+
+    T2_1 --> T3_1
+    T2_1 --> T3_2
+    T2_1 --> T3_3
+    T2_2 --> T3_1
+    T2_2 --> T3_2
+    T2_2 --> T3_3
+
+    T3_1 --> T4_1
+    T3_2 --> T4_1
+    T3_3 --> T4_1
+
+    %% Template Circular Dependencies
+    T2_1 -.->|CIRCULAR| T3_1
+    T3_1 -.->|CIRCULAR| T2_2
+
+    %% Performance Conflicts
+    P1 -.->|VIOLATES| T2_1
+    P1 -.->|VIOLATES| T3_1
+    P2 -.->|VIOLATES| T2_2
+    P2 -.->|VIOLATES| T3_1
+    P3 -.->|VIOLATES| CMP001
+    P4 -.->|VIOLATES| T1_2
+    P5 -.->|VIOLATES| T4_1
+
+    %% Missing Coverage
+    M22[Smart Context Refresh]:::mandatory -.->|NO PATTERN| CONF1
+    CMP004[CMP-004: Smart Context Refresh]:::optional -.->|SHOULD BE MANDATORY| M22
+
+    %% Critical Chain Conflicts
+    CHAIN5 -.->|CIRCULAR| CONF4
+    CHAIN2 -.->|TEMPLATE CONFLICT| T4_1
+    CHAIN3 -.->|PERFORMANCE CONFLICT| P2
+
+    %% SUMMARY ANNOTATIONS
+    SUMMARY["📊 DEPENDENCY ANALYSIS SUMMARY<br/>
+    ✅ 46/47 Functions Mapped (97.9%)<br/>
+    ❌ 3 Circular Dependencies<br/>
+    ⚠️ 4 Critical Performance Violations<br/>
+    🔄 5 Implementation Conflicts<br/>
+    📋 Status: BLOCKING ISSUES IDENTIFIED"]:::conflict

@@ -1,0 +1,148 @@
+# Custom Quality Rules for OmniClaude Project
+# ONEX-focused validation rules
+# Created: 2025-10-15
+
+project_id: omniclaude
+description: "Quality rules for ONEX-compliant node development"
+
+custom_rules:
+  # Architectural Rules - ONEX Compliance
+  - rule_id: "require_node_base"
+    description: "All node classes must inherit from NodeBase or specific node types"
+    rule_type: "architectural"
+    severity: "critical"
+    pattern: "class\\s+\\w*Node\\w*.*(?:NodeBase|NodeEffect|NodeCompute|NodeReducer|NodeOrchestrator)"
+    weight: 0.2
+    enabled: true
+
+  - rule_id: "require_effect_handler"
+    description: "Effect nodes must implement execute_effect method"
+    rule_type: "architectural"
+    severity: "critical"
+    pattern: "async\\s+def\\s+execute_effect\\s*\\("
+    weight: 0.15
+    enabled: true
+
+  - rule_id: "require_compute_handler"
+    description: "Compute nodes must implement execute_compute method"
+    rule_type: "architectural"
+    severity: "critical"
+    pattern: "async\\s+def\\s+execute_compute\\s*\\("
+    weight: 0.15
+    enabled: true
+
+  - rule_id: "require_reducer_handler"
+    description: "Reducer nodes must implement execute_reduction method"
+    rule_type: "architectural"
+    severity: "critical"
+    pattern: "async\\s+def\\s+execute_reduction\\s*\\("
+    weight: 0.15
+    enabled: true
+
+  - rule_id: "require_orchestrator_handler"
+    description: "Orchestrator nodes must implement execute_orchestration method"
+    rule_type: "architectural"
+    severity: "critical"
+    pattern: "async\\s+def\\s+execute_orchestration\\s*\\("
+    weight: 0.15
+    enabled: true
+
+  # Pattern Rules - ONEX Best Practices
+  - rule_id: "require_contract_types"
+    description: "Nodes should use ModelContract types for signatures"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "ModelContract(?:Base|Effect|Compute|Reducer|Orchestrator)"
+    weight: 0.1
+    enabled: true
+
+  - rule_id: "forbid_any_types"
+    description: "Any types are forbidden in ONEX (use specific types)"
+    rule_type: "pattern"
+    severity: "critical"
+    forbids: ":\\s*Any\\b"
+    weight: 0.2
+    enabled: true
+
+  - rule_id: "require_pydantic_v2"
+    description: "Must use Pydantic v2 methods (model_dump, not dict)"
+    rule_type: "pattern"
+    severity: "critical"
+    forbids: "\\.dict\\s*\\("
+    weight: 0.15
+    enabled: true
+
+  - rule_id: "require_structured_logging"
+    description: "Use structured logging with correlation IDs"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "(?:emit_log_event|StructuredLogger|correlation_id)"
+    weight: 0.08
+    enabled: true
+
+  - rule_id: "require_error_handling"
+    description: "Use OnexError or standard error handling"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "(?:OnexError|CoreErrorCode|@standard_error_handling)"
+    weight: 0.08
+    enabled: true
+
+  # Metric Rules - Code Quality
+  - rule_id: "max_function_complexity"
+    description: "Function complexity must be < 15"
+    rule_type: "metric"
+    severity: "warning"
+    max_complexity: 15
+    weight: 0.1
+    enabled: true
+
+  - rule_id: "max_function_length"
+    description: "Functions should be < 100 lines"
+    rule_type: "metric"
+    severity: "suggestion"
+    max_length: 100
+    weight: 0.05
+    enabled: true
+
+  - rule_id: "min_docstring_coverage"
+    description: "At least 70% of functions should have docstrings"
+    rule_type: "metric"
+    severity: "warning"
+    min_docstring_coverage: 0.7
+    weight: 0.08
+    enabled: true
+
+  # Naming Convention Rules
+  - rule_id: "require_model_prefix"
+    description: "Pydantic models should use Model prefix"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "class\\s+Model[A-Z]\\w*\\(.*BaseModel"
+    weight: 0.08
+    enabled: true
+
+  - rule_id: "require_node_suffix"
+    description: "Node classes should end with node type (Effect, Compute, etc)"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "class\\s+Node\\w+(?:Effect|Compute|Reducer|Orchestrator)\\b"
+    weight: 0.08
+    enabled: true
+
+  # Security Rules
+  - rule_id: "forbid_sql_injection"
+    description: "Direct SQL string formatting is forbidden"
+    rule_type: "pattern"
+    severity: "critical"
+    forbids: "f['\"]SELECT.*\\{|%s.*SELECT"
+    weight: 0.15
+    enabled: true
+
+  - rule_id: "require_input_validation"
+    description: "Input validation should be present in public methods"
+    rule_type: "pattern"
+    severity: "suggestion"
+    pattern: "(?:validator|field_validator|model_validator)"
+    weight: 0.05
+    enabled: true

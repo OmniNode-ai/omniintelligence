@@ -1,0 +1,334 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "omniarchon"
+version = "0.1.0"
+description = "OmniArchon - Intelligence platform for AI coding assistants"
+authors = ["OmniNode Team <team@omninode.ai>"]
+readme = "README.md"
+packages = [{include = "intelligence", from = "src"}, {include = "omninode_bridge", from = "src"}, {include = "server", from = "src"}]
+# package-mode = false  # Removed: incompatible with standard tooling (uv, pip)
+
+[tool.poetry.dependencies]
+# Align Poetry's resolver with our Python target
+python = ">=3.12,<4.0"
+
+[project]
+name = "archon"
+version = "0.1.0"
+description = "Archon - the command center for AI coding assistants."
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
+# Base dependencies - empty since we're using dependency groups
+dependencies = ["neo4j (>=5.28.2,<6.0.0)", "httpx (>=0.28.1,<0.29.0)", "pyyaml>=6.0", "qdrant-client (>=1.15.1,<2.0.0)"]
+
+# PyTorch CPU-only index configuration
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+# Sources configuration to use CPU-only PyTorch
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+pytest-cov = "^7.0.0"
+pytest-xdist = "^3.5.0"
+black = "^25.9.0"
+isort = "^7.0.0"
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+aiokafka = "^0.12.0"
+bcrypt = ">=4.0.0,<5.0.0"
+
+[tool.poetry.group.server.dependencies]
+# ONEX ecosystem dependencies - Using public GitHub repositories
+omnibase_core = {git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "v0.1.0"}
+omnibase_spi = {git = "https://github.com/OmniNode-ai/omnibase_spi.git", tag = "v0.1.0"}
+# Web framework
+fastapi = ">=0.104.0"
+uvicorn = ">=0.24.0"
+python-multipart = ">=0.0.20"
+watchfiles = ">=0.18"
+# Web crawling
+crawl4ai = "0.6.2"
+playwright = ">=1.40.0"
+# Real-time communication
+python-socketio = {extras = ["asyncio"], version = ">=5.11.0"}
+# Database and storage
+supabase = "2.15.1"
+asyncpg = ">=0.29.0"
+# AI/ML libraries
+openai = "1.71.0"
+# Document processing
+pypdf2 = ">=3.0.1"
+pdfplumber = ">=0.11.6"
+python-docx = ">=1.1.2"
+markdown = ">=3.8"
+# Security and utilities
+python-jose = {extras = ["cryptography"], version = ">=3.3.0"}
+cryptography = ">=41.0.0"
+slowapi = ">=0.1.9"
+# Core utilities
+httpx = ">=0.24.0"
+pydantic = ">=2.0.0"
+python-dotenv = ">=1.0.0"
+docker = ">=6.1.0"
+pyyaml = ">=6.0"
+# Logging
+logfire = ">=0.30.0"
+# Monitoring and metrics
+prometheus-client = ">=0.20.0"
+psutil = ">=5.9.0"
+# Vector database client
+qdrant-client = ">=1.6.0"
+# Testing (needed for UI-triggered tests)
+pytest = ">=8.0.0"
+pytest-asyncio = ">=0.21.0"
+pytest-mock = ">=3.12.0"
+# Performance optimization
+redis = {extras = ["hiredis"], version = ">=5.0.0"}
+tenacity = ">=8.2.0"
+py-spy = ">=0.3.14"
+cachetools = ">=5.3.0"
+# Service discovery
+python-consul2 = ">=0.1.5"
+
+[tool.poetry.group.server-reranking]
+optional = true
+
+[tool.poetry.group.server-reranking.dependencies]
+sentence-transformers = ">=4.1.0"
+torch = ">=2.0.0"
+transformers = ">=4.30.0"
+
+[dependency-groups]
+# Development dependencies for linting and testing
+dev = [
+    "mypy>=1.17.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.3.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.5.0",
+    "black>=24.10.0",
+    "isort>=5.13.0",
+    "ruff>=0.12.5",
+    "requests>=2.31.0",
+    "factory-boy>=3.3.0",
+    # Kafka tooling for event bus testing (aligned with omniclaude)
+    "confluent-kafka>=2.6.0",  # Kafka client for event publishing
+    # Additional testing dependencies
+    "passlib[bcrypt]>=1.7.4",  # Password hashing for auth tests
+    "aiokafka>=0.10.0",  # Async Kafka client for consumer tests
+]
+
+# Server container dependencies
+server = [
+    # ONEX ecosystem dependencies - Using public GitHub repo
+    "omnibase_core @ git+https://github.com/OmniNode-ai/omnibase_core.git@v0.1.0",
+    "omnibase_spi @ git+https://github.com/OmniNode-ai/omnibase_spi.git@v0.1.0",
+    # Web framework
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "python-multipart>=0.0.20",
+    "watchfiles>=0.18",
+    # Web crawling
+    "crawl4ai==0.6.2",
+    # Real-time communication
+    "python-socketio[asyncio]>=5.11.0",
+    # Database and storage
+    "supabase==2.15.1",
+    "asyncpg>=0.29.0",
+    # AI/ML libraries
+    "openai==1.71.0",
+    # Document processing
+    "pypdf2>=3.0.1",
+    "pdfplumber>=0.11.6",
+    "python-docx>=1.1.2",
+    "markdown>=3.8",
+    # Security and utilities
+    "python-jose[cryptography]>=3.3.0",
+    "cryptography>=41.0.0",
+    "slowapi>=0.1.9",
+    # Core utilities
+    "httpx>=0.24.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "docker>=6.1.0",
+    # Logging
+    "logfire>=0.30.0",
+    # Monitoring and metrics
+    "prometheus-client>=0.20.0",
+    "psutil>=5.9.0",
+    # Vector database client
+    "qdrant-client>=1.6.0",
+    # Testing (needed for UI-triggered tests)
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+]
+
+# Optional reranking dependencies for server
+server-reranking = [
+    "sentence-transformers>=4.1.0",
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+]
+
+# Agents container dependencies
+agents = [
+    "pydantic-ai>=0.0.13",
+    "pydantic>=2.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "httpx>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "structlog>=23.1.0",
+]
+
+# All dependencies for running unit tests locally
+# This combines all container dependencies plus test-specific ones
+all = [
+    # ONEX ecosystem dependencies (needed by integration tests)
+    "omnibase_core @ git+https://github.com/OmniNode-ai/omnibase_core.git@v0.1.0",
+    "omnibase_spi @ git+https://github.com/OmniNode-ai/omnibase_spi.git@v0.1.0",
+    # All server dependencies
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "python-multipart>=0.0.20",
+    "watchfiles>=0.18",
+    "crawl4ai==0.6.2",
+    "python-socketio[asyncio]>=5.11.0",
+    "supabase==2.15.1",
+    "asyncpg>=0.29.0",
+    "openai==1.71.0",
+    "pypdf2>=3.0.1",
+    "pdfplumber>=0.11.6",
+    "python-docx>=1.1.2",
+    "markdown>=3.8",
+    "python-jose[cryptography]>=3.3.0",
+    "cryptography>=41.0.0",
+    "slowapi>=0.1.9",
+    "docker>=6.1.0",
+    "logfire>=0.30.0",
+    # Vector database client
+    "qdrant-client>=1.6.0",
+    # Agents specific
+    "pydantic-ai>=0.0.13",
+    "structlog>=23.1.0",
+    # Shared utilities
+    "httpx>=0.24.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    # Test dependencies
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.3.0",
+    "requests>=2.31.0",
+    "factory-boy>=3.3.0",
+    # Performance optimization packages
+    "redis[hiredis]>=5.0.0",
+    "tenacity>=8.2.0",
+    "py-spy>=0.3.14",
+    "cachetools>=5.3.0",  # TTL-based caching for memory leak prevention
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+# Essential rules for code quality and correctness
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "W",     # pycodestyle warnings
+    # "I",     # isort - DISABLED: let standalone isort tool handle import sorting
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "RUF",   # Ruff-specific rules
+]
+# Common ignores for practical development
+ignore = [
+    "S101",   # Allow assert statements in tests
+    "E501",   # Allow line length violations (handled by Black)
+    "B904",   # Allow raise without from in exception handlers
+    "N812",   # Allow lowercase imported as non-lowercase
+    "N815",   # Allow mixedCase variables (for frontend JSON compatibility)
+    "N806",   # Allow non-lowercase variable in function
+    "N805",   # Allow cls as first argument (for validators/classmethods)
+    "UP007",  # Allow Union syntax (not requiring | syntax)
+    "SIM117", # Allow nested with statements for clarity
+    "SIM116", # Allow consecutive if statements instead of dictionary (readability)
+    "SIM105", # Allow try-except-pass (sometimes clearer than contextlib.suppress)
+    "SIM102", # Allow nested if statements for clarity
+    "B017",   # Allow pytest.raises(Exception) in tests
+    "B008",   # Allow FastAPI Depends/HTTPBearer in defaults (framework pattern)
+    "B023",   # Allow function uses loop variable (common in tests)
+    "B007",   # Allow unused loop control variable
+    "F841",   # Allow unused variables (common in tests/fixtures)
+    "F821",   # Allow undefined names (test fixture issues)
+    "F811",   # Allow redefined functions (test duplication)
+    "E402",   # Allow module import not at top (for conditional imports)
+    "RUF001", # Allow ambiguous unicode characters (emoji in strings)
+    "RUF002", # Allow ambiguous unicode characters (EN DASH in docstrings)
+    "RUF003", # Allow ambiguous unicode characters in comments
+    "RUF005", # Allow list concatenation instead of unpacking
+    "RUF006", # Allow asyncio.create_task without storing reference
+    "RUF012", # Allow mutable class attributes (Pydantic json_schema_extra pattern)
+    "RUF013", # Allow implicit Optional (PEP 484 style)
+    "RUF015", # Allow list slice over next(iter()) for clarity
+    "RUF022", # Allow unsorted __all__ (manual organization preferred)
+    "F403",   # Allow star imports in test fixtures
+    "N802",   # Allow uppercase factory-like function names
+    "C901",   # too complex
+    "W191",   # indentation contains tabs
+]
+
+# Per-file ignores for intentional patterns
+[tool.ruff.lint.per-file-ignores]
+"src/server/api_routes/monitoring_api.py" = ["F401"]  # Intentional import for availability check
+"src/server/middleware/pipeline_tracing.py" = ["F401"]  # Intentional import for availability check
+"src/server/services/intelligent_monitoring_service.py" = ["F401"]  # Intentional import for availability check
+"tests/auth/test_auth_performance_benchmarks.py" = ["F401"]  # Intentional import for availability check
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+
+# Third-party libraries often don't have type stubs
+# We'll explicitly type our own code but not fail on external libs
+ignore_missing_imports = true

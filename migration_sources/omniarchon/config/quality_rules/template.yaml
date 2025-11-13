@@ -1,0 +1,113 @@
+# Custom Quality Rules Template
+# Use this template to create project-specific quality rules
+# Created: 2025-10-15
+
+project_id: "your_project_id"
+description: "Brief description of your project's quality requirements"
+
+custom_rules:
+  # ============================================================================
+  # ARCHITECTURAL RULES
+  # ============================================================================
+
+  # Pattern-based architectural rule
+  - rule_id: "example_pattern_rule"
+    description: "Description of what this rule checks"
+    rule_type: "architectural"
+    severity: "critical"  # critical, warning, suggestion
+    pattern: "regex_pattern_to_match"
+    weight: 0.15  # 0.0-1.0, higher = more important
+    enabled: true
+
+  # Inheritance-based architectural rule
+  - rule_id: "example_inheritance_rule"
+    description: "Classes must inherit from specific base"
+    rule_type: "architectural"
+    severity: "critical"
+    requires: "BaseClassName"
+    weight: 0.2
+    enabled: true
+
+  # Forbidden pattern rule
+  - rule_id: "example_forbid_rule"
+    description: "Pattern that should not appear"
+    rule_type: "architectural"
+    severity: "critical"
+    forbids: "pattern_to_forbid"
+    weight: 0.15
+    enabled: true
+
+  # ============================================================================
+  # PATTERN RULES
+  # ============================================================================
+
+  # Simple pattern matching
+  - rule_id: "example_pattern_match"
+    description: "Check for presence of pattern"
+    rule_type: "pattern"
+    severity: "warning"
+    pattern: "expected_pattern"
+    weight: 0.1
+    enabled: true
+
+  # ============================================================================
+  # METRIC RULES
+  # ============================================================================
+
+  # Complexity threshold
+  - rule_id: "max_function_complexity"
+    description: "Limit function cyclomatic complexity"
+    rule_type: "metric"
+    severity: "warning"
+    max_complexity: 10  # Adjust based on your standards
+    weight: 0.12
+    enabled: true
+
+  # Function length threshold
+  - rule_id: "max_function_length"
+    description: "Limit function length in statements"
+    rule_type: "metric"
+    severity: "warning"
+    max_length: 50  # Adjust based on your standards
+    weight: 0.08
+    enabled: true
+
+  # Docstring coverage
+  - rule_id: "min_docstring_coverage"
+    description: "Minimum percentage of documented functions"
+    rule_type: "metric"
+    severity: "suggestion"
+    min_docstring_coverage: 0.8  # 80%
+    weight: 0.1
+    enabled: true
+
+# ============================================================================
+# RULE CONFIGURATION GUIDE
+# ============================================================================
+#
+# Rule Types:
+# - "architectural": Structural patterns (inheritance, composition, architecture)
+# - "pattern": Text/regex pattern matching
+# - "metric": Quantitative measurements (complexity, length, coverage)
+#
+# Severity Levels:
+# - "critical": Blocks validation (violations)
+# - "warning": Should be fixed (warnings)
+# - "suggestion": Nice to have (suggestions)
+#
+# Weight Guidelines:
+# - Critical rules: 0.15-0.25
+# - Important rules: 0.10-0.15
+# - Standard rules: 0.05-0.10
+# - Minor rules: 0.03-0.05
+# - Example rules in this template sum to ~0.90
+# - Total project weights should sum to ~1.0-2.0 for optimal balance
+#
+# Pattern Examples:
+# - Class inheritance: "class\\s+\\w+\\(BaseClass\\)"
+# - Method signature: "async\\s+def\\s+method_name\\s*\\("
+# - Import statement: "from\\s+module\\s+import\\s+Class"
+# - Type annotation: ":\\s*Type\\["
+# - Forbidden pattern: Use "forbids" instead of "pattern"
+#
+# ============================================================================

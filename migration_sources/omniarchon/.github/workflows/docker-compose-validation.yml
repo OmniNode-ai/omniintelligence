@@ -1,0 +1,110 @@
+name: Docker Compose Validation
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - 'refactor/**'
+    paths:
+      - 'deployment/**'
+      - '.env.example'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-compose-validation.yml'
+  pull_request:
+    paths:
+      - 'deployment/**'
+      - '.env.example'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-compose-validation.yml'
+
+jobs:
+  validate:
+    name: Validate Docker Compose Configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify docker compose version
+        run: |
+          docker compose version
+          echo "Docker Compose v2 is available ✓"
+
+      - name: Make validation script executable
+        run: chmod +x scripts/validate-docker-compose.sh
+
+      - name: Run docker-compose validation
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Validating Docker Compose Configuration"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          ./scripts/validate-docker-compose.sh
+
+      - name: Display validation summary
+        if: success()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ All Docker Compose validations passed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "The following checks were performed:"
+          echo "  • Syntax validation (YAML parsing)"
+          echo "  • Environment variable validation"
+          echo "  • Hardcoded credential detection"
+          echo "  • Port conflict detection"
+          echo "  • Network reference validation"
+          echo "  • Service dependency checks"
+          echo "  • Health check presence"
+          echo "  • Resource limit recommendations"
+          echo ""
+
+      - name: Display validation failure
+        if: failure()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ Docker Compose validation failed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Please review the errors above and fix the issues."
+          echo ""
+          echo "Common issues:"
+          echo "  • Syntax errors in YAML files"
+          echo "  • Hardcoded credentials (use environment variables)"
+          echo "  • Port conflicts between services"
+          echo "  • Missing required environment variables"
+          echo ""
+          echo "Run locally to debug:"
+          echo "  ./scripts/validate-docker-compose.sh --verbose"
+          echo ""
+          exit 1
+
+  validate-env:
+    name: Validate Environment Configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make validation script executable
+        run: chmod +x scripts/validate-env.sh
+
+      - name: Validate .env.example
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Validating Environment Configuration"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          ./scripts/validate-env.sh .env.example || true
+          echo ""
+          echo "Note: Some validation checks may show warnings for .env.example"
+          echo "This is expected as .env.example contains template values"

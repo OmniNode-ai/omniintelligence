@@ -1,0 +1,72 @@
+# Test project custom quality rules
+# Used for integration testing
+
+project_id: test_project
+
+custom_rules:
+  # Pattern-based rules
+  - rule_id: no_print_statements
+    rule_type: pattern
+    description: "Code should not contain print() statements"
+    severity: warning
+    weight: 0.1
+    enabled: true
+    forbids: "print\\s*\\("
+
+  - rule_id: require_type_hints
+    rule_type: pattern
+    description: "Functions must have type hints"
+    severity: warning
+    weight: 0.15
+    enabled: true
+    pattern: "def\\s+\\w+\\s*\\([^)]*\\)\\s*->"
+
+  # Metric-based rules
+  - rule_id: max_function_complexity
+    rule_type: metric
+    description: "Function cyclomatic complexity must not exceed 10"
+    severity: critical
+    weight: 0.2
+    enabled: true
+    max_complexity: 10
+
+  - rule_id: max_function_length
+    rule_type: metric
+    description: "Functions should not exceed 50 lines"
+    severity: warning
+    weight: 0.1
+    enabled: true
+    max_length: 50
+
+  - rule_id: docstring_coverage
+    rule_type: metric
+    description: "At least 80% of functions must have docstrings"
+    severity: suggestion
+    weight: 0.05
+    enabled: true
+    min_docstring_coverage: 0.8
+
+  # Architectural rules
+  - rule_id: require_node_base
+    rule_type: architectural
+    description: "ONEX nodes must inherit from NodeBase"
+    severity: critical
+    weight: 0.2
+    enabled: true
+    requires: NodeBase
+
+  - rule_id: no_global_variables
+    rule_type: architectural
+    description: "No global variable declarations outside functions"
+    severity: warning
+    weight: 0.1
+    enabled: true
+    forbids: "^\\w+\\s*=\\s*(?!.*def\\s)"
+
+  - rule_id: require_async_methods
+    rule_type: pattern
+    description: "Effect nodes must have async execute_effect method"
+    severity: critical
+    weight: 0.1
+    enabled: true
+    pattern: "async\\s+def\\s+execute_effect"

@@ -1,0 +1,180 @@
+# ============================================================================
+# OmniArchon - Base Infrastructure
+# ============================================================================
+# Purpose: Data layer services (vector DB, knowledge graph, distributed cache)
+# Usage: docker compose -f docker-compose.yml up -d
+#
+# Services:
+# - qdrant: Vector database (6333/6334)
+# - memgraph: Knowledge graph (7687/7444)
+# - archon-valkey: Distributed cache (6379)
+#
+# This file provides the foundation data layer that other services depend on.
+# Use in combination with docker-compose.services.yml for full stack.
+# ============================================================================
+
+# Project name - prevents directory-based naming
+name: omniarchon
+
+services:
+
+  # Qdrant Vector Database (High-Performance Vector Search)
+  qdrant:
+    image: qdrant/qdrant:v1.7.4  # Pinned version for stability
+    container_name: archon-qdrant
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"  # REST API
+      - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC
+    environment:
+      # Service Configuration
+      QDRANT__SERVICE__HTTP_PORT: ${QDRANT__SERVICE__HTTP_PORT:-6333}
+      QDRANT__SERVICE__GRPC_PORT: ${QDRANT__SERVICE__GRPC_PORT:-6334}
+      QDRANT__SERVICE__HOST: ${QDRANT__SERVICE__HOST:-0.0.0.0}
+      QDRANT__SERVICE__MAX_REQUEST_SIZE_MB: ${QDRANT__SERVICE__MAX_REQUEST_SIZE_MB:-32}
+
+      # Storage Configuration
+      QDRANT__STORAGE__STORAGE_PATH: ${QDRANT__STORAGE__STORAGE_PATH:-/qdrant/storage}
+      QDRANT__STORAGE__SNAPSHOTS_PATH: ${QDRANT__STORAGE__SNAPSHOTS_PATH:-/qdrant/snapshots}
+      QDRANT__STORAGE__ON_DISK_PAYLOAD: ${QDRANT__STORAGE__ON_DISK_PAYLOAD:-true}
+      QDRANT__STORAGE__WRITE_CONSISTENCY_FACTOR: ${QDRANT__STORAGE__WRITE_CONSISTENCY_FACTOR:-1}
+
+      # Performance Optimization
+      QDRANT__SERVICE__MAX_WORKERS: ${QDRANT__SERVICE__MAX_WORKERS:-2}
+      QDRANT__STORAGE__WAL__WAL_CAPACITY_MB: ${QDRANT__STORAGE__WAL__WAL_CAPACITY_MB:-32}
+      QDRANT__STORAGE__WAL__WAL_SEGMENTS_AHEAD: ${QDRANT__STORAGE__WAL__WAL_SEGMENTS_AHEAD:-0}
+
+      # Memory Management
+      QDRANT__STORAGE__OPTIMIZERS__DEFAULT_SEGMENT_NUMBER: ${QDRANT__STORAGE__OPTIMIZERS__DEFAULT_SEGMENT_NUMBER:-0}
+      QDRANT__STORAGE__OPTIMIZERS__MEMMAP_THRESHOLD_KB: ${QDRANT__STORAGE__OPTIMIZERS__MEMMAP_THRESHOLD_KB:-200000}
+      QDRANT__STORAGE__OPTIMIZERS__INDEXING_THRESHOLD_KB: ${QDRANT__STORAGE__OPTIMIZERS__INDEXING_THRESHOLD_KB:-20000}
+
+      # Security and Logging
+      QDRANT__LOG_LEVEL: ${QDRANT__LOG_LEVEL:-INFO}
+      QDRANT__SERVICE__ENABLE_CORS: ${QDRANT__SERVICE__ENABLE_CORS:-false}
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333 && echo -e 'GET /readyz HTTP/1.1\\r\\nHost: localhost:6333\\r\\n\\r\\n' >&3 && timeout 2 cat <&3 | grep -q 'ready'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'  # Prevent runaway CPU usage during collection loading
+          memory: 4G  # Increased from 2G to prevent memory pressure
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    restart: unless-stopped
+
+  # Memgraph Database (Knowledge Graph)
+  memgraph:
+    image: memgraph/memgraph:2.18.1  # Pinned version for stability and reproducibility
+    container_name: archon-memgraph
+    ports:
+      - "${MEMGRAPH_BOLT_PORT:-7687}:7687"  # Bolt protocol
+      - "${MEMGRAPH_HTTP_PORT:-7444}:7444"  # HTTP
+    environment:
+      MEMGRAPH_BOLT_PORT: ${MEMGRAPH_BOLT_PORT:-7687}
+      MEMGRAPH_HTTP_PORT: ${MEMGRAPH_HTTP_PORT:-7444}
+      MEMGRAPH_MEMORY_LIMIT: ${MEMGRAPH_MEMORY_LIMIT:-8192}
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+      # Commented out: schema.cypher mount causing permission issues
+      # - ./config/memgraph/schema.cypher:/etc/memgraph/schema.cypher
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # Max 2 CPU cores to prevent CPU pegging
+          memory: 8G       # Max 8GB RAM (increased from 4GB for ~950 file project)
+        reservations:
+          cpus: '0.5'      # Min 0.5 CPU cores
+          memory: 1G       # Min 1GB RAM
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/7444 && echo -e 'GET / HTTP/1.1\\r\\nHost: localhost:7444\\r\\n\\r\\n' >&3 && timeout 2 cat <&3 | grep -q 'HTTP'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Valkey (Redis fork) - Distributed Cache for Search Performance
+  archon-valkey:
+    image: valkey/valkey:8.0-alpine  # Latest stable Valkey
+    container_name: archon-valkey
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    environment:
+      # Security Configuration
+      # REQUIRED: Set VALKEY_PASSWORD in .env file (see .env.example)
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set in .env file}
+      # Memory and Performance Configuration
+      VALKEY_MAXMEMORY: ${VALKEY_MAXMEMORY:-512mb}
+      VALKEY_MAXMEMORY_POLICY: ${VALKEY_MAXMEMORY_POLICY:-allkeys-lru}
+      VALKEY_SAVE: ${VALKEY_SAVE:-}
+      VALKEY_APPENDONLY: ${VALKEY_APPENDONLY:-no}
+      VALKEY_TCP_BACKLOG: ${VALKEY_TCP_BACKLOG:-511}
+      VALKEY_TIMEOUT: ${VALKEY_TIMEOUT:-0}
+      VALKEY_TCP_KEEPALIVE: ${VALKEY_TCP_KEEPALIVE:-300}
+    command: >
+      valkey-server
+      --requirepass ${VALKEY_PASSWORD}
+      --maxmemory ${VALKEY_MAXMEMORY:-512mb}
+      --maxmemory-policy ${VALKEY_MAXMEMORY_POLICY:-allkeys-lru}
+      --save ""
+      --appendonly ${VALKEY_APPENDONLY:-no}
+      --tcp-backlog ${VALKEY_TCP_BACKLOG:-511}
+      --timeout ${VALKEY_TIMEOUT:-0}
+      --tcp-keepalive ${VALKEY_TCP_KEEPALIVE:-300}
+      --loglevel ${VALKEY_LOGLEVEL:-notice}
+    volumes:
+      - valkey_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M  # Match maxmemory setting
+        reservations:
+          memory: 128M
+    restart: unless-stopped
+
+networks:
+  # Named network for composition with other compose files
+  app-network:
+    driver: bridge
+    name: omniarchon_app-network  # Explicit name for external reference
+
+  # External networks for remote services
+  # These networks are managed by the OmniNode Bridge stack on 192.168.86.200
+  # See deployment/README.md "Prerequisites > External Networks" for setup instructions
+  omninode-bridge-network:
+    external: true  # PostgreSQL traceability DB network
+    name: omninode-bridge-network
+
+  omninode_bridge_omninode-bridge-network:
+    external: true  # Redpanda/Kafka event bus network
+    name: omninode_bridge_omninode-bridge-network
+
+volumes:
+  memgraph_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  qdrant_snapshots:
+    driver: local
+  valkey_data:
+    driver: local

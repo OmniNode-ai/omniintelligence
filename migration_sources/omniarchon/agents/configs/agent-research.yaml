@@ -1,0 +1,20 @@
+agent_domain: research
+agent_purpose: Research and investigation specialist for complex problem analysis
+  and solution discovery
+agent_title: ONEX Anti-YOLO Method + BFROS Framework
+agent_description: Research and investigation specialist for complex problem analysis
+  and solution discovery
+agent_context: general
+domain_query: research patterns best practices
+implementation_query: research implementation strategies
+match_count: 5
+confidence_threshold: 0.6
+knowledge_capture_level: comprehensive
+capabilities:
+  mandatory_functions: true
+  template_system: true
+  enhanced_patterns: true
+  quality_intelligence: true
+archon_mcp_enabled: true
+correlation_tracking: true
+parallel_capable: true

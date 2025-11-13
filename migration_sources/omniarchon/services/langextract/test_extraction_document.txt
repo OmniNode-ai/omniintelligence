@@ -1,0 +1,72 @@
+LangExtract Service Test Document
+
+This is a comprehensive test document for the LangExtract service interface validation.
+
+# Overview
+
+The LangExtract service provides advanced language-aware data extraction capabilities for sophisticated document analysis and semantic understanding. The service processes various types of content including:
+
+- Technical documentation
+- Business requirements
+- Code specifications
+- Process workflows
+
+# Key Features
+
+## Semantic Pattern Detection
+The service can identify semantic patterns such as:
+1. Problem-solution relationships
+2. Process steps and procedures
+3. Entity relationships and dependencies
+4. Conceptual hierarchies
+
+## Entity Recognition
+Advanced entity recognition capabilities include:
+- Person names: John Smith, Dr. Jane Doe, Prof. Michael Johnson
+- Organizations: Tech Corporation, Innovation Labs, Global Systems Inc.
+- Locations: New York, San Francisco, London, Tokyo
+- Dates: 2024-01-15, March 2024, Q4 2023
+- Technical terms: API, database, microservice, authentication
+
+## Relationship Mapping
+The system maps relationships between entities:
+- John Smith works for Tech Corporation
+- Dr. Jane Doe is located in San Francisco
+- Innovation Labs develops microservice architectures
+- Global Systems Inc. provides authentication solutions
+
+# Process Workflow
+
+The extraction process follows these steps:
+1. Document ingestion and preprocessing
+2. Language-aware entity extraction
+3. Structured data identification
+4. Semantic pattern recognition
+5. Relationship mapping between entities
+6. Semantic enrichment and analysis
+
+# Quality Metrics
+
+The service provides comprehensive quality metrics:
+- Extraction confidence scores (0.0 to 1.0)
+- Entity recognition accuracy
+- Relationship detection precision
+- Semantic coherence measurements
+
+# Technical Specifications
+
+## API Endpoints
+- POST /extract/document - Single document extraction
+- POST /extract/batch - Batch document processing
+- POST /analyze/semantic - Semantic analysis only
+- GET /statistics - Service performance metrics
+- GET /health - Service health status
+
+## Data Models
+The service uses sophisticated data models including:
+- EnhancedEntity with semantic features
+- EnhancedRelationship with confidence scoring
+- SemanticAnalysisResult with contextual information
+- DocumentAnalysisResult with structural analysis
+
+This test document should trigger all major extraction capabilities and validate the interface fixes implemented for the semantic pattern extraction pipeline.

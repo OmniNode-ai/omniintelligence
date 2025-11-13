@@ -1,0 +1,448 @@
+# Multi-Repository Tree Stamping Configuration
+# Version: 1.0.0
+# Purpose: Centralized management of multiple repositories for tree stamping and intelligence indexing
+# Updated: 2025-10-27
+
+schema_version: "1.0.0"
+config_type: "tree_stamping_repositories"
+description: "Multi-repository configuration for automated tree discovery, intelligence stamping, and vector indexing"
+
+# ============================================================================
+# Global Settings (apply to all repositories unless overridden)
+# ============================================================================
+global:
+  # Kafka/Event Bus Configuration
+  kafka:
+    bootstrap_servers: "omninode-bridge-redpanda:9092"
+    topic_prefix: "dev.archon-intelligence"
+    timeout_ms: 30000
+    retry_attempts: 3
+    retry_backoff_ms: 1000
+
+  # Qdrant Vector Database Configuration
+  qdrant:
+    url: "http://qdrant:6333"
+    collection: "file_locations"
+    timeout_seconds: 30
+    batch_size: 100
+    distance_metric: "Cosine"
+
+  # Processing Configuration
+  processing:
+    batch_size: 50  # Files to process per batch
+    max_workers: 4  # Parallel processing threads
+    timeout_seconds: 300  # Overall processing timeout
+    retry_on_failure: true
+    max_retries: 3
+
+  # Intelligence Generation Settings
+  intelligence:
+    enabled: true
+    quality_scoring: true
+    onex_classification: true
+    semantic_analysis: true
+    complexity_scoring: true
+    min_quality_threshold: 0.0  # Minimum quality score (0.0-1.0)
+
+  # Indexing Settings
+  indexing:
+    vector_indexing: true
+    graph_indexing: true
+    cache_warming: true
+    include_tests: true
+
+  # Logging Configuration
+  logging:
+    level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_file: "tree_stamping.log"
+    log_rotation: "1 day"
+    log_retention: "7 days"
+
+# ============================================================================
+# Repository Configurations
+# ============================================================================
+repositories:
+  # Primary Repository: OmniArchon (Intelligence Platform)
+  - name: "omniarchon"
+    enabled: true
+    description: "Archon Intelligence Platform - Core intelligence provider"
+
+    # Path Configuration
+    path: "/Volumes/PRO-G40/Code/omniarchon"
+    path_type: "absolute"  # absolute or relative
+
+    # File Filters
+    filters:
+      # Include patterns (glob syntax)
+      include:
+        - "**/*.py"
+        - "**/*.md"
+        - "**/*.yaml"
+        - "**/*.yml"
+        - "**/*.json"
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.js"
+        - "**/*.jsx"
+
+      # Exclude patterns (glob syntax)
+      exclude:
+        - "**/node_modules/**"
+        - "**/venv/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"
+        - "**/.pytest_cache/**"
+        - "**/.mypy_cache/**"
+        - "**/.ruff_cache/**"
+        - "**/.tox/**"
+        - "**/.cache/**"
+        - "**/.next/**"
+        - "**/.nuxt/**"
+        - "**/.turbo/**"
+        - "**/.git/**"
+        - "**/.github/**"
+        - "**/dist/**"
+        - "**/build/**"
+        - "**/*.pyc"
+        - "**/*.pyo"
+        - "**/*.egg-info/**"
+        - "**/coverage/**"
+        - "**/.coverage"
+
+      # Max file size (bytes)
+      max_file_size: 1048576  # 1MB
+
+      # Min file size (bytes)
+      min_file_size: 10  # 10 bytes (exclude empty/near-empty files)
+
+    # Repository-Specific Overrides
+    processing:
+      batch_size: 100  # Larger batches for this repo
+      max_workers: 6
+
+    intelligence:
+      quality_scoring: true
+      onex_classification: true
+      semantic_analysis: true
+
+    # Git Hooks Configuration
+    git_hooks:
+      enabled: true
+      pre_commit: true
+      pre_push: false
+      post_commit: false
+      hooks_path: ".git/hooks"
+
+      # Incremental stamping (only changed files)
+      incremental: true
+
+      # Fail commit on errors
+      fail_on_error: false
+
+    # Scheduling (Optional - for periodic re-indexing)
+    schedule:
+      enabled: false
+      cron: "0 2 * * *"  # Daily at 2 AM
+      force_reindex: false
+
+    # Metadata
+    metadata:
+      team: "platform"
+      language: "python"
+      framework: "fastapi"
+      priority: "high"
+
+  # Secondary Repository: OmniNode Bridge
+  - name: "omninode-bridge"
+    enabled: true
+    description: "OmniNode Bridge - Event-driven integration layer"
+
+    path: "/Volumes/PRO-G40/Code/omninode-bridge"
+    path_type: "absolute"
+
+    filters:
+      include:
+        - "**/*.py"
+        - "**/*.md"
+        - "**/*.yaml"
+        - "**/*.yml"
+        - "**/*.json"
+
+      exclude:
+        - "**/node_modules/**"
+        - "**/venv/**"
+        - "**/__pycache__/**"
+        - "**/.git/**"
+        - "**/dist/**"
+
+      max_file_size: 524288  # 512KB
+
+    git_hooks:
+      enabled: true
+      pre_commit: true
+      incremental: true
+      fail_on_error: false
+
+    metadata:
+      team: "integration"
+      language: "python"
+      priority: "high"
+
+  # Tertiary Repository: Example Client Project
+  - name: "example-client"
+    enabled: false  # Disabled by default
+    description: "Example client project for testing"
+
+    path: "/Volumes/PRO-G40/Code/example-client"
+    path_type: "absolute"
+
+    filters:
+      include:
+        - "**/*.py"
+        - "**/*.md"
+
+      exclude:
+        - "**/venv/**"
+        - "**/.git/**"
+
+      max_file_size: 262144  # 256KB
+
+    # Minimal processing for test repo
+    processing:
+      batch_size: 20
+      max_workers: 2
+
+    intelligence:
+      quality_scoring: true
+      onex_classification: false
+      semantic_analysis: false
+
+    indexing:
+      vector_indexing: true
+      graph_indexing: false
+      cache_warming: false
+
+    git_hooks:
+      enabled: false
+
+    metadata:
+      team: "testing"
+      language: "python"
+      priority: "low"
+
+# ============================================================================
+# Repository Discovery (Auto-detect repositories)
+# ============================================================================
+discovery:
+  enabled: false  # Enable automatic repository discovery
+
+  # Root directories to scan for git repositories
+  scan_paths:
+    - "/Volumes/PRO-G40/Code"
+    - "/Users/jonah/Code"
+
+  # Discovery filters
+  filters:
+    # Only include repositories with these markers
+    required_markers:
+      - ".git"
+      - "pyproject.toml"  # Python projects
+
+    # Exclude paths matching these patterns
+    exclude_patterns:
+      - "**/archived/**"
+      - "**/deprecated/**"
+      - "**/temp/**"
+      - "**/tmp/**"
+
+    # Max depth for recursive scanning
+    max_depth: 3
+
+  # Auto-add discovered repositories
+  auto_add: false  # If true, automatically add discovered repos to config
+
+  # Default settings for discovered repositories
+  defaults:
+    enabled: false  # Require manual enablement
+    filters:
+      include: ["**/*.py", "**/*.md"]
+      exclude: ["**/venv/**", "**/.git/**"]
+    git_hooks:
+      enabled: false
+
+# ============================================================================
+# Validation Rules
+# ============================================================================
+validation:
+  # Require absolute paths
+  require_absolute_paths: true
+
+  # Validate paths exist before processing
+  validate_path_exists: true
+
+  # Check for path conflicts (same path different names)
+  check_path_conflicts: true
+
+  # Validate Kafka connectivity before processing
+  validate_kafka: true
+
+  # Validate Qdrant connectivity before processing
+  validate_qdrant: true
+
+  # Fail on validation errors
+  fail_on_validation_error: true
+
+# ============================================================================
+# Performance Tuning
+# ============================================================================
+performance:
+  # Connection pooling
+  connection_pool:
+    max_connections: 20
+    keepalive_seconds: 30
+
+  # Rate limiting (requests per second)
+  rate_limit:
+    enabled: false
+    requests_per_second: 10
+
+  # Memory limits
+  memory:
+    max_batch_memory_mb: 500  # Max memory per batch
+    gc_interval_batches: 10  # Run garbage collection every N batches
+
+  # Progress reporting
+  progress:
+    enabled: true
+    report_interval: 10  # Report every N files
+
+# ============================================================================
+# Error Handling & Retry Configuration
+# ============================================================================
+error_handling:
+  # Retry configuration
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_multiplier: 2.0
+    max_delay_seconds: 60
+
+  # Error notification
+  notifications:
+    enabled: false
+    slack_webhook: null  # Optional Slack webhook URL
+    email: null  # Optional email address
+
+  # Continue on error
+  continue_on_error: true
+
+  # Error logging
+  log_errors: true
+  error_log_file: "tree_stamping_errors.log"
+
+# ============================================================================
+# Monitoring & Metrics
+# ============================================================================
+monitoring:
+  enabled: true
+
+  # Metrics collection
+  metrics:
+    enabled: true
+    export_interval_seconds: 60
+    export_path: "metrics/tree_stamping_metrics.json"
+
+  # Health checks
+  health_checks:
+    enabled: true
+    interval_seconds: 300  # Check every 5 minutes
+
+    checks:
+      - kafka_connectivity
+      - qdrant_connectivity
+      - disk_space
+      - memory_usage
+
+  # Performance tracking
+  performance_tracking:
+    enabled: true
+    track_processing_time: true
+    track_file_counts: true
+    track_error_rates: true
+
+# ============================================================================
+# Integration Settings
+# ============================================================================
+integration:
+  # Archon Intelligence Service
+  archon_intelligence:
+    url: "http://archon-intelligence:8053"
+    timeout_seconds: 60
+
+  # Archon Bridge Service
+  archon_bridge:
+    url: "http://archon-bridge:8054"
+    timeout_seconds: 30
+
+  # Archon Search Service
+  archon_search:
+    url: "http://archon-search:8055"
+    timeout_seconds: 45
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+security:
+  # Path validation
+  allow_symlinks: false
+  allow_path_traversal: false
+
+  # File validation
+  validate_file_extensions: true
+  allowed_extensions:
+    - ".py"
+    - ".md"
+    - ".yaml"
+    - ".yml"
+    - ".json"
+    - ".ts"
+    - ".tsx"
+    - ".js"
+    - ".jsx"
+
+  # Content validation
+  scan_for_secrets: false  # Enable secret scanning (requires additional deps)
+
+  # Access control
+  require_authentication: false
+
+# ============================================================================
+# Feature Flags
+# ============================================================================
+features:
+  # Enable/disable specific features
+  enable_bulk_ingestion: true
+  enable_git_hooks: true
+  enable_incremental_stamping: true
+  enable_cache_warming: true
+  enable_quality_scoring: true
+  enable_onex_classification: true
+  enable_semantic_analysis: true
+  enable_graph_indexing: true
+
+  # Experimental features
+  experimental:
+    enable_parallel_stamping: true
+    enable_smart_batching: false
+    enable_predictive_caching: false
+
+# ============================================================================
+# Metadata
+# ============================================================================
+metadata:
+  config_version: "1.0.0"
+  created_at: "2025-10-27T00:00:00Z"
+  updated_at: "2025-10-27T00:00:00Z"
+  created_by: "polymorphic-agent"
+  description: "Multi-repository tree stamping configuration for Archon Intelligence Platform"
+  documentation: "docs/guides/MULTI_REPO_SETUP.md"

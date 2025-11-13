@@ -1,0 +1,372 @@
+# ONEX Task Database Effect Contract
+# External system interaction for database operations (CRUD)
+
+name: "TaskDatabaseEffect"
+version: "1.0.0"
+description: "Effect node for task database operations including CRUD, queries, and transaction management"
+node_type: "effect"
+
+# Contract metadata
+metadata:
+  author: "ONEX Task Management System"
+  created_date: "2025-09-04"
+  tags: ["task", "database", "effect", "crud", "persistence"]
+  complexity: "high"
+
+# Input schema definition
+inputs:
+  operation:
+    type: "string"
+    required: true
+    enum: ["create", "read", "update", "delete", "list", "search", "bulk_create", "bulk_update", "bulk_delete"]
+    description: "Database operation to perform"
+
+  task_data:
+    type: "object"
+    required: false
+    description: "Task data for create/update operations"
+    properties:
+      id:
+        type: "string"
+        format: "uuid"
+        description: "Task ID (for update operations)"
+      project_id:
+        type: "string"
+        format: "uuid"
+        required: true
+        description: "Associated project ID"
+      title:
+        type: "string"
+        max_length: 200
+        description: "Task title"
+      description:
+        type: "string"
+        max_length: 10000
+        description: "Task description"
+      status:
+        type: "string"
+        enum: ["todo", "doing", "review", "done"]
+        description: "Task status"
+      assignee:
+        type: "string"
+        max_length: 100
+        description: "Task assignee"
+      task_order:
+        type: "integer"
+        minimum: 0
+        maximum: 100
+        description: "Task priority order"
+      feature:
+        type: "string"
+        max_length: 50
+        description: "Feature grouping"
+      due_date:
+        type: "string"
+        format: "date-time"
+        description: "Task due date"
+      sources:
+        type: "array"
+        items:
+          type: "object"
+        description: "Source references"
+      code_examples:
+        type: "array"
+        items:
+          type: "object"
+        description: "Code examples"
+      tags:
+        type: "array"
+        items:
+          type: "string"
+        description: "Task tags"
+
+  query_params:
+    type: "object"
+    required: false
+    description: "Query parameters for read/list/search operations"
+    properties:
+      task_id:
+        type: "string"
+        format: "uuid"
+        description: "Specific task ID to read"
+      project_id:
+        type: "string"
+        format: "uuid"
+        description: "Filter by project ID"
+      status:
+        type: "string"
+        enum: ["todo", "doing", "review", "done"]
+        description: "Filter by status"
+      assignee:
+        type: "string"
+        description: "Filter by assignee"
+      feature:
+        type: "string"
+        description: "Filter by feature"
+      search_text:
+        type: "string"
+        description: "Text search query"
+      limit:
+        type: "integer"
+        minimum: 1
+        maximum: 1000
+        default: 50
+        description: "Maximum results to return"
+      offset:
+        type: "integer"
+        minimum: 0
+        default: 0
+        description: "Result offset for pagination"
+      sort_by:
+        type: "string"
+        enum: ["created_at", "updated_at", "task_order", "title", "status"]
+        default: "task_order"
+        description: "Sort field"
+      sort_order:
+        type: "string"
+        enum: ["asc", "desc"]
+        default: "desc"
+        description: "Sort order"
+
+  bulk_data:
+    type: "array"
+    required: false
+    description: "Array of task data for bulk operations"
+    items:
+      type: "object"
+
+  transaction_context:
+    type: "object"
+    required: false
+    description: "Transaction management context"
+    properties:
+      transaction_id:
+        type: "string"
+        description: "Transaction identifier"
+      isolation_level:
+        type: "string"
+        enum: ["read_uncommitted", "read_committed", "repeatable_read", "serializable"]
+        default: "read_committed"
+        description: "Transaction isolation level"
+      timeout_seconds:
+        type: "integer"
+        minimum: 1
+        maximum: 300
+        default: 30
+        description: "Transaction timeout"
+
+# Output schema definition
+outputs:
+  operation_result:
+    type: "object"
+    required: true
+    description: "Database operation result"
+    properties:
+      success:
+        type: "boolean"
+        required: true
+        description: "Operation success status"
+      operation:
+        type: "string"
+        required: true
+        description: "Operation that was performed"
+      affected_rows:
+        type: "integer"
+        required: true
+        description: "Number of rows affected"
+      execution_time_ms:
+        type: "integer"
+        required: true
+        description: "Operation execution time"
+
+  result_data:
+    type: "object"
+    required: false
+    description: "Operation result data"
+    properties:
+      task:
+        type: "object"
+        description: "Single task result (for read/create operations)"
+      tasks:
+        type: "array"
+        items:
+          type: "object"
+        description: "Multiple task results (for list/search operations)"
+      total_count:
+        type: "integer"
+        description: "Total count for paginated results"
+      page_info:
+        type: "object"
+        properties:
+          has_next_page:
+            type: "boolean"
+          has_previous_page:
+            type: "boolean"
+          current_page:
+            type: "integer"
+          total_pages:
+            type: "integer"
+        description: "Pagination information"
+
+  transaction_info:
+    type: "object"
+    required: false
+    description: "Transaction information"
+    properties:
+      transaction_id:
+        type: "string"
+        description: "Transaction identifier"
+      commit_status:
+        type: "string"
+        enum: ["committed", "rolled_back", "pending"]
+        description: "Transaction commit status"
+
+# External system specifications
+external_systems:
+  database:
+    type: "postgresql"
+    description: "PostgreSQL database for task persistence"
+    connection_config:
+      host: "${DATABASE_HOST}"
+      port: "${DATABASE_PORT}"
+      database: "${DATABASE_NAME}"
+      username: "${DATABASE_USER}"
+      password: "${DATABASE_PASSWORD}"
+      ssl_mode: "require"
+      connection_timeout: 30
+      query_timeout: 60
+
+    tables:
+      - name: "tasks"
+        description: "Main tasks table"
+        primary_key: "id"
+        indexes:
+          - fields: ["project_id"]
+          - fields: ["status", "project_id"]
+          - fields: ["assignee", "project_id"]
+          - fields: ["feature", "project_id"]
+          - fields: ["created_at"]
+          - fields: ["task_order", "status"]
+
+      - name: "task_history"
+        description: "Task change history"
+        primary_key: "id"
+        indexes:
+          - fields: ["task_id"]
+          - fields: ["changed_at"]
+
+# Connection management
+connection_management:
+  pool_size: 20
+  max_overflow: 30
+  pool_timeout: 30
+  pool_recycle: 3600
+  retry_attempts: 3
+  retry_delay_ms: 1000
+
+# Performance specifications
+performance_constraints:
+  max_execution_time_ms: 5000
+  max_memory_usage_mb: 200
+  concurrent_connections: 50
+
+  query_timeouts:
+    simple_read: 1000
+    complex_search: 5000
+    bulk_operations: 30000
+
+# Error handling specification
+error_handling:
+  error_types:
+    - name: "DATABASE_CONNECTION_ERROR"
+      description: "Failed to connect to database"
+      recovery_action: "retry_with_backoff"
+      max_retries: 3
+    - name: "QUERY_TIMEOUT_ERROR"
+      description: "Database query timed out"
+      recovery_action: "cancel_query_and_fail"
+    - name: "CONSTRAINT_VIOLATION_ERROR"
+      description: "Database constraint violation"
+      recovery_action: "return_validation_error"
+    - name: "TRANSACTION_ERROR"
+      description: "Transaction management error"
+      recovery_action: "rollback_and_fail"
+    - name: "DATA_INTEGRITY_ERROR"
+      description: "Data integrity violation"
+      recovery_action: "rollback_and_report"
+
+  exception_chaining: true
+  context_preservation: true
+
+  retry_policy:
+    max_attempts: 3
+    initial_delay_ms: 1000
+    backoff_multiplier: 2.0
+    max_delay_ms: 10000
+
+# Dependencies
+dependencies:
+  - name: "DatabaseConnectionPool"
+    type: "protocol"
+    description: "Database connection pool service"
+  - name: "QueryBuilder"
+    type: "protocol"
+    description: "SQL query builder service"
+  - name: "TransactionManager"
+    type: "protocol"
+    description: "Database transaction manager"
+
+# Resource management
+resource_management:
+  connection_lifecycle: "managed"
+  transaction_scope: "operation"
+  cleanup_resources: true
+  monitor_connections: true
+
+# Security specifications
+security:
+  input_sanitization: true
+  sql_injection_prevention: true
+  prepared_statements: true
+  connection_encryption: true
+
+  access_control:
+    - operation: "create"
+      permissions: ["task.create"]
+    - operation: "read"
+      permissions: ["task.read"]
+    - operation: "update"
+      permissions: ["task.update"]
+    - operation: "delete"
+      permissions: ["task.delete"]
+
+# Testing specification
+testing:
+  unit_tests:
+    - name: "test_task_crud_operations"
+      description: "Test all CRUD operations"
+    - name: "test_query_operations"
+      description: "Test search and filter operations"
+    - name: "test_bulk_operations"
+      description: "Test bulk create/update/delete"
+    - name: "test_transaction_management"
+      description: "Test transaction commit/rollback"
+    - name: "test_connection_management"
+      description: "Test connection pooling and cleanup"
+
+  integration_tests:
+    - name: "test_database_integration"
+      description: "Test with real database"
+    - name: "test_concurrent_operations"
+      description: "Test concurrent database access"
+    - name: "test_error_recovery"
+      description: "Test error handling and recovery"
+
+# Contract compliance
+onex_compliance:
+  strong_typing: true
+  no_any_types: true
+  pydantic_models: true
+  error_chaining: true
+  registry_injection: true
+  external_system_abstraction: true

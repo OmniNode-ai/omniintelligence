@@ -1,0 +1,16 @@
+# Grafana Dashboard Provisioning for Archon
+# This file automatically loads Archon dashboards into Grafana
+
+apiVersion: 1
+
+providers:
+  - name: 'Archon Health Monitoring'
+    orgId: 1
+    folder: 'Archon'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

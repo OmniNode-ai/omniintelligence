@@ -1,0 +1,451 @@
+# ONEX Task State Reducer Contract
+# State management for task status transitions and finite state machine operations
+
+name: "TaskStateReducer"
+version: "1.0.0"
+description: "Reducer node for task state management, status transitions, and finite state machine operations"
+node_type: "reducer"
+
+# Contract metadata
+metadata:
+  author: "ONEX Task Management System"
+  created_date: "2025-09-04"
+  tags: ["task", "state", "reducer", "fsm", "transitions"]
+  complexity: "medium"
+
+# Input schema definition
+inputs:
+  state_operation:
+    type: "string"
+    required: true
+    enum: ["transition", "get_state", "get_history", "validate_transition", "get_allowed_transitions", "reset_state"]
+    description: "State operation to perform"
+
+  task_id:
+    type: "string"
+    required: true
+    format: "uuid"
+    description: "Task ID for state operations"
+
+  transition_request:
+    type: "object"
+    required: false
+    description: "State transition request data"
+    properties:
+      from_status:
+        type: "string"
+        enum: ["todo", "doing", "review", "done"]
+        required: true
+        description: "Current task status"
+      to_status:
+        type: "string"
+        enum: ["todo", "doing", "review", "done"]
+        required: true
+        description: "Target task status"
+      user_id:
+        type: "string"
+        required: true
+        description: "User requesting the transition"
+      transition_reason:
+        type: "string"
+        required: false
+        max_length: 500
+        description: "Reason for status change"
+      force_transition:
+        type: "boolean"
+        default: false
+        description: "Force transition even if normally not allowed"
+      metadata:
+        type: "object"
+        required: false
+        description: "Additional transition metadata"
+
+  state_context:
+    type: "object"
+    required: false
+    description: "Additional state context information"
+    properties:
+      project_id:
+        type: "string"
+        format: "uuid"
+        description: "Associated project ID"
+      assignee:
+        type: "string"
+        description: "Current task assignee"
+      user_role:
+        type: "string"
+        enum: ["admin", "manager", "developer", "viewer"]
+        description: "User role for permission checking"
+      workflow_stage:
+        type: "string"
+        description: "Current workflow stage"
+      dependencies:
+        type: "array"
+        items:
+          type: "string"
+          format: "uuid"
+        description: "Task dependencies that may affect transitions"
+
+  aggregation_params:
+    type: "object"
+    required: false
+    description: "Parameters for state aggregation operations"
+    properties:
+      project_id:
+        type: "string"
+        format: "uuid"
+        description: "Project ID for aggregation"
+      time_range:
+        type: "object"
+        properties:
+          start_date:
+            type: "string"
+            format: "date-time"
+          end_date:
+            type: "string"
+            format: "date-time"
+        description: "Time range for historical aggregation"
+      group_by:
+        type: "array"
+        items:
+          type: "string"
+          enum: ["status", "assignee", "feature", "date"]
+        description: "Grouping criteria for aggregation"
+
+# Output schema definition
+outputs:
+  state_result:
+    type: "object"
+    required: true
+    description: "State operation result"
+    properties:
+      success:
+        type: "boolean"
+        required: true
+        description: "Operation success status"
+      operation:
+        type: "string"
+        required: true
+        description: "Operation that was performed"
+      task_id:
+        type: "string"
+        format: "uuid"
+        required: true
+        description: "Task ID"
+
+  current_state:
+    type: "object"
+    required: false
+    description: "Current task state information"
+    properties:
+      status:
+        type: "string"
+        enum: ["todo", "doing", "review", "done"]
+        description: "Current task status"
+      state_metadata:
+        type: "object"
+        description: "Additional state metadata"
+      last_transition:
+        type: "object"
+        properties:
+          from_status:
+            type: "string"
+          to_status:
+            type: "string"
+          timestamp:
+            type: "string"
+            format: "date-time"
+          user_id:
+            type: "string"
+        description: "Last state transition information"
+      state_duration:
+        type: "object"
+        properties:
+          current_status_duration_ms:
+            type: "integer"
+          total_lifecycle_duration_ms:
+            type: "integer"
+        description: "Time spent in current and total states"
+
+  transition_result:
+    type: "object"
+    required: false
+    description: "State transition result"
+    properties:
+      transition_executed:
+        type: "boolean"
+        description: "Whether transition was executed"
+      from_status:
+        type: "string"
+        description: "Previous status"
+      to_status:
+        type: "string"
+        description: "New status"
+      transition_timestamp:
+        type: "string"
+        format: "date-time"
+        description: "When transition occurred"
+      transition_id:
+        type: "string"
+        format: "uuid"
+        description: "Unique transition identifier"
+
+  allowed_transitions:
+    type: "array"
+    required: false
+    items:
+      type: "object"
+      properties:
+        to_status:
+          type: "string"
+        transition_name:
+          type: "string"
+        description:
+          type: "string"
+        requires_permission:
+          type: "boolean"
+        conditions:
+          type: "array"
+          items:
+            type: "string"
+    description: "List of allowed transitions from current state"
+
+  state_history:
+    type: "array"
+    required: false
+    items:
+      type: "object"
+      properties:
+        transition_id:
+          type: "string"
+          format: "uuid"
+        from_status:
+          type: "string"
+        to_status:
+          type: "string"
+        timestamp:
+          type: "string"
+          format: "date-time"
+        user_id:
+          type: "string"
+        reason:
+          type: "string"
+        duration_in_previous_state_ms:
+          type: "integer"
+    description: "Historical state transitions"
+
+  aggregated_state:
+    type: "object"
+    required: false
+    description: "Aggregated state information"
+    properties:
+      state_counts:
+        type: "object"
+        properties:
+          todo:
+            type: "integer"
+          doing:
+            type: "integer"
+          review:
+            type: "integer"
+          done:
+            type: "integer"
+        description: "Count of tasks in each state"
+      transition_metrics:
+        type: "object"
+        properties:
+          total_transitions:
+            type: "integer"
+          average_time_per_state_ms:
+            type: "object"
+          most_common_transitions:
+            type: "array"
+        description: "Transition performance metrics"
+      completion_rate:
+        type: "number"
+        description: "Task completion rate percentage"
+
+# State machine specification
+state_machine:
+  states:
+    - name: "todo"
+      description: "Task is created and ready to be worked on"
+      initial_state: true
+      properties:
+        can_be_assigned: true
+        can_be_edited: true
+        requires_approval: false
+
+    - name: "doing"
+      description: "Task is actively being worked on"
+      properties:
+        can_be_assigned: true
+        can_be_edited: true
+        requires_progress_updates: true
+
+    - name: "review"
+      description: "Task is completed and under review"
+      properties:
+        can_be_assigned: false
+        can_be_edited: false
+        requires_approval: true
+
+    - name: "done"
+      description: "Task is completed and approved"
+      final_state: true
+      properties:
+        can_be_assigned: false
+        can_be_edited: false
+        is_archived: true
+
+  transitions:
+    - name: "start_work"
+      from: "todo"
+      to: "doing"
+      description: "Begin working on task"
+      conditions:
+        - "task_is_assigned"
+        - "no_blocking_dependencies"
+      permissions_required: ["task.update"]
+
+    - name: "submit_for_review"
+      from: "doing"
+      to: "review"
+      description: "Submit completed work for review"
+      conditions:
+        - "work_is_complete"
+      permissions_required: ["task.update"]
+
+    - name: "approve_task"
+      from: "review"
+      to: "done"
+      description: "Approve completed task"
+      conditions:
+        - "review_passed"
+      permissions_required: ["task.approve"]
+
+    - name: "request_changes"
+      from: "review"
+      to: "doing"
+      description: "Request changes to task"
+      conditions:
+        - "changes_required"
+      permissions_required: ["task.review"]
+
+    - name: "reopen_task"
+      from: "done"
+      to: "todo"
+      description: "Reopen completed task"
+      conditions:
+        - "reopening_authorized"
+      permissions_required: ["task.reopen"]
+
+    - name: "abandon_task"
+      from: ["todo", "doing"]
+      to: "todo"
+      description: "Stop working on task"
+      permissions_required: ["task.update"]
+
+# State management configuration
+state_management:
+  persistence_strategy: "event_sourcing"
+  snapshot_frequency: 100
+  retention_policy:
+    keep_history_days: 365
+    compress_old_events: true
+
+  conflict_resolution: "last_writer_wins"
+  concurrent_modification_detection: true
+
+# Performance constraints
+performance_constraints:
+  max_execution_time_ms: 500
+  max_memory_usage_mb: 100
+  max_concurrent_transitions: 1000
+
+  state_query_timeout_ms: 200
+  transition_timeout_ms: 1000
+  history_query_timeout_ms: 2000
+
+# Error handling specification
+error_handling:
+  error_types:
+    - name: "INVALID_TRANSITION_ERROR"
+      description: "Requested transition is not allowed"
+      recovery_action: "return_allowed_transitions"
+    - name: "STATE_NOT_FOUND_ERROR"
+      description: "Task state not found"
+      recovery_action: "initialize_default_state"
+    - name: "CONCURRENT_MODIFICATION_ERROR"
+      description: "State was modified by another process"
+      recovery_action: "retry_with_latest_state"
+    - name: "PERMISSION_DENIED_ERROR"
+      description: "User lacks permission for transition"
+      recovery_action: "return_permission_error"
+    - name: "STATE_CORRUPTION_ERROR"
+      description: "State data is corrupted"
+      recovery_action: "restore_from_backup"
+
+  exception_chaining: true
+  context_preservation: true
+
+# Dependencies
+dependencies:
+  - name: "StateStore"
+    type: "protocol"
+    description: "Persistent state storage service"
+  - name: "EventStore"
+    type: "protocol"
+    description: "Event sourcing storage service"
+  - name: "PermissionService"
+    type: "protocol"
+    description: "Permission validation service"
+
+# Event sourcing configuration
+event_sourcing:
+  events:
+    - name: "TaskStateTransitioned"
+      description: "Task state transition occurred"
+      schema:
+        task_id: "string"
+        from_status: "string"
+        to_status: "string"
+        user_id: "string"
+        timestamp: "date-time"
+
+    - name: "StateValidationFailed"
+      description: "State transition validation failed"
+      schema:
+        task_id: "string"
+        attempted_transition: "string"
+        validation_errors: "array"
+        timestamp: "date-time"
+
+# Testing specification
+testing:
+  unit_tests:
+    - name: "test_valid_state_transitions"
+      description: "Test all valid state transitions"
+    - name: "test_invalid_state_transitions"
+      description: "Test rejection of invalid transitions"
+    - name: "test_permission_validation"
+      description: "Test transition permission requirements"
+    - name: "test_state_aggregation"
+      description: "Test state aggregation operations"
+    - name: "test_concurrent_modifications"
+      description: "Test concurrent state modification handling"
+
+  integration_tests:
+    - name: "test_state_persistence"
+      description: "Test state persistence and recovery"
+    - name: "test_event_sourcing"
+      description: "Test event sourcing functionality"
+
+# Contract compliance
+onex_compliance:
+  strong_typing: true
+  no_any_types: true
+  pydantic_models: true
+  error_chaining: true
+  registry_injection: true
+  state_management_patterns: true

@@ -1,0 +1,263 @@
+# Prometheus Alert Rules for Event Processing
+#
+# These rules monitor Kafka event processing failures and trigger alerts
+# when failure rates exceed acceptable thresholds.
+#
+# Integration: Works with Alertmanager to send notifications to Slack
+# via webhook integration configured in the SlackAlertingService.
+
+groups:
+  - name: kafka_event_processing
+    interval: 30s
+    rules:
+      # High failure rate alert (>10% of events failing)
+      - alert: HighEventProcessingFailureRate
+        expr: |
+          (
+            sum(rate(kafka_event_processing_failures_total[5m]))
+            /
+            sum(rate(kafka_event_processing_total[5m]))
+          ) > 0.10
+        for: 2m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "High event processing failure rate detected"
+          description: |
+            Event processing failure rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            Current rate: {{ $value | humanize }}%
+            Threshold: 10%
+
+            Check the Kafka consumer logs and DLQ for failed messages.
+
+      # Critical failure rate alert (>50% of events failing)
+      - alert: CriticalEventProcessingFailureRate
+        expr: |
+          (
+            sum(rate(kafka_event_processing_failures_total[5m]))
+            /
+            sum(rate(kafka_event_processing_total[5m]))
+          ) > 0.50
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "CRITICAL: Event processing failure rate exceeds 50%"
+          description: |
+            Event processing failure rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            Current rate: {{ $value | humanize }}%
+            Threshold: 50%
+
+            Immediate action required. Check consumer health and error logs.
+
+      # Specific event type failures
+      - alert: EventTypeProcessingFailures
+        expr: |
+          sum by (event_type, error_type) (
+            rate(kafka_event_processing_failures_total[5m])
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "Event type {{ $labels.event_type }} experiencing failures"
+          description: |
+            Event type "{{ $labels.event_type }}" is failing with error type "{{ $labels.error_type }}".
+            Failure rate: {{ $value | humanize }} failures/sec
+
+            Check handler implementation and error logs for this event type.
+
+      # DLQ routing alert (messages being sent to dead letter queue)
+      - alert: MessagesRoutedToDLQ
+        expr: |
+          sum by (original_topic, error_type) (
+            rate(kafka_dlq_routed_total[5m])
+          ) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "Messages being routed to DLQ from {{ $labels.original_topic }}"
+          description: |
+            Messages from topic "{{ $labels.original_topic }}" are being routed to DLQ.
+            Error type: {{ $labels.error_type }}
+            DLQ rate: {{ $value | humanize }} messages/sec
+
+            Review DLQ messages to identify and fix processing issues.
+
+      # High DLQ routing rate (>5 messages/sec to DLQ)
+      - alert: HighDLQRoutingRate
+        expr: |
+          sum(rate(kafka_dlq_routed_total[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "High rate of messages being routed to DLQ"
+          description: |
+            DLQ routing rate is {{ $value | humanize }} messages/sec over the last 5 minutes.
+            Threshold: 5 messages/sec
+
+            Investigate consumer health and message processing errors immediately.
+
+      # Consumer backpressure alert (high wait times)
+      - alert: HighConsumerBackpressure
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(kafka_consumer_backpressure_wait_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "High consumer backpressure detected"
+          description: |
+            95th percentile backpressure wait time is {{ $value | humanizeDuration }}.
+            Threshold: 1 second
+
+            Consumer is struggling to keep up with message volume. Consider:
+            - Increasing max_in_flight limit
+            - Scaling consumer instances
+            - Optimizing handler performance
+
+      # Consumer in-flight events at capacity
+      - alert: ConsumerAtCapacity
+        expr: kafka_consumer_in_flight_events >= 95
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "Kafka consumer operating at or near capacity"
+          description: |
+            Consumer has {{ $value }} events in-flight (limit: 100).
+
+            Consumer is at capacity. Consider scaling or optimizing processing.
+
+      # Slow event processing (p95 latency >5s)
+      - alert: SlowEventProcessing
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(kafka_event_processing_duration_seconds_bucket[5m])) by (event_type, le)
+          ) > 5.0
+        for: 3m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "Slow event processing for {{ $labels.event_type }}"
+          description: |
+            95th percentile processing duration for "{{ $labels.event_type }}" is {{ $value | humanizeDuration }}.
+            Threshold: 5 seconds
+
+            Review handler implementation and downstream service performance.
+
+      # No events processed (consumer may be stuck)
+      - alert: ConsumerNotProcessingEvents
+        expr: |
+          rate(kafka_event_processing_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "Kafka consumer not processing any events"
+          description: |
+            Consumer has not processed any events in the last 5 minutes.
+
+            Check consumer health, Kafka connectivity, and topic subscriptions.
+
+      # Deserialization errors (data quality issues)
+      - alert: HighDeserializationErrorRate
+        expr: |
+          sum(rate(kafka_event_processing_failures_total{error_type="deserialization_error"}[5m]))
+          > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "High deserialization error rate detected"
+          description: |
+            Deserialization error rate: {{ $value | humanize }} errors/sec
+
+            Messages may have invalid JSON or schema mismatches.
+            Review message producers and event schemas.
+
+  - name: kafka_consumer_health
+    interval: 30s
+    rules:
+      # Consumer health check failure
+      - alert: KafkaConsumerUnhealthy
+        expr: up{job="archon-intelligence", endpoint="/kafka/health"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: kafka_consumer
+          service: archon-intelligence
+        annotations:
+          summary: "Kafka consumer health check failing"
+          description: |
+            Kafka consumer health endpoint is not responding.
+
+            Check service logs and consumer status immediately.
+
+      # Consumer has been down for extended period
+      - alert: KafkaConsumerDownExtended
+        expr: up{job="archon-intelligence", endpoint="/kafka/health"} == 0
+        for: 10m
+        labels:
+          severity: critical
+          component: kafka_consumer
+          service: archon-intelligence
+          page: "true"
+        annotations:
+          summary: "Kafka consumer has been down for >10 minutes"
+          description: |
+            Kafka consumer has been unhealthy for more than 10 minutes.
+
+            IMMEDIATE ACTION REQUIRED:
+            1. Check service logs
+            2. Verify Kafka connectivity
+            3. Review recent deployments
+            4. Consider service restart if necessary
+
+# Configuration recommendations:
+#
+# 1. Alertmanager Configuration:
+#    - Configure Slack webhook receiver
+#    - Set up routing based on severity labels
+#    - Configure inhibition rules to prevent alert storms
+#
+# 2. Prometheus Configuration:
+#    - Scrape /metrics endpoint every 15-30s
+#    - Set evaluation_interval to 30s
+#    - Configure remote_write for long-term storage
+#
+# 3. Alert Routing:
+#    - severity=warning → #alerts-warning channel
+#    - severity=critical → #alerts-critical channel (with paging)
+#    - page=true → PagerDuty/VictorOps integration
+#
+# 4. Thresholds:
+#    - Failure rate >10% → Warning
+#    - Failure rate >50% → Critical
+#    - DLQ rate >5 msg/sec → Critical
+#    - Backpressure >1s → Warning
+#    - Processing latency >5s → Warning

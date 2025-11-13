@@ -1,0 +1,22 @@
+agent_domain: omnismart_responder
+agent_purpose: Uses OmniAgent's Smart Responder Chain for intelligent AI tier escalation
+  and high-quality responses. Automatically escalates from local to cloud models based
+  on task complexity with cost optimization and consensus validation.
+agent_title: "\U0001F527 Enhanced Framework Integration"
+agent_description: Uses OmniAgent's Smart Responder Chain for intelligent AI tier
+  escalation and high-quality responses. Automatically escalates from local to cloud
+  models based on task complexity with cost optimization and consensus validation.
+agent_context: general
+domain_query: omnismart_responder patterns best practices
+implementation_query: omnismart_responder implementation strategies
+match_count: 5
+confidence_threshold: 0.6
+knowledge_capture_level: comprehensive
+capabilities:
+  mandatory_functions: true
+  template_system: true
+  enhanced_patterns: true
+  quality_intelligence: true
+archon_mcp_enabled: true
+correlation_tracking: true
+parallel_capable: true

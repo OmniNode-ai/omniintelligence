@@ -1,0 +1,526 @@
+# ============================================================================
+# OmniArchon - Application Services
+# ============================================================================
+# Purpose: Core intelligence and processing services
+# Dependencies: Requires docker-compose.yml (base infrastructure) running
+# Usage: docker compose -f docker-compose.yml -f docker-compose.services.yml up -d
+#
+# Services:
+# - archon-intelligence: Core intelligence APIs (8053)
+# - archon-intelligence-test: Test stage with pytest (profile: test)
+# - archon-bridge: Event translation and metadata stamping (8054)
+# - archon-search: RAG and vector search (8055)
+# - archon-langextract: Language-aware extraction (8156)
+# - archon-intelligence-consumer-1/2/3/4: Intelligence processing instances
+#
+# This file contains the application layer that processes intelligence requests.
+# Must be composed with docker-compose.yml for data layer dependencies.
+# ============================================================================
+
+# Project name - ensures all containers belong to omniarchon project
+name: omniarchon
+
+# ============================================================================
+# YAML Anchors - Shared Configuration Templates
+# ============================================================================
+
+# Intelligence Consumer Shared Configuration Template
+x-intelligence-consumer-base: &intelligence-consumer-base
+  build:
+    context: ..
+    dockerfile: services/intelligence-consumer/Dockerfile
+  networks:
+    - app-network
+    - omninode_bridge_omninode-bridge-network
+  extra_hosts:
+    - "omninode-bridge-redpanda:192.168.86.200"
+    - "omninode-bridge-postgres:192.168.86.200"
+    - "omninode-bridge-onextree:192.168.86.200"
+    - "omninode-bridge-metadata-stamping:192.168.86.200"
+    - "omninode-bridge-consul:192.168.86.200"
+  depends_on:
+    archon-intelligence:
+      condition: service_healthy
+    memgraph:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+        cpus: '0.5'
+      reservations:
+        memory: 128M
+        cpus: '0.1'
+
+# Shared environment variables template
+x-intelligence-consumer-env: &intelligence-consumer-env
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  WORKER_COUNT: ${CONSUMER_MAX_WORKERS:-4}
+  INTERNAL_QUEUE_SIZE: ${INTERNAL_QUEUE_SIZE:-100}
+  # Kafka bootstrap servers - Docker services use internal DNS name
+  # Internal DNS resolves via /etc/hosts to external network
+  # See CLAUDE.md "Infrastructure Topology" for network architecture details
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
+  KAFKA_TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-dev.archon-intelligence}
+  KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:-archon-intelligence-consumer-group}
+  KAFKA_AUTO_OFFSET_RESET: ${KAFKA_AUTO_OFFSET_RESET:-earliest}
+  KAFKA_MAX_POLL_RECORDS: ${KAFKA_MAX_POLL_RECORDS:-10}
+  KAFKA_ENABLE_AUTO_COMMIT: ${KAFKA_ENABLE_AUTO_COMMIT:-false}
+  INTELLIGENCE_SERVICE_URL: ${INTELLIGENCE_SERVICE_URL:-http://archon-intelligence:8053}
+  INTELLIGENCE_TIMEOUT: ${INTELLIGENCE_TIMEOUT:-900}
+  MEMGRAPH_URI: ${MEMGRAPH_URI:-bolt://archon-memgraph:7687}
+  MEMGRAPH_USERNAME: ${MEMGRAPH_USERNAME:-}
+  MEMGRAPH_PASSWORD: ${MEMGRAPH_PASSWORD:-}
+  POSTGRES_HOST: ${POSTGRES_HOST:-192.168.86.200}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5436}
+  POSTGRES_DATABASE: ${POSTGRES_DATABASE:-omninode_bridge}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  QDRANT_URL: ${QDRANT_URL:-http://archon-qdrant:6333}
+  VALKEY_URL: ${VALKEY_URL:-redis://archon-valkey:6379/0}
+  VALKEY_PASSWORD: ${VALKEY_PASSWORD:-}
+  EMBEDDING_MODEL_URL: ${EMBEDDING_MODEL_URL:-http://192.168.86.201:8002}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://192.168.86.200:11434}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  MAX_RETRY_ATTEMPTS: ${MAX_RETRY_ATTEMPTS:-3}
+  RETRY_BACKOFF_BASE: ${RETRY_BACKOFF_BASE:-2}
+  RETRY_BACKOFF_MAX: ${RETRY_BACKOFF_MAX:-60}
+  CIRCUIT_BREAKER_ENABLED: ${CIRCUIT_BREAKER_ENABLED:-false}
+  CIRCUIT_BREAKER_THRESHOLD: ${CIRCUIT_BREAKER_THRESHOLD:-10}
+  CIRCUIT_BREAKER_TIMEOUT: ${CIRCUIT_BREAKER_TIMEOUT:-30}
+  CIRCUIT_BREAKER_SUCCESS_THRESHOLD: ${CIRCUIT_BREAKER_SUCCESS_THRESHOLD:-3}
+  HEALTH_CHECK_PORT: ${HEALTH_CHECK_PORT:-8080}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_FORMAT: ${LOG_FORMAT:-json}
+  PROCESSING_CONCURRENCY: ${PROCESSING_CONCURRENCY:-5}
+  SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-30}
+  ENABLE_ASYNC_ENRICHMENT: ${ENABLE_ASYNC_ENRICHMENT:-false}
+
+# ============================================================================
+# Service Definitions
+# ============================================================================
+
+services:
+
+  # Intelligence Service (Entity Extraction & Knowledge Graph)
+  archon-intelligence:
+    build:
+      context: ..  # Project root (omniarchon)
+      dockerfile: services/intelligence/Dockerfile
+      target: base  # Use production base stage (no test dependencies)
+    container_name: archon-intelligence
+    ports:
+      - "${INTELLIGENCE_SERVICE_PORT:-8053}:8053"
+    environment:
+      MEMGRAPH_URI: ${MEMGRAPH_URI:-bolt://archon-memgraph:7687}
+      MEMGRAPH_MAX_CONCURRENT_WRITES: ${MEMGRAPH_MAX_CONCURRENT_WRITES:-10}
+      EMBEDDING_MODEL_URL: ${EMBEDDING_MODEL_URL:-http://192.168.86.201:8002}
+      INTELLIGENCE_SERVICE_PORT: ${INTELLIGENCE_SERVICE_PORT:-8053}
+      BRIDGE_SERVICE_URL: ${BRIDGE_SERVICE_URL:-http://archon-bridge:8054}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Embedding Configuration
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      EMBEDDING_GENERATION_TIMEOUT: ${EMBEDDING_GENERATION_TIMEOUT:-30.0}
+      # Tree + Stamping Integration (production-ready, using real services)
+      USE_MOCK_BRIDGE: ${USE_MOCK_BRIDGE:-false}
+      ONEX_TREE_SERVICE_URL: ${ONEX_TREE_SERVICE_URL:-http://omninode-bridge-onextree:8058}
+      METADATA_STAMPING_SERVICE_URL: ${METADATA_STAMPING_SERVICE_URL:-http://omninode-bridge-metadata-stamping:8057}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Cloud-native deployment: Files sent via Kafka messages (inline content)
+      # No host filesystem dependencies - stateless container architecture
+      HOST_PROJECT_ROOT: ${HOST_PROJECT_ROOT:-}
+      CONTAINER_PROJECT_ROOT: ${CONTAINER_PROJECT_ROOT:-}
+      # Qdrant Vector Database Configuration
+      QDRANT_URL: ${QDRANT_URL:-http://archon-qdrant:6333}
+      QDRANT_HOST: ${QDRANT_HOST:-archon-qdrant}
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
+      # =====================================================================
+      # POSTGRESQL PORT CONFIGURATION - CRITICAL INFRASTRUCTURE TOPOLOGY
+      # =====================================================================
+      # Phase 5D: Document Freshness System - Direct PostgreSQL Access
+      # PostgreSQL connection for freshness database (event-driven architecture)
+      # Supports both local (omninode-bridge-postgres) and remote (192.168.86.200) deployments
+      # REQUIRED: Set POSTGRES_PASSWORD in .env file (see .env.example)
+      #
+      # Remote PostgreSQL Server: 192.168.86.200
+      #   - Container Internal Port: 5432 (standard PostgreSQL)
+      #   - Host External Port: 5436 (published mapping: 5436→5432)
+      #
+      # Port Usage by Context:
+      #   1. Docker Services (this file):
+      #      - Use: omninode-bridge-postgres:5432
+      #      - Why: Containers use internal Docker network port
+      #      - Config: POSTGRES_HOST=omninode-bridge-postgres, POSTGRES_PORT=5432
+      #
+      #   2. Host Scripts (bulk_ingest_repository.py, validation scripts):
+      #      - Use: 192.168.86.200:5436
+      #      - Why: Host machine accesses via external published port
+      #      - Config: POSTGRES_HOST=192.168.86.200, POSTGRES_PORT=5436
+      #
+      #   3. Remote Server (SSH'd into 192.168.86.200):
+      #      - Use: localhost:5436 (external) OR localhost:5432 (internal)
+      #
+      # Configuration Resolution:
+      #   - Docker services: Default to omninode-bridge-postgres:5432 (internal)
+      #   - Host scripts: Override in .env with 192.168.86.200:5436 (external)
+      #   - DNS resolution: /etc/hosts maps omninode-bridge-postgres → 192.168.86.200
+      #
+      # Port Mapping Flow:
+      #   Host Script → 192.168.86.200:5436 → Container:5432 → PostgreSQL
+      #   Docker Service → omninode-bridge-postgres:5432 (via network) → PostgreSQL
+      # =====================================================================
+      POSTGRES_HOST: ${POSTGRES_HOST:-omninode-bridge-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-omninode_bridge}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env file}
+      DATABASE_URL: ${DATABASE_URL:-}
+      # Phase 4: Pattern Traceability Database
+      TRACEABILITY_DB_URL: ${TRACEABILITY_DB_URL:-}
+      # Valkey Cache Configuration (Phase 1 Search Performance Optimization)
+      VALKEY_URL: ${VALKEY_URL:-redis://:${VALKEY_PASSWORD}@archon-valkey:6379/0}
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set in .env file}
+      ENABLE_CACHE: ${ENABLE_CACHE:-true}
+      # Kafka Configuration (MVP Day 3: Event-driven Intelligence Handlers)
+      # Enabled: omnibase_core dependency now resolved via GH_PAT authentication
+      # CRITICAL: Use external port 29092 - internal port 9092 not accessible from containers
+      KAFKA_ENABLE_CONSUMER: ${KAFKA_ENABLE_CONSUMER:-true}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
+      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:-archon-intelligence}
+      KAFKA_AUTO_OFFSET_RESET: ${KAFKA_AUTO_OFFSET_RESET:-earliest}
+      KAFKA_ENABLE_AUTO_COMMIT: ${KAFKA_ENABLE_AUTO_COMMIT:-true}
+      KAFKA_MAX_POLL_RECORDS: ${KAFKA_MAX_POLL_RECORDS:-50}
+      KAFKA_SESSION_TIMEOUT_MS: ${KAFKA_SESSION_TIMEOUT_MS:-30000}
+      # Kafka Topics - Codegen Request Topics
+      KAFKA_CODEGEN_VALIDATE_REQUEST: ${KAFKA_CODEGEN_VALIDATE_REQUEST:-omninode.codegen.request.validate.v1}
+      KAFKA_CODEGEN_ANALYZE_REQUEST: ${KAFKA_CODEGEN_ANALYZE_REQUEST:-omninode.codegen.request.analyze.v1}
+      KAFKA_CODEGEN_PATTERN_REQUEST: ${KAFKA_CODEGEN_PATTERN_REQUEST:-omninode.codegen.request.pattern.v1}
+      KAFKA_CODEGEN_MIXIN_REQUEST: ${KAFKA_CODEGEN_MIXIN_REQUEST:-omninode.codegen.request.mixin.v1}
+      # Kafka Topics - Codegen Response Topics
+      KAFKA_CODEGEN_VALIDATE_RESPONSE: ${KAFKA_CODEGEN_VALIDATE_RESPONSE:-omninode.codegen.response.validate.v1}
+      KAFKA_CODEGEN_ANALYZE_RESPONSE: ${KAFKA_CODEGEN_ANALYZE_RESPONSE:-omninode.codegen.response.analyze.v1}
+      KAFKA_CODEGEN_PATTERN_RESPONSE: ${KAFKA_CODEGEN_PATTERN_RESPONSE:-omninode.codegen.response.pattern.v1}
+      KAFKA_CODEGEN_MIXIN_RESPONSE: ${KAFKA_CODEGEN_MIXIN_RESPONSE:-omninode.codegen.response.mixin.v1}
+      # Tree + Stamping Event Adapter Topics (2025-10-24)
+      KAFKA_TREE_INDEX_PROJECT_REQUEST: ${KAFKA_TREE_INDEX_PROJECT_REQUEST:-dev.archon-intelligence.tree.index-project-requested.v1}
+      KAFKA_TREE_SEARCH_FILES_REQUEST: ${KAFKA_TREE_SEARCH_FILES_REQUEST:-dev.archon-intelligence.tree.search-files-requested.v1}
+      KAFKA_TREE_SEARCH_FILES_COMPLETED: ${KAFKA_TREE_SEARCH_FILES_COMPLETED:-dev.archon-intelligence.tree.search-files-completed.v1}
+      KAFKA_TREE_SEARCH_FILES_FAILED: ${KAFKA_TREE_SEARCH_FILES_FAILED:-dev.archon-intelligence.tree.search-files-failed.v1}
+      KAFKA_TREE_GET_STATUS_COMPLETED: ${KAFKA_TREE_GET_STATUS_COMPLETED:-dev.archon-intelligence.tree.get-status-completed.v1}
+      KAFKA_TREE_GET_STATUS_FAILED: ${KAFKA_TREE_GET_STATUS_FAILED:-dev.archon-intelligence.tree.get-status-failed.v1}
+      KAFKA_TREE_GET_STATUS_REQUEST: ${KAFKA_TREE_GET_STATUS_REQUEST:-dev.archon-intelligence.tree.get-status-requested.v1}
+      KAFKA_TREE_INDEX_PROJECT_COMPLETED: ${KAFKA_TREE_INDEX_PROJECT_COMPLETED:-dev.archon-intelligence.tree.index-project-completed.v1}
+      KAFKA_TREE_INDEX_PROJECT_FAILED: ${KAFKA_TREE_INDEX_PROJECT_FAILED:-dev.archon-intelligence.tree.index-project-failed.v1}
+      # Tree + Stamping Incremental Topics
+      KAFKA_TREE_INCREMENTAL_STAMP_REQUEST: ${KAFKA_TREE_INCREMENTAL_STAMP_REQUEST:-dev.archon-intelligence.tree.incremental-stamp-requested.v1}
+      KAFKA_TREE_INCREMENTAL_STAMP_COMPLETED: ${KAFKA_TREE_INCREMENTAL_STAMP_COMPLETED:-dev.archon-intelligence.tree.incremental-stamp-completed.v1}
+      KAFKA_TREE_INCREMENTAL_STAMP_FAILED: ${KAFKA_TREE_INCREMENTAL_STAMP_FAILED:-dev.archon-intelligence.tree.incremental-stamp-failed.v1}
+    networks:
+      - app-network
+      - omninode-bridge-network  # Phase 4: Connect to postgres network for traceability DB
+      - omninode_bridge_omninode-bridge-network  # MVP Day 3: Connect to Redpanda network for Kafka
+    extra_hosts:
+      - "omninode-bridge-redpanda:192.168.86.200"
+      - "omninode-bridge-postgres:192.168.86.200"
+      - "omninode-bridge-onextree:192.168.86.200"
+      - "omninode-bridge-metadata-stamping:192.168.86.200"
+      - "omninode-bridge-consul:192.168.86.200"
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      memgraph:
+        condition: service_started
+      archon-bridge:
+        condition: service_started
+      archon-valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-m", "5", "http://localhost:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  # Intelligence Service Test Stage (includes pytest for testing)
+  archon-intelligence-test:
+    profiles:
+      - test  # Only starts when explicitly using --profile test
+    build:
+      context: ..  # Project root (omniarchon)
+      dockerfile: services/intelligence/Dockerfile
+      target: test  # Use test stage with dev dependencies
+    container_name: archon-intelligence-test
+    environment:
+      MEMGRAPH_URI: ${MEMGRAPH_URI:-bolt://archon-memgraph:7687}
+      EMBEDDING_MODEL_URL: ${EMBEDDING_MODEL_URL:-http://192.168.86.201:8002}
+      INTELLIGENCE_SERVICE_PORT: ${INTELLIGENCE_SERVICE_PORT:-8053}
+      BRIDGE_SERVICE_URL: ${BRIDGE_SERVICE_URL:-http://archon-bridge:8054}
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+      DATABASE_URL: ${DATABASE_URL:-}
+      TRACEABILITY_DB_URL: ${TRACEABILITY_DB_URL:-}
+      # Kafka test configuration - use external port for container access
+      KAFKA_ENABLE_CONSUMER: ${KAFKA_ENABLE_CONSUMER:-false}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
+    networks:
+      - app-network
+      - omninode-bridge-network
+      - omninode_bridge_omninode-bridge-network
+    extra_hosts:
+      - "omninode-bridge-redpanda:192.168.86.200"
+      - "omninode-bridge-postgres:192.168.86.200"
+      - "omninode-bridge-onextree:192.168.86.200"
+      - "omninode-bridge-metadata-stamping:192.168.86.200"
+      - "omninode-bridge-consul:192.168.86.200"
+    depends_on:
+      - memgraph
+      - archon-bridge
+    volumes:
+      - ../services/intelligence/tests:/app/tests  # Mount tests for live updates
+      - ../services/intelligence/src:/app/src      # Mount source for coverage
+    command: ["pytest", "tests/", "-v", "--cov=src", "--cov-report=term-missing", "--cov-report=html:/app/htmlcov"]
+
+  # Bridge Service (PostgreSQL-Memgraph Synchronization)
+  archon-bridge:
+    build:
+      context: ..
+      dockerfile: ./services/bridge/Dockerfile
+    container_name: archon-bridge
+    ports:
+      - "${BRIDGE_SERVICE_PORT:-8054}:8054"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      MEMGRAPH_URI: ${MEMGRAPH_URI:-bolt://archon-memgraph:7687}
+      INTELLIGENCE_SERVICE_URL: ${INTELLIGENCE_SERVICE_URL:-http://archon-intelligence:8053}
+      BRIDGE_SERVICE_PORT: ${BRIDGE_SERVICE_PORT:-8054}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # PostgreSQL Configuration
+      POSTGRES_HOST: ${POSTGRES_HOST:-192.168.86.200}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5436}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Qdrant Configuration
+      QDRANT_URL: ${QDRANT_URL:-http://archon-qdrant:6333}
+      # Cache Configuration
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD}
+      # AI/ML Configuration
+      EMBEDDING_MODEL_URL: ${EMBEDDING_MODEL_URL:-http://192.168.86.201:8002}
+      # Embedding Configuration
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      # Intelligence Enrichment Control (Short-term fix for timeout issues)
+      SKIP_INTELLIGENCE_ENRICHMENT: ${SKIP_INTELLIGENCE_ENRICHMENT:-false}
+      ENABLE_ASYNC_ENRICHMENT: ${ENABLE_ASYNC_ENRICHMENT:-false}
+      # Kafka - use external port 29092 for container connectivity
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
+      KAFKA_ENRICHMENT_TOPIC: ${KAFKA_ENRICHMENT_TOPIC:-dev.archon-intelligence.enrich-document.v1}
+      # HTTP Client Timeout Configuration (see .env for details)
+      HTTP_CONNECT_TIMEOUT: ${HTTP_CONNECT_TIMEOUT:-10.0}
+      HTTP_READ_TIMEOUT: ${HTTP_READ_TIMEOUT:-120.0}
+      HTTP_WRITE_TIMEOUT: ${HTTP_WRITE_TIMEOUT:-30.0}
+      HTTP_POOL_TIMEOUT: ${HTTP_POOL_TIMEOUT:-10.0}
+    networks:
+      - app-network
+    extra_hosts:
+      - "omninode-bridge-redpanda:192.168.86.200"
+      - "omninode-bridge-postgres:192.168.86.200"
+      - "omninode-bridge-onextree:192.168.86.200"
+      - "omninode-bridge-metadata-stamping:192.168.86.200"
+      - "omninode-bridge-consul:192.168.86.200"
+    depends_on:
+      memgraph:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8054/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Enhanced Search Service (Vector + Graph + Relational Search)
+  archon-search:
+    build:
+      context: ..
+      dockerfile: ./services/search/Dockerfile
+    container_name: archon-search
+    ports:
+      - "${SEARCH_SERVICE_PORT:-8055}:8055"
+    environment:
+      # Environment Configuration
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      # Database Connections
+      MEMGRAPH_URI: ${MEMGRAPH_URI:-bolt://archon-memgraph:7687}
+      # PostgreSQL Configuration (for potential future use)
+      POSTGRES_HOST: ${POSTGRES_HOST:-omninode-bridge-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-omninode_bridge}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env file}
+      # Kafka Configuration
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
+      # Valkey Cache Configuration
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set in .env file}
+      VALKEY_URL: ${VALKEY_URL:-redis://:${VALKEY_PASSWORD}@archon-valkey:6379/0}
+      ENABLE_CACHE: ${ENABLE_CACHE:-true}
+      # Service URLs
+      EMBEDDING_MODEL_URL: ${EMBEDDING_MODEL_URL:-http://192.168.86.201:8002}
+      BRIDGE_SERVICE_URL: ${BRIDGE_SERVICE_URL:-http://archon-bridge:8054}
+      INTELLIGENCE_SERVICE_URL: ${INTELLIGENCE_SERVICE_URL:-http://archon-intelligence:8053}
+      SEARCH_SERVICE_PORT: ${SEARCH_SERVICE_PORT:-8055}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Embedding Configuration
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      # Qdrant Vector Database Configuration
+      QDRANT_HOST: ${QDRANT_HOST:-qdrant}
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
+      QDRANT_GRPC_PORT: ${QDRANT_GRPC_PORT:-6334}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-archon_vectors}
+      QDRANT_QUALITY_COLLECTION: ${QDRANT_QUALITY_COLLECTION:-quality_vectors}
+    networks:
+      - app-network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      memgraph:
+        condition: service_healthy
+      archon-intelligence:
+        condition: service_healthy
+      archon-bridge:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-m", "5", "http://localhost:8055/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  # LangExtract Service (Advanced Language-Aware Data Extraction)
+  archon-langextract:
+    build:
+      context: ../services/langextract
+      dockerfile: Dockerfile
+    container_name: archon-langextract
+    ports:
+      - "${LANGEXTRACT_SERVICE_PORT:-8156}:8156"
+    environment:
+      MEMGRAPH_URI: ${MEMGRAPH_URI:-bolt://archon-memgraph:7687}
+      INTELLIGENCE_SERVICE_URL: ${INTELLIGENCE_SERVICE_URL:-http://archon-intelligence:8053}
+      BRIDGE_SERVICE_URL: ${BRIDGE_SERVICE_URL:-http://archon-bridge:8054}
+      SEARCH_SERVICE_URL: ${SEARCH_SERVICE_URL:-http://archon-search:8055}
+      LANGEXTRACT_SERVICE_PORT: ${LANGEXTRACT_SERVICE_PORT:-8156}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      EMBEDDING_MODEL_URL: ${EMBEDDING_MODEL_URL:-http://192.168.86.201:8002}
+      # Event system configuration
+      EVENT_BUS_ENABLED: ${EVENT_BUS_ENABLED:-true}
+      DOCUMENT_EVENT_SUBSCRIPTION: ${DOCUMENT_EVENT_SUBSCRIPTION:-true}
+      # Extraction configuration
+      DEFAULT_EXTRACTION_MODE: ${DEFAULT_EXTRACTION_MODE:-standard}
+      ENABLE_MULTILINGUAL_EXTRACTION: ${ENABLE_MULTILINGUAL_EXTRACTION:-true}
+      ENABLE_SEMANTIC_ANALYSIS: ${ENABLE_SEMANTIC_ANALYSIS:-true}
+      # Performance tuning
+      MAX_CONCURRENT_EXTRACTIONS: ${MAX_CONCURRENT_EXTRACTIONS:-5}
+      EXTRACTION_TIMEOUT_SECONDS: ${EXTRACTION_TIMEOUT_SECONDS:-300}
+    networks:
+      - app-network
+    depends_on:
+      memgraph:
+        condition: service_healthy
+      archon-intelligence:
+        condition: service_healthy
+      archon-bridge:
+        condition: service_healthy
+    volumes:
+      - ../services/langextract:/app  # Mount for development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-m", "5", "http://localhost:8156/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Intelligence Consumer Instances (4 instances using shared configuration)
+  # ============================================================================
+
+  # Intelligence Consumer Instance 1 - vLLM GPU 4090
+  archon-intelligence-consumer-1:
+    <<: *intelligence-consumer-base
+    container_name: archon-intelligence-consumer-1
+    ports:
+      - "8090:8080"
+    environment:
+      <<: *intelligence-consumer-env
+      INSTANCE_ID: consumer-1
+      # Default embedding service (vLLM)
+      # Uses default EMBEDDING_MODEL_URL from shared env (192.168.86.201:8002)
+
+  # Intelligence Consumer Instance 2 - Remote vLLM GPU Machine 1
+  archon-intelligence-consumer-2:
+    <<: *intelligence-consumer-base
+    container_name: archon-intelligence-consumer-2
+    ports:
+      - "8091:8080"
+    environment:
+      <<: *intelligence-consumer-env
+      INSTANCE_ID: consumer-2
+      # Remote vLLM on GPU machine 1 (5090)
+      # Override with vLLM endpoint (port 8002)
+      EMBEDDING_MODEL_URL: ${EMBEDDING_BASE_URL_CONSUMER_2:-http://192.168.86.201:8002}
+
+  # Intelligence Consumer Instance 3 - Remote vLLM GPU Machine 2
+  archon-intelligence-consumer-3:
+    <<: *intelligence-consumer-base
+    container_name: archon-intelligence-consumer-3
+    ports:
+      - "8092:8080"
+    environment:
+      <<: *intelligence-consumer-env
+      INSTANCE_ID: consumer-3
+      # Remote vLLM on GPU machine 2 (alternate)
+      # Override with vLLM endpoint (port 8002)
+      EMBEDDING_MODEL_URL: ${EMBEDDING_BASE_URL_CONSUMER_3:-http://192.168.86.202:8002}
+
+  # Intelligence Consumer Instance 4 - Configurable Fallback
+  archon-intelligence-consumer-4:
+    <<: *intelligence-consumer-base
+    container_name: archon-intelligence-consumer-4
+    ports:
+      - "8063:8080"
+    environment:
+      <<: *intelligence-consumer-env
+      INSTANCE_ID: consumer-4
+      # Configurable endpoint (fallback or round-robin)
+      EMBEDDING_MODEL_URL: ${EMBEDDING_BASE_URL_CONSUMER_4:-http://192.168.86.201:8002}
+
+
+networks:
+  # External reference to base infrastructure network
+  app-network:
+    external: true
+    name: omniarchon_app-network
+
+  # External networks for remote services
+  # These networks are managed by the OmniNode Bridge stack on 192.168.86.200
+  # See deployment/README.md "Prerequisites > External Networks" for setup instructions
+  omninode-bridge-network:
+    external: true  # PostgreSQL traceability DB network
+    name: omninode-bridge-network
+
+  omninode_bridge_omninode-bridge-network:
+    external: true  # Redpanda/Kafka event bus network
+    name: omninode_bridge_omninode-bridge-network
+
+# Docker secrets removed - omnibase_core and omnibase_spi are now public
+# No authentication required for public GitHub repositories

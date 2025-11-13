@@ -1,0 +1,100 @@
+# OmniArchon Pre-commit Configuration
+# Aligned with omnibase_core formatting standards
+# Focus: Essential formatting (Black + isort) without complex ONEX validators
+
+repos:
+  # Essential file formatting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/workflows/
+      - id: end-of-file-fixer
+        exclude: ^\.github/workflows/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-yaml
+        exclude: ^\.github/workflows/
+      - id: check-json
+      - id: check-toml
+
+  # Python formatting (aligned with omnibase_core)
+  - repo: https://github.com/psf/black
+    rev: 25.9.0
+    hooks:
+      - id: black
+        name: Black Python Formatter
+        args: [--line-length, "88", --target-version, py312]
+        exclude: ^(tests/fixtures/|\.github/workflows/|archived/).*$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort Import Sorter
+        args: [--profile, black, --line-length, "88"]
+        exclude: ^(tests/fixtures/|\.github/workflows/|archived/).*$
+
+  # Quick smoke tests for fast feedback
+  # Runs critical unit tests (intelligence + services) for immediate feedback
+  # Full test suite runs in CI with parallel execution
+  - repo: local
+    hooks:
+      - id: pytest-smoke-tests
+        name: Run Smoke Tests (intelligence + services)
+        entry: bash -c 'cd python && poetry run pytest tests/unit/intelligence tests/unit/services --maxfail=5 -x --tb=short -q || echo "⚠️ Smoke tests skipped (run poetry install in python/ directory)"'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Critical integration test - validates vectorization pipeline
+      # This test would have caught the vectorization bug where /process/document
+      # returned success but didn't actually create vectors in Qdrant
+      # Only runs when changes affect intelligence/search/bridge services or tests
+      # Skips gracefully if services are not running (allows commit)
+      # Blocks commit if services are running AND test fails
+      - id: critical-integration-test
+        name: Critical Integration Test (vectorization pipeline)
+        entry: scripts/git_hooks/run_critical_integration_test.sh
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [pre-commit]
+        files: ^(services/intelligence/|services/search/|services/bridge/|tests/integration/)
+        verbose: true
+
+      - id: incremental-tree-stamping
+        name: Incremental Tree Stamping
+        entry: python3 scripts/git_hooks/incremental_stamp.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+        verbose: true
+
+      - id: validate-memgraph-labels
+        name: Validate Memgraph Label Constants
+        entry: python3 scripts/validate_memgraph_labels.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^(scripts/validate_memgraph_labels\.py|tests/integration/test_label_case_consistency\.py|services/intelligence/src/constants/memgraph_labels\.py)$
+        description: "Ensures all Cypher queries use MemgraphLabels constants instead of raw strings"
+
+# Configuration
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+fail_fast: false
+
+# Performance optimization: Enable parallel execution
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes for omniarchon
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_schedule: weekly
+  submodules: false

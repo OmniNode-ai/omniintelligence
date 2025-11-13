@@ -1,0 +1,7 @@
+crawl4ai_mcp.egg-info
+__pycache__
+.venv
+.env
+
+# Explicitly include python/lib for config validator
+!python/lib

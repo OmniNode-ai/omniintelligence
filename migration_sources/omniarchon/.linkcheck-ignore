@@ -1,0 +1,50 @@
+# Link Checker Ignore Patterns
+# =================================
+# Links matching these patterns will be skipped during validation
+# Patterns support wildcards (*) and are matched against full link URLs
+
+# External Repository References
+# --------------------------------
+# These links point to external projects on the local filesystem
+# They are valid on the development machine but won't work in CI/CD
+
+# Zen MCP Server (external project)
+file:///Volumes/PRO-G40/Code/zen-mcp-server/**
+/Volumes/PRO-G40/Code/zen-mcp-server/**
+/Users/*/Code/zen-mcp-server/**
+
+# Serena Code Intelligence (external project)
+file:///Volumes/PRO-G40/Code/serena/**
+/Volumes/PRO-G40/Code/serena/**
+/Volumes/*/Code/serena/**
+
+# Codanna Code Intelligence (external project)
+/Users/*/.cargo/bin/codanna
+/Users/*/.cargo/**
+
+# Machine-Specific Paths
+# -----------------------
+# These paths are specific to the development machine
+
+# Claude Code configuration and hooks
+/Users/*/.claude/**
+/Users/*/Code/**
+
+# Local binaries and tools
+/Users/*/.local/**
+/Users/*/.cargo/**
+
+# External volumes and drives
+/Volumes/PRO-G40/**
+/Volumes/**
+
+# User home directories
+/Users/*/**
+
+# Pattern Categories Summary
+# ---------------------------
+# Total patterns: 15
+# External projects: 3 (zen, serena, codanna)
+# User-specific paths: 4 (.claude, .local, .cargo, Code)
+# Machine-specific: 3 (Volumes, drives)
+# Catch-all: 1 (/Users/*)

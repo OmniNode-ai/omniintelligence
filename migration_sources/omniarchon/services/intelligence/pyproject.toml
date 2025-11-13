@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "archon-intelligence"
+version = "1.0.0"
+description = "Archon Intelligence Service - Entity extraction and semantic analysis"
+authors = ["Archon Team"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.116.0"  # Updated to support Starlette 0.47.2+ (CVE-2025-54121 fix)
+uvicorn = "^0.32.0"  # Aligned with omnibase-core
+pydantic = "^2.5.0"
+pydantic-settings = "^2.0.0"  # Required for timeout_config BaseSettings
+neo4j = "^5.15.0"
+httpx = "^0.28.1"
+python-multipart = "^0.0.6"
+psycopg2-binary = "^2.9.7"
+asyncpg = "^0.29.0"  # Aligned with omnibase-core
+numpy = "^1.24.3"
+requests = "^2.31.0"
+# Vector database and storage
+qdrant-client = "~1.7.0"  # Match server version 1.7.4
+redis = "^5.0.0"  # Valkey (Redis fork) cache client
+prometheus-client = "^0.23.1"
+scipy = "^1.16.2"
+plotly = "^6.3.1"
+networkx = "^3.5"
+# ONEX Framework dependencies - Using GitHub main branch
+# omnibase_spi is a transitive dependency from omnibase_core, don't declare it directly to avoid conflicts
+omnibase-core = {git = "https://github.com/OmniNode-ai/omnibase_core.git", branch = "main"}
+# Kafka event bus (aligned with omniclaude) - PRODUCTION dependency for handler integration
+confluent-kafka = "^2.6.0"
+aiokafka = "^0.12.0"
+llama-index = "^0.14.5"
+omnibase-spi = {git = "https://github.com/OmniNode-ai/omnibase_spi.git", rev = "main"}
+# Code quality analysis
+radon = "^6.0.1"
+
+[tool.poetry.group.dev.dependencies]
+# Testing dependencies - only needed for development and CI/CD
+pytest = "^8.4.2"
+pytest-asyncio = "^1.2.0"
+pytest-cov = "^7.0.0"
+respx = "^0.22.0"
+psutil = "^6.0.0"  # Performance benchmarking and memory profiling
+
+[tool.pytest.ini_options]
+pythonpath = [".", "src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

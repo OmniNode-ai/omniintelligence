@@ -1,0 +1,1294 @@
+# Fallback Mechanisms for Agent Framework Query System v1.0
+# Agent-8 Deliverable: Query Failure Recovery & Resilience Design
+# Phase 1: Content Analysis & Architecture Design
+
+metadata:
+  version: "1.0.0"
+  created_by: "Agent-8: Query System Designer"
+  creation_date: "2025-01-27"
+  dependencies:
+    - query-interface-spec.yaml
+    - filtering-algorithms.md
+    - agent-7-storage-design
+  target_audience:
+    - "Framework Query System Users"
+    - "System Reliability Engineers"
+    - "Agent Framework Developers"
+
+# =============================================================================
+# FALLBACK ARCHITECTURE OVERVIEW
+# =============================================================================
+
+fallback_architecture:
+  name: "Multi-Tier Resilience Framework"
+  description: "Comprehensive fallback system ensuring continuous service availability"
+
+  design_principles:
+    - "graceful_degradation": "Maintain partial functionality when components fail"
+    - "fail_fast_detection": "Rapid failure detection with circuit breakers"
+    - "progressive_fallback": "Multiple fallback tiers with increasing simplicity"
+    - "transparent_recovery": "Automatic recovery without user intervention"
+    - "quality_preservation": "Maintain result quality even in degraded modes"
+
+  resilience_tiers:
+    tier_1_primary: "Full functionality with all optimizations"
+    tier_2_degraded: "Core functionality with reduced optimizations"
+    tier_3_basic: "Essential functionality with local caching only"
+    tier_4_offline: "Local-only operation with cached patterns"
+    tier_5_emergency: "Static fallback patterns and error guidance"
+
+# =============================================================================
+# FAILURE DETECTION & CIRCUIT BREAKERS
+# =============================================================================
+
+failure_detection:
+  description: "Proactive failure detection with automated response"
+
+  # Circuit breaker configuration
+  circuit_breakers:
+
+    # Primary query processing circuit breaker
+    primary_query_processor:
+      failure_threshold: 5  # consecutive failures
+      timeout_ms: 8000  # Increased from 3000ms to 8000ms to accommodate complex code analysis queries
+      reset_timeout_seconds: 30
+      half_open_max_calls: 3
+      monitoring_window_seconds: 60
+
+      failure_conditions:
+        - "response_time_over_5_seconds"
+        - "http_status_5xx"
+        - "connection_timeout"
+        - "invalid_response_format"
+
+      fallback_action: "switch_to_degraded_mode"
+
+    # Semantic similarity service circuit breaker
+    semantic_similarity_service:
+      failure_threshold: 3  # more sensitive for ML services
+      timeout_ms: 2000
+      reset_timeout_seconds: 60
+      half_open_max_calls: 2
+
+      failure_conditions:
+        - "embedding_service_unavailable"
+        - "model_timeout"
+        - "invalid_embedding_response"
+
+      fallback_action: "use_keyword_based_similarity"
+
+    # Context enhancement service circuit breaker
+    context_enhancement_service:
+      failure_threshold: 4
+      timeout_ms: 1500
+      reset_timeout_seconds: 45
+
+      failure_conditions:
+        - "context_analysis_timeout"
+        - "agent_history_service_down"
+        - "context_enrichment_error"
+
+      fallback_action: "use_basic_context_detection"
+
+    # Storage layer circuit breaker
+    storage_layer_access:
+      failure_threshold: 3
+      timeout_ms: 2500
+      reset_timeout_seconds: 120  # longer reset for storage issues
+
+      failure_conditions:
+        - "database_connection_failed"
+        - "index_unavailable"
+        - "storage_timeout"
+        - "data_corruption_detected"
+
+      fallback_action: "switch_to_cache_only_mode"
+
+  # Health monitoring
+  health_monitoring:
+    enabled: true
+    check_interval_seconds: 10
+    health_endpoints:
+      - "/health/query-processor"
+      - "/health/semantic-service"
+      - "/health/context-service"
+      - "/health/storage-layer"
+
+    degraded_service_indicators:
+      response_time_p95_ms: 1000
+      error_rate_percentage: 2.0
+      memory_usage_percentage: 85.0
+      cpu_usage_percentage: 80.0
+
+    critical_service_indicators:
+      response_time_p95_ms: 3000
+      error_rate_percentage: 5.0
+      memory_usage_percentage: 95.0
+      cpu_usage_percentage: 95.0
+
+# =============================================================================
+# TIER-BASED FALLBACK SYSTEM
+# =============================================================================
+
+fallback_tiers:
+  description: "Progressive degradation through multiple fallback tiers"
+
+  # Tier 1: Full Functionality (Primary Mode)
+  tier_1_primary:
+    name: "Primary Full-Feature Mode"
+    description: "Complete query system with all optimizations"
+
+    enabled_features:
+      - "semantic_similarity_scoring"
+      - "context_aware_filtering"
+      - "adaptive_learning"
+      - "real_time_optimization"
+      - "multi_factor_ranking"
+      - "personalization"
+      - "advanced_caching"
+      - "parallel_processing"
+
+    service_dependencies:
+      required:
+        - "storage_layer"
+        - "query_processor"
+      optional:
+        - "semantic_service"
+        - "context_enhancement"
+        - "analytics_service"
+
+    expected_performance:
+      response_time_p95_ms: 200
+      cache_hit_rate_percentage: 85
+      result_quality_score: 0.90
+
+    fallback_trigger:
+      conditions:
+        - "any_required_service_down"
+        - "response_time_over_1000ms_for_5_minutes"
+        - "error_rate_over_3_percent"
+      action: "transition_to_tier_2"
+
+  # Tier 2: Degraded Functionality
+  tier_2_degraded:
+    name: "Degraded Performance Mode"
+    description: "Core functionality with reduced optimizations"
+
+    enabled_features:
+      - "basic_semantic_scoring"  # simplified
+      - "rule_based_filtering"    # fallback for context-aware
+      - "static_ranking"          # no adaptive learning
+      - "basic_caching"          # L1 cache only
+      - "sequential_processing"   # no parallelization
+
+    disabled_features:
+      - "adaptive_learning"
+      - "real_time_optimization"
+      - "personalization"
+      - "advanced_context_analysis"
+
+    fallback_implementations:
+      semantic_scoring:
+        method: "keyword_overlap_scoring"
+        algorithm: "jaccard_similarity"
+        weight_reduction: 0.7  # reduce weight of semantic factor
+
+      context_filtering:
+        method: "rule_based_context_matching"
+        rules:
+          - "exact_agent_type_match: +0.3"
+          - "complexity_level_match: +0.2"
+          - "domain_overlap: +0.1"
+
+      ranking:
+        method: "weighted_sum_ranking"
+        factors:
+          - "keyword_similarity: 0.4"
+          - "pattern_popularity: 0.3"
+          - "exact_matches: 0.3"
+
+    service_dependencies:
+      required:
+        - "storage_layer"
+        - "basic_query_processor"
+      optional: []
+
+    expected_performance:
+      response_time_p95_ms: 500
+      cache_hit_rate_percentage: 60
+      result_quality_score: 0.75
+
+    fallback_trigger:
+      conditions:
+        - "storage_layer_unavailable"
+        - "response_time_over_2000ms_for_3_minutes"
+        - "error_rate_over_8_percent"
+      action: "transition_to_tier_3"
+
+  # Tier 3: Basic Functionality
+  tier_3_basic:
+    name: "Basic Essential Mode"
+    description: "Essential functionality with local caching only"
+
+    enabled_features:
+      - "local_cache_lookup"
+      - "basic_pattern_matching"
+      - "simple_text_search"
+      - "static_result_ranking"
+
+    fallback_implementations:
+      pattern_matching:
+        method: "regex_based_search"
+        patterns:
+          agent_type_patterns:
+            api: ["api", "endpoint", "fastapi", "http"]
+            debug: ["debug", "error", "exception", "troubleshoot"]
+            testing: ["test", "pytest", "mock", "validation"]
+            security: ["security", "audit", "vulnerability"]
+            performance: ["performance", "optimization", "benchmark"]
+
+      result_ranking:
+        method: "simple_score_calculation"
+        factors:
+          exact_keyword_match: 1.0
+          partial_keyword_match: 0.5
+          pattern_type_match: 0.3
+          recency_boost: 0.2
+
+      local_cache:
+        cache_types:
+          - "frequent_queries_cache"
+          - "popular_patterns_cache"
+          - "agent_specific_cache"
+        retention_policy: "lru_with_ttl"
+        max_entries: 1000
+
+    service_dependencies:
+      required: []  # completely self-contained
+      optional: []
+
+    data_sources:
+      - "local_pattern_cache"
+      - "embedded_pattern_database"
+      - "static_configuration_files"
+
+    expected_performance:
+      response_time_p95_ms: 800
+      cache_hit_rate_percentage: 40
+      result_quality_score: 0.60
+
+    fallback_trigger:
+      conditions:
+        - "local_cache_corrupted"
+        - "essential_functionality_failing"
+        - "system_resource_exhaustion"
+      action: "transition_to_tier_4"
+
+  # Tier 4: Offline Mode
+  tier_4_offline:
+    name: "Offline Operation Mode"
+    description: "Local-only operation with pre-cached patterns"
+
+    enabled_features:
+      - "static_pattern_library"
+      - "offline_documentation"
+      - "basic_template_generation"
+
+    offline_capabilities:
+      static_pattern_library:
+        size: "core_patterns_only"  # ~50 most common patterns
+        categories:
+          - "error_handling_basics"
+          - "context_inheritance_simple"
+          - "quality_gates_standard"
+          - "intelligence_capture_basic"
+        format: "embedded_json"
+
+      template_generation:
+        available_templates:
+          - "basic_agent_structure"
+          - "error_handling_function"
+          - "context_inheritance_class"
+          - "intelligence_capture_function"
+
+      documentation_access:
+        offline_docs:
+          - "framework_quick_reference"
+          - "common_patterns_guide"
+          - "troubleshooting_checklist"
+
+    service_dependencies:
+      required: []
+      optional: []
+
+    expected_performance:
+      response_time_p95_ms: 100  # very fast, local only
+      cache_hit_rate_percentage: 95  # mostly static
+      result_quality_score: 0.45
+
+    fallback_trigger:
+      conditions:
+        - "static_library_corrupted"
+        - "application_critical_error"
+      action: "transition_to_tier_5"
+
+  # Tier 5: Emergency Mode
+  tier_5_emergency:
+    name: "Emergency Guidance Mode"
+    description: "Static fallback patterns and error guidance"
+
+    capabilities:
+      emergency_patterns:
+        error_handling:
+          pattern: |
+            try:
+                # Your code here
+                pass
+            except Exception as e:
+                await capture_debug_intelligence_on_error(e, agent_type, context)
+                raise
+
+        context_inheritance:
+          pattern: |
+            context = {
+                'agent_type': 'your_agent_type',
+                'task_context': task_description,
+                'execution_id': str(uuid.uuid4())
+            }
+
+        basic_intelligence:
+          pattern: |
+            # Basic intelligence capture
+            intelligence = {
+                'success': success_status,
+                'timestamp': datetime.utcnow().isoformat(),
+                'agent_type': agent_type
+            }
+
+      error_guidance:
+        common_issues:
+          - issue: "Query system unavailable"
+            guidance: "Use local documentation and static patterns"
+            reference: "tier_4_offline_patterns"
+
+          - issue: "Context detection failing"
+            guidance: "Specify agent type and complexity explicitly"
+            reference: "explicit_context_specification"
+
+          - issue: "No patterns found"
+            guidance: "Check query syntax and try broader terms"
+            reference: "query_syntax_guide"
+
+    expected_performance:
+      response_time_p95_ms: 50   # instant static responses
+      availability_percentage: 99.99  # always available
+      result_quality_score: 0.30
+
+# =============================================================================
+# FALLBACK TRANSITION LOGIC
+# =============================================================================
+
+transition_logic:
+  description: "Automated tier transition logic with recovery monitoring"
+
+  # Transition decision engine
+  transition_engine:
+    evaluation_interval_seconds: 5
+    transition_hysteresis: true  # prevent rapid tier switching
+    minimum_tier_duration_seconds: 30
+
+    transition_rules:
+
+      # Degradation transitions (tier N to tier N+1)
+      degradation:
+        tier_1_to_tier_2:
+          conditions:
+            - "semantic_service_circuit_open"
+            - "context_service_degraded"
+            - "response_time_p95 > 800ms for 60 seconds"
+          evaluation_window_seconds: 60
+          confidence_threshold: 0.8
+
+        tier_2_to_tier_3:
+          conditions:
+            - "storage_layer_circuit_open"
+            - "error_rate > 10% for 120 seconds"
+            - "memory_usage > 90%"
+          evaluation_window_seconds: 120
+          confidence_threshold: 0.9
+
+        tier_3_to_tier_4:
+          conditions:
+            - "local_cache_hit_rate < 20%"
+            - "basic_functionality_error_rate > 15%"
+            - "system_resource_critical"
+          evaluation_window_seconds: 60
+          confidence_threshold: 0.95
+
+        tier_4_to_tier_5:
+          conditions:
+            - "static_library_access_failed"
+            - "application_startup_failure"
+            - "critical_system_error"
+          evaluation_window_seconds: 10
+          confidence_threshold: 0.99
+
+      # Recovery transitions (tier N+1 to tier N)
+      recovery:
+        tier_2_to_tier_1:
+          conditions:
+            - "all_services_healthy for 300 seconds"
+            - "response_time_p95 < 300ms for 180 seconds"
+            - "error_rate < 1% for 300 seconds"
+          evaluation_window_seconds: 300
+          confidence_threshold: 0.9
+
+        tier_3_to_tier_2:
+          conditions:
+            - "storage_layer_healthy for 180 seconds"
+            - "basic_query_processing_stable"
+            - "memory_usage < 70%"
+          evaluation_window_seconds: 180
+          confidence_threshold: 0.8
+
+        tier_4_to_tier_3:
+          conditions:
+            - "local_cache_functional"
+            - "system_resources_available"
+            - "basic_services_responding"
+          evaluation_window_seconds: 60
+          confidence_threshold: 0.7
+
+        tier_5_to_tier_4:
+          conditions:
+            - "static_library_accessible"
+            - "application_core_functional"
+          evaluation_window_seconds: 30
+          confidence_threshold: 0.8
+
+  # Transition execution
+  transition_execution:
+    transition_timeout_seconds: 30
+    rollback_on_failure: true
+    notify_observers: true
+
+    transition_steps:
+      1: "validate_target_tier_readiness"
+      2: "prepare_target_tier_resources"
+      3: "execute_graceful_transition"
+      4: "validate_transition_success"
+      5: "update_system_status"
+      6: "notify_monitoring_systems"
+
+    rollback_conditions:
+      - "transition_timeout_exceeded"
+      - "target_tier_validation_failed"
+      - "critical_error_during_transition"
+
+# =============================================================================
+# SERVICE-SPECIFIC FALLBACK STRATEGIES
+# =============================================================================
+
+service_fallbacks:
+  description: "Specific fallback strategies for each service component"
+
+  # Semantic similarity service fallbacks
+  semantic_similarity_service:
+    primary: "embedding_based_similarity"
+    fallback_chain:
+      1: "cached_similarity_lookup"
+      2: "keyword_overlap_similarity"
+      3: "lexical_similarity_metrics"
+      4: "static_similarity_matrix"
+
+    implementations:
+      cached_similarity_lookup:
+        description: "Use previously calculated similarities"
+        cache_retention: "7_days"
+        cache_size: "100MB"
+        hit_rate_threshold: "30%"
+
+      keyword_overlap_similarity:
+        description: "Jaccard similarity on keywords"
+        algorithm: "jaccard_index"
+        preprocessing:
+          - "lowercase_normalization"
+          - "stop_word_removal"
+          - "stemming"
+        minimum_quality: 0.6
+
+      lexical_similarity_metrics:
+        description: "Traditional text similarity metrics"
+        metrics:
+          - "levenshtein_distance"
+          - "jaro_winkler_similarity"
+          - "cosine_similarity_tfidf"
+        weight_combination: "average"
+
+      static_similarity_matrix:
+        description: "Pre-computed similarity matrix"
+        matrix_size: "1000x1000"  # top patterns
+        update_frequency: "weekly"
+        minimum_coverage: "80%"
+
+  # Context enhancement service fallbacks
+  context_enhancement_service:
+    primary: "ml_based_context_analysis"
+    fallback_chain:
+      1: "rule_based_context_detection"
+      2: "keyword_based_classification"
+      3: "static_context_mapping"
+      4: "default_context_assignment"
+
+    implementations:
+      rule_based_context_detection:
+        description: "Deterministic rules for context detection"
+        rules:
+          agent_type_detection:
+            api_keywords: ["api", "endpoint", "fastapi", "http", "rest"]
+            debug_keywords: ["debug", "error", "exception", "troubleshoot"]
+            testing_keywords: ["test", "pytest", "mock", "assert"]
+          complexity_detection:
+            simple_indicators: ["basic", "simple", "quick", "easy"]
+            complex_indicators: ["advanced", "complex", "enterprise"]
+        confidence_calculation: "keyword_density_based"
+
+      keyword_based_classification:
+        description: "Simple keyword-based context classification"
+        classification_model: "naive_bayes"
+        feature_extraction: "bag_of_words"
+        training_data: "historical_queries_with_labels"
+
+      static_context_mapping:
+        description: "Static mapping from query patterns to context"
+        mapping_rules:
+          "how to.*error":
+            agent_type: "debug"
+            complexity: "moderate"
+          "implement.*api":
+            agent_type: "api"
+            complexity: "moderate"
+          "test.*validation":
+            agent_type: "testing"
+            complexity: "simple"
+
+      default_context_assignment:
+        description: "Fallback to default context values"
+        defaults:
+          agent_type: "generic"
+          complexity_level: "moderate"
+          domain: "cross_domain"
+          execution_pattern: "sequential"
+
+  # Storage layer fallbacks
+  storage_layer:
+    primary: "distributed_storage_with_indexing"
+    fallback_chain:
+      1: "local_database_cache"
+      2: "file_based_storage"
+      3: "in_memory_storage"
+      4: "static_pattern_files"
+
+    implementations:
+      local_database_cache:
+        description: "Local SQLite cache of frequently accessed patterns"
+        database_file: "framework_patterns_cache.db"
+        cache_size: "500MB"
+        retention_policy: "lru_with_access_time"
+        sync_frequency: "hourly"
+
+      file_based_storage:
+        description: "JSON files with pattern data"
+        file_structure:
+          patterns: "patterns/*.json"
+          metadata: "metadata/*.json"
+          indexes: "indexes/*.json"
+        compression: "gzip"
+        concurrent_access: "file_locking"
+
+      in_memory_storage:
+        description: "Patterns loaded into memory"
+        data_structures:
+          patterns: "dictionary"
+          indexes: "inverted_index"
+          metadata: "key_value_store"
+        memory_limit: "200MB"
+        eviction_policy: "lru"
+
+      static_pattern_files:
+        description: "Hardcoded pattern definitions"
+        format: "embedded_json"
+        patterns_included: "top_50_most_common"
+        update_mechanism: "application_deployment"
+
+# =============================================================================
+# GRACEFUL DEGRADATION STRATEGIES
+# =============================================================================
+
+graceful_degradation:
+  description: "Strategies for maintaining quality during degradation"
+
+  # Quality preservation techniques
+  quality_preservation:
+
+    # Result filtering during degradation
+    result_filtering:
+      tier_2_degraded:
+        minimum_relevance_score: 0.4  # lower threshold
+        maximum_results: 8            # slightly more results
+        diversity_requirement: "relaxed"
+
+      tier_3_basic:
+        minimum_relevance_score: 0.3  # further lowered
+        maximum_results: 10           # even more results
+        diversity_requirement: "disabled"
+
+      tier_4_offline:
+        minimum_relevance_score: 0.2  # very permissive
+        maximum_results: 15           # max available
+        diversity_requirement: "disabled"
+
+    # Quality indicators for users
+    quality_indicators:
+      tier_1_primary:
+        indicator: "full_quality"
+        message: null  # no message needed
+        confidence_display: true
+
+      tier_2_degraded:
+        indicator: "reduced_quality"
+        message: "Results may be less precise due to service limitations"
+        confidence_display: true
+        degradation_notice: "Some advanced features temporarily unavailable"
+
+      tier_3_basic:
+        indicator: "basic_quality"
+        message: "Using basic search - results may be less relevant"
+        confidence_display: false  # don't show unreliable confidence
+        degradation_notice: "Advanced search features unavailable"
+
+      tier_4_offline:
+        indicator: "offline_mode"
+        message: "Offline mode - limited patterns available"
+        confidence_display: false
+        degradation_notice: "Working with cached patterns only"
+
+      tier_5_emergency:
+        indicator: "emergency_mode"
+        message: "Emergency mode - basic patterns and guidance only"
+        confidence_display: false
+        degradation_notice: "System experiencing issues - basic help available"
+
+  # User experience continuity
+  user_experience_continuity:
+
+    # Progressive feature disabling
+    feature_disabling:
+      tier_2_degraded:
+        disabled_features:
+          - "advanced_personalization"
+          - "real_time_learning"
+        alternative_messaging:
+          personalization: "Using standard recommendations"
+          learning: "Adaptive features temporarily disabled"
+
+      tier_3_basic:
+        disabled_features:
+          - "semantic_search"
+          - "context_enhancement"
+          - "quality_scoring"
+        alternative_messaging:
+          semantic: "Using keyword-based search"
+          context: "Please specify agent type and complexity"
+          quality: "Results ranked by popularity"
+
+      tier_4_offline:
+        disabled_features:
+          - "live_data_access"
+          - "dynamic_filtering"
+          - "personalized_ranking"
+        alternative_messaging:
+          live_data: "Using cached pattern library"
+          filtering: "Basic filtering available"
+          ranking: "Standard ranking applied"
+
+    # Help and guidance adjustment
+    help_system_adjustment:
+      tier_1_primary:
+        help_level: "contextual_smart_suggestions"
+        suggestion_quality: "high"
+        example_availability: "full"
+
+      tier_2_degraded:
+        help_level: "basic_contextual_help"
+        suggestion_quality: "medium"
+        example_availability: "limited"
+
+      tier_3_basic:
+        help_level: "static_help_content"
+        suggestion_quality: "low"
+        example_availability: "basic"
+
+      tier_4_offline:
+        help_level: "offline_documentation"
+        suggestion_quality: "minimal"
+        example_availability: "core_examples_only"
+
+      tier_5_emergency:
+        help_level: "emergency_guidance"
+        suggestion_quality: "emergency_patterns_only"
+        example_availability: "hardcoded_examples"
+
+# =============================================================================
+# MONITORING & ALERTING
+# =============================================================================
+
+monitoring_alerting:
+  description: "Comprehensive monitoring and alerting for fallback system"
+
+  # Monitoring metrics
+  monitoring_metrics:
+
+    # Tier transition metrics
+    tier_transitions:
+      metrics:
+        - "transition_frequency"
+        - "time_in_each_tier"
+        - "transition_success_rate"
+        - "recovery_time"
+      alerting_thresholds:
+        frequent_transitions: "more_than_5_per_hour"
+        prolonged_degradation: "tier_3_or_lower_for_over_30_minutes"
+        failed_transitions: "more_than_1_failure_per_day"
+
+    # Service health metrics
+    service_health:
+      metrics:
+        - "service_availability_percentage"
+        - "response_time_percentiles"
+        - "error_rates"
+        - "circuit_breaker_states"
+      collection_interval_seconds: 10
+      retention_period_days: 30
+
+    # User experience metrics
+    user_experience:
+      metrics:
+        - "query_success_rate_by_tier"
+        - "user_satisfaction_scores"
+        - "query_abandonment_rate"
+        - "fallback_impact_on_quality"
+      collection_method: "user_feedback_and_analytics"
+      reporting_frequency: "daily"
+
+  # Alerting configuration
+  alerting:
+
+    # Critical alerts
+    critical_alerts:
+      tier_4_activation:
+        severity: "critical"
+        notification_channels: ["pagerduty", "slack", "email"]
+        escalation_policy: "immediate"
+        message: "Query system in offline mode - immediate attention required"
+
+      tier_5_activation:
+        severity: "emergency"
+        notification_channels: ["pagerduty", "phone", "slack"]
+        escalation_policy: "immediate_escalation"
+        message: "Query system in emergency mode - critical system failure"
+
+      prolonged_degradation:
+        severity: "high"
+        condition: "tier_2_or_lower_for_over_20_minutes"
+        notification_channels: ["slack", "email"]
+        message: "Query system degraded for extended period"
+
+    # Warning alerts
+    warning_alerts:
+      tier_2_activation:
+        severity: "warning"
+        notification_channels: ["slack"]
+        message: "Query system in degraded mode - monitoring closely"
+
+      frequent_transitions:
+        severity: "warning"
+        condition: "more_than_3_transitions_in_10_minutes"
+        notification_channels: ["slack"]
+        message: "Frequent tier transitions detected - system instability"
+
+      service_degradation:
+        severity: "warning"
+        condition: "any_service_health_below_threshold"
+        notification_channels: ["slack"]
+        message: "Service degradation detected - may trigger fallback"
+
+  # Recovery monitoring
+  recovery_monitoring:
+    automatic_recovery_tracking:
+      enabled: true
+      recovery_validation_duration_seconds: 300
+      recovery_confidence_threshold: 0.8
+
+    recovery_metrics:
+      - "time_to_recovery"
+      - "recovery_success_rate"
+      - "partial_recovery_detection"
+      - "recovery_stability_duration"
+
+    recovery_alerts:
+      successful_recovery:
+        severity: "info"
+        notification_channels: ["slack"]
+        message: "Query system successfully recovered to {tier}"
+
+      failed_recovery:
+        severity: "warning"
+        notification_channels: ["slack", "email"]
+        message: "Query system recovery attempt failed"
+
+# =============================================================================
+# TESTING & VALIDATION
+# =============================================================================
+
+testing_validation:
+  description: "Comprehensive testing framework for fallback mechanisms"
+
+  # Chaos engineering
+  chaos_engineering:
+    enabled: true
+    test_environments: ["staging", "pre_production"]
+
+    chaos_experiments:
+      service_failure_simulation:
+        frequency: "weekly"
+        duration_minutes: 30
+        targets:
+          - "semantic_similarity_service"
+          - "context_enhancement_service"
+          - "storage_layer"
+        validation_criteria:
+          - "graceful_degradation_to_appropriate_tier"
+          - "no_user_facing_errors"
+          - "automatic_recovery_after_service_restoration"
+
+      network_partition_simulation:
+        frequency: "bi_weekly"
+        duration_minutes: 15
+        scenarios:
+          - "storage_layer_isolation"
+          - "semantic_service_isolation"
+        validation_criteria:
+          - "continued_operation_in_offline_mode"
+          - "data_consistency_after_reconnection"
+
+      resource_exhaustion_simulation:
+        frequency: "monthly"
+        scenarios:
+          - "memory_pressure"
+          - "cpu_saturation"
+          - "disk_space_exhaustion"
+        validation_criteria:
+          - "appropriate_tier_degradation"
+          - "resource_usage_stabilization"
+
+  # Fallback validation tests
+  fallback_validation:
+
+    # Tier transition tests
+    tier_transition_tests:
+      test_cases:
+        - name: "primary_to_degraded_transition"
+          trigger: "semantic_service_failure"
+          expected_tier: "tier_2_degraded"
+          validation_time_seconds: 30
+
+        - name: "degraded_to_basic_transition"
+          trigger: "storage_layer_failure"
+          expected_tier: "tier_3_basic"
+          validation_time_seconds: 60
+
+        - name: "basic_to_offline_transition"
+          trigger: "cache_corruption"
+          expected_tier: "tier_4_offline"
+          validation_time_seconds: 30
+
+        - name: "full_recovery_path"
+          scenario: "all_services_restored"
+          expected_tier: "tier_1_primary"
+          validation_time_seconds: 300
+
+    # Quality preservation tests
+    quality_preservation_tests:
+      test_scenarios:
+        - scenario: "tier_2_quality_validation"
+          expected_quality_retention: "75%"
+          measurement_method: "user_satisfaction_comparison"
+
+        - scenario: "tier_3_functionality_validation"
+          expected_functionality_retention: "60%"
+          measurement_method: "feature_availability_assessment"
+
+        - scenario: "tier_4_availability_validation"
+          expected_availability: "99%"
+          measurement_method: "uptime_monitoring"
+
+  # Performance validation
+  performance_validation:
+    load_testing:
+      test_scenarios:
+        - name: "normal_load_with_fallback"
+          queries_per_second: 100
+          duration_minutes: 30
+          fallback_triggers: ["random_service_failures"]
+
+        - name: "high_load_degraded_mode"
+          queries_per_second: 200
+          duration_minutes: 15
+          initial_tier: "tier_2_degraded"
+
+        - name: "stress_test_offline_mode"
+          queries_per_second: 500
+          duration_minutes: 10
+          initial_tier: "tier_4_offline"
+
+    performance_assertions:
+      tier_1_primary:
+        max_response_time_ms: 200
+        min_throughput_qps: 150
+
+      tier_2_degraded:
+        max_response_time_ms: 500
+        min_throughput_qps: 100
+
+      tier_3_basic:
+        max_response_time_ms: 800
+        min_throughput_qps: 75
+
+      tier_4_offline:
+        max_response_time_ms: 100
+        min_throughput_qps: 200  # faster due to local-only
+
+# =============================================================================
+# OPERATIONAL PROCEDURES
+# =============================================================================
+
+operational_procedures:
+  description: "Standard operating procedures for fallback system management"
+
+  # Incident response procedures
+  incident_response:
+
+    # Tier 4/5 activation response
+    emergency_response:
+      immediate_actions:
+        1: "acknowledge_alert_within_5_minutes"
+        2: "assess_scope_and_impact"
+        3: "initiate_war_room_if_needed"
+        4: "communicate_status_to_stakeholders"
+        5: "begin_root_cause_investigation"
+
+      escalation_matrix:
+        tier_4_activation:
+          primary_contact: "platform_team_lead"
+          escalation_time: "15_minutes"
+          escalation_contact: "engineering_manager"
+
+        tier_5_activation:
+          primary_contact: "on_call_engineer"
+          escalation_time: "5_minutes"
+          escalation_contact: "cto"
+
+    # Recovery procedures
+    recovery_procedures:
+      service_restoration:
+        steps:
+          1: "verify_service_health"
+          2: "validate_data_integrity"
+          3: "perform_gradual_traffic_increase"
+          4: "monitor_key_metrics_for_stability"
+          5: "confirm_tier_recovery"
+
+      rollback_procedures:
+        triggers:
+          - "recovery_attempt_causing_instability"
+          - "data_corruption_detected"
+          - "performance_degradation_below_acceptable"
+
+        rollback_steps:
+          1: "immediate_revert_to_stable_tier"
+          2: "assess_damage_and_data_integrity"
+          3: "communicate_rollback_to_stakeholders"
+          4: "plan_alternative_recovery_approach"
+
+  # Maintenance procedures
+  maintenance_procedures:
+
+    # Planned maintenance
+    planned_maintenance:
+      maintenance_windows:
+        preferred_time: "02:00_UTC_Sunday"
+        duration: "4_hours_maximum"
+        frequency: "monthly"
+
+      pre_maintenance_checklist:
+        - "verify_all_fallback_tiers_functional"
+        - "prepare_communication_to_users"
+        - "ensure_rollback_plan_ready"
+        - "coordinate_with_stakeholder_teams"
+
+      maintenance_execution:
+        1: "activate_tier_2_degraded_mode"
+        2: "perform_maintenance_tasks"
+        3: "validate_changes_in_staging"
+        4: "gradual_return_to_tier_1"
+        5: "post_maintenance_validation"
+
+    # Emergency maintenance
+    emergency_maintenance:
+      authorization_required: "engineering_manager_or_above"
+      communication_timeline:
+        - "t-30min: notify_stakeholders"
+        - "t-15min: send_user_notification"
+        - "t-0: begin_maintenance"
+        - "t+completion: confirm_completion"
+
+# =============================================================================
+# CONFIGURATION MANAGEMENT
+# =============================================================================
+
+configuration_management:
+  description: "Configuration management for fallback system"
+
+  # Environment-specific configurations
+  environment_configurations:
+
+    development:
+      fallback_sensitivity: "high"  # trigger fallbacks more easily for testing
+      circuit_breaker_thresholds:
+        failure_threshold: 2  # lower for testing
+        timeout_ms: 1000     # shorter for faster testing
+      monitoring_frequency: "every_5_seconds"
+
+    staging:
+      fallback_sensitivity: "medium"
+      circuit_breaker_thresholds:
+        failure_threshold: 3
+        timeout_ms: 2000
+      monitoring_frequency: "every_10_seconds"
+      chaos_engineering_enabled: true
+
+    production:
+      fallback_sensitivity: "standard"
+      circuit_breaker_thresholds:
+        failure_threshold: 5
+        timeout_ms: 8000  # Increased from 3000ms to 8000ms for complex code analysis
+      monitoring_frequency: "every_10_seconds"
+      chaos_engineering_enabled: false
+
+  # Dynamic configuration
+  dynamic_configuration:
+    enabled: true
+    configuration_sources:
+      - "environment_variables"
+      - "configuration_service"
+      - "database_settings"
+
+    hot_reloadable_settings:
+      - "circuit_breaker_thresholds"
+      - "fallback_tier_thresholds"
+      - "monitoring_intervals"
+      - "cache_sizes"
+      - "timeout_values"
+
+    configuration_validation:
+      validation_on_change: true
+      rollback_on_invalid_config: true
+      validation_timeout_seconds: 30
+
+# =============================================================================
+# DOCUMENTATION & TRAINING
+# =============================================================================
+
+documentation_training:
+  description: "Documentation and training materials for fallback system"
+
+  # User documentation
+  user_documentation:
+    user_guides:
+      - title: "Understanding System Degradation Messages"
+        content: "How to interpret degradation notices and adapt usage"
+        audience: "end_users"
+
+      - title: "Optimal Query Strategies During Degradation"
+        content: "Best practices for querying during system degradation"
+        audience: "power_users"
+
+    troubleshooting_guides:
+      - title: "Common Fallback Scenarios and Solutions"
+        content: "Typical degradation scenarios and user workarounds"
+        audience: "support_team"
+
+  # Operational documentation
+  operational_documentation:
+    runbooks:
+      - title: "Fallback System Incident Response"
+        content: "Step-by-step procedures for handling fallback incidents"
+        audience: "operations_team"
+
+      - title: "Recovery Procedures and Validation"
+        content: "Procedures for safely recovering from fallback states"
+        audience: "engineering_team"
+
+    monitoring_guides:
+      - title: "Fallback System Monitoring and Alerting"
+        content: "Understanding and responding to fallback system alerts"
+        audience: "monitoring_team"
+
+  # Training programs
+  training_programs:
+    incident_response_training:
+      frequency: "quarterly"
+      duration: "2_hours"
+      attendees: ["operations_team", "engineering_team"]
+      content:
+        - "fallback_system_architecture_overview"
+        - "incident_response_procedures"
+        - "hands_on_recovery_simulations"
+
+    chaos_engineering_workshops:
+      frequency: "bi_annually"
+      duration: "half_day"
+      attendees: ["engineering_team"]
+      content:
+        - "chaos_engineering_principles"
+        - "fallback_testing_strategies"
+        - "failure_scenario_simulations"
+
+# =============================================================================
+# SUCCESS METRICS & KPIs
+# =============================================================================
+
+success_metrics:
+  description: "Key performance indicators for fallback system effectiveness"
+
+  # Availability metrics
+  availability_metrics:
+    overall_system_availability:
+      target: "99.9%"
+      measurement: "percentage_time_system_responsive"
+      calculation_period: "monthly"
+
+    tier_availability:
+      tier_1_target: "95%"  # primary mode
+      tier_2_target: "4%"   # degraded mode
+      tier_3_target: "0.9%" # basic mode
+      tier_4_target: "0.1%" # offline mode
+      tier_5_target: "0.01%" # emergency mode
+
+  # Performance metrics
+  performance_metrics:
+    response_time_by_tier:
+      tier_1_target_p95: "200ms"
+      tier_2_target_p95: "500ms"
+      tier_3_target_p95: "800ms"
+      tier_4_target_p95: "100ms"
+
+    transition_speed:
+      degradation_transition_target: "under_30_seconds"
+      recovery_transition_target: "under_60_seconds"
+
+  # Quality metrics
+  quality_metrics:
+    quality_retention_by_tier:
+      tier_2_target: "75%_of_tier_1_quality"
+      tier_3_target: "60%_of_tier_1_quality"
+      tier_4_target: "45%_of_tier_1_quality"
+
+    user_satisfaction:
+      tier_1_target: "90%_satisfied_or_above"
+      tier_2_target: "75%_satisfied_or_above"
+      tier_3_target: "60%_satisfied_or_above"
+
+  # Reliability metrics
+  reliability_metrics:
+    mean_time_to_recovery: "under_5_minutes"
+    mean_time_between_failures: "over_30_days"
+    false_positive_fallback_rate: "under_1%"
+
+  # Business impact metrics
+  business_impact_metrics:
+    user_query_completion_rate:
+      tier_1: "95%"
+      tier_2: "90%"
+      tier_3: "80%"
+      tier_4: "70%"
+
+    user_abandonment_rate_increase:
+      tier_2_max_increase: "10%"
+      tier_3_max_increase: "25%"
+      tier_4_max_increase: "40%"
+
+# =============================================================================
+# CONCLUSION & IMPLEMENTATION ROADMAP
+# =============================================================================
+
+implementation_roadmap:
+  description: "Phased implementation approach for fallback mechanisms"
+
+  phase_1_foundation:
+    duration: "2_weeks"
+    deliverables:
+      - "circuit_breaker_implementation"
+      - "basic_tier_2_fallback"
+      - "health_monitoring_setup"
+      - "tier_transition_logic"
+    success_criteria:
+      - "circuit_breakers_functional"
+      - "tier_2_degradation_working"
+      - "basic_monitoring_operational"
+
+  phase_2_comprehensive:
+    duration: "3_weeks"
+    deliverables:
+      - "all_fallback_tiers_implemented"
+      - "quality_preservation_mechanisms"
+      - "comprehensive_monitoring"
+      - "alerting_system"
+    success_criteria:
+      - "all_tiers_functional"
+      - "quality_metrics_maintained"
+      - "alerting_properly_configured"
+
+  phase_3_optimization:
+    duration: "2_weeks"
+    deliverables:
+      - "performance_optimization"
+      - "chaos_engineering_setup"
+      - "comprehensive_testing"
+      - "documentation_completion"
+    success_criteria:
+      - "performance_targets_met"
+      - "chaos_tests_passing"
+      - "documentation_complete"
+
+  phase_4_production:
+    duration: "1_week"
+    deliverables:
+      - "production_deployment"
+      - "operational_procedures"
+      - "team_training"
+      - "success_metrics_tracking"
+    success_criteria:
+      - "system_operational_in_production"
+      - "teams_trained"
+      - "metrics_being_tracked"
+
+validation_summary:
+  fallback_system_readiness:
+    - "multi_tier_resilience_architecture_designed"
+    - "comprehensive_failure_detection_specified"
+    - "graceful_degradation_strategies_defined"
+    - "quality_preservation_mechanisms_planned"
+    - "operational_procedures_documented"
+    - "testing_validation_framework_complete"

@@ -1,0 +1,57 @@
+# Production Multi-Stage Dockerfile for React Frontend
+# Optimized with Nginx, security headers, and caching
+
+# Build stage
+FROM node:18-alpine AS builder
+
+WORKDIR /build
+
+# Install system dependencies for node-gyp
+RUN apk add --no-cache python3 make g++ git
+
+# Copy package files for dependency caching
+COPY archon-ui-main/package*.json ./
+
+# Install dependencies with exact versions for reproducibility
+RUN npm ci --only=production --no-audit --no-fund
+
+# Copy source code
+COPY archon-ui-main/ ./
+
+# Build production bundle with optimizations
+RUN npm run build
+
+# Production runtime stage with Nginx
+FROM nginx:alpine AS runtime
+
+# Install security tools
+RUN apk add --no-cache curl
+
+# Copy custom nginx configuration
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/default.conf /etc/nginx/conf.d/default.conf
+
+# Copy built assets from builder stage
+COPY --from=builder /build/dist /usr/share/nginx/html
+
+# Copy security headers configuration
+COPY docker/security-headers.conf /etc/nginx/conf.d/security-headers.conf
+
+# Create non-root nginx user
+RUN addgroup -g 101 -S nginx-app && \
+    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx-app -g nginx-app nginx-app && \
+    chown -R nginx-app:nginx-app /usr/share/nginx/html /var/cache/nginx /var/log/nginx && \
+    chmod -R 755 /usr/share/nginx/html
+
+# Switch to non-root user
+USER nginx-app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:80/health || exit 1
+
+# Expose port
+EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,20 @@
+agent_domain: rag_query
+agent_purpose: RAG knowledge query specialist for retrieving contextual intelligence
+  and historical patterns
+agent_title: ONEX Anti-YOLO Method + BFROS Framework
+agent_description: RAG knowledge query specialist for retrieving contextual intelligence
+  and historical patterns
+agent_context: research
+domain_query: knowledge retrieval search patterns
+implementation_query: RAG system optimization
+match_count: 5
+confidence_threshold: 0.6
+knowledge_capture_level: comprehensive
+capabilities:
+  mandatory_functions: true
+  template_system: true
+  enhanced_patterns: true
+  quality_intelligence: true
+archon_mcp_enabled: true
+correlation_tracking: true
+parallel_capable: true
