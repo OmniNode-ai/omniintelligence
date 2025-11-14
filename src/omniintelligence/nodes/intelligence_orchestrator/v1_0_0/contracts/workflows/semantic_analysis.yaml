@@ -1,0 +1,96 @@
+name: semantic_analysis_workflow
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Llama Index workflow for semantic analysis of code.
+  Generates embeddings, analyzes semantic features, and computes similarity scores.
+
+workflow_type: sequential_with_parallel
+
+steps:
+  - name: validate_input
+    type: validation
+    description: Validate code snippet input
+    handler: validate_semantic_input
+    on_error: fail_immediately
+
+  - name: parallel_analysis
+    type: parallel
+    description: Compute embeddings and extract semantic features in parallel
+    steps:
+      - name: generate_embeddings
+        type: compute
+        description: Generate code embeddings
+        compute_node: vectorization_compute
+        input:
+          content: ${input.code_snippet}
+          context: ${input.context}
+        output: embeddings_result
+
+      - name: extract_semantic_features
+        type: compute
+        description: Extract semantic features from code
+        compute_node: semantic_analysis_compute
+        input:
+          code_snippet: ${input.code_snippet}
+          context: ${input.context}
+        output: features_result
+
+  - name: compute_similarity_scores
+    type: compute
+    description: Compute similarity scores against known patterns
+    compute_node: semantic_analysis_compute
+    input:
+      embeddings: ${embeddings_result.embeddings}
+      features: ${features_result.features}
+      compare_against: ${input.context.reference_patterns}
+    output: similarity_scores
+    depends_on:
+      - generate_embeddings
+      - extract_semantic_features
+
+  - name: store_embeddings
+    type: effect
+    description: Store embeddings in Qdrant for future similarity searches
+    effect_node: qdrant_vector_effect
+    input:
+      collection: semantic_embeddings
+      embeddings: ${embeddings_result.embeddings}
+      metadata:
+        features: ${features_result.features}
+        similarity_scores: ${similarity_scores}
+      correlation_id: ${input.correlation_id}
+    depends_on:
+      - compute_similarity_scores
+
+# Error handling
+error_handling:
+  on_step_failure:
+    - name: log_error
+      type: logging
+      handler: log_semantic_error
+      input:
+        error: ${error}
+
+  retry_policy:
+    max_retries: 2
+    retry_on_steps:
+      - generate_embeddings
+      - store_embeddings
+    backoff_strategy: exponential
+
+# Performance settings
+performance:
+  timeout_seconds: 300
+  enable_caching: true
+  cache_key_template: "semantic:${input.code_snippet.hash}"
+  cache_ttl_seconds: 300
+
+# Monitoring
+monitoring:
+  track_step_duration: true
+  emit_progress_events: false
+  log_level: DEBUG
