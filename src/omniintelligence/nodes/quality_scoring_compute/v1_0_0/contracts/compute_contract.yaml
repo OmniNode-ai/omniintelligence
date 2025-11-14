@@ -1,0 +1,144 @@
+name: quality_scoring_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for assessing code quality across 6 dimensions.
+  Evaluates ONEX compliance and generates improvement recommendations.
+
+node_type: compute
+base_class: NodeOmniAgentCompute
+
+# Input/Output models
+input_model:
+  name: ModelQualityScoringInput
+  fields:
+    file_path:
+      type: str
+      required: true
+      description: Path to the file being assessed
+
+    content:
+      type: str
+      required: true
+      description: File content
+
+    language:
+      type: str
+      required: true
+      description: Programming language
+
+    project_name:
+      type: str
+      required: true
+      description: Project name for context
+
+    assessment_type:
+      type: str
+      required: false
+      default: "full"
+      description: Type of assessment (full, quick, compliance_only)
+
+output_model:
+  name: ModelQualityScoringOutput
+  fields:
+    success:
+      type: bool
+      required: true
+      description: Whether scoring succeeded
+
+    overall_score:
+      type: float
+      required: true
+      description: Overall quality score (0.0-1.0)
+
+    dimensions:
+      type: dict
+      required: true
+      description: |
+        Scores for 6 dimensions:
+        - maintainability
+        - readability
+        - complexity
+        - documentation
+        - testing
+        - security
+
+    onex_compliant:
+      type: bool
+      required: true
+      description: Whether code is ONEX compliant
+
+    compliance_issues:
+      type: list[str]
+      required: false
+      description: List of compliance issues
+
+    recommendations:
+      type: list[dict]
+      required: false
+      description: Improvement recommendations
+
+# Configuration
+config_model:
+  name: ModelQualityScoringConfig
+  fields:
+    quality_thresholds:
+      type: dict
+      default:
+        maintainability: 0.7
+        readability: 0.7
+        complexity: 0.6
+        documentation: 0.6
+        testing: 0.7
+        security: 0.8
+
+    onex_validation_enabled:
+      type: bool
+      default: true
+
+    generate_recommendations:
+      type: bool
+      default: true
+
+# Operations
+operations:
+  assess_quality:
+    description: Assess code quality across all dimensions
+    input_model: ModelQualityScoringInput
+    output_model: ModelQualityScoringOutput
+
+  check_compliance:
+    description: Check ONEX compliance only
+    input:
+      content: str
+      language: str
+    output:
+      compliant: bool
+      issues: list[str]
+
+  generate_recommendations:
+    description: Generate improvement recommendations
+    input:
+      quality_dimensions: dict
+      compliance_issues: list[str]
+    output:
+      recommendations: list[dict]
+
+# Dependencies
+dependencies:
+  compute_nodes: []
+  external_services:
+    - code_analysis_engine
+
+# Metadata
+metadata:
+  author: omniintelligence
+  created_at: "2025-11-14"
+  tags:
+    - compute
+    - quality
+    - assessment
+    - onex

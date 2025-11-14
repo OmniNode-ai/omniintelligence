@@ -1,0 +1,189 @@
+name: pattern_learning_workflow
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Llama Index workflow for pattern learning across 4 phases:
+  Phase 1: Foundation - Basic pattern matching
+  Phase 2: Matching - Advanced semantic matching
+  Phase 3: Validation - Pattern validation and scoring
+  Phase 4: Traceability - Lineage tracking in PostgreSQL
+
+workflow_type: sequential
+
+steps:
+  - name: validate_input
+    type: validation
+    description: Validate code snippet and context
+    handler: validate_pattern_input
+    on_error: fail_immediately
+
+  - name: emit_reducer_intent
+    type: intent
+    description: Emit intent to update FSM state to FOUNDATION
+    handler: emit_state_update_intent
+    intent_type: STATE_UPDATE
+    payload:
+      fsm_type: PATTERN_LEARNING
+      new_state: FOUNDATION
+
+  - name: phase_1_foundation
+    type: compute
+    description: Phase 1 - Basic pattern matching
+    compute_node: pattern_matching_compute
+    input:
+      code_snippet: ${input.code_snippet}
+      project_name: ${input.project_name}
+      phase: FOUNDATION
+      context: ${input.context}
+    output: foundation_patterns
+
+  - name: update_state_to_matching
+    type: intent
+    description: Update FSM state to MATCHING phase
+    handler: emit_state_update_intent
+    intent_type: STATE_UPDATE
+    payload:
+      fsm_type: PATTERN_LEARNING
+      new_state: MATCHING
+      metadata:
+        foundation_patterns_count: ${foundation_patterns.patterns.length}
+
+  - name: phase_2_matching
+    type: compute
+    description: Phase 2 - Semantic matching and scoring
+    compute_node: semantic_analysis_compute
+    input:
+      code_snippet: ${input.code_snippet}
+      candidate_patterns: ${foundation_patterns.patterns}
+      context: ${input.context}
+    output: semantic_matches
+    depends_on:
+      - phase_1_foundation
+
+  - name: update_state_to_validation
+    type: intent
+    description: Update FSM state to VALIDATION phase
+    handler: emit_state_update_intent
+    intent_type: STATE_UPDATE
+    payload:
+      fsm_type: PATTERN_LEARNING
+      new_state: VALIDATION
+      metadata:
+        semantic_matches_count: ${semantic_matches.matches.length}
+
+  - name: phase_3_validation
+    type: compute
+    description: Phase 3 - Pattern validation and quality scoring
+    compute_node: quality_scoring_compute
+    input:
+      patterns: ${semantic_matches.matches}
+      code_snippet: ${input.code_snippet}
+      validation_criteria: ${input.context.validation_criteria}
+    output: validated_patterns
+    depends_on:
+      - phase_2_matching
+
+  - name: update_state_to_traceability
+    type: intent
+    description: Update FSM state to TRACEABILITY phase
+    handler: emit_state_update_intent
+    intent_type: STATE_UPDATE
+    payload:
+      fsm_type: PATTERN_LEARNING
+      new_state: TRACEABILITY
+      metadata:
+        validated_patterns_count: ${validated_patterns.patterns.length}
+
+  - name: phase_4_traceability
+    type: effect
+    description: Phase 4 - Store pattern lineage in PostgreSQL
+    effect_node: postgres_pattern_effect
+    input:
+      patterns: ${validated_patterns.patterns}
+      lineage:
+        source_code: ${input.code_snippet}
+        project_name: ${input.project_name}
+        foundation_phase: ${foundation_patterns}
+        matching_phase: ${semantic_matches}
+        validation_phase: ${validated_patterns}
+      correlation_id: ${input.correlation_id}
+    depends_on:
+      - phase_3_validation
+
+  - name: publish_completion_event
+    type: effect
+    description: Publish pattern learning completion event
+    effect_node: kafka_event_effect
+    input:
+      topic: pattern.matched.v1
+      event_type: PATTERN_LEARNING_COMPLETED
+      payload:
+        project_name: ${input.project_name}
+        patterns_learned: ${validated_patterns.patterns.length}
+        phases_completed: 4
+        final_scores: ${validated_patterns.scores}
+      correlation_id: ${input.correlation_id}
+
+  - name: update_fsm_to_completed
+    type: intent
+    description: Update FSM state to COMPLETED
+    handler: emit_state_update_intent
+    intent_type: STATE_UPDATE
+    payload:
+      fsm_type: PATTERN_LEARNING
+      new_state: COMPLETED
+      metadata:
+        patterns_count: ${validated_patterns.patterns.length}
+        total_phases: 4
+
+# Error handling
+error_handling:
+  on_step_failure:
+    - name: publish_error_event
+      type: effect
+      effect_node: kafka_event_effect
+      input:
+        topic: pattern.learning.failed.v1
+        event_type: PATTERN_LEARNING_FAILED
+        payload:
+          project_name: ${input.project_name}
+          failed_phase: ${error.step}
+          error_message: ${error.message}
+        correlation_id: ${input.correlation_id}
+
+    - name: update_fsm_to_failed
+      type: intent
+      handler: emit_state_update_intent
+      intent_type: STATE_UPDATE
+      payload:
+        fsm_type: PATTERN_LEARNING
+        new_state: FAILED
+        metadata:
+          failed_at_phase: ${error.step}
+          error: ${error.message}
+
+  retry_policy:
+    max_retries: 2
+    retry_on_steps:
+      - phase_1_foundation
+      - phase_2_matching
+      - phase_3_validation
+      - phase_4_traceability
+    backoff_strategy: exponential
+
+# Performance settings
+performance:
+  timeout_seconds: 900  # 15 minutes for full 4-phase learning
+  enable_caching: true
+  cache_key_template: "pattern_learn:${input.project_name}:${input.code_snippet.hash}"
+  cache_ttl_seconds: 600
+
+# Monitoring
+monitoring:
+  track_step_duration: true
+  track_phase_transitions: true
+  emit_progress_events: true
+  log_level: INFO

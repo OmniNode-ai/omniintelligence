@@ -1,0 +1,148 @@
+name: processing_subcontract
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Processing operations subcontract for intelligence reducer.
+  Handles FSM state transitions and intent emission.
+
+operations:
+  transition_state:
+    description: Execute FSM state transition
+    input:
+      fsm_type: EnumFSMType
+      entity_id: str
+      action: EnumFSMAction
+      payload: dict
+      correlation_id: str
+    output:
+      success: bool
+      previous_state: str
+      current_state: str
+      intents: list[ModelIntent]
+    validation:
+      - check_valid_transition
+      - check_lease_if_required
+      - validate_payload_schema
+
+  get_state:
+    description: Get current FSM state for an entity
+    input:
+      fsm_type: EnumFSMType
+      entity_id: str
+    output:
+      current_state: str
+      previous_state: str
+      transition_timestamp: str
+      metadata: dict
+
+  initialize_fsm:
+    description: Initialize FSM for a new entity
+    input:
+      fsm_type: EnumFSMType
+      entity_id: str
+      initial_metadata: dict
+    output:
+      success: bool
+      current_state: str
+      intents: list[ModelIntent]
+
+  reset_fsm:
+    description: Reset FSM to initial state
+    input:
+      fsm_type: EnumFSMType
+      entity_id: str
+      reason: str
+    output:
+      success: bool
+      previous_state: str
+      current_state: str
+
+  bulk_transition:
+    description: Execute multiple state transitions atomically
+    input:
+      transitions: list[dict]
+      atomic: bool
+    output:
+      success: bool
+      successful_transitions: int
+      failed_transitions: int
+      results: list[dict]
+
+# State transition validation
+validation:
+  check_valid_transition:
+    description: Verify transition is valid for current state
+    rules:
+      - current_state must exist in fsm_state table
+      - transition must be defined in FSM definition
+      - action must be valid for current state
+
+  check_lease_if_required:
+    description: Check action lease if coordination is required
+    rules:
+      - if lease_id provided, must be valid and not expired
+      - epoch must match current epoch
+      - lease must not be held by another process
+
+  validate_payload_schema:
+    description: Validate payload matches action requirements
+    rules:
+      - payload must contain required fields for action
+      - field types must match schema
+      - enum values must be valid
+
+# Intent emission patterns
+intent_patterns:
+  state_update:
+    intent_type: STATE_UPDATE
+    target: self
+    when: after_successful_transition
+
+  workflow_trigger:
+    intent_type: WORKFLOW_TRIGGER
+    target: intelligence_orchestrator
+    when: state in [PROCESSING, ASSESSING, MATCHING]
+
+  event_publish:
+    intent_type: EVENT_PUBLISH
+    target: kafka_event_effect
+    when: state in final_states or state == FAILED
+
+  cache_invalidate:
+    intent_type: CACHE_INVALIDATE
+    target: cache_service
+    when: state_changed
+
+# Error handling
+error_handling:
+  invalid_transition:
+    action: reject
+    emit_intent:
+      intent_type: EVENT_PUBLISH
+      payload:
+        topic: fsm.invalid_transition.v1
+        error: ${error}
+
+  lease_conflict:
+    action: retry_with_backoff
+    max_retries: 3
+    backoff_strategy: exponential
+
+  database_error:
+    action: fail_and_log
+    emit_intent:
+      intent_type: EVENT_PUBLISH
+      payload:
+        topic: fsm.database_error.v1
+        error: ${error}
+
+# Performance settings
+performance:
+  enable_transaction_batching: true
+  batch_window_ms: 100
+  max_batch_size: 50
+  enable_read_cache: true
+  cache_ttl_seconds: 60

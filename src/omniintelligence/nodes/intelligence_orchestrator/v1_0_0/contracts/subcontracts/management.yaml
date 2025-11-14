@@ -1,0 +1,124 @@
+name: management_subcontract
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Management operations subcontract for intelligence orchestrator.
+  Handles workflow lifecycle, cache management, and system configuration.
+
+operations:
+  get_workflow_status:
+    description: Get status of a running workflow
+    input:
+      workflow_id: str
+    output:
+      status: str
+      progress: float
+      current_step: str
+      started_at: str
+      estimated_completion: str
+
+  cancel_workflow:
+    description: Cancel a running workflow
+    input:
+      workflow_id: str
+      reason: str
+    output:
+      cancelled: bool
+      cleanup_completed: bool
+
+  retry_workflow:
+    description: Retry a failed workflow
+    input:
+      workflow_id: str
+      from_step: str
+    output:
+      new_workflow_id: str
+      retry_started: bool
+
+  clear_cache:
+    description: Clear orchestrator cache
+    input:
+      cache_key_pattern: str
+      scope: str  # 'all', 'workflow', 'operation'
+    output:
+      keys_cleared: int
+      cache_freed_mb: float
+
+  get_cache_stats:
+    description: Get cache statistics
+    input:
+      scope: str
+    output:
+      total_keys: int
+      memory_used_mb: float
+      hit_rate: float
+      miss_rate: float
+
+  update_config:
+    description: Update orchestrator configuration
+    input:
+      config_updates: dict
+      apply_immediately: bool
+    output:
+      updated: bool
+      previous_config: dict
+      new_config: dict
+
+  get_active_workflows:
+    description: Get list of active workflows
+    input:
+      operation_type: str  # optional filter
+      limit: int
+      offset: int
+    output:
+      workflows: list
+      total_count: int
+
+  pause_workflow:
+    description: Pause a running workflow
+    input:
+      workflow_id: str
+    output:
+      paused: bool
+      paused_at_step: str
+
+  resume_workflow:
+    description: Resume a paused workflow
+    input:
+      workflow_id: str
+    output:
+      resumed: bool
+      current_step: str
+
+# Management policies
+policies:
+  workflow_retention:
+    completed_workflows_ttl_hours: 168  # 7 days
+    failed_workflows_ttl_hours: 720     # 30 days
+    cancelled_workflows_ttl_hours: 168  # 7 days
+
+  cache_eviction:
+    max_memory_mb: 512
+    eviction_policy: lru
+    eviction_threshold_percent: 90
+
+  resource_limits:
+    max_active_workflows: 100
+    max_queued_workflows: 1000
+    max_workflow_duration_seconds: 3600
+
+# Authorization
+authorization:
+  operations:
+    get_workflow_status: ["read"]
+    cancel_workflow: ["write", "admin"]
+    retry_workflow: ["write", "admin"]
+    clear_cache: ["admin"]
+    get_cache_stats: ["read", "admin"]
+    update_config: ["admin"]
+    get_active_workflows: ["read"]
+    pause_workflow: ["write", "admin"]
+    resume_workflow: ["write", "admin"]

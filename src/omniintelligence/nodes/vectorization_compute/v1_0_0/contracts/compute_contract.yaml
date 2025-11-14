@@ -1,0 +1,115 @@
+name: vectorization_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for generating embeddings from code and documents.
+  Supports multiple embedding models and batch processing.
+
+node_type: compute
+base_class: NodeOmniAgentCompute
+
+# Input/Output models
+input_model:
+  name: ModelVectorizationInput
+  fields:
+    content:
+      type: str
+      required: true
+      description: Text content to vectorize
+
+    metadata:
+      type: dict
+      required: false
+      description: Additional metadata (language, file_path, etc.)
+
+    model_name:
+      type: str
+      required: false
+      default: "text-embedding-3-small"
+      description: Embedding model to use
+
+    batch_mode:
+      type: bool
+      required: false
+      default: false
+      description: Whether to process in batch mode
+
+output_model:
+  name: ModelVectorizationOutput
+  fields:
+    success:
+      type: bool
+      required: true
+      description: Whether vectorization succeeded
+
+    embeddings:
+      type: list[float]
+      required: true
+      description: Generated embeddings (1536D)
+
+    model_used:
+      type: str
+      required: true
+      description: Model used for embedding generation
+
+    metadata:
+      type: dict
+      required: false
+      description: Additional metadata about the embedding
+
+# Configuration
+config_model:
+  name: ModelVectorizationConfig
+  fields:
+    default_model:
+      type: str
+      default: "text-embedding-3-small"
+
+    max_batch_size:
+      type: int
+      default: 100
+
+    enable_caching:
+      type: bool
+      default: true
+
+    cache_ttl_seconds:
+      type: int
+      default: 3600
+
+# Operations
+operations:
+  vectorize:
+    description: Generate embeddings for content
+    input_model: ModelVectorizationInput
+    output_model: ModelVectorizationOutput
+
+  batch_vectorize:
+    description: Generate embeddings for multiple contents
+    input:
+      contents: list[str]
+      metadata_list: list[dict]
+      model_name: str
+    output:
+      success: bool
+      embeddings_list: list[list[float]]
+      model_used: str
+
+# Dependencies
+dependencies:
+  external_services:
+    - openai_api
+  cache_services:
+    - valkey
+
+# Metadata
+metadata:
+  author: omniintelligence
+  created_at: "2025-11-14"
+  tags:
+    - compute
+    - vectorization
+    - embeddings

@@ -1,0 +1,185 @@
+name: monitoring_subcontract
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Monitoring operations subcontract for intelligence orchestrator.
+  Handles health checks, metrics collection, and observability.
+
+operations:
+  health_check:
+    description: Check orchestrator health
+    input:
+      include_dependencies: bool
+    output:
+      status: str  # 'healthy', 'degraded', 'unhealthy'
+      uptime_seconds: int
+      active_workflows: int
+      dependencies:
+        compute_nodes: dict
+        effect_nodes: dict
+        reducers: dict
+      last_error: str
+
+  get_metrics:
+    description: Get orchestrator metrics
+    input:
+      metric_types: list  # ['workflow', 'performance', 'errors']
+      time_range_seconds: int
+    output:
+      workflow_metrics:
+        total_executed: int
+        successful: int
+        failed: int
+        average_duration_seconds: float
+      performance_metrics:
+        throughput_per_second: float
+        p50_latency_ms: float
+        p95_latency_ms: float
+        p99_latency_ms: float
+      error_metrics:
+        total_errors: int
+        error_rate: float
+        top_error_types: list
+
+  get_workflow_metrics:
+    description: Get metrics for a specific workflow type
+    input:
+      workflow_name: str
+      time_range_seconds: int
+    output:
+      execution_count: int
+      success_rate: float
+      average_duration_seconds: float
+      step_metrics: dict
+
+  get_operation_metrics:
+    description: Get metrics for a specific operation type
+    input:
+      operation_type: str
+      time_range_seconds: int
+    output:
+      invocation_count: int
+      success_rate: float
+      average_latency_ms: float
+      error_breakdown: dict
+
+  get_dependency_health:
+    description: Get health status of dependencies
+    input:
+      dependency_type: str  # 'compute', 'effect', 'reducer', 'all'
+    output:
+      dependencies: list
+      healthy_count: int
+      unhealthy_count: int
+      degraded_count: int
+
+  get_trace:
+    description: Get execution trace for a workflow
+    input:
+      workflow_id: str
+      include_spans: bool
+    output:
+      trace_id: str
+      workflow_id: str
+      duration_ms: float
+      spans: list
+      events: list
+      logs: list
+
+  export_metrics:
+    description: Export metrics in Prometheus format
+    input:
+      format: str  # 'prometheus', 'json', 'opentelemetry'
+    output:
+      metrics: str
+      format: str
+      timestamp: str
+
+# Metrics collection settings
+metrics:
+  collection_interval_seconds: 60
+  retention_period_hours: 168  # 7 days
+
+  enabled_metrics:
+    - workflow_execution_duration
+    - workflow_success_rate
+    - operation_invocation_count
+    - operation_latency
+    - error_rate
+    - cache_hit_rate
+    - dependency_health
+    - resource_utilization
+
+  exporters:
+    - type: prometheus
+      endpoint: /metrics
+      enabled: true
+
+    - type: opentelemetry
+      endpoint: http://otel-collector:4317
+      enabled: false
+
+# Alerting thresholds
+alerts:
+  error_rate:
+    threshold_percent: 5.0
+    window_seconds: 300
+    severity: warning
+
+  high_error_rate:
+    threshold_percent: 20.0
+    window_seconds: 300
+    severity: critical
+
+  workflow_duration:
+    threshold_seconds: 600
+    severity: warning
+
+  dependency_health:
+    unhealthy_threshold: 2
+    severity: critical
+
+  resource_utilization:
+    cpu_threshold_percent: 80
+    memory_threshold_percent: 85
+    severity: warning
+
+# Tracing configuration
+tracing:
+  enabled: true
+  sample_rate: 1.0  # 100% sampling in dev
+
+  exporters:
+    - type: jaeger
+      endpoint: http://jaeger:14268/api/traces
+      enabled: false
+
+    - type: zipkin
+      endpoint: http://zipkin:9411/api/v2/spans
+      enabled: false
+
+  include_workflow_steps: true
+  include_compute_calls: true
+  include_effect_calls: true
+
+# Logging configuration
+logging:
+  level: INFO
+
+  structured_logging: true
+
+  include_fields:
+    - timestamp
+    - workflow_id
+    - operation_type
+    - correlation_id
+    - duration_ms
+    - status
+
+  log_workflow_start: true
+  log_workflow_complete: true
+  log_workflow_error: true
+  log_step_transitions: false  # too verbose for production
