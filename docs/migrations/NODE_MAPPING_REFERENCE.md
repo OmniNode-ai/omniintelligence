@@ -8,28 +8,28 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   INTELLIGENCE ORCHESTRATOR                      │
+│              INTELLIGENCE ORCHESTRATOR (Unified)                 │
 │               (NodeOmniAgentOrchestrator)                        │
 │                                                                   │
-│  Workflows (Llama Index):                                        │
-│  • document_ingestion_workflow                                   │
-│  • pattern_learning_workflow                                     │
-│  • quality_assessment_workflow                                   │
+│  Handles ALL Workflows via operation_type enum:                  │
+│  • DOCUMENT_INGESTION → document_ingestion_workflow             │
+│  • PATTERN_LEARNING → pattern_learning_workflow                 │
+│  • QUALITY_ASSESSMENT → quality_assessment_workflow             │
 └────────────────────────┬────────────────────────────────────────┘
                          │
          ┌───────────────┼───────────────┐
          │               │               │
          ▼               ▼               ▼
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│  REDUCERS   │  │   COMPUTE   │  │   EFFECTS   │
-│  (Pure FSM) │  │   (Pure)    │  │  (I/O)      │
+│  REDUCER    │  │   COMPUTE   │  │   EFFECTS   │
+│  (Unified)  │  │   (Pure)    │  │  (I/O)      │
 ├─────────────┤  ├─────────────┤  ├─────────────┤
-│ Ingestion   │  │ Vectorize   │  │ Kafka       │
-│ Pattern     │  │ Extract     │  │ Qdrant      │
-│ Quality     │  │ Match       │  │ Memgraph    │
-│             │  │ Score       │  │ PostgreSQL  │
-│             │  │ Analyze     │  │ API Gateway │
-│             │  │ Detect      │  │             │
+│ Handles     │  │ Vectorize   │  │ Kafka       │
+│ ALL FSMs:   │  │ Extract     │  │ Qdrant      │
+│ • Ingest    │  │ Match       │  │ Memgraph    │
+│ • Pattern   │  │ Score       │  │ PostgreSQL  │
+│ • Quality   │  │ Analyze     │  │ API Gateway │
+│ via enum    │  │ Detect      │  │             │
 └─────────────┘  └─────────────┘  └─────────────┘
        │                                  ▲
        └──────────(intents)──────────────┘
@@ -39,19 +39,17 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 ## Complete Node Inventory
 
-### 1 Orchestrator Node
+### 1 Unified Orchestrator Node
 
-| Node Name | Class | Purpose | Workflows |
-|-----------|-------|---------|-----------|
-| `intelligence_orchestrator` | NodeOmniAgentOrchestrator | Coordinates all intelligence workflows | document_ingestion, pattern_learning, quality_assessment |
+| Node Name | Class | Purpose | Workflows Handled |
+|-----------|-------|---------|-------------------|
+| `intelligence_orchestrator` | NodeOmniAgentOrchestrator | **Coordinates ALL intelligence workflows via operation_type enum** | document_ingestion, pattern_learning, quality_assessment, semantic_enrichment |
 
-### 3 Reducer Nodes
+### 1 Unified Reducer Node
 
-| Node Name | Class | FSM States | Database Table |
-|-----------|-------|------------|----------------|
-| `ingestion_reducer` | NodeOmniAgentReducer | RECEIVED → PARSED → VECTORIZED → INDEXED | `ingestion_state` |
-| `pattern_learning_reducer` | NodeOmniAgentReducer | FOUNDATION → MATCHING → VALIDATION → TRACEABILITY | `pattern_learning_state` |
-| `quality_assessment_reducer` | NodeOmniAgentReducer | RAW → ANALYZED → SCORED → STORED | `quality_assessment_state` |
+| Node Name | Class | FSMs Handled | Database Table |
+|-----------|-------|--------------|----------------|
+| `intelligence_reducer` | NodeOmniAgentReducer | **ALL FSMs via fsm_type enum:** INGESTION (RECEIVED → INDEXED), PATTERN_LEARNING (FOUNDATION → TRACEABILITY), QUALITY_ASSESSMENT (RAW → STORED) | `fsm_state` (unified) |
 
 ### 6 Compute Nodes
 
@@ -99,12 +97,12 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 | Omniarchon Handler | ONEX Node | Processing Pattern |
 |--------------------|-----------|-------------------|
-| `QualityAssessmentHandler` | `quality_assessment_reducer` | FSM: RAW → SCORED |
-| `PatternLearningHandler` | `pattern_learning_reducer` | FSM: FOUNDATION → TRACEABILITY |
-| `DocumentProcessingHandler` | `ingestion_reducer` | FSM: RECEIVED → INDEXED |
-| `PerformanceHandler` | `quality_assessment_reducer` | FSM with metrics |
-| `FreshnessHandler` | `ingestion_reducer` | State update intent |
-| `PatternTraceabilityHandler` | `pattern_learning_reducer` | Lineage tracking intent |
+| `QualityAssessmentHandler` | `intelligence_reducer` | FSM_TYPE.QUALITY_ASSESSMENT: RAW → SCORED |
+| `PatternLearningHandler` | `intelligence_reducer` | FSM_TYPE.PATTERN_LEARNING: FOUNDATION → TRACEABILITY |
+| `DocumentProcessingHandler` | `intelligence_reducer` | FSM_TYPE.INGESTION: RECEIVED → INDEXED |
+| `PerformanceHandler` | `intelligence_reducer` | FSM_TYPE.QUALITY_ASSESSMENT with metrics |
+| `FreshnessHandler` | `intelligence_reducer` | FSM_TYPE.INGESTION state update |
+| `PatternTraceabilityHandler` | `intelligence_reducer` | FSM_TYPE.PATTERN_LEARNING lineage tracking |
 | `CodegenValidationHandler` | `quality_scoring_compute` | Pure validation |
 | `AutonomousLearningHandler` | `pattern_matching_compute` | Pure learning |
 | All other handlers | `intelligence_orchestrator` | Workflow steps |
@@ -152,13 +150,13 @@ Kafka enrichment.requested.v1
 **ONEX Flow**:
 ```
 Kafka enrichment.requested.v1
-  → intelligence_orchestrator (workflow: document_ingestion)
+  → intelligence_orchestrator (operation_type: DOCUMENT_INGESTION)
     Step 1: entity_extraction_compute (code → entities)
     Step 2: vectorization_compute (text → embeddings)
-    Step 3: ingestion_reducer (RECEIVED → PARSED, emits intents)
+    Step 3: intelligence_reducer (fsm_type: INGESTION, RECEIVED → PARSED)
     Step 4: qdrant_vector_effect (INDEX_VECTORS)
     Step 5: memgraph_graph_effect (CREATE_NODES)
-    Step 6: ingestion_reducer (PARSED → INDEXED, emits completion intent)
+    Step 6: intelligence_reducer (fsm_type: INGESTION, PARSED → INDEXED)
     Step 7: kafka_event_effect (PUBLISH_EVENT: completion)
 ```
 
@@ -174,16 +172,16 @@ Phase 4: PatternTraceabilityHandler tracks lineage
 
 **ONEX Flow**:
 ```
-intelligence_orchestrator (workflow: pattern_learning)
-  Step 1: pattern_learning_reducer (transition: INIT → FOUNDATION)
+intelligence_orchestrator (operation_type: PATTERN_LEARNING)
+  Step 1: intelligence_reducer (fsm_type: PATTERN_LEARNING, INIT → FOUNDATION)
     → Intent: DATA_FETCH (load foundation patterns)
   Step 2: pattern_matching_compute (code + patterns → matches)
-  Step 3: pattern_learning_reducer (transition: FOUNDATION → MATCHING)
+  Step 3: intelligence_reducer (fsm_type: PATTERN_LEARNING, FOUNDATION → MATCHING)
     → Intent: STATE_UPDATE (store matches)
   Step 4: quality_scoring_compute (validate pattern quality)
-  Step 5: pattern_learning_reducer (transition: MATCHING → VALIDATION)
+  Step 5: intelligence_reducer (fsm_type: PATTERN_LEARNING, MATCHING → VALIDATION)
   Step 6: postgres_pattern_effect (TRACK_LINEAGE)
-  Step 7: pattern_learning_reducer (transition: VALIDATION → TRACEABILITY)
+  Step 7: intelligence_reducer (fsm_type: PATTERN_LEARNING, VALIDATION → TRACEABILITY)
     → Intent: EVENT_PUBLISH (pattern.completed.v1)
 ```
 
@@ -201,15 +199,15 @@ POST /assess/code
 
 **ONEX Flow**:
 ```
-intelligence_orchestrator (workflow: quality_assessment)
+intelligence_orchestrator (operation_type: QUALITY_ASSESSMENT)
   Step 1: quality_scoring_compute (metrics → score)
-  Step 2: quality_assessment_reducer (RAW → ANALYZED)
+  Step 2: intelligence_reducer (fsm_type: QUALITY_ASSESSMENT, RAW → ANALYZED)
     → Intent: STATE_UPDATE (store metrics)
   Step 3: semantic_analysis_compute (code → features)
-  Step 4: quality_assessment_reducer (ANALYZED → SCORED)
+  Step 4: intelligence_reducer (fsm_type: QUALITY_ASSESSMENT, ANALYZED → SCORED)
     → Intent: CACHE_WRITE (cache score, TTL 300s)
   Step 5: postgres_pattern_effect (UPDATE_STATE: store trends)
-  Step 6: quality_assessment_reducer (SCORED → COMPLETED)
+  Step 6: intelligence_reducer (fsm_type: QUALITY_ASSESSMENT, SCORED → COMPLETED)
     → Intent: EVENT_PUBLISH (quality.assessed.v1)
 ```
 
@@ -326,51 +324,97 @@ capabilities:
   - COMPENSATION_LOGIC
 ```
 
-### Reducer Contract
+### Unified Reducer Contract
 
 ```yaml
-# src/omniintelligence/nodes/ingestion_reducer/v1_0_0/contracts/reducer_contract.yaml
+# src/omniintelligence/nodes/intelligence_reducer/v1_0_0/contracts/reducer_contract.yaml
 
 node_type: reducer
-node_name: ingestion_reducer
+node_name: intelligence_reducer
 version: 1.0.0
 
-state_machine:
-  states:
-    - RECEIVED
-    - PARSED
-    - VECTORIZED
-    - INDEXED
-    - COMPLETED
-    - FAILED
+fsm_types:
+  - INGESTION
+  - PATTERN_LEARNING
+  - QUALITY_ASSESSMENT
 
-  transitions:
-    - from: RECEIVED
-      to: PARSED
-      event: PARSE_COMPLETED
+state_machines:
+  INGESTION:
+    states:
+      - RECEIVED
+      - PARSED
+      - VECTORIZED
+      - INDEXED
+      - COMPLETED
+      - FAILED
+    transitions:
+      - from: RECEIVED
+        to: PARSED
+        event: PARSE_COMPLETED
+      - from: PARSED
+        to: VECTORIZED
+        event: VECTORIZATION_COMPLETED
+      - from: VECTORIZED
+        to: INDEXED
+        event: INDEXING_COMPLETED
+      - from: INDEXED
+        to: COMPLETED
+        event: PROCESSING_COMPLETED
 
-    - from: PARSED
-      to: VECTORIZED
-      event: VECTORIZATION_COMPLETED
+  PATTERN_LEARNING:
+    states:
+      - FOUNDATION
+      - MATCHING
+      - VALIDATION
+      - TRACEABILITY
+      - COMPLETED
+    transitions:
+      - from: FOUNDATION
+        to: MATCHING
+        event: FOUNDATION_LOADED
+      - from: MATCHING
+        to: VALIDATION
+        event: PATTERNS_MATCHED
+      - from: VALIDATION
+        to: TRACEABILITY
+        event: PATTERNS_VALIDATED
+      - from: TRACEABILITY
+        to: COMPLETED
+        event: LINEAGE_TRACKED
 
-    - from: VECTORIZED
-      to: INDEXED
-      event: INDEXING_COMPLETED
-
-    - from: INDEXED
-      to: COMPLETED
-      event: PROCESSING_COMPLETED
+  QUALITY_ASSESSMENT:
+    states:
+      - RAW
+      - ANALYZED
+      - SCORED
+      - STORED
+      - COMPLETED
+    transitions:
+      - from: RAW
+        to: ANALYZED
+        event: ANALYSIS_COMPLETED
+      - from: ANALYZED
+        to: SCORED
+        event: SCORING_COMPLETED
+      - from: SCORED
+        to: STORED
+        event: STORAGE_COMPLETED
+      - from: STORED
+        to: COMPLETED
+        event: PROCESSING_COMPLETED
 
 intents_emitted:
   - STATE_UPDATE
   - WORKFLOW_TRIGGER
   - EVENT_PUBLISH
   - CACHE_WRITE
+  - DATA_FETCH
   - LOG
   - METRIC
 
 purity_guarantee: true
 state_persistence: database
+unified_table: fsm_state
 ```
 
 ### Compute Contract
@@ -448,11 +492,13 @@ external_dependencies:
 src/omniintelligence/nodes/
 ├── intelligence_orchestrator/
 │   └── v1_0_0/
-│       ├── node.py                          # NodeOmniAgentOrchestrator
+│       ├── node.py                          # NodeOmniAgentOrchestrator (unified)
 │       ├── models/
-│       │   ├── input.py                     # ModelIntelligenceInput
-│       │   ├── output.py                    # ModelIntelligenceOutput
-│       │   └── config.py                    # ModelIntelligenceConfig
+│       │   ├── input.py                     # ModelOrchestratorInput
+│       │   ├── output.py                    # ModelOrchestratorOutput
+│       │   └── config.py                    # ModelOrchestratorConfig
+│       ├── enums/
+│       │   └── operation_type.py            # EnumOperationType (routing enum)
 │       ├── contracts/
 │       │   ├── orchestrator_contract.yaml
 │       │   └── workflows/
@@ -468,20 +514,24 @@ src/omniintelligence/nodes/
 │           ├── workflow_loader.py
 │           └── lease_manager.py
 │
-├── ingestion_reducer/
+├── intelligence_reducer/
 │   └── v1_0_0/
-│       ├── node.py                          # NodeOmniAgentReducer
+│       ├── node.py                          # NodeOmniAgentReducer (unified)
 │       ├── models/
-│       │   ├── input.py                     # ModelIngestionInput
-│       │   ├── output.py                    # ModelIngestionOutput
-│       │   └── config.py                    # ModelIngestionConfig
+│       │   ├── input.py                     # ModelReducerInput
+│       │   ├── output.py                    # ModelReducerOutput
+│       │   └── config.py                    # ModelReducerConfig
 │       ├── enums/
-│       │   ├── state.py                     # EnumIngestionState
-│       │   └── event.py                     # EnumIngestionEvent
+│       │   ├── fsm_type.py                  # EnumFSMType (routing enum)
+│       │   ├── ingestion_state.py           # EnumIngestionState
+│       │   ├── pattern_state.py             # EnumPatternLearningState
+│       │   └── quality_state.py             # EnumQualityState
 │       ├── contracts/
 │       │   └── reducer_contract.yaml
 │       └── utils/
-│           └── state_transitions.py         # Pure transition logic
+│           ├── ingestion_fsm.py             # Pure ingestion logic
+│           ├── pattern_fsm.py               # Pure pattern logic
+│           └── quality_fsm.py               # Pure quality logic
 │
 ├── vectorization_compute/
 │   └── v1_0_0/
@@ -529,12 +579,14 @@ src/omniintelligence/nodes/
 - [ ] PostgreSQL pattern effect
 - [ ] Intelligence API effect
 
-### Phase 4: Reducers
-- [ ] Ingestion reducer (pure FSM)
-- [ ] Pattern learning reducer (4 phases)
-- [ ] Quality assessment reducer (pure FSM)
+### Phase 4: Unified Reducer
+- [ ] Intelligence reducer (unified, pure FSM)
+- [ ] Ingestion FSM (within unified reducer)
+- [ ] Pattern learning FSM (within unified reducer)
+- [ ] Quality assessment FSM (within unified reducer)
+- [ ] FSM routing via fsm_type enum
 
-### Phase 5: Orchestrator
+### Phase 5: Unified Orchestrator
 - [ ] Intelligence orchestrator
 - [ ] Llama Index workflow integration
 - [ ] All 3 workflows implemented

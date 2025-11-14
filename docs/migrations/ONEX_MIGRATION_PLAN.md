@@ -35,16 +35,19 @@
 ### Node Type Distribution
 
 ```
-NodeOmniAgentOrchestrator (1 node)
-├─ Intelligence workflow coordination
-├─ Multi-phase pattern learning orchestration
-├─ Document processing pipeline
-└─ Quality assessment coordination
+NodeOmniAgentOrchestrator (1 unified node)
+├─ Handles ALL workflows via operation_type enum
+├─ document_ingestion_workflow
+├─ pattern_learning_workflow
+├─ quality_assessment_workflow
+└─ semantic_enrichment_workflow
 
-NodeOmniAgentReducer (3 nodes)
+NodeOmniAgentReducer (1 unified node)
+├─ Handles ALL FSMs via fsm_type enum
 ├─ Ingestion FSM (document → indexed)
 ├─ Pattern Learning FSM (foundation → validated)
-└─ Quality Assessment FSM (raw → scored)
+├─ Quality Assessment FSM (raw → scored)
+└─ State persistence for all FSMs in single database
 
 Compute Nodes (6 nodes)
 ├─ Vectorization
@@ -70,10 +73,10 @@ Effect Nodes (5 nodes)
 
 | Omniarchon Component | ONEX Node Type | Node Name | Justification |
 |---------------------|----------------|-----------|---------------|
-| **Intelligence Consumer** | Orchestrator | `intelligence_orchestrator` | Coordinates multi-step enrichment workflows |
-| **Pattern Learning (4 phases)** | Reducer | `pattern_learning_reducer` | Pure FSM: Foundation → Matching → Validation → Traceability |
-| **Ingestion Pipeline** | Reducer | `ingestion_reducer` | Pure FSM: Received → Parsed → Vectorized → Indexed |
-| **Quality Assessment** | Reducer | `quality_assessment_reducer` | Pure FSM: Raw → Analyzed → Scored → Stored |
+| **Intelligence Consumer** | Orchestrator | `intelligence_orchestrator` | Single orchestrator handling ALL workflows via operation_type |
+| **Pattern Learning (4 phases)** | Reducer | `intelligence_reducer` | Single reducer handling ALL FSMs (ingestion, pattern, quality) via fsm_type |
+| **Ingestion Pipeline** | Reducer | `intelligence_reducer` | Same unified reducer with FSM_TYPE.INGESTION |
+| **Quality Assessment** | Reducer | `intelligence_reducer` | Same unified reducer with FSM_TYPE.QUALITY |
 | **Vectorization** | Compute | `vectorization_compute` | Pure: text → embeddings |
 | **Entity Extraction** | Compute | `entity_extraction_compute` | Pure: code → entities |
 | **Pattern Matching** | Compute | `pattern_matching_compute` | Pure: code → patterns |
@@ -90,9 +93,11 @@ Effect Nodes (5 nodes)
 
 ## Orchestrator Design
 
-### NodeOmniAgentOrchestrator
+### Single Unified NodeOmniAgentOrchestrator
 
 **Location**: `src/omniintelligence/nodes/intelligence_orchestrator/v1_0_0/`
+
+**Key Principle**: One orchestrator handles ALL workflows, routing based on `operation_type` enum.
 
 #### Workflow Declaration (Contract-Driven)
 
@@ -187,17 +192,20 @@ class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
     ModelIntelligenceConfig
 ]):
     """
-    Orchestrates intelligence workflows using Llama Index.
+    Unified orchestrator for ALL intelligence workflows.
 
-    Coordinates:
-    - Document ingestion pipeline
-    - Pattern learning (4 phases)
-    - Quality assessment workflows
-    - Semantic enrichment
+    Handles multiple workflows via operation_type enum:
+    - DOCUMENT_INGESTION: Document ingestion pipeline
+    - PATTERN_LEARNING: Pattern learning (4 phases)
+    - QUALITY_ASSESSMENT: Quality assessment workflows
+    - SEMANTIC_ENRICHMENT: Semantic enrichment pipeline
+
+    Each operation_type maps to a specific Llama Index workflow.
     """
 
     def __init__(self, config: ModelIntelligenceConfig):
         super().__init__(config)
+        # Load ALL workflows from contracts
         self.workflows = self._load_workflows_from_contracts()
 
     async def process(
@@ -205,10 +213,15 @@ class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
         input_data: ModelIntelligenceInput
     ) -> ModelIntelligenceOutput:
         """
-        Execute workflow based on operation_type.
+        Route to appropriate workflow based on operation_type.
 
-        Uses Llama Index Workflow engine for coordination.
+        Operation types:
+        - DOCUMENT_INGESTION → document_ingestion_workflow
+        - PATTERN_LEARNING → pattern_learning_workflow
+        - QUALITY_ASSESSMENT → quality_assessment_workflow
+        - SEMANTIC_ENRICHMENT → semantic_enrichment_workflow
         """
+        # Select workflow based on operation type
         workflow = self._select_workflow(input_data.operation_type)
 
         # Create lease for distributed ownership
@@ -283,19 +296,34 @@ class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
 
 ## Reducer Design
 
-### NodeOmniAgentReducer Pattern
+### Single Unified NodeOmniAgentReducer
 
-All reducers follow this pattern:
+**Location**: `src/omniintelligence/nodes/intelligence_reducer/v1_0_0/`
+
+**Key Principle**: One reducer handles ALL FSMs, routing based on `fsm_type` enum.
+
+**Pure FSM Pattern**:
 1. **Pure FSM**: No side effects in `process()`
 2. **Database State**: All state persisted via intents
 3. **Intent Emission**: Communicate via `ModelIntent` objects
 4. **Immutable Config**: Only read-only configuration in `__init__`
+5. **Multi-FSM**: Handles multiple state machines via `fsm_type`
 
-### 1. Ingestion Reducer
+### FSM Type Enumeration
 
-**Location**: `src/omniintelligence/nodes/ingestion_reducer/v1_0_0/`
+```python
+class EnumFSMType(str, Enum):
+    """FSM types handled by intelligence reducer."""
+    INGESTION = "INGESTION"          # Document ingestion pipeline
+    PATTERN_LEARNING = "PATTERN_LEARNING"  # Pattern learning phases
+    QUALITY_ASSESSMENT = "QUALITY_ASSESSMENT"  # Quality scoring
+```
 
-**FSM States**:
+### FSM Definitions
+
+#### 1. Ingestion FSM (FSM_TYPE.INGESTION)
+
+**States**:
 ```
 RECEIVED → PARSED → VECTORIZED → INDEXED → COMPLETED
                  ↓ (error)
@@ -306,33 +334,59 @@ RECEIVED → PARSED → VECTORIZED → INDEXED → COMPLETED
 ```python
 from omnibase_spi import NodeOmniAgentReducer, ModelIntent, EnumIntentType
 
-class IngestionReducer(NodeOmniAgentReducer[
-    ModelIngestionInput,
-    ModelIngestionOutput,
-    ModelIngestionConfig
+class IntelligenceReducer(NodeOmniAgentReducer[
+    ModelReducerInput,
+    ModelReducerOutput,
+    ModelReducerConfig
 ]):
     """
-    Pure FSM for document ingestion state management.
+    Unified reducer for ALL intelligence FSMs.
 
-    States: RECEIVED → PARSED → VECTORIZED → INDEXED
+    Handles multiple FSMs via fsm_type enum:
+    - INGESTION: Document ingestion (RECEIVED → INDEXED)
+    - PATTERN_LEARNING: Pattern learning (FOUNDATION → TRACEABILITY)
+    - QUALITY_ASSESSMENT: Quality scoring (RAW → STORED)
+
     All state stored in PostgreSQL via intents.
+    Pure FSM with zero instance state.
     """
 
-    def __init__(self, config: ModelIngestionConfig):
+    def __init__(self, config: ModelReducerConfig):
         # ONLY immutable configuration
         self.batch_size: int = config.batch_size
         self.max_retry_count: int = config.max_retry_count
         self.performance_threshold_ms: int = config.performance_threshold_ms
+        # FSM-specific configs
+        self.ingestion_config: IngestionFSMConfig = config.ingestion
+        self.pattern_config: PatternLearningFSMConfig = config.pattern_learning
+        self.quality_config: QualityFSMConfig = config.quality
 
     async def process(
         self,
-        input_data: ModelIngestionInput
+        input_data: ModelReducerInput
     ) -> ModelReducerOutput:
         """
-        Pure reduction: current_state + event → new_state + intents
+        Route to appropriate FSM based on fsm_type.
+
+        Pure reduction: (fsm_type, current_state, event) → (new_state, intents)
 
         NO side effects. All state changes via intents.
         """
+        # Route to appropriate FSM handler
+        if input_data.fsm_type == EnumFSMType.INGESTION:
+            return await self._process_ingestion_fsm(input_data)
+        elif input_data.fsm_type == EnumFSMType.PATTERN_LEARNING:
+            return await self._process_pattern_learning_fsm(input_data)
+        elif input_data.fsm_type == EnumFSMType.QUALITY_ASSESSMENT:
+            return await self._process_quality_assessment_fsm(input_data)
+        else:
+            raise ValueError(f"Unknown FSM type: {input_data.fsm_type}")
+
+    async def _process_ingestion_fsm(
+        self,
+        input_data: ModelReducerInput
+    ) -> ModelReducerOutput:
+        """Process ingestion FSM transitions."""
         intents: List[ModelIntent] = []
 
         # Pure state transition logic
@@ -438,41 +492,20 @@ class IngestionReducer(NodeOmniAgentReducer[
         )
 ```
 
-### 2. Pattern Learning Reducer
+#### 2. Pattern Learning FSM (FSM_TYPE.PATTERN_LEARNING)
 
-**Location**: `src/omniintelligence/nodes/pattern_learning_reducer/v1_0_0/`
-
-**FSM States** (4 Phases):
+**States** (4 Phases):
 ```
 FOUNDATION → MATCHING → VALIDATION → TRACEABILITY → COMPLETED
 ```
 
-**Implementation**:
+**Implementation** (within unified reducer):
 ```python
-class PatternLearningReducer(NodeOmniAgentReducer[
-    ModelPatternLearningInput,
-    ModelPatternLearningOutput,
-    ModelPatternLearningConfig
-]):
-    """
-    Pure FSM for 4-phase pattern learning.
-
-    Phases:
-    1. FOUNDATION: Load base patterns
-    2. MATCHING: Match against codebase
-    3. VALIDATION: Validate matches
-    4. TRACEABILITY: Track lineage
-    """
-
-    def __init__(self, config: ModelPatternLearningConfig):
-        self.confidence_threshold: float = config.confidence_threshold
-        self.max_patterns: int = config.max_patterns
-
-    async def process(
+    async def _process_pattern_learning_fsm(
         self,
-        input_data: ModelPatternLearningInput
+        input_data: ModelReducerInput
     ) -> ModelReducerOutput:
-        """Pure phase transition logic."""
+        """Process pattern learning FSM transitions (4 phases)."""
         intents: List[ModelIntent] = []
         current_phase = input_data.current_phase
 
@@ -547,13 +580,52 @@ class PatternLearningReducer(NodeOmniAgentReducer[
         )
 ```
 
-### 3. Quality Assessment Reducer
+#### 3. Quality Assessment FSM (FSM_TYPE.QUALITY_ASSESSMENT)
 
-**Location**: `src/omniintelligence/nodes/quality_assessment_reducer/v1_0_0/`
-
-**FSM States**:
+**States**:
 ```
 RAW → ANALYZED → SCORED → STORED → COMPLETED
+```
+
+**Implementation** (within unified reducer):
+```python
+    async def _process_quality_assessment_fsm(
+        self,
+        input_data: ModelReducerInput
+    ) -> ModelReducerOutput:
+        """Process quality assessment FSM transitions."""
+        intents: List[ModelIntent] = []
+
+        current_state = input_data.current_state
+        event = input_data.event
+
+        if current_state == EnumQualityState.RAW:
+            new_state = EnumQualityState.ANALYZED
+
+            # Intent: Trigger quality scoring
+            intents.append(ModelIntent(
+                intent_type=EnumIntentType.WORKFLOW_TRIGGER,
+                target="intelligence_orchestrator",
+                payload={
+                    "workflow": "quality_assessment_workflow",
+                    "file_path": input_data.file_path
+                }
+            ))
+
+        elif current_state == EnumQualityState.ANALYZED:
+            new_state = EnumQualityState.SCORED
+
+        elif current_state == EnumQualityState.SCORED:
+            new_state = EnumQualityState.STORED
+
+        elif current_state == EnumQualityState.STORED:
+            new_state = EnumQualityState.COMPLETED
+
+        return ModelReducerOutput(
+            result={"new_state": new_state.value},
+            intents=intents,
+            success=True
+        )
 ```
 
 ---
@@ -847,49 +919,56 @@ error_handling:
 
 ### Database Schema for Reducer State
 
+**Single unified table for ALL FSMs**:
+
 ```sql
--- Ingestion state tracking
-CREATE TABLE ingestion_state (
-    document_id UUID PRIMARY KEY,
-    current_state VARCHAR(50) NOT NULL,  -- RECEIVED, PARSED, VECTORIZED, INDEXED
+-- Unified FSM state tracking
+CREATE TABLE fsm_state (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fsm_type VARCHAR(50) NOT NULL,  -- INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT
+    entity_id VARCHAR(255) NOT NULL,  -- document_id, pattern_id, or assessment_id
+    current_state VARCHAR(50) NOT NULL,
     previous_state VARCHAR(50),
     transition_timestamp TIMESTAMPTZ NOT NULL,
     retry_count INT DEFAULT 0,
     error_message TEXT,
-    metadata JSONB,
+    metadata JSONB,  -- FSM-specific data
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Composite unique constraint
+    UNIQUE(fsm_type, entity_id)
 );
 
-CREATE INDEX idx_ingestion_state_current ON ingestion_state(current_state);
-CREATE INDEX idx_ingestion_state_timestamp ON ingestion_state(transition_timestamp);
+-- Indexes for efficient querying
+CREATE INDEX idx_fsm_state_type ON fsm_state(fsm_type);
+CREATE INDEX idx_fsm_state_current ON fsm_state(fsm_type, current_state);
+CREATE INDEX idx_fsm_state_entity ON fsm_state(entity_id);
+CREATE INDEX idx_fsm_state_timestamp ON fsm_state(transition_timestamp);
 
--- Pattern learning state tracking
-CREATE TABLE pattern_learning_state (
-    pattern_id UUID PRIMARY KEY,
-    current_phase VARCHAR(50) NOT NULL,  -- FOUNDATION, MATCHING, VALIDATION, TRACEABILITY
-    foundation_patterns JSONB,
-    matched_patterns JSONB,
-    validated_patterns JSONB,
-    lineage JSONB,
-    confidence_score FLOAT,
-    phase_transition_timestamp TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Example FSM-specific metadata structures:
+-- For INGESTION:
+-- metadata = {
+--   "document_id": "doc-123",
+--   "vector_count": 10,
+--   "entity_count": 5
+-- }
 
--- Quality assessment state tracking
-CREATE TABLE quality_assessment_state (
-    assessment_id UUID PRIMARY KEY,
-    file_path VARCHAR(500) NOT NULL,
-    current_state VARCHAR(50) NOT NULL,  -- RAW, ANALYZED, SCORED, STORED
-    metrics JSONB,
-    quality_score FLOAT,
-    onex_compliance JSONB,
-    state_transition_timestamp TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- For PATTERN_LEARNING:
+-- metadata = {
+--   "pattern_id": "pattern-456",
+--   "foundation_patterns": [...],
+--   "matched_patterns": [...],
+--   "confidence_score": 0.95
+-- }
+
+-- For QUALITY_ASSESSMENT:
+-- metadata = {
+--   "assessment_id": "assess-789",
+--   "file_path": "/src/main.py",
+--   "quality_score": 8.5,
+--   "dimensions": {...}
+-- }
 ```
 
 ### State Persistence via Intents
@@ -897,17 +976,19 @@ CREATE TABLE quality_assessment_state (
 Reducers emit `STATE_UPDATE` intents:
 
 ```python
-# In reducer
+# In unified reducer
 intents.append(ModelIntent(
     intent_type=EnumIntentType.STATE_UPDATE,
     target="postgres_pattern_effect",
     payload={
-        "table": "ingestion_state",
-        "document_id": document_id,
+        "table": "fsm_state",
+        "fsm_type": input_data.fsm_type.value,  # INGESTION, PATTERN_LEARNING, etc.
+        "entity_id": input_data.entity_id,
         "updates": {
             "current_state": new_state.value,
             "previous_state": current_state.value,
-            "transition_timestamp": datetime.utcnow().isoformat()
+            "transition_timestamp": datetime.utcnow().isoformat(),
+            "metadata": input_data.metadata  # FSM-specific data
         }
     }
 ))
@@ -918,20 +999,23 @@ Effect node executes:
 ```python
 # In postgres_pattern_effect
 async def _handle_state_update(self, payload: Dict[str, Any]):
-    """Execute state update in database."""
+    """Execute state update in unified fsm_state table."""
     await self.db_pool.execute(
         """
-        UPDATE ingestion_state
+        UPDATE fsm_state
         SET current_state = $1,
             previous_state = $2,
             transition_timestamp = $3,
+            metadata = $4,
             updated_at = NOW()
-        WHERE document_id = $4
+        WHERE fsm_type = $5 AND entity_id = $6
         """,
         payload["updates"]["current_state"],
         payload["updates"]["previous_state"],
         payload["updates"]["transition_timestamp"],
-        payload["document_id"]
+        json.dumps(payload["updates"]["metadata"]),
+        payload["fsm_type"],
+        payload["entity_id"]
     )
 ```
 
@@ -1067,21 +1151,23 @@ Intent Router (in orchestrator or intent bus)
 - Circuit breaker implementations
 - Health check endpoints
 
-### Phase 4: Reducers (Weeks 7-8)
+### Phase 4: Unified Reducer (Weeks 7-8)
 
-**Goal**: Implement pure FSM reducers
+**Goal**: Implement single unified pure FSM reducer
 
-- [ ] Ingestion reducer
-- [ ] Pattern learning reducer
-- [ ] Quality assessment reducer
+- [ ] Intelligence reducer (unified)
+- [ ] Ingestion FSM implementation
+- [ ] Pattern learning FSM implementation
+- [ ] Quality assessment FSM implementation
+- [ ] FSM routing based on fsm_type enum
 - [ ] Intent emission logic
-- [ ] State transition tests
+- [ ] State transition tests for all FSMs
 
 **Deliverables**:
-- 3 reducer nodes with state tests
-- FSM validation
+- 1 unified reducer node with 3 FSMs
+- FSM validation for all types
 - Intent emission verification
-- Database state persistence
+- Unified database state persistence
 
 ### Phase 5: Orchestrator (Weeks 9-10)
 
