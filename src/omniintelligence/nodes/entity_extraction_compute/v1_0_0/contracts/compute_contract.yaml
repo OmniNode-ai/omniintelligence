@@ -1,0 +1,163 @@
+name: entity_extraction_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for extracting entities from code and documents.
+  Identifies classes, functions, modules, variables, and other code entities.
+
+node_type: compute
+base_class: NodeOmniAgentCompute
+
+# Input/Output models
+input_model:
+  name: ModelEntityExtractionInput
+  fields:
+    content:
+      type: str
+      required: true
+      description: Code or document content to analyze
+
+    language:
+      type: str
+      required: true
+      description: Programming language (python, typescript, java, etc.)
+
+    file_path:
+      type: str
+      required: false
+      description: File path for context
+
+    extract_types:
+      type: list[str]
+      required: false
+      default: ["CLASS", "FUNCTION", "MODULE", "VARIABLE"]
+      description: Entity types to extract
+
+output_model:
+  name: ModelEntityExtractionOutput
+  fields:
+    success:
+      type: bool
+      required: true
+      description: Whether extraction succeeded
+
+    entities:
+      type: list[dict]
+      required: true
+      description: |
+        Extracted entities with fields:
+        - entity_id: str
+        - entity_type: EnumEntityType
+        - name: str
+        - line_start: int
+        - line_end: int
+        - metadata: dict
+
+    entity_count:
+      type: int
+      required: true
+      description: Total number of entities extracted
+
+    parse_errors:
+      type: list[str]
+      required: false
+      description: Any parsing errors encountered
+
+# Configuration
+config_model:
+  name: ModelEntityExtractionConfig
+  fields:
+    supported_languages:
+      type: list[str]
+      default: ["python", "typescript", "javascript", "java", "go", "rust"]
+
+    extract_docstrings:
+      type: bool
+      default: true
+      description: Extract docstrings/comments
+
+    extract_type_annotations:
+      type: bool
+      default: true
+      description: Extract type annotations
+
+    max_entity_depth:
+      type: int
+      default: 10
+      description: Maximum nesting depth for entities
+
+# Operations
+operations:
+  extract_entities:
+    description: Extract all entities from code
+    input_model: ModelEntityExtractionInput
+    output_model: ModelEntityExtractionOutput
+
+  extract_by_type:
+    description: Extract specific entity types
+    input:
+      content: str
+      language: str
+      entity_types: list[str]
+    output:
+      entities: list[dict]
+
+  extract_with_context:
+    description: Extract entities with surrounding context
+    input:
+      content: str
+      language: str
+      context_lines: int
+    output:
+      entities: list[dict]
+      context_map: dict
+
+# Language-specific parsers
+parsers:
+  python:
+    parser: ast
+    supports_type_hints: true
+    supports_decorators: true
+
+  typescript:
+    parser: typescript-eslint
+    supports_type_hints: true
+    supports_decorators: true
+
+  javascript:
+    parser: acorn
+    supports_type_hints: false
+    supports_decorators: false
+
+  java:
+    parser: javaparser
+    supports_type_hints: true
+    supports_decorators: true
+
+  go:
+    parser: go/ast
+    supports_type_hints: true
+    supports_decorators: false
+
+  rust:
+    parser: syn
+    supports_type_hints: true
+    supports_decorators: true
+
+# Dependencies
+dependencies:
+  external_services: []
+  compute_nodes: []
+
+# Metadata
+metadata:
+  author: omniintelligence
+  created_at: "2025-11-14"
+  tags:
+    - compute
+    - entity-extraction
+    - ast-parsing
+    - code-analysis

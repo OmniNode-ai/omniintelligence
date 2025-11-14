@@ -1,0 +1,30 @@
+# Dockerfile for Effect Nodes
+FROM python:3.12-slim
+
+ARG NODE_NAME
+ENV NODE_NAME=${NODE_NAME}
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install --no-cache-dir uv==0.5.0
+
+# Copy project files
+COPY pyproject.toml .
+COPY src/ src/
+
+# Install dependencies
+RUN uv pip install --system --no-cache -e .
+
+ENV PYTHONPATH=/app/src
+
+# Expose health check port
+EXPOSE 8000
+
+# Run effect node
+CMD python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.effect
