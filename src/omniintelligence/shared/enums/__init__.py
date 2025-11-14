@@ -23,6 +23,7 @@ class EnumOperationType(str, Enum):
     RELATIONSHIP_DETECTION = "RELATIONSHIP_DETECTION"
     VECTORIZATION = "VECTORIZATION"
     ENTITY_EXTRACTION = "ENTITY_EXTRACTION"
+    HAYSTACK_RAG = "HAYSTACK_RAG"  # Haystack RAG pipeline
 
 
 class EnumIntentType(str, Enum):
@@ -168,6 +169,12 @@ class EnumMetricType(str, Enum):
     LEASE = "LEASE"
 
 
+class EnumRAGProvider(str, Enum):
+    """RAG provider types for feature flagging."""
+    CUSTOM = "CUSTOM"  # Custom RAG orchestration
+    HAYSTACK = "HAYSTACK"  # Haystack RAG pipeline
+
+
 __all__ = [
     "EnumFSMType",
     "EnumOperationType",
@@ -183,4 +190,5 @@ __all__ = [
     "EnumCacheScope",
     "EnumErrorSeverity",
     "EnumMetricType",
+    "EnumRAGProvider",
 ]

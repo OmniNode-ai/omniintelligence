@@ -1,0 +1,31 @@
+# Management subcontract for Haystack adapter
+# Lifecycle, health checks, and resource management
+
+management:
+  # Lifecycle configuration
+  lifecycle:
+    startup_timeout_ms: 30000
+    shutdown_timeout_ms: 10000
+    graceful_shutdown: true
+    cleanup_on_shutdown: true
+
+  # Health check configuration
+  health_check:
+    enabled: true
+    interval_ms: 30000
+    timeout_ms: 5000
+    failure_threshold: 3
+    recovery_threshold: 2
+
+  # Resource management
+  resources:
+    max_memory_mb: 2048
+    max_concurrent_requests: 50
+    request_queue_size: 100
+    worker_threads: 4
+
+  # Pipeline management
+  pipeline:
+    cache_pipelines: true
+    pipeline_reload_interval_ms: 300000  # 5 minutes
+    auto_warmup: true

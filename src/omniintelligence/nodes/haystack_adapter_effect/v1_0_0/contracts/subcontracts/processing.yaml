@@ -1,0 +1,30 @@
+# Processing subcontract for Haystack adapter
+# Defines processing-specific configuration
+
+processing:
+  # Haystack pipeline configuration
+  pipeline_config:
+    retrieval_top_k: 10
+    generation_model: "gpt-4"
+    temperature: 0.7
+    max_tokens: 2000
+
+  # Document store configuration
+  document_store:
+    type: "qdrant"
+    collection_name: "haystack_documents"
+    embedding_dimension: 1536
+    distance_metric: "cosine"
+
+  # Retrieval configuration
+  retrieval:
+    similarity_threshold: 0.7
+    hybrid_search: true
+    bm25_weight: 0.3
+    semantic_weight: 0.7
+
+  # Generation configuration
+  generation:
+    system_prompt: "You are a helpful AI assistant. Use the provided context to answer questions accurately."
+    include_context: true
+    max_context_length: 4000

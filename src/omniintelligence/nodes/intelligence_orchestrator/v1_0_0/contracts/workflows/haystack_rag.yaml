@@ -1,0 +1,127 @@
+# Haystack RAG Workflow
+# Alternative RAG implementation using Haystack for A/B testing
+
+name: haystack_rag
+version: 1.0.0
+description: |
+  Haystack-based RAG workflow for document ingestion, indexing, and retrieval.
+  Provides A/B testing alternative to custom RAG orchestration.
+
+# Workflow steps
+steps:
+  - name: validate_input
+    type: validation
+    description: Validate input parameters (query, document, operation)
+    required_fields:
+      - entity_id
+      - payload
+      - correlation_id
+
+  - name: route_operation
+    type: conditional
+    description: Route to appropriate Haystack operation
+    conditions:
+      - operation: index_document
+        next_step: index_via_haystack
+      - operation: query
+        next_step: query_via_haystack
+      - operation: search
+        next_step: search_via_haystack
+      - operation: delete_document
+        next_step: delete_via_haystack
+
+  - name: index_via_haystack
+    type: effect
+    description: Index document using Haystack adapter
+    target: haystack_adapter_effect
+    parameters:
+      operation: index_document
+      document_content: "{{ payload.document_content }}"
+      document_id: "{{ entity_id }}"
+      metadata: "{{ payload.metadata }}"
+      correlation_id: "{{ correlation_id }}"
+
+  - name: query_via_haystack
+    type: effect
+    description: Execute RAG query with retrieval and generation
+    target: haystack_adapter_effect
+    parameters:
+      operation: query
+      query: "{{ payload.query }}"
+      top_k: "{{ payload.top_k | default(10) }}"
+      filters: "{{ payload.filters | default({}) }}"
+      generation_params: "{{ payload.generation_params | default({}) }}"
+      correlation_id: "{{ correlation_id }}"
+
+  - name: search_via_haystack
+    type: effect
+    description: Execute semantic search without generation
+    target: haystack_adapter_effect
+    parameters:
+      operation: search
+      query: "{{ payload.query }}"
+      top_k: "{{ payload.top_k | default(10) }}"
+      filters: "{{ payload.filters | default({}) }}"
+      correlation_id: "{{ correlation_id }}"
+
+  - name: delete_via_haystack
+    type: effect
+    description: Delete document from Haystack
+    target: haystack_adapter_effect
+    parameters:
+      operation: delete_document
+      document_id: "{{ entity_id }}"
+      correlation_id: "{{ correlation_id }}"
+
+  - name: publish_completion_event
+    type: effect
+    description: Publish workflow completion event to Kafka
+    target: kafka_event_effect
+    parameters:
+      topic: "intelligence.haystack_rag.completed.v1"
+      event_type: "HAYSTACK_RAG_COMPLETED"
+      payload:
+        entity_id: "{{ entity_id }}"
+        operation: "{{ payload.operation }}"
+        workflow_type: "haystack_rag"
+        correlation_id: "{{ correlation_id }}"
+
+# Error handling
+error_handling:
+  on_validation_error:
+    action: fail_fast
+    emit_event: true
+
+  on_operation_error:
+    action: retry
+    max_retries: 2
+    emit_event: true
+
+  on_timeout:
+    action: fail_fast
+    emit_event: true
+
+# Timeouts
+timeouts:
+  total_workflow_ms: 600000  # 10 minutes
+  index_operation_ms: 30000  # 30 seconds
+  query_operation_ms: 15000  # 15 seconds
+  search_operation_ms: 10000  # 10 seconds
+  delete_operation_ms: 5000   # 5 seconds
+
+# Metrics to track
+metrics:
+  - workflow_duration_ms
+  - operation_type
+  - haystack_latency_ms
+  - retrieval_latency_ms
+  - generation_latency_ms
+  - documents_retrieved
+  - success_rate
+  - error_rate
+
+# Feature flags
+feature_flags:
+  enable_caching: true
+  enable_hybrid_search: true
+  enable_generation_fallback: true

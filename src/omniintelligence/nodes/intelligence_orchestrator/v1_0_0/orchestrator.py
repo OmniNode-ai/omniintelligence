@@ -17,7 +17,7 @@ from llama_index.core.workflow import (
     Context,
 )
 
-from ....shared.enums import EnumOperationType, EnumIntentType
+from ....shared.enums import EnumOperationType, EnumIntentType, EnumRAGProvider
 from ....shared.models import (
     ModelOrchestratorInput,
     ModelOrchestratorOutput,
@@ -60,6 +60,7 @@ class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
             EnumOperationType.QUALITY_ASSESSMENT: QualityAssessmentWorkflow(timeout=300),
             EnumOperationType.SEMANTIC_ANALYSIS: SemanticAnalysisWorkflow(timeout=300),
             EnumOperationType.RELATIONSHIP_DETECTION: RelationshipDetectionWorkflow(timeout=300),
+            EnumOperationType.HAYSTACK_RAG: HaystackRAGWorkflow(timeout=600),
         }
 
     async def process(self, input_data: ModelOrchestratorInput) -> ModelOrchestratorOutput:
@@ -311,5 +312,66 @@ class RelationshipDetectionWorkflow(Workflow):
             "relationship_count": 0,
             "workflow_type": "relationship_detection",
         }
+
+        return StopEvent(result=results)
+
+
+class HaystackRAGWorkflow(Workflow):
+    """
+    Haystack RAG workflow.
+
+    Provides alternative RAG implementation using Haystack for A/B testing.
+
+    Steps:
+    1. Validate input (query or document)
+    2. Route to appropriate Haystack operation:
+       - index_document: Index document via Haystack
+       - query: RAG query with retrieval + generation
+       - search: Retrieval only
+    3. Return results
+
+    This workflow delegates to the haystack_adapter_effect node.
+    """
+
+    @step
+    async def start(self, ctx: Context, ev: StartEvent) -> StopEvent:
+        """Execute Haystack RAG workflow."""
+        entity_id = ev.get("entity_id")
+        payload = ev.get("payload", {})
+        correlation_id = ev.get("correlation_id")
+
+        # Extract operation type from payload
+        operation = payload.get("operation", "query")
+
+        # In a full implementation, this would:
+        # 1. Call haystack_adapter_effect with the appropriate operation
+        # 2. Return results in standardized format
+
+        # For now, return placeholder results
+        results = {
+            "operation": operation,
+            "provider": "haystack",
+            "workflow_type": "haystack_rag",
+        }
+
+        # Add operation-specific results
+        if operation == "query":
+            results.update({
+                "query": payload.get("query", ""),
+                "answer": "Sample answer from Haystack",
+                "retrieved_documents": [],
+                "num_documents": 0,
+            })
+        elif operation == "index_document":
+            results.update({
+                "document_id": entity_id,
+                "indexed": True,
+            })
+        elif operation == "search":
+            results.update({
+                "query": payload.get("query", ""),
+                "retrieved_documents": [],
+                "num_documents": 0,
+            })
 
         return StopEvent(result=results)

@@ -16,6 +16,7 @@ from ..enums import (
     EnumEntityType,
     EnumRelationshipType,
     EnumQualityDimension,
+    EnumRAGProvider,
 )
 
 
@@ -157,6 +158,16 @@ class ModelOrchestratorConfig(BaseModel):
     workflow_timeout_seconds: int = Field(300, description="Workflow timeout")
     enable_caching: bool = Field(True, description="Enable result caching")
     cache_ttl_seconds: int = Field(300, description="Cache TTL")
+
+    # Feature flags for RAG provider selection
+    rag_provider: EnumRAGProvider = Field(
+        EnumRAGProvider.CUSTOM,
+        description="RAG provider to use (CUSTOM or HAYSTACK) for A/B testing"
+    )
+    enable_haystack_rag: bool = Field(
+        False,
+        description="Enable Haystack RAG workflow (feature flag)"
+    )
 
 
 # ============================================================================

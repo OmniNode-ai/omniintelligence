@@ -99,6 +99,17 @@ config_model:
       default: 300
       description: Cache TTL in seconds
 
+    # Feature flags
+    rag_provider:
+      type: str
+      default: "CUSTOM"
+      description: RAG provider to use (CUSTOM or HAYSTACK) for A/B testing
+
+    enable_haystack_rag:
+      type: bool
+      default: false
+      description: Enable Haystack RAG workflow (feature flag)
+
 # Workflow definitions (Llama Index workflows)
 workflows:
   document_ingestion: ./workflows/document_ingestion.yaml
@@ -106,6 +117,7 @@ workflows:
   quality_assessment: ./workflows/quality_assessment.yaml
   semantic_analysis: ./workflows/semantic_analysis.yaml
   relationship_detection: ./workflows/relationship_detection.yaml
+  haystack_rag: ./workflows/haystack_rag.yaml
 
 # Dependencies
 dependencies:
@@ -123,6 +135,7 @@ dependencies:
     - memgraph_graph_effect
     - postgres_pattern_effect
     - intelligence_api_effect
+    - haystack_adapter_effect
 
   reducers:
     - intelligence_reducer

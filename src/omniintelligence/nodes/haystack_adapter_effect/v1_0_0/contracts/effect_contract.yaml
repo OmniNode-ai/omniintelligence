@@ -1,0 +1,317 @@
+name: haystack_adapter_effect
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Effect node that adapts Haystack RAG pipelines for the ONEX architecture.
+  Provides a standardized interface for Haystack document ingestion, indexing, and retrieval.
+  Supports feature flag-based A/B testing against custom RAG orchestration.
+
+node_type: effect
+base_class: NodeOmniAgentEffect
+
+# Subcontracts for organized configuration
+subcontracts:
+  processing: ./subcontracts/processing.yaml
+  management: ./subcontracts/management.yaml
+  monitoring: ./subcontracts/monitoring.yaml
+
+# Input/Output models
+input_model:
+  name: ModelHaystackAdapterInput
+  fields:
+    operation:
+      type: str
+      required: true
+      description: Operation type (index_document, query, delete_document, search)
+
+    query:
+      type: str
+      required: false
+      description: Query text for RAG retrieval (required for query/search operations)
+
+    document_content:
+      type: str
+      required: false
+      description: Document content to index (required for index_document)
+
+    document_id:
+      type: str
+      required: false
+      description: Document ID for indexing or deletion
+
+    metadata:
+      type: dict
+      required: false
+      description: Document metadata (file_path, language, author, etc.)
+
+    filters:
+      type: dict
+      required: false
+      description: Metadata filters for search operations
+
+    top_k:
+      type: int
+      required: false
+      default: 10
+      description: Number of documents to retrieve
+
+    generation_params:
+      type: dict
+      required: false
+      description: Generation parameters (temperature, max_tokens, etc.)
+
+    correlation_id:
+      type: str
+      required: true
+      description: Correlation ID for tracing
+
+output_model:
+  name: ModelHaystackAdapterOutput
+  fields:
+    success:
+      type: bool
+      required: true
+      description: Whether the operation succeeded
+
+    operation:
+      type: str
+      required: true
+      description: Operation that was executed
+
+    query:
+      type: str
+      required: false
+      description: Original query (for query operations)
+
+    answer:
+      type: str
+      required: false
+      description: Generated answer (for query operations)
+
+    retrieved_documents:
+      type: list[dict]
+      required: false
+      description: Retrieved documents with content and metadata
+
+    document_id:
+      type: str
+      required: false
+      description: Document ID (for index/delete operations)
+
+    indexed:
+      type: bool
+      required: false
+      description: Whether document was successfully indexed
+
+    deleted:
+      type: bool
+      required: false
+      description: Whether document was successfully deleted
+
+    latency_ms:
+      type: float
+      required: true
+      description: Total operation latency in milliseconds
+
+    retrieval_latency_ms:
+      type: float
+      required: false
+      description: Retrieval step latency
+
+    generation_latency_ms:
+      type: float
+      required: false
+      description: Generation step latency
+
+    error:
+      type: str
+      required: false
+      description: Error message if operation failed
+
+    metadata:
+      type: dict
+      required: false
+      description: Additional operation metadata
+
+# Configuration
+config_model:
+  name: ModelHaystackAdapterConfig
+  fields:
+    # Document store configuration
+    qdrant_url:
+      type: str
+      required: true
+      description: Qdrant server URL
+
+    collection_name:
+      type: str
+      default: "haystack_documents"
+      description: Qdrant collection name for Haystack
+
+    embedding_model:
+      type: str
+      default: "text-embedding-3-small"
+      description: Embedding model for vectorization
+
+    # Generation configuration
+    llm_model:
+      type: str
+      default: "gpt-4"
+      description: LLM model for answer generation
+
+    llm_temperature:
+      type: float
+      default: 0.7
+      description: LLM temperature
+
+    llm_max_tokens:
+      type: int
+      default: 2000
+      description: Maximum tokens for generation
+
+    # Retrieval configuration
+    default_top_k:
+      type: int
+      default: 10
+      description: Default number of documents to retrieve
+
+    similarity_threshold:
+      type: float
+      default: 0.7
+      description: Minimum similarity score for retrieval
+
+    # Feature flags
+    enable_hybrid_search:
+      type: bool
+      default: true
+      description: Enable hybrid (semantic + keyword) search
+
+    enable_caching:
+      type: bool
+      default: true
+      description: Enable result caching
+
+    cache_ttl_seconds:
+      type: int
+      default: 3600
+      description: Cache TTL in seconds
+
+# Operations supported by Haystack adapter
+operations:
+  index_document:
+    description: Index a document in Haystack
+    input:
+      operation: "index_document"
+      document_content: str
+      document_id: str
+      metadata: dict
+      correlation_id: str
+    output:
+      success: bool
+      operation: str
+      document_id: str
+      indexed: bool
+      latency_ms: float
+
+  query:
+    description: Query documents and generate answer using RAG
+    input:
+      operation: "query"
+      query: str
+      top_k: int
+      filters: dict
+      generation_params: dict
+      correlation_id: str
+    output:
+      success: bool
+      operation: str
+      query: str
+      answer: str
+      retrieved_documents: list[dict]
+      latency_ms: float
+      retrieval_latency_ms: float
+      generation_latency_ms: float
+
+  search:
+    description: Search for similar documents without generation
+    input:
+      operation: "search"
+      query: str
+      top_k: int
+      filters: dict
+      correlation_id: str
+    output:
+      success: bool
+      operation: str
+      query: str
+      retrieved_documents: list[dict]
+      latency_ms: float
+
+  delete_document:
+    description: Delete a document from Haystack
+    input:
+      operation: "delete_document"
+      document_id: str
+      correlation_id: str
+    output:
+      success: bool
+      operation: str
+      document_id: str
+      deleted: bool
+      latency_ms: float
+
+# Performance requirements
+performance:
+  max_execution_time_ms: 15000  # 15 seconds for RAG query
+  max_memory_mb: 2048
+  throughput_per_second: 20  # Lower for generation tasks
+
+# Lifecycle configuration
+lifecycle:
+  startup_timeout_ms: 30000  # Haystack initialization can take time
+  shutdown_timeout_ms: 10000
+  health_check_interval_ms: 30000
+
+# Dependencies
+dependencies:
+  external_services:
+    - qdrant
+    - openai_api
+
+  required_packages:
+    - haystack-ai
+    - qdrant-haystack
+    - qdrant-client
+
+# Error handling
+error_handling:
+  on_index_failure:
+    retry_with_backoff: true
+    max_retries: 3
+
+  on_query_failure:
+    retry_with_backoff: true
+    max_retries: 2
+
+  on_connection_error:
+    retry_with_backoff: true
+    max_retries: 5
+
+  on_generation_failure:
+    fallback_to_retrieval_only: true
+    retry_with_backoff: false
+
+# Metadata
+metadata:
+  author: omniintelligence
+  created_at: "2025-11-14"
+  tags:
+    - effect
+    - haystack
+    - rag
+    - adapter
+    - llm
+  documentation: ../README.md

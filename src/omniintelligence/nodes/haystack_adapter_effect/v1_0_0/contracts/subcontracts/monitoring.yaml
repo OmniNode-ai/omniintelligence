@@ -1,0 +1,41 @@
+# Monitoring subcontract for Haystack adapter
+# Observability, logging, and metrics
+
+monitoring:
+  # Logging configuration
+  logging:
+    level: "INFO"
+    structured: true
+    include_request_id: true
+    log_pipeline_steps: true
+    log_retrieval_results: false  # Can be verbose
+    log_generation_output: false  # Can contain sensitive data
+
+  # Metrics configuration
+  metrics:
+    enabled: true
+    export_interval_ms: 60000
+    include_latency: true
+    include_throughput: true
+    include_error_rates: true
+
+    # Custom metrics
+    track_retrieval_latency: true
+    track_generation_latency: true
+    track_total_pipeline_latency: true
+    track_document_count: true
+    track_query_complexity: true
+
+  # Tracing configuration
+  tracing:
+    enabled: true
+    sample_rate: 1.0  # 100% sampling for debugging, reduce in production
+    include_pipeline_steps: true
+    include_component_traces: true
+
+  # Alerting configuration
+  alerting:
+    enabled: false
+    error_rate_threshold: 0.05  # 5%
+    latency_threshold_ms: 10000  # 10 seconds
+    alert_channels: []
