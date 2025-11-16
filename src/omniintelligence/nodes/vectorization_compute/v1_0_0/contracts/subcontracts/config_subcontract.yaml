@@ -1,0 +1,90 @@
+# Config Subcontract for Vectorization Compute
+# Defines configuration specifications and environment profiles
+
+subcontract_name: config
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Configuration fields
+configuration_fields:
+  default_model:
+    type: str
+    default: "text-embedding-3-small"
+    description: Default embedding model
+    environment_override: true
+
+  max_batch_size:
+    type: int
+    default: 100
+    description: Maximum batch size for vectorization
+    constraints:
+      gt: 0
+      le: 1000
+
+  enable_caching:
+    type: bool
+    default: true
+    description: Enable caching of embeddings
+
+  cache_ttl_seconds:
+    type: int
+    default: 3600
+    description: Cache TTL in seconds
+    constraints:
+      gt: 0
+
+  timeout_ms:
+    type: int
+    default: 30000
+    description: Operation timeout in milliseconds
+    constraints:
+      gt: 0
+
+  max_content_length:
+    type: int
+    default: 8000
+    description: Maximum content length in characters
+    constraints:
+      gt: 0
+
+# Environment-specific profiles
+environment_profiles:
+  production:
+    default_model: "text-embedding-3-small"
+    max_batch_size: 100
+    enable_caching: true
+    cache_ttl_seconds: 3600
+    timeout_ms: 30000
+    max_content_length: 8000
+
+  staging:
+    default_model: "text-embedding-3-small"
+    max_batch_size: 50
+    enable_caching: true
+    cache_ttl_seconds: 1800
+    timeout_ms: 60000
+    max_content_length: 8000
+
+  development:
+    default_model: "text-embedding-3-small"
+    max_batch_size: 10
+    enable_caching: false
+    cache_ttl_seconds: 300
+    timeout_ms: 120000
+    max_content_length: 8000
+
+# Validation rules
+validation_rules:
+  timeout_reasonable:
+    rule: "timeout_ms >= 1000"
+    error_message: "Timeout must be at least 1000ms"
+
+  cache_ttl_when_enabled:
+    rule: "not enable_caching or cache_ttl_seconds >= 60"
+    error_message: "Cache TTL must be at least 60 seconds when caching is enabled"
+
+  batch_size_reasonable:
+    rule: "max_batch_size <= 1000"
+    error_message: "Batch size cannot exceed 1000"

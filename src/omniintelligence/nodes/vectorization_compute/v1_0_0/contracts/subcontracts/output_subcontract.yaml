@@ -1,0 +1,66 @@
+# Output Subcontract for Vectorization Compute
+# Defines output field specifications and guarantees
+
+subcontract_name: output
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Required output fields
+required_fields:
+  success:
+    type: bool
+    description: Whether vectorization succeeded
+
+  embeddings:
+    type: list[float]
+    description: Generated embeddings
+    constraints:
+      dimension: 1536  # OpenAI embedding dimension
+
+  model_used:
+    type: str
+    description: Model used for embedding generation
+
+  correlation_id:
+    type: UUID
+    description: Correlation ID from request
+
+  processing_time_ms:
+    type: float
+    description: Processing time in milliseconds
+    constraints:
+      ge: 0.0
+
+# Optional output fields
+optional_fields:
+  metadata:
+    type: dict
+    description: Additional metadata
+    default: {}
+
+  cache_hit:
+    type: bool
+    description: Whether result was served from cache
+    default: false
+
+# Performance guarantees
+performance_guarantees:
+  VECTORIZE:
+    max_processing_time_ms: 5000
+    typical_processing_time_ms: 500
+
+  BATCH_VECTORIZE:
+    max_processing_time_ms: 30000
+    typical_processing_time_ms: 2000
+
+# Result confidence
+result_confidence:
+  embeddings_valid:
+    rule: "len(embeddings) == 1536"
+    description: "Embeddings must be 1536-dimensional"
+
+  processing_time_reasonable:
+    rule: "processing_time_ms < 10000"
+    description: "Processing should complete within 10 seconds"

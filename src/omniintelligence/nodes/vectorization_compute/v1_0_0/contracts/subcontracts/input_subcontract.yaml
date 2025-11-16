@@ -1,0 +1,55 @@
+# Input Subcontract for Vectorization Compute
+# Defines input field specifications and validation rules
+
+subcontract_name: input
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Required input fields
+required_fields:
+  content:
+    type: str
+    description: Content to vectorize
+    constraints:
+      min_length: 1
+      max_length: 8000
+
+  correlation_id:
+    type: UUID
+    description: Correlation ID for request tracing
+    auto_generate: true
+
+# Optional input fields
+optional_fields:
+  metadata:
+    type: dict
+    description: Additional metadata
+    default: {}
+
+  model_name:
+    type: str
+    description: Embedding model to use
+    default: "text-embedding-3-small"
+    allowed_values:
+      - "text-embedding-3-small"
+      - "text-embedding-3-large"
+      - "text-embedding-ada-002"
+
+  batch_mode:
+    type: bool
+    description: Whether to process in batch mode
+    default: false
+
+# Validation rules
+validation_rules:
+  content_not_empty:
+    field: content
+    rule: "len(content) > 0"
+    error_message: "Content cannot be empty"
+
+  model_supported:
+    field: model_name
+    rule: "model_name in allowed_values"
+    error_message: "Unsupported embedding model"

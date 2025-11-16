@@ -1,0 +1,144 @@
+# Manifest for Vectorization Compute Node
+# Node metadata, requirements, and specifications
+
+node_classification:
+  type: COMPUTE
+  domain: intelligence
+  microservice: vectorization
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+
+# Performance specifications
+performance:
+  latency:
+    p50_ms: 500
+    p95_ms: 2000
+    p99_ms: 5000
+  throughput:
+    requests_per_second: 20
+    concurrent_requests: 10
+  memory:
+    max_mb: 512
+    typical_mb: 256
+
+# Reliability specifications
+reliability:
+  availability_target: "99.9%"
+  error_rate_target: "< 0.1%"
+  retry_policy:
+    max_retries: 3
+    backoff_multiplier: 2.0
+    initial_delay_ms: 1000
+
+# Resource requirements
+resources:
+  cpu:
+    min_cores: 1.0
+    recommended_cores: 2.0
+  memory:
+    min_mb: 256
+    recommended_mb: 512
+  disk:
+    required: false
+  network:
+    required: true
+    external_endpoints:
+      - openai_api
+
+# Security specifications
+security:
+  authentication_required: false  # Handled by upstream
+  authorization_required: false   # Handled by upstream
+  encryption_in_transit: true
+  encryption_at_rest: false
+  secrets_required:
+    - OPENAI_API_KEY
+
+# Dependencies
+dependencies:
+  python_version:
+    min:
+      major: 3
+      minor: 12
+      patch: 0
+  required_packages:
+    - name: openai
+      version: ">=1.71.0"
+    - name: sentence-transformers
+      version: ">=4.1.0"
+    - name: omnibase_core
+      version: ">=0.1.0"
+  optional_packages:
+    - name: torch
+      version: ">=2.0.0"
+      purpose: "Local embedding models"
+
+# Testing specifications
+testing:
+  unit_test_coverage_min: 90%
+  integration_test_required: true
+  performance_test_required: true
+  test_frameworks:
+    - pytest
+    - pytest-asyncio
+    - pytest-benchmark
+
+# Monitoring and observability
+monitoring:
+  metrics:
+    - name: vectorization_duration_ms
+      type: histogram
+      description: "Time to generate embeddings"
+    - name: vectorization_errors_total
+      type: counter
+      description: "Total vectorization errors"
+    - name: cache_hits_total
+      type: counter
+      description: "Total cache hits"
+    - name: cache_misses_total
+      type: counter
+      description: "Total cache misses"
+    - name: active_requests
+      type: gauge
+      description: "Currently active vectorization requests"
+
+  health_checks:
+    - name: model_availability
+      interval_seconds: 60
+      timeout_ms: 5000
+    - name: api_connectivity
+      interval_seconds: 30
+      timeout_ms: 3000
+
+  logging:
+    level: INFO
+    structured: true
+    include_correlation_id: true
+
+# Operational metadata
+operational:
+  owner_team: "intelligence-team"
+  oncall_rotation: "platform-oncall"
+  runbook_url: "https://docs.omninode.ai/runbooks/vectorization-compute"
+  documentation_url: "https://docs.omninode.ai/nodes/vectorization-compute"
+
+# Deployment specifications
+deployment:
+  container_image: "omninode/vectorization-compute"
+  container_registry: "ghcr.io"
+  deployment_strategy: "rolling"
+  min_replicas: 2
+  max_replicas: 10
+  autoscaling:
+    enabled: true
+    target_cpu_percent: 70
+    target_memory_percent: 80
+
+# Compliance and governance
+compliance:
+  data_classification: "internal"
+  pii_handling: false
+  compliance_frameworks: []
+  audit_logging: true
