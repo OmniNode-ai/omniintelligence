@@ -1,0 +1,31 @@
+# Manifest for Intelligence Orchestrator Node
+node_classification:
+  type: ORCHESTRATOR
+  domain: intelligence
+  microservice: orchestrator
+  version: {major: 1, minor: 0, patch: 0}
+
+performance:
+  latency: {p50_ms: 1000, p95_ms: 5000, p99_ms: 10000}
+  throughput: {requests_per_second: 10, concurrent_requests: 10}
+  memory: {max_mb: 2048, typical_mb: 1024}
+
+reliability:
+  availability_target: "99.9%"
+  error_rate_target: "< 0.1%"
+
+dependencies:
+  python_version: {min: {major: 3, minor: 12, patch: 0}}
+  required_packages:
+    - {name: omnibase_core, version: ">=0.1.0"}
+    - {name: llama-index, version: ">=0.9.0"}
+
+testing:
+  unit_test_coverage_min: 90%
+  integration_test_required: true
+
+monitoring:
+  metrics:
+    - {name: workflow_duration_ms, type: histogram}
+    - {name: workflow_errors_total, type: counter}
+    - {name: active_workflows, type: gauge}

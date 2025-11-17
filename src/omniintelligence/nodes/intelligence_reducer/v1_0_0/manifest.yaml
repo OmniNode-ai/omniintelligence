@@ -1,0 +1,31 @@
+# Manifest for Intelligence Reducer Node
+node_classification:
+  type: REDUCER
+  domain: intelligence
+  microservice: reducer
+  version: {major: 1, minor: 0, patch: 0}
+
+performance:
+  latency: {p50_ms: 100, p95_ms: 500, p99_ms: 2000}
+  throughput: {requests_per_second: 100, concurrent_requests: 50}
+  memory: {max_mb: 1024, typical_mb: 512}
+
+reliability:
+  availability_target: "99.99%"
+  error_rate_target: "< 0.01%"
+
+dependencies:
+  python_version: {min: {major: 3, minor: 12, patch: 0}}
+  required_packages:
+    - {name: omnibase_core, version: ">=0.1.0"}
+    - {name: asyncpg, version: ">=0.29.0"}
+
+testing:
+  unit_test_coverage_min: 90%
+  integration_test_required: true
+
+monitoring:
+  metrics:
+    - {name: fsm_transition_duration_ms, type: histogram}
+    - {name: fsm_transition_errors_total, type: counter}
+    - {name: active_leases, type: gauge}
