@@ -1,0 +1,29 @@
+# Manifest for RelationshipDetection Compute Node
+node_classification:
+  type: COMPUTE
+  domain: intelligence
+  microservice: relationship_detection
+  version: {major: 1, minor: 0, patch: 0}
+
+performance:
+  latency: {p50_ms: 500, p95_ms: 2000, p99_ms: 5000}
+  throughput: {requests_per_second: 20, concurrent_requests: 10}
+  memory: {max_mb: 512, typical_mb: 256}
+
+reliability:
+  availability_target: "99.9%"
+  error_rate_target: "< 0.1%"
+
+dependencies:
+  python_version: {min: {major: 3, minor: 12, patch: 0}}
+  required_packages:
+    - {name: omnibase_core, version: ">=0.1.0"}
+
+testing:
+  unit_test_coverage_min: 90%
+  integration_test_required: true
+
+monitoring:
+  metrics:
+    - {name: relationship_detection_duration_ms, type: histogram}
+    - {name: relationship_detection_errors_total, type: counter}

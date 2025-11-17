@@ -1,0 +1,30 @@
+# Manifest for QdrantVector Effect Node
+node_classification:
+  type: EFFECT
+  domain: intelligence
+  microservice: qdrant_vector
+  version: {major: 1, minor: 0, patch: 0}
+
+performance:
+  latency: {p50_ms: 100, p95_ms: 500, p99_ms: 2000}
+  throughput: {requests_per_second: 50, concurrent_requests: 20}
+  memory: {max_mb: 1024, typical_mb: 512}
+
+reliability:
+  availability_target: "99.9%"
+  retry_policy: {max_retries: 3, backoff_multiplier: 2.0}
+
+dependencies:
+  python_version: {min: {major: 3, minor: 12, patch: 0}}
+  required_packages:
+    - {name: omnibase_core, version: ">=0.1.0"}
+
+testing:
+  unit_test_coverage_min: 90%
+  integration_test_required: true
+
+monitoring:
+  metrics:
+    - {name: qdrant_vector_duration_ms, type: histogram}
+    - {name: qdrant_vector_errors_total, type: counter}
+    - {name: qdrant_vector_retries_total, type: counter}

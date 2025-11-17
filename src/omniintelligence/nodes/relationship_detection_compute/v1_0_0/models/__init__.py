@@ -1,0 +1,6 @@
+"""Models for RelationshipDetection Compute Node"""
+from .model_relationship_detection_compute_input import ModelRelationshipDetectionComputeInput
+from .model_relationship_detection_compute_output import ModelRelationshipDetectionComputeOutput
+from .model_relationship_detection_compute_config import ModelRelationshipDetectionComputeConfig
+
+__all__ = ["ModelRelationshipDetectionComputeInput", "ModelRelationshipDetectionComputeOutput", "ModelRelationshipDetectionComputeConfig"]

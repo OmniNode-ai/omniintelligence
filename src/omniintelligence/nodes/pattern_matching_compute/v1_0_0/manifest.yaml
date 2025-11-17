@@ -1,0 +1,29 @@
+# Manifest for PatternMatching Compute Node
+node_classification:
+  type: COMPUTE
+  domain: intelligence
+  microservice: pattern_matching
+  version: {major: 1, minor: 0, patch: 0}
+
+performance:
+  latency: {p50_ms: 500, p95_ms: 2000, p99_ms: 5000}
+  throughput: {requests_per_second: 20, concurrent_requests: 10}
+  memory: {max_mb: 512, typical_mb: 256}
+
+reliability:
+  availability_target: "99.9%"
+  error_rate_target: "< 0.1%"
+
+dependencies:
+  python_version: {min: {major: 3, minor: 12, patch: 0}}
+  required_packages:
+    - {name: omnibase_core, version: ">=0.1.0"}
+
+testing:
+  unit_test_coverage_min: 90%
+  integration_test_required: true
+
+monitoring:
+  metrics:
+    - {name: pattern_matching_duration_ms, type: histogram}
+    - {name: pattern_matching_errors_total, type: counter}
