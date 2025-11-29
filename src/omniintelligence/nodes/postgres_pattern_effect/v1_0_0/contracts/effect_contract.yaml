@@ -1,0 +1,303 @@
+name: postgres_pattern_effect
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Effect node for storing pattern lineage in PostgreSQL.
+  Maintains traceability for pattern learning across all 4 phases.
+  Stores pattern definitions, matches, scores, and lineage.
+
+node_type: effect
+base_class: NodeOmniAgentEffect
+
+# Input/Output models
+input_model:
+  name: ModelPostgresPatternInput
+  fields:
+    operation:
+      type: str
+      required: true
+      description: Operation type (store_pattern, store_lineage, query_patterns, update_scores)
+
+    patterns:
+      type: list[dict]
+      required: false
+      description: Patterns to store
+
+    lineage:
+      type: dict
+      required: false
+      description: |
+        Pattern lineage across 4 phases:
+        - source_code: str
+        - project_name: str
+        - foundation_phase: dict
+        - matching_phase: dict
+        - validation_phase: dict
+        - traceability_phase: dict
+
+    query_params:
+      type: dict
+      required: false
+      description: Query parameters for pattern search
+
+    correlation_id:
+      type: str
+      required: true
+      description: Correlation ID
+
+output_model:
+  name: ModelPostgresPatternOutput
+  fields:
+    success:
+      type: bool
+      required: true
+      description: Whether operation succeeded
+
+    operation:
+      type: str
+      required: true
+      description: Operation that was executed
+
+    patterns_stored:
+      type: int
+      required: false
+      description: Number of patterns stored
+
+    query_results:
+      type: list[dict]
+      required: false
+      description: Query results
+
+    error:
+      type: str
+      required: false
+      description: Error message if failed
+
+# Configuration
+config_model:
+  name: ModelPostgresPatternConfig
+  fields:
+    database_url:
+      type: str
+      required: true
+      description: PostgreSQL connection URL
+
+    enable_full_text_search:
+      type: bool
+      default: true
+      description: Enable full-text search on patterns
+
+    enable_lineage_tracking:
+      type: bool
+      default: true
+      description: Track complete pattern lineage
+
+    batch_size:
+      type: int
+      default: 50
+      description: Batch size for bulk operations
+
+# Operations
+operations:
+  store_pattern:
+    description: Store pattern with metadata
+    input:
+      pattern: dict
+      lineage: dict
+    output:
+      success: bool
+      pattern_id: str
+
+  store_lineage:
+    description: Store complete pattern lineage (all 4 phases)
+    input:
+      lineage: dict
+      correlation_id: str
+    output:
+      success: bool
+      lineage_id: str
+
+  query_patterns:
+    description: Query patterns by criteria
+    input:
+      query_params: dict
+      limit: int
+      offset: int
+    output:
+      patterns: list[dict]
+      total_count: int
+
+  update_pattern_scores:
+    description: Update pattern confidence scores
+    input:
+      pattern_id: str
+      scores: dict
+    output:
+      success: bool
+      updated: bool
+
+  get_pattern_lineage:
+    description: Get complete lineage for a pattern
+    input:
+      pattern_id: str
+    output:
+      lineage: dict
+
+  search_patterns:
+    description: Full-text search for patterns
+    input:
+      search_query: str
+      filters: dict
+    output:
+      results: list[dict]
+
+# Database schema
+schema:
+  tables:
+    patterns:
+      columns:
+        - id: UUID PRIMARY KEY
+        - pattern_id: VARCHAR(255) UNIQUE
+        - pattern_name: VARCHAR(255)
+        - pattern_type: VARCHAR(50)
+        - project_name: VARCHAR(255)
+        - confidence_score: FLOAT
+        - metadata: JSONB
+        - created_at: TIMESTAMPTZ
+        - updated_at: TIMESTAMPTZ
+      indexes:
+        - idx_patterns_pattern_id: [pattern_id]
+        - idx_patterns_project: [project_name]
+        - idx_patterns_type: [pattern_type]
+        - idx_patterns_score: [confidence_score DESC]
+        - idx_patterns_metadata_gin: GIN(metadata)
+
+    pattern_lineage:
+      columns:
+        - id: UUID PRIMARY KEY
+        - lineage_id: VARCHAR(255) UNIQUE
+        - pattern_id: VARCHAR(255) REFERENCES patterns(pattern_id)
+        - source_code_hash: VARCHAR(64)
+        - project_name: VARCHAR(255)
+        - foundation_phase: JSONB
+        - matching_phase: JSONB
+        - validation_phase: JSONB
+        - traceability_phase: JSONB
+        - correlation_id: VARCHAR(255)
+        - created_at: TIMESTAMPTZ
+      indexes:
+        - idx_lineage_pattern: [pattern_id]
+        - idx_lineage_project: [project_name]
+        - idx_lineage_correlation: [correlation_id]
+        - idx_lineage_code_hash: [source_code_hash]
+
+    pattern_matches:
+      columns:
+        - id: UUID PRIMARY KEY
+        - pattern_id: VARCHAR(255) REFERENCES patterns(pattern_id)
+        - source_code: TEXT
+        - file_path: VARCHAR(500)
+        - line_start: INTEGER
+        - line_end: INTEGER
+        - confidence: FLOAT
+        - metadata: JSONB
+        - matched_at: TIMESTAMPTZ
+      indexes:
+        - idx_matches_pattern: [pattern_id]
+        - idx_matches_file: [file_path]
+        - idx_matches_confidence: [confidence DESC]
+
+# Common queries
+queries:
+  get_pattern_by_id: |
+    SELECT * FROM patterns WHERE pattern_id = $1
+
+  get_patterns_by_project: |
+    SELECT * FROM patterns
+    WHERE project_name = $1
+    ORDER BY confidence_score DESC
+    LIMIT $2 OFFSET $3
+
+  search_patterns_fulltext: |
+    SELECT p.*, ts_rank(to_tsvector('english', p.pattern_name), query) as rank
+    FROM patterns p, plainto_tsquery('english', $1) query
+    WHERE to_tsvector('english', p.pattern_name) @@ query
+    ORDER BY rank DESC
+    LIMIT $2
+
+  get_pattern_lineage: |
+    SELECT * FROM pattern_lineage
+    WHERE pattern_id = $1
+
+  get_high_confidence_patterns: |
+    SELECT * FROM patterns
+    WHERE confidence_score >= $1
+    AND project_name = $2
+    ORDER BY confidence_score DESC
+
+  get_pattern_matches: |
+    SELECT * FROM pattern_matches
+    WHERE pattern_id = $1
+    ORDER BY confidence DESC
+    LIMIT $2
+
+# Lineage tracking
+lineage_phases:
+  foundation:
+    description: Phase 1 - Basic structural pattern matching
+    stored_data:
+      - structural_features
+      - ast_patterns
+      - candidate_patterns
+
+  matching:
+    description: Phase 2 - Semantic matching and refinement
+    stored_data:
+      - semantic_features
+      - embedding_similarities
+      - refined_patterns
+
+  validation:
+    description: Phase 3 - Pattern validation and scoring
+    stored_data:
+      - validation_results
+      - confidence_scores
+      - quality_metrics
+
+  traceability:
+    description: Phase 4 - Complete lineage and traceability
+    stored_data:
+      - complete_lineage
+      - phase_transitions
+      - final_patterns
+
+# Error handling
+error_handling:
+  on_duplicate_pattern:
+    action: update_if_higher_score
+
+  on_connection_error:
+    retry_with_backoff: true
+    max_retries: 3
+
+  on_constraint_violation:
+    action: log_and_skip
+
+# Dependencies
+dependencies:
+  external_services:
+    - postgresql
+
+# Metadata
+metadata:
+  author: omniintelligence
+  created_at: "2025-11-14"
+  tags:
+    - effect
+    - postgresql
+    - pattern-storage
+    - lineage
+    - traceability
