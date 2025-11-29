@@ -143,10 +143,6 @@ class NodeIntentClassifierCompute:
         for intent, keywords in self.INTENT_PATTERNS.items():
             self._normalized_patterns[intent] = [kw.lower() for kw in keywords]
 
-        # Statistics tracking
-        self._classification_count = 0
-        self._total_processing_time = 0.0
-
     # ========================================================================
     # ONEX Execute Compute Method (Primary Interface)
     # ========================================================================
@@ -269,10 +265,10 @@ class NodeIntentClassifierCompute:
             intent_scores[intent] = score
             intent_keywords[intent] = matched_keywords
 
-        # Step 4: Normalize scores to 0.0-1.0 range
-        max_score = max(intent_scores.values()) if intent_scores else 1.0
+        # Step 4: Normalize scores to 0.0-1.0 range (sum-based for proportional confidence)
+        total_score = sum(intent_scores.values()) if intent_scores else 1.0
         normalized_scores = {
-            intent: score / max_score if max_score > 0 else 0.0
+            intent: score / total_score if total_score > 0 else 0.0
             for intent, score in intent_scores.items()
         }
 

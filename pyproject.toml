@@ -31,9 +31,9 @@ black = "^24.10.0"
 isort = "^5.13.0"
 
 [tool.poetry.group.core.dependencies]
-omnibase-core = {git = "https://github.com/OmniNode-ai/omnibase_core.git", branch = "main"}
-omnibase-spi = {git = "https://github.com/OmniNode-ai/omnibase_spi.git", branch = "main"}
-omninode-bridge = {git = "https://github.com/OmniNode-ai/omninode_bridge.git", branch = "main"}
+omnibase-core = {git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "v0.1.0"}
+omnibase-spi = {git = "https://github.com/OmniNode-ai/omnibase_spi.git", tag = "v0.1.0"}
+omninode-bridge = {git = "https://github.com/OmniNode-ai/omninode_bridge.git", tag = "v0.1.0"}
 
 [project]
 name = "omniintelligence"

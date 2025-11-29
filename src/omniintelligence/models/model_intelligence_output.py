@@ -437,7 +437,7 @@ class ModelIntelligenceOutput(BaseModel):
             metrics = ModelIntelligenceMetrics(**api_response["metrics"])
 
         return cls(
-            success=api_response.get("success", True),
+            success=api_response.get("success", False),
             operation_type=operation_type,
             correlation_id=correlation_id,
             processing_time_ms=processing_time_ms,

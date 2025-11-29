@@ -465,7 +465,7 @@ class EnumIntelligenceOperationType(str, Enum):
     """
 
     # =============================================================================
-    # Pattern Traceability Operations (11)
+    # Pattern Traceability Operations (4)
     # =============================================================================
 
     TRACK_PATTERN_LINEAGE = "track_pattern_lineage"

@@ -17,7 +17,7 @@ Pattern: ONEX Configuration Contract
 import os
 from typing import Dict, List, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelIntelligenceConfig(BaseModel):
@@ -600,15 +600,10 @@ class ModelIntelligenceConfig(BaseModel):
         """
         return self.circuit_breaker_enabled
 
-    class Config:
-        """Pydantic configuration."""
-
-        # Allow environment variable overrides
-        case_sensitive = False
-        extra = "forbid"  # Reject unknown fields for safety
-
-        # JSON schema generation
-        json_schema_extra = {
+    # Pydantic v2 configuration
+    model_config = ConfigDict(
+        extra="forbid",  # Reject unknown fields for safety
+        json_schema_extra={
             "examples": [
                 # Development example
                 {
@@ -650,4 +645,5 @@ class ModelIntelligenceConfig(BaseModel):
                     "consumer_group_id": "intelligence_adapter_prod",
                 },
             ]
-        }
+        },
+    )

@@ -133,9 +133,11 @@ class EventPublisher:
             "batch.size": 32768,  # 32KB batch size
             "compression.type": "lz4",  # Fast compression
             "acks": "all",  # Wait for all replicas (reliability)
-            # Error handling
-            "retries": 0,  # We handle retries manually
-            "enable.idempotence": True,  # Prevent duplicate messages
+            # Error handling - retries handled at application level via _publish_with_retry
+            # with exponential backoff, so Kafka-level idempotence is disabled to avoid
+            # configuration conflict (idempotence requires retries > 0)
+            "retries": 0,
+            "enable.idempotence": False,
             # Timeout configuration
             "request.timeout.ms": 30000,  # 30 seconds
             "delivery.timeout.ms": 120000,  # 2 minutes total

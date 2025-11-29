@@ -158,7 +158,7 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
             "omninode.intelligence.event.quality_assessed.v1",
             "omninode.bridge.event.metadata_stamped.v1",
         ],
-        pattern=r"^omninode\.[a-z_]+\.(request|response|event|audit)\.[a-z_]+\.v\d+$",
+        pattern=r"^omninode\.[a-z_-]+\.(request|response|event|audit)\.[a-z_-]+\.v\d+$",
     )
 
     correlation_id: UUID = Field(

@@ -559,7 +559,7 @@ class NodeIntelligenceAdapterEffect:
 
                     # Step 3: Commit offset after successful processing
                     if not self.consumer_config.enable_auto_commit:
-                        self.kafka_consumer.commit(asynchronous=False)
+                        self.kafka_consumer.commit(asynchronous=True)
 
                 except Exception as e:
                     self.metrics["events_failed"] += 1
@@ -893,23 +893,135 @@ class NodeIntelligenceAdapterEffect:
         """
         Route failed message to Dead Letter Queue.
 
+        This method publishes failed messages to a DLQ topic for manual inspection
+        and potential reprocessing. The DLQ topic is the original topic with a `.dlq`
+        suffix (e.g., `dev.archon-intelligence.intelligence.code-analysis-requested.v1.dlq`).
+
+        The DLQ payload includes:
+        - Original message content (decoded if possible)
+        - Error details and stack trace
+        - Original message metadata (topic, partition, offset, timestamp)
+        - Processing context (node_id, consumer_group, attempt time)
+
         Args:
-            message: Original Kafka message
-            error: Error description
+            message: Original Kafka message that failed processing
+            error: Error description explaining why processing failed
+
+        Note:
+            If event_publisher is not initialized, the method logs a warning
+            and only updates metrics. This allows graceful degradation when
+            Kafka infrastructure is unavailable.
         """
+        import json
+        import traceback
+        from datetime import datetime, timezone
+
+        original_topic = message.topic()
+        dlq_topic = f"{original_topic}.dlq"
+
         try:
+            # Decode original message content
+            try:
+                original_content = message.value().decode("utf-8")
+                try:
+                    # Try to parse as JSON for structured storage
+                    original_payload = json.loads(original_content)
+                except json.JSONDecodeError:
+                    original_payload = {"raw_content": original_content}
+            except Exception as decode_error:
+                original_payload = {
+                    "raw_bytes": message.value().hex() if message.value() else None,
+                    "decode_error": str(decode_error),
+                }
+
+            # Extract message timestamp if available
+            message_timestamp = None
+            if hasattr(message, "timestamp") and message.timestamp():
+                ts_type, ts_value = message.timestamp()
+                if ts_value:
+                    message_timestamp = datetime.fromtimestamp(
+                        ts_value / 1000, tz=timezone.utc
+                    ).isoformat()
+
+            # Build DLQ payload with full context
+            dlq_payload = {
+                "original_message": original_payload,
+                "error": {
+                    "message": error,
+                    "traceback": traceback.format_exc(),
+                    "error_type": type(error).__name__ if not isinstance(error, str) else "ProcessingError",
+                },
+                "original_metadata": {
+                    "topic": original_topic,
+                    "partition": message.partition(),
+                    "offset": message.offset(),
+                    "timestamp": message_timestamp,
+                    "key": message.key().decode("utf-8") if message.key() else None,
+                },
+                "processing_context": {
+                    "node_id": str(self.node_id),
+                    "consumer_group": self.consumer_config.group_id,
+                    "routed_at": datetime.now(timezone.utc).isoformat(),
+                    "service_url": self.service_url,
+                },
+            }
+
+            # Check if event_publisher is available
+            if self.event_publisher is None:
+                logger.warning(
+                    f"Event publisher not initialized, cannot route to DLQ | "
+                    f"topic={original_topic} | partition={message.partition()} | "
+                    f"offset={message.offset()} | error={error}"
+                )
+                self.metrics["dlq_routed"] += 1
+                return
+
+            # Publish to DLQ topic
+            # Extract correlation_id from original message if available
+            correlation_id = None
+            if isinstance(original_payload, dict):
+                correlation_id_str = original_payload.get("correlation_id")
+                if correlation_id_str:
+                    try:
+                        correlation_id = UUID(correlation_id_str)
+                    except (ValueError, TypeError):
+                        correlation_id = uuid4()
+                else:
+                    correlation_id = uuid4()
+            else:
+                correlation_id = uuid4()
+
+            await self.event_publisher.publish(
+                event_type="CODE_ANALYSIS_DLQ",
+                payload=dlq_payload,
+                correlation_id=correlation_id,
+                topic=dlq_topic,
+            )
+
             self.metrics["dlq_routed"] += 1
 
             logger.warning(
-                f"Routing message to DLQ | "
-                f"topic={message.topic()} | "
+                f"Routed message to DLQ | "
+                f"dlq_topic={dlq_topic} | "
+                f"original_topic={original_topic} | "
                 f"partition={message.partition()} | "
                 f"offset={message.offset()} | "
+                f"correlation_id={correlation_id} | "
                 f"error={error}"
             )
 
         except Exception as e:
-            logger.error(f"Failed to route message to DLQ: {e}", exc_info=True)
+            # Log failure but don't raise - DLQ routing should not block processing
+            self.metrics["dlq_routed"] += 1  # Still count the attempt
+            logger.error(
+                f"Failed to route message to DLQ | "
+                f"dlq_topic={dlq_topic} | "
+                f"original_topic={original_topic} | "
+                f"partition={message.partition()} | "
+                f"offset={message.offset()} | "
+                f"routing_error={e}",
+                exc_info=True,
+            )
 
     # =========================================================================
     # ONEX Effect Pattern Methods
