@@ -6,7 +6,7 @@ Tests enum definitions and values.
 
 import pytest
 
-from src.omniintelligence.shared.enums import (
+from omniintelligence.enums import (
     EnumFSMType,
     EnumOperationType,
     EnumIntentType,

@@ -30,14 +30,9 @@ from uuid import uuid4
 from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
-# Try to import ModelIntelligenceInput from contracts
-try:
-    from omniintelligence.contracts.model_intelligence_input import ModelIntelligenceInput
-except ImportError:
-    # Use fallback stub if contracts not available
-    from omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect import (
-        ModelIntelligenceInput,
-    )
+# Import models from the canonical location
+from omniintelligence.models import ModelIntelligenceInput
+from omniintelligence.models.model_intelligence_output import ModelIntelligenceOutput
 
 
 # Configure logging
@@ -47,7 +42,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def example_code_quality_assessment():
+async def example_code_quality_assessment() -> ModelIntelligenceOutput:
     """
     Example: Code quality assessment with ONEX compliance.
 
@@ -146,7 +141,7 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
         logger.info("\n✓ Cleanup complete")
 
 
-async def example_performance_analysis():
+async def example_performance_analysis() -> ModelIntelligenceOutput:
     """
     Example: Performance analysis and optimization opportunities.
 
@@ -197,9 +192,11 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> Dict[str, Any]
             },
         )
 
-        logger.info(
-            f"Analyzing performance for: {input_data.options['operation_name']}"
+        # Access options safely (we know it's set above)
+        operation_name = (
+            input_data.options["operation_name"] if input_data.options else "unknown"
         )
+        logger.info(f"Analyzing performance for: {operation_name}")
 
         result = await adapter.analyze_code(input_data)
 
@@ -217,7 +214,7 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> Dict[str, Any]
                 logger.info(f"  - {rec}")
 
         if result.result_data:
-            logger.info(f"\nAdditional Data:")
+            logger.info("\nAdditional Data:")
             for key, value in result.result_data.items():
                 logger.info(f"  {key}: {value}")
 
@@ -231,7 +228,7 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> Dict[str, Any]
         await adapter._cleanup_node_resources()
 
 
-async def main():
+async def main() -> None:
     """Run all examples."""
     logger.info("Intelligence Adapter Effect Node - Usage Examples")
     logger.info("=" * 80)

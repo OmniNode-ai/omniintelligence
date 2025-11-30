@@ -33,8 +33,8 @@ def event_loop():
 
 @pytest.fixture
 def correlation_id() -> str:
-    """Provide a test correlation ID."""
-    return "test-correlation-id-12345"
+    """Provide a valid UUID test correlation ID for distributed tracing."""
+    return "550e8400-e29b-41d4-a716-446655440000"
 
 
 @pytest.fixture

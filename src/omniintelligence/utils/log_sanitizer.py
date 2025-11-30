@@ -42,7 +42,6 @@ import logging
 import os
 import re
 from functools import lru_cache
-from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,7 @@ class LogSanitizer:
 
     # Default sanitization patterns (pattern, replacement, description)
     # Ordered by frequency: secrets first, emails last
-    DEFAULT_PATTERNS: List[Tuple[str, str, str]] = [
+    DEFAULT_PATTERNS: list[tuple[str, str, str]] = [
         # API Keys - various formats
         (r"sk-[a-zA-Z0-9]{20,}", "[OPENAI_API_KEY]", "OpenAI API key"),
         (r"ghp_[a-zA-Z0-9]{36,}", "[GITHUB_TOKEN]", "GitHub personal access token"),
@@ -173,14 +172,14 @@ class LogSanitizer:
     ]
 
     # Email pattern (optional, disabled by default to avoid false positives)
-    EMAIL_PATTERN: Tuple[str, str, str] = (
+    EMAIL_PATTERN: tuple[str, str, str] = (
         r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
         "[EMAIL]",
         "Email address",
     )
 
     # IP address patterns (optional, can be disabled via config)
-    OPTIONAL_PATTERNS: List[Tuple[str, str, str]] = [
+    OPTIONAL_PATTERNS: list[tuple[str, str, str]] = [
         # IP addresses (v4 and v6)
         (r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", "[IP_ADDRESS]", "IPv4 address"),
         (r"\b(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}\b", "[IPv6_ADDRESS]", "IPv6 address"),
@@ -191,7 +190,7 @@ class LogSanitizer:
         enable: bool = True,
         sanitize_emails: bool = False,
         sanitize_ips: bool = False,
-        custom_patterns: List[Tuple[str, str, str]] = None,
+        custom_patterns: list[tuple[str, str, str]] | None = None,
     ):
         """
         Initialize log sanitizer.
@@ -221,7 +220,7 @@ class LogSanitizer:
             patterns.extend(custom_patterns)
 
         # Compile patterns for performance
-        self.compiled_patterns: List[Tuple[re.Pattern, str, str]] = []
+        self.compiled_patterns: list[tuple[re.Pattern[str], str, str]] = []
         for pattern, replacement, description in patterns:
             try:
                 compiled = re.compile(pattern, re.IGNORECASE)
@@ -237,7 +236,7 @@ class LogSanitizer:
             f"sanitize_emails={sanitize_emails}, sanitize_ips={sanitize_ips}"
         )
 
-    @lru_cache(maxsize=MAX_CACHE_SIZE)
+    @lru_cache(maxsize=MAX_CACHE_SIZE)  # noqa: B019 - Intentional: LogSanitizer is a long-lived singleton
     def _sanitize_cached(self, text: str) -> str:
         """
         Cached sanitization for repeated content.
@@ -257,7 +256,7 @@ class LogSanitizer:
         sanitized = text
 
         # Apply all patterns sequentially
-        for pattern, replacement, description in self.compiled_patterns:
+        for pattern, replacement, _description in self.compiled_patterns:
             sanitized = pattern.sub(replacement, sanitized)
 
         return sanitized
@@ -290,7 +289,7 @@ class LogSanitizer:
             # Return original text if sanitization fails (safe fallback)
             return text
 
-    def sanitize_lines(self, lines: List[str]) -> List[str]:
+    def sanitize_lines(self, lines: list[str]) -> list[str]:
         """
         Sanitize multiple lines of text.
 
@@ -305,7 +304,7 @@ class LogSanitizer:
 
         return [self.sanitize(line) for line in lines]
 
-    def get_patterns_info(self) -> List[dict]:
+    def get_patterns_info(self) -> list[dict[str, str]]:
         """
         Get information about active sanitization patterns.
 
@@ -321,7 +320,7 @@ class LogSanitizer:
             for pattern, replacement, description in self.compiled_patterns
         ]
 
-    def get_cache_info(self) -> dict:
+    def get_cache_info(self) -> dict[str, int | float | None]:
         """
         Get cache statistics for monitoring performance.
 
@@ -351,7 +350,7 @@ class LogSanitizer:
 
 
 # Global sanitizer instance
-_sanitizer: LogSanitizer = None
+_sanitizer: LogSanitizer | None = None
 
 
 def get_log_sanitizer() -> LogSanitizer:
@@ -376,7 +375,7 @@ def get_log_sanitizer() -> LogSanitizer:
         sanitize_ips = os.getenv("SANITIZE_IP_ADDRESSES", "false").lower() == "true"
 
         # Parse custom patterns from env (format: pattern1|replacement1|desc1;pattern2|replacement2|desc2)
-        custom_patterns = []
+        custom_patterns: list[tuple[str, str, str]] = []
         custom_patterns_str = os.getenv("CUSTOM_SANITIZATION_PATTERNS", "")
         if custom_patterns_str:
             try:
@@ -384,7 +383,7 @@ def get_log_sanitizer() -> LogSanitizer:
                     if pattern_def.strip():
                         parts = pattern_def.split("|")
                         if len(parts) == 3:
-                            custom_patterns.append(tuple(parts))
+                            custom_patterns.append((parts[0], parts[1], parts[2]))
             except Exception as e:
                 logger.warning(f"Failed to parse custom sanitization patterns: {e}")
 

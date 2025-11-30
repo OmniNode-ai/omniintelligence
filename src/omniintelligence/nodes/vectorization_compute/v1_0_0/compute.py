@@ -4,15 +4,16 @@ Vectorization Compute Node
 Generates embeddings from code and documents.
 """
 
-from typing import List
-from omnibase_core.node import NodeOmniAgentCompute
+from typing import Any
+
+from omnibase_core.nodes import NodeCompute
 from pydantic import BaseModel, Field
 
 
 class ModelVectorizationInput(BaseModel):
     """Input model for vectorization."""
     content: str = Field(..., description="Content to vectorize")
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     model_name: str = Field(default="text-embedding-3-small")
     batch_mode: bool = Field(default=False)
 
@@ -20,9 +21,9 @@ class ModelVectorizationInput(BaseModel):
 class ModelVectorizationOutput(BaseModel):
     """Output model for vectorization."""
     success: bool
-    embeddings: List[float]
+    embeddings: list[float]
     model_used: str
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelVectorizationConfig(BaseModel):
@@ -33,11 +34,7 @@ class ModelVectorizationConfig(BaseModel):
     cache_ttl_seconds: int = 3600
 
 
-class VectorizationCompute(NodeOmniAgentCompute[
-    ModelVectorizationInput,
-    ModelVectorizationOutput,
-    ModelVectorizationConfig
-]):
+class VectorizationCompute(NodeCompute):
     """Compute node for generating embeddings."""
 
     async def process(self, input_data: ModelVectorizationInput) -> ModelVectorizationOutput:

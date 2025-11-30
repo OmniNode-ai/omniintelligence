@@ -16,9 +16,9 @@ from omniintelligence.nodes.pattern_extraction.node_pattern_assembler_orchestrat
 )
 
 __all__ = [
-    "NodeExecutionTraceParserCompute",
     "NodeContextKeywordExtractorCompute",
+    "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
-    "NodeSuccessCriteriaMatcherCompute",
     "NodePatternAssemblerOrchestrator",
+    "NodeSuccessCriteriaMatcherCompute",
 ]

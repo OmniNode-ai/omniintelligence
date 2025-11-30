@@ -12,7 +12,7 @@ Date: 2025-10-02
 
 import hashlib
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,7 @@ from omniintelligence.nodes.pattern_extraction.node_success_criteria_matcher_com
     ModelSuccessMatchingOutput,
     NodeSuccessCriteriaMatcherCompute,
 )
+from datetime import UTC
 
 
 # ============================================================================
@@ -50,7 +51,7 @@ class ModelPatternExtractionInput(BaseModel):
     request_text: str = Field(..., description="Original user request text")
     execution_trace: str = Field(..., description="Execution trace data")
     execution_result: str = Field(..., description="Execution result text")
-    success_criteria: List[str] = Field(
+    success_criteria: list[str] = Field(
         default_factory=list, description="Success criteria for validation"
     )
     correlation_id: str = Field(
@@ -72,34 +73,34 @@ class ModelPatternExtractionOutput(BaseModel):
     )
 
     # Keyword extraction results
-    keywords: List[str] = Field(default_factory=list, description="Extracted keywords")
-    phrases: List[str] = Field(default_factory=list, description="Extracted phrases")
+    keywords: list[str] = Field(default_factory=list, description="Extracted keywords")
+    phrases: list[str] = Field(default_factory=list, description="Extracted phrases")
 
     # Trace parsing results
-    trace_events: List[Dict[str, Any]] = Field(
+    trace_events: list[dict[str, Any]] = Field(
         default_factory=list, description="Parsed trace events"
     )
-    execution_flow: List[str] = Field(
+    execution_flow: list[str] = Field(
         default_factory=list, description="Execution flow sequence"
     )
-    timing_summary: Dict[str, float] = Field(
+    timing_summary: dict[str, float] = Field(
         default_factory=dict, description="Timing statistics"
     )
 
     # Success matching results
     success_status: bool = Field(..., description="Overall success determination")
     success_confidence: float = Field(..., description="Success match confidence")
-    matched_criteria: List[str] = Field(
+    matched_criteria: list[str] = Field(
         default_factory=list, description="Matched success criteria"
     )
 
     # Assembled pattern
-    assembled_pattern: Dict[str, Any] = Field(
+    assembled_pattern: dict[str, Any] = Field(
         default_factory=dict, description="Complete assembled pattern"
     )
 
     # Metadata
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Orchestration metadata"
     )
     correlation_id: str = Field(..., description="Correlation ID for tracing")
@@ -310,7 +311,7 @@ class NodePatternAssemblerOrchestrator:
         return await self.trace_parser.execute_compute(input_state)
 
     async def _match_success_criteria(
-        self, execution_result: str, success_criteria: List[str], correlation_id: str
+        self, execution_result: str, success_criteria: list[str], correlation_id: str
     ) -> ModelSuccessMatchingOutput:
         """Coordinate with success criteria matcher node."""
         input_state = ModelSuccessMatchingInput(
@@ -332,7 +333,7 @@ class NodePatternAssemblerOrchestrator:
         keyword_result: ModelKeywordExtractionOutput,
         trace_result: ModelTraceParsingOutput,
         success_result: ModelSuccessMatchingOutput,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assemble comprehensive pattern from all node results.
 
@@ -391,9 +392,9 @@ class NodePatternAssemblerOrchestrator:
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in ISO format."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
     def calculate_deterministic_hash(self, data: str) -> str:
         """Calculate deterministic hash for reproducibility."""

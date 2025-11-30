@@ -14,7 +14,7 @@ import hashlib
 import re
 import uuid
 from collections import Counter
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -44,13 +44,13 @@ class ModelIntentClassificationOutput(BaseModel):
 
     intent: str = Field(..., description="Classified intent type")
     confidence: float = Field(..., description="Classification confidence (0.0-1.0)")
-    keywords: List[str] = Field(
+    keywords: list[str] = Field(
         default_factory=list, description="Keywords that influenced classification"
     )
-    all_scores: Dict[str, float] = Field(
+    all_scores: dict[str, float] = Field(
         default_factory=dict, description="Confidence scores for all intents"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
     correlation_id: str = Field(..., description="Correlation ID for tracing")
@@ -76,7 +76,7 @@ class NodeIntentClassifierCompute:
     """
 
     # Intent patterns and keywords (business logic constants)
-    INTENT_PATTERNS: Dict[str, List[str]] = {
+    INTENT_PATTERNS: dict[str, list[str]] = {
         "code_generation": [
             "generate",
             "create",
@@ -139,7 +139,7 @@ class NodeIntentClassifierCompute:
     def __init__(self) -> None:
         """Initialize intent classifier with pattern database."""
         # Pre-compute normalized patterns for performance
-        self._normalized_patterns: Dict[str, List[str]] = {}
+        self._normalized_patterns: dict[str, list[str]] = {}
         for intent, keywords in self.INTENT_PATTERNS.items():
             self._normalized_patterns[intent] = [kw.lower() for kw in keywords]
 
@@ -221,7 +221,7 @@ class NodeIntentClassifierCompute:
         text: str,
         confidence_threshold: float = 0.5,
         multi_label: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Classify intent using TF-IDF and pattern matching.
 
@@ -255,8 +255,8 @@ class NodeIntentClassifierCompute:
         tf_scores = self._calculate_tf(tokens)
 
         # Step 3: Match against patterns and calculate confidence
-        intent_scores: Dict[str, float] = {}
-        intent_keywords: Dict[str, List[str]] = {}
+        intent_scores: dict[str, float] = {}
+        intent_keywords: dict[str, list[str]] = {}
 
         for intent, patterns in self._normalized_patterns.items():
             score, matched_keywords = self._calculate_intent_score(
@@ -313,7 +313,7 @@ class NodeIntentClassifierCompute:
             "all_scores": normalized_scores,
         }
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """
         Tokenize and normalize text.
 
@@ -329,7 +329,7 @@ class NodeIntentClassifierCompute:
         tokens = re.findall(r"\w+", text.lower())
         return tokens
 
-    def _calculate_tf(self, tokens: List[str]) -> Dict[str, float]:
+    def _calculate_tf(self, tokens: list[str]) -> dict[str, float]:
         """
         Calculate term frequency (TF) scores.
 
@@ -354,8 +354,8 @@ class NodeIntentClassifierCompute:
         return tf_scores
 
     def _calculate_intent_score(
-        self, tf_scores: Dict[str, float], patterns: List[str], tokens: List[str]
-    ) -> Tuple[float, List[str]]:
+        self, tf_scores: dict[str, float], patterns: list[str], tokens: list[str]
+    ) -> tuple[float, list[str]]:
         """
         Calculate intent score based on pattern matching and TF scores.
 
@@ -370,7 +370,7 @@ class NodeIntentClassifierCompute:
             Tuple of (score, matched_keywords)
         """
         score = 0.0
-        matched_keywords: List[str] = []
+        matched_keywords: list[str] = []
 
         # Direct pattern matches (weighted by TF)
         for pattern in patterns:
@@ -381,10 +381,9 @@ class NodeIntentClassifierCompute:
         # Partial matches (fuzzy matching for variations)
         for token in tokens:
             for pattern in patterns:
-                if pattern in token or token in pattern:
-                    if token not in matched_keywords:
-                        score += tf_scores.get(token, 0.0) * 5.0  # Lower weight
-                        matched_keywords.append(token)
+                if (pattern in token or token in pattern) and token not in matched_keywords:
+                    score += tf_scores.get(token, 0.0) * 5.0  # Lower weight
+                    matched_keywords.append(token)
 
         return score, matched_keywords
 

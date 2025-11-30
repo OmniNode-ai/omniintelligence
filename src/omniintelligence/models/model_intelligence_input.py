@@ -32,9 +32,7 @@ This model supports both content-based and path-based operations:
 
 Example (Code Quality Assessment):
     from uuid import uuid4
-    from omniintelligence.contracts.enum_intelligence_operation_type import (
-        EnumIntelligenceOperationType,
-    )
+    from omniintelligence.enums import EnumIntelligenceOperationType
 
     input_data = ModelIntelligenceInput(
         operation_type=EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
@@ -69,8 +67,8 @@ See Also:
 - ModelIntelligenceOutput for response structure
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import datetime, UTC
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -107,9 +105,7 @@ class ModelIntelligenceInput(BaseModel):
 
     Example (Code Quality with Content):
         >>> from uuid import uuid4
-        >>> from omniintelligence.contracts.enum_intelligence_operation_type import (
-        ...     EnumIntelligenceOperationType,
-        ... )
+        >>> from omniintelligence.enums import EnumIntelligenceOperationType
         >>>
         >>> quality_input = ModelIntelligenceInput(
         ...     operation_type=EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
@@ -353,7 +349,7 @@ class ModelIntelligenceInput(BaseModel):
     # Operation Options
     # =============================================================================
 
-    options: Optional[Dict[str, Any]] = Field(
+    options: Optional[dict[str, Any]] = Field(
         default=None,
         description="""
         Operation-specific options and parameters.
@@ -406,7 +402,7 @@ class ModelIntelligenceInput(BaseModel):
     # Metadata
     # =============================================================================
 
-    metadata: Optional[Dict[str, Any]] = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         default=None,
         description="""
         Additional metadata for extensibility and context.
@@ -443,7 +439,7 @@ class ModelIntelligenceInput(BaseModel):
     # =============================================================================
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="""
         Timestamp when this input was created.
 
@@ -476,9 +472,7 @@ class ModelIntelligenceInput(BaseModel):
         """
         # Import here to avoid circular dependency
         try:
-            from omniintelligence.contracts.enum_intelligence_operation_type import (
-                EnumIntelligenceOperationType,
-            )
+            from omniintelligence.enums import EnumIntelligenceOperationType
 
             # Validate operation type
             if v not in [op.value for op in EnumIntelligenceOperationType]:
@@ -492,7 +486,7 @@ class ModelIntelligenceInput(BaseModel):
         except ImportError as e:
             raise ValueError(
                 f"Cannot validate operation_type: {e}. "
-                "Ensure enum_intelligence_operation_type.py is available."
+                "Ensure EnumIntelligenceOperationType is available in omniintelligence.enums."
             )
 
     @field_validator("source_path")
@@ -529,8 +523,8 @@ class ModelIntelligenceInput(BaseModel):
         dangerous_chars = [";", "|", "&", "$", "`", "\n", "\r"]
         if any(char in v for char in dangerous_chars):
             raise ValueError(
-                f"Invalid source_path: Contains dangerous characters. "
-                f"Allowed: alphanumeric, -, _, /, ."
+                "Invalid source_path: Contains dangerous characters. "
+                "Allowed: alphanumeric, -, _, /, ."
             )
 
         return v
@@ -639,9 +633,7 @@ class ModelIntelligenceInput(BaseModel):
             ValueError: If operation requirements are not met
         """
         # Import here to avoid circular dependency
-        from omniintelligence.contracts.enum_intelligence_operation_type import (
-            EnumIntelligenceOperationType,
-        )
+        from omniintelligence.enums import EnumIntelligenceOperationType
 
         try:
             op_type = EnumIntelligenceOperationType(self.operation_type)
@@ -650,27 +642,24 @@ class ModelIntelligenceInput(BaseModel):
             return self
 
         # Check content requirements
-        if op_type.requires_content():
-            if not self.content and not self.source_path:
-                raise ValueError(
-                    f"Operation '{self.operation_type}' requires either 'content' or 'source_path'. "
-                    "At least one must be provided."
-                )
+        if op_type.requires_content() and not self.content and not self.source_path:
+            raise ValueError(
+                f"Operation '{self.operation_type}' requires either 'content' or 'source_path'. "
+                "At least one must be provided."
+            )
 
         # Check source_path requirements
-        if op_type.requires_source_path():
-            if not self.source_path:
-                raise ValueError(
-                    f"Operation '{self.operation_type}' requires 'source_path' field."
-                )
+        if op_type.requires_source_path() and not self.source_path:
+            raise ValueError(
+                f"Operation '{self.operation_type}' requires 'source_path' field."
+            )
 
         # Check language requirements for quality operations
-        if op_type.is_quality_operation() and self.content:
-            if not self.language:
-                raise ValueError(
-                    f"Operation '{self.operation_type}' with content requires 'language' field. "
-                    "Specify the programming/markup language (e.g., 'python', 'markdown')."
-                )
+        if op_type.is_quality_operation() and self.content and not self.language:
+            raise ValueError(
+                f"Operation '{self.operation_type}' with content requires 'language' field. "
+                "Specify the programming/markup language (e.g., 'python', 'markdown')."
+            )
 
         return self
 
@@ -685,9 +674,7 @@ class ModelIntelligenceInput(BaseModel):
         Returns:
             Operation category string (quality, performance, document, etc.)
         """
-        from omniintelligence.contracts.enum_intelligence_operation_type import (
-            EnumIntelligenceOperationType,
-        )
+        from omniintelligence.enums import EnumIntelligenceOperationType
 
         op_type = EnumIntelligenceOperationType(self.operation_type)
 
@@ -713,9 +700,7 @@ class ModelIntelligenceInput(BaseModel):
         Returns:
             True if operation does not modify state
         """
-        from omniintelligence.contracts.enum_intelligence_operation_type import (
-            EnumIntelligenceOperationType,
-        )
+        from omniintelligence.enums import EnumIntelligenceOperationType
 
         op_type = EnumIntelligenceOperationType(self.operation_type)
         return op_type.is_read_only()
@@ -737,3 +722,6 @@ class ModelIntelligenceInput(BaseModel):
             return f"<file: {self.source_path}>"
         else:
             return "<no content>"
+
+
+__all__ = ["ModelIntelligenceInput"]

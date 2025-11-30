@@ -18,13 +18,16 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Optional, TypeVar
-from uuid import UUID
+from typing import Any, Optional, TypeVar, TYPE_CHECKING
+from uuid import UUID, uuid4
 
 from confluent_kafka import Producer
+
+if TYPE_CHECKING:
+    from confluent_kafka import Message
 from pydantic import BaseModel
 
-from omniintelligence.events.models.model_event_envelope import (
+from omniintelligence.models import (
     ModelEventEnvelope,
     ModelEventMetadata,
     ModelEventSource,
@@ -262,7 +265,7 @@ class EventPublisher:
         topic: str,
         event_bytes: bytes,
         partition_key: Optional[str],
-        envelope: ModelEventEnvelope,
+        envelope: ModelEventEnvelope[Any],
     ) -> bool:
         """
         Publish event with exponential backoff retry.
@@ -336,9 +339,11 @@ class EventPublisher:
             raise RuntimeError("Producer not initialized")
 
         # Create future for delivery callback
-        future = asyncio.get_event_loop().create_future()
+        future: asyncio.Future["Message"] = asyncio.get_event_loop().create_future()
 
-        def delivery_callback(err, msg):
+        def delivery_callback(
+            err: Optional[Exception], msg: "Message"
+        ) -> None:
             """Delivery callback to set future result."""
             if err:
                 future.set_exception(Exception(f"Kafka delivery failed: {err}"))
@@ -366,7 +371,7 @@ class EventPublisher:
         correlation_id: Optional[UUID] = None,
         causation_id: Optional[UUID] = None,
         metadata: Optional[ModelEventMetadata] = None,
-    ) -> ModelEventEnvelope:
+    ) -> ModelEventEnvelope[Any]:
         """
         Create event envelope with source metadata.
 
@@ -388,9 +393,10 @@ class EventPublisher:
         )
 
         # Create envelope with UUID objects directly
-        envelope = ModelEventEnvelope(
+        # Use provided correlation_id or generate a new one
+        envelope = ModelEventEnvelope[Any](
             event_type=event_type,
-            correlation_id=correlation_id,
+            correlation_id=correlation_id if correlation_id is not None else uuid4(),
             causation_id=causation_id,
             source=source,
             metadata=metadata,
@@ -399,7 +405,7 @@ class EventPublisher:
 
         return envelope
 
-    def _serialize_event(self, envelope: ModelEventEnvelope) -> bytes:
+    def _serialize_event(self, envelope: ModelEventEnvelope[Any]) -> bytes:
         """
         Serialize event envelope to JSON bytes with secret sanitization.
 
@@ -447,7 +453,7 @@ class EventPublisher:
         return json_str
 
     async def _send_to_dlq(
-        self, topic: str, envelope: ModelEventEnvelope, error_message: str
+        self, topic: str, envelope: ModelEventEnvelope[Any], error_message: str
     ) -> None:
         """
         Send failed event to Dead Letter Queue with secret sanitization.
@@ -605,7 +611,7 @@ def create_event_publisher(
     bootstrap_servers: str,
     service_name: str,
     instance_id: str,
-    **kwargs,
+    **kwargs: Any,
 ) -> EventPublisher:
     """
     Create event publisher instance.

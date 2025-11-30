@@ -26,7 +26,7 @@ async def test_code_generation_scenario():
     orchestrator = NodePatternAssemblerOrchestrator()
 
     input_data = ModelPatternExtractionInput(
-        request_text="Generate async function for database connection with error handling and retry logic",
+        request_text="Generate and create async function to implement database connection with exception handling and retry logic",
         execution_trace=json.dumps(
             {
                 "events": [
@@ -43,7 +43,7 @@ async def test_code_generation_scenario():
                     },
                     {
                         "type": "function_call",
-                        "function": "add_error_handling",
+                        "function": "add_exception_handling",
                         "duration_ms": 12.5,
                     },
                     {
@@ -58,7 +58,7 @@ async def test_code_generation_scenario():
         execution_result="""
         Function generated successfully with following features:
         - Async/await pattern implemented
-        - Try/except error handling added
+        - Try/except exception handling added
         - Exponential backoff retry logic implemented
         - Connection pooling support added
         - Proper resource cleanup with context manager
@@ -66,7 +66,7 @@ async def test_code_generation_scenario():
         success_criteria=[
             "generated",
             "async",
-            "error handling",
+            "exception handling",
             "retry logic",
             "completed",
         ],

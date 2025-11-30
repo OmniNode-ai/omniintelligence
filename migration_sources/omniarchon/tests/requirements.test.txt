@@ -13,8 +13,8 @@ pytest-mock==3.12.0  # Mocking utilities
 
 # HTTP testing and API validation
 httpx==0.25.2
-aiohttp==3.9.1
-requests==2.31.0
+aiohttp==3.12.14
+requests==2.32.4
 responses==0.24.1  # HTTP mocking
 
 # Database testing
@@ -62,7 +62,7 @@ websockets==12.0
 websocket-client==1.6.4
 
 # Vector database testing
-qdrant-client==1.7.0
+qdrant-client==1.9.0
 
 # Graph database testing
 neo4j==5.15.0

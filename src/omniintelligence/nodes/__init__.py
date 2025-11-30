@@ -9,10 +9,10 @@ from omniintelligence.nodes.pattern_extraction import (
 )
 
 __all__ = [
-    "NodeIntelligenceAdapterEffect",
-    "NodeExecutionTraceParserCompute",
     "NodeContextKeywordExtractorCompute",
+    "NodeExecutionTraceParserCompute",
+    "NodeIntelligenceAdapterEffect",
     "NodeIntentClassifierCompute",
-    "NodeSuccessCriteriaMatcherCompute",
     "NodePatternAssemblerOrchestrator",
+    "NodeSuccessCriteriaMatcherCompute",
 ]

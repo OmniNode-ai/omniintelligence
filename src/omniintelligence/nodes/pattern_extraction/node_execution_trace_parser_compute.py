@@ -10,12 +10,13 @@ Author: Archon Intelligence Team
 Date: 2025-10-02
 """
 
+import contextlib
 import hashlib
 import json
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -52,25 +53,25 @@ class ParsedTraceEvent:
     status: Optional[str]
     error_message: Optional[str]
     duration_ms: Optional[float]
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class ModelTraceParsingOutput(BaseModel):
     """Output state for trace parsing."""
 
-    events: List[Dict[str, Any]] = Field(
+    events: list[dict[str, Any]] = Field(
         default_factory=list, description="Parsed trace events"
     )
-    error_events: List[Dict[str, Any]] = Field(
+    error_events: list[dict[str, Any]] = Field(
         default_factory=list, description="Error events extracted"
     )
-    timing_summary: Dict[str, float] = Field(
+    timing_summary: dict[str, float] = Field(
         default_factory=dict, description="Timing statistics"
     )
-    execution_flow: List[str] = Field(
+    execution_flow: list[str] = Field(
         default_factory=list, description="Execution flow sequence"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Parsing metadata"
     )
     correlation_id: str = Field(..., description="Correlation ID for tracing")
@@ -167,12 +168,12 @@ class NodeExecutionTraceParserCompute:
                 events = self._parse_structured_trace(input_state.trace_data)
 
             # Extract error events if requested
-            error_events: List[Dict[str, Any]] = []
+            error_events: list[dict[str, Any]] = []
             if input_state.extract_errors:
                 error_events = self._extract_errors(events)
 
             # Extract timing information if requested
-            timing_summary: Dict[str, float] = {}
+            timing_summary: dict[str, float] = {}
             if input_state.extract_timing:
                 timing_summary = self._extract_timing(events)
 
@@ -211,7 +212,7 @@ class NodeExecutionTraceParserCompute:
     # Pure Functional Parsing Algorithms
     # ========================================================================
 
-    def _parse_json_trace(self, trace_data: str) -> List[ParsedTraceEvent]:
+    def _parse_json_trace(self, trace_data: str) -> list[ParsedTraceEvent]:
         """
         Parse JSON-formatted trace data.
 
@@ -246,7 +247,7 @@ class NodeExecutionTraceParserCompute:
             else:
                 return []
 
-            events: List[ParsedTraceEvent] = []
+            events: list[ParsedTraceEvent] = []
             for event_data in events_data:
                 if not isinstance(event_data, dict):
                     continue
@@ -268,7 +269,7 @@ class NodeExecutionTraceParserCompute:
         except json.JSONDecodeError:
             return []
 
-    def _parse_log_trace(self, trace_data: str) -> List[ParsedTraceEvent]:
+    def _parse_log_trace(self, trace_data: str) -> list[ParsedTraceEvent]:
         """
         Parse log-formatted trace data.
 
@@ -280,7 +281,7 @@ class NodeExecutionTraceParserCompute:
         Returns:
             List of parsed trace events
         """
-        events: List[ParsedTraceEvent] = []
+        events: list[ParsedTraceEvent] = []
         lines = trace_data.split("\n")
 
         for line in lines:
@@ -306,10 +307,8 @@ class NodeExecutionTraceParserCompute:
             # Parse duration
             duration_ms: Optional[float] = None
             if duration_str:
-                try:
+                with contextlib.suppress(ValueError):
                     duration_ms = float(duration_str)
-                except ValueError:
-                    pass
 
             event = ParsedTraceEvent(
                 event_type=event_type,
@@ -325,7 +324,7 @@ class NodeExecutionTraceParserCompute:
 
         return events
 
-    def _parse_structured_trace(self, trace_data: str) -> List[ParsedTraceEvent]:
+    def _parse_structured_trace(self, trace_data: str) -> list[ParsedTraceEvent]:
         """
         Parse structured text trace data.
 
@@ -349,7 +348,7 @@ class NodeExecutionTraceParserCompute:
     # Extraction Methods
     # ========================================================================
 
-    def _extract_errors(self, events: List[ParsedTraceEvent]) -> List[Dict[str, Any]]:
+    def _extract_errors(self, events: list[ParsedTraceEvent]) -> list[dict[str, Any]]:
         """
         Extract error events from parsed events.
 
@@ -359,7 +358,7 @@ class NodeExecutionTraceParserCompute:
         Returns:
             List of error event dictionaries
         """
-        error_events: List[Dict[str, Any]] = []
+        error_events: list[dict[str, Any]] = []
 
         for event in events:
             if event.event_type == "error" or event.error_message:
@@ -378,7 +377,7 @@ class NodeExecutionTraceParserCompute:
 
         return error_events
 
-    def _extract_timing(self, events: List[ParsedTraceEvent]) -> Dict[str, float]:
+    def _extract_timing(self, events: list[ParsedTraceEvent]) -> dict[str, float]:
         """
         Extract timing statistics from events.
 
@@ -388,8 +387,8 @@ class NodeExecutionTraceParserCompute:
         Returns:
             Dictionary with timing statistics
         """
-        durations: List[float] = []
-        function_timings: Dict[str, List[float]] = {}
+        durations: list[float] = []
+        function_timings: dict[str, list[float]] = {}
 
         for event in events:
             if event.duration_ms is not None:
@@ -404,7 +403,7 @@ class NodeExecutionTraceParserCompute:
             return {}
 
         # Calculate statistics
-        timing_summary: Dict[str, float] = {
+        timing_summary: dict[str, float] = {
             "total_duration_ms": sum(durations),
             "average_duration_ms": sum(durations) / len(durations),
             "min_duration_ms": min(durations),
@@ -418,7 +417,7 @@ class NodeExecutionTraceParserCompute:
 
         return timing_summary
 
-    def _build_execution_flow(self, events: List[ParsedTraceEvent]) -> List[str]:
+    def _build_execution_flow(self, events: list[ParsedTraceEvent]) -> list[str]:
         """
         Build execution flow sequence from events.
 
@@ -428,7 +427,7 @@ class NodeExecutionTraceParserCompute:
         Returns:
             List of function names in execution order
         """
-        flow: List[str] = []
+        flow: list[str] = []
 
         for event in events:
             if event.function_name:
@@ -464,7 +463,7 @@ class NodeExecutionTraceParserCompute:
 
         return "error"  # Default
 
-    def _event_to_dict(self, event: ParsedTraceEvent) -> Dict[str, Any]:
+    def _event_to_dict(self, event: ParsedTraceEvent) -> dict[str, Any]:
         """Convert ParsedTraceEvent to dictionary."""
         return {
             "type": event.event_type,

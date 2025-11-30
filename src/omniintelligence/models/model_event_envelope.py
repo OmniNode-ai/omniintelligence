@@ -33,7 +33,7 @@ from datetime import UTC, datetime
 from typing import Any, Generic, Optional, TypeVar
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Generic type for payload
 T = TypeVar("T")
@@ -46,6 +46,8 @@ class ModelEventSource(BaseModel):
     Identifies the service instance that published the event.
     Used for tracing, debugging, and audit trail.
     """
+
+    model_config = ConfigDict(frozen=True)  # Immutable after creation
 
     service: str = Field(
         ...,
@@ -60,13 +62,10 @@ class ModelEventSource(BaseModel):
     )
 
     hostname: Optional[str] = Field(
-        None,
+        default=None,
         description="Hostname or container name",
         examples=["archon-intelligence-abc123", "ip-10-0-1-42"],
     )
-
-    class Config:
-        frozen = True  # Immutable after creation
 
 
 class ModelEventMetadata(BaseModel):
@@ -77,28 +76,30 @@ class ModelEventMetadata(BaseModel):
     authorization context (user_id, tenant_id).
     """
 
+    model_config = ConfigDict(frozen=True)  # Immutable after creation
+
     trace_id: Optional[str] = Field(
-        None,
+        default=None,
         description="Distributed trace ID (OpenTelemetry format: 32 hex digits)",
         examples=["4bf92f3577b34da6a3ce929d0e0e4736"],
         pattern=r"^[a-f0-9]{32}$",
     )
 
     span_id: Optional[str] = Field(
-        None,
+        default=None,
         description="Trace span ID (OpenTelemetry format: 16 hex digits)",
         examples=["00f067aa0ba902b7"],
         pattern=r"^[a-f0-9]{16}$",
     )
 
     user_id: Optional[str] = Field(
-        None,
+        default=None,
         description="User ID for authorization context",
         examples=["user-123", "auth0|abc123"],
     )
 
     tenant_id: Optional[str] = Field(
-        None,
+        default=None,
         description="Tenant ID for multi-tenancy",
         examples=["tenant-acme", "org-456"],
     )
@@ -108,9 +109,6 @@ class ModelEventMetadata(BaseModel):
         default_factory=dict,
         description="Additional metadata fields for domain-specific requirements",
     )
-
-    class Config:
-        frozen = True  # Immutable after creation
 
 
 class ModelEventEnvelope(BaseModel, Generic[T]):
@@ -145,6 +143,40 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
         - omninode.audit.agent_execution.v1
     """
 
+    model_config = ConfigDict(
+        # Allow generic types
+        arbitrary_types_allowed=True,
+        # JSON schema generation
+        json_schema_extra={
+            "examples": [
+                {
+                    "event_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "event_type": "omninode.codegen.request.validate.v1",
+                    "correlation_id": "660e8400-e29b-41d4-a716-446655440000",
+                    "causation_id": None,
+                    "timestamp": "2025-10-18T10:00:00.000Z",
+                    "version": "1.0.0",
+                    "source": {
+                        "service": "archon-intelligence",
+                        "instance_id": "instance-123",
+                        "hostname": "archon-intelligence-abc123",
+                    },
+                    "metadata": {
+                        "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+                        "span_id": "00f067aa0ba902b7",
+                        "user_id": "user-123",
+                        "tenant_id": "tenant-acme",
+                    },
+                    "payload": {
+                        "code_content": "class Test: pass",
+                        "node_type": "effect",
+                        "language": "python",
+                    },
+                }
+            ]
+        },
+    )
+
     event_id: UUID = Field(
         default_factory=uuid4,
         description="Unique event identifier (UUID v4)",
@@ -167,7 +199,7 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
     )
 
     causation_id: Optional[UUID] = Field(
-        None,
+        default=None,
         description="ID of event that caused this event (event sourcing)",
     )
 
@@ -188,7 +220,7 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
     )
 
     metadata: Optional[ModelEventMetadata] = Field(
-        None,
+        default=None,
         description="Tracing, authorization, multi-tenancy data",
     )
 
@@ -230,35 +262,9 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
             ),
         }
 
-    class Config:
-        # Allow generic types
-        arbitrary_types_allowed = True
-        # JSON schema generation
-        json_schema_extra = {
-            "examples": [
-                {
-                    "event_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "event_type": "omninode.codegen.request.validate.v1",
-                    "correlation_id": "660e8400-e29b-41d4-a716-446655440000",
-                    "causation_id": None,
-                    "timestamp": "2025-10-18T10:00:00.000Z",
-                    "version": "1.0.0",
-                    "source": {
-                        "service": "archon-intelligence",
-                        "instance_id": "instance-123",
-                        "hostname": "archon-intelligence-abc123",
-                    },
-                    "metadata": {
-                        "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
-                        "span_id": "00f067aa0ba902b7",
-                        "user_id": "user-123",
-                        "tenant_id": "tenant-acme",
-                    },
-                    "payload": {
-                        "code_content": "class Test: pass",
-                        "node_type": "effect",
-                        "language": "python",
-                    },
-                }
-            ]
-        }
+
+__all__ = [
+    "ModelEventEnvelope",
+    "ModelEventMetadata",
+    "ModelEventSource",
+]

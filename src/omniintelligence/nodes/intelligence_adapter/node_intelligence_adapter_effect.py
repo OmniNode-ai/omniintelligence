@@ -30,7 +30,7 @@ Reference: EVENT_BUS_ARCHITECTURE.md, intelligence_adapter_events.py
 import asyncio
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 try:
@@ -60,10 +60,10 @@ from omniintelligence.models.model_intelligence_config import (
 from omniintelligence.models.model_intelligence_output import (
     ModelIntelligenceOutput,
 )
-from omninode_bridge.clients.client_intelligence_service import (
+from omniintelligence.clients.client_intelligence_service import (
     IntelligenceServiceClient,
 )
-from omninode_bridge.models.model_intelligence_api_contracts import (
+from omniintelligence.models.model_intelligence_api_contracts import (
     ModelPatternDetectionRequest,
     ModelPerformanceAnalysisRequest,
     ModelQualityAssessmentRequest,
@@ -73,12 +73,10 @@ from omninode_bridge.models.model_intelligence_api_contracts import (
 from omniintelligence.events.publisher.event_publisher import EventPublisher
 
 # Intelligence I/O models
-from omniintelligence.contracts.model_intelligence_input import (
-    ModelIntelligenceInput,
-)
+from omniintelligence.models import ModelIntelligenceInput
 
-# Event contracts from Phase 1
-from omniintelligence.events.models.intelligence_adapter_events import (
+# Event contracts from canonical models location
+from omniintelligence.models import (
     EnumAnalysisErrorCode,
     EnumAnalysisOperationType,
     EnumCodeAnalysisEventType,
@@ -87,6 +85,7 @@ from omniintelligence.events.models.intelligence_adapter_events import (
     ModelCodeAnalysisFailedPayload,
     ModelCodeAnalysisRequestPayload,
 )
+from datetime import UTC
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +183,7 @@ class NodeIntelligenceAdapterEffect:
 
     **Usage**:
         >>> from uuid import uuid4
-        >>> from omniintelligence.contracts.model_intelligence_input import ModelIntelligenceInput
+        >>> from omniintelligence.models import ModelIntelligenceInput
         >>>
         >>> # Direct operation (non-event)
         >>> node = NodeIntelligenceAdapterEffect(service_url="http://localhost:8053")
@@ -248,20 +247,20 @@ class NodeIntelligenceAdapterEffect:
         )
 
         # ONEX-compliant attributes
-        self._config = None
-        self._client = None
+        self._config: Optional[ModelIntelligenceConfig] = None
+        self._client: Optional[IntelligenceServiceClient] = None
 
         # Kafka infrastructure
         self.event_publisher: Optional[EventPublisher] = None
         self.kafka_consumer: Optional[Consumer] = None
-        self._event_consumption_task: Optional[asyncio.Task] = None
+        self._event_consumption_task: Optional[asyncio.Task[None]] = None
 
         # Lifecycle state
         self.is_running = False
         self._shutdown_event = asyncio.Event()
 
         # Statistics tracking (ONEX-compliant _stats attribute)
-        self._stats = {
+        self._stats: dict[str, Any] = {
             "total_analyses": 0,
             "successful_analyses": 0,
             "failed_analyses": 0,
@@ -306,8 +305,8 @@ class NodeIntelligenceAdapterEffect:
         Raises:
             ModelOnexError: If initialization fails
         """
-        from omnibase_core.errors.error_codes import EnumCoreErrorCode
-        from omnibase_core.errors.model_onex_error import ModelOnexError
+        from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+        from omnibase_core.models.errors.model_onex_error import ModelOnexError
 
         try:
             # Step 1: Load configuration from environment
@@ -370,7 +369,7 @@ class NodeIntelligenceAdapterEffect:
             )
             raise ModelOnexError(
                 error_code=EnumCoreErrorCode.INITIALIZATION_FAILED,
-                message=f"Failed to initialize Intelligence Adapter: {str(e)}",
+                message=f"Failed to initialize Intelligence Adapter: {e!s}",
             ) from e
 
     async def _initialize_kafka_infrastructure(self) -> None:
@@ -463,7 +462,7 @@ class NodeIntelligenceAdapterEffect:
         if self._event_consumption_task:
             try:
                 await asyncio.wait_for(self._event_consumption_task, timeout=30.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Event consumption task did not finish in 30s")
                 self._event_consumption_task.cancel()
 
@@ -533,6 +532,11 @@ class NodeIntelligenceAdapterEffect:
 
         while not self._shutdown_event.is_set():
             try:
+                # Guard: Kafka consumer must be initialized
+                if self.kafka_consumer is None:
+                    logger.error("Kafka consumer not initialized, stopping loop")
+                    break
+
                 # Poll for messages (1 second timeout)
                 msg = self.kafka_consumer.poll(timeout=1.0)
 
@@ -646,6 +650,11 @@ class NodeIntelligenceAdapterEffect:
 
         # Step 4: Route based on event type
         if event_type_enum == EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value:
+            # Cast payload to expected type (deserialize_event returns BaseModel)
+            if not isinstance(payload, ModelCodeAnalysisRequestPayload):
+                raise ValueError(
+                    f"Expected ModelCodeAnalysisRequestPayload, got {type(payload).__name__}"
+                )
             await self._handle_code_analysis_requested(
                 payload=payload,
                 correlation_id=correlation_id,
@@ -794,6 +803,13 @@ class NodeIntelligenceAdapterEffect:
                 EnumCodeAnalysisEventType.CODE_ANALYSIS_COMPLETED
             )
 
+            if self.event_publisher is None:
+                logger.warning(
+                    f"Event publisher not initialized, skipping publish | "
+                    f"correlation_id={correlation_id}"
+                )
+                return
+
             await self.event_publisher.publish(
                 event_type=event["event_type"],
                 payload=event["payload"],
@@ -843,10 +859,15 @@ class NodeIntelligenceAdapterEffect:
             except ValueError:
                 error_code_enum = EnumAnalysisErrorCode.INTERNAL_ERROR
 
+            # Safely extract source_path (handles both None input_data and None source_path)
+            source_path: str = "unknown"
+            if input_data is not None and input_data.source_path is not None:
+                source_path = input_data.source_path
+
             # Create failure payload
             payload = ModelCodeAnalysisFailedPayload(
                 operation_type=EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS,
-                source_path=input_data.source_path if input_data else "unknown",
+                source_path=source_path,
                 error_message=error_message,
                 error_code=error_code_enum,
                 retry_allowed=True,
@@ -866,6 +887,13 @@ class NodeIntelligenceAdapterEffect:
             topic = IntelligenceAdapterEventHelpers.get_kafka_topic(
                 EnumCodeAnalysisEventType.CODE_ANALYSIS_FAILED
             )
+
+            if self.event_publisher is None:
+                logger.warning(
+                    f"Event publisher not initialized, skipping publish | "
+                    f"correlation_id={correlation_id}"
+                )
+                return
 
             await self.event_publisher.publish(
                 event_type=event["event_type"],
@@ -914,7 +942,7 @@ class NodeIntelligenceAdapterEffect:
         """
         import json
         import traceback
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         original_topic = message.topic()
         dlq_topic = f"{original_topic}.dlq"
@@ -940,7 +968,7 @@ class NodeIntelligenceAdapterEffect:
                 ts_type, ts_value = message.timestamp()
                 if ts_value:
                     message_timestamp = datetime.fromtimestamp(
-                        ts_value / 1000, tz=timezone.utc
+                        ts_value / 1000, tz=UTC
                     ).isoformat()
 
             # Build DLQ payload with full context
@@ -961,7 +989,7 @@ class NodeIntelligenceAdapterEffect:
                 "processing_context": {
                     "node_id": str(self.node_id),
                     "consumer_group": self.consumer_config.group_id,
-                    "routed_at": datetime.now(timezone.utc).isoformat(),
+                    "routed_at": datetime.now(UTC).isoformat(),
                     "service_url": self.service_url,
                 },
             }
@@ -1027,7 +1055,7 @@ class NodeIntelligenceAdapterEffect:
     # ONEX Effect Pattern Methods
     # =========================================================================
 
-    async def process(self, operation_data: Dict[str, Any]) -> Any:
+    async def process(self, operation_data: dict[str, Any]) -> Any:
         """
         Process operation (ONEX Effect pattern method).
 
@@ -1078,10 +1106,10 @@ class NodeIntelligenceAdapterEffect:
         Raises:
             ModelOnexError: If node not initialized or analysis fails
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        from omnibase_core.errors.error_codes import EnumCoreErrorCode
-        from omnibase_core.errors.model_onex_error import ModelOnexError
+        from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+        from omnibase_core.models.errors.model_onex_error import ModelOnexError
 
         # Check initialization
         if self._config is None or self._client is None:
@@ -1092,12 +1120,18 @@ class NodeIntelligenceAdapterEffect:
 
         # Track analysis start
         start_time = time.perf_counter()
-        self._stats["total_analyses"] += 1
+        # Type-safe increment of total_analyses
+        total = self._stats.get("total_analyses", 0)
+        self._stats["total_analyses"] = (int(total) if total is not None else 0) + 1
 
         # Retry logic configuration
         max_retries = self._config.max_retries if self._config else 3
         retry_count = 0
         last_error = None
+
+        # Extract content and source_path with safe defaults
+        content: str = input_data.content or ""
+        source_path: str = input_data.source_path or "unknown"
 
         while retry_count <= max_retries:
             try:
@@ -1116,9 +1150,9 @@ class NodeIntelligenceAdapterEffect:
                     "check_architectural_compliance",
                 ]:
                     # Quality assessment endpoint
-                    request = ModelQualityAssessmentRequest(
-                        content=input_data.content,
-                        source_path=input_data.source_path,
+                    quality_request = ModelQualityAssessmentRequest(
+                        content=content,
+                        source_path=source_path,
                         language=input_data.language,
                         include_recommendations=True,
                         min_quality_threshold=(
@@ -1127,14 +1161,16 @@ class NodeIntelligenceAdapterEffect:
                             else 0.7
                         ),
                     )
-                    response = await self._client.assess_code_quality(request)
-                    result_data = self._transform_quality_response(response)
+                    quality_response = await self._client.assess_code_quality(
+                        quality_request
+                    )
+                    result_data = self._transform_quality_response(quality_response)
 
                 elif input_data.operation_type == "analyze_performance":
                     # Performance baseline endpoint
-                    request = ModelPerformanceAnalysisRequest(
-                        operation_name=input_data.source_path,
-                        code_content=input_data.content,
+                    perf_request = ModelPerformanceAnalysisRequest(
+                        operation_name=source_path,
+                        code_content=content,
                         context=input_data.options,
                         include_opportunities=True,
                         target_percentile=(
@@ -1143,14 +1179,14 @@ class NodeIntelligenceAdapterEffect:
                             else 95
                         ),
                     )
-                    response = await self._client.analyze_performance(request)
-                    result_data = self._transform_performance_response(response)
+                    perf_response = await self._client.analyze_performance(perf_request)
+                    result_data = self._transform_performance_response(perf_response)
 
                 elif input_data.operation_type == "get_quality_patterns":
                     # Pattern detection endpoint
-                    request = ModelPatternDetectionRequest(
-                        content=input_data.content,
-                        source_path=input_data.source_path,
+                    pattern_request = ModelPatternDetectionRequest(
+                        content=content,
+                        source_path=source_path,
                         pattern_categories=(
                             input_data.options.get("pattern_categories")
                             if input_data.options
@@ -1163,8 +1199,8 @@ class NodeIntelligenceAdapterEffect:
                         ),
                         include_recommendations=True,
                     )
-                    response = await self._client.detect_patterns(request)
-                    result_data = self._transform_pattern_response(response)
+                    pattern_response = await self._client.detect_patterns(pattern_request)
+                    result_data = self._transform_pattern_response(pattern_response)
 
                 else:
                     # Default to quality assessment for unknown operation types
@@ -1172,15 +1208,17 @@ class NodeIntelligenceAdapterEffect:
                         f"Unknown operation type '{input_data.operation_type}', "
                         f"defaulting to quality assessment"
                     )
-                    request = ModelQualityAssessmentRequest(
-                        content=input_data.content,
-                        source_path=input_data.source_path,
+                    default_request = ModelQualityAssessmentRequest(
+                        content=content,
+                        source_path=source_path,
                         language=input_data.language,
                         include_recommendations=True,
                         min_quality_threshold=0.7,
                     )
-                    response = await self._client.assess_code_quality(request)
-                    result_data = self._transform_quality_response(response)
+                    default_response = await self._client.assess_code_quality(
+                        default_request
+                    )
+                    result_data = self._transform_quality_response(default_response)
 
                 # Calculate actual processing time
                 processing_time_ms = int((time.perf_counter() - operation_start) * 1000)
@@ -1212,13 +1250,16 @@ class NodeIntelligenceAdapterEffect:
 
         # Check if we exhausted retries
         if last_error is not None:
-            # Track failure
-            self._stats["failed_analyses"] += 1
+            # Track failure (type-safe)
+            failed = self._stats.get("failed_analyses", 0)
+            self._stats["failed_analyses"] = (int(failed) if failed is not None else 0) + 1
 
-            # Update success rate
-            if self._stats["total_analyses"] > 0:
+            # Update success rate (type-safe)
+            total_analyses = self._stats.get("total_analyses", 0)
+            if total_analyses and int(total_analyses) > 0:
+                successful = self._stats.get("successful_analyses", 0)
                 self._stats["success_rate"] = (
-                    self._stats["successful_analyses"] / self._stats["total_analyses"]
+                    float(successful or 0) / float(total_analyses)
                 )
 
             logger.error(
@@ -1231,7 +1272,7 @@ class NodeIntelligenceAdapterEffect:
 
             raise ModelOnexError(
                 error_code=EnumCoreErrorCode.OPERATION_FAILED,
-                message=f"Intelligence analysis failed: {str(last_error)}",
+                message=f"Intelligence analysis failed: {last_error!s}",
             ) from last_error
 
         # Build output from process result
@@ -1252,26 +1293,38 @@ class NodeIntelligenceAdapterEffect:
             },
         )
 
-        # Update statistics for successful analysis
+        # Update statistics for successful analysis (type-safe)
         if output.success:
-            self._stats["successful_analyses"] += 1
+            successful = self._stats.get("successful_analyses", 0)
+            self._stats["successful_analyses"] = (
+                int(successful) if successful is not None else 0
+            ) + 1
             if output.quality_score is not None:
-                self._stats["total_quality_score"] += output.quality_score
-                self._stats["avg_quality_score"] = (
-                    self._stats["total_quality_score"]
-                    / self._stats["successful_analyses"]
+                total_quality = self._stats.get("total_quality_score", 0.0)
+                new_total_quality = (
+                    float(total_quality) if total_quality is not None else 0.0
+                ) + output.quality_score
+                self._stats["total_quality_score"] = new_total_quality
+                successful_count = self._stats.get("successful_analyses", 1)
+                self._stats["avg_quality_score"] = new_total_quality / float(
+                    successful_count if successful_count else 1
                 )
         else:
-            self._stats["failed_analyses"] += 1
+            failed = self._stats.get("failed_analyses", 0)
+            self._stats["failed_analyses"] = (
+                int(failed) if failed is not None else 0
+            ) + 1
 
-        # Update success rate
-        if self._stats["total_analyses"] > 0:
+        # Update success rate (type-safe)
+        total_analyses = self._stats.get("total_analyses", 0)
+        if total_analyses and int(total_analyses) > 0:
+            successful = self._stats.get("successful_analyses", 0)
             self._stats["success_rate"] = (
-                self._stats["successful_analyses"] / self._stats["total_analyses"]
+                float(successful or 0) / float(total_analyses)
             )
 
         # Update last analysis time
-        self._stats["last_analysis_time"] = datetime.now(timezone.utc).isoformat()
+        self._stats["last_analysis_time"] = datetime.now(UTC).isoformat()
 
         return output
 
@@ -1314,7 +1367,7 @@ class NodeIntelligenceAdapterEffect:
             ),
         )
 
-    def _transform_quality_response(self, response: Any) -> Dict[str, Any]:
+    def _transform_quality_response(self, response: Any) -> dict[str, Any]:
         """
         Transform quality assessment response to standard format.
 
@@ -1372,7 +1425,7 @@ class NodeIntelligenceAdapterEffect:
             },
         }
 
-    def _transform_performance_response(self, response: Any) -> Dict[str, Any]:
+    def _transform_performance_response(self, response: Any) -> dict[str, Any]:
         """
         Transform performance analysis response to standard format.
 
@@ -1399,9 +1452,12 @@ class NodeIntelligenceAdapterEffect:
                     )
 
         complexity_score = 0.0
-        if hasattr(response, "baseline_metrics") and response.baseline_metrics:
-            if hasattr(response.baseline_metrics, "complexity_estimate"):
-                complexity_score = response.baseline_metrics.complexity_estimate
+        if (
+            hasattr(response, "baseline_metrics")
+            and response.baseline_metrics
+            and hasattr(response.baseline_metrics, "complexity_estimate")
+        ):
+            complexity_score = response.baseline_metrics.complexity_estimate
 
         return {
             "success": True,
@@ -1435,7 +1491,7 @@ class NodeIntelligenceAdapterEffect:
             },
         }
 
-    def _transform_pattern_response(self, response: Any) -> Dict[str, Any]:
+    def _transform_pattern_response(self, response: Any) -> dict[str, Any]:
         """
         Transform pattern detection response to standard format.
 
@@ -1478,9 +1534,9 @@ class NodeIntelligenceAdapterEffect:
         if (
             hasattr(response, "architectural_compliance")
             and response.architectural_compliance
+            and hasattr(response.architectural_compliance, "onex_compliance")
         ):
-            if hasattr(response.architectural_compliance, "onex_compliance"):
-                onex_compliance = response.architectural_compliance.onex_compliance
+            onex_compliance = response.architectural_compliance.onex_compliance
 
         return {
             "success": True,

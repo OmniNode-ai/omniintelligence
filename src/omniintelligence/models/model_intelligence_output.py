@@ -13,10 +13,10 @@ Reference: omninode_bridge/nodes/database_adapter_effect/v1_0_0/models/outputs/
 """
 
 from datetime import UTC, datetime
-from typing import Any, ClassVar, Literal, Optional
-from uuid import UUID, uuid4
+from typing import Any, Literal, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelPatternDetection(BaseModel):
@@ -220,302 +220,11 @@ class ModelIntelligenceOutput(BaseModel):
         >>> assert isinstance(result_dict["correlation_id"], str)
     """
 
-    # Core response fields
-    success: bool = Field(
-        ...,
-        description="Operation success status",
-    )
-
-    operation_type: str = Field(
-        ...,
-        description="Type of intelligence operation performed",
-        examples=[
-            "assess_code_quality",
-            "check_architectural_compliance",
-            "identify_optimization_opportunities",
-            "analyze_document_freshness",
-            "perform_rag_query",
-        ],
-    )
-
-    correlation_id: UUID = Field(
-        ...,
-        description="Request correlation ID preserved from input for end-to-end tracking",
-    )
-
-    processing_time_ms: int = Field(
-        ...,
-        description="Total processing time in milliseconds",
-        ge=0,
-    )
-
-    # Intelligence-specific scoring fields
-    quality_score: Optional[float] = Field(
-        None,
-        description="Overall quality assessment score (0.0=poor, 1.0=excellent)",
-        ge=0.0,
-        le=1.0,
-    )
-
-    onex_compliance: Optional[float] = Field(
-        None,
-        description="ONEX architectural compliance score (0.0=non-compliant, 1.0=fully compliant)",
-        ge=0.0,
-        le=1.0,
-    )
-
-    complexity_score: Optional[float] = Field(
-        None,
-        description="Code complexity score (0.0=simple, 1.0=highly complex)",
-        ge=0.0,
-        le=1.0,
-    )
-
-    # Analysis results
-    issues: list[str] = Field(
-        default_factory=list,
-        description="List of detected issues requiring attention",
-    )
-
-    recommendations: list[str] = Field(
-        default_factory=list,
-        description="List of actionable improvement recommendations",
-    )
-
-    patterns: Optional[list[ModelPatternDetection]] = Field(
-        None,
-        description="Detected patterns (architectural, quality, security, performance)",
-    )
-
-    # Operation-specific data
-    result_data: Optional[dict[str, Any]] = Field(
-        None,
-        description="Operation-specific result data (structure varies by operation)",
-    )
-
-    # Execution metrics
-    metrics: Optional[ModelIntelligenceMetrics] = Field(
-        None,
-        description="Detailed execution metrics for performance tracking",
-    )
-
-    # Error handling
-    error_code: Optional[str] = Field(
-        None,
-        description="Machine-readable error code (None on success)",
-        examples=[
-            "INTELLIGENCE_SERVICE_TIMEOUT",
-            "INVALID_INPUT_SYNTAX",
-            "ONEX_COMPLIANCE_FAILED",
-            "CACHE_CONNECTION_ERROR",
-        ],
-    )
-
-    error_message: Optional[str] = Field(
-        None,
-        description="Human-readable error description (None on success)",
-    )
-
-    retry_allowed: bool = Field(
-        default=False,
-        description="Whether this operation can be safely retried",
-    )
-
-    # Audit trail
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        description="Operation completion timestamp (UTC, ISO 8601)",
-    )
-
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional extensible metadata for domain-specific requirements",
-    )
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Convert output model to dictionary with JSON-serializable types.
-
-        Converts UUIDs to strings and datetime to ISO 8601 format for
-        API responses, event payloads, and logging.
-
-        Returns:
-            Dictionary with all fields, UUIDs as strings, datetime as ISO 8601
-
-        Example:
-            >>> output = ModelIntelligenceOutput(
-            ...     success=True,
-            ...     operation_type="assess_code_quality",
-            ...     correlation_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
-            ...     processing_time_ms=1234,
-            ...     quality_score=0.87,
-            ... )
-            >>> result = output.to_dict()
-            >>> assert result["correlation_id"] == "550e8400-e29b-41d4-a716-446655440000"
-            >>> assert result["quality_score"] == 0.87
-        """
-        return {
-            "success": self.success,
-            "operation_type": self.operation_type,
-            "correlation_id": str(self.correlation_id),
-            "processing_time_ms": self.processing_time_ms,
-            "quality_score": self.quality_score,
-            "onex_compliance": self.onex_compliance,
-            "complexity_score": self.complexity_score,
-            "issues": self.issues,
-            "recommendations": self.recommendations,
-            "patterns": (
-                [p.model_dump() for p in self.patterns] if self.patterns else None
-            ),
-            "result_data": self.result_data,
-            "metrics": self.metrics.model_dump() if self.metrics else None,
-            "error_code": self.error_code,
-            "error_message": self.error_message,
-            "retry_allowed": self.retry_allowed,
-            "timestamp": self.timestamp.isoformat(),
-            "metadata": self.metadata,
-        }
-
-    @classmethod
-    def from_api_response(
-        cls,
-        api_response: dict[str, Any],
-        operation_type: str,
-        correlation_id: UUID,
-        processing_time_ms: int,
-    ) -> "ModelIntelligenceOutput":
-        """
-        Create output model from Intelligence Service API response.
-
-        Transforms raw API responses from intelligence service endpoints
-        into strongly-typed ModelIntelligenceOutput instances.
-
-        Args:
-            api_response: Raw API response dictionary
-            operation_type: Intelligence operation type
-            correlation_id: Request correlation ID (preserved from input)
-            processing_time_ms: Total processing time
-
-        Returns:
-            ModelIntelligenceOutput instance with parsed response data
-
-        Example:
-            >>> api_response = {
-            ...     "quality_score": 0.87,
-            ...     "onex_compliance": 0.92,
-            ...     "issues": ["Missing docstrings"],
-            ...     "recommendations": ["Add type hints"],
-            ...     "patterns": [
-            ...         {
-            ...             "pattern_type": "architectural",
-            ...             "pattern_name": "ONEX_EFFECT_NODE",
-            ...             "confidence": 0.95,
-            ...             "description": "Proper Effect node detected",
-            ...             "severity": "info"
-            ...         }
-            ...     ]
-            ... }
-            >>> output = ModelIntelligenceOutput.from_api_response(
-            ...     api_response=api_response,
-            ...     operation_type="assess_code_quality",
-            ...     correlation_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
-            ...     processing_time_ms=1234,
-            ... )
-            >>> assert output.success is True
-            >>> assert output.quality_score == 0.87
-        """
-        # Parse patterns if present
-        patterns = None
-        if "patterns" in api_response and api_response["patterns"]:
-            patterns = [
-                ModelPatternDetection(**pattern) for pattern in api_response["patterns"]
-            ]
-
-        # Parse metrics if present
-        metrics = None
-        if "metrics" in api_response and api_response["metrics"]:
-            metrics = ModelIntelligenceMetrics(**api_response["metrics"])
-
-        return cls(
-            success=api_response.get("success", False),
-            operation_type=operation_type,
-            correlation_id=correlation_id,
-            processing_time_ms=processing_time_ms,
-            quality_score=api_response.get("quality_score"),
-            onex_compliance=api_response.get("onex_compliance"),
-            complexity_score=api_response.get("complexity_score"),
-            issues=api_response.get("issues", []),
-            recommendations=api_response.get("recommendations", []),
-            patterns=patterns,
-            result_data=api_response.get("result_data"),
-            metrics=metrics,
-            error_code=api_response.get("error_code"),
-            error_message=api_response.get("error_message"),
-            retry_allowed=api_response.get("retry_allowed", False),
-            metadata=api_response.get("metadata", {}),
-        )
-
-    @classmethod
-    def create_error(
-        cls,
-        operation_type: str,
-        correlation_id: UUID,
-        processing_time_ms: int,
-        error_code: str,
-        error_message: str,
-        retry_allowed: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "ModelIntelligenceOutput":
-        """
-        Create error response output.
-
-        Convenience method for creating error responses with consistent
-        structure across all intelligence operations.
-
-        Args:
-            operation_type: Intelligence operation that failed
-            correlation_id: Request correlation ID
-            processing_time_ms: Time until failure
-            error_code: Machine-readable error code
-            error_message: Human-readable error description
-            retry_allowed: Whether operation can be retried
-            metadata: Additional error context
-
-        Returns:
-            ModelIntelligenceOutput instance representing failure
-
-        Example:
-            >>> error = ModelIntelligenceOutput.create_error(
-            ...     operation_type="assess_code_quality",
-            ...     correlation_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
-            ...     processing_time_ms=150,
-            ...     error_code="INTELLIGENCE_SERVICE_TIMEOUT",
-            ...     error_message="Service did not respond within 10s",
-            ...     retry_allowed=True,
-            ...     metadata={"service": "intelligence", "timeout_ms": 10000},
-            ... )
-            >>> assert error.success is False
-            >>> assert error.retry_allowed is True
-        """
-        return cls(
-            success=False,
-            operation_type=operation_type,
-            correlation_id=correlation_id,
-            processing_time_ms=processing_time_ms,
-            error_code=error_code,
-            error_message=error_message,
-            retry_allowed=retry_allowed,
-            metadata=metadata or {},
-        )
-
-    class Config:
-        """Pydantic v2 configuration."""
-
+    model_config = ConfigDict(
         # Allow arbitrary types (for UUID, datetime)
-        arbitrary_types_allowed = True
-
+        arbitrary_types_allowed=True,
         # JSON schema examples for documentation and testing
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+        json_schema_extra={
             "examples": [
                 {
                     "success": True,
@@ -644,4 +353,293 @@ class ModelIntelligenceOutput(BaseModel):
                     },
                 },
             ]
+        },
+    )
+
+    # Core response fields
+    success: bool = Field(
+        ...,
+        description="Operation success status",
+    )
+
+    operation_type: str = Field(
+        ...,
+        description="Type of intelligence operation performed",
+        examples=[
+            "assess_code_quality",
+            "check_architectural_compliance",
+            "identify_optimization_opportunities",
+            "analyze_document_freshness",
+            "perform_rag_query",
+        ],
+    )
+
+    correlation_id: UUID = Field(
+        ...,
+        description="Request correlation ID preserved from input for end-to-end tracking",
+    )
+
+    processing_time_ms: int = Field(
+        ...,
+        description="Total processing time in milliseconds",
+        ge=0,
+    )
+
+    # Intelligence-specific scoring fields
+    quality_score: Optional[float] = Field(
+        default=None,
+        description="Overall quality assessment score (0.0=poor, 1.0=excellent)",
+        ge=0.0,
+        le=1.0,
+    )
+
+    onex_compliance: Optional[float] = Field(
+        default=None,
+        description="ONEX architectural compliance score (0.0=non-compliant, 1.0=fully compliant)",
+        ge=0.0,
+        le=1.0,
+    )
+
+    complexity_score: Optional[float] = Field(
+        default=None,
+        description="Code complexity score (0.0=simple, 1.0=highly complex)",
+        ge=0.0,
+        le=1.0,
+    )
+
+    # Analysis results
+    issues: list[str] = Field(
+        default_factory=list,
+        description="List of detected issues requiring attention",
+    )
+
+    recommendations: list[str] = Field(
+        default_factory=list,
+        description="List of actionable improvement recommendations",
+    )
+
+    patterns: Optional[list[ModelPatternDetection]] = Field(
+        default=None,
+        description="Detected patterns (architectural, quality, security, performance)",
+    )
+
+    # Operation-specific data
+    result_data: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Operation-specific result data (structure varies by operation)",
+    )
+
+    # Execution metrics
+    metrics: Optional[ModelIntelligenceMetrics] = Field(
+        default=None,
+        description="Detailed execution metrics for performance tracking",
+    )
+
+    # Error handling
+    error_code: Optional[str] = Field(
+        default=None,
+        description="Machine-readable error code (None on success)",
+        examples=[
+            "INTELLIGENCE_SERVICE_TIMEOUT",
+            "INVALID_INPUT_SYNTAX",
+            "ONEX_COMPLIANCE_FAILED",
+            "CACHE_CONNECTION_ERROR",
+        ],
+    )
+
+    error_message: Optional[str] = Field(
+        default=None,
+        description="Human-readable error description (None on success)",
+    )
+
+    retry_allowed: bool = Field(
+        default=False,
+        description="Whether this operation can be safely retried",
+    )
+
+    # Audit trail
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Operation completion timestamp (UTC, ISO 8601)",
+    )
+
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional extensible metadata for domain-specific requirements",
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert output model to dictionary with JSON-serializable types.
+
+        Converts UUIDs to strings and datetime to ISO 8601 format for
+        API responses, event payloads, and logging.
+
+        Returns:
+            Dictionary with all fields, UUIDs as strings, datetime as ISO 8601
+
+        Example:
+            >>> output = ModelIntelligenceOutput(
+            ...     success=True,
+            ...     operation_type="assess_code_quality",
+            ...     correlation_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
+            ...     processing_time_ms=1234,
+            ...     quality_score=0.87,
+            ... )
+            >>> result = output.to_dict()
+            >>> assert result["correlation_id"] == "550e8400-e29b-41d4-a716-446655440000"
+            >>> assert result["quality_score"] == 0.87
+        """
+        return {
+            "success": self.success,
+            "operation_type": self.operation_type,
+            "correlation_id": str(self.correlation_id),
+            "processing_time_ms": self.processing_time_ms,
+            "quality_score": self.quality_score,
+            "onex_compliance": self.onex_compliance,
+            "complexity_score": self.complexity_score,
+            "issues": self.issues,
+            "recommendations": self.recommendations,
+            "patterns": (
+                [p.model_dump() for p in self.patterns] if self.patterns else None
+            ),
+            "result_data": self.result_data,
+            "metrics": self.metrics.model_dump() if self.metrics else None,
+            "error_code": self.error_code,
+            "error_message": self.error_message,
+            "retry_allowed": self.retry_allowed,
+            "timestamp": self.timestamp.isoformat(),
+            "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_api_response(
+        cls,
+        api_response: dict[str, Any],
+        operation_type: str,
+        correlation_id: UUID,
+        processing_time_ms: int,
+    ) -> "ModelIntelligenceOutput":
+        """
+        Create output model from Intelligence Service API response.
+
+        Transforms raw API responses from intelligence service endpoints
+        into strongly-typed ModelIntelligenceOutput instances.
+
+        Args:
+            api_response: Raw API response dictionary
+            operation_type: Intelligence operation type
+            correlation_id: Request correlation ID (preserved from input)
+            processing_time_ms: Total processing time
+
+        Returns:
+            ModelIntelligenceOutput instance with parsed response data
+
+        Example:
+            >>> api_response = {
+            ...     "quality_score": 0.87,
+            ...     "onex_compliance": 0.92,
+            ...     "issues": ["Missing docstrings"],
+            ...     "recommendations": ["Add type hints"],
+            ...     "patterns": [
+            ...         {
+            ...             "pattern_type": "architectural",
+            ...             "pattern_name": "ONEX_EFFECT_NODE",
+            ...             "confidence": 0.95,
+            ...             "description": "Proper Effect node detected",
+            ...             "severity": "info"
+            ...         }
+            ...     ]
+            ... }
+            >>> output = ModelIntelligenceOutput.from_api_response(
+            ...     api_response=api_response,
+            ...     operation_type="assess_code_quality",
+            ...     correlation_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
+            ...     processing_time_ms=1234,
+            ... )
+            >>> assert output.success is True
+            >>> assert output.quality_score == 0.87
+        """
+        # Parse patterns if present
+        patterns = None
+        if api_response.get("patterns"):
+            patterns = [
+                ModelPatternDetection(**pattern) for pattern in api_response["patterns"]
+            ]
+
+        # Parse metrics if present
+        metrics = None
+        if api_response.get("metrics"):
+            metrics = ModelIntelligenceMetrics(**api_response["metrics"])
+
+        return cls(
+            success=api_response.get("success", False),
+            operation_type=operation_type,
+            correlation_id=correlation_id,
+            processing_time_ms=processing_time_ms,
+            quality_score=api_response.get("quality_score"),
+            onex_compliance=api_response.get("onex_compliance"),
+            complexity_score=api_response.get("complexity_score"),
+            issues=api_response.get("issues", []),
+            recommendations=api_response.get("recommendations", []),
+            patterns=patterns,
+            result_data=api_response.get("result_data"),
+            metrics=metrics,
+            error_code=api_response.get("error_code"),
+            error_message=api_response.get("error_message"),
+            retry_allowed=api_response.get("retry_allowed", False),
+            metadata=api_response.get("metadata", {}),
+        )
+
+    @classmethod
+    def create_error(
+        cls,
+        operation_type: str,
+        correlation_id: UUID,
+        processing_time_ms: int,
+        error_code: str,
+        error_message: str,
+        retry_allowed: bool = False,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> "ModelIntelligenceOutput":
+        """
+        Create error response output.
+
+        Convenience method for creating error responses with consistent
+        structure across all intelligence operations.
+
+        Args:
+            operation_type: Intelligence operation that failed
+            correlation_id: Request correlation ID
+            processing_time_ms: Time until failure
+            error_code: Machine-readable error code
+            error_message: Human-readable error description
+            retry_allowed: Whether operation can be retried
+            metadata: Additional error context
+
+        Returns:
+            ModelIntelligenceOutput instance representing failure
+
+        Example:
+            >>> error = ModelIntelligenceOutput.create_error(
+            ...     operation_type="assess_code_quality",
+            ...     correlation_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
+            ...     processing_time_ms=150,
+            ...     error_code="INTELLIGENCE_SERVICE_TIMEOUT",
+            ...     error_message="Service did not respond within 10s",
+            ...     retry_allowed=True,
+            ...     metadata={"service": "intelligence", "timeout_ms": 10000},
+            ... )
+            >>> assert error.success is False
+            >>> assert error.retry_allowed is True
+        """
+        return cls(
+            success=False,
+            operation_type=operation_type,
+            correlation_id=correlation_id,
+            processing_time_ms=processing_time_ms,
+            error_code=error_code,
+            error_message=error_message,
+            retry_allowed=retry_allowed,
+            metadata=metadata or {},
+        )

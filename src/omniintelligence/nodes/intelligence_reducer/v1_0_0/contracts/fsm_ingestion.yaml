@@ -1,0 +1,235 @@
+# FSM Subcontract: Document Ingestion
+# Defines state machine for document ingestion workflow
+# RECEIVED -> PROCESSING -> INDEXED (or FAILED with retry)
+
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+state_machine_name: ingestion_fsm
+state_machine_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Document ingestion finite state machine.
+  Tracks document lifecycle from receipt through indexing.
+  Supports retry from FAILED state back to PROCESSING.
+
+# State Definitions
+states:
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: RECEIVED
+    state_type: operational
+    description: Document received, awaiting processing
+    is_terminal: false
+    is_recoverable: true
+    entry_actions: []
+    exit_actions: []
+    required_data:
+      - entity_id
+      - correlation_id
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: PROCESSING
+    state_type: operational
+    description: Document is being processed and vectorized
+    is_terminal: false
+    is_recoverable: true
+    timeout_ms: 300000  # 5 minutes
+    entry_actions:
+      - start_processing
+    exit_actions: []
+    required_data:
+      - entity_id
+      - correlation_id
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: INDEXED
+    state_type: snapshot
+    description: Document successfully indexed in vector store
+    is_terminal: false
+    is_recoverable: true
+    entry_actions:
+      - notify_completion
+    exit_actions: []
+    required_data:
+      - entity_id
+      - correlation_id
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: FAILED
+    state_type: error
+    description: Document processing failed
+    is_terminal: false
+    is_recoverable: true
+    entry_actions:
+      - notify_failure
+    exit_actions: []
+    required_data:
+      - entity_id
+      - correlation_id
+      - error_message
+
+# Initial and Special States
+initial_state: RECEIVED
+terminal_states: []  # No true terminal states - can always reindex
+error_states:
+  - FAILED
+
+# Transition Definitions
+transitions:
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: start_processing
+    from_state: RECEIVED
+    to_state: PROCESSING
+    trigger: START_PROCESSING
+    priority: 1
+    conditions: []
+    actions:
+      - action_name: emit_workflow_intent
+        action_type: intent
+        version:
+          major: 1
+          minor: 0
+          patch: 0
+        parameters:
+          intent_type: WORKFLOW_TRIGGER
+          operation: DOCUMENT_INGESTION
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: fail_from_received
+    from_state: RECEIVED
+    to_state: FAILED
+    trigger: FAIL
+    priority: 1
+    conditions: []
+    actions:
+      - action_name: emit_failure_event
+        action_type: event
+        version:
+          major: 1
+          minor: 0
+          patch: 0
+        parameters:
+          event_type: FSM_FAILED
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: complete_indexing
+    from_state: PROCESSING
+    to_state: INDEXED
+    trigger: COMPLETE_INDEXING
+    priority: 1
+    conditions: []
+    actions:
+      - action_name: emit_completion_event
+        action_type: event
+        version:
+          major: 1
+          minor: 0
+          patch: 0
+        parameters:
+          event_type: FSM_INDEXED
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: fail_from_processing
+    from_state: PROCESSING
+    to_state: FAILED
+    trigger: FAIL
+    priority: 1
+    conditions: []
+    actions:
+      - action_name: emit_failure_event
+        action_type: event
+        version:
+          major: 1
+          minor: 0
+          patch: 0
+        parameters:
+          event_type: FSM_FAILED
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: reindex
+    from_state: INDEXED
+    to_state: PROCESSING
+    trigger: REINDEX
+    priority: 1
+    conditions: []
+    actions:
+      - action_name: emit_workflow_intent
+        action_type: intent
+        version:
+          major: 1
+          minor: 0
+          patch: 0
+        parameters:
+          intent_type: WORKFLOW_TRIGGER
+          operation: DOCUMENT_INGESTION
+
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: retry_from_failed
+    from_state: FAILED
+    to_state: PROCESSING
+    trigger: RETRY
+    priority: 1
+    retry_enabled: true
+    max_retries: 3
+    retry_delay_ms: 5000
+    conditions: []
+    actions:
+      - action_name: emit_workflow_intent
+        action_type: intent
+        version:
+          major: 1
+          minor: 0
+          patch: 0
+        parameters:
+          intent_type: WORKFLOW_TRIGGER
+          operation: DOCUMENT_INGESTION
+
+# Persistence Configuration
+persistence_enabled: true
+checkpoint_interval_ms: 30000
+max_checkpoints: 10
+recovery_enabled: true
+rollback_enabled: true
+
+# Validation and Monitoring
+strict_validation_enabled: true
+state_monitoring_enabled: true
+event_logging_enabled: true
+conflict_resolution_strategy: priority_based
+concurrent_transitions_allowed: false
+transition_timeout_ms: 5000

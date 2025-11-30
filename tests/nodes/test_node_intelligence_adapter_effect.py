@@ -18,9 +18,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
+from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
 from omnibase_core.enums.enum_log_level import EnumLogLevel
-from omnibase_core.errors.error_codes import EnumCoreErrorCode
-from omnibase_core.errors.model_onex_error import ModelOnexError
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Import from omniintelligence package
@@ -28,18 +28,12 @@ from omniintelligence.contracts import ModelIntelligenceInput
 from omniintelligence.models import ModelIntelligenceConfig, ModelIntelligenceOutput
 from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 
-# External dependencies (omninode_bridge)
-from omninode_bridge.clients.client_intelligence_service import (
+# Import client classes from omniintelligence (migrated from omninode_bridge)
+from omniintelligence.clients.client_intelligence_service import (
+    CoreErrorCode,
     IntelligenceServiceClient,
     IntelligenceServiceError,
 )
-
-# Import CoreErrorCode from the client module
-try:
-    from omninode_bridge.clients.client_intelligence_service import CoreErrorCode
-except ImportError:
-    # Fallback if CoreErrorCode is not directly importable
-    from server.exceptions.onex_error import CoreErrorCode
 
 
 class TestNodeIntelligenceAdapterEffect:

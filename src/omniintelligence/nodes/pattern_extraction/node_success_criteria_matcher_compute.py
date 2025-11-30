@@ -15,7 +15,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +28,7 @@ class ModelSuccessMatchingInput(BaseModel):
     """Input state for success criteria matching."""
 
     execution_result: str = Field(..., description="Execution result to evaluate")
-    success_criteria: List[str] = Field(
+    success_criteria: list[str] = Field(
         ..., description="List of success criteria to match against"
     )
     correlation_id: str = Field(
@@ -62,16 +62,16 @@ class ModelSuccessMatchingOutput(BaseModel):
 
     overall_success: bool = Field(..., description="Overall success determination")
     overall_confidence: float = Field(..., description="Overall match confidence")
-    criteria_matches: List[Dict[str, Any]] = Field(
+    criteria_matches: list[dict[str, Any]] = Field(
         default_factory=list, description="Individual criteria match results"
     )
-    matched_criteria: List[str] = Field(
+    matched_criteria: list[str] = Field(
         default_factory=list, description="Criteria that matched"
     )
-    unmatched_criteria: List[str] = Field(
+    unmatched_criteria: list[str] = Field(
         default_factory=list, description="Criteria that didn't match"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Matching metadata"
     )
     correlation_id: str = Field(..., description="Correlation ID for tracing")
@@ -183,7 +183,7 @@ class NodeSuccessCriteriaMatcherCompute:
                 )
 
             # Match each criterion
-            criteria_matches: List[CriteriaMatch] = []
+            criteria_matches: list[CriteriaMatch] = []
             for criterion in input_state.success_criteria:
                 match_result = self._match_criterion(
                     execution_result=input_state.execution_result,
@@ -410,7 +410,7 @@ class NodeSuccessCriteriaMatcherCompute:
 
         return intersection / union
 
-    def _match_to_dict(self, match: CriteriaMatch) -> Dict[str, Any]:
+    def _match_to_dict(self, match: CriteriaMatch) -> dict[str, Any]:
         """Convert CriteriaMatch to dictionary."""
         return {
             "criterion": match.criterion,

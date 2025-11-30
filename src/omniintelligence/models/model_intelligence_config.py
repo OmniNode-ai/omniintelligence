@@ -15,9 +15,25 @@ Pattern: ONEX Configuration Contract
 """
 
 import os
-from typing import Dict, List, Literal
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class _IntelligenceConfigDict(TypedDict):
+    """TypedDict for environment-specific configuration values."""
+
+    base_url: str
+    timeout_seconds: float
+    max_retries: int
+    retry_delay_ms: int
+    circuit_breaker_enabled: bool
+    circuit_breaker_threshold: int
+    circuit_breaker_timeout_seconds: float
+    enable_event_publishing: bool
+    input_topics: list[str]
+    output_topics: dict[str, str]
+    consumer_group_id: str
 
 
 class ModelIntelligenceConfig(BaseModel):
@@ -178,7 +194,7 @@ class ModelIntelligenceConfig(BaseModel):
         description="Enable Kafka event publishing for event-driven workflows",
     )
 
-    input_topics: List[str] = Field(
+    input_topics: list[str] = Field(
         default_factory=lambda: ["omninode.intelligence.request.assess.v1"],
         description="Kafka topics to subscribe for incoming intelligence requests",
         examples=[
@@ -190,7 +206,7 @@ class ModelIntelligenceConfig(BaseModel):
         ],
     )
 
-    output_topics: Dict[str, str] = Field(
+    output_topics: dict[str, str] = Field(
         default_factory=lambda: {
             "quality_assessed": "omninode.intelligence.event.quality_assessed.v1",
             "performance_optimized": "omninode.intelligence.event.performance_optimized.v1",
@@ -259,7 +275,7 @@ class ModelIntelligenceConfig(BaseModel):
 
     @field_validator("input_topics")
     @classmethod
-    def validate_input_topics(cls, v: List[str]) -> List[str]:
+    def validate_input_topics(cls, v: list[str]) -> list[str]:
         """
         Validate input topics are non-empty and follow ONEX naming convention.
 
@@ -295,7 +311,7 @@ class ModelIntelligenceConfig(BaseModel):
 
     @field_validator("output_topics")
     @classmethod
-    def validate_output_topics(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def validate_output_topics(cls, v: dict[str, str]) -> dict[str, str]:
         """
         Validate output topic mapping is non-empty and topics follow ONEX convention.
 
@@ -401,7 +417,7 @@ class ModelIntelligenceConfig(BaseModel):
                 10
         """
         # Environment-specific configurations
-        configs = {
+        configs: dict[str, _IntelligenceConfigDict] = {
             "development": {
                 "base_url": os.getenv("INTELLIGENCE_BASE_URL", "http://localhost:8053"),
                 "timeout_seconds": 30.0,

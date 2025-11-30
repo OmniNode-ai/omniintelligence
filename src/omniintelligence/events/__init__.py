@@ -4,12 +4,12 @@ from omniintelligence.events.publisher.event_publisher import (
     EventPublisher,
     create_event_publisher,
 )
-from omniintelligence.events.models.model_event_envelope import (
+
+# Event models are now re-exported from the canonical location (omniintelligence.models)
+from omniintelligence.models import (
     ModelEventEnvelope,
     ModelEventMetadata,
     ModelEventSource,
-)
-from omniintelligence.events.models.intelligence_adapter_events import (
     EnumCodeAnalysisEventType,
     EnumAnalysisOperationType,
     EnumAnalysisErrorCode,
@@ -27,30 +27,30 @@ from omniintelligence.events.models.intelligence_adapter_events import (
 )
 
 __all__ = [
+    "EnumAnalysisErrorCode",
+    "EnumAnalysisOperationType",
+    # Code analysis event types
+    "EnumCodeAnalysisEventType",
     # Publisher
     "EventPublisher",
-    "create_event_publisher",
+    # Helpers
+    "IntelligenceAdapterEventHelpers",
+    "ModelCodeAnalysisCompletedPayload",
+    "ModelCodeAnalysisFailedPayload",
+    # Code analysis payloads
+    "ModelCodeAnalysisRequestPayload",
+    "ModelDiscoveryPayload",
     # Event envelope models
     "ModelEventEnvelope",
     "ModelEventMetadata",
     "ModelEventSource",
-    # Code analysis event types
-    "EnumCodeAnalysisEventType",
-    "EnumAnalysisOperationType",
-    "EnumAnalysisErrorCode",
-    # Code analysis payloads
-    "ModelCodeAnalysisRequestPayload",
-    "ModelCodeAnalysisCompletedPayload",
-    "ModelCodeAnalysisFailedPayload",
+    "ModelInfrastructureScanPayload",
     # Intelligence payloads
     "ModelPatternExtractionPayload",
-    "ModelInfrastructureScanPayload",
-    "ModelDiscoveryPayload",
     "ModelSchemaDiscoveryPayload",
-    # Helpers
-    "IntelligenceAdapterEventHelpers",
+    "create_completed_event",
+    "create_event_publisher",
+    "create_failed_event",
     # Convenience functions
     "create_request_event",
-    "create_completed_event",
-    "create_failed_event",
 ]

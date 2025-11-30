@@ -4,8 +4,9 @@ Quality Scoring Compute Node
 Assesses code quality across 6 dimensions.
 """
 
-from typing import List, Dict
-from omnibase_core.node import NodeOmniAgentCompute
+from typing import Any
+
+from omnibase_core.nodes import NodeCompute
 from pydantic import BaseModel, Field
 
 
@@ -22,15 +23,15 @@ class ModelQualityScoringOutput(BaseModel):
     """Output model for quality scoring."""
     success: bool
     overall_score: float
-    dimensions: Dict[str, float]
+    dimensions: dict[str, float]
     onex_compliant: bool
-    compliance_issues: List[str] = Field(default_factory=list)
-    recommendations: List[dict] = Field(default_factory=list)
+    compliance_issues: list[str] = Field(default_factory=list)
+    recommendations: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ModelQualityScoringConfig(BaseModel):
     """Configuration for quality scoring."""
-    quality_thresholds: Dict[str, float] = Field(default_factory=lambda: {
+    quality_thresholds: dict[str, float] = Field(default_factory=lambda: {
         "maintainability": 0.7,
         "readability": 0.7,
         "complexity": 0.6,
@@ -42,16 +43,12 @@ class ModelQualityScoringConfig(BaseModel):
     generate_recommendations: bool = True
 
 
-class QualityScoringCompute(NodeOmniAgentCompute[
-    ModelQualityScoringInput,
-    ModelQualityScoringOutput,
-    ModelQualityScoringConfig
-]):
+class QualityScoringCompute(NodeCompute):
     """Compute node for quality assessment."""
 
-    async def process(self, input_data: ModelQualityScoringInput) -> ModelQualityScoringOutput:
+    async def process(self, _input_data: ModelQualityScoringInput) -> ModelQualityScoringOutput:
         """Assess code quality."""
-        # In a full implementation, this would analyze code
+        # In a full implementation, this would analyze _input_data
         # For now, return placeholder scores
         dimensions = {
             "maintainability": 0.85,

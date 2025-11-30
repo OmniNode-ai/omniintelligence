@@ -18,9 +18,8 @@ Created: 2025-10-21
 Reference: EVENT_BUS_ARCHITECTURE.md, omninode_bridge event patterns
 """
 
-from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -101,13 +100,13 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
     )
 
     content: Optional[str] = Field(
-        None,
+        default=None,
         description="Code content to analyze (if not reading from source_path)",
         examples=["def hello():\n    pass"],
     )
 
     language: Optional[str] = Field(
-        None,
+        default=None,
         description="Programming language (python, typescript, rust, etc.)",
         examples=["python", "typescript", "rust", "go"],
     )
@@ -131,13 +130,13 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
     )
 
     project_id: Optional[str] = Field(
-        None,
+        default=None,
         description="Project identifier for context and historical analysis",
         examples=["project-123", "omniarchon"],
     )
 
     user_id: Optional[str] = Field(
-        None,
+        default=None,
         description="User identifier for authorization and audit",
         examples=["user-456", "auth0|abc123"],
     )
@@ -242,7 +241,7 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
     )
 
     complexity_score: Optional[float] = Field(
-        None,
+        default=None,
         description="Code complexity score (0.0-1.0, lower is better)",
         ge=0.0,
         le=1.0,
@@ -250,7 +249,7 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
     )
 
     maintainability_score: Optional[float] = Field(
-        None,
+        default=None,
         description="Maintainability score (0.0-1.0, higher is better)",
         ge=0.0,
         le=1.0,
@@ -382,7 +381,7 @@ class ModelCodeAnalysisFailedPayload(BaseModel):
     )
 
     suggested_action: Optional[str] = Field(
-        None,
+        default=None,
         description="Recommended action to resolve the error",
         examples=[
             "Verify source code syntax is valid",
@@ -431,7 +430,7 @@ class ModelPatternExtractionPayload(BaseModel):
         total_count: Total number of patterns found
     """
 
-    patterns: List[Dict[str, Any]] = Field(
+    patterns: list[dict[str, Any]] = Field(
         ...,
         description="List of code generation patterns",
         examples=[
@@ -484,7 +483,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         query_time_ms: Time taken to complete scan in milliseconds
     """
 
-    postgresql: Optional[Dict[str, Any]] = Field(
+    postgresql: Optional[dict[str, Any]] = Field(
         None,
         description="PostgreSQL database information",
         examples=[
@@ -505,7 +504,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    kafka: Optional[Dict[str, Any]] = Field(
+    kafka: Optional[dict[str, Any]] = Field(
         None,
         description="Kafka/Redpanda information (see config.kafka_helper for context-aware defaults)",
         examples=[
@@ -525,7 +524,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    qdrant: Optional[Dict[str, Any]] = Field(
+    qdrant: Optional[dict[str, Any]] = Field(
         None,
         description="Qdrant vector database information",
         examples=[
@@ -544,7 +543,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    docker_services: Optional[List[Dict[str, Any]]] = Field(
+    docker_services: Optional[list[dict[str, Any]]] = Field(
         None,
         description="Docker services information",
         examples=[
@@ -559,7 +558,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    archon_mcp: Optional[Dict[str, Any]] = Field(
+    archon_mcp: Optional[dict[str, Any]] = Field(
         None,
         description="Archon MCP service information",
         examples=[
@@ -594,7 +593,7 @@ class ModelDiscoveryPayload(BaseModel):
         query_time_ms: Time taken to complete discovery in milliseconds
     """
 
-    ai_models: Optional[Dict[str, Any]] = Field(
+    ai_models: Optional[dict[str, Any]] = Field(
         None,
         description="AI model providers and configurations",
         examples=[
@@ -618,7 +617,7 @@ class ModelDiscoveryPayload(BaseModel):
         ],
     )
 
-    onex_models: Optional[Dict[str, Any]] = Field(
+    onex_models: Optional[dict[str, Any]] = Field(
         None,
         description="ONEX node types and contracts",
         examples=[
@@ -642,7 +641,7 @@ class ModelDiscoveryPayload(BaseModel):
         ],
     )
 
-    intelligence_models: Optional[List[Dict[str, Any]]] = Field(
+    intelligence_models: Optional[list[dict[str, Any]]] = Field(
         None,
         description="Intelligence context models",
         examples=[
@@ -678,7 +677,7 @@ class ModelSchemaDiscoveryPayload(BaseModel):
         query_time_ms: Time taken to complete discovery in milliseconds
     """
 
-    tables: List[Dict[str, Any]] = Field(
+    tables: list[dict[str, Any]] = Field(
         ...,
         description="List of database tables with schema information",
         examples=[
@@ -756,7 +755,7 @@ class IntelligenceAdapterEventHelpers:
             Event envelope dictionary ready for Kafka publishing
         """
         # Local import to avoid circular dependency
-        from omniintelligence.events.models.model_event_envelope import (
+        from omniintelligence.models.model_event_envelope import (
             ModelEventEnvelope,
             ModelEventSource,
         )
@@ -770,7 +769,7 @@ class IntelligenceAdapterEventHelpers:
 
         envelope = ModelEventEnvelope(
             event_type=f"omninode.{IntelligenceAdapterEventHelpers.DOMAIN}.{IntelligenceAdapterEventHelpers.PATTERN}.code_analysis_requested.{IntelligenceAdapterEventHelpers.VERSION}",
-            payload=payload if isinstance(payload, dict) else payload.model_dump(),
+            payload=payload.model_dump(),
             correlation_id=correlation_id,
             source=source,
         )
@@ -797,7 +796,7 @@ class IntelligenceAdapterEventHelpers:
             Event envelope dictionary ready for Kafka publishing
         """
         # Local import to avoid circular dependency
-        from omniintelligence.events.models.model_event_envelope import (
+        from omniintelligence.models.model_event_envelope import (
             ModelEventEnvelope,
             ModelEventSource,
         )
@@ -809,7 +808,7 @@ class IntelligenceAdapterEventHelpers:
 
         envelope = ModelEventEnvelope(
             event_type=f"omninode.{IntelligenceAdapterEventHelpers.DOMAIN}.{IntelligenceAdapterEventHelpers.PATTERN}.code_analysis_completed.{IntelligenceAdapterEventHelpers.VERSION}",
-            payload=payload if isinstance(payload, dict) else payload.model_dump(),
+            payload=payload.model_dump(),
             correlation_id=correlation_id,
             causation_id=causation_id,
             source=source,
@@ -837,7 +836,7 @@ class IntelligenceAdapterEventHelpers:
             Event envelope dictionary ready for Kafka publishing
         """
         # Local import to avoid circular dependency
-        from omniintelligence.events.models.model_event_envelope import (
+        from omniintelligence.models.model_event_envelope import (
             ModelEventEnvelope,
             ModelEventSource,
         )
@@ -849,7 +848,7 @@ class IntelligenceAdapterEventHelpers:
 
         envelope = ModelEventEnvelope(
             event_type=f"omninode.{IntelligenceAdapterEventHelpers.DOMAIN}.{IntelligenceAdapterEventHelpers.PATTERN}.code_analysis_failed.{IntelligenceAdapterEventHelpers.VERSION}",
-            payload=payload if isinstance(payload, dict) else payload.model_dump(),
+            payload=payload.model_dump(),
             correlation_id=correlation_id,
             causation_id=causation_id,
             source=source,
@@ -899,19 +898,18 @@ class IntelligenceAdapterEventHelpers:
 
         # Determine event type and deserialize payload
         if "code_analysis_requested" in event_type:
-            payload = ModelCodeAnalysisRequestPayload(**payload_data)
-            return (EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value, payload)
+            request_payload = ModelCodeAnalysisRequestPayload(**payload_data)
+            return (EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value, request_payload)
 
-        elif "code_analysis_completed" in event_type:
-            payload = ModelCodeAnalysisCompletedPayload(**payload_data)
-            return (EnumCodeAnalysisEventType.CODE_ANALYSIS_COMPLETED.value, payload)
+        if "code_analysis_completed" in event_type:
+            completed_payload = ModelCodeAnalysisCompletedPayload(**payload_data)
+            return (EnumCodeAnalysisEventType.CODE_ANALYSIS_COMPLETED.value, completed_payload)
 
-        elif "code_analysis_failed" in event_type:
-            payload = ModelCodeAnalysisFailedPayload(**payload_data)
-            return (EnumCodeAnalysisEventType.CODE_ANALYSIS_FAILED.value, payload)
+        if "code_analysis_failed" in event_type:
+            failed_payload = ModelCodeAnalysisFailedPayload(**payload_data)
+            return (EnumCodeAnalysisEventType.CODE_ANALYSIS_FAILED.value, failed_payload)
 
-        else:
-            raise ValueError(f"Unknown event type: {event_type}")
+        raise ValueError(f"Unknown event type: {event_type}")
 
 
 # ============================================================================
@@ -1043,3 +1041,26 @@ def create_failed_event(
         payload=payload,
         correlation_id=correlation_id,
     )
+
+
+__all__ = [
+    "EnumAnalysisErrorCode",
+    "EnumAnalysisOperationType",
+    # Enums
+    "EnumCodeAnalysisEventType",
+    # Helpers
+    "IntelligenceAdapterEventHelpers",
+    "ModelCodeAnalysisCompletedPayload",
+    "ModelCodeAnalysisFailedPayload",
+    # Event Payload Models
+    "ModelCodeAnalysisRequestPayload",
+    "ModelDiscoveryPayload",
+    "ModelInfrastructureScanPayload",
+    # Intelligence Payload Models
+    "ModelPatternExtractionPayload",
+    "ModelSchemaDiscoveryPayload",
+    "create_completed_event",
+    "create_failed_event",
+    # Convenience functions
+    "create_request_event",
+]

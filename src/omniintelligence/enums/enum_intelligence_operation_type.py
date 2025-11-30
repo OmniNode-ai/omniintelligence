@@ -769,7 +769,7 @@ class EnumIntelligenceOperationType(str, Enum):
         Returns:
             True for operations that only read/analyze without modifying state
         """
-        return not self in (
+        return self not in (
             # Write operations
             EnumIntelligenceOperationType.APPLY_PERFORMANCE_OPTIMIZATION,
             EnumIntelligenceOperationType.REFRESH_DOCUMENTS,
@@ -781,3 +781,8 @@ class EnumIntelligenceOperationType(str, Enum):
             EnumIntelligenceOperationType.INGEST_PATTERNS,
             EnumIntelligenceOperationType.RECORD_SUCCESS_PATTERN,
         )
+
+
+__all__ = [
+    "EnumIntelligenceOperationType",
+]

@@ -5,11 +5,11 @@ Provides utilities for creating, routing, and processing intents
 in the omniintelligence system.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
-from ..enums import EnumIntentType, EnumOperationType, EnumFSMType
-from ..models import ModelIntent
+from omniintelligence.enums import EnumIntentType, EnumOperationType, EnumFSMType
+from omniintelligence.models import ModelIntent
 
 
 class IntentFactory:
@@ -21,7 +21,7 @@ class IntentFactory:
         entity_id: str,
         new_state: str,
         correlation_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ModelIntent:
         """Create a state update intent for the reducer."""
         return ModelIntent(
@@ -40,7 +40,7 @@ class IntentFactory:
     def create_workflow_trigger_intent(
         operation_type: EnumOperationType,
         entity_id: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         correlation_id: str,
     ) -> ModelIntent:
         """Create a workflow trigger intent for the orchestrator."""
@@ -53,13 +53,14 @@ class IntentFactory:
                 **payload,
             },
             correlation_id=correlation_id,
+            metadata=None,
         )
 
     @staticmethod
     def create_event_publish_intent(
         topic: str,
         event_type: str,
-        event_payload: Dict[str, Any],
+        event_payload: dict[str, Any],
         correlation_id: str,
     ) -> ModelIntent:
         """Create an event publish intent for Kafka."""
@@ -72,6 +73,7 @@ class IntentFactory:
                 "payload": event_payload,
             },
             correlation_id=correlation_id,
+            metadata=None,
         )
 
     @staticmethod
@@ -89,12 +91,13 @@ class IntentFactory:
                 "key_pattern": cache_key_pattern,
             },
             correlation_id=correlation_id,
+            metadata=None,
         )
 
     @staticmethod
     def create_error_notification_intent(
         error_message: str,
-        error_context: Dict[str, Any],
+        error_context: dict[str, Any],
         correlation_id: str,
     ) -> ModelIntent:
         """Create an error notification intent."""
@@ -106,33 +109,36 @@ class IntentFactory:
                 "context": error_context,
             },
             correlation_id=correlation_id,
+            metadata=None,
         )
 
 
 class IntentRouter:
     """Routes intents to appropriate handlers."""
 
-    def __init__(self):
-        self._handlers: Dict[str, List[callable]] = {}
+    def __init__(self) -> None:
+        self._handlers: dict[str, list[Callable[[ModelIntent], Any]]] = {}
 
-    def register_handler(self, target: str, handler: callable):
+    def register_handler(
+        self, target: str, handler: Callable[[ModelIntent], Any]
+    ) -> None:
         """Register a handler for a specific target."""
         if target not in self._handlers:
             self._handlers[target] = []
         self._handlers[target].append(handler)
 
-    def route_intent(self, intent: ModelIntent) -> List[Any]:
+    def route_intent(self, intent: ModelIntent) -> list[Any]:
         """Route an intent to registered handlers."""
         handlers = self._handlers.get(intent.target, [])
-        results = []
+        results: list[Any] = []
         for handler in handlers:
             result = handler(intent)
             results.append(result)
         return results
 
-    def route_batch(self, intents: List[ModelIntent]) -> Dict[str, List[Any]]:
+    def route_batch(self, intents: list[ModelIntent]) -> dict[str, list[Any]]:
         """Route multiple intents and return results by target."""
-        results_by_target = {}
+        results_by_target: dict[str, list[Any]] = {}
         for intent in intents:
             if intent.target not in results_by_target:
                 results_by_target[intent.target] = []

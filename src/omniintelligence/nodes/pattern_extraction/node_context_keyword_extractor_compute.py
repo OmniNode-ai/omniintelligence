@@ -15,7 +15,7 @@ import math
 import re
 import uuid
 from collections import Counter, defaultdict
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -46,19 +46,19 @@ class ModelKeywordExtractionInput(BaseModel):
 class ModelKeywordExtractionOutput(BaseModel):
     """Output state for keyword extraction."""
 
-    keywords: List[str] = Field(
+    keywords: list[str] = Field(
         default_factory=list, description="Extracted keywords ranked by relevance"
     )
-    keyword_scores: Dict[str, float] = Field(
+    keyword_scores: dict[str, float] = Field(
         default_factory=dict, description="Relevance scores for each keyword"
     )
-    phrases: List[str] = Field(
+    phrases: list[str] = Field(
         default_factory=list, description="Extracted multi-word phrases"
     )
-    phrase_scores: Dict[str, float] = Field(
+    phrase_scores: dict[str, float] = Field(
         default_factory=dict, description="Relevance scores for phrases"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Extraction metadata"
     )
     correlation_id: str = Field(..., description="Correlation ID for tracing")
@@ -84,7 +84,7 @@ class NodeContextKeywordExtractorCompute:
     """
 
     # Stop words to filter out (common words with low semantic value)
-    STOP_WORDS: Set[str] = {
+    STOP_WORDS: set[str] = {
         "a",
         "an",
         "and",
@@ -120,7 +120,7 @@ class NodeContextKeywordExtractorCompute:
     }
 
     # Domain-specific keyword boosters (technical terms)
-    DOMAIN_BOOSTERS: Set[str] = {
+    DOMAIN_BOOSTERS: set[str] = {
         "function",
         "class",
         "method",
@@ -151,7 +151,7 @@ class NodeContextKeywordExtractorCompute:
     def __init__(self) -> None:
         """Initialize keyword extractor."""
         # IDF corpus for TF-IDF calculation (simplified for standalone use)
-        self._document_frequency: Dict[str, int] = defaultdict(int)
+        self._document_frequency: dict[str, int] = defaultdict(int)
         self._total_documents = 0
 
     # ========================================================================
@@ -196,8 +196,8 @@ class NodeContextKeywordExtractorCompute:
             )
 
             # Extract phrases if requested
-            phrases: List[str] = []
-            phrase_scores: Dict[str, float] = {}
+            phrases: list[str] = []
+            phrase_scores: dict[str, float] = {}
             if input_state.include_phrases:
                 phrases, phrase_scores = self._extract_phrases(
                     text=input_state.context_text,
@@ -239,7 +239,7 @@ class NodeContextKeywordExtractorCompute:
 
     def _extract_keywords(
         self, text: str, max_keywords: int = 10, min_score: float = 0.3
-    ) -> Tuple[List[str], Dict[str, float]]:
+    ) -> tuple[list[str], dict[str, float]]:
         """
         Extract keywords using TF-IDF algorithm.
 
@@ -275,7 +275,7 @@ class NodeContextKeywordExtractorCompute:
         idf_scores = self._calculate_idf(filtered_tokens, unique_words)
 
         # Step 4: Calculate TF-IDF
-        tfidf_scores: Dict[str, float] = {}
+        tfidf_scores: dict[str, float] = {}
         for term in set(filtered_tokens):
             tfidf_scores[term] = tf_scores[term] * idf_scores[term]
 
@@ -303,13 +303,13 @@ class NodeContextKeywordExtractorCompute:
         )[:max_keywords]
 
         keywords = [term for term, _ in sorted_keywords]
-        scores = {term: score for term, score in sorted_keywords}
+        scores = dict(sorted_keywords)
 
         return keywords, scores
 
     def _extract_phrases(
         self, text: str, max_phrases: int = 5, min_score: float = 0.3
-    ) -> Tuple[List[str], Dict[str, float]]:
+    ) -> tuple[list[str], dict[str, float]]:
         """
         Extract multi-word phrases using n-gram analysis.
 
@@ -344,7 +344,7 @@ class NodeContextKeywordExtractorCompute:
         phrase_counts = Counter(all_phrases)
 
         # Step 4: Score phrases
-        phrase_scores: Dict[str, float] = {}
+        phrase_scores: dict[str, float] = {}
         for phrase, count in phrase_counts.items():
             # Filter phrases with stop words
             phrase_tokens = phrase.split()
@@ -374,7 +374,7 @@ class NodeContextKeywordExtractorCompute:
         )[:max_phrases]
 
         phrases = [phrase for phrase, _ in sorted_phrases]
-        scores = {phrase: score for phrase, score in sorted_phrases}
+        scores = dict(sorted_phrases)
 
         return phrases, scores
 
@@ -382,13 +382,13 @@ class NodeContextKeywordExtractorCompute:
     # Utility Methods
     # ========================================================================
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """Tokenize and normalize text."""
         # Split on word boundaries and convert to lowercase
         tokens = re.findall(r"\b\w+\b", text.lower())
         return tokens
 
-    def _calculate_tf(self, tokens: List[str]) -> Dict[str, float]:
+    def _calculate_tf(self, tokens: list[str]) -> dict[str, float]:
         """Calculate term frequency (TF) scores."""
         if not tokens:
             return {}
@@ -403,8 +403,8 @@ class NodeContextKeywordExtractorCompute:
         return tf_scores
 
     def _calculate_idf(
-        self, tokens: List[str], total_documents: int
-    ) -> Dict[str, float]:
+        self, tokens: list[str], total_documents: int
+    ) -> dict[str, float]:
         """
         Calculate inverse document frequency (IDF) scores.
 
@@ -416,7 +416,7 @@ class NodeContextKeywordExtractorCompute:
             return {}
 
         token_counts = Counter(tokens)
-        idf_scores: Dict[str, float] = {}
+        idf_scores: dict[str, float] = {}
 
         for token in set(tokens):
             # Use log of inverse frequency within document
@@ -425,7 +425,7 @@ class NodeContextKeywordExtractorCompute:
 
         return idf_scores
 
-    def _extract_ngrams(self, tokens: List[str], n: int = 2) -> List[str]:
+    def _extract_ngrams(self, tokens: list[str], n: int = 2) -> list[str]:
         """
         Extract n-grams from token list.
 
@@ -436,7 +436,7 @@ class NodeContextKeywordExtractorCompute:
         Returns:
             List of n-gram phrases
         """
-        ngrams: List[str] = []
+        ngrams: list[str] = []
         for i in range(len(tokens) - n + 1):
             ngram = " ".join(tokens[i : i + n])
             ngrams.append(ngram)
