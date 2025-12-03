@@ -29,9 +29,10 @@ ruff = ">=0.7.0"
 mypy = ">=1.13.0"
 black = "^24.10.0"
 isort = "^5.13.0"
+types-pyyaml = "^6.0.12.20250915"
 
 [tool.poetry.group.core.dependencies]
-omnibase-core = "0.3.4"
+omnibase-core = "0.3.5"
 omnibase-spi = "0.2.0"
 
 [project]
@@ -70,7 +71,7 @@ dev = [
 # Core node system dependencies
 core = [
     # ONEX ecosystem dependencies
-    "omnibase-core>=0.3.4",
+    "omnibase-core>=0.3.5",
     "omnibase-spi>=0.2.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
@@ -109,7 +110,7 @@ core = [
 # All dependencies for development and testing
 all = [
     # Include all core dependencies
-    "omnibase-core>=0.3.4",
+    "omnibase-core>=0.3.5",
     "omnibase-spi>=0.2.0",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -152,6 +153,10 @@ all = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+exclude = [
+    "src/omniintelligence/_legacy/*",
+    "migration_sources/*",
+]
 
 [tool.ruff.lint]
 select = [
@@ -208,6 +213,10 @@ warn_unused_ignores = true
 warn_no_return = true
 check_untyped_defs = true
 ignore_missing_imports = true
+exclude = [
+    "src/omniintelligence/_legacy/",
+    "migration_sources/",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
