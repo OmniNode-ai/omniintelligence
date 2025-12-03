@@ -1,6 +1,6 @@
-"""Vectorization Compute Node Package."""
+"""Vectorization Compute Node v1.0.0."""
 
-from omniintelligence.nodes.vectorization_compute.v1_0_0 import (
+from omniintelligence.nodes.vectorization_compute.v1_0_0.compute import (
     ModelVectorizationConfig,
     ModelVectorizationInput,
     ModelVectorizationOutput,

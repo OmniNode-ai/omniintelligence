@@ -1,4 +1,4 @@
-"""Intelligence Orchestrator Node Package."""
+"""Intelligence Orchestrator Node v1.0.0."""
 
 from omniintelligence.nodes.intelligence_orchestrator.v1_0_0.orchestrator import (
     IntelligenceOrchestrator,
