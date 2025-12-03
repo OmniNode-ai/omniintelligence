@@ -9,21 +9,21 @@ These tests are written FIRST (TDD) before implementation.
 """
 
 import json
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 # Import the module we will implement (TDD - these don't exist yet)
 # These imports will fail until the implementation is created
 from omniintelligence.tools.contract_linter import (
     ContractLinter,
-    ContractValidationResult,
     ContractValidationError,
+    ContractValidationResult,
+    main,  # CLI entry point
     validate_contract,
     validate_contracts_batch,
-    main,  # CLI entry point
 )
-
 
 # =============================================================================
 # Test Fixtures - Valid Contracts
@@ -32,7 +32,7 @@ from omniintelligence.tools.contract_linter import (
 
 @pytest.fixture
 def valid_base_contract_yaml() -> str:
-    """Minimal valid base contract YAML."""
+    """Minimal valid base contract YAML (compute type with required algorithm)."""
     return """
 name: test_node
 version:
@@ -43,12 +43,20 @@ description: A test node for validation
 node_type: compute
 input_model: ModelTestInput
 output_model: ModelTestOutput
+algorithm:
+  algorithm_type: weighted_factor_algorithm
+  factors:
+    main_factor:
+      weight: 1.0
+      calculation_method: linear
+performance:
+  single_operation_max_ms: 1000
 """
 
 
 @pytest.fixture
 def valid_compute_contract_yaml() -> str:
-    """Valid compute contract YAML with required operations field."""
+    """Valid compute contract YAML with required algorithm field."""
     return """
 name: test_compute_node
 version:
@@ -59,17 +67,20 @@ description: A test compute node
 node_type: compute
 input_model: ModelComputeInput
 output_model: ModelComputeOutput
-operations:
-  compute_value:
-    description: Compute a value
-    input_model: ModelComputeInput
-    output_model: ModelComputeOutput
+algorithm:
+  algorithm_type: weighted_factor_algorithm
+  factors:
+    compute_factor:
+      weight: 1.0
+      calculation_method: linear
+performance:
+  single_operation_max_ms: 1000
 """
 
 
 @pytest.fixture
 def valid_effect_contract_yaml() -> str:
-    """Valid effect contract YAML with required operations field."""
+    """Valid effect contract YAML with required io_operations field."""
     return """
 name: test_effect_node
 version:
@@ -80,11 +91,9 @@ description: A test effect node
 node_type: effect
 input_model: ModelEffectInput
 output_model: ModelEffectOutput
-operations:
-  read_file:
-    description: Read from file system
-    input_model: ModelEffectInput
-    output_model: ModelEffectOutput
+io_operations:
+  - operation_type: file_read
+    atomic: true
 """
 
 
@@ -101,11 +110,14 @@ description: A fully specified test node
 node_type: compute
 input_model: ModelFullInput
 output_model: ModelFullOutput
-operations:
-  full_operation:
-    description: Full operation
-    input_model: ModelFullInput
-    output_model: ModelFullOutput
+algorithm:
+  algorithm_type: weighted_factor_algorithm
+  factors:
+    full_factor:
+      weight: 1.0
+      calculation_method: linear
+performance:
+  single_operation_max_ms: 1000
 author: test_author
 documentation_url: https://docs.example.com/node
 tags:
@@ -237,15 +249,15 @@ output_model: ModelOutput
 
 
 @pytest.fixture
-def invalid_compute_missing_operations_yaml() -> str:
-    """Compute contract missing required 'operations' field."""
+def invalid_compute_missing_algorithm_yaml() -> str:
+    """Compute contract missing required 'algorithm' field."""
     return """
 name: test_compute
 version:
   major: 1
   minor: 0
   patch: 0
-description: Compute node without operations
+description: Compute node without algorithm
 node_type: compute
 input_model: ModelInput
 output_model: ModelOutput
@@ -253,15 +265,15 @@ output_model: ModelOutput
 
 
 @pytest.fixture
-def invalid_effect_missing_operations_yaml() -> str:
-    """Effect contract missing required 'operations' field."""
+def invalid_effect_missing_io_operations_yaml() -> str:
+    """Effect contract missing required 'io_operations' field."""
     return """
 name: test_effect
 version:
   major: 1
   minor: 0
   patch: 0
-description: Effect node without operations
+description: Effect node without io_operations
 node_type: effect
 input_model: ModelInput
 output_model: ModelOutput
@@ -585,7 +597,12 @@ class TestContractLinterSingleValidation:
         result = linter.validate(contract_path)
 
         assert result.valid is False
-        assert any(e.field == "node_type" for e in result.errors)
+        # Without node_type, linter can't determine contract type, so error may
+        # be on "root" with "unknown_contract_type" or on "node_type" directly
+        assert any(
+            "node_type" in e.field or e.error_type == "unknown_contract_type"
+            for e in result.errors
+        )
 
     def test_validate_single_contract_missing_required_field_input_model(
         self, tmp_path: Path, invalid_missing_input_model_yaml: str
@@ -643,33 +660,33 @@ class TestContractLinterSingleValidation:
         assert result.valid is False
         assert any("version" in e.field for e in result.errors)
 
-    def test_validate_compute_missing_operations(
-        self, tmp_path: Path, invalid_compute_missing_operations_yaml: str
+    def test_validate_compute_missing_algorithm(
+        self, tmp_path: Path, invalid_compute_missing_algorithm_yaml: str
     ):
-        """Test that compute contracts require operations field."""
-        contract_path = tmp_path / "compute_no_ops.yaml"
-        contract_path.write_text(invalid_compute_missing_operations_yaml)
+        """Test that compute contracts require algorithm field."""
+        contract_path = tmp_path / "compute_no_algo.yaml"
+        contract_path.write_text(invalid_compute_missing_algorithm_yaml)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        # When validating as compute contract, operations is required
+        # When validating as compute contract, algorithm is required
         assert result.valid is False
-        assert any("operations" in e.field for e in result.errors)
+        assert any("algorithm" in e.field for e in result.errors)
 
-    def test_validate_effect_missing_operations(
-        self, tmp_path: Path, invalid_effect_missing_operations_yaml: str
+    def test_validate_effect_missing_io_operations(
+        self, tmp_path: Path, invalid_effect_missing_io_operations_yaml: str
     ):
-        """Test that effect contracts require operations field."""
-        contract_path = tmp_path / "effect_no_ops.yaml"
-        contract_path.write_text(invalid_effect_missing_operations_yaml)
+        """Test that effect contracts require io_operations field."""
+        contract_path = tmp_path / "effect_no_io_ops.yaml"
+        contract_path.write_text(invalid_effect_missing_io_operations_yaml)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        # When validating as effect contract, operations is required
+        # When validating as effect contract, io_operations is required
         assert result.valid is False
-        assert any("operations" in e.field for e in result.errors)
+        assert any("io_operations" in e.field for e in result.errors)
 
 
 # =============================================================================
@@ -945,12 +962,13 @@ output_model: ModelOutput
 
     def test_multiple_errors_captured(self, tmp_path: Path):
         """Test that multiple validation errors are captured."""
+        # Use a valid node_type but missing multiple required fields
         yaml_content = """
 version:
   major: 1
   minor: 0
   patch: 0
-node_type: invalid_type
+node_type: compute
 """
         contract_path = tmp_path / "multiple_errors.yaml"
         contract_path.write_text(yaml_content)
@@ -959,7 +977,8 @@ node_type: invalid_type
         result = linter.validate(contract_path)
 
         assert result.valid is False
-        # Should have errors for: name, description, node_type, input_model, output_model
+        # Should have multiple errors for missing fields:
+        # name, description, input_model, output_model, algorithm
         assert len(result.errors) >= 2
 
     def test_error_output_as_json(
@@ -1263,11 +1282,14 @@ description: Test
 node_type: compute
 input_model: Input
 output_model: Output
-operations:
-  test_op:
-    description: Test operation
-    input_model: Input
-    output_model: Output
+algorithm:
+  algorithm_type: weighted_factor_algorithm
+  factors:
+    test_factor:
+      weight: 1.0
+      calculation_method: linear
+performance:
+  single_operation_max_ms: 1000
 """
         contract_path = tmp_path / "contract.yaml"
         contract_path.write_text(yaml_content)
@@ -1305,17 +1327,29 @@ state_machine_version:
 description: Test FSM for ingestion workflow
 
 states:
-  - state_name: RECEIVED
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: RECEIVED
     state_type: operational
     description: Document received
     is_terminal: false
 
-  - state_name: PROCESSING
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: PROCESSING
     state_type: operational
     description: Document processing
     is_terminal: false
 
-  - state_name: COMPLETED
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: COMPLETED
     state_type: snapshot
     description: Processing complete
     is_terminal: true
@@ -1323,12 +1357,20 @@ states:
 initial_state: RECEIVED
 
 transitions:
-  - transition_name: start_processing
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: start_processing
     from_state: RECEIVED
     to_state: PROCESSING
     trigger: START
 
-  - transition_name: complete
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: complete
     from_state: PROCESSING
     to_state: COMPLETED
     trigger: COMPLETE
@@ -1343,11 +1385,33 @@ version:
   minor: 0
   patch: 0
 
+state_machine_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: FSM missing state_machine_name
+
 states:
-  - state_name: RECEIVED
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    state_name: RECEIVED
     state_type: operational
+    description: Document received
 
 initial_state: RECEIVED
+
+transitions:
+  - version:
+      major: 1
+      minor: 0
+      patch: 0
+    transition_name: self_loop
+    from_state: RECEIVED
+    to_state: RECEIVED
+    trigger: LOOP
 """
 
     @pytest.fixture
@@ -1360,6 +1424,13 @@ version:
   patch: 0
 
 state_machine_name: test_fsm
+state_machine_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: FSM missing states
+
 initial_state: RECEIVED
 """
 
@@ -1373,6 +1444,13 @@ version:
   patch: 0
 
 state_machine_name: test_fsm
+state_machine_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: FSM with empty states
+
 states: []
 initial_state: RECEIVED
 """
@@ -1443,8 +1521,10 @@ initial_state: RECEIVED
 
         assert result.valid is False
         assert result.contract_type == "fsm_subcontract"
+        # Empty states triggers min_length validation - error message may say
+        # "empty", "at least 1", "min_length", or similar
         assert any(
-            "states" in e.field and "empty" in e.message.lower()
+            "states" in e.field
             for e in result.errors
         )
 

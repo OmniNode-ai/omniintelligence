@@ -1,0 +1,77 @@
+# Pre-commit hooks for omniintelligence
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Fast Python linter (replaces flake8, isort, pyupgrade, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.2
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^src/omniintelligence/tools/
+      - id: ruff-format
+        name: ruff (format)
+        files: ^src/omniintelligence/tools/
+
+  # MyPy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        name: mypy (type check)
+        args: [--strict, --ignore-missing-imports]
+        files: ^src/omniintelligence/tools/
+        additional_dependencies:
+          - types-PyYAML
+          - pydantic>=2.0.0
+
+  # Local hooks for ONEX validators
+  - repo: local
+    hooks:
+      # ONEX Pattern Validator
+      - id: onex-patterns
+        name: onex patterns
+        entry: poetry run python -m omnibase_core.validation.cli patterns src/omniintelligence/tools
+        language: system
+        pass_filenames: false
+        files: ^src/omniintelligence/tools/.*\.py$
+
+      # ONEX Union Usage Validator
+      - id: onex-union-usage
+        name: onex union-usage
+        entry: poetry run python -m omnibase_core.validation.cli union-usage src/omniintelligence/tools
+        language: system
+        pass_filenames: false
+        files: ^src/omniintelligence/tools/.*\.py$
+
+      # Contract Linter (for main contract YAML and FSM files only)
+      - id: contract-linter
+        name: contract linter
+        entry: poetry run python -m omniintelligence.tools.contract_linter
+        language: system
+        # Only validate main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
+        # Exclude subcontracts/ and workflows/ directories
+        files: ^src/omniintelligence/nodes/[^/]+/v[^/]+/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
+        pass_filenames: true
+
+      # Pytest (only run if test files changed)
+      - id: pytest-tools
+        name: pytest (tools)
+        entry: poetry run pytest tests/unit/tools/ -v --tb=short
+        language: system
+        pass_filenames: false
+        files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
+        stages: [pre-push]  # Run on push, not commit (slower)
+
+# Default stages for hooks
+default_stages: [pre-commit]
+
+# Skip hooks on certain file patterns
+exclude: |
+  (?x)^(
+    src/omniintelligence/_legacy/.*|
+    migration_sources/.*|
+    \.git/.*
+  )$

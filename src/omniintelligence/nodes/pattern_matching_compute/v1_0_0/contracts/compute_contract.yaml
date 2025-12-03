@@ -10,179 +10,28 @@ description: |
   Uses both structural and semantic matching techniques.
 
 node_type: compute
-base_class: NodeOmniAgentCompute
 
-# Input/Output models
-input_model:
-  name: ModelPatternMatchingInput
-  fields:
-    code_snippet:
-      type: str
-      required: true
-      description: Code snippet to analyze for patterns
+input_model: omniintelligence.models.ModelPatternMatchingInput
+output_model: omniintelligence.models.ModelPatternMatchingOutput
 
-    project_name:
-      type: str
-      required: true
-      description: Project context for pattern matching
+algorithm:
+  algorithm_type: pattern_matching
+  factors:
+    structural_matching:
+      weight: 0.4
+      calculation_method: ast_similarity
+    semantic_matching:
+      weight: 0.4
+      calculation_method: embedding_cosine
+    confidence_scoring:
+      weight: 0.2
+      calculation_method: weighted_average
 
-    phase:
-      type: str
-      required: true
-      description: Pattern learning phase (FOUNDATION, MATCHING, VALIDATION, TRACEABILITY)
+performance:
+  single_operation_max_ms: 10000
 
-    context:
-      type: dict
-      required: false
-      description: Additional context (previous phase results, constraints)
-
-    candidate_patterns:
-      type: list[dict]
-      required: false
-      description: Candidate patterns from previous phase
-
-output_model:
-  name: ModelPatternMatchingOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether pattern matching succeeded
-
-    phase:
-      type: str
-      required: true
-      description: Phase that was executed
-
-    patterns:
-      type: list[dict]
-      required: true
-      description: |
-        Matched patterns with fields:
-        - pattern_id: str
-        - pattern_name: str
-        - confidence: float
-        - matches: list[dict]
-        - metadata: dict
-
-    scores:
-      type: dict
-      required: false
-      description: Pattern scoring results
-
-    next_phase_context:
-      type: dict
-      required: false
-      description: Context to pass to next phase
-
-# Configuration
-config_model:
-  name: ModelPatternMatchingConfig
-  fields:
-    pattern_database_path:
-      type: str
-      required: false
-      description: Path to pattern database
-
-    min_confidence_threshold:
-      type: float
-      default: 0.7
-      description: Minimum confidence for pattern match
-
-    enable_structural_matching:
-      type: bool
-      default: true
-      description: Enable AST-based structural matching
-
-    enable_semantic_matching:
-      type: bool
-      default: true
-      description: Enable embedding-based semantic matching
-
-    max_patterns_per_phase:
-      type: int
-      default: 50
-      description: Maximum patterns to return per phase
-
-# Operations
-operations:
-  match_patterns:
-    description: Match patterns for a given phase
-    input_model: ModelPatternMatchingInput
-    output_model: ModelPatternMatchingOutput
-
-  foundation_phase:
-    description: Phase 1 - Basic structural pattern matching
-    input:
-      code_snippet: str
-      project_name: str
-    output:
-      patterns: list[dict]
-      structural_features: dict
-
-  matching_phase:
-    description: Phase 2 - Semantic pattern matching
-    input:
-      code_snippet: str
-      foundation_patterns: list[dict]
-    output:
-      refined_patterns: list[dict]
-      semantic_scores: dict
-
-  validation_phase:
-    description: Phase 3 - Pattern validation and scoring
-    input:
-      patterns: list[dict]
-      validation_criteria: dict
-    output:
-      validated_patterns: list[dict]
-      validation_scores: dict
-
-  traceability_phase:
-    description: Phase 4 - Pattern lineage and traceability
-    input:
-      patterns: list[dict]
-      lineage: dict
-    output:
-      traceable_patterns: list[dict]
-      lineage_graph: dict
-
-# Pattern types
-pattern_types:
-  architectural:
-    description: Architectural patterns (MVC, MVVM, Repository, etc.)
-    confidence_weight: 1.0
-
-  design:
-    description: Design patterns (Singleton, Factory, Observer, etc.)
-    confidence_weight: 0.9
-
-  idiom:
-    description: Language-specific idioms
-    confidence_weight: 0.8
-
-  anti_pattern:
-    description: Anti-patterns to avoid
-    confidence_weight: 1.0
-
-  onex_pattern:
-    description: ONEX-specific patterns
-    confidence_weight: 1.0
-
-# Dependencies
 dependencies:
-  compute_nodes:
-    - semantic_analysis_compute
-  external_services:
-    - pattern_database
-
-# Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - compute
-    - pattern-matching
-    - pattern-learning
-    - structural-analysis
-    - semantic-analysis
+  - name: semantic_analysis_compute
+    dependency_type: module
+    required: true
+    description: Semantic analysis compute node for embedding-based matching

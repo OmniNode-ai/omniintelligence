@@ -1,3 +1,6 @@
+# ONEX Effect Contract - Kafka Event Effect
+# Migrated to strict ONEX schema
+
 name: kafka_event_effect
 version:
   major: 1
@@ -9,175 +12,47 @@ description: |
   Handles event serialization, topic routing, and delivery guarantees.
 
 node_type: effect
-base_class: NodeOmniAgentEffect
 
-# Input/Output models
-input_model:
-  name: ModelKafkaEventInput
-  fields:
-    topic:
-      type: str
-      required: true
-      description: Kafka topic to publish to
+# Fully qualified model class names
+input_model: omniintelligence.nodes.kafka_event_effect.v1_0_0.models.ModelKafkaEventInput
+output_model: omniintelligence.nodes.kafka_event_effect.v1_0_0.models.ModelKafkaEventOutput
 
-    event_type:
-      type: str
-      required: true
-      description: Type of event being published
+# I/O operations (required for effect nodes)
+io_operations:
+  - operation_type: message_publish
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
 
-    payload:
-      type: dict
-      required: true
-      description: Event payload
+  - operation_type: message_batch_publish
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 60
+    validation_enabled: true
 
-    correlation_id:
-      type: str
-      required: true
-      description: Correlation ID for tracing
+# Transaction management
+transaction_management:
+  enabled: true
+  isolation_level: read_committed
 
-    key:
-      type: str
-      required: false
-      description: Partition key (defaults to correlation_id)
-
-    headers:
-      type: dict
-      required: false
-      description: Additional Kafka headers
-
-output_model:
-  name: ModelKafkaEventOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether event was published successfully
-
-    topic:
-      type: str
-      required: true
-      description: Topic published to
-
-    partition:
-      type: int
-      required: false
-      description: Partition the event was published to
-
-    offset:
-      type: int
-      required: false
-      description: Offset of the published event
-
-    error:
-      type: str
-      required: false
-      description: Error message if failed
-
-# Configuration
-config_model:
-  name: ModelKafkaEventConfig
-  fields:
-    bootstrap_servers:
-      type: str
-      required: true
-      description: Kafka bootstrap servers
-
-    topic_prefix:
-      type: str
-      default: "dev.archon-intelligence"
-      description: Topic prefix for all events
-
-    enable_idempotence:
-      type: bool
-      default: true
-      description: Enable idempotent producer
-
-    acks:
-      type: str
-      default: "all"
-      description: Acknowledgment level
-
-    max_retries:
-      type: int
-      default: 3
-      description: Maximum retry attempts
-
-# Operations
-operations:
-  publish_event:
-    description: Publish event to Kafka topic
-    input_model: ModelKafkaEventInput
-    output_model: ModelKafkaEventOutput
-
-  publish_batch:
-    description: Publish multiple events atomically
-    input:
-      events: list[ModelKafkaEventInput]
-      atomic: bool
-    output:
-      success: bool
-      published_count: int
-      failed_count: int
-
-  publish_to_dlq:
-    description: Publish failed event to dead-letter queue
-    input:
-      original_event: dict
-      error: str
-      retry_count: int
-    output:
-      success: bool
-      dlq_topic: str
-
-# Topic definitions
-topics:
-  enrichment_completed:
-    name: enrichment.completed.v1
-    description: Document enrichment completed
-    schema_version: v1
-
-  enrichment_failed:
-    name: enrichment.failed.v1
-    description: Document enrichment failed
-    schema_version: v1
-
-  pattern_matched:
-    name: pattern.matched.v1
-    description: Pattern matching completed
-    schema_version: v1
-
-  quality_assessed:
-    name: quality.assessed.v1
-    description: Quality assessment completed
-    schema_version: v1
-
-  fsm_state_changed:
-    name: fsm.state.changed.v1
-    description: FSM state transition occurred
-    schema_version: v1
-
-# Error handling
-error_handling:
-  on_publish_failure:
-    retry_with_backoff: true
-    max_retries: 3
-    publish_to_dlq_on_exhaustion: true
-
-  on_serialization_error:
-    publish_to_dlq: true
-    log_error: true
+# Retry policies
+retry_policies:
+  max_attempts: 3
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 3
 
 # Dependencies
 dependencies:
-  external_services:
-    - kafka
+  - name: ProtocolMessageBroker
+    dependency_type: protocol
+    required: true
+    description: Kafka message broker service
 
-# Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - effect
-    - kafka
-    - events
-    - messaging
+# Author and tags
+author: omniintelligence
+tags:
+  - effect
+  - kafka
+  - events
+  - messaging

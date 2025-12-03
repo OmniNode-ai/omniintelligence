@@ -7,191 +7,31 @@ version:
 description: |
   Compute node for detecting relationships between code entities.
   Identifies dependencies, imports, calls, inheritances, and other relationships.
-  Builds knowledge graph connections.
+  Builds knowledge graph connections using static analysis and type inference.
 
 node_type: compute
-base_class: NodeOmniAgentCompute
 
-# Input/Output models
-input_model:
-  name: ModelRelationshipDetectionInput
-  fields:
-    entities:
-      type: list[dict]
-      required: true
-      description: Entities to analyze for relationships
+input_model: omniintelligence.models.ModelRelationshipDetectionInput
+output_model: omniintelligence.models.ModelRelationshipDetectionOutput
 
-    context:
-      type: dict
-      required: false
-      description: Additional context (project structure, existing relationships)
+algorithm:
+  algorithm_type: relationship_detection
+  factors:
+    static_analysis:
+      weight: 0.5
+      calculation_method: ast_analysis
+    type_inference:
+      weight: 0.3
+      calculation_method: type_resolution
+    pattern_matching:
+      weight: 0.2
+      calculation_method: naming_convention
 
-    relationship_types:
-      type: list[str]
-      required: false
-      default: ["CONTAINS", "IMPORTS", "CALLS", "EXTENDS"]
-      description: Relationship types to detect
+performance:
+  single_operation_max_ms: 6000
 
-    code_content:
-      type: str
-      required: false
-      description: Original code content for detailed analysis
-
-output_model:
-  name: ModelRelationshipDetectionOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether detection succeeded
-
-    relationships:
-      type: list[dict]
-      required: true
-      description: |
-        Detected relationships with fields:
-        - source_id: str
-        - target_id: str
-        - relationship_type: EnumRelationshipType
-        - confidence: float
-        - metadata: dict (line_number, context, etc.)
-
-    relationship_count:
-      type: int
-      required: true
-      description: Total number of relationships detected
-
-    relationship_stats:
-      type: dict
-      required: false
-      description: Statistics by relationship type
-
-# Configuration
-config_model:
-  name: ModelRelationshipDetectionConfig
-  fields:
-    detect_direct_only:
-      type: bool
-      default: false
-      description: Only detect direct relationships (not transitive)
-
-    min_confidence_threshold:
-      type: float
-      default: 0.7
-      description: Minimum confidence for relationship
-
-    enable_type_inference:
-      type: bool
-      default: true
-      description: Enable type inference for relationships
-
-    max_call_depth:
-      type: int
-      default: 5
-      description: Maximum depth for call graph analysis
-
-# Operations
-operations:
-  detect_relationships:
-    description: Detect all relationships between entities
-    input_model: ModelRelationshipDetectionInput
-    output_model: ModelRelationshipDetectionOutput
-
-  detect_imports:
-    description: Detect import relationships
-    input:
-      entities: list[dict]
-      code_content: str
-    output:
-      imports: list[dict]
-
-  detect_calls:
-    description: Detect function call relationships
-    input:
-      entities: list[dict]
-      code_content: str
-    output:
-      calls: list[dict]
-
-  detect_inheritance:
-    description: Detect inheritance relationships
-    input:
-      entities: list[dict]
-      code_content: str
-    output:
-      inheritance: list[dict]
-
-  detect_dependencies:
-    description: Detect dependency relationships
-    input:
-      entities: list[dict]
-      context: dict
-    output:
-      dependencies: list[dict]
-
-  build_call_graph:
-    description: Build complete call graph
-    input:
-      entities: list[dict]
-      max_depth: int
-    output:
-      call_graph: dict
-
-  classify_relationships:
-    description: Classify relationship types and strengths
-    input:
-      relationships: list[dict]
-    output:
-      classified: list[dict]
-
-# Relationship detection strategies
-strategies:
-  static_analysis:
-    description: AST-based static analysis
-    confidence: 0.95
-    methods:
-      - import_analysis
-      - call_analysis
-      - inheritance_analysis
-      - reference_analysis
-
-  type_inference:
-    description: Type-based relationship inference
-    confidence: 0.85
-    methods:
-      - type_usage
-      - interface_implementation
-      - generic_constraints
-
-  pattern_matching:
-    description: Pattern-based relationship detection
-    confidence: 0.75
-    methods:
-      - naming_conventions
-      - structural_patterns
-      - usage_patterns
-
-  semantic_analysis:
-    description: Semantic relationship detection
-    confidence: 0.70
-    methods:
-      - embedding_similarity
-      - intent_correlation
-      - context_analysis
-
-# Dependencies
 dependencies:
-  compute_nodes:
-    - entity_extraction_compute
-  external_services: []
-
-# Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - compute
-    - relationship-detection
-    - graph-building
-    - dependency-analysis
-    - call-graph
+  - name: entity_extraction_compute
+    dependency_type: module
+    required: true
+    description: Entity extraction compute node for entity data

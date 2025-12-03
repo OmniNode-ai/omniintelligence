@@ -30,6 +30,7 @@ mypy = ">=1.13.0"
 black = "^24.10.0"
 isort = "^5.13.0"
 types-pyyaml = "^6.0.12.20250915"
+pre-commit = "^4.5.0"
 
 [tool.poetry.group.core.dependencies]
 omnibase-core = "0.3.5"
@@ -150,40 +151,71 @@ all = [
     "factory-boy>=3.3.0",
 ]
 
+# Ruff configuration - aligned with omnibase_core
 [tool.ruff]
-line-length = 88
 target-version = "py312"
+line-length = 88
 exclude = [
     "src/omniintelligence/_legacy/*",
     "migration_sources/*",
+    "**/__pycache__/**",
 ]
 
 [tool.ruff.lint]
-select = [
-    "E",     # pycodestyle errors
-    "F",     # pyflakes
-    "W",     # pycodestyle warnings
-    "N",     # pep8-naming
-    "UP",    # pyupgrade
-    "B",     # flake8-bugbear
-    "C4",    # flake8-comprehensions
-    "SIM",   # flake8-simplify
-    "ARG",   # flake8-unused-arguments
-    "RUF",   # Ruff-specific rules
-]
+# Full rule set from omnibase_core for consistency
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
 ignore = [
-    "S101",   # Allow assert statements in tests
-    "E501",   # Allow line length violations (handled by Black)
-    "B904",   # Allow raise without from in exception handlers
-    "N812",   # Allow lowercase imported as non-lowercase
-    "N815",   # Allow mixedCase variables
-    "N806",   # Allow non-lowercase variable in function
-    "N805",   # Allow cls as first argument
-    "UP007",  # Allow Union syntax
-    "SIM117", # Allow nested with statements
-    "B008",   # Allow function call defaults
-    "F841",   # Allow unused variables
-    "RUF012", # Allow mutable class attributes
+    # Core ignores (aligned with omnibase_core)
+    "S101",      # Allow assert statements in tests
+    "E501",      # Line too long (handled by formatter)
+    "BLE001",    # Blind exception catching
+    "PLR0911",   # Too many returns
+    "PLR0912",   # Too many branches
+    "PLR0913",   # Too many arguments
+    "PLR0915",   # Too many statements
+    "PLR2004",   # Magic values
+    "FBT001",    # Boolean positional args
+    "FBT002",    # Boolean default args
+    "FBT003",    # Boolean positional value in call
+    "EM101",     # Exception string literal
+    "EM102",     # Exception f-string literal
+    "TRY003",    # Long exception messages
+    "TRY300",    # Consider else block
+    "TRY301",    # Raise within try
+    "DTZ005",    # datetime.now() without tz
+    "UP038",     # Use X | Y in isinstance
+    "B008",      # Function call in defaults
+    "B904",      # raise from
+    "ARG001",    # Unused function argument
+    "ARG002",    # Unused method argument
+    "ARG003",    # Unused class method argument
+    "ERA001",    # Commented out code
+    "SIM102",    # Nested if statements
+    "SIM117",    # Nested with statements
+    "B007",      # Unused loop variable
+    "PT018",     # Assertion breakdown
+    "RET505",    # Unnecessary elif
+    "COM812",    # Trailing commas (conflicts with formatter)
+    "C901",      # Function complexity
+    "N806",      # Variable naming
+    "RUF003",    # Comment formatting
+    "SIM105",    # contextlib.suppress
+    "PTH123",    # Path.open()
+    "F841",      # Unused variable
+    "T201",      # Print statements
+    "N802",      # Invalid function name
+    "S603",      # Subprocess without shell
+    "S607",      # Start process with partial path
+    "PT011",     # Pytest raises too broad
+    "SLF001",    # Private member access
+    "DTZ001",    # Call datetime without tzinfo
+    "G004",      # Logging f-string
+    "INP001",    # Implicit namespace package
+    "RUF022",    # Unsorted dunder all
+    "SIM103",    # Needless bool
+    "UP007",     # Non pep604 annotation
+    "RUF012",    # Mutable class default
+    "ISC001",    # Implicit string concatenation (conflicts with formatter)
 ]
 
 [tool.ruff.format]
@@ -192,31 +224,37 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
-[tool.black]
-line-length = 88
-target-version = ['py312']
-
+# isort configuration - aligned with omnibase_core
 [tool.isort]
 profile = "black"
 line_length = 88
 multi_line_output = 3
+known_first_party = ["omniintelligence", "omnibase_core", "omnibase_spi"]
+extend_skip = [
+    "src/omniintelligence/_legacy",
+    "migration_sources",
+]
 
+# mypy configuration - aligned with omnibase_core
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_any_unimported = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-check_untyped_defs = true
-ignore_missing_imports = true
+disallow_untyped_defs = true
+mypy_path = "src"
+namespace_packages = true
+explicit_package_bases = true
 exclude = [
     "src/omniintelligence/_legacy/",
     "migration_sources/",
 ]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = false
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

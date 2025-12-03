@@ -1,3 +1,6 @@
+# ONEX Effect Contract - Qdrant Vector Effect
+# Migrated to strict ONEX schema
+
 name: qdrant_vector_effect
 version:
   major: 1
@@ -9,203 +12,58 @@ description: |
   Handles collection management, vector indexing, and search operations.
 
 node_type: effect
-base_class: NodeOmniAgentEffect
 
-# Input/Output models
-input_model:
-  name: ModelQdrantVectorInput
-  fields:
-    collection:
-      type: str
-      required: true
-      description: Qdrant collection name
+# Fully qualified model class names
+input_model: omniintelligence.nodes.qdrant_vector_effect.v1_0_0.models.ModelQdrantVectorInput
+output_model: omniintelligence.nodes.qdrant_vector_effect.v1_0_0.models.ModelQdrantVectorOutput
 
-    operation:
-      type: str
-      required: true
-      description: Operation type (index, update, delete, search)
+# I/O operations (required for effect nodes)
+io_operations:
+  - operation_type: vector_index
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
 
-    vector_id:
-      type: str
-      required: false
-      description: Vector ID (required for update/delete)
+  - operation_type: vector_search
+    atomic: false
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
 
-    embeddings:
-      type: list[float]
-      required: false
-      description: Vector embeddings (1536D)
+  - operation_type: vector_delete
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
 
-    metadata:
-      type: dict
-      required: false
-      description: Vector metadata/payload
+  - operation_type: collection_create
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 60
+    validation_enabled: true
 
-    search_params:
-      type: dict
-      required: false
-      description: Search parameters (for search operation)
+# Transaction management
+transaction_management:
+  enabled: false
 
-output_model:
-  name: ModelQdrantVectorOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether operation succeeded
-
-    operation:
-      type: str
-      required: true
-      description: Operation that was executed
-
-    vector_id:
-      type: str
-      required: false
-      description: ID of the vector
-
-    results:
-      type: list[dict]
-      required: false
-      description: Search results (for search operation)
-
-    error:
-      type: str
-      required: false
-      description: Error message if failed
-
-# Configuration
-config_model:
-  name: ModelQdrantVectorConfig
-  fields:
-    qdrant_url:
-      type: str
-      required: true
-      description: Qdrant server URL
-
-    default_collection:
-      type: str
-      default: "archon_vectors"
-      description: Default collection name
-
-    vector_dimension:
-      type: int
-      default: 1536
-      description: Vector dimension
-
-    distance_metric:
-      type: str
-      default: "cosine"
-      description: Distance metric (cosine, euclidean, dot)
-
-    batch_size:
-      type: int
-      default: 100
-      description: Batch size for bulk operations
-
-# Operations
-operations:
-  index_vector:
-    description: Index a vector in Qdrant
-    input:
-      collection: str
-      vector_id: str
-      embeddings: list[float]
-      metadata: dict
-    output:
-      success: bool
-      vector_id: str
-
-  update_vector:
-    description: Update an existing vector
-    input:
-      collection: str
-      vector_id: str
-      embeddings: list[float]
-      metadata: dict
-    output:
-      success: bool
-      updated: bool
-
-  delete_vector:
-    description: Delete a vector
-    input:
-      collection: str
-      vector_id: str
-    output:
-      success: bool
-      deleted: bool
-
-  search_vectors:
-    description: Search for similar vectors
-    input:
-      collection: str
-      query_vector: list[float]
-      limit: int
-      filter: dict
-    output:
-      success: bool
-      results: list[dict]
-
-  batch_index:
-    description: Index multiple vectors at once
-    input:
-      collection: str
-      vectors: list[dict]
-    output:
-      success: bool
-      indexed_count: int
-
-  create_collection:
-    description: Create a new collection
-    input:
-      collection_name: str
-      vector_dimension: int
-      distance_metric: str
-    output:
-      success: bool
-      created: bool
-
-# Collection definitions
-collections:
-  archon_vectors:
-    description: Main vector collection for documents
-    dimension: 1536
-    distance: cosine
-
-  quality_vectors:
-    description: Quality assessment embeddings
-    dimension: 1536
-    distance: cosine
-
-  semantic_embeddings:
-    description: Semantic analysis embeddings
-    dimension: 1536
-    distance: cosine
-
-# Error handling
-error_handling:
-  on_index_failure:
-    retry_with_backoff: true
-    max_retries: 3
-
-  on_connection_error:
-    retry_with_backoff: true
-    max_retries: 5
-
-  on_collection_not_found:
-    auto_create: true
+# Retry policies
+retry_policies:
+  max_attempts: 3
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 3
 
 # Dependencies
 dependencies:
-  external_services:
-    - qdrant
+  - name: ProtocolVectorDatabase
+    dependency_type: protocol
+    required: true
+    description: Qdrant vector database service
 
-# Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - effect
-    - qdrant
-    - vectors
-    - embeddings
+# Author and tags
+author: omniintelligence
+tags:
+  - effect
+  - qdrant
+  - vectors
+  - embeddings

@@ -7,191 +7,35 @@ version:
 description: |
   Compute node for semantic code analysis.
   Extracts semantic features, analyzes code semantics, and computes similarity scores.
-  Works with embeddings for deep semantic understanding.
+  Works with embeddings for deep semantic understanding of control flow,
+  data flow, complexity metrics, and intent classification.
 
 node_type: compute
-base_class: NodeOmniAgentCompute
 
-# Input/Output models
-input_model:
-  name: ModelSemanticAnalysisInput
-  fields:
-    code_snippet:
-      type: str
-      required: true
-      description: Code snippet to analyze
+input_model: omniintelligence.models.ModelSemanticAnalysisInput
+output_model: omniintelligence.models.ModelSemanticAnalysisOutput
 
-    analysis_type:
-      type: str
-      required: false
-      default: "full"
-      description: Analysis type (full, features_only, similarity_only)
-
-    context:
-      type: dict
-      required: false
-      description: Additional context for analysis
-
-    embeddings:
-      type: list[float]
-      required: false
-      description: Pre-computed embeddings (optional)
-
-    reference_patterns:
-      type: list[dict]
-      required: false
-      description: Reference patterns for similarity comparison
-
-output_model:
-  name: ModelSemanticAnalysisOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether analysis succeeded
-
-    semantic_features:
-      type: dict
-      required: true
-      description: |
-        Extracted semantic features:
-        - control_flow: dict (loops, conditionals, etc.)
-        - data_flow: dict (variable usage, assignments)
-        - call_graph: dict (function calls)
-        - complexity_metrics: dict (cyclomatic, cognitive)
-        - intent_classification: str
-        - abstraction_level: str
-
-    similarity_scores:
-      type: dict
-      required: false
-      description: Similarity scores against reference patterns
-
-    semantic_embedding:
-      type: list[float]
-      required: false
-      description: Semantic embedding vector
-
+algorithm:
+  algorithm_type: semantic_analysis
+  factors:
+    control_flow:
+      weight: 0.25
+      calculation_method: cfg_analysis
+    data_flow:
+      weight: 0.25
+      calculation_method: dfa_analysis
+    complexity:
+      weight: 0.25
+      calculation_method: complexity_metrics
     intent:
-      type: str
-      required: false
-      description: Inferred code intent
+      weight: 0.25
+      calculation_method: intent_classification
 
-# Configuration
-config_model:
-  name: ModelSemanticAnalysisConfig
-  fields:
-    extract_control_flow:
-      type: bool
-      default: true
+performance:
+  single_operation_max_ms: 7000
 
-    extract_data_flow:
-      type: bool
-      default: true
-
-    compute_complexity:
-      type: bool
-      default: true
-
-    classify_intent:
-      type: bool
-      default: true
-
-    similarity_threshold:
-      type: float
-      default: 0.75
-      description: Threshold for similarity matching
-
-# Operations
-operations:
-  analyze_semantics:
-    description: Full semantic analysis
-    input_model: ModelSemanticAnalysisInput
-    output_model: ModelSemanticAnalysisOutput
-
-  extract_features:
-    description: Extract semantic features only
-    input:
-      code_snippet: str
-    output:
-      features: dict
-
-  compute_similarity:
-    description: Compute similarity against references
-    input:
-      code_snippet: str
-      reference_patterns: list[dict]
-    output:
-      similarity_scores: dict
-
-  classify_intent:
-    description: Classify code intent
-    input:
-      code_snippet: str
-      semantic_features: dict
-    output:
-      intent: str
-      confidence: float
-
-  analyze_control_flow:
-    description: Analyze control flow structures
-    input:
-      code_snippet: str
-    output:
-      control_flow: dict
-
-  analyze_data_flow:
-    description: Analyze data flow patterns
-    input:
-      code_snippet: str
-    output:
-      data_flow: dict
-
-# Semantic features
-features:
-  control_flow:
-    - loops (for, while, do-while)
-    - conditionals (if, switch, ternary)
-    - exception_handling (try, catch, finally)
-    - early_returns
-    - nested_depth
-
-  data_flow:
-    - variable_declarations
-    - assignments
-    - data_transformations
-    - function_parameters
-    - return_values
-
-  complexity:
-    - cyclomatic_complexity
-    - cognitive_complexity
-    - nesting_depth
-    - function_length
-    - parameter_count
-
-  intent_classes:
-    - data_processing
-    - validation
-    - transformation
-    - orchestration
-    - io_operation
-    - computation
-    - configuration
-
-# Dependencies
 dependencies:
-  compute_nodes:
-    - vectorization_compute
-  external_services: []
-
-# Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - compute
-    - semantic-analysis
-    - code-understanding
-    - similarity
-    - intent-classification
+  - name: vectorization_compute
+    dependency_type: module
+    required: true
+    description: Vectorization compute node for embedding generation

@@ -1,3 +1,6 @@
+# ONEX Effect Contract - Memgraph Graph Effect
+# Migrated to strict ONEX schema
+
 name: memgraph_graph_effect
 version:
   major: 1
@@ -9,253 +12,54 @@ description: |
   Handles entities, relationships, and graph queries for code intelligence.
 
 node_type: effect
-base_class: NodeOmniAgentEffect
 
-# Input/Output models
-input_model:
-  name: ModelMemgraphGraphInput
-  fields:
-    operation:
-      type: str
-      required: true
-      description: Operation type (create_entity, create_relationship, query, update, delete)
+# Fully qualified model class names
+input_model: omniintelligence.nodes.memgraph_graph_effect.v1_0_0.models.ModelMemgraphGraphInput
+output_model: omniintelligence.nodes.memgraph_graph_effect.v1_0_0.models.ModelMemgraphGraphOutput
 
-    entities:
-      type: list[dict]
-      required: false
-      description: Entities to create/update
+# I/O operations (required for effect nodes)
+io_operations:
+  - operation_type: graph_write
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
 
-    relationships:
-      type: list[dict]
-      required: false
-      description: Relationships to create
+  - operation_type: graph_query
+    atomic: false
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
 
-    query:
-      type: str
-      required: false
-      description: Cypher query for custom operations
+  - operation_type: graph_delete
+    atomic: true
+    backup_enabled: true
+    timeout_seconds: 30
+    validation_enabled: true
 
-    entity_id:
-      type: str
-      required: false
-      description: Entity ID for single-entity operations
+# Transaction management
+transaction_management:
+  enabled: true
+  isolation_level: read_committed
 
-    metadata_updates:
-      type: dict
-      required: false
-      description: Metadata updates for entities
-
-output_model:
-  name: ModelMemgraphGraphOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether operation succeeded
-
-    operation:
-      type: str
-      required: true
-      description: Operation that was executed
-
-    entities_created:
-      type: int
-      required: false
-      description: Number of entities created
-
-    relationships_created:
-      type: int
-      required: false
-      description: Number of relationships created
-
-    query_results:
-      type: list[dict]
-      required: false
-      description: Query results
-
-    error:
-      type: str
-      required: false
-      description: Error message if failed
-
-# Configuration
-config_model:
-  name: ModelMemgraphGraphConfig
-  fields:
-    memgraph_host:
-      type: str
-      required: true
-      description: Memgraph server host
-
-    memgraph_port:
-      type: int
-      default: 7687
-      description: Memgraph port
-
-    enable_indexing:
-      type: bool
-      default: true
-      description: Enable automatic index creation
-
-    batch_size:
-      type: int
-      default: 100
-      description: Batch size for bulk operations
-
-    query_timeout_seconds:
-      type: int
-      default: 30
-      description: Query timeout
-
-# Operations
-operations:
-  create_entities:
-    description: Create entities in graph
-    input:
-      entities: list[dict]
-    output:
-      success: bool
-      entities_created: int
-
-  create_relationships:
-    description: Create relationships between entities
-    input:
-      relationships: list[dict]
-    output:
-      success: bool
-      relationships_created: int
-
-  update_entity:
-    description: Update entity properties
-    input:
-      entity_id: str
-      metadata_updates: dict
-    output:
-      success: bool
-      updated: bool
-
-  delete_entity:
-    description: Delete entity and its relationships
-    input:
-      entity_id: str
-      cascade: bool
-    output:
-      success: bool
-      deleted: bool
-
-  query_graph:
-    description: Execute Cypher query
-    input:
-      query: str
-      parameters: dict
-    output:
-      success: bool
-      results: list[dict]
-
-  find_neighbors:
-    description: Find neighboring entities
-    input:
-      entity_id: str
-      relationship_types: list[str]
-      depth: int
-    output:
-      neighbors: list[dict]
-
-  get_shortest_path:
-    description: Find shortest path between entities
-    input:
-      source_id: str
-      target_id: str
-      max_depth: int
-    output:
-      path: list[dict]
-      length: int
-
-# Graph schema
-schema:
-  entity_labels:
-    - Document
-    - Class
-    - Function
-    - Module
-    - Package
-    - Variable
-    - Pattern
-    - Project
-    - File
-
-  relationship_types:
-    - CONTAINS
-    - IMPORTS
-    - DEPENDS_ON
-    - IMPLEMENTS
-    - EXTENDS
-    - CALLS
-    - REFERENCES
-    - DEFINES
-    - USES
-    - MATCHES_PATTERN
-    - SIMILAR_TO
-
-  indexes:
-    - label: Document
-      property: entity_id
-    - label: Class
-      property: entity_id
-    - label: Function
-      property: entity_id
-    - label: Pattern
-      property: pattern_id
-
-# Common queries
-queries:
-  find_entity_by_id: |
-    MATCH (e {entity_id: $entity_id})
-    RETURN e
-
-  get_entity_relationships: |
-    MATCH (e {entity_id: $entity_id})-[r]->(target)
-    RETURN e, r, target
-
-  find_patterns_in_code: |
-    MATCH (code)-[:MATCHES_PATTERN]->(pattern)
-    WHERE code.entity_id = $entity_id
-    RETURN pattern
-
-  get_dependency_graph: |
-    MATCH (source {entity_id: $entity_id})-[:DEPENDS_ON*..5]->(deps)
-    RETURN source, deps
-
-  find_similar_entities: |
-    MATCH (e1 {entity_id: $entity_id})-[:SIMILAR_TO]-(e2)
-    RETURN e2
-    ORDER BY e2.similarity_score DESC
-    LIMIT $limit
-
-# Error handling
-error_handling:
-  on_connection_error:
-    retry_with_backoff: true
-    max_retries: 5
-
-  on_constraint_violation:
-    action: skip_and_log
-
-  on_query_timeout:
-    action: cancel_and_log
+# Retry policies
+retry_policies:
+  max_attempts: 5
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 5
 
 # Dependencies
 dependencies:
-  external_services:
-    - memgraph
+  - name: ProtocolGraphDatabase
+    dependency_type: protocol
+    required: true
+    description: Memgraph graph database service
 
-# Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - effect
-    - memgraph
-    - graph-database
-    - knowledge-graph
-    - cypher
+# Author and tags
+author: omniintelligence
+tags:
+  - effect
+  - memgraph
+  - graph-database
+  - knowledge-graph
+  - cypher

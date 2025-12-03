@@ -10,130 +10,93 @@ description: |
   Routes operations via EnumOperationType.
 
 node_type: orchestrator
-base_class: NodeOmniAgentOrchestrator
 
-# Subcontracts for different operation categories
-subcontracts:
-  processing: ./subcontracts/processing.yaml
-  management: ./subcontracts/management.yaml
-  monitoring: ./subcontracts/monitoring.yaml
+input_model: omniintelligence.nodes.intelligence_orchestrator.v1_0_0.models.ModelOrchestratorInput
+output_model: omniintelligence.nodes.intelligence_orchestrator.v1_0_0.models.ModelOrchestratorOutput
 
-# Input/Output models
-input_model:
-  name: ModelOrchestratorInput
-  fields:
-    operation_type:
-      type: EnumOperationType
-      required: true
-      description: Type of operation to orchestrate (DOCUMENT_INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT, etc.)
-
-    entity_id:
-      type: str
-      required: true
-      description: Unique identifier for the entity being processed
-
-    payload:
-      type: dict
-      required: true
-      description: Operation-specific payload data
-
-    context:
-      type: dict
-      required: false
-      description: Additional context for the operation
-
-    correlation_id:
-      type: str
-      required: true
-      description: Correlation ID for tracing across services
-
-output_model:
-  name: ModelOrchestratorOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether the orchestration completed successfully
-
-    workflow_id:
-      type: str
-      required: true
-      description: Unique identifier for this workflow execution
-
-    results:
-      type: dict
-      required: false
-      description: Results from the workflow execution
-
-    intents:
-      type: list[ModelIntent]
-      required: false
-      description: Intents emitted during workflow execution
-
-    errors:
-      type: list[str]
-      required: false
-      description: Any errors encountered during execution
-
-# Configuration
-config_model:
-  name: ModelOrchestratorConfig
-  fields:
-    max_concurrent_workflows:
-      type: int
-      default: 10
-      description: Maximum number of concurrent workflows
-
-    workflow_timeout_seconds:
-      type: int
-      default: 300
-      description: Timeout for workflow execution
-
-    enable_caching:
-      type: bool
-      default: true
-      description: Enable result caching
-
-    cache_ttl_seconds:
-      type: int
-      default: 300
-      description: Cache TTL in seconds
-
-# Workflow definitions (Llama Index workflows)
-workflows:
-  document_ingestion: ./workflows/document_ingestion.yaml
-  pattern_learning: ./workflows/pattern_learning.yaml
-  quality_assessment: ./workflows/quality_assessment.yaml
-  semantic_analysis: ./workflows/semantic_analysis.yaml
-  relationship_detection: ./workflows/relationship_detection.yaml
-
-# Dependencies
+# Dependencies - orchestrator coordinates compute, effect, and reducer nodes
 dependencies:
-  compute_nodes:
-    - vectorization_compute
-    - entity_extraction_compute
-    - pattern_matching_compute
-    - quality_scoring_compute
-    - semantic_analysis_compute
-    - relationship_detection_compute
+  - name: vectorization_compute
+    dependency_type: module
+    required: true
+    description: Vectorization compute node
+  - name: entity_extraction_compute
+    dependency_type: module
+    required: true
+    description: Entity extraction compute node
+  - name: pattern_matching_compute
+    dependency_type: module
+    required: true
+    description: Pattern matching compute node
+  - name: quality_scoring_compute
+    dependency_type: module
+    required: true
+    description: Quality scoring compute node
+  - name: semantic_analysis_compute
+    dependency_type: module
+    required: true
+    description: Semantic analysis compute node
+  - name: relationship_detection_compute
+    dependency_type: module
+    required: true
+    description: Relationship detection compute node
+  - name: kafka_event_effect
+    dependency_type: module
+    required: true
+    description: Kafka event effect node
+  - name: qdrant_vector_effect
+    dependency_type: module
+    required: true
+    description: Qdrant vector effect node
+  - name: memgraph_graph_effect
+    dependency_type: module
+    required: true
+    description: Memgraph graph effect node
+  - name: postgres_pattern_effect
+    dependency_type: module
+    required: true
+    description: PostgreSQL pattern effect node
+  - name: intelligence_api_effect
+    dependency_type: module
+    required: true
+    description: Intelligence API effect node
+  - name: intelligence_reducer
+    dependency_type: module
+    required: true
+    description: Intelligence reducer node
 
-  effect_nodes:
-    - kafka_event_effect
-    - qdrant_vector_effect
-    - memgraph_graph_effect
-    - postgres_pattern_effect
-    - intelligence_api_effect
+# Performance requirements
+performance:
+  single_operation_max_ms: 5000
+  batch_operation_max_ms: 30000
+  throughput_ops_per_second: 100
 
-  reducers:
-    - intelligence_reducer
+# Workflow coordination configuration
+workflow_coordination:
+  execution_mode: parallel
+  max_parallel_branches: 10
+  checkpoint_enabled: true
+  checkpoint_interval_ms: 1000
+  recovery_enabled: true
+  timeout_ms: 300000
+
+# Event coordination for orchestrating workflows
+event_coordination:
+  coordination_strategy: immediate
+  buffer_size: 100
+  correlation_enabled: true
+  correlation_timeout_ms: 30000
+
+# Load balancing and fault tolerance
+load_balancing_enabled: true
+failure_isolation_enabled: true
+monitoring_enabled: true
+metrics_collection_enabled: true
 
 # Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - orchestrator
-    - intelligence
-    - workflows
-    - llama-index
-  documentation: ../README.md
+author: omniintelligence
+tags:
+  - orchestrator
+  - intelligence
+  - workflows
+  - llama-index

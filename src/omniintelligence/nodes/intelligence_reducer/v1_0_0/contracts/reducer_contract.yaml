@@ -13,278 +13,101 @@ description: |
   - QUALITY_ASSESSMENT: Quality scoring FSM
 
 node_type: reducer
-base_class: NodeOmniAgentReducer
 
-# Subcontracts
-subcontracts:
-  processing: ./subcontracts/processing.yaml
-  management: ./subcontracts/management.yaml
-  monitoring: ./subcontracts/monitoring.yaml
-
-# Input/Output models
-input_model:
-  name: ModelReducerInput
-  fields:
-    fsm_type:
-      type: EnumFSMType
-      required: true
-      description: Type of FSM (INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT)
-
-    entity_id:
-      type: str
-      required: true
-      description: Unique identifier for the entity
-
-    action:
-      type: EnumFSMAction
-      required: true
-      description: FSM action to execute
-
-    payload:
-      type: dict
-      required: false
-      description: Action-specific payload data
-
-    correlation_id:
-      type: str
-      required: true
-      description: Correlation ID for tracing
-
-    lease_id:
-      type: str
-      required: false
-      description: Action lease ID for distributed coordination
-
-    epoch:
-      type: int
-      required: false
-      description: Epoch for action lease management
-
-output_model:
-  name: ModelReducerOutput
-  fields:
-    success:
-      type: bool
-      required: true
-      description: Whether the state transition succeeded
-
-    previous_state:
-      type: str
-      required: false
-      description: Previous FSM state
-
-    current_state:
-      type: str
-      required: true
-      description: Current FSM state after transition
-
-    intents:
-      type: list[ModelIntent]
-      required: false
-      description: Intents emitted to orchestrator
-
-    metadata:
-      type: dict
-      required: false
-      description: Additional metadata about the transition
-
-    errors:
-      type: list[str]
-      required: false
-      description: Any errors encountered
-
-# Configuration
-config_model:
-  name: ModelReducerConfig
-  fields:
-    database_url:
-      type: str
-      required: true
-      description: PostgreSQL connection URL
-
-    enable_lease_management:
-      type: bool
-      default: true
-      description: Enable distributed action lease management
-
-    lease_timeout_seconds:
-      type: int
-      default: 300
-      description: Lease timeout in seconds
-
-    max_retry_attempts:
-      type: int
-      default: 3
-      description: Maximum retry attempts for state transitions
-
-# FSM Definitions
-fsm_definitions:
-  INGESTION:
-    states:
-      - RECEIVED
-      - PROCESSING
-      - INDEXED
-      - FAILED
-    transitions:
-      RECEIVED:
-        - to: PROCESSING
-          action: START_PROCESSING
-        - to: FAILED
-          action: FAIL
-      PROCESSING:
-        - to: INDEXED
-          action: COMPLETE_INDEXING
-        - to: FAILED
-          action: FAIL
-      INDEXED:
-        - to: PROCESSING
-          action: REINDEX
-      FAILED:
-        - to: PROCESSING
-          action: RETRY
-    initial_state: RECEIVED
-    final_states: [INDEXED, FAILED]
-
-  PATTERN_LEARNING:
-    states:
-      - FOUNDATION
-      - MATCHING
-      - VALIDATION
-      - TRACEABILITY
-      - COMPLETED
-      - FAILED
-    transitions:
-      FOUNDATION:
-        - to: MATCHING
-          action: ADVANCE_TO_MATCHING
-        - to: FAILED
-          action: FAIL
-      MATCHING:
-        - to: VALIDATION
-          action: ADVANCE_TO_VALIDATION
-        - to: FAILED
-          action: FAIL
-      VALIDATION:
-        - to: TRACEABILITY
-          action: ADVANCE_TO_TRACEABILITY
-        - to: FAILED
-          action: FAIL
-      TRACEABILITY:
-        - to: COMPLETED
-          action: COMPLETE_LEARNING
-        - to: FAILED
-          action: FAIL
-      COMPLETED:
-        - to: FOUNDATION
-          action: RELEARN
-      FAILED:
-        - to: FOUNDATION
-          action: RETRY
-    initial_state: FOUNDATION
-    final_states: [COMPLETED, FAILED]
-
-  QUALITY_ASSESSMENT:
-    states:
-      - RAW
-      - ASSESSING
-      - SCORED
-      - STORED
-      - FAILED
-    transitions:
-      RAW:
-        - to: ASSESSING
-          action: START_ASSESSMENT
-        - to: FAILED
-          action: FAIL
-      ASSESSING:
-        - to: SCORED
-          action: COMPLETE_SCORING
-        - to: FAILED
-          action: FAIL
-      SCORED:
-        - to: STORED
-          action: STORE_RESULTS
-        - to: FAILED
-          action: FAIL
-      STORED:
-        - to: ASSESSING
-          action: REASSESS
-      FAILED:
-        - to: ASSESSING
-          action: RETRY
-    initial_state: RAW
-    final_states: [STORED, FAILED]
-
-# Intent emission rules
-intent_rules:
-  on_state_change:
-    - condition: state == 'PROCESSING' or state == 'ASSESSING' or state == 'MATCHING'
-      emit:
-        intent_type: WORKFLOW_TRIGGER
-        target: intelligence_orchestrator
-        payload:
-          operation_type: ${fsm_type}
-          entity_id: ${entity_id}
-
-  on_completion:
-    - condition: state in final_states
-      emit:
-        intent_type: EVENT_PUBLISH
-        target: kafka_event_effect
-        payload:
-          topic: ${fsm_type.lower()}.completed.v1
-          event_type: FSM_COMPLETED
-          entity_id: ${entity_id}
-
-  on_failure:
-    - condition: state == 'FAILED'
-      emit:
-        intent_type: EVENT_PUBLISH
-        target: kafka_event_effect
-        payload:
-          topic: ${fsm_type.lower()}.failed.v1
-          event_type: FSM_FAILED
-          entity_id: ${entity_id}
-          error: ${error}
-
-# Database schema reference
-database_schema:
-  table_name: fsm_state
-  columns:
-    id: UUID PRIMARY KEY
-    fsm_type: VARCHAR(50) NOT NULL
-    entity_id: VARCHAR(255) NOT NULL
-    current_state: VARCHAR(50) NOT NULL
-    previous_state: VARCHAR(50)
-    transition_timestamp: TIMESTAMPTZ NOT NULL
-    metadata: JSONB
-    lease_id: VARCHAR(255)
-    lease_epoch: INTEGER
-    lease_expires_at: TIMESTAMPTZ
-  indexes:
-    - name: idx_fsm_entity
-      columns: [fsm_type, entity_id]
-      unique: true
-    - name: idx_current_state
-      columns: [current_state]
-    - name: idx_lease
-      columns: [lease_id, lease_epoch]
-      condition: lease_id IS NOT NULL
+input_model: omniintelligence.nodes.intelligence_reducer.v1_0_0.models.ModelReducerInput
+output_model: omniintelligence.nodes.intelligence_reducer.v1_0_0.models.ModelReducerOutput
 
 # Dependencies
 dependencies:
-  orchestrators:
-    - intelligence_orchestrator
-  effect_nodes:
-    - kafka_event_effect
+  - name: intelligence_orchestrator
+    dependency_type: module
+    required: true
+    description: Intelligence orchestrator for workflow coordination
+  - name: kafka_event_effect
+    dependency_type: module
+    required: true
+    description: Kafka event effect for event publishing
+
+# Performance requirements
+performance:
+  single_operation_max_ms: 100
+  batch_operation_max_ms: 1000
+  throughput_ops_per_second: 1000
+
+# State transitions FSM subcontract
+state_transitions:
+  initial_state: RECEIVED
+  states:
+    - state_name: RECEIVED
+      description: Initial state when document is received
+      is_terminal: false
+    - state_name: PROCESSING
+      description: Document is being processed
+      is_terminal: false
+    - state_name: INDEXED
+      description: Document has been indexed successfully
+      is_terminal: true
+    - state_name: FAILED
+      description: Processing failed
+      is_terminal: true
+  transitions:
+    - from_state: RECEIVED
+      to_state: PROCESSING
+      trigger: START_PROCESSING
+    - from_state: RECEIVED
+      to_state: FAILED
+      trigger: FAIL
+    - from_state: PROCESSING
+      to_state: INDEXED
+      trigger: COMPLETE_INDEXING
+    - from_state: PROCESSING
+      to_state: FAILED
+      trigger: FAIL
+    - from_state: INDEXED
+      to_state: PROCESSING
+      trigger: REINDEX
+    - from_state: FAILED
+      to_state: PROCESSING
+      trigger: RETRY
+  operations:
+    - operation_name: transition
+      requires_atomic_execution: true
+      supports_rollback: true
+    - operation_name: snapshot
+      requires_atomic_execution: true
+      supports_rollback: true
+    - operation_name: restore
+      requires_atomic_execution: true
+      supports_rollback: true
+
+# Event type subcontract for event-driven architecture
+event_type:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  primary_events:
+    - FSM_STATE_CHANGED
+    - FSM_TRANSITION_COMPLETED
+    - FSM_TRANSITION_FAILED
+  event_categories:
+    - fsm
+    - state_management
+    - intelligence
+  event_routing: intelligence_reducer
+  publish_events: true
+  subscribe_events: false
+
+# Reducer-specific settings
+order_preserving: true
+incremental_processing: true
+result_caching_enabled: true
+partial_results_enabled: false
 
 # Metadata
-metadata:
-  author: omniintelligence
-  created_at: "2025-11-14"
-  tags:
-    - reducer
-    - fsm
-    - pure
-    - intelligence
-  documentation: ../README.md
+author: omniintelligence
+tags:
+  - reducer
+  - fsm
+  - pure
+  - intelligence

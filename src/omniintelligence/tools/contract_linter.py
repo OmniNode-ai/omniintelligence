@@ -3,7 +3,7 @@
 Contract Linter CLI for ONEX Node Contract Validation.
 
 Validates YAML contract files against the ONEX schema using omnibase_core
-validation infrastructure. Provides structured error output with field paths
+Pydantic models. Provides structured error output with field paths
 for easy debugging and integration with CI/CD pipelines.
 
 Usage:
@@ -20,49 +20,22 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
-
-# Valid node types in ONEX contracts
-VALID_NODE_TYPES: frozenset[str] = frozenset({
-    "compute",
-    "effect",
-    "reducer",
-    "orchestrator",
-})
-
-# Required fields for base contracts
-REQUIRED_BASE_FIELDS: tuple[str, ...] = (
-    "name",
-    "version",
-    "description",
-    "node_type",
-    "input_model",
-    "output_model",
+# Import omnibase_core Pydantic models and validation infrastructure
+from omnibase_core.models.contracts.subcontracts import (
+    ModelFSMSubcontract,
+    ModelWorkflowCoordinationSubcontract,
 )
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from omnibase_core.validation.contract_validator import ProtocolContractValidator
+from pydantic import BaseModel, ValidationError
 
-# Type-specific required fields
-TYPE_SPECIFIC_FIELDS: dict[str, tuple[str, ...]] = {
-    "compute": ("operations",),
-    "effect": ("operations",),
-    "reducer": (),
-    "orchestrator": (),
-}
-
-# FSM subcontract indicators - presence of any of these means it's an FSM file
-FSM_INDICATORS: frozenset[str] = frozenset({
-    "state_machine_name",
-    "states",
-    "transitions",
-    "initial_state",
-})
-
-# Required fields for FSM subcontracts
-FSM_REQUIRED_FIELDS: tuple[str, ...] = (
-    "state_machine_name",
-    "states",
-    "initial_state",
+# Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
+VALID_NODE_TYPES: frozenset[str] = frozenset(
+    {"compute", "effect", "reducer", "orchestrator"}
 )
 
 
@@ -121,16 +94,109 @@ class ContractValidationResult:
         }
 
 
+def _pydantic_error_to_contract_error(
+    error: dict[str, Any] | Any,  # ErrorDetails from pydantic_core is a TypedDict
+) -> ContractValidationError:
+    """
+    Convert a Pydantic validation error to ContractValidationError.
+
+    Args:
+        error: Single error dict from ValidationError.errors()
+
+    Returns:
+        ContractValidationError with appropriate field path and message
+    """
+    # Build field path from location tuple
+    loc = error.get("loc", ())
+    field_path = ".".join(str(part) for part in loc) if loc else "root"
+
+    # Map Pydantic error types to our error categories
+    error_type = error.get("type", "validation_error")
+    error_type_map = {
+        "missing": "missing_field",
+        "value_error": "invalid_value",
+        "type_error": "invalid_type",
+        "string_type": "invalid_type",
+        "int_type": "invalid_type",
+        "model_type": "invalid_type",
+        "enum": "invalid_enum",
+        "too_short": "invalid_value",
+        "too_long": "invalid_value",
+        "literal_error": "invalid_enum",
+    }
+
+    mapped_type = error_type_map.get(error_type, "validation_error")
+
+    return ContractValidationError(
+        field=field_path,
+        message=error.get("msg", "Validation error"),
+        error_type=mapped_type,
+    )
+
+
+def _detect_contract_type(data: dict[str, Any]) -> str:
+    """
+    Detect the type of contract from YAML content.
+
+    Detection priority:
+    1. FSM subcontract - has state_machine_name or states
+    2. Workflow - has workflow_type and (steps or subcontract_name)
+    3. Node contract - has node_type
+    4. Generic subcontract - has operations but no node_type
+
+    Args:
+        data: Parsed YAML data
+
+    Returns:
+        Contract type string: 'fsm_subcontract', 'workflow', 'node_contract',
+        'subcontract', or 'unknown'
+    """
+    # FSM subcontract detection
+    if "state_machine_name" in data or "states" in data:
+        return "fsm_subcontract"
+
+    # Workflow detection - check for workflow-specific fields
+    if "workflow_type" in data or (
+        "subcontract_name" in data and "max_concurrent_workflows" in data
+    ):
+        return "workflow"
+
+    # Node contract detection
+    if "node_type" in data:
+        return "node_contract"
+
+    # Generic subcontract detection
+    if "operations" in data and "node_type" not in data:
+        return "subcontract"
+
+    return "unknown"
+
+
+def _is_valid_node_type(node_type: str | None) -> bool:
+    """
+    Check if node_type is a valid ONEX node architecture type.
+
+    Args:
+        node_type: The node_type value from the contract (case-insensitive)
+
+    Returns:
+        True if valid node type, False otherwise
+    """
+    if node_type is None:
+        return False
+    return node_type.lower() in VALID_NODE_TYPES
+
+
 class ContractLinter:
     """
-    Validates ONEX contract YAML files against schema requirements.
+    Validates ONEX contract YAML files against Pydantic model schemas.
 
-    The linter checks for:
-    - Required fields (name, version, description, node_type, input_model, output_model)
-    - Valid node_type enum values
-    - Correct version structure (major, minor, patch as integers)
-    - Type-specific required fields (operations for compute and effect nodes)
-    - FSM subcontract validation (state_machine_name, states, initial_state)
+    Uses omnibase_core Pydantic models (ModelContractCompute, ModelContractEffect,
+    etc.) for validation instead of manual field checking. Supports:
+    - Node contracts (compute, effect, reducer, orchestrator)
+    - FSM subcontracts
+    - Workflow coordination subcontracts
+    - Generic subcontracts
 
     Args:
         strict: Enable strict mode for stricter validation (default: False)
@@ -146,32 +212,105 @@ class ContractLinter:
         self.strict = strict
         self.schema_version = schema_version
 
-    def _is_fsm_subcontract(self, data: dict[str, object]) -> bool:
+    def _validate_with_pydantic_model(
+        self,
+        data: dict[str, Any],
+        model_class: type[BaseModel],
+        path: Path,
+        contract_type_name: str,
+    ) -> ContractValidationResult:
         """
-        Detect if YAML is an FSM subcontract rather than a node contract.
-
-        FSM subcontracts contain state machine definitions and have a different
-        schema than node contracts. They are identified by the presence of
-        FSM-specific fields like state_machine_name, states, transitions.
+        Validate contract data against a Pydantic model.
 
         Args:
             data: Parsed YAML data
+            model_class: Pydantic model class to validate against
+            path: Path to the contract file
+            contract_type_name: Human-readable contract type name
 
         Returns:
-            True if this is an FSM subcontract, False otherwise
+            ContractValidationResult with validation status and errors
         """
-        return any(key in data for key in FSM_INDICATORS)
+        try:
+            model_class.model_validate(data)
+            return ContractValidationResult(
+                file_path=path,
+                valid=True,
+                errors=[],
+                contract_type=contract_type_name,
+            )
+        except ValidationError as e:
+            errors = [_pydantic_error_to_contract_error(err) for err in e.errors()]
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=contract_type_name,
+            )
+        except ModelOnexError as e:
+            # Handle custom ONEX validation errors from omnibase_core
+            errors = [
+                ContractValidationError(
+                    field="contract",
+                    message=str(e),
+                    error_type="validation_error",
+                )
+            ]
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=contract_type_name,
+            )
 
     def _validate_fsm_subcontract(
         self,
-        data: dict[str, object],
+        data: dict[str, Any],
         path: Path,
     ) -> ContractValidationResult:
         """
-        Validate FSM subcontract with appropriate schema.
+        Validate FSM subcontract using ModelFSMSubcontract Pydantic model.
 
-        FSM subcontracts define state machines and have different required
-        fields than node contracts.
+        Args:
+            data: Parsed YAML data
+            path: Path to the contract file
+
+        Returns:
+            ContractValidationResult with validation status and errors
+        """
+        return self._validate_with_pydantic_model(
+            data, ModelFSMSubcontract, path, "fsm_subcontract"
+        )
+
+    def _validate_workflow(
+        self,
+        data: dict[str, Any],
+        path: Path,
+    ) -> ContractValidationResult:
+        """
+        Validate workflow contract using ModelWorkflowCoordinationSubcontract.
+
+        Args:
+            data: Parsed YAML data
+            path: Path to the contract file
+
+        Returns:
+            ContractValidationResult with validation status and errors
+        """
+        return self._validate_with_pydantic_model(
+            data, ModelWorkflowCoordinationSubcontract, path, "workflow"
+        )
+
+    def _validate_node_contract(
+        self,
+        data: dict[str, Any],
+        path: Path,
+    ) -> ContractValidationResult:
+        """
+        Validate node contract using ProtocolContractValidator.
+
+        Uses the omnibase_core validation infrastructure which handles
+        Pydantic model validation with proper error handling for ModelOnexError.
 
         Args:
             data: Parsed YAML data
@@ -182,59 +321,112 @@ class ContractLinter:
         """
         errors: list[ContractValidationError] = []
 
-        # Check FSM required fields
-        for field_name in FSM_REQUIRED_FIELDS:
+        # Get node_type and validate
+        node_type = data.get("node_type")
+        if node_type is None:
+            errors.append(
+                ContractValidationError(
+                    field="node_type",
+                    message="Missing required field: node_type",
+                    error_type="missing_field",
+                )
+            )
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=None,
+            )
+
+        # Normalize node_type to lowercase for lookup
+        node_type_lower = node_type.lower() if isinstance(node_type, str) else None
+
+        if not _is_valid_node_type(node_type_lower):
+            valid_types = ", ".join(sorted(VALID_NODE_TYPES))
+            errors.append(
+                ContractValidationError(
+                    field="node_type",
+                    message=f"Invalid node_type: '{node_type}'. Must be one of: {valid_types}",
+                    error_type="invalid_enum",
+                )
+            )
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=None,
+            )
+
+        # Use ProtocolContractValidator for full validation
+        validator = ProtocolContractValidator()
+        result = validator.validate_contract_file(
+            path,
+            contract_type=node_type_lower,
+        )
+
+        # Convert ProtocolContractValidator result to our format
+        for violation in result.violations:
+            # Parse field from violation message if possible
+            field_name = "contract"
+            if ":" in violation:
+                field_name = violation.split(":")[0].strip()
+
+            errors.append(
+                ContractValidationError(
+                    field=field_name,
+                    message=violation,
+                    error_type="validation_error",
+                )
+            )
+
+        return ContractValidationResult(
+            file_path=path,
+            valid=result.is_valid,
+            errors=errors,
+            contract_type=node_type_lower,
+        )
+
+    def _validate_subcontract(
+        self,
+        data: dict[str, Any],
+        path: Path,
+    ) -> ContractValidationResult:
+        """
+        Validate generic subcontract with basic structure checks.
+
+        Generic subcontracts have operations but no node_type. Since there's
+        no specific Pydantic model for these, we do minimal validation.
+        Operations can be either a list or a dict (for named operations).
+
+        Args:
+            data: Parsed YAML data
+            path: Path to the contract file
+
+        Returns:
+            ContractValidationResult with validation status and errors
+        """
+        errors: list[ContractValidationError] = []
+
+        # Check for basic required fields
+        required_fields = ("name", "version", "description", "operations")
+        for field_name in required_fields:
             if field_name not in data:
                 errors.append(
                     ContractValidationError(
                         field=field_name,
-                        message=f"Missing required FSM field: {field_name}",
+                        message=f"Missing required field: {field_name}",
                         error_type="missing_field",
                     )
                 )
 
-        # Validate states is a list if present
-        if "states" in data:
-            states = data["states"]
-            if not isinstance(states, list):
+        # Validate operations is a list or dict if present
+        if "operations" in data:
+            operations = data["operations"]
+            if not isinstance(operations, (list, dict)):
                 errors.append(
                     ContractValidationError(
-                        field="states",
-                        message="States must be a list",
-                        error_type="invalid_type",
-                    )
-                )
-            elif len(states) == 0:
-                errors.append(
-                    ContractValidationError(
-                        field="states",
-                        message="States list cannot be empty",
-                        error_type="invalid_value",
-                    )
-                )
-
-        # Validate transitions is a list if present
-        if "transitions" in data:
-            transitions = data["transitions"]
-            if not isinstance(transitions, list):
-                errors.append(
-                    ContractValidationError(
-                        field="transitions",
-                        message="Transitions must be a list",
-                        error_type="invalid_type",
-                    )
-                )
-
-        # Validate version structure if present
-        if "version" in data:
-            version = data["version"]
-            if isinstance(version, dict):
-                self._validate_version(version, errors)
-            else:
-                errors.append(
-                    ContractValidationError(
-                        field="version",
-                        message="Version must be an object with major, minor, patch fields",
+                        field="operations",
+                        message="Operations must be a list or dict",
                         error_type="invalid_type",
                     )
                 )
@@ -243,7 +435,7 @@ class ContractLinter:
             file_path=path,
             valid=len(errors) == 0,
             errors=errors,
-            contract_type="fsm_subcontract",
+            contract_type="subcontract",
         )
 
     def validate(self, file_path: str | Path) -> ContractValidationResult:
@@ -359,158 +551,37 @@ class ContractLinter:
                 contract_type=None,
             )
 
-        # Check if this is an FSM subcontract (different schema)
-        if self._is_fsm_subcontract(data):
+        # Detect contract type and route to appropriate validator
+        contract_type = _detect_contract_type(data)
+
+        if contract_type == "fsm_subcontract":
             return self._validate_fsm_subcontract(data, path)
-
-        # Validate node contract structure
-        contract_type = self._validate_contract_structure(data, errors)
-
-        return ContractValidationResult(
-            file_path=path,
-            valid=len(errors) == 0,
-            errors=errors,
-            contract_type=contract_type,
-        )
-
-    def _validate_contract_structure(
-        self,
-        data: dict[str, object],
-        errors: list[ContractValidationError],
-    ) -> str | None:
-        """
-        Validate the contract structure and required fields.
-
-        Args:
-            data: Parsed YAML data
-            errors: List to append errors to
-
-        Returns:
-            Detected contract type or None if invalid
-        """
-        # Check required base fields
-        for field_name in REQUIRED_BASE_FIELDS:
-            if field_name not in data:
-                errors.append(
-                    ContractValidationError(
-                        field=field_name,
-                        message=f"Missing required field: {field_name}",
-                        error_type="missing_field",
-                    )
+        elif contract_type == "workflow":
+            return self._validate_workflow(data, path)
+        elif contract_type == "node_contract":
+            return self._validate_node_contract(data, path)
+        elif contract_type == "subcontract":
+            return self._validate_subcontract(data, path)
+        else:
+            # Unknown contract type - try to provide helpful error
+            errors.append(
+                ContractValidationError(
+                    field="root",
+                    message=(
+                        "Unable to detect contract type. Expected one of: "
+                        "node contract (with node_type), FSM subcontract "
+                        "(with state_machine_name/states), workflow (with workflow_type), "
+                        "or subcontract (with operations)"
+                    ),
+                    error_type="unknown_contract_type",
                 )
-
-        # Validate version structure
-        if "version" in data:
-            version = data["version"]
-            if isinstance(version, dict):
-                self._validate_version(version, errors)
-            else:
-                errors.append(
-                    ContractValidationError(
-                        field="version",
-                        message="Version must be an object with major, minor, patch fields",
-                        error_type="invalid_type",
-                    )
-                )
-
-        # Validate and detect node_type
-        contract_type: str | None = None
-        if "node_type" in data:
-            node_type = data["node_type"]
-            if isinstance(node_type, str):
-                node_type_lower = node_type.lower()
-                if node_type_lower in VALID_NODE_TYPES:
-                    contract_type = node_type_lower
-                else:
-                    errors.append(
-                        ContractValidationError(
-                            field="node_type",
-                            message=f"Invalid node_type: '{node_type}'. Must be one of: {', '.join(sorted(VALID_NODE_TYPES))}",
-                            error_type="invalid_enum",
-                        )
-                    )
-            else:
-                errors.append(
-                    ContractValidationError(
-                        field="node_type",
-                        message="node_type must be a string",
-                        error_type="invalid_type",
-                    )
-                )
-
-        # Validate type-specific required fields
-        if contract_type:
-            self._validate_type_specific_fields(data, contract_type, errors)
-
-        return contract_type
-
-    def _validate_version(
-        self,
-        version: dict[str, object],
-        errors: list[ContractValidationError],
-    ) -> None:
-        """
-        Validate version object structure.
-
-        Args:
-            version: Version dictionary
-            errors: List to append errors to
-        """
-        version_fields = ("major", "minor", "patch")
-
-        for field_name in version_fields:
-            if field_name not in version:
-                errors.append(
-                    ContractValidationError(
-                        field=f"version.{field_name}",
-                        message=f"Missing required version field: {field_name}",
-                        error_type="missing_field",
-                    )
-                )
-            else:
-                value = version[field_name]
-                if not isinstance(value, int):
-                    errors.append(
-                        ContractValidationError(
-                            field=f"version.{field_name}",
-                            message=f"Version {field_name} must be a positive integer, got {type(value).__name__}",
-                            error_type="invalid_type",
-                        )
-                    )
-                elif value < 0:
-                    errors.append(
-                        ContractValidationError(
-                            field=f"version.{field_name}",
-                            message=f"Version {field_name} must be a positive integer",
-                            error_type="invalid_value",
-                        )
-                    )
-
-    def _validate_type_specific_fields(
-        self,
-        data: dict[str, object],
-        contract_type: str,
-        errors: list[ContractValidationError],
-    ) -> None:
-        """
-        Validate type-specific required fields.
-
-        Args:
-            data: Contract data
-            contract_type: Detected contract type
-            errors: List to append errors to
-        """
-        required_fields = TYPE_SPECIFIC_FIELDS.get(contract_type, ())
-
-        for field_name in required_fields:
-            if field_name not in data:
-                errors.append(
-                    ContractValidationError(
-                        field=field_name,
-                        message=f"Missing required field for {contract_type} contracts: {field_name}",
-                        error_type="missing_field",
-                    )
-                )
+            )
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=None,
+            )
 
     def validate_batch(
         self,
@@ -716,8 +787,10 @@ def main(args: list[str] | None = None) -> int:
     # Determine exit code
     # Check for file errors (file not found, etc.)
     has_file_errors = any(
-        any(e.error_type in ("file_not_found", "not_a_file", "file_read_error")
-            for e in r.errors)
+        any(
+            e.error_type in ("file_not_found", "not_a_file", "file_read_error")
+            for e in r.errors
+        )
         for r in results
     )
 
