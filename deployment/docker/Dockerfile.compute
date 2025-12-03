@@ -15,16 +15,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir uv==0.5.0
 
 # Copy project files
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock README.md ./
 COPY src/ src/
 
-# Install dependencies
-RUN uv pip install --system --no-cache -e .
+# Install base dependencies + core group (includes omnibase_core, httpx, confluent-kafka, etc.)
+RUN uv sync --group core --frozen
 
+# Add virtual environment to PATH and set PYTHONPATH
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
 
 # Expose health check port
 EXPOSE 8000
 
-# Run compute node
-CMD python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.compute
+# Run compute node (uses __main__.py in the v1_0_0 package)
+CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0"]

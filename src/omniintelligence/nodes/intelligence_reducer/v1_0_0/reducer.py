@@ -1,125 +1,110 @@
 """
-Unified Intelligence Reducer
+Unified Intelligence Reducer - Declarative FSM Pattern
 
-Pure reducer handling all intelligence FSMs via enum routing.
+Reducer handling all intelligence FSMs via YAML contracts and enum routing.
 All state stored in PostgreSQL fsm_state table.
 Emits intents to orchestrator and effect nodes.
+
+Inherits from NodeReducerDeclarative for FSM execution via YAML contracts.
 """
 
-from typing import Dict, List, Optional, Any
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
 import asyncpg
-from datetime import datetime, timedelta
 
-from omnibase_core.node import NodeOmniAgentReducer
+from omnibase_core.mixins.mixin_fsm_execution import MixinFSMExecution
+from omnibase_core.models.contracts.subcontracts.model_fsm_subcontract import (
+    ModelFSMSubcontract,
+)
+from omnibase_core.utils.util_safe_yaml_loader import load_and_validate_yaml_model
 
-from ....shared.enums import (
-    EnumFSMType,
+from omniintelligence.enums import (
     EnumFSMAction,
-    EnumIngestionState,
-    EnumPatternLearningState,
-    EnumQualityAssessmentState,
-    EnumIntentType,
+    EnumFSMType,
 )
-from ....shared.models import (
-    ModelReducerInput,
-    ModelReducerOutput,
-    ModelReducerConfig,
-    ModelIntent,
+from omniintelligence.models import (
     ModelFSMState,
-)
-from ....shared.intents import IntentFactory, generate_correlation_id
-
-
-class IntelligenceReducer(NodeOmniAgentReducer[
+    ModelIntent,
+    ModelReducerConfig,
     ModelReducerInput,
     ModelReducerOutput,
-    ModelReducerConfig
-]):
+)
+from omniintelligence.shared.intents import IntentFactory
+
+
+# Contract directory path (relative to this file)
+_CONTRACTS_DIR = Path(__file__).parent / "contracts"
+
+
+class IntelligenceReducer(MixinFSMExecution):
     """
     Unified reducer for ALL intelligence FSMs.
 
-    Handles multiple FSMs via fsm_type enum:
-    - INGESTION: Document ingestion (RECEIVED → INDEXED)
-    - PATTERN_LEARNING: Pattern learning (FOUNDATION → TRACEABILITY → COMPLETED)
-    - QUALITY_ASSESSMENT: Quality scoring (RAW → STORED)
+    Uses declarative FSM pattern with YAML contracts for state transitions.
+    Routes to appropriate FSM based on fsm_type enum:
+    - INGESTION: Document ingestion (RECEIVED -> INDEXED)
+    - PATTERN_LEARNING: 4-phase pattern learning (FOUNDATION -> COMPLETED)
+    - QUALITY_ASSESSMENT: Quality scoring (RAW -> STORED)
 
-    Pure reducer: All state in database, zero instance state.
+    Pure reducer: All state in database, FSM definitions in YAML.
     """
 
-    def __init__(self, config: ModelReducerConfig):
-        super().__init__(config)
+    def __init__(self, config: ModelReducerConfig) -> None:
+        """
+        Initialize reducer with configuration.
+
+        Args:
+            config: Reducer configuration with database URL and settings
+        """
+        super().__init__()
         self.config = config
-        self._db_pool: Optional[asyncpg.Pool] = None
+        self._db_pool: asyncpg.Pool | None = None
 
-        # FSM definitions
-        self._fsm_transitions = self._init_fsm_definitions()
+        # Load FSM contracts from YAML
+        self._fsm_contracts: dict[EnumFSMType, ModelFSMSubcontract] = (
+            self._load_fsm_contracts()
+        )
 
-    def _init_fsm_definitions(self) -> Dict[EnumFSMType, Dict[str, List[Dict]]]:
-        """Initialize FSM transition definitions."""
+    def _load_fsm_contracts(self) -> dict[EnumFSMType, ModelFSMSubcontract]:
+        """
+        Load FSM contracts from YAML files.
+
+        Returns:
+            Dictionary mapping FSM type to contract
+        """
         return {
-            EnumFSMType.INGESTION: {
-                EnumIngestionState.RECEIVED: [
-                    {"to": EnumIngestionState.PROCESSING, "action": EnumFSMAction.START_PROCESSING},
-                    {"to": EnumIngestionState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumIngestionState.PROCESSING: [
-                    {"to": EnumIngestionState.INDEXED, "action": EnumFSMAction.COMPLETE_INDEXING},
-                    {"to": EnumIngestionState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumIngestionState.INDEXED: [
-                    {"to": EnumIngestionState.PROCESSING, "action": EnumFSMAction.REINDEX},
-                ],
-                EnumIngestionState.FAILED: [
-                    {"to": EnumIngestionState.PROCESSING, "action": EnumFSMAction.RETRY},
-                ],
-            },
-            EnumFSMType.PATTERN_LEARNING: {
-                EnumPatternLearningState.FOUNDATION: [
-                    {"to": EnumPatternLearningState.MATCHING, "action": EnumFSMAction.ADVANCE_TO_MATCHING},
-                    {"to": EnumPatternLearningState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumPatternLearningState.MATCHING: [
-                    {"to": EnumPatternLearningState.VALIDATION, "action": EnumFSMAction.ADVANCE_TO_VALIDATION},
-                    {"to": EnumPatternLearningState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumPatternLearningState.VALIDATION: [
-                    {"to": EnumPatternLearningState.TRACEABILITY, "action": EnumFSMAction.ADVANCE_TO_TRACEABILITY},
-                    {"to": EnumPatternLearningState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumPatternLearningState.TRACEABILITY: [
-                    {"to": EnumPatternLearningState.COMPLETED, "action": EnumFSMAction.COMPLETE_LEARNING},
-                    {"to": EnumPatternLearningState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumPatternLearningState.COMPLETED: [
-                    {"to": EnumPatternLearningState.FOUNDATION, "action": EnumFSMAction.RELEARN},
-                ],
-                EnumPatternLearningState.FAILED: [
-                    {"to": EnumPatternLearningState.FOUNDATION, "action": EnumFSMAction.RETRY},
-                ],
-            },
-            EnumFSMType.QUALITY_ASSESSMENT: {
-                EnumQualityAssessmentState.RAW: [
-                    {"to": EnumQualityAssessmentState.ASSESSING, "action": EnumFSMAction.START_ASSESSMENT},
-                    {"to": EnumQualityAssessmentState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumQualityAssessmentState.ASSESSING: [
-                    {"to": EnumQualityAssessmentState.SCORED, "action": EnumFSMAction.COMPLETE_SCORING},
-                    {"to": EnumQualityAssessmentState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumQualityAssessmentState.SCORED: [
-                    {"to": EnumQualityAssessmentState.STORED, "action": EnumFSMAction.STORE_RESULTS},
-                    {"to": EnumQualityAssessmentState.FAILED, "action": EnumFSMAction.FAIL},
-                ],
-                EnumQualityAssessmentState.STORED: [
-                    {"to": EnumQualityAssessmentState.ASSESSING, "action": EnumFSMAction.REASSESS},
-                ],
-                EnumQualityAssessmentState.FAILED: [
-                    {"to": EnumQualityAssessmentState.ASSESSING, "action": EnumFSMAction.RETRY},
-                ],
-            },
+            EnumFSMType.INGESTION: load_and_validate_yaml_model(
+                _CONTRACTS_DIR / "fsm_ingestion.yaml",
+                ModelFSMSubcontract,
+            ),
+            EnumFSMType.PATTERN_LEARNING: load_and_validate_yaml_model(
+                _CONTRACTS_DIR / "fsm_pattern_learning.yaml",
+                ModelFSMSubcontract,
+            ),
+            EnumFSMType.QUALITY_ASSESSMENT: load_and_validate_yaml_model(
+                _CONTRACTS_DIR / "fsm_quality_assessment.yaml",
+                ModelFSMSubcontract,
+            ),
         }
 
-    async def initialize(self):
+    def _get_fsm_contract(self, fsm_type: EnumFSMType) -> ModelFSMSubcontract:
+        """
+        Get FSM contract for the specified type.
+
+        Args:
+            fsm_type: Type of FSM
+
+        Returns:
+            FSM contract for the specified type
+
+        Raises:
+            KeyError: If FSM type not found
+        """
+        return self._fsm_contracts[fsm_type]
+
+    async def initialize(self) -> None:
         """Initialize database connection pool."""
         self._db_pool = await asyncpg.create_pool(
             self.config.database_url,
@@ -127,7 +112,7 @@ class IntelligenceReducer(NodeOmniAgentReducer[
             max_size=20,
         )
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Shutdown database connection pool."""
         if self._db_pool:
             await self._db_pool.close()
@@ -136,23 +121,31 @@ class IntelligenceReducer(NodeOmniAgentReducer[
         """
         Process FSM state transition.
 
-        Pure function - all state from/to database.
+        Routes to appropriate FSM based on fsm_type and executes
+        transition using declarative FSM contract.
+
+        Args:
+            input_data: Reducer input with FSM type, action, and entity info
+
+        Returns:
+            Reducer output with transition result and intents
         """
         try:
-            # Route to appropriate FSM handler
-            if input_data.fsm_type == EnumFSMType.INGESTION:
-                return await self._process_ingestion_fsm(input_data)
-            elif input_data.fsm_type == EnumFSMType.PATTERN_LEARNING:
-                return await self._process_pattern_learning_fsm(input_data)
-            elif input_data.fsm_type == EnumFSMType.QUALITY_ASSESSMENT:
-                return await self._process_quality_assessment_fsm(input_data)
-            else:
-                return ModelReducerOutput(
-                    success=False,
-                    current_state="UNKNOWN",
-                    errors=[f"Unknown FSM type: {input_data.fsm_type}"],
-                )
+            # Get FSM contract for the specified type
+            fsm_contract = self._get_fsm_contract(input_data.fsm_type)
 
+            # Execute transition with database state management
+            return await self._execute_transition(
+                input_data,
+                fsm_contract,
+            )
+
+        except KeyError:
+            return ModelReducerOutput(
+                success=False,
+                current_state="UNKNOWN",
+                errors=[f"Unknown FSM type: {input_data.fsm_type}"],
+            )
         except Exception as e:
             return ModelReducerOutput(
                 success=False,
@@ -160,55 +153,39 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                 errors=[str(e)],
             )
 
-    async def _process_ingestion_fsm(
-        self,
-        input_data: ModelReducerInput,
-    ) -> ModelReducerOutput:
-        """Process ingestion FSM state transition."""
-        return await self._execute_transition(
-            input_data,
-            EnumIngestionState.RECEIVED,  # initial state
-        )
-
-    async def _process_pattern_learning_fsm(
-        self,
-        input_data: ModelReducerInput,
-    ) -> ModelReducerOutput:
-        """Process pattern learning FSM state transition."""
-        return await self._execute_transition(
-            input_data,
-            EnumPatternLearningState.FOUNDATION,  # initial state
-        )
-
-    async def _process_quality_assessment_fsm(
-        self,
-        input_data: ModelReducerInput,
-    ) -> ModelReducerOutput:
-        """Process quality assessment FSM state transition."""
-        return await self._execute_transition(
-            input_data,
-            EnumQualityAssessmentState.RAW,  # initial state
-        )
-
     async def _execute_transition(
         self,
         input_data: ModelReducerInput,
-        initial_state: str,
+        fsm_contract: ModelFSMSubcontract,
     ) -> ModelReducerOutput:
         """
-        Execute FSM state transition with lease management.
+        Execute FSM state transition with database state management.
 
-        Pure function - reads state from DB, validates transition,
-        writes new state to DB, emits intents.
+        Uses declarative FSM contract for transition validation.
+        Persists state to database and emits intents.
+
+        Args:
+            input_data: Reducer input
+            fsm_contract: FSM contract for validation
+
+        Returns:
+            Reducer output with transition result
         """
+        if self._db_pool is None:
+            return ModelReducerOutput(
+                success=False,
+                current_state="ERROR",
+                errors=["Database pool not initialized"],
+            )
+
         async with self._db_pool.acquire() as conn:
             async with conn.transaction():
-                # Get current state
+                # Get current state from database
                 current_state = await self._get_current_state(
                     conn,
                     input_data.fsm_type,
                     input_data.entity_id,
-                    initial_state,
+                    fsm_contract.initial_state,
                 )
 
                 # Check lease if required
@@ -227,25 +204,26 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                             errors=["Invalid or expired lease"],
                         )
 
-                # Validate transition
-                valid, target_state = self._validate_transition(
-                    input_data.fsm_type,
+                # Validate transition using FSM contract
+                valid, target_state = self._validate_transition_from_contract(
+                    fsm_contract,
                     current_state.current_state,
                     input_data.action,
                 )
 
-                if not valid:
+                if not valid or target_state is None:
                     return ModelReducerOutput(
                         success=False,
                         previous_state=current_state.current_state,
                         current_state=current_state.current_state,
                         errors=[
-                            f"Invalid transition: {current_state.current_state} --{input_data.action}--> (no valid target)"
+                            f"Invalid transition: {current_state.current_state} "
+                            f"--{input_data.action.value}--> (no valid target)"
                         ],
                     )
 
-                # Execute transition
-                new_state = await self._update_state(
+                # Execute transition - update database
+                await self._update_state(
                     conn,
                     input_data.fsm_type,
                     input_data.entity_id,
@@ -256,7 +234,7 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                     input_data.correlation_id,
                 )
 
-                # Emit intents
+                # Generate intents based on transition
                 intents = self._generate_intents(
                     input_data.fsm_type,
                     input_data.entity_id,
@@ -273,9 +251,42 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                     intents=intents,
                     metadata={
                         "action": input_data.action.value,
-                        "transition_timestamp": datetime.utcnow().isoformat(),
+                        "transition_timestamp": datetime.now(UTC).isoformat(),
+                        "fsm_type": input_data.fsm_type.value,
                     },
                 )
+
+    def _validate_transition_from_contract(
+        self,
+        fsm_contract: ModelFSMSubcontract,
+        current_state: str,
+        action: EnumFSMAction,
+    ) -> tuple[bool, str | None]:
+        """
+        Validate transition using FSM contract.
+
+        Args:
+            fsm_contract: FSM contract with transition definitions
+            current_state: Current state name
+            action: Action trigger (maps to transition trigger)
+
+        Returns:
+            Tuple of (is_valid, target_state)
+        """
+        # Find matching transition in contract
+        for transition in fsm_contract.transitions:
+            # Check if transition matches current state and trigger
+            if (
+                transition.from_state == current_state
+                and transition.trigger == action.value
+            ):
+                return True, transition.to_state
+
+            # Also check wildcard transitions (from_state: '*')
+            if transition.from_state == "*" and transition.trigger == action.value:
+                return True, transition.to_state
+
+        return False, None
 
     async def _get_current_state(
         self,
@@ -284,7 +295,18 @@ class IntelligenceReducer(NodeOmniAgentReducer[
         entity_id: str,
         initial_state: str,
     ) -> ModelFSMState:
-        """Get current FSM state from database or initialize."""
+        """
+        Get current FSM state from database or initialize.
+
+        Args:
+            conn: Database connection
+            fsm_type: FSM type
+            entity_id: Entity identifier
+            initial_state: Initial state from contract
+
+        Returns:
+            Current FSM state
+        """
         row = await conn.fetchrow(
             """
             SELECT current_state, previous_state, transition_timestamp,
@@ -309,7 +331,7 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                 lease_expires_at=row["lease_expires_at"],
             )
         else:
-            # Initialize new entity
+            # Initialize new entity with initial state from contract
             await conn.execute(
                 """
                 INSERT INTO fsm_state (fsm_type, entity_id, current_state, transition_timestamp)
@@ -324,7 +346,7 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                 fsm_type=fsm_type,
                 entity_id=entity_id,
                 current_state=initial_state,
-                transition_timestamp=datetime.utcnow(),
+                transition_timestamp=datetime.now(UTC),
             )
 
     async def _check_lease(
@@ -333,9 +355,21 @@ class IntelligenceReducer(NodeOmniAgentReducer[
         fsm_type: EnumFSMType,
         entity_id: str,
         lease_id: str,
-        epoch: int,
+        epoch: int | None,
     ) -> bool:
-        """Check if lease is valid."""
+        """
+        Check if lease is valid.
+
+        Args:
+            conn: Database connection
+            fsm_type: FSM type
+            entity_id: Entity identifier
+            lease_id: Lease identifier
+            epoch: Lease epoch
+
+        Returns:
+            True if lease is valid
+        """
         row = await conn.fetchrow(
             """
             SELECT lease_id, lease_epoch, lease_expires_at
@@ -353,24 +387,8 @@ class IntelligenceReducer(NodeOmniAgentReducer[
         return (
             row["lease_id"] == lease_id
             and row["lease_epoch"] == epoch
-            and row["lease_expires_at"] > datetime.utcnow()
+            and row["lease_expires_at"] > datetime.now(UTC)
         )
-
-    def _validate_transition(
-        self,
-        fsm_type: EnumFSMType,
-        current_state: str,
-        action: EnumFSMAction,
-    ) -> tuple[bool, Optional[str]]:
-        """Validate if transition is allowed."""
-        fsm_def = self._fsm_transitions.get(fsm_type, {})
-        transitions = fsm_def.get(current_state, [])
-
-        for transition in transitions:
-            if transition["action"] == action:
-                return True, transition["to"]
-
-        return False, None
 
     async def _update_state(
         self,
@@ -380,10 +398,25 @@ class IntelligenceReducer(NodeOmniAgentReducer[
         old_state: str,
         new_state: str,
         action: EnumFSMAction,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         correlation_id: str,
     ) -> str:
-        """Update FSM state in database."""
+        """
+        Update FSM state in database.
+
+        Args:
+            conn: Database connection
+            fsm_type: FSM type
+            entity_id: Entity identifier
+            old_state: Previous state
+            new_state: New state
+            action: Action that triggered transition
+            payload: Action payload
+            correlation_id: Correlation ID
+
+        Returns:
+            New state name
+        """
         await conn.execute(
             """
             UPDATE fsm_state
@@ -414,14 +447,27 @@ class IntelligenceReducer(NodeOmniAgentReducer[
         old_state: str,
         new_state: str,
         correlation_id: str,
-        payload: Dict[str, Any],
-    ) -> List[ModelIntent]:
-        """Generate intents based on state transition."""
-        intents = []
+        payload: dict[str, Any],
+    ) -> list[ModelIntent]:
+        """
+        Generate intents based on state transition.
+
+        Args:
+            fsm_type: FSM type
+            entity_id: Entity identifier
+            old_state: Previous state
+            new_state: New state
+            correlation_id: Correlation ID
+            payload: Action payload
+
+        Returns:
+            List of intents to emit
+        """
+        intents: list[ModelIntent] = []
 
         # Emit workflow trigger for processing states
         if new_state in ["PROCESSING", "ASSESSING", "MATCHING"]:
-            from ....shared.enums import EnumOperationType
+            from omniintelligence.enums import EnumOperationType
 
             # Map FSM type to operation type
             operation_map = {
@@ -443,7 +489,10 @@ class IntelligenceReducer(NodeOmniAgentReducer[
 
         # Emit event for completion or failure
         if new_state in ["INDEXED", "COMPLETED", "STORED", "FAILED"]:
-            topic = f"{fsm_type.value.lower()}.{'completed' if new_state != 'FAILED' else 'failed'}.v1"
+            topic = (
+                f"{fsm_type.value.lower()}."
+                f"{'completed' if new_state != 'FAILED' else 'failed'}.v1"
+            )
             intents.append(
                 IntentFactory.create_event_publish_intent(
                     topic=topic,

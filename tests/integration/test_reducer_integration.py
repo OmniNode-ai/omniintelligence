@@ -5,16 +5,12 @@ Tests FSM state transitions, lease management, and intent emission.
 """
 
 import pytest
-import asyncio
-from datetime import datetime
 
-from src.omniintelligence.shared.enums import (
+from omniintelligence.enums import (
     EnumFSMType,
     EnumFSMAction,
-    EnumIngestionState,
 )
-from src.omniintelligence.shared.models import (
-    ModelReducerInput,
+from omniintelligence.models import (
     ModelReducerConfig,
 )
 from src.omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (
@@ -23,7 +19,7 @@ from src.omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (
 
 
 @pytest.fixture
-async def reducer():
+def reducer():
     """Create reducer instance for testing."""
     config = ModelReducerConfig(
         database_url="postgresql://postgres:test@localhost:5432/test_db",
@@ -31,31 +27,30 @@ async def reducer():
         lease_timeout_seconds=300,
         max_retry_attempts=3,
     )
-    reducer = IntelligenceReducer(config)
-    # Note: In real tests, would initialize with test database
-    # await reducer.initialize()
-    yield reducer
-    # await reducer.shutdown()
+    return IntelligenceReducer(config)
 
 
 @pytest.mark.asyncio
 async def test_ingestion_fsm_transition():
-    """Test ingestion FSM state transition."""
+    """Test ingestion FSM state transition using contract-based validation."""
     config = ModelReducerConfig(
         database_url="postgresql://postgres:test@localhost:5432/test_db",
         enable_lease_management=False,
     )
     reducer = IntelligenceReducer(config)
 
-    # Test transition validation
-    valid, target = reducer._validate_transition(
-        EnumFSMType.INGESTION,
-        EnumIngestionState.RECEIVED,
+    # Get the FSM contract for ingestion
+    fsm_contract = reducer._get_fsm_contract(EnumFSMType.INGESTION)
+
+    # Test transition validation using contract-based method
+    valid, target = reducer._validate_transition_from_contract(
+        fsm_contract,
+        "RECEIVED",  # Current state as string
         EnumFSMAction.START_PROCESSING,
     )
 
     assert valid is True
-    assert target == EnumIngestionState.PROCESSING
+    assert target == "PROCESSING"
 
 
 @pytest.mark.asyncio
@@ -67,11 +62,14 @@ async def test_invalid_transition():
     )
     reducer = IntelligenceReducer(config)
 
-    # Test invalid transition
-    valid, target = reducer._validate_transition(
-        EnumFSMType.INGESTION,
-        EnumIngestionState.INDEXED,  # Final state
-        EnumFSMAction.START_PROCESSING,  # Can't start processing from indexed
+    # Get the FSM contract for ingestion
+    fsm_contract = reducer._get_fsm_contract(EnumFSMType.INGESTION)
+
+    # Test invalid transition - can't start processing from INDEXED state
+    valid, target = reducer._validate_transition_from_contract(
+        fsm_contract,
+        "INDEXED",  # Not a valid state to start processing from
+        EnumFSMAction.START_PROCESSING,
     )
 
     assert valid is False
@@ -87,12 +85,12 @@ async def test_intent_emission():
     )
     reducer = IntelligenceReducer(config)
 
-    # Test intent generation for PROCESSING state
+    # Test intent generation for PROCESSING state (using string states)
     intents = reducer._generate_intents(
         fsm_type=EnumFSMType.INGESTION,
         entity_id="doc_123",
-        old_state=EnumIngestionState.RECEIVED,
-        new_state=EnumIngestionState.PROCESSING,
+        old_state="RECEIVED",
+        new_state="PROCESSING",
         correlation_id="corr_456",
         payload={"file_path": "test.py"},
     )
@@ -103,21 +101,27 @@ async def test_intent_emission():
     assert len(workflow_intents) > 0
 
 
-def test_fsm_definitions():
-    """Test FSM definitions are properly initialized."""
+def test_fsm_contracts_loaded():
+    """Test FSM contracts are properly loaded from YAML files."""
     config = ModelReducerConfig(
         database_url="postgresql://postgres:test@localhost:5432/test_db",
     )
     reducer = IntelligenceReducer(config)
 
-    # Check all FSM types have definitions
-    assert EnumFSMType.INGESTION in reducer._fsm_transitions
-    assert EnumFSMType.PATTERN_LEARNING in reducer._fsm_transitions
-    assert EnumFSMType.QUALITY_ASSESSMENT in reducer._fsm_transitions
+    # Check all FSM types have contracts loaded
+    assert EnumFSMType.INGESTION in reducer._fsm_contracts
+    assert EnumFSMType.PATTERN_LEARNING in reducer._fsm_contracts
+    assert EnumFSMType.QUALITY_ASSESSMENT in reducer._fsm_contracts
 
-    # Check ingestion FSM has all states
-    ingestion_fsm = reducer._fsm_transitions[EnumFSMType.INGESTION]
-    assert EnumIngestionState.RECEIVED in ingestion_fsm
-    assert EnumIngestionState.PROCESSING in ingestion_fsm
-    assert EnumIngestionState.INDEXED in ingestion_fsm
-    assert EnumIngestionState.FAILED in ingestion_fsm
+    # Check ingestion FSM contract has proper structure
+    ingestion_contract = reducer._fsm_contracts[EnumFSMType.INGESTION]
+    assert ingestion_contract.initial_state == "RECEIVED"
+    assert len(ingestion_contract.states) > 0
+    assert len(ingestion_contract.transitions) > 0
+
+    # Verify expected states exist in contract
+    state_names = [s.state_name for s in ingestion_contract.states]
+    assert "RECEIVED" in state_names
+    assert "PROCESSING" in state_names
+    assert "INDEXED" in state_names
+    assert "FAILED" in state_names

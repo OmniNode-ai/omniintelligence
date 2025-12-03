@@ -6,8 +6,10 @@ Common utility functions used across all nodes.
 
 import hashlib
 import json
-from typing import Any, Dict, Optional
-from datetime import datetime, timezone
+from typing import Any, Optional, Type
+from datetime import datetime, UTC
+
+from pydantic import BaseModel
 
 
 def generate_entity_id(prefix: str, *components: str) -> str:
@@ -28,7 +30,7 @@ def generate_entity_id(prefix: str, *components: str) -> str:
 
 def generate_workflow_id(operation_type: str, entity_id: str) -> str:
     """Generate a workflow ID."""
-    timestamp = datetime.utcnow().timestamp()
+    timestamp = str(datetime.now(UTC).timestamp())
     return generate_entity_id("wf", operation_type, entity_id, timestamp)
 
 
@@ -47,7 +49,7 @@ def compute_content_hash(content: str) -> str:
 
 def utc_now() -> datetime:
     """Get current UTC time with timezone info."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def serialize_for_cache(obj: Any) -> str:
@@ -62,11 +64,11 @@ def serialize_for_cache(obj: Any) -> str:
     """
     if hasattr(obj, "model_dump"):
         # Pydantic model
-        return obj.model_dump_json()
+        return str(obj.model_dump_json())
     return json.dumps(obj, default=str)
 
 
-def deserialize_from_cache(data: str, model_class: Optional[type] = None) -> Any:
+def deserialize_from_cache(data: str, model_class: Optional[Type[BaseModel]] = None) -> Any:
     """
     Deserialize object from cache.
 
@@ -96,10 +98,10 @@ def build_cache_key(*components: str) -> str:
 
 
 def extract_metadata_fields(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     fields: list[str],
-    defaults: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    defaults: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     Extract specific fields from metadata with defaults.
 
@@ -119,10 +121,10 @@ def extract_metadata_fields(
 
 
 def merge_metadata(
-    base: Dict[str, Any],
-    update: Dict[str, Any],
+    base: dict[str, Any],
+    update: dict[str, Any],
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Merge metadata dictionaries.
 
@@ -174,7 +176,7 @@ def format_duration_ms(start_time: datetime, end_time: Optional[datetime] = None
     return delta.total_seconds() * 1000
 
 
-def parse_topic_name(topic: str, prefix: str = "dev.archon-intelligence") -> Dict[str, str]:
+def parse_topic_name(topic: str, prefix: str = "dev.archon-intelligence") -> dict[str, str]:
     """
     Parse Kafka topic name into components.
 
@@ -225,17 +227,17 @@ def build_topic_name(
 
 
 __all__ = [
+    "build_cache_key",
+    "build_topic_name",
+    "compute_content_hash",
+    "deserialize_from_cache",
+    "extract_metadata_fields",
+    "format_duration_ms",
     "generate_entity_id",
     "generate_workflow_id",
-    "compute_content_hash",
-    "utc_now",
-    "serialize_for_cache",
-    "deserialize_from_cache",
-    "build_cache_key",
-    "extract_metadata_fields",
     "merge_metadata",
-    "truncate_string",
-    "format_duration_ms",
     "parse_topic_name",
-    "build_topic_name",
+    "serialize_for_cache",
+    "truncate_string",
+    "utc_now",
 ]

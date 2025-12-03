@@ -5,41 +5,40 @@ Tests workflow routing and execution.
 """
 
 import pytest
-import asyncio
 
-from src.omniintelligence.shared.enums import EnumOperationType
-from src.omniintelligence.shared.models import (
-    ModelOrchestratorInput,
-    ModelOrchestratorConfig,
-)
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+
+from omniintelligence.enums import EnumOperationType
+from omniintelligence.models import ModelOrchestratorInput
 from src.omniintelligence.nodes.intelligence_orchestrator.v1_0_0.orchestrator import (
     IntelligenceOrchestrator,
 )
 
 
 @pytest.fixture
-async def orchestrator():
+def orchestrator():
     """Create orchestrator instance for testing."""
-    config = ModelOrchestratorConfig(
-        max_concurrent_workflows=10,
-        workflow_timeout_seconds=300,
-        enable_caching=True,
-        cache_ttl_seconds=300,
-    )
-    orchestrator = IntelligenceOrchestrator(config)
-    await orchestrator.initialize()
-    yield orchestrator
+    # Create a minimal container for testing
+    container = ModelONEXContainer()
+    return IntelligenceOrchestrator(container)
 
 
 @pytest.mark.asyncio
-async def test_workflow_initialization(orchestrator):
-    """Test workflow initialization."""
-    # Check all workflows are registered
-    assert EnumOperationType.DOCUMENT_INGESTION in orchestrator._workflows
-    assert EnumOperationType.PATTERN_LEARNING in orchestrator._workflows
-    assert EnumOperationType.QUALITY_ASSESSMENT in orchestrator._workflows
-    assert EnumOperationType.SEMANTIC_ANALYSIS in orchestrator._workflows
-    assert EnumOperationType.RELATIONSHIP_DETECTION in orchestrator._workflows
+async def test_workflow_definition_loading(orchestrator):
+    """Test workflow definitions can be loaded for all operation types."""
+    # Check all operation types can load their workflow definitions
+    for operation_type in [
+        EnumOperationType.DOCUMENT_INGESTION,
+        EnumOperationType.PATTERN_LEARNING,
+        EnumOperationType.QUALITY_ASSESSMENT,
+        EnumOperationType.SEMANTIC_ANALYSIS,
+        EnumOperationType.RELATIONSHIP_DETECTION,
+    ]:
+        workflow_def = orchestrator._load_workflow_definition(operation_type)
+        assert workflow_def is not None
+        assert workflow_def.workflow_metadata is not None
+        # Check workflow is cached
+        assert operation_type in orchestrator._workflow_cache
 
 
 @pytest.mark.asyncio
@@ -53,15 +52,16 @@ async def test_document_ingestion_workflow(orchestrator):
             "content": "def main(): pass",
             "metadata": {"language": "python"},
         },
-        correlation_id="corr_456",
+        correlation_id="550e8400-e29b-41d4-a716-446655440001",
     )
 
     result = await orchestrator.process(input_data)
 
     assert result.success is True
     assert result.workflow_id is not None
-    assert "workflow_type" in result.results
-    assert result.results["workflow_type"] == "document_ingestion"
+    assert "operation_type" in result.results
+    assert result.results["operation_type"] == EnumOperationType.DOCUMENT_INGESTION.value
+    assert result.results["entity_id"] == "doc_123"
 
 
 @pytest.mark.asyncio
@@ -74,15 +74,16 @@ async def test_pattern_learning_workflow(orchestrator):
             "code_snippet": "def foo(): pass",
             "project_name": "test_project",
         },
-        correlation_id="corr_789",
+        correlation_id="550e8400-e29b-41d4-a716-446655440002",
     )
 
     result = await orchestrator.process(input_data)
 
     assert result.success is True
     assert result.workflow_id is not None
-    assert "workflow_type" in result.results
-    assert result.results["workflow_type"] == "pattern_learning"
+    assert "operation_type" in result.results
+    assert result.results["operation_type"] == EnumOperationType.PATTERN_LEARNING.value
+    assert result.results["entity_id"] == "pattern_123"
 
 
 @pytest.mark.asyncio
@@ -97,46 +98,58 @@ async def test_quality_assessment_workflow(orchestrator):
             "language": "python",
             "project_name": "test_project",
         },
-        correlation_id="corr_101",
+        correlation_id="550e8400-e29b-41d4-a716-446655440003",
     )
 
     result = await orchestrator.process(input_data)
 
     assert result.success is True
     assert result.workflow_id is not None
-    assert "overall_score" in result.results
-    assert 0.0 <= result.results["overall_score"] <= 1.0
+    assert "operation_type" in result.results
+    assert result.results["operation_type"] == EnumOperationType.QUALITY_ASSESSMENT.value
+    assert result.results["entity_id"] == "file_123"
 
 
 @pytest.mark.asyncio
 async def test_unknown_operation_type(orchestrator):
-    """Test handling of unknown operation type."""
-    input_data = ModelOrchestratorInput(
-        operation_type="UNKNOWN_OPERATION",  # Invalid type
-        entity_id="test_123",
-        payload={},
-        correlation_id="corr_202",
-    )
+    """Test handling of unknown operation type.
 
-    result = await orchestrator.process(input_data)
+    The ModelOrchestratorInput enforces EnumOperationType validation at model creation.
+    Invalid operation types raise a Pydantic ValidationError before reaching the orchestrator.
+    """
+    import pydantic
 
-    assert result.success is False
-    assert len(result.errors) > 0
-    assert "Unknown operation type" in result.errors[0]
+    # Pydantic validation should reject invalid enum values at model creation time
+    with pytest.raises(pydantic.ValidationError) as exc_info:
+        ModelOrchestratorInput(
+            operation_type="UNKNOWN_OPERATION",  # Invalid type
+            entity_id="test_123",
+            payload={},
+            correlation_id="550e8400-e29b-41d4-a716-446655440004",
+        )
+
+    # Verify the error is about the operation_type field
+    error = exc_info.value.errors()[0]
+    assert error["loc"] == ("operation_type",)
+    assert error["type"] == "enum"
 
 
 @pytest.mark.asyncio
-async def test_workflow_tracking(orchestrator):
-    """Test workflow execution tracking."""
+async def test_workflow_result_contains_metadata(orchestrator):
+    """Test workflow execution returns proper metadata."""
     input_data = ModelOrchestratorInput(
         operation_type=EnumOperationType.SEMANTIC_ANALYSIS,
         entity_id="code_123",
         payload={"code_snippet": "x = 1"},
-        correlation_id="corr_303",
+        correlation_id="550e8400-e29b-41d4-a716-446655440005",
     )
 
     result = await orchestrator.process(input_data)
 
     assert result.success is True
-    assert result.workflow_id in orchestrator._active_workflows
-    assert orchestrator._active_workflows[result.workflow_id]["status"] == "COMPLETED"
+    assert result.workflow_id is not None
+    # Check result metadata contains operation info
+    assert "operation_type" in result.results
+    assert result.results["operation_type"] == EnumOperationType.SEMANTIC_ANALYSIS.value
+    assert "entity_id" in result.results
+    assert result.results["entity_id"] == "code_123"

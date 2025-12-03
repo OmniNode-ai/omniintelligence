@@ -16,6 +16,7 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -26,6 +27,8 @@ venv/
 env/
 ENV/
 .venv
+env.bak/
+venv.bak/
 
 # Poetry
 poetry.lock
@@ -36,11 +39,18 @@ uv.lock
 
 # Testing
 .pytest_cache/
+pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 *.cover
+*.py,cover
 .hypothesis/
 .tox/
+.nox/
+nosetests.xml
+coverage.xml
+.cache
 
 # IDEs
 .vscode/
@@ -48,7 +58,6 @@ htmlcov/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Environment files
 .env
@@ -62,6 +71,8 @@ logs/
 # Database
 *.db
 *.sqlite
+db.sqlite3
+db.sqlite3-journal
 
 # Temporary files
 tmp/
@@ -86,8 +97,35 @@ dmypy.json
 # Ruff
 .ruff_cache/
 
-# PyCharm
-.idea/
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
 
 # macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+*.local.md
+.claude/
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Translations
+*.mo
+*.pot

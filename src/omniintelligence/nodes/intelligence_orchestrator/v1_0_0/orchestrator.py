@@ -1,39 +1,54 @@
 """
 Unified Intelligence Orchestrator
 
-Handles all intelligence operations using Llama Index workflows.
-Routes operations via EnumOperationType to appropriate workflows.
+ONEX-compliant declarative orchestrator for intelligence operations.
+Routes operations via EnumOperationType to appropriate workflow definitions.
+
+Architecture:
+    - Inherits from NodeOrchestratorDeclarative (action-emission pattern)
+    - Orchestrators plan, they don't execute
+    - Emits ModelAction objects for downstream nodes
+    - Remains deterministic, stateless, replayable
 """
 
-from typing import Dict, List, Optional, Any
+from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
-from omnibase_core.node import NodeOmniAgentOrchestrator
-from llama_index.core.workflow import (
-    Workflow,
-    StartEvent,
-    StopEvent,
-    step,
-    Context,
-)
+import yaml
 
-from ....shared.enums import EnumOperationType, EnumIntentType
-from ....shared.models import (
-    ModelOrchestratorInput,
-    ModelOrchestratorOutput,
-    ModelOrchestratorConfig,
+from omnibase_core.enums.enum_workflow_execution import EnumExecutionMode
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omnibase_core.models.contracts.subcontracts.model_coordination_rules import (
+    ModelCoordinationRules,
+)
+from omnibase_core.models.contracts.subcontracts.model_execution_graph import (
+    ModelExecutionGraph,
+)
+from omnibase_core.models.contracts.subcontracts.model_workflow_definition import (
+    ModelWorkflowDefinition,
+)
+from omnibase_core.models.contracts.subcontracts.model_workflow_definition_metadata import (
+    ModelWorkflowDefinitionMetadata,
+)
+from omnibase_core.models.primitives.model_semver import ModelSemVer
+from omnibase_core.nodes.node_orchestrator_declarative import NodeOrchestratorDeclarative
+
+from omniintelligence.enums import EnumIntentType, EnumOperationType
+from omniintelligence.models import (
     ModelIntent,
-)
-from ....shared.intents import IntentFactory
-
-
-class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
     ModelOrchestratorInput,
     ModelOrchestratorOutput,
-    ModelOrchestratorConfig
-]):
+)
+
+
+# Workflow contract directory relative to this file
+_WORKFLOWS_DIR = Path(__file__).parent / "contracts" / "workflows"
+
+
+class IntelligenceOrchestrator(NodeOrchestratorDeclarative):
     """
-    Unified orchestrator for ALL intelligence operations.
+    Unified declarative orchestrator for ALL intelligence operations.
 
     Handles operations via operation_type enum:
     - DOCUMENT_INGESTION: Vectorization + Entity extraction + Graph storage
@@ -42,274 +57,322 @@ class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
     - SEMANTIC_ANALYSIS: Semantic analysis
     - RELATIONSHIP_DETECTION: Relationship detection
 
-    Uses Llama Index workflows for orchestration.
+    Uses YAML workflow contracts for declarative orchestration.
+    Emits ModelAction objects for downstream node execution.
     """
 
-    def __init__(self, config: ModelOrchestratorConfig):
-        super().__init__(config)
-        self.config = config
-        self._workflows: Dict[EnumOperationType, Workflow] = {}
-        self._active_workflows: Dict[str, Dict[str, Any]] = {}
+    def __init__(self, container: ModelONEXContainer) -> None:
+        """
+        Initialize intelligence orchestrator.
 
-    async def initialize(self):
-        """Initialize workflows."""
-        # Register workflows for each operation type
-        self._workflows = {
-            EnumOperationType.DOCUMENT_INGESTION: DocumentIngestionWorkflow(timeout=600),
-            EnumOperationType.PATTERN_LEARNING: PatternLearningWorkflow(timeout=900),
-            EnumOperationType.QUALITY_ASSESSMENT: QualityAssessmentWorkflow(timeout=300),
-            EnumOperationType.SEMANTIC_ANALYSIS: SemanticAnalysisWorkflow(timeout=300),
-            EnumOperationType.RELATIONSHIP_DETECTION: RelationshipDetectionWorkflow(timeout=300),
+        Args:
+            container: ONEX container for dependency injection
+        """
+        super().__init__(container)
+        self._workflow_cache: dict[EnumOperationType, ModelWorkflowDefinition] = {}
+
+    def _load_workflow_definition(
+        self, operation_type: EnumOperationType
+    ) -> ModelWorkflowDefinition:
+        """
+        Load workflow definition for an operation type.
+
+        Args:
+            operation_type: The operation type to load workflow for
+
+        Returns:
+            ModelWorkflowDefinition for the operation
+
+        Raises:
+            FileNotFoundError: If workflow contract not found
+            ValueError: If workflow contract is invalid
+        """
+        # Check cache first
+        if operation_type in self._workflow_cache:
+            return self._workflow_cache[operation_type]
+
+        # Map operation type to workflow file
+        workflow_files = {
+            EnumOperationType.DOCUMENT_INGESTION: "document_ingestion.yaml",
+            EnumOperationType.PATTERN_LEARNING: "pattern_learning.yaml",
+            EnumOperationType.QUALITY_ASSESSMENT: "quality_assessment.yaml",
+            EnumOperationType.SEMANTIC_ANALYSIS: "semantic_analysis.yaml",
+            EnumOperationType.RELATIONSHIP_DETECTION: "relationship_detection.yaml",
         }
 
-    async def process(self, input_data: ModelOrchestratorInput) -> ModelOrchestratorOutput:
-        """
-        Process orchestration request.
+        workflow_file = workflow_files.get(operation_type)
+        if not workflow_file:
+            raise ValueError(f"No workflow defined for operation type: {operation_type}")
 
-        Routes to appropriate workflow based on operation_type.
+        workflow_path = _WORKFLOWS_DIR / workflow_file
+        if not workflow_path.exists():
+            raise FileNotFoundError(f"Workflow contract not found: {workflow_path}")
+
+        # Load YAML
+        with open(workflow_path) as f:
+            raw_config = yaml.safe_load(f)
+
+        # Convert to ModelWorkflowDefinition
+        workflow_def = self._parse_workflow_contract(raw_config, operation_type)
+
+        # Cache and return
+        self._workflow_cache[operation_type] = workflow_def
+        return workflow_def
+
+    def _parse_workflow_contract(
+        self,
+        raw_config: dict[str, Any],
+        operation_type: EnumOperationType,
+    ) -> ModelWorkflowDefinition:
+        """
+        Parse raw YAML config into ModelWorkflowDefinition.
+
+        Converts legacy LlamaIndex-style workflow YAML to declarative format.
+
+        Args:
+            raw_config: Raw YAML configuration dict
+            operation_type: Operation type for context
+
+        Returns:
+            ModelWorkflowDefinition for workflow execution
+        """
+        # Extract version info
+        version_info = raw_config.get("version", {"major": 1, "minor": 0, "patch": 0})
+        semver = ModelSemVer(
+            major=version_info.get("major", 1),
+            minor=version_info.get("minor", 0),
+            patch=version_info.get("patch", 0),
+        )
+
+        # Determine execution mode from workflow type
+        workflow_type = raw_config.get("workflow_type", "sequential")
+        if "parallel" in workflow_type.lower():
+            execution_mode = "parallel"
+        elif "batch" in workflow_type.lower():
+            execution_mode = "batch"
+        else:
+            execution_mode = "sequential"
+
+        # Extract timeout from performance settings
+        performance = raw_config.get("performance", {})
+        timeout_ms = performance.get("timeout_seconds", 600) * 1000
+
+        # Create workflow metadata
+        metadata = ModelWorkflowDefinitionMetadata(
+            version=semver,
+            workflow_name=raw_config.get("name", f"{operation_type.value}_workflow"),
+            workflow_version=semver,
+            description=raw_config.get("description", f"Workflow for {operation_type.value}"),
+            execution_mode=execution_mode,
+            timeout_ms=timeout_ms,
+        )
+
+        # Create execution graph (nodes extracted from steps)
+        execution_graph = ModelExecutionGraph(
+            version=semver,
+            nodes=[],  # Nodes will be created from steps during execution
+        )
+
+        # Create coordination rules
+        coordination_rules = ModelCoordinationRules(
+            version=semver,
+            parallel_execution_allowed=(execution_mode == "parallel"),
+            synchronization_points=[],
+        )
+
+        return ModelWorkflowDefinition(
+            version=semver,
+            workflow_metadata=metadata,
+            execution_graph=execution_graph,
+            coordination_rules=coordination_rules,
+        )
+
+    def _extract_steps_from_config(
+        self,
+        raw_config: dict[str, Any],
+        input_data: ModelOrchestratorInput,
+    ) -> list[dict[str, Any]]:
+        """
+        Extract workflow steps from raw YAML config.
+
+        Converts legacy step definitions to ModelWorkflowStep-compatible dicts.
+
+        Args:
+            raw_config: Raw YAML configuration dict
+            input_data: Orchestrator input data
+
+        Returns:
+            List of step configuration dicts for workflow execution
+        """
+        steps_config: list[dict[str, Any]] = []
+        raw_steps = raw_config.get("steps", [])
+
+        for step in raw_steps:
+            # Handle nested parallel steps
+            if step.get("type") == "parallel" and "steps" in step:
+                for sub_step in step["steps"]:
+                    steps_config.append(
+                        self._convert_step_to_config(sub_step, input_data.correlation_id)
+                    )
+            else:
+                steps_config.append(
+                    self._convert_step_to_config(step, input_data.correlation_id)
+                )
+
+        return steps_config
+
+    def _convert_step_to_config(
+        self,
+        step: dict[str, Any],
+        correlation_id: str,
+    ) -> dict[str, Any]:
+        """
+        Convert a single step definition to ModelWorkflowStep-compatible dict.
+
+        Args:
+            step: Raw step definition from YAML
+            correlation_id: Correlation ID for tracing
+
+        Returns:
+            Dict compatible with ModelWorkflowStep
+        """
+        step_id = uuid4()
+
+        # Map legacy step types to ONEX step types
+        step_type_map = {
+            "validation": "compute",
+            "intent": "orchestrator",
+            "compute": "compute",
+            "effect": "effect",
+            "parallel": "orchestrator",
+        }
+
+        raw_type = step.get("type", "compute")
+        step_type = step_type_map.get(raw_type, "compute")
+
+        # Handle error action
+        on_error = step.get("on_error", "continue")
+        error_action = "stop" if on_error == "fail_immediately" else "continue"
+
+        return {
+            "step_id": step_id,
+            "step_name": step.get("name", f"step_{step_id.hex[:8]}"),
+            "step_type": step_type,
+            "description": step.get("description", ""),
+            "enabled": True,
+            "timeout_ms": 60000,  # Default 60s per step
+            "retry_count": 3,
+            "error_action": error_action,
+            "depends_on": [],  # Dependencies are resolved from YAML "depends_on"
+            "correlation_id": correlation_id,
+            "priority": 1,
+        }
+
+    async def process(
+        self, input_data: ModelOrchestratorInput
+    ) -> ModelOrchestratorOutput:
+        """
+        Process orchestration request using declarative workflow.
+
+        Routes to appropriate workflow definition based on operation_type.
+        Emits actions for downstream node execution.
+
+        Args:
+            input_data: Orchestrator input with operation type and payload
+
+        Returns:
+            ModelOrchestratorOutput with workflow results and emitted actions
         """
         workflow_id = f"wf_{uuid4().hex[:16]}"
 
         try:
-            # Get workflow for operation type
-            workflow = self._workflows.get(input_data.operation_type)
-            if not workflow:
-                return ModelOrchestratorOutput(
-                    success=False,
-                    workflow_id=workflow_id,
-                    errors=[f"Unknown operation type: {input_data.operation_type}"],
-                )
+            # Load workflow definition for operation type
+            workflow_def = self._load_workflow_definition(input_data.operation_type)
 
-            # Track workflow
-            self._active_workflows[workflow_id] = {
-                "operation_type": input_data.operation_type,
-                "entity_id": input_data.entity_id,
-                "status": "RUNNING",
+            # Set workflow definition for parent class
+            self.workflow_definition = workflow_def
+
+            # Load raw config for step extraction
+            workflow_files = {
+                EnumOperationType.DOCUMENT_INGESTION: "document_ingestion.yaml",
+                EnumOperationType.PATTERN_LEARNING: "pattern_learning.yaml",
+                EnumOperationType.QUALITY_ASSESSMENT: "quality_assessment.yaml",
+                EnumOperationType.SEMANTIC_ANALYSIS: "semantic_analysis.yaml",
+                EnumOperationType.RELATIONSHIP_DETECTION: "relationship_detection.yaml",
             }
+            workflow_path = _WORKFLOWS_DIR / workflow_files[input_data.operation_type]
+            with open(workflow_path) as f:
+                raw_config = yaml.safe_load(f)
 
-            # Execute workflow
-            result = await workflow.run(
-                entity_id=input_data.entity_id,
-                payload=input_data.payload,
-                context=input_data.context or {},
-                correlation_id=input_data.correlation_id,
+            # Extract steps from config
+            workflow_id_uuid = uuid4()
+            steps_config = self._extract_steps_from_config(raw_config, input_data)
+
+            # Create workflow steps from config
+            workflow_steps = self.create_workflow_steps_from_config(steps_config)
+
+            # Determine execution mode
+            execution_mode = (
+                EnumExecutionMode.PARALLEL
+                if workflow_def.workflow_metadata.execution_mode == "parallel"
+                else EnumExecutionMode.SEQUENTIAL
             )
 
-            # Update tracking
-            self._active_workflows[workflow_id]["status"] = "COMPLETED"
+            # Execute workflow using parent's declarative execution
+            workflow_result = await self.execute_workflow_from_contract(
+                workflow_def,
+                workflow_steps,
+                workflow_id_uuid,
+                execution_mode=execution_mode,
+            )
+
+            # Convert actions to intents for the output model
+            intents: list[ModelIntent] = []
+            for action in workflow_result.actions_emitted:
+                intent = ModelIntent(
+                    intent_type=EnumIntentType.WORKFLOW_TRIGGER,
+                    target=action.target_node_type,
+                    payload={
+                        "action_id": str(action.action_id),
+                        "action_type": action.action_type.value,
+                        "step_name": action.metadata.get("step_name", ""),
+                        "workflow_id": str(workflow_id_uuid),
+                    },
+                    correlation_id=input_data.correlation_id,
+                )
+                intents.append(intent)
 
             return ModelOrchestratorOutput(
-                success=True,
+                success=workflow_result.execution_status.value == "completed",
                 workflow_id=workflow_id,
-                results=result,
+                results={
+                    "operation_type": input_data.operation_type.value,
+                    "entity_id": input_data.entity_id,
+                    "completed_steps": workflow_result.completed_steps,
+                    "failed_steps": workflow_result.failed_steps,
+                    "actions_emitted": len(workflow_result.actions_emitted),
+                    "execution_time_ms": workflow_result.execution_time_ms,
+                },
+                intents=intents,
             )
 
-        except Exception as e:
-            # Update tracking
-            if workflow_id in self._active_workflows:
-                self._active_workflows[workflow_id]["status"] = "FAILED"
-
+        except FileNotFoundError as e:
             return ModelOrchestratorOutput(
                 success=False,
                 workflow_id=workflow_id,
-                errors=[str(e)],
+                errors=[f"Workflow contract not found: {e}"],
             )
 
+        except ValueError as e:
+            return ModelOrchestratorOutput(
+                success=False,
+                workflow_id=workflow_id,
+                errors=[f"Invalid operation type: {e}"],
+            )
 
-# ============================================================================
-# Workflow Implementations
-# ============================================================================
-
-
-class DocumentIngestionWorkflow(Workflow):
-    """
-    Document ingestion workflow.
-
-    Steps:
-    1. Validate input
-    2. Emit reducer intent (PROCESSING state)
-    3. Parallel: Vectorize + Extract entities
-    4. Store vectors in Qdrant
-    5. Detect relationships
-    6. Store graph in Memgraph
-    7. Publish completion event
-    8. Update FSM state to INDEXED
-    """
-
-    @step
-    async def start(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        """Execute document ingestion workflow."""
-        entity_id = ev.get("entity_id")
-        payload = ev.get("payload", {})
-        correlation_id = ev.get("correlation_id")
-
-        # In a full implementation, this would:
-        # 1. Call vectorization_compute
-        # 2. Call entity_extraction_compute
-        # 3. Call relationship_detection_compute
-        # 4. Call qdrant_vector_effect
-        # 5. Call memgraph_graph_effect
-        # 6. Call kafka_event_effect
-
-        # For now, return placeholder results
-        results = {
-            "document_id": entity_id,
-            "vectorized": True,
-            "entities_extracted": 10,
-            "relationships_found": 15,
-            "workflow_type": "document_ingestion",
-        }
-
-        return StopEvent(result=results)
-
-
-class PatternLearningWorkflow(Workflow):
-    """
-    Pattern learning workflow (4 phases).
-
-    Steps:
-    1. Validate input
-    2. Emit reducer intent (FOUNDATION state)
-    3. Phase 1: Foundation - Basic pattern matching
-    4. Update state to MATCHING
-    5. Phase 2: Semantic matching
-    6. Update state to VALIDATION
-    7. Phase 3: Pattern validation
-    8. Update state to TRACEABILITY
-    9. Phase 4: Store lineage in PostgreSQL
-    10. Publish completion event
-    11. Update FSM state to COMPLETED
-    """
-
-    @step
-    async def start(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        """Execute pattern learning workflow."""
-        entity_id = ev.get("entity_id")
-        payload = ev.get("payload", {})
-        correlation_id = ev.get("correlation_id")
-
-        # In a full implementation, this would:
-        # 1. Call pattern_matching_compute for Foundation
-        # 2. Call semantic_analysis_compute for Matching
-        # 3. Call quality_scoring_compute for Validation
-        # 4. Call postgres_pattern_effect for Traceability
-        # 5. Call kafka_event_effect for events
-
-        # For now, return placeholder results
-        results = {
-            "project_name": payload.get("project_name"),
-            "patterns_learned": 5,
-            "phases_completed": 4,
-            "workflow_type": "pattern_learning",
-        }
-
-        return StopEvent(result=results)
-
-
-class QualityAssessmentWorkflow(Workflow):
-    """
-    Quality assessment workflow.
-
-    Steps:
-    1. Validate input
-    2. Emit reducer intent (ASSESSING state)
-    3. Compute quality score
-    4. Check ONEX compliance
-    5. Generate recommendations
-    6. Publish assessment event
-    7. Store via intelligence API
-    8. Update FSM state to STORED
-    """
-
-    @step
-    async def start(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        """Execute quality assessment workflow."""
-        entity_id = ev.get("entity_id")
-        payload = ev.get("payload", {})
-        correlation_id = ev.get("correlation_id")
-
-        # In a full implementation, this would:
-        # 1. Call quality_scoring_compute
-        # 2. Call kafka_event_effect
-        # 3. Call intelligence_api_effect
-
-        # For now, return placeholder results
-        results = {
-            "file_path": payload.get("file_path"),
-            "overall_score": 0.85,
-            "onex_compliant": True,
-            "recommendations_count": 3,
-            "workflow_type": "quality_assessment",
-        }
-
-        return StopEvent(result=results)
-
-
-class SemanticAnalysisWorkflow(Workflow):
-    """
-    Semantic analysis workflow.
-
-    Steps:
-    1. Validate input
-    2. Parallel: Generate embeddings + Extract semantic features
-    3. Compute similarity scores
-    4. Store embeddings in Qdrant
-    """
-
-    @step
-    async def start(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        """Execute semantic analysis workflow."""
-        entity_id = ev.get("entity_id")
-        payload = ev.get("payload", {})
-        correlation_id = ev.get("correlation_id")
-
-        # In a full implementation, this would:
-        # 1. Call vectorization_compute
-        # 2. Call semantic_analysis_compute
-        # 3. Call qdrant_vector_effect
-
-        # For now, return placeholder results
-        results = {
-            "semantic_features": {
-                "control_flow": {},
-                "data_flow": {},
-                "complexity": {},
-            },
-            "similarity_scores": {},
-            "workflow_type": "semantic_analysis",
-        }
-
-        return StopEvent(result=results)
-
-
-class RelationshipDetectionWorkflow(Workflow):
-    """
-    Relationship detection workflow.
-
-    Steps:
-    1. Validate input
-    2. Detect relationships
-    3. Classify relationships
-    4. Store in Memgraph
-    5. Update entity metadata
-    """
-
-    @step
-    async def start(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        """Execute relationship detection workflow."""
-        entity_id = ev.get("entity_id")
-        payload = ev.get("payload", {})
-        correlation_id = ev.get("correlation_id")
-
-        # In a full implementation, this would:
-        # 1. Call relationship_detection_compute
-        # 2. Call memgraph_graph_effect
-
-        # For now, return placeholder results
-        results = {
-            "relationships": [],
-            "relationship_count": 0,
-            "workflow_type": "relationship_detection",
-        }
-
-        return StopEvent(result=results)
+        except Exception as e:
+            return ModelOrchestratorOutput(
+                success=False,
+                workflow_id=workflow_id,
+                errors=[f"Workflow execution failed: {e!s}"],
+            )
