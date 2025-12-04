@@ -123,6 +123,47 @@ ruff check src tests
 mypy src
 ```
 
+### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to ensure code quality before commits.
+
+#### Installation
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+```
+
+#### Running Manually
+
+```bash
+# Run on all files
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run ruff --all-files
+
+# Run contract linter hook
+pre-commit run contract-linter --all-files
+```
+
+#### Configured Hooks
+
+| Hook | Description |
+|------|-------------|
+| **ruff** | Fast Python linter with auto-fix |
+| **ruff-format** | Python code formatter |
+| **mypy** | Static type checking (strict mode) |
+| **onex-patterns** | ONEX pattern validation |
+| **onex-union-usage** | ONEX union usage validation |
+| **contract-linter** | ONEX contract YAML validation |
+| **pytest-tools** | Unit tests for tools (runs on push only) |
+
+> **Note**: Most hooks run on `pre-commit` stage. The `pytest-tools` hook runs on `pre-push` to avoid slowing down commits.
+
 ## Migration from OmniArchon
 
 This project is a migration from the legacy `omniarchon` system. See:

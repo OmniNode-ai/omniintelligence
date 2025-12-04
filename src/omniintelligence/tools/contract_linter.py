@@ -37,10 +37,57 @@ from pydantic import BaseModel, ValidationError
 if TYPE_CHECKING:
     from pydantic_core import ErrorDetails
 
+# Maximum file size for YAML contracts (1MB default)
+MAX_YAML_SIZE_BYTES = 1024 * 1024  # 1MB
+
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
 VALID_NODE_TYPES: frozenset[str] = frozenset(
     {"compute", "effect", "reducer", "orchestrator"}
 )
+
+
+def _is_safe_path(file_path: Path, allowed_dir: Path | None = None) -> bool:
+    """Check if path is safe (no traversal attacks).
+
+    This helper function detects path traversal attempts like "../../../etc/passwd".
+    It is reserved for future strict mode implementation and is NOT enforced by
+    default to maintain backward compatibility with existing usage patterns.
+
+    When strict mode is implemented, this function will be used to validate
+    file paths before processing to prevent malicious path traversal attacks.
+
+    Args:
+        file_path: Path to validate
+        allowed_dir: If provided, path must be within this directory
+
+    Returns:
+        True if path is safe, False otherwise
+
+    Examples:
+        >>> _is_safe_path(Path("/home/user/contract.yaml"))
+        True
+        >>> _is_safe_path(Path("../../../etc/passwd"))
+        False
+        >>> _is_safe_path(Path("foo/../../../etc/passwd"))
+        False
+        >>> _is_safe_path(Path("/home/user/contract.yaml"), Path("/home/user"))
+        True
+        >>> _is_safe_path(Path("/etc/passwd"), Path("/home/user"))
+        False
+    """
+    try:
+        resolved = file_path.resolve()
+        # Check for path traversal attempts in the original path string
+        # This catches attempts like "../../../etc/passwd" before resolution
+        if ".." in str(file_path):
+            return False
+        # If allowed_dir specified, ensure path is within it
+        if allowed_dir:
+            allowed_resolved = allowed_dir.resolve()
+            return str(resolved).startswith(str(allowed_resolved))
+        return True
+    except (OSError, ValueError):
+        return False
 
 
 class EnumContractErrorType(str, Enum):
@@ -59,9 +106,11 @@ class EnumContractErrorType(str, Enum):
     FILE_NOT_FOUND = "file_not_found"
     NOT_A_FILE = "not_a_file"
     FILE_READ_ERROR = "file_read_error"
+    FILE_TOO_LARGE = "file_too_large"
     EMPTY_FILE = "empty_file"
     YAML_PARSE_ERROR = "yaml_parse_error"
     UNKNOWN_CONTRACT_TYPE = "unknown_contract_type"
+    UNEXPECTED_ERROR = "unexpected_error"
 
 
 @dataclass
@@ -312,6 +361,21 @@ class ContractLinter:
                 errors=errors,
                 contract_type=contract_type_name,
             )
+        except Exception as e:
+            # Catch any unexpected errors during Pydantic model validation
+            errors = [
+                ContractValidationError(
+                    field="contract",
+                    message=f"Unexpected error during validation: {e}",
+                    error_type=EnumContractErrorType.UNEXPECTED_ERROR,
+                )
+            ]
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=contract_type_name,
+            )
 
     def _validate_fsm_subcontract(
         self,
@@ -408,11 +472,27 @@ class ContractLinter:
             )
 
         # Use ProtocolContractValidator for full validation
-        validator = ProtocolContractValidator()
-        result = validator.validate_contract_file(
-            path,
-            contract_type=node_type_lower,
-        )
+        try:
+            validator = ProtocolContractValidator()
+            result = validator.validate_contract_file(
+                path,
+                contract_type=node_type_lower,
+            )
+        except Exception as e:
+            # Catch unexpected errors from ProtocolContractValidator
+            errors.append(
+                ContractValidationError(
+                    field="contract",
+                    message=f"Unexpected error during node contract validation: {e}",
+                    error_type=EnumContractErrorType.UNEXPECTED_ERROR,
+                )
+            )
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=node_type_lower,
+            )
 
         # Convert ProtocolContractValidator result to our format
         for violation in result.violations:
@@ -533,6 +613,38 @@ class ContractLinter:
                     field="file",
                     message=f"Path is a directory, not a file: {path}",
                     error_type=EnumContractErrorType.NOT_A_FILE,
+                )
+            )
+            return ContractValidationResult(
+                file_path=path,
+                valid=False,
+                errors=errors,
+                contract_type=None,
+            )
+
+        # Check file size before loading to prevent memory issues
+        try:
+            file_size = path.stat().st_size
+            if file_size > MAX_YAML_SIZE_BYTES:
+                errors.append(
+                    ContractValidationError(
+                        field="file",
+                        message=f"File size ({file_size} bytes) exceeds maximum allowed ({MAX_YAML_SIZE_BYTES} bytes)",
+                        error_type=EnumContractErrorType.FILE_TOO_LARGE,
+                    )
+                )
+                return ContractValidationResult(
+                    file_path=path,
+                    valid=False,
+                    errors=errors,
+                    contract_type=None,
+                )
+        except OSError as e:
+            errors.append(
+                ContractValidationError(
+                    field="file",
+                    message=f"Error checking file size: {e}",
+                    error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
             return ContractValidationResult(
@@ -831,43 +943,74 @@ def main(args: list[str] | None = None) -> int:
         parser.print_help()
         return 2
 
-    # Validate contracts
-    linter = ContractLinter(strict=parsed_args.strict)
-    results = linter.validate_batch(parsed_args.contracts)
+    try:
+        # Validate contracts
+        linter = ContractLinter(strict=parsed_args.strict)
+        results = linter.validate_batch(parsed_args.contracts)
 
-    # Format and print output
-    if parsed_args.json:
-        output = _format_json_output(results)
-    else:
-        output = _format_text_output(results, verbose=parsed_args.verbose)
+        # Format and print output
+        if parsed_args.json:
+            output = _format_json_output(results)
+        else:
+            output = _format_text_output(results, verbose=parsed_args.verbose)
 
-    print(output)
+        print(output)
 
-    # Determine exit code
-    # Check for file errors (file not found, etc.)
-    has_file_errors = any(
-        any(
-            e.error_type
-            in (
-                EnumContractErrorType.FILE_NOT_FOUND,
-                EnumContractErrorType.NOT_A_FILE,
-                EnumContractErrorType.FILE_READ_ERROR,
+        # Determine exit code
+        # Check for file errors (file not found, etc.)
+        has_file_errors = any(
+            any(
+                e.error_type
+                in (
+                    EnumContractErrorType.FILE_NOT_FOUND,
+                    EnumContractErrorType.NOT_A_FILE,
+                    EnumContractErrorType.FILE_READ_ERROR,
+                )
+                for e in r.errors
             )
-            for e in r.errors
+            for r in results
         )
-        for r in results
-    )
 
-    if has_file_errors and all(not r.valid for r in results):
-        # All files had file-level errors
+        if has_file_errors and all(not r.valid for r in results):
+            # All files had file-level errors
+            return 2
+
+        # Check for validation errors
+        has_validation_errors = any(not r.valid for r in results)
+        if has_validation_errors:
+            return 1
+
+        return 0
+
+    except NotImplementedError as e:
+        # Handle NotImplementedError from ContractLinter init (strict mode, unsupported schema)
+        if parsed_args.json:
+            error_output = json.dumps(
+                {
+                    "error": str(e),
+                    "error_type": "not_implemented",
+                },
+                indent=2,
+            )
+        else:
+            error_output = f"Error: {e}"
+        print(error_output, file=sys.stderr)
         return 2
 
-    # Check for validation errors
-    has_validation_errors = any(not r.valid for r in results)
-    if has_validation_errors:
-        return 1
-
-    return 0
+    except Exception as e:
+        # Catch any unexpected errors and provide a clean error message
+        if parsed_args.json:
+            error_output = json.dumps(
+                {
+                    "error": f"Unexpected error: {e}",
+                    "error_type": "unexpected_error",
+                },
+                indent=2,
+            )
+        else:
+            error_output = f"Unexpected error: {e}"
+        print(error_output, file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
