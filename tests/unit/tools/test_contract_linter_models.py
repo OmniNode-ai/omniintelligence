@@ -8,6 +8,8 @@ used by the Contract Linter CLI.
 
 from pathlib import Path
 
+import pytest
+
 from omniintelligence.tools.contract_linter import (
     ContractValidationError,
     ContractValidationResult,
@@ -19,6 +21,7 @@ from omniintelligence.tools.contract_linter import (
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestContractValidationResult:
     """Tests for ContractValidationResult data structure."""
 
@@ -79,6 +82,7 @@ class TestContractValidationResult:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestContractValidationError:
     """Tests for ContractValidationError structure with field paths."""
 

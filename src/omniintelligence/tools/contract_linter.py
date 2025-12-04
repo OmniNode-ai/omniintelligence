@@ -85,6 +85,8 @@ def _is_safe_path(file_path: Path, allowed_dir: Path | None = None) -> bool:
         True
         >>> _is_safe_path(Path("/etc/passwd"), Path("/home/user"))
         False
+        >>> _is_safe_path(Path("/allowed/path-extra/file.yaml"), Path("/allowed/path"))
+        False  # Must not match prefix-similar paths
     """
     try:
         resolved = file_path.resolve()
@@ -92,10 +94,20 @@ def _is_safe_path(file_path: Path, allowed_dir: Path | None = None) -> bool:
         # This catches attempts like "../../../etc/passwd" before resolution
         if ".." in str(file_path):
             return False
-        # If allowed_dir specified, ensure path is within it
+        # If allowed_dir specified, ensure path is within it using proper path
+        # containment check. String prefix matching has false positives:
+        # e.g., "/allowed/path-extra" would incorrectly match "/allowed/path"
         if allowed_dir:
             allowed_resolved = allowed_dir.resolve()
-            return str(resolved).startswith(str(allowed_resolved))
+            # Use is_relative_to() for proper path containment (Python 3.9+)
+            # This correctly handles edge cases like "/allowed/path-extra"
+            # not being inside "/allowed/path"
+            try:
+                resolved.relative_to(allowed_resolved)
+                return True
+            except ValueError:
+                # resolved is not relative to allowed_resolved
+                return False
         return True
     except (OSError, ValueError):
         return False
@@ -876,6 +888,9 @@ def _format_text_output(
     """
     Format validation results as human-readable text.
 
+    In non-verbose mode, shows a brief error count for each failing file.
+    In verbose mode, shows detailed error information with field paths.
+
     Args:
         results: List of validation results
         verbose: Whether to include detailed error information
@@ -887,11 +902,18 @@ def _format_text_output(
 
     for result in results:
         status = "PASS" if result.valid else "FAIL"
-        lines.append(f"[{status}] {result.file_path}")
-
-        if not result.valid and verbose:
+        if result.valid:
+            lines.append(f"[{status}] {result.file_path}")
+        # In non-verbose mode, show error count; in verbose mode, just show FAIL
+        # (detailed errors follow on subsequent lines)
+        elif verbose:
+            lines.append(f"[{status}] {result.file_path}")
             for error in result.errors:
                 lines.append(f"  - {error.field}: {error.message}")
+        else:
+            # Surface brief error summary even in non-verbose mode
+            error_count = len(result.errors)
+            lines.append(f"[{status}] {result.file_path} ({error_count} error(s))")
 
     # Summary
     total = len(results)
@@ -908,15 +930,15 @@ def _format_json_output(
     """
     Format validation results as JSON.
 
+    Always returns a consistent structure with 'results' array and 'summary' object,
+    regardless of the number of results. This ensures predictable parsing by consumers.
+
     Args:
         results: List of validation results
 
     Returns:
-        JSON string
+        JSON string with structure: {"results": [...], "summary": {...}}
     """
-    if len(results) == 1:
-        return json.dumps(results[0].to_dict(), indent=2)
-
     return json.dumps(
         {
             "results": [r.to_dict() for r in results],
@@ -990,10 +1012,36 @@ def main(args: list[str] | None = None) -> int:
         args: Command line arguments (uses sys.argv if None)
 
     Returns:
-        Exit code:
-            0 - All contracts valid
-            1 - One or more validation errors
-            2 - File not found or other errors
+        Exit code following Unix conventions:
+            0 - Success: All contracts passed validation
+            1 - Validation failure: One or more contracts have schema violations
+                (e.g., missing required fields, invalid values, malformed YAML)
+            2 - Input error: File-level issues preventing validation
+                (e.g., file not found, path is a directory, permission denied)
+                OR usage error (no arguments provided, strict mode not implemented)
+
+    Exit Code Decision Logic:
+        - If ALL files have file-level errors (FILE_NOT_FOUND, NOT_A_FILE,
+          FILE_READ_ERROR), return 2 (input error).
+        - If ANY file exists but fails validation, return 1 (validation failure).
+        - If all files pass validation, return 0 (success).
+
+    Examples:
+        # All valid contracts
+        $ contract_linter valid1.yaml valid2.yaml
+        # Exit code: 0
+
+        # One invalid contract (missing required field)
+        $ contract_linter invalid.yaml
+        # Exit code: 1
+
+        # File not found
+        $ contract_linter nonexistent.yaml
+        # Exit code: 2
+
+        # Mix of valid and missing files - returns 1 (not all are file errors)
+        $ contract_linter valid.yaml nonexistent.yaml
+        # Exit code: 1
     """
     parser = argparse.ArgumentParser(
         description="Validate ONEX contract YAML files",
@@ -1061,8 +1109,10 @@ def main(args: list[str] | None = None) -> int:
 
         print(output)
 
-        # Determine exit code
-        # Check for file errors (file not found, etc.)
+        # Determine exit code based on error types and validation results
+        # See docstring for detailed exit code semantics
+
+        # Check if any results have file-level errors (cannot be validated at all)
         has_file_errors = any(
             any(
                 e.error_type
@@ -1076,15 +1126,18 @@ def main(args: list[str] | None = None) -> int:
             for r in results
         )
 
+        # Exit code 2: ALL files had file-level errors (none could be validated)
+        # This indicates an input problem, not a validation failure
         if has_file_errors and all(not r.valid for r in results):
-            # All files had file-level errors
             return 2
 
-        # Check for validation errors
+        # Exit code 1: At least one file failed validation (schema violations)
+        # This includes: missing fields, invalid values, malformed YAML, etc.
         has_validation_errors = any(not r.valid for r in results)
         if has_validation_errors:
             return 1
 
+        # Exit code 0: All files passed validation successfully
         return 0
 
     except NotImplementedError as e:

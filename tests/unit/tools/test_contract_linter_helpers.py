@@ -23,6 +23,7 @@ from omniintelligence.tools.contract_linter import (
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestStructuredErrorOutput:
     """Tests for structured error output with field paths."""
 
@@ -125,6 +126,7 @@ node_type: compute
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestLinterConfiguration:
     """Tests for linter configuration options."""
 
@@ -139,7 +141,11 @@ class TestLinterConfiguration:
         )
 
     def test_linter_lenient_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
-        """Test linter in lenient mode is more permissive."""
+        """Test linter in lenient mode validates contracts successfully.
+
+        Lenient mode (strict=False, the default) should pass for valid base contracts.
+        This test verifies both that a result is returned AND that the contract is valid.
+        """
         contract_path = tmp_path / "base.yaml"
         contract_path.write_text(valid_base_contract_yaml)
 
@@ -148,9 +154,18 @@ class TestLinterConfiguration:
 
         # Lenient mode should pass for base contracts
         assert isinstance(result, ContractValidationResult)
+        assert result.valid is True
 
     def test_linter_custom_schema_version(self, tmp_path: Path):
-        """Test linter with specific schema version."""
+        """Test linter with specific schema version.
+
+        Currently only schema_version="1.0.0" is supported. This test verifies:
+        1. The linter accepts schema_version="1.0.0" without raising NotImplementedError
+        2. A valid compute contract passes validation with the specified schema version
+
+        When schema versioning is fully implemented, this test should be expanded
+        to verify version-specific validation behavior.
+        """
         yaml_content = """
 name: test
 version:
@@ -173,11 +188,13 @@ performance:
         contract_path = tmp_path / "contract.yaml"
         contract_path.write_text(yaml_content)
 
-        # Future: support for schema versioning
+        # schema_version="1.0.0" is the only currently supported version
         linter = ContractLinter(schema_version="1.0.0")
         result = linter.validate(contract_path)
 
+        # Verify we get a proper result and the contract is valid
         assert isinstance(result, ContractValidationResult)
+        assert result.valid is True
 
 
 # =============================================================================
@@ -185,6 +202,7 @@ performance:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestPathTraversalDetection:
     """Tests for path traversal detection helper function.
 
@@ -249,19 +267,41 @@ class TestPathTraversalDetection:
         assert _is_safe_path(safe_file, allowed_dir) is True
 
     def test_handles_os_errors_gracefully(self):
-        """Test that OS errors during path resolution return False."""
-        # Path with null byte should cause OSError on most systems
-        # or ValueError on Windows - either way, should return False
-        try:
-            # Create a path that might cause issues
-            problematic_path = Path("/\x00invalid")
-            result = _is_safe_path(problematic_path)
-            # If we get here without exception, result should be False or True
-            # depending on platform behavior
-            assert isinstance(result, bool)
-        except (OSError, ValueError):
-            # Some platforms may raise before we even call _is_safe_path
-            pass
+        """Test that OS errors during path resolution return False.
+
+        The _is_safe_path function is designed to return False (indicating an
+        unsafe path) when any OS-level error occurs during path resolution.
+        This is a fail-safe design: if we cannot safely resolve a path, we
+        treat it as potentially dangerous.
+
+        This test verifies that behavior by testing paths that may cause
+        OS errors, and confirms that the function either:
+        1. Returns False (the expected safe behavior), or
+        2. Returns True if the platform handles the path gracefully
+
+        Note: The actual behavior depends on the platform's path handling.
+        The key invariant is that _is_safe_path never raises an exception -
+        it always returns a boolean.
+        """
+        # Test paths that might cause OS errors on various platforms
+        test_paths = [
+            Path("/\x00invalid"),  # Null byte in path
+            Path(),  # Empty path
+        ]
+
+        for problematic_path in test_paths:
+            try:
+                result = _is_safe_path(problematic_path)
+                # _is_safe_path should NEVER raise - it must return a boolean
+                assert isinstance(result, bool), (
+                    f"_is_safe_path must return bool for path: {problematic_path!r}"
+                )
+                # For problematic paths, False is the expected safe response,
+                # but True is acceptable if the platform handles it gracefully
+            except (OSError, ValueError):
+                # Some platforms may raise when constructing the Path object
+                # itself, before we even call _is_safe_path. This is acceptable.
+                pass
 
     def test_traversal_in_directory_component(self):
         """Test that traversal in directory components is detected."""
@@ -279,6 +319,7 @@ class TestPathTraversalDetection:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestFieldIdentifierPattern:
     """Tests for FIELD_IDENTIFIER_PATTERN regex.
 

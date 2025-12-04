@@ -20,6 +20,7 @@ from omniintelligence.tools.contract_linter import (
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestContractTypeDetection:
     """Tests for automatic contract type detection."""
 
@@ -66,6 +67,7 @@ class TestContractTypeDetection:
 # =============================================================================
 
 
+@pytest.mark.unit
 @pytest.mark.skip(
     reason="Legacy contracts in _legacy folder are excluded from validation"
 )
@@ -119,6 +121,7 @@ class TestRealContractFiles:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestFSMSubcontractValidation:
     """Tests for FSM subcontract detection and validation."""
 

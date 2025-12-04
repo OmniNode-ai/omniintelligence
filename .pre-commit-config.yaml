@@ -1,77 +1,107 @@
 # Pre-commit hooks for omniintelligence
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
+#
+# Hook Scope Summary:
+# - ruff/mypy: All production Python code (tools/, utils/) and their tests
+# - contract-linter: ONEX node contracts (future nodes/ directory)
+# - pytest-tools: Unit tests for tools module (pre-push only)
+#
+# Excluded from all hooks:
+# - _legacy/: Legacy code preserved for migration reference
+# - migration_sources/: Original omniarchon source code
 
 repos:
-  # Ruff - Fast Python linter (replaces flake8, isort, pyupgrade, etc.)
+  # ============================================================================
+  # RUFF - Fast Python linter and formatter
+  # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
+  # Scope: Production code (tools/, utils/) and their unit tests
+  # ============================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.7
     hooks:
       - id: ruff
         name: ruff (lint)
         args: [--fix, --exit-non-zero-on-fix]
-        files: ^(src/omniintelligence/tools/|tests/unit/tools/)
+        # Covers: tools/, utils/ source code and their tests
+        files: ^(src/omniintelligence/(tools|utils)/|tests/unit/(tools|test_log_sanitizer)/)
+
       - id: ruff-format
         name: ruff (format)
-        files: ^(src/omniintelligence/tools/|tests/unit/tools/)
+        # Same scope as ruff lint
+        files: ^(src/omniintelligence/(tools|utils)/|tests/unit/(tools|test_log_sanitizer)/)
 
-  # MyPy - Static type checking (src only, tests don't have type annotations)
+  # ============================================================================
+  # MYPY - Static type checking
+  # Validates: Type annotations and type safety
+  # Scope: Production source code only (tests may lack full type annotations)
+  # ============================================================================
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.13.0
     hooks:
       - id: mypy
         name: mypy (type check)
         args: [--strict, --ignore-missing-imports]
-        files: ^src/omniintelligence/tools/
+        # Covers: tools/ and utils/ source code (not tests)
+        files: ^src/omniintelligence/(tools|utils)/
         additional_dependencies:
           - types-PyYAML
           - pydantic>=2.0.0
 
-  # Local hooks for ONEX validators
+  # ============================================================================
+  # LOCAL HOOKS - Project-specific validators
+  # ============================================================================
   - repo: local
     hooks:
-      # ONEX Pattern Validator
-      - id: onex-patterns
-        name: onex patterns
-        entry: uv run python -m omnibase_core.validation.cli patterns src/omniintelligence/tools
-        language: system
-        pass_filenames: false
-        files: ^src/omniintelligence/tools/.*\.py$
-
-      # ONEX Union Usage Validator
-      - id: onex-union-usage
-        name: onex union-usage
-        entry: uv run python -m omnibase_core.validation.cli union-usage src/omniintelligence/tools
-        language: system
-        pass_filenames: false
-        files: ^src/omniintelligence/tools/.*\.py$
-
-      # Contract Linter (for main contract YAML and FSM files only)
+      # --------------------------------------------------------------------------
+      # Contract Linter - ONEX contract YAML validation
+      # Validates: Node contracts against canonical Pydantic models
+      # Scope: Main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
+      #        in versioned node directories (e.g., nodes/foo/v1_0_0/contracts/)
+      # Note: Excludes subcontracts/ and workflows/ subdirectories
+      # Future-proof: Pattern ready for when nodes/ directory is created
+      # --------------------------------------------------------------------------
       - id: contract-linter
         name: contract linter
         entry: uv run python -m omniintelligence.tools.contract_linter
         language: system
-        # Only validate main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
-        # Exclude subcontracts/ and workflows/ directories
-        files: ^src/omniintelligence/nodes/[^/]+/v[^/]+/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
         pass_filenames: true
+        # Pattern breakdown:
+        # - ^src/omniintelligence/nodes/ : Base nodes directory
+        # - [^/]+/                        : Node name (e.g., intelligence_reducer/)
+        # - v\d+(_\d+)*/ or v[^/]+/       : Version dir (e.g., v1_0_0/, v2_0_0/)
+        # - contracts/                    : Contracts subdirectory
+        # - (.*_contract\.yaml|fsm_.*\.yaml) : Main contracts or FSM files
+        files: ^src/omniintelligence/nodes/[^/]+/v\d+(_\d+)*/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
 
-      # Pytest (only run if test files changed)
+      # --------------------------------------------------------------------------
+      # Pytest - Unit tests for tools module
+      # Validates: Tools functionality via unit tests
+      # Scope: Triggered when tools source or test files change
+      # Stage: pre-push (slower, not run on every commit)
+      # --------------------------------------------------------------------------
       - id: pytest-tools
         name: pytest (tools)
         entry: uv run pytest tests/unit/tools/ -v --tb=short
         language: system
         pass_filenames: false
+        # Trigger when either tools source or tests change
         files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
-        stages: [pre-push]  # Run on push, not commit (slower)
+        stages: [pre-push]
 
-# Default stages for hooks
+# Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
 
-# Skip hooks on certain file patterns
+# ============================================================================
+# GLOBAL EXCLUSIONS
+# These patterns are excluded from ALL hooks above
+# ============================================================================
 exclude: |
   (?x)^(
+    # Legacy code preserved for migration reference - do not lint
     src/omniintelligence/_legacy/.*|
+    # Original omniarchon source - reference only
     migration_sources/.*|
+    # Git internals
     \.git/.*
   )$

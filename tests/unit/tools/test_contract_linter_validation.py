@@ -8,6 +8,8 @@ validation using the ContractLinter class.
 
 from pathlib import Path
 
+import pytest
+
 from omniintelligence.tools.contract_linter import (
     MAX_YAML_SIZE_BYTES,
     ContractLinter,
@@ -22,6 +24,7 @@ from omniintelligence.tools.contract_linter import (
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestContractLinterSingleValidation:
     """Tests for validating single contracts."""
 
@@ -218,6 +221,7 @@ class TestContractLinterSingleValidation:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestContractLinterFileHandling:
     """Tests for file handling edge cases."""
 
@@ -272,15 +276,49 @@ class TestContractLinterFileHandling:
     def test_validate_yaml_with_only_comments(
         self, tmp_path: Path, yaml_with_only_comments: str
     ):
-        """Test handling of YAML with only comments."""
+        """Test that YAML containing only comments is treated as empty.
+
+        YAML files with only comments (no actual content) parse to None,
+        which is semantically equivalent to an empty file. The linter
+        should:
+        - Return valid=False (no contract content to validate)
+        - Report an EMPTY_FILE error type
+        - Include "empty" or "no YAML content" in the error message
+        - Set contract_type to None (cannot detect type from empty content)
+
+        This behavior is intentional: a comments-only file cannot be a
+        valid ONEX contract because it lacks required fields like name,
+        version, and node_type.
+        """
         contract_path = tmp_path / "comments_only.yaml"
         contract_path.write_text(yaml_with_only_comments)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        # Should be treated similarly to empty file
+        # Must fail validation
+        assert result.valid is False, "Comments-only YAML should fail validation"
+
+        # Must have at least one error
+        assert len(result.errors) >= 1, (
+            "Comments-only YAML should report at least one error"
+        )
+
+        # Must be treated as empty file error
+        assert any(
+            e.error_type is EnumContractErrorType.EMPTY_FILE for e in result.errors
+        ), "Comments-only YAML should report EMPTY_FILE error type"
+
+        # Error message should mention empty/no content
+        assert any(
+            "empty" in e.message.lower() or "no yaml content" in e.message.lower()
+            for e in result.errors
+        ), "Error message should indicate file has no content"
+
+        # Contract type should be None (cannot detect type from empty content)
+        assert result.contract_type is None, (
+            "Contract type should be None for comments-only YAML"
+        )
 
     def test_validate_directory_instead_of_file(self, tmp_path: Path):
         """Test error when path is a directory, not a file."""
@@ -316,7 +354,8 @@ class TestContractLinterFileHandling:
         result = linter.validate(large_file)
 
         assert result.valid is False
-        assert any("exceeds maximum" in e.message for e in result.errors)
+        # Case-insensitive check for robustness against message wording changes
+        assert any("exceeds maximum" in e.message.lower() for e in result.errors)
         assert any(
             e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors
         )
@@ -345,6 +384,7 @@ class TestContractLinterFileHandling:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestContractLinterBatchValidation:
     """Tests for batch validation of multiple contracts."""
 
@@ -448,6 +488,7 @@ class TestContractLinterBatchValidation:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestStandaloneFunctions:
     """Tests for standalone validation functions."""
 

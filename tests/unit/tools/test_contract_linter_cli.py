@@ -8,6 +8,7 @@ verbose output, and subprocess invocation.
 
 import json
 import subprocess
+import sys
 import time as time_module
 from pathlib import Path
 from unittest.mock import patch
@@ -18,6 +19,10 @@ from omniintelligence.tools.contract_linter import (
     ContractLinter,
     _watch_and_validate,
     main,
+)
+from tests.unit.tools.conftest import (
+    create_mock_sleep_function,
+    create_mock_stat_function,
 )
 
 # =============================================================================
@@ -127,7 +132,18 @@ class TestCLIEntryPoint:
     def test_cli_json_output_flag(
         self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
     ):
-        """Test CLI with --json flag outputs JSON."""
+        """Test CLI with --json flag outputs JSON with expected structure.
+
+        JSON output always includes:
+        - results: array of validation result objects
+        - summary: object with total, valid, and invalid counts
+
+        Each result object includes:
+        - file_path: string path to the contract file
+        - valid: boolean indicating validation result
+        - errors: list of error objects (empty for valid contracts)
+        - contract_type: string indicating detected contract type
+        """
         contract_path = tmp_path / "valid.yaml"
         contract_path.write_text(valid_compute_contract_yaml)
 
@@ -138,14 +154,61 @@ class TestCLIEntryPoint:
             main()
 
         captured = capsys.readouterr()
-        # Should be valid JSON
+        # Should be valid JSON with expected structure
         parsed = json.loads(captured.out)
-        assert "valid" in parsed or "results" in parsed
+
+        # Top-level structure must include results and summary
+        assert "results" in parsed, "JSON output must include 'results' array"
+        assert "summary" in parsed, "JSON output must include 'summary' object"
+
+        # Validate results is a list with exactly one entry
+        assert isinstance(parsed["results"], list), "'results' must be a list"
+        assert len(parsed["results"]) == 1, "Should have exactly one result"
+
+        # Validate summary structure
+        summary = parsed["summary"]
+        assert "total" in summary, "Summary must include 'total'"
+        assert "valid" in summary, "Summary must include 'valid'"
+        assert "invalid" in summary, "Summary must include 'invalid'"
+        assert summary["total"] == 1, "Total should be 1"
+        assert summary["valid"] == 1, "Valid count should be 1"
+        assert summary["invalid"] == 0, "Invalid count should be 0"
+
+        # Validate the single result entry
+        result = parsed["results"][0]
+        assert "file_path" in result, "Result must include 'file_path'"
+        assert "valid" in result, "Result must include 'valid'"
+        assert "errors" in result, "Result must include 'errors'"
+        assert "contract_type" in result, "Result must include 'contract_type'"
+
+        # Validate types
+        assert isinstance(result["file_path"], str), "'file_path' must be a string"
+        assert isinstance(result["valid"], bool), "'valid' must be a boolean"
+        assert isinstance(result["errors"], list), "'errors' must be a list"
+        assert result["contract_type"] is None or isinstance(
+            result["contract_type"], str
+        ), "'contract_type' must be string or null"
+
+        # Validate values for valid contract
+        assert result["valid"] is True, "Valid contract should have valid=true"
+        assert result["errors"] == [], "Valid contract should have empty errors list"
+        assert result["contract_type"] == "compute", (
+            "Contract type should be 'compute' for compute contract"
+        )
 
     def test_cli_verbose_flag(
         self, tmp_path: Path, invalid_missing_name_yaml: str, capsys
     ):
-        """Test CLI with --verbose flag shows detailed output."""
+        """Test CLI with --verbose flag shows detailed error output.
+
+        Verbose mode shows field-level error details with format:
+          - {field}: {message}
+
+        For a contract missing the 'name' field, verbose output must show:
+        - [FAIL] marker for the failing file
+        - The field name 'name' in the error details
+        - An error message indicating the field is required/missing
+        """
         contract_path = tmp_path / "invalid.yaml"
         contract_path.write_text(invalid_missing_name_yaml)
 
@@ -156,9 +219,28 @@ class TestCLIEntryPoint:
             main()
 
         captured = capsys.readouterr()
-        # Verbose output should include field paths and details
-        output = captured.out + captured.err
-        assert "name" in output.lower() or "field" in output.lower()
+        output = captured.out
+
+        # Verbose output must show FAIL status
+        assert "[FAIL]" in output, (
+            "Verbose output must show [FAIL] for invalid contract"
+        )
+
+        # Verbose output must show the field name in error details
+        # The format is "  - {field}: {message}"
+        assert "name" in output, (
+            "Verbose output must show 'name' field in error details"
+        )
+
+        # Verbose output must show indented error line (verbose format)
+        assert "  - " in output, (
+            "Verbose output must show indented error lines with '  - ' prefix"
+        )
+
+        # Verbose output must indicate the field is required/missing
+        assert "required" in output.lower() or "missing" in output.lower(), (
+            "Verbose output must indicate field is required or missing"
+        )
 
 
 # =============================================================================
@@ -378,78 +460,22 @@ class TestCLIExitCodes:
 # =============================================================================
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 class TestCLIExitCodesSubprocess:
     """Tests for CLI exit codes using subprocess to test actual CLI invocation.
 
     These tests verify the CLI behaves correctly when invoked as a module,
     which is how it would be used in CI/CD pipelines and pre-commit hooks.
+
+    Note: These tests spawn subprocesses and are marked as integration tests.
+    Fixtures are provided by conftest.py.
     """
-
-    @pytest.fixture
-    def valid_contract_file(self, tmp_path: Path) -> Path:
-        """Create a valid compute contract file."""
-        content = """
-name: test_compute_node
-version:
-  major: 1
-  minor: 0
-  patch: 0
-description: A test compute node
-node_type: compute
-input_model: ModelComputeInput
-output_model: ModelComputeOutput
-algorithm:
-  algorithm_type: weighted_factor_algorithm
-  factors:
-    compute_factor:
-      weight: 1.0
-      calculation_method: linear
-performance:
-  single_operation_max_ms: 1000
-"""
-        contract_path = tmp_path / "valid_contract.yaml"
-        contract_path.write_text(content)
-        return contract_path
-
-    @pytest.fixture
-    def invalid_contract_file(self, tmp_path: Path) -> Path:
-        """Create an invalid contract file (missing required field)."""
-        content = """
-version:
-  major: 1
-  minor: 0
-  patch: 0
-description: Missing name field
-node_type: compute
-input_model: ModelInput
-output_model: ModelOutput
-"""
-        contract_path = tmp_path / "invalid_contract.yaml"
-        contract_path.write_text(content)
-        return contract_path
-
-    @pytest.fixture
-    def malformed_yaml_file(self, tmp_path: Path) -> Path:
-        """Create a malformed YAML file."""
-        content = """
-name: test_node
-version:
-  major: 1
-  minor: 0
-  this is not valid yaml
-    - indentation error
-  patch: [unclosed bracket
-"""
-        contract_path = tmp_path / "malformed.yaml"
-        contract_path.write_text(content)
-        return contract_path
 
     def test_subprocess_exit_code_0_on_valid_contract(self, valid_contract_file: Path):
         """Test CLI returns exit code 0 when validating a valid contract."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,  # Use sys.executable for portability across environments
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(valid_contract_file),
@@ -471,7 +497,7 @@ version:
         """Test CLI returns exit code 1 when contract has validation errors."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(invalid_contract_file),
@@ -493,7 +519,7 @@ version:
 
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(nonexistent_path),
@@ -512,7 +538,7 @@ version:
         """Test CLI returns exit code 2 when no arguments provided."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
             ],
@@ -530,7 +556,7 @@ version:
         """Test CLI returns exit code 1 when YAML is malformed."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(malformed_yaml_file),
@@ -546,50 +572,22 @@ version:
             f"stdout: {result.stdout}, stderr: {result.stderr}"
         )
 
-    def test_subprocess_exit_code_0_on_batch_all_valid(self, tmp_path: Path):
+    def test_subprocess_exit_code_0_on_batch_all_valid(
+        self,
+        tmp_path: Path,
+        valid_compute_contract_yaml: str,
+        valid_effect_contract_yaml: str,
+    ):
         """Test CLI returns exit code 0 when all batch files are valid."""
-        # Create two valid contracts
-        valid1_content = """
-name: valid_compute_1
-version:
-  major: 1
-  minor: 0
-  patch: 0
-description: Valid compute node 1
-node_type: compute
-input_model: ModelInput1
-output_model: ModelOutput1
-algorithm:
-  algorithm_type: weighted_factor_algorithm
-  factors:
-    factor1:
-      weight: 1.0
-      calculation_method: linear
-performance:
-  single_operation_max_ms: 1000
-"""
-        valid2_content = """
-name: valid_effect_1
-version:
-  major: 1
-  minor: 0
-  patch: 0
-description: Valid effect node
-node_type: effect
-input_model: ModelInput2
-output_model: ModelOutput2
-io_operations:
-  - operation_type: file_read
-    atomic: true
-"""
+        # Use fixtures instead of inline YAML to avoid duplication with conftest.py
         valid1 = tmp_path / "valid1.yaml"
-        valid1.write_text(valid1_content)
+        valid1.write_text(valid_compute_contract_yaml)
         valid2 = tmp_path / "valid2.yaml"
-        valid2.write_text(valid2_content)
+        valid2.write_text(valid_effect_contract_yaml)
 
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(valid1),
@@ -612,7 +610,7 @@ io_operations:
         """Test CLI returns exit code 1 when any batch file has validation errors."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(valid_contract_file),
@@ -630,10 +628,14 @@ io_operations:
         assert "1/2" in result.stdout  # Summary shows 1/2 passed
 
     def test_subprocess_json_output_on_success(self, valid_contract_file: Path):
-        """Test CLI JSON output includes valid=true on success."""
+        """Test CLI JSON output includes valid=true on success.
+
+        JSON output always has consistent structure: {"results": [...], "summary": {...}}
+        regardless of the number of files validated.
+        """
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(valid_contract_file),
@@ -646,14 +648,24 @@ io_operations:
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["valid"] is True
-        assert output["errors"] == []
+        # Consistent structure: results array and summary object
+        assert "results" in output
+        assert "summary" in output
+        assert len(output["results"]) == 1
+        assert output["results"][0]["valid"] is True
+        assert output["results"][0]["errors"] == []
+        assert output["summary"]["total"] == 1
+        assert output["summary"]["valid"] == 1
 
     def test_subprocess_json_output_on_failure(self, invalid_contract_file: Path):
-        """Test CLI JSON output includes valid=false and errors on failure."""
+        """Test CLI JSON output includes valid=false and errors on failure.
+
+        JSON output always has consistent structure: {"results": [...], "summary": {...}}
+        regardless of the number of files validated.
+        """
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(invalid_contract_file),
@@ -666,8 +678,14 @@ io_operations:
 
         assert result.returncode == 1
         output = json.loads(result.stdout)
-        assert output["valid"] is False
-        assert len(output["errors"]) > 0
+        # Consistent structure: results array and summary object
+        assert "results" in output
+        assert "summary" in output
+        assert len(output["results"]) == 1
+        assert output["results"][0]["valid"] is False
+        assert len(output["results"][0]["errors"]) > 0
+        assert output["summary"]["total"] == 1
+        assert output["summary"]["invalid"] == 1
 
     def test_subprocess_verbose_output_shows_field_errors(
         self, invalid_contract_file: Path
@@ -675,7 +693,7 @@ io_operations:
         """Test CLI verbose output shows field-level error details."""
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "omniintelligence.tools.contract_linter",
                 str(invalid_contract_file),
@@ -777,7 +795,13 @@ class TestCLIWatchMode:
 
 @pytest.mark.unit
 class TestWatchAndValidateFunction:
-    """Tests for the _watch_and_validate helper function."""
+    """Tests for the _watch_and_validate helper function.
+
+    These tests use consolidated mock helpers from conftest.py to avoid
+    duplication of complex mocking logic. See conftest.py for documentation
+    of the magic numbers (WATCH_STAT_CALLS_BEFORE_CHANGE and
+    WATCH_ITERATIONS_BEFORE_EXIT) used in the mock implementations.
+    """
 
     def test_watch_detects_file_change(
         self,
@@ -790,35 +814,18 @@ class TestWatchAndValidateFunction:
         contract.write_text(valid_compute_contract_yaml)
 
         linter = ContractLinter()
-        iteration_count = 0
-        stat_call_count = 0
-        original_stat = Path.stat
         initial_stat = contract.stat()
         initial_mtime = initial_stat.st_mtime
 
-        def mock_stat(self, *, follow_symlinks=True):
-            """Mock stat to simulate mtime change deterministically."""
-            nonlocal stat_call_count
-            result = original_stat(self, follow_symlinks=follow_symlinks)
-            stat_call_count += 1
-            # After initial mtime capture (first few calls), simulate a change
-            # The watch loop calls stat() multiple times per iteration
-            if stat_call_count > 2 and self == contract:
-                # Return a mock stat with different mtime but preserve other attrs
-                class MockStat:
-                    st_mtime = initial_mtime + 1.0
-                    st_mode = initial_stat.st_mode
-                    st_size = initial_stat.st_size
+        # Use mutable list containers for counters (allows closure modification)
+        stat_call_counter = [0]
+        iteration_counter = [0]
 
-                return MockStat()
-            return result
-
-        def mock_sleep(seconds):
-            nonlocal iteration_count
-            iteration_count += 1
-            if iteration_count >= 3:
-                raise KeyboardInterrupt
-            time_module.sleep(0.01)
+        # Create mock functions using consolidated helpers
+        mock_stat = create_mock_stat_function(
+            contract, initial_stat, initial_mtime, stat_call_counter
+        )
+        mock_sleep = create_mock_sleep_function(iteration_counter)
 
         with patch.object(Path, "stat", mock_stat):
             with patch.object(time_module, "sleep", mock_sleep):
@@ -839,6 +846,7 @@ class TestWatchAndValidateFunction:
         linter = ContractLinter()
 
         def mock_sleep(seconds):
+            """Immediately raise KeyboardInterrupt to simulate Ctrl+C."""
             raise KeyboardInterrupt
 
         with patch.object(time_module, "sleep", mock_sleep):
@@ -855,34 +863,18 @@ class TestWatchAndValidateFunction:
         contract.write_text(valid_compute_contract_yaml)
 
         linter = ContractLinter()
-        iteration_count = 0
-        stat_call_count = 0
-        original_stat = Path.stat
         initial_stat = contract.stat()
         initial_mtime = initial_stat.st_mtime
 
-        def mock_stat(self, *, follow_symlinks=True):
-            """Mock stat to simulate mtime change deterministically."""
-            nonlocal stat_call_count
-            result = original_stat(self, follow_symlinks=follow_symlinks)
-            stat_call_count += 1
-            # After initial mtime capture, simulate a change for JSON output test
-            if stat_call_count > 2 and self == contract:
+        # Use mutable list containers for counters (allows closure modification)
+        stat_call_counter = [0]
+        iteration_counter = [0]
 
-                class MockStat:
-                    st_mtime = initial_mtime + 1.0
-                    st_mode = initial_stat.st_mode
-                    st_size = initial_stat.st_size
-
-                return MockStat()
-            return result
-
-        def mock_sleep(seconds):
-            nonlocal iteration_count
-            iteration_count += 1
-            if iteration_count >= 3:
-                raise KeyboardInterrupt
-            time_module.sleep(0.01)
+        # Create mock functions using consolidated helpers
+        mock_stat = create_mock_stat_function(
+            contract, initial_stat, initial_mtime, stat_call_counter
+        )
+        mock_sleep = create_mock_sleep_function(iteration_counter)
 
         with patch.object(Path, "stat", mock_stat):
             with patch.object(time_module, "sleep", mock_sleep):

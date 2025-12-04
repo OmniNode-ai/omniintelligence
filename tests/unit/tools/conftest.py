@@ -6,6 +6,7 @@ Provides fixtures for valid and invalid contract YAML content, as well as
 file-based fixtures for testing the ContractLinter class.
 """
 
+import time
 from pathlib import Path
 
 import pytest
@@ -503,3 +504,104 @@ description: FSM with empty states
 states: []
 initial_state: RECEIVED
 """
+
+
+# =============================================================================
+# Test Fixtures - Watch Mode Mock Helpers
+# =============================================================================
+
+# Magic number explanation:
+# WATCH_STAT_CALLS_BEFORE_CHANGE = 2
+#   The watch loop calls stat() multiple times per iteration:
+#   1. First call: capture initial mtime at loop start
+#   2. Second call: check mtime in the file change detection
+#   We simulate a file change after these initial stat() calls to trigger
+#   the re-validation code path.
+#
+# WATCH_ITERATIONS_BEFORE_EXIT = 3
+#   We allow the watch loop to run for 3 iterations before raising
+#   KeyboardInterrupt to simulate Ctrl+C. This gives enough iterations to:
+#   1. Capture initial mtimes
+#   2. Detect a "change" (from mocked stat)
+#   3. Re-validate and output results
+#   Then exit cleanly.
+
+WATCH_STAT_CALLS_BEFORE_CHANGE = 2
+WATCH_ITERATIONS_BEFORE_EXIT = 3
+
+
+def create_mock_stat_function(
+    target_path: Path,
+    initial_stat,
+    initial_mtime: float,
+    stat_call_counter: list[int],
+):
+    """
+    Create a mock stat function that simulates file modification.
+
+    This factory creates a stat() mock that returns the real stat for most calls,
+    but returns a modified mtime after WATCH_STAT_CALLS_BEFORE_CHANGE calls
+    to simulate a file being modified.
+
+    Args:
+        target_path: The Path object to simulate changes for.
+        initial_stat: The original stat result to base mock on.
+        initial_mtime: The original modification time.
+        stat_call_counter: A list with single int element used as mutable counter.
+            Using a list allows the closure to modify the count.
+
+    Returns:
+        A mock stat function compatible with Path.stat().
+    """
+    original_stat = Path.stat
+
+    def mock_stat(self, *, follow_symlinks=True):
+        """Mock stat to simulate mtime change deterministically."""
+        result = original_stat(self, follow_symlinks=follow_symlinks)
+        stat_call_counter[0] += 1
+
+        # After initial mtime capture (first few calls), simulate a file change
+        # by returning a stat with a newer mtime for the target path.
+        if (
+            stat_call_counter[0] > WATCH_STAT_CALLS_BEFORE_CHANGE
+            and self == target_path
+        ):
+
+            class MockStat:
+                """Mock stat result with incremented mtime to simulate file change."""
+
+                st_mtime = initial_mtime + 1.0
+                st_mode = initial_stat.st_mode
+                st_size = initial_stat.st_size
+
+            return MockStat()
+        return result
+
+    return mock_stat
+
+
+def create_mock_sleep_function(iteration_counter: list[int]):
+    """
+    Create a mock sleep function that exits after a fixed number of iterations.
+
+    This factory creates a sleep() mock that counts iterations and raises
+    KeyboardInterrupt after WATCH_ITERATIONS_BEFORE_EXIT iterations to
+    cleanly exit the watch loop.
+
+    Args:
+        iteration_counter: A list with single int element used as mutable counter.
+            Using a list allows the closure to modify the count.
+
+    Returns:
+        A mock sleep function that raises KeyboardInterrupt after N iterations.
+    """
+
+    def mock_sleep(seconds):
+        """Mock sleep that exits watch loop after enough iterations."""
+        iteration_counter[0] += 1
+        if iteration_counter[0] >= WATCH_ITERATIONS_BEFORE_EXIT:
+            raise KeyboardInterrupt
+        # Use a minimal sleep to avoid test slowdown while still yielding
+        time.sleep(0.01)
+
+    return mock_sleep

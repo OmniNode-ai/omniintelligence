@@ -6,6 +6,8 @@ The contract linter is a CLI tool for validating ONEX node contract YAML files a
 
 The contract linter validates four types of ONEX contracts:
 
+> **File Size Limit**: Contract YAML files are limited to 1MB maximum to prevent memory issues during validation. Files exceeding this limit will be rejected with a `file_too_large` error.
+
 1. **Node Contracts** - Primary contracts for ONEX nodes (compute, effect, reducer, orchestrator)
 2. **FSM Subcontracts** - Finite State Machine definitions
 3. **Workflow Coordination Subcontracts** - Workflow orchestration contracts
@@ -87,29 +89,138 @@ Example output:
 
 ### Strict Mode
 
-Enable stricter validation rules:
+Enable stricter validation rules (reserved for future implementation):
 
 ```bash
 uv run python -m omniintelligence.tools.contract_linter contract.yaml --strict
 ```
 
-## Exit Codes
+> **Note**: Strict mode is not yet implemented. Using `--strict` will return an error with exit code 2. When implemented, strict mode will enable additional validation such as: path traversal protection, deprecation warnings as errors, stricter type coercion, and enforcement of optional best-practice fields.
 
-The tool uses standard exit codes for CI/CD integration:
+### Watch Mode
 
-- **0** - All contracts valid
-- **1** - One or more validation errors found
-- **2** - File not found or other file-level errors
-
-Example in CI/CD scripts:
+Automatically re-validate contracts when files change:
 
 ```bash
-if uv run python -m omniintelligence.tools.contract_linter contract.yaml; then
-  echo "Contract validation passed"
-else
-  echo "Contract validation failed"
-  exit 1
-fi
+uv run python -m omniintelligence.tools.contract_linter contract.yaml --watch
+```
+
+Watch mode polls files every 1 second and re-validates when changes are detected. Use `Ctrl+C` to stop watching.
+
+Example output:
+
+```
+Watching for file changes... (Ctrl+C to stop)
+
+[14:32:15] Change detected, re-validating...
+[PASS] contract.yaml
+
+Summary: 1/1 contracts passed
+
+[14:32:45] Change detected, re-validating...
+[FAIL] contract.yaml
+  - version.major: Input should be a valid integer (invalid_type)
+
+Summary: 0/1 contracts passed
+```
+
+Watch mode is useful during contract development to get immediate feedback on changes.
+
+### Parallel Validation
+
+When validating more than 10 contract files, the linter automatically uses parallel validation for improved performance:
+
+- **Threshold**: Parallel validation activates when batch size exceeds 10 files
+- **Workers**: Uses up to `min(file_count, cpu_count)` parallel workers
+- **Thread pool**: Uses `ThreadPoolExecutor` for concurrent file validation
+
+For programmatic usage, parallel validation can be explicitly enabled:
+
+```python
+from omniintelligence.tools.contract_linter import ContractLinter
+
+linter = ContractLinter()
+# Force parallel validation (will use parallel if > 10 files)
+results = linter.validate_batch(file_paths, parallel=True)
+```
+
+## Exit Codes
+
+The tool uses standard Unix exit codes for CI/CD integration:
+
+| Exit Code | Meaning | When Used |
+|-----------|---------|-----------|
+| **0** | Success | All contracts passed validation |
+| **1** | Validation failure | One or more contracts have schema violations (missing fields, invalid values, malformed YAML) |
+| **2** | Input error | File-level issues preventing validation (file not found, permission denied, usage error) |
+
+### Exit Code Decision Logic
+
+The exit code is determined as follows:
+
+1. **Exit 2 (Input Error)**: Returned when ALL files have file-level errors that prevent validation entirely (e.g., file not found, not a file, read permission denied). This indicates a problem with the input, not the contract content.
+
+2. **Exit 1 (Validation Failure)**: Returned when ANY file that could be read fails validation due to schema violations. This includes: missing required fields, invalid field types, malformed YAML syntax, unknown contract types, etc.
+
+3. **Exit 0 (Success)**: Returned only when ALL files pass validation successfully.
+
+### Examples
+
+```bash
+# All valid contracts - exit code 0
+$ contract_linter valid1.yaml valid2.yaml
+[PASS] valid1.yaml
+[PASS] valid2.yaml
+Summary: 2/2 contracts passed
+$ echo $?
+0
+
+# Invalid contract (missing required field) - exit code 1
+$ contract_linter invalid.yaml
+[FAIL] invalid.yaml
+  - name: Field required (missing_field)
+Summary: 0/1 contracts passed
+$ echo $?
+1
+
+# File not found - exit code 2
+$ contract_linter nonexistent.yaml
+[FAIL] nonexistent.yaml
+  - file: File not found: nonexistent.yaml (file_not_found)
+Summary: 0/1 contracts passed
+$ echo $?
+2
+
+# Mix of valid and missing files - exit code 1 (not all are file errors)
+$ contract_linter valid.yaml nonexistent.yaml
+[PASS] valid.yaml
+[FAIL] nonexistent.yaml
+  - file: File not found: nonexistent.yaml (file_not_found)
+Summary: 1/2 contracts passed
+$ echo $?
+1
+```
+
+### CI/CD Integration Pattern
+
+```bash
+#!/bin/bash
+uv run python -m omniintelligence.tools.contract_linter "$@"
+exit_code=$?
+
+case $exit_code in
+  0)
+    echo "Contract validation passed"
+    ;;
+  1)
+    echo "Contract validation failed - schema violations found"
+    exit 1
+    ;;
+  2)
+    echo "Contract validation error - check file paths and permissions"
+    exit 2
+    ;;
+esac
 ```
 
 ## Integration with Pre-commit
@@ -172,6 +283,69 @@ contract-validation:
 
 This ensures all contract files are validated on every pull request and push to main.
 
+## Legacy Contract Handling
+
+Contracts in `_legacy/` directories are **excluded** from validation in both pre-commit hooks and CI/CD pipelines. This allows legacy code to be preserved for migration reference without blocking development.
+
+### Archival Strategy
+
+The `_legacy/` directory naming convention is used to mark code that is:
+
+1. **Preserved for reference** - Original implementations kept for migration guidance
+2. **Not actively maintained** - May not comply with current ONEX schema
+3. **Excluded from validation** - Will not trigger linter errors or block commits/CI
+
+### Directory Structure
+
+```
+src/omniintelligence/
+├── nodes/                           # Active nodes (validated)
+│   └── intelligence_reducer/
+│       └── v1_0_0/
+│           └── contracts/
+│               └── reducer_contract.yaml  # Validated
+├── _legacy/                         # Legacy code (excluded from validation)
+│   └── nodes/
+│       └── intelligence_orchestrator/
+│           └── v1_0_0/
+│               └── contracts/
+│                   └── orchestrator_contract.yaml  # Not validated
+```
+
+### Naming Conventions
+
+| Pattern | Purpose | Validated |
+|---------|---------|-----------|
+| `src/omniintelligence/nodes/*/` | Active production nodes | Yes |
+| `src/omniintelligence/_legacy/*/` | Archived/migration reference | No |
+| `migration_sources/*/` | Original source code reference | No |
+
+### Migration Workflow
+
+When migrating legacy contracts to active nodes:
+
+1. Copy contract from `_legacy/` to `nodes/` directory
+2. Update contract to comply with current ONEX schema
+3. Run contract linter to validate: `uv run python -m omniintelligence.tools.contract_linter path/to/contract.yaml`
+4. Fix any validation errors
+5. Legacy original remains in `_legacy/` for reference
+
+### Exclusion Configuration
+
+**Pre-commit** (`.pre-commit-config.yaml`):
+```yaml
+exclude: |
+  (?x)^(
+    src/omniintelligence/_legacy/.*|
+    migration_sources/.*
+  )$
+```
+
+**CI/CD** searches only in `nodes/` directories, naturally excluding `_legacy/`:
+```bash
+find src/omniintelligence -type d -name "nodes" -exec find {} ... \;
+```
+
 ## Contract Type Detection
 
 The linter automatically detects contract types based on structure:
@@ -212,9 +386,11 @@ The linter categorizes errors for easier debugging:
 | `file_not_found` | Contract file doesn't exist | Path incorrect |
 | `not_a_file` | Path is a directory | Directory provided instead of file |
 | `file_read_error` | Cannot read file | Permission denied |
+| `file_too_large` | File exceeds size limit | File larger than 1MB |
 | `empty_file` | File has no content | Empty or comments-only file |
 | `yaml_parse_error` | Invalid YAML syntax | Malformed YAML |
 | `unknown_contract_type` | Cannot detect contract type | Missing required top-level fields |
+| `unexpected_error` | Unexpected validation error | Internal error during validation |
 
 ## Common Validation Errors
 

@@ -183,27 +183,60 @@ jobs:
         run: uv sync --group dev --group core
 
       - name: Find and validate contracts
+        id: contract-validation
         run: |
-          # Find all main contract files (*_contract.yaml) and FSM files (fsm_*.yaml)
-          # Excludes subcontracts/ and workflows/ directories
-          CONTRACT_FILES=$(find src/omniintelligence/nodes -type f \( -name "*_contract.yaml" -o -name "fsm_*.yaml" \) \
-            ! -path "*/subcontracts/*" \
-            ! -path "*/workflows/*" \
-            | sort)
+          # Record start time
+          START_TIME=$(date +%s)
 
+          # Find all contract files in nodes directories
+          # Searches both current and legacy node locations
+          # Pattern matches: *_contract.yaml (compute, effect, reducer, orchestrator) and fsm_*.yaml
+          # Excludes subcontracts/ and workflows/ directories which contain partial contract fragments
+          CONTRACT_FILES=$(find src/omniintelligence -type d -name "nodes" -exec \
+            find {} -type f \( -name "*_contract.yaml" -o -name "fsm_*.yaml" \) \
+              ! -path "*/subcontracts/*" \
+              ! -path "*/workflows/*" \; 2>/dev/null | sort)
+
+          # Fail fast if no contracts found - prevents silent CI passes
           if [ -z "$CONTRACT_FILES" ]; then
-            echo "No contract files found to validate"
-            exit 0
+            echo "::error::No contract files found! This indicates a path or pattern mismatch."
+            echo "Searched in: src/omniintelligence/**/nodes/"
+            echo "Expected patterns: *_contract.yaml, fsm_*.yaml"
+            exit 1
           fi
 
-          echo "Validating contracts:"
+          # Count contracts for metrics
+          CONTRACT_COUNT=$(echo "$CONTRACT_FILES" | wc -l | tr -d ' ')
+          echo "contract_count=$CONTRACT_COUNT" >> $GITHUB_OUTPUT
+
+          echo "Found $CONTRACT_COUNT contract file(s) to validate:"
           echo "$CONTRACT_FILES"
           echo ""
 
           # Run contract linter on all found files
           echo "Starting contract validation..."
-          time uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES
-          echo "Contract validation complete"
+          VALIDATION_START=$(date +%s)
+
+          if uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES; then
+            VALIDATION_STATUS="success"
+          else
+            VALIDATION_STATUS="failed"
+          fi
+
+          VALIDATION_END=$(date +%s)
+          VALIDATION_DURATION=$((VALIDATION_END - VALIDATION_START))
+          echo "validation_duration=${VALIDATION_DURATION}s" >> $GITHUB_OUTPUT
+
+          END_TIME=$(date +%s)
+          TOTAL_DURATION=$((END_TIME - START_TIME))
+          echo "total_duration=${TOTAL_DURATION}s" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "Contract validation complete in ${VALIDATION_DURATION}s (total step: ${TOTAL_DURATION}s)"
+
+          if [ "$VALIDATION_STATUS" = "failed" ]; then
+            exit 1
+          fi
 
   # Summary job - aggregates all job results
   ci-summary:
@@ -220,24 +253,41 @@ jobs:
           unittest="${{ needs.test-unit.result }}"
           contracts="${{ needs.contract-validation.result }}"
 
+          # Status emoji mapping
+          get_status_icon() {
+            case "$1" in
+              success) echo ":white_check_mark:" ;;
+              failure) echo ":x:" ;;
+              cancelled) echo ":no_entry_sign:" ;;
+              skipped) echo ":fast_forward:" ;;
+              *) echo ":question:" ;;
+            esac
+          }
+
           echo "## CI Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | $lint |" >> $GITHUB_STEP_SUMMARY
-          echo "| Type Check | $typecheck |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | $unittest |" >> $GITHUB_STEP_SUMMARY
-          echo "| Contract Validation | $contracts |" >> $GITHUB_STEP_SUMMARY
 
+          # Results table with status icons
+          echo "| Job | Status | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|:------:|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | $(get_status_icon $lint) | \`$lint\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Type Check | $(get_status_icon $typecheck) | \`$typecheck\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | $(get_status_icon $unittest) | \`$unittest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract Validation | $(get_status_icon $contracts) | \`$contracts\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
           if [[ "$lint" == "success" ]] && \
              [[ "$typecheck" == "success" ]] && \
              [[ "$unittest" == "success" ]] && \
              [[ "$contracts" == "success" ]]; then
-            echo ""
-            echo "All CI checks passed successfully!"
+            echo "### :rocket: All CI checks passed!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Ready for review and merge." >> $GITHUB_STEP_SUMMARY
             exit 0
           else
-            echo ""
-            echo "One or more CI checks failed"
+            echo "### :warning: CI checks failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed jobs above and fix any issues." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

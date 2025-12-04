@@ -14,22 +14,22 @@ packages = [{include = "omniintelligence", from = "src"}]
 python = ">=3.12,<4.0"
 pydantic = "^2.9.0"
 pydantic-settings = "^2.6.0"
-httpx = ">=0.27.0"
-tenacity = "^9.0.0"
+httpx = ">=0.28.1"
+tenacity = ">=8.2.0"
 confluent-kafka = "^2.6.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-pytest-asyncio = "^0.24.0"
-pytest-cov = ">=5.0.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = ">=6.2.1"
 pytest-mock = "^3.12.0"
 pytest-timeout = "^2.3.0"
 pytest-xdist = "^3.5.0"
-ruff = ">=0.7.0"
-mypy = ">=1.13.0"
+ruff = ">=0.12.5"
+mypy = ">=1.17.0"
 black = "^24.10.0"
 isort = "^5.13.0"
-types-pyyaml = "^6.0.12.20250915"
+types-pyyaml = "^6.0.12"
 pre-commit = "^4.5.0"
 
 [tool.poetry.group.core.dependencies]
@@ -158,9 +158,9 @@ all = [
 target-version = "py312"
 line-length = 88
 exclude = [
-    "src/omniintelligence/_legacy/*",
-    "migration_sources/*",
-    "**/__pycache__/**",
+    "src/omniintelligence/_legacy",
+    "migration_sources",
+    "**/__pycache__",
 ]
 
 [tool.ruff.lint]
@@ -185,7 +185,6 @@ ignore = [
     "TRY300",    # Consider else block
     "TRY301",    # Raise within try
     "DTZ005",    # datetime.now() without tz
-    "UP038",     # Use X | Y in isinstance
     "B008",      # Function call in defaults
     "B904",      # raise from
     "ARG001",    # Unused function argument
@@ -248,8 +247,8 @@ mypy_path = "src"
 namespace_packages = true
 explicit_package_bases = true
 exclude = [
-    "src/omniintelligence/_legacy/",
-    "migration_sources/",
+    "src/omniintelligence/_legacy",
+    "migration_sources",
 ]
 
 [tool.pydantic-mypy]
@@ -266,6 +265,16 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
+# Exclude directories - aligned with ruff, isort, and mypy
+norecursedirs = [
+    "src/omniintelligence/_legacy",
+    "migration_sources",
+    "__pycache__",
+    ".git",
+    ".tox",
+    ".eggs",
+    "*.egg-info",
+]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",

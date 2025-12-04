@@ -18,12 +18,24 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Project root detection
+# Project root detection - works from any directory
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = SCRIPT_DIR.parent
 SRC_DIR = PROJECT_ROOT / "src" / "omniintelligence"
 TOOLS_DIR = SRC_DIR / "tools"
-NODES_DIR = SRC_DIR / "nodes"
+
+
+def find_nodes_directories() -> list[Path]:
+    """Find all nodes directories in the project.
+
+    Returns directories named 'nodes' under src/omniintelligence/,
+    including legacy locations like _legacy/nodes/.
+    """
+    nodes_dirs = []
+    for path in SRC_DIR.rglob("nodes"):
+        if path.is_dir():
+            nodes_dirs.append(path)
+    return nodes_dirs
 
 
 @dataclass
@@ -88,17 +100,47 @@ def run_omnibase_validator(
 def run_contract_linter(verbose: bool = False) -> ValidationResult:
     """Run our custom contract linter.
 
+    Discovers contract files in all nodes directories (including _legacy/nodes/).
+    Matches patterns: *_contract.yaml (compute, effect, reducer, orchestrator) and fsm_*.yaml
+
     Returns:
         ValidationResult with pass/fail status
     """
-    contract_files = list(NODES_DIR.glob("*/v*/contracts/*.yaml"))
+    import time
+
+    start_time = time.monotonic()
+
+    # Find all nodes directories
+    nodes_dirs = find_nodes_directories()
+    if not nodes_dirs:
+        return ValidationResult(
+            name="contract_linter",
+            passed=False,
+            blocking=True,
+            message="No nodes directories found in src/omniintelligence/",
+        )
+
+    # Collect contract files from all nodes directories
+    contract_files: list[Path] = []
+    for nodes_dir in nodes_dirs:
+        # Pattern: */v*/contracts/*.yaml (matches versioned node contract directories)
+        for contract_path in nodes_dir.glob("*/v*/contracts/*.yaml"):
+            # Include *_contract.yaml and fsm_*.yaml, exclude subcontracts
+            filename = contract_path.name
+            if filename.endswith("_contract.yaml") or filename.startswith("fsm_"):
+                # Exclude subcontracts and workflows directories
+                if "subcontracts" not in str(contract_path) and "workflows" not in str(contract_path):
+                    contract_files.append(contract_path)
+
+    # Sort for consistent ordering
+    contract_files = sorted(set(contract_files))
 
     if not contract_files:
         return ValidationResult(
             name="contract_linter",
-            passed=True,
-            blocking=False,
-            message="No contract files found",
+            passed=False,
+            blocking=True,
+            message=f"No contract files found in {len(nodes_dirs)} nodes director(y/ies)",
         )
 
     cmd = [
@@ -113,9 +155,10 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
 
     try:
         result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        elapsed = time.monotonic() - start_time
         passed = result.returncode == 0
         message = (
-            f"All {len(contract_files)} contracts validated successfully"
+            f"Validated {len(contract_files)} contracts in {elapsed:.2f}s"
             if passed
             else f"Contract validation failed (exit code: {result.returncode})"
         )
