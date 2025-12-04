@@ -1240,16 +1240,14 @@ class TestLinterConfiguration:
     """Tests for linter configuration options."""
 
     def test_linter_strict_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
-        """Test linter in strict mode requires all type-specific fields."""
-        contract_path = tmp_path / "base.yaml"
-        contract_path.write_text(valid_base_contract_yaml)
+        """Test that strict mode raises NotImplementedError (not yet implemented)."""
+        # Strict mode is reserved for future implementation
+        with pytest.raises(NotImplementedError) as exc_info:
+            ContractLinter(strict=True)
 
-        linter = ContractLinter(strict=True)
-        result = linter.validate(contract_path)
-
-        # In strict mode, compute type should require operations
-        # The base contract doesn't have operations, so may fail in strict mode
-        assert isinstance(result, ContractValidationResult)
+        assert "Strict mode is reserved for future implementation" in str(
+            exc_info.value
+        )
 
     def test_linter_lenient_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
         """Test linter in lenient mode is more permissive."""
