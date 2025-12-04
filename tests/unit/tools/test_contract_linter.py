@@ -1,11 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-TDD unit tests for Contract Linter CLI.
+Unit tests for Contract Linter CLI.
 
 Tests for OMN-241: Contract Linter tool that validates ONEX node contract YAML files
 against the omnibase_core schema.
-
-These tests are written FIRST (TDD) before implementation.
 """
 
 import json
