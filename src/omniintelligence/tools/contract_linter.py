@@ -17,8 +17,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import time as time_module  # Avoid conflict with potential 'time' variable names
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -36,6 +39,8 @@ from omnibase_core.validation.contract_validator import ProtocolContractValidato
 from pydantic import BaseModel, ValidationError
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from pydantic_core import ErrorDetails
 
 # Maximum file size for YAML contracts (1MB default)
@@ -781,24 +786,29 @@ class ContractLinter:
 
     def validate_batch(
         self,
-        file_paths: list[str | Path],
+        file_paths: Sequence[str | Path],
+        parallel: bool = False,
     ) -> list[ContractValidationResult]:
         """
         Validate multiple contract files.
 
         Args:
-            file_paths: List of paths to contract files
+            file_paths: Sequence of paths to contract files
+            parallel: If True and batch size > 10, use parallel validation
 
         Returns:
             List of validation results for each file
         """
-        results: list[ContractValidationResult] = []
-
-        for file_path in file_paths:
-            result = self.validate(file_path)
-            results.append(result)
-
-        return results
+        if parallel and len(file_paths) > 10:
+            max_workers = min(len(file_paths), os.cpu_count() or 4)
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                return list(
+                    executor.map(
+                        self.validate,
+                        [Path(fp) if isinstance(fp, str) else fp for fp in file_paths],
+                    )
+                )
+        return [self.validate(fp) for fp in file_paths]
 
     def get_summary(
         self,
@@ -842,19 +852,21 @@ def validate_contract(file_path: str | Path) -> ContractValidationResult:
 
 
 def validate_contracts_batch(
-    file_paths: list[str | Path],
+    file_paths: Sequence[str | Path],
+    parallel: bool = False,
 ) -> list[ContractValidationResult]:
     """
     Standalone function to validate multiple contract files.
 
     Args:
-        file_paths: List of paths to contract files
+        file_paths: Sequence of paths to contract files
+        parallel: If True and batch size > 10, use parallel validation
 
     Returns:
         List of validation results
     """
     linter = ContractLinter()
-    return linter.validate_batch(file_paths)
+    return linter.validate_batch(file_paths, parallel=parallel)
 
 
 def _format_text_output(
@@ -918,6 +930,58 @@ def _format_json_output(
     )
 
 
+def _watch_and_validate(
+    linter: ContractLinter,
+    file_paths: list[str],
+    json_output: bool,
+    verbose: bool,
+) -> None:
+    """Watch files for changes and re-validate.
+
+    Polls files every 1 second and re-validates when changes are detected.
+    Runs until interrupted with Ctrl+C.
+
+    Args:
+        linter: ContractLinter instance to use for validation
+        file_paths: List of file paths (as strings) to watch
+        json_output: If True, output results as JSON
+        verbose: If True, show detailed error messages in text output
+    """
+    print("Watching for file changes... (Ctrl+C to stop)")
+
+    # Convert to Path objects for file operations
+    paths = [Path(fp) for fp in file_paths]
+
+    # Track last modification times
+    mtimes: dict[Path, float] = {}
+    for fp in paths:
+        if fp.exists():
+            mtimes[fp] = fp.stat().st_mtime
+
+    try:
+        while True:
+            changed = False
+            for fp in paths:
+                if fp.exists():
+                    current_mtime = fp.stat().st_mtime
+                    if fp not in mtimes or mtimes[fp] != current_mtime:
+                        mtimes[fp] = current_mtime
+                        changed = True
+
+            if changed:
+                timestamp = time_module.strftime("%H:%M:%S")
+                print(f"\n[{timestamp}] Change detected, re-validating...")
+                results = linter.validate_batch(file_paths)
+                if json_output:
+                    print(_format_json_output(results))
+                else:
+                    print(_format_text_output(results, verbose=verbose))
+
+            time_module.sleep(1)  # Poll every 1 second
+    except KeyboardInterrupt:
+        print("\nWatch mode stopped.")
+
+
 def main(args: list[str] | None = None) -> int:
     """
     CLI entry point for contract linter.
@@ -961,6 +1025,13 @@ def main(args: list[str] | None = None) -> int:
         help="Enable strict validation mode (reserved for future use, not yet implemented)",
     )
 
+    parser.add_argument(
+        "--watch",
+        "-w",
+        action="store_true",
+        help="Watch for file changes and re-validate automatically",
+    )
+
     parsed_args = parser.parse_args(args)
 
     # No contracts provided
@@ -969,8 +1040,17 @@ def main(args: list[str] | None = None) -> int:
         return 2
 
     try:
-        # Validate contracts
+        # Create linter instance
         linter = ContractLinter(strict=parsed_args.strict)
+
+        # Handle watch mode
+        if parsed_args.watch:
+            _watch_and_validate(
+                linter, parsed_args.contracts, parsed_args.json, parsed_args.verbose
+            )
+            return 0
+
+        # Normal validation mode
         results = linter.validate_batch(parsed_args.contracts)
 
         # Format and print output

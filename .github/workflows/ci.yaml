@@ -201,7 +201,9 @@ jobs:
           echo ""
 
           # Run contract linter on all found files
-          uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES
+          echo "Starting contract validation..."
+          time uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES
+          echo "Contract validation complete"
 
   # Summary job - aggregates all job results
   ci-summary:

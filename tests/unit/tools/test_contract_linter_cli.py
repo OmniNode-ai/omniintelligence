@@ -681,3 +681,191 @@ io_operations:
         assert result.returncode == 1
         # Verbose output should show the field name in error details
         assert "name" in result.stdout.lower() or "field" in result.stdout.lower()
+
+
+# =============================================================================
+# Test Class: CLI Watch Mode
+# =============================================================================
+
+
+class TestCLIWatchMode:
+    """Tests for CLI watch mode functionality."""
+
+    def test_watch_flag_is_recognized(self, tmp_path: Path):
+        """Test that --watch flag is recognized by argument parser."""
+        contract = tmp_path / "test.yaml"
+        contract.write_text("name: test\nnode_type: compute\n")
+
+        # The watch mode runs indefinitely, so we test argument parsing only
+        # by mocking the watch function
+        with patch(
+            "omniintelligence.tools.contract_linter._watch_and_validate"
+        ) as mock_watch:
+            mock_watch.return_value = None
+            exit_code = main([str(contract), "--watch"])
+
+        assert exit_code == 0
+        mock_watch.assert_called_once()
+
+    def test_watch_short_flag_is_recognized(self, tmp_path: Path):
+        """Test that -w short flag is recognized by argument parser."""
+        contract = tmp_path / "test.yaml"
+        contract.write_text("name: test\nnode_type: compute\n")
+
+        with patch(
+            "omniintelligence.tools.contract_linter._watch_and_validate"
+        ) as mock_watch:
+            mock_watch.return_value = None
+            exit_code = main([str(contract), "-w"])
+
+        assert exit_code == 0
+        mock_watch.assert_called_once()
+
+    def test_watch_mode_passes_correct_arguments(
+        self, tmp_path: Path, valid_compute_contract_yaml: str
+    ):
+        """Test that watch mode passes correct arguments to _watch_and_validate."""
+        contract = tmp_path / "valid.yaml"
+        contract.write_text(valid_compute_contract_yaml)
+
+        with patch(
+            "omniintelligence.tools.contract_linter._watch_and_validate"
+        ) as mock_watch:
+            mock_watch.return_value = None
+            main([str(contract), "--watch", "--verbose", "--json"])
+
+        # Verify the arguments passed to _watch_and_validate
+        args, kwargs = mock_watch.call_args
+        assert len(args) == 4
+        # args[0] is linter instance
+        assert args[1] == [str(contract)]  # file_paths
+        assert args[2] is True  # json_output
+        assert args[3] is True  # verbose
+
+    def test_watch_mode_with_multiple_files(
+        self,
+        tmp_path: Path,
+        valid_compute_contract_yaml: str,
+        valid_effect_contract_yaml: str,
+    ):
+        """Test that watch mode accepts multiple files."""
+        contract1 = tmp_path / "contract1.yaml"
+        contract1.write_text(valid_compute_contract_yaml)
+        contract2 = tmp_path / "contract2.yaml"
+        contract2.write_text(valid_effect_contract_yaml)
+
+        with patch(
+            "omniintelligence.tools.contract_linter._watch_and_validate"
+        ) as mock_watch:
+            mock_watch.return_value = None
+            main([str(contract1), str(contract2), "--watch"])
+
+        args, kwargs = mock_watch.call_args
+        assert len(args[1]) == 2
+        assert str(contract1) in args[1]
+        assert str(contract2) in args[1]
+
+
+class TestWatchAndValidateFunction:
+    """Tests for the _watch_and_validate helper function."""
+
+    def test_watch_detects_file_change(
+        self,
+        tmp_path: Path,
+        valid_compute_contract_yaml: str,
+        capsys,
+    ):
+        """Test that watch mode detects file changes and re-validates."""
+        from omniintelligence.tools.contract_linter import (
+            ContractLinter,
+            _watch_and_validate,
+        )
+        import time as time_module
+
+        contract = tmp_path / "watch_test.yaml"
+        contract.write_text(valid_compute_contract_yaml)
+
+        linter = ContractLinter()
+        iteration_count = 0
+
+        # Patch time.sleep to control the loop and exit after first change detection
+        original_sleep = time_module.sleep
+
+        def mock_sleep(seconds):
+            nonlocal iteration_count
+            iteration_count += 1
+
+            if iteration_count == 1:
+                # On first sleep, modify the file to trigger change detection
+                contract.write_text(valid_compute_contract_yaml + "\n# modified")
+            elif iteration_count >= 3:
+                # After a few iterations, raise KeyboardInterrupt to exit
+                raise KeyboardInterrupt
+
+            # Use a very short actual sleep for faster tests
+            original_sleep(0.01)
+
+        with patch.object(time_module, "sleep", mock_sleep):
+            _watch_and_validate(linter, [str(contract)], False, False)
+
+        captured = capsys.readouterr()
+        assert "Watching for file changes" in captured.out
+        assert "Change detected" in captured.out
+        assert "Watch mode stopped" in captured.out
+
+    def test_watch_handles_keyboard_interrupt(
+        self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
+    ):
+        """Test that watch mode exits cleanly on Ctrl+C."""
+        from omniintelligence.tools.contract_linter import (
+            ContractLinter,
+            _watch_and_validate,
+        )
+        import time as time_module
+
+        contract = tmp_path / "watch_test.yaml"
+        contract.write_text(valid_compute_contract_yaml)
+
+        linter = ContractLinter()
+
+        def mock_sleep(seconds):
+            raise KeyboardInterrupt
+
+        with patch.object(time_module, "sleep", mock_sleep):
+            _watch_and_validate(linter, [str(contract)], False, False)
+
+        captured = capsys.readouterr()
+        assert "Watch mode stopped" in captured.out
+
+    def test_watch_with_json_output(
+        self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
+    ):
+        """Test that watch mode outputs JSON when json_output is True."""
+        from omniintelligence.tools.contract_linter import (
+            ContractLinter,
+            _watch_and_validate,
+        )
+        import time as time_module
+
+        contract = tmp_path / "watch_test.yaml"
+        contract.write_text(valid_compute_contract_yaml)
+
+        linter = ContractLinter()
+        iteration_count = 0
+
+        def mock_sleep(seconds):
+            nonlocal iteration_count
+            iteration_count += 1
+
+            if iteration_count == 1:
+                # Trigger a change
+                contract.write_text(valid_compute_contract_yaml + "\n# modified")
+            elif iteration_count >= 2:
+                raise KeyboardInterrupt
+
+        with patch.object(time_module, "sleep", mock_sleep):
+            _watch_and_validate(linter, [str(contract)], True, False)
+
+        captured = capsys.readouterr()
+        # JSON output should contain valid JSON with "valid" key
+        assert '"valid"' in captured.out or '"results"' in captured.out
