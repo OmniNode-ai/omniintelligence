@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
@@ -39,6 +40,11 @@ if TYPE_CHECKING:
 
 # Maximum file size for YAML contracts (1MB default)
 MAX_YAML_SIZE_BYTES = 1024 * 1024  # 1MB
+
+# Regex pattern for valid Python-style field identifiers (lowercase snake_case)
+# Matches: field_name, version, _private, field123
+# Rejects: FieldName (uppercase), "field name" (spaces), 123field (starts with digit)
+FIELD_IDENTIFIER_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
 VALID_NODE_TYPES: frozenset[str] = frozenset(
@@ -499,15 +505,10 @@ class ContractLinter:
             # Parse field from violation message if it starts with a field name pattern
             field_name = "contract"
             if ":" in violation:
-                # Only treat as field name if it looks like an identifier (before first colon)
+                # Only treat as field name if it matches valid identifier pattern
                 potential_field = violation.split(":", 1)[0].strip()
-                # Field names are typically lowercase identifiers without spaces
-                # Reject if starts with uppercase (likely error message) or contains spaces
-                if (
-                    potential_field
-                    and not potential_field[0].isupper()
-                    and " " not in potential_field
-                ):
+                # Use regex to validate field name (lowercase snake_case identifiers)
+                if potential_field and FIELD_IDENTIFIER_PATTERN.match(potential_field):
                     field_name = potential_field
 
             errors.append(
