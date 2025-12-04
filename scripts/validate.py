@@ -100,11 +100,17 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     result = subprocess.run(cmd, capture_output=not verbose)
     passed = result.returncode == 0
 
+    message = (
+        f"Validated {len(contract_files)} contracts"
+        if passed
+        else f"Validation failed for {len(contract_files)} contracts"
+    )
+
     return ValidationResult(
         name="contract_linter",
         passed=passed,
         blocking=True,
-        message=f"Validated {len(contract_files)} contracts",
+        message=message,
     )
 
 

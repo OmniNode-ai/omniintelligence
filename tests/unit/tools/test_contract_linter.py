@@ -14,12 +14,11 @@ from unittest.mock import patch
 
 import pytest
 
-# Import the module we will implement (TDD - these don't exist yet)
-# These imports will fail until the implementation is created
 from omniintelligence.tools.contract_linter import (
     ContractLinter,
     ContractValidationError,
     ContractValidationResult,
+    EnumContractErrorType,
     main,  # CLI entry point
     validate_contract,
     validate_contracts_batch,
@@ -393,7 +392,7 @@ class TestContractValidationResult:
             ContractValidationError(
                 field="name",
                 message="Field required",
-                error_type="missing_field",
+                error_type=EnumContractErrorType.MISSING_FIELD,
             )
         ]
         result = ContractValidationResult(
@@ -438,7 +437,7 @@ class TestContractValidationError:
         error = ContractValidationError(
             field="name",
             message="Field required",
-            error_type="missing_field",
+            error_type=EnumContractErrorType.MISSING_FIELD,
         )
 
         assert error.field == "name"
@@ -450,7 +449,7 @@ class TestContractValidationError:
         error = ContractValidationError(
             field="version.major",
             message="Value must be a positive integer",
-            error_type="invalid_value",
+            error_type=EnumContractErrorType.INVALID_VALUE,
         )
 
         assert error.field == "version.major"
@@ -461,7 +460,7 @@ class TestContractValidationError:
         error = ContractValidationError(
             field="io_operations.0.name",
             message="Field required",
-            error_type="missing_field",
+            error_type=EnumContractErrorType.MISSING_FIELD,
         )
 
         assert error.field == "io_operations.0.name"
@@ -471,7 +470,7 @@ class TestContractValidationError:
         error = ContractValidationError(
             field="node_type",
             message="Invalid value 'invalid_type'",
-            error_type="invalid_enum",
+            error_type=EnumContractErrorType.INVALID_ENUM,
         )
 
         error_dict = error.to_dict()
@@ -486,7 +485,7 @@ class TestContractValidationError:
         error = ContractValidationError(
             field="description",
             message="Field required",
-            error_type="missing_field",
+            error_type=EnumContractErrorType.MISSING_FIELD,
         )
 
         error_str = str(error)
@@ -1101,8 +1100,8 @@ class TestCLIEntryPoint:
         with patch("sys.argv", ["contract_linter"]):
             exit_code = main()
 
-        # Should exit with non-zero (usage error) or show help
-        assert exit_code != 0 or exit_code == 0  # Depends on argparse configuration
+        # Exit code 2 is the standard for missing arguments/usage errors in argparse
+        assert exit_code == 2
 
     def test_cli_json_output_flag(
         self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
@@ -1198,17 +1197,19 @@ class TestRealContractFiles:
     @pytest.fixture
     def real_compute_contract_path(self) -> Path:
         """Path to real compute contract in codebase."""
-        return Path(
-            "/Users/jonah/Code/omniintelligence/src/omniintelligence/nodes/"
-            "entity_extraction_compute/v1_0_0/contracts/compute_contract.yaml"
+        # Use relative path from project root (test file is at tests/unit/tools/)
+        return (
+            Path(__file__).parent.parent.parent.parent
+            / "src/omniintelligence/nodes/entity_extraction_compute/v1_0_0/contracts/compute_contract.yaml"
         )
 
     @pytest.fixture
     def real_effect_contract_path(self) -> Path:
         """Path to real effect contract in codebase."""
-        return Path(
-            "/Users/jonah/Code/omniintelligence/src/omniintelligence/nodes/"
-            "kafka_event_effect/v1_0_0/contracts/effect_contract.yaml"
+        # Use relative path from project root (test file is at tests/unit/tools/)
+        return (
+            Path(__file__).parent.parent.parent.parent
+            / "src/omniintelligence/nodes/kafka_event_effect/v1_0_0/contracts/effect_contract.yaml"
         )
 
     def test_validate_real_compute_contract(self, real_compute_contract_path: Path):
@@ -1543,9 +1544,10 @@ initial_state: RECEIVED
 
     def test_validate_real_fsm_subcontract(self):
         """Test validation against real FSM subcontract in codebase."""
-        fsm_path = Path(
-            "/Users/jonah/Code/omniintelligence/src/omniintelligence/nodes/"
-            "intelligence_reducer/v1_0_0/contracts/fsm_ingestion.yaml"
+        # Use relative path from project root (test file is at tests/unit/tools/)
+        fsm_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "src/omniintelligence/nodes/intelligence_reducer/v1_0_0/contracts/fsm_ingestion.yaml"
         )
         if not fsm_path.exists():
             pytest.skip("Real FSM subcontract file not found")

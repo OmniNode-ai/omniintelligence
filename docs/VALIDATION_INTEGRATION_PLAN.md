@@ -237,9 +237,11 @@ def main():
 
     # Run our custom contract linter
     print("\n▶ Running omniintelligence contract linter...")
+    # Convert glob generator to list of strings for subprocess
+    contract_files = [str(p) for p in Path("src/omniintelligence/nodes").glob("*/v1_0_0/contracts/*.yaml")]
     linter_result = subprocess.run([
         "python", "-m", "omniintelligence.tools.contract_linter"
-    ] + list(Path("src/omniintelligence/nodes").glob("*/v1_0_0/contracts/*.yaml")))
+    ] + contract_files)
     results["contract_linter"] = linter_result.returncode == 0
 
     # Summary

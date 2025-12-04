@@ -19,6 +19,7 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,27 @@ VALID_NODE_TYPES: frozenset[str] = frozenset(
 )
 
 
+class EnumContractErrorType(str, Enum):
+    """
+    Enumeration of contract validation error types.
+
+    Values are string-based for easy serialization and compatibility with
+    existing error handling code.
+    """
+
+    MISSING_FIELD = "missing_field"
+    INVALID_VALUE = "invalid_value"
+    INVALID_TYPE = "invalid_type"
+    INVALID_ENUM = "invalid_enum"
+    VALIDATION_ERROR = "validation_error"
+    FILE_NOT_FOUND = "file_not_found"
+    NOT_A_FILE = "not_a_file"
+    FILE_READ_ERROR = "file_read_error"
+    EMPTY_FILE = "empty_file"
+    YAML_PARSE_ERROR = "yaml_parse_error"
+    UNKNOWN_CONTRACT_TYPE = "unknown_contract_type"
+
+
 @dataclass
 class ContractValidationError:
     """
@@ -52,14 +74,14 @@ class ContractValidationError:
 
     field: str
     message: str
-    error_type: str
+    error_type: EnumContractErrorType
 
     def to_dict(self) -> dict[str, str]:
         """Convert error to dictionary representation."""
         return {
             "field": self.field,
             "message": self.message,
-            "error_type": self.error_type,
+            "error_type": self.error_type.value,
         }
 
     def __str__(self) -> str:
@@ -95,7 +117,10 @@ class ContractValidationResult:
 
 
 def _pydantic_error_to_contract_error(
-    error: dict[str, Any] | Any,  # ErrorDetails from pydantic_core is a TypedDict
+    error: Any,
+    # Accepts pydantic_core.ErrorDetails (TypedDict) from ValidationError.errors().
+    # Type is Any since dict[str, Any] | Any is redundant - the Any in the union
+    # makes the entire union equivalent to just Any.
 ) -> ContractValidationError:
     """
     Convert a Pydantic validation error to ContractValidationError.
@@ -113,19 +138,19 @@ def _pydantic_error_to_contract_error(
     # Map Pydantic error types to our error categories
     error_type = error.get("type", "validation_error")
     error_type_map = {
-        "missing": "missing_field",
-        "value_error": "invalid_value",
-        "type_error": "invalid_type",
-        "string_type": "invalid_type",
-        "int_type": "invalid_type",
-        "model_type": "invalid_type",
-        "enum": "invalid_enum",
-        "too_short": "invalid_value",
-        "too_long": "invalid_value",
-        "literal_error": "invalid_enum",
+        "missing": EnumContractErrorType.MISSING_FIELD,
+        "value_error": EnumContractErrorType.INVALID_VALUE,
+        "type_error": EnumContractErrorType.INVALID_TYPE,
+        "string_type": EnumContractErrorType.INVALID_TYPE,
+        "int_type": EnumContractErrorType.INVALID_TYPE,
+        "model_type": EnumContractErrorType.INVALID_TYPE,
+        "enum": EnumContractErrorType.INVALID_ENUM,
+        "too_short": EnumContractErrorType.INVALID_VALUE,
+        "too_long": EnumContractErrorType.INVALID_VALUE,
+        "literal_error": EnumContractErrorType.INVALID_ENUM,
     }
 
-    mapped_type = error_type_map.get(error_type, "validation_error")
+    mapped_type = error_type_map.get(error_type, EnumContractErrorType.VALIDATION_ERROR)
 
     return ContractValidationError(
         field=field_path,
@@ -253,7 +278,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="contract",
                     message=str(e),
-                    error_type="validation_error",
+                    error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             ]
             return ContractValidationResult(
@@ -328,7 +353,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="node_type",
                     message="Missing required field: node_type",
-                    error_type="missing_field",
+                    error_type=EnumContractErrorType.MISSING_FIELD,
                 )
             )
             return ContractValidationResult(
@@ -347,7 +372,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="node_type",
                     message=f"Invalid node_type: '{node_type}'. Must be one of: {valid_types}",
-                    error_type="invalid_enum",
+                    error_type=EnumContractErrorType.INVALID_ENUM,
                 )
             )
             return ContractValidationResult(
@@ -375,7 +400,7 @@ class ContractLinter:
                 ContractValidationError(
                     field=field_name,
                     message=violation,
-                    error_type="validation_error",
+                    error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             )
 
@@ -415,7 +440,7 @@ class ContractLinter:
                     ContractValidationError(
                         field=field_name,
                         message=f"Missing required field: {field_name}",
-                        error_type="missing_field",
+                        error_type=EnumContractErrorType.MISSING_FIELD,
                     )
                 )
 
@@ -427,7 +452,7 @@ class ContractLinter:
                     ContractValidationError(
                         field="operations",
                         message="Operations must be a list or dict",
-                        error_type="invalid_type",
+                        error_type=EnumContractErrorType.INVALID_TYPE,
                     )
                 )
 
@@ -457,7 +482,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="file",
                     message=f"File not found: {path}",
-                    error_type="file_not_found",
+                    error_type=EnumContractErrorType.FILE_NOT_FOUND,
                 )
             )
             return ContractValidationResult(
@@ -473,7 +498,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="file",
                     message=f"Path is a directory, not a file: {path}",
-                    error_type="not_a_file",
+                    error_type=EnumContractErrorType.NOT_A_FILE,
                 )
             )
             return ContractValidationResult(
@@ -491,7 +516,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="file",
                     message=f"Error reading file: {e}",
-                    error_type="file_read_error",
+                    error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
             return ContractValidationResult(
@@ -507,7 +532,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="file",
                     message="File is empty",
-                    error_type="empty_file",
+                    error_type=EnumContractErrorType.EMPTY_FILE,
                 )
             )
             return ContractValidationResult(
@@ -525,7 +550,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="yaml",
                     message=f"Invalid YAML syntax: {e}",
-                    error_type="yaml_parse_error",
+                    error_type=EnumContractErrorType.YAML_PARSE_ERROR,
                 )
             )
             return ContractValidationResult(
@@ -541,7 +566,7 @@ class ContractLinter:
                 ContractValidationError(
                     field="file",
                     message="File contains no YAML content (only comments or empty)",
-                    error_type="empty_file",
+                    error_type=EnumContractErrorType.EMPTY_FILE,
                 )
             )
             return ContractValidationResult(
@@ -573,7 +598,7 @@ class ContractLinter:
                         "(with state_machine_name/states), workflow (with workflow_type), "
                         "or subcontract (with operations)"
                     ),
-                    error_type="unknown_contract_type",
+                    error_type=EnumContractErrorType.UNKNOWN_CONTRACT_TYPE,
                 )
             )
             return ContractValidationResult(
@@ -788,7 +813,12 @@ def main(args: list[str] | None = None) -> int:
     # Check for file errors (file not found, etc.)
     has_file_errors = any(
         any(
-            e.error_type in ("file_not_found", "not_a_file", "file_read_error")
+            e.error_type
+            in (
+                EnumContractErrorType.FILE_NOT_FOUND,
+                EnumContractErrorType.NOT_A_FILE,
+                EnumContractErrorType.FILE_READ_ERROR,
+            )
             for e in r.errors
         )
         for r in results
