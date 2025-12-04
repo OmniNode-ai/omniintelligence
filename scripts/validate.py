@@ -5,9 +5,9 @@ This script runs the ONEX validation suite from omnibase_core plus
 our custom contract linter to ensure code quality standards.
 
 Usage:
-    poetry run python scripts/validate.py
-    poetry run python scripts/validate.py --strict
-    poetry run python scripts/validate.py --verbose
+    uv run python scripts/validate.py
+    uv run python scripts/validate.py --strict
+    uv run python scripts/validate.py --verbose
 """
 
 from __future__ import annotations
@@ -17,6 +17,13 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+# Project root detection
+SCRIPT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = SCRIPT_DIR.parent
+SRC_DIR = PROJECT_ROOT / "src" / "omniintelligence"
+TOOLS_DIR = SRC_DIR / "tools"
+NODES_DIR = SRC_DIR / "nodes"
 
 
 @dataclass
@@ -31,7 +38,7 @@ class ValidationResult:
 
 def run_omnibase_validator(
     validator: str,
-    directory: str = "src/omniintelligence",
+    directory: Path | None = None,
     strict: bool = False,
     verbose: bool = False,
 ) -> ValidationResult:
@@ -39,19 +46,22 @@ def run_omnibase_validator(
 
     Args:
         validator: Name of the validator (architecture, union-usage, contracts, patterns)
-        directory: Directory to validate
+        directory: Directory to validate (defaults to project SRC_DIR)
         strict: If True, don't use --exit-zero
         verbose: If True, add --verbose flag
 
     Returns:
         ValidationResult with pass/fail status
     """
+    if directory is None:
+        directory = SRC_DIR
+
     cmd = [
         sys.executable,
         "-m",
         "omnibase_core.validation.cli",
         validator,
-        directory,
+        str(directory),
     ]
 
     if not strict:
@@ -81,8 +91,7 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     Returns:
         ValidationResult with pass/fail status
     """
-    contracts_dir = Path("src/omniintelligence/nodes")
-    contract_files = list(contracts_dir.glob("*/v1_0_0/contracts/*.yaml"))
+    contract_files = list(NODES_DIR.glob("*/v1_0_0/contracts/*.yaml"))
 
     if not contract_files:
         return ValidationResult(
@@ -106,9 +115,9 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
         result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
         passed = result.returncode == 0
         message = (
-            f"Validated {len(contract_files)} contracts"
+            f"All {len(contract_files)} contracts validated successfully"
             if passed
-            else f"Validation failed for {len(contract_files)} contracts"
+            else f"Contract validation failed (exit code: {result.returncode})"
         )
     except subprocess.TimeoutExpired:
         passed = False
@@ -132,7 +141,7 @@ def run_mypy(verbose: bool = False) -> ValidationResult:
         sys.executable,
         "-m",
         "mypy",
-        "src/omniintelligence/tools",
+        str(TOOLS_DIR),
         "--strict",
     ]
 
@@ -160,7 +169,7 @@ def run_ruff(verbose: bool = False) -> ValidationResult:
     """
     # Only check new code (tools), nodes are legacy and will be refactored
     paths_to_check = [
-        "src/omniintelligence/tools",
+        str(TOOLS_DIR),
     ]
 
     cmd = [
