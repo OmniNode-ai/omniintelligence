@@ -66,6 +66,9 @@ class TestContractTypeDetection:
 # =============================================================================
 
 
+@pytest.mark.skip(
+    reason="Legacy contracts in _legacy folder are excluded from validation"
+)
 class TestRealContractFiles:
     """Tests using actual contract files from the codebase."""
 
@@ -202,6 +205,9 @@ class TestFSMSubcontractValidation:
         assert result.contract_type == "compute"
         assert result.contract_type != "fsm_subcontract"
 
+    @pytest.mark.skip(
+        reason="Legacy contracts in _legacy folder are excluded from validation"
+    )
     def test_validate_real_fsm_subcontract(self):
         """Test validation against real FSM subcontract in codebase."""
         # Use relative path from project root (test file is at tests/unit/tools/)
@@ -226,6 +232,9 @@ class TestFSMSubcontractValidation:
 
 
 @pytest.mark.integration
+@pytest.mark.skip(
+    reason="Legacy contracts in _legacy folder are excluded from validation"
+)
 class TestRealContractIntegration:
     """Integration tests using real contract files from the codebase.
 

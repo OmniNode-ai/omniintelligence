@@ -703,7 +703,7 @@ class TestCLIWatchMode:
     def test_watch_flag_is_recognized(self, tmp_path: Path):
         """Test that --watch flag is recognized by argument parser."""
         contract = tmp_path / "test.yaml"
-        contract.write_text("name: test\nnode_type: compute\n")
+        contract.write_text("name: test\nnode_type: COMPUTE\n")
 
         # The watch mode runs indefinitely, so we test argument parsing only
         # by mocking the watch function
@@ -719,7 +719,7 @@ class TestCLIWatchMode:
     def test_watch_short_flag_is_recognized(self, tmp_path: Path):
         """Test that -w short flag is recognized by argument parser."""
         contract = tmp_path / "test.yaml"
-        contract.write_text("name: test\nnode_type: compute\n")
+        contract.write_text("name: test\nnode_type: COMPUTE\n")
 
         with patch(
             "omniintelligence.tools.contract_linter._watch_and_validate"
