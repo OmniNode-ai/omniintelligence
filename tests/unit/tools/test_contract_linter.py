@@ -805,9 +805,7 @@ class TestContractLinterBatchValidation:
         assert len(results) == 2
         assert all(r.valid for r in results)
 
-    def test_validate_batch_mixed_results(
-        self, multiple_contract_files: list[Path]
-    ):
+    def test_validate_batch_mixed_results(self, multiple_contract_files: list[Path]):
         """Test batch validation with mix of valid and invalid contracts."""
         linter = ContractLinter()
         results = linter.validate_batch(multiple_contract_files)
@@ -981,9 +979,7 @@ node_type: compute
         # name, description, input_model, output_model, algorithm
         assert len(result.errors) >= 2
 
-    def test_error_output_as_json(
-        self, tmp_path: Path, invalid_missing_name_yaml: str
-    ):
+    def test_error_output_as_json(self, tmp_path: Path, invalid_missing_name_yaml: str):
         """Test that errors can be serialized to JSON."""
         contract_path = tmp_path / "invalid.yaml"
         contract_path.write_text(invalid_missing_name_yaml)
@@ -1245,9 +1241,7 @@ class TestRealContractFiles:
 class TestLinterConfiguration:
     """Tests for linter configuration options."""
 
-    def test_linter_strict_mode(
-        self, tmp_path: Path, valid_base_contract_yaml: str
-    ):
+    def test_linter_strict_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
         """Test linter in strict mode requires all type-specific fields."""
         contract_path = tmp_path / "base.yaml"
         contract_path.write_text(valid_base_contract_yaml)
@@ -1259,9 +1253,7 @@ class TestLinterConfiguration:
         # The base contract doesn't have operations, so may fail in strict mode
         assert isinstance(result, ContractValidationResult)
 
-    def test_linter_lenient_mode(
-        self, tmp_path: Path, valid_base_contract_yaml: str
-    ):
+    def test_linter_lenient_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
         """Test linter in lenient mode is more permissive."""
         contract_path = tmp_path / "base.yaml"
         contract_path.write_text(valid_base_contract_yaml)
@@ -1525,10 +1517,7 @@ initial_state: RECEIVED
         assert result.contract_type == "fsm_subcontract"
         # Empty states triggers min_length validation - error message may say
         # "empty", "at least 1", "min_length", or similar
-        assert any(
-            "states" in e.field
-            for e in result.errors
-        )
+        assert any("states" in e.field for e in result.errors)
 
     def test_fsm_detection_does_not_affect_node_contracts(
         self, tmp_path: Path, valid_compute_contract_yaml: str
