@@ -25,6 +25,7 @@ from omniintelligence.tools.contract_linter import (
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestCLIEntryPoint:
     """Tests for CLI entry point and exit codes."""
 
@@ -165,6 +166,7 @@ class TestCLIEntryPoint:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestCLIExitCodes:
     """Tests for CLI exit code behavior using direct main() calls.
 
@@ -376,6 +378,7 @@ class TestCLIExitCodes:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestCLIExitCodesSubprocess:
     """Tests for CLI exit codes using subprocess to test actual CLI invocation.
 
@@ -693,6 +696,7 @@ io_operations:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestCLIWatchMode:
     """Tests for CLI watch mode functionality."""
 
@@ -771,6 +775,7 @@ class TestCLIWatchMode:
         assert str(contract2) in args[1]
 
 
+@pytest.mark.unit
 class TestWatchAndValidateFunction:
     """Tests for the _watch_and_validate helper function."""
 
