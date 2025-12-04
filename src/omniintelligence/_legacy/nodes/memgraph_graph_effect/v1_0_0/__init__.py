@@ -17,7 +17,7 @@ Exports:
     - ModelMemgraphGraphConfig: Configuration model
 """
 
-from omniintelligence.nodes.memgraph_graph_effect.v1_0_0.effect import (
+from omniintelligence._legacy.nodes.memgraph_graph_effect.v1_0_0.effect import (
     ModelMemgraphGraphConfig,
     ModelMemgraphGraphInput,
     ModelMemgraphGraphOutput,

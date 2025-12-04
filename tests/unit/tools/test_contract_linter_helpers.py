@@ -359,3 +359,39 @@ class TestFieldIdentifierPattern:
         # These look like error messages, not field names
         assert FIELD_IDENTIFIER_PATTERN.match("Invalid node_type") is None
         assert FIELD_IDENTIFIER_PATTERN.match("Missing required") is None
+
+    def test_violation_messages_with_embedded_colons(self):
+        """Test that messages with colons in the value don't cause mis-parsing.
+
+        When violation messages contain colons (e.g., "Invalid value: expected format X:Y"),
+        we should NOT incorrectly parse "Invalid value" as a field name. The regex
+        only matches lowercase snake_case identifiers, rejecting uppercase-starting text.
+        """
+        # Simulate parsing messages with embedded colons
+        test_messages = [
+            "Invalid value: expected format X:Y",
+            "Error: failed to parse",
+            "Validation failed: expected type int, got str",
+            "Type mismatch: expected List[str]:Optional[int]",
+        ]
+
+        for message in test_messages:
+            # This simulates the parsing logic in _validate_node_contract
+            potential_field = message.split(":", 1)[0].strip()
+            # All these should fail the pattern match because they start with uppercase
+            assert FIELD_IDENTIFIER_PATTERN.match(potential_field) is None, (
+                f"'{potential_field}' should not match FIELD_IDENTIFIER_PATTERN"
+            )
+
+    def test_valid_field_name_with_colon_message(self):
+        """Test that valid field names followed by messages with colons are parsed correctly.
+
+        Messages like "node_type: Invalid value: must be one of X:Y:Z" should extract
+        'node_type' as the field name.
+        """
+        message = "node_type: Invalid value: must be one of compute:effect:reducer"
+        potential_field = message.split(":", 1)[0].strip()
+
+        # Should match because 'node_type' is a valid snake_case identifier
+        assert FIELD_IDENTIFIER_PATTERN.match(potential_field) is not None
+        assert potential_field == "node_type"

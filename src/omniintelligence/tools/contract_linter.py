@@ -296,24 +296,48 @@ class ContractLinter:
 
         Args:
             strict: Reserved for future strict validation mode. Not yet implemented.
+                When implemented, strict mode will enable additional validation checks
+                such as: deprecation warnings treated as errors, stricter type coercion
+                rules, path traversal protection (via `_is_safe_path`), and enforcement
+                of optional best-practice fields.
             schema_version: Reserved for future schema version selection. Not yet
-                implemented.
+                implemented. Will allow validating contracts against different schema
+                versions for backward compatibility. Currently only "1.0.0" is supported.
 
         Raises:
             NotImplementedError: If strict=True is passed (not yet implemented).
             NotImplementedError: If schema_version other than "1.0.0" is passed
                 (not yet supported).
+
+        Note:
+            The `strict` and `schema_version` parameters are stored as instance
+            attributes (`_strict` and `_schema_version`) but are not currently used
+            in validation logic. They exist to establish the API surface for future
+            enhancements without breaking backward compatibility.
         """
+        # TODO(OMN-241): Implement strict validation mode
+        # Planned features for strict=True:
+        # - Enable path traversal protection using _is_safe_path()
+        # - Treat deprecation warnings as validation errors
+        # - Enforce stricter type coercion (e.g., reject string "true" for bool)
+        # - Require optional best-practice fields (e.g., description, examples)
         if strict:
             raise NotImplementedError(
                 "Strict mode is reserved for future implementation. "
                 "Currently only default validation is supported."
             )
+
+        # TODO(OMN-241): Implement schema version selection
+        # Planned features for schema_version:
+        # - Support multiple schema versions (1.0.0, 1.1.0, 2.0.0, etc.)
+        # - Enable backward-compatible validation for older contracts
+        # - Provide migration hints when validating old schemas
         if schema_version != "1.0.0":
             raise NotImplementedError(
                 f"Schema version '{schema_version}' is not yet supported. "
                 "Currently only '1.0.0' is available."
             )
+
         self._strict = strict
         self._schema_version = schema_version
 

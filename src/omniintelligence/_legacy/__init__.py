@@ -12,6 +12,14 @@ This code will be incrementally replaced as part of the migration phases.
 
 import warnings
 
+# To suppress this warning during active migration, add to your code:
+#   import warnings
+#   warnings.filterwarnings(
+#       'ignore',
+#       category=DeprecationWarning,
+#       module='omniintelligence._legacy'
+#   )
+
 warnings.warn(
     "omniintelligence._legacy is deprecated. "
     "Code here is pending refactoring and should not be used directly.",
