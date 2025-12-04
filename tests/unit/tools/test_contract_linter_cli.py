@@ -8,12 +8,17 @@ verbose output, and subprocess invocation.
 
 import json
 import subprocess
+import time as time_module
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from omniintelligence.tools.contract_linter import main
+from omniintelligence.tools.contract_linter import (
+    ContractLinter,
+    _watch_and_validate,
+    main,
+)
 
 # =============================================================================
 # Test Class: CLI Entry Point
@@ -776,13 +781,6 @@ class TestWatchAndValidateFunction:
         capsys,
     ):
         """Test that watch mode detects file changes and re-validates."""
-        import time as time_module
-
-        from omniintelligence.tools.contract_linter import (
-            ContractLinter,
-            _watch_and_validate,
-        )
-
         contract = tmp_path / "watch_test.yaml"
         contract.write_text(valid_compute_contract_yaml)
 
@@ -827,13 +825,6 @@ class TestWatchAndValidateFunction:
         self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
     ):
         """Test that watch mode exits cleanly on Ctrl+C."""
-        import time as time_module
-
-        from omniintelligence.tools.contract_linter import (
-            ContractLinter,
-            _watch_and_validate,
-        )
-
         contract = tmp_path / "watch_test.yaml"
         contract.write_text(valid_compute_contract_yaml)
 
@@ -852,13 +843,6 @@ class TestWatchAndValidateFunction:
         self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
     ):
         """Test that watch mode outputs JSON when json_output is True."""
-        import time as time_module
-
-        from omniintelligence.tools.contract_linter import (
-            ContractLinter,
-            _watch_and_validate,
-        )
-
         contract = tmp_path / "watch_test.yaml"
         contract.write_text(valid_compute_contract_yaml)
 
