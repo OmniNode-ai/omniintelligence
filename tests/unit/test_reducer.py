@@ -179,10 +179,14 @@ async def test_process_returns_error_for_unknown_fsm_type(reducer):
 
 
 @pytest.mark.asyncio
-async def test_process_returns_error_for_general_exception(reducer, sample_reducer_input):
+async def test_process_returns_error_for_general_exception(
+    reducer, sample_reducer_input
+):
     """Test process() returns error for general exceptions."""
     # Mock _get_fsm_contract to raise general exception
-    with patch.object(reducer, "_get_fsm_contract", side_effect=Exception("Test error")):
+    with patch.object(
+        reducer, "_get_fsm_contract", side_effect=Exception("Test error")
+    ):
         result = await reducer.process(sample_reducer_input)
 
     assert result.success is False
@@ -191,7 +195,9 @@ async def test_process_returns_error_for_general_exception(reducer, sample_reduc
 
 
 @pytest.mark.asyncio
-async def test_process_routes_to_execute_transition(reducer, sample_reducer_input, mock_db_pool, mock_db_connection):
+async def test_process_routes_to_execute_transition(
+    reducer, sample_reducer_input, mock_db_pool, mock_db_connection
+):
     """Test process() routes to _execute_transition correctly."""
     reducer._db_pool = mock_db_pool
 
@@ -203,7 +209,9 @@ async def test_process_routes_to_execute_transition(reducer, sample_reducer_inpu
         intents=[],
     )
 
-    with patch.object(reducer, "_execute_transition", new_callable=AsyncMock) as mock_exec:
+    with patch.object(
+        reducer, "_execute_transition", new_callable=AsyncMock
+    ) as mock_exec:
         mock_exec.return_value = expected_output
         result = await reducer.process(sample_reducer_input)
 
@@ -217,7 +225,9 @@ async def test_process_routes_to_execute_transition(reducer, sample_reducer_inpu
 
 
 @pytest.mark.asyncio
-async def test_execute_transition_returns_error_when_pool_not_initialized(reducer, sample_reducer_input):
+async def test_execute_transition_returns_error_when_pool_not_initialized(
+    reducer, sample_reducer_input
+):
     """Test _execute_transition returns error when database pool not initialized."""
     reducer._db_pool = None
 
@@ -230,12 +240,16 @@ async def test_execute_transition_returns_error_when_pool_not_initialized(reduce
 
 
 @pytest.mark.asyncio
-async def test_execute_transition_invalid_transition(reducer, mock_db_pool, mock_db_connection):
+async def test_execute_transition_invalid_transition(
+    reducer, mock_db_pool, mock_db_connection
+):
     """Test _execute_transition returns error for invalid transition."""
     reducer._db_pool = mock_db_pool
 
     # Setup mock connection
-    mock_db_pool.acquire = MagicMock(return_value=AsyncContextManager(mock_db_connection))
+    mock_db_pool.acquire = MagicMock(
+        return_value=AsyncContextManager(mock_db_connection)
+    )
 
     # Return a state where START_PROCESSING is invalid
     mock_db_connection.fetchrow.return_value = {
@@ -269,7 +283,9 @@ async def test_execute_transition_successful(reducer, mock_db_pool, mock_db_conn
     reducer._db_pool = mock_db_pool
 
     # Setup mock connection
-    mock_db_pool.acquire = MagicMock(return_value=AsyncContextManager(mock_db_connection))
+    mock_db_pool.acquire = MagicMock(
+        return_value=AsyncContextManager(mock_db_connection)
+    )
 
     # Return RECEIVED state
     mock_db_connection.fetchrow.return_value = {
@@ -309,12 +325,16 @@ async def test_execute_transition_successful(reducer, mock_db_pool, mock_db_conn
 
 
 @pytest.mark.asyncio
-async def test_execute_transition_invalid_lease(reducer_with_lease, mock_db_pool, mock_db_connection):
+async def test_execute_transition_invalid_lease(
+    reducer_with_lease, mock_db_pool, mock_db_connection
+):
     """Test _execute_transition returns error for invalid lease."""
     reducer_with_lease._db_pool = mock_db_pool
 
     # Setup mock connection
-    mock_db_pool.acquire = MagicMock(return_value=AsyncContextManager(mock_db_connection))
+    mock_db_pool.acquire = MagicMock(
+        return_value=AsyncContextManager(mock_db_connection)
+    )
 
     # Return state with current_state
     mock_db_connection.fetchrow.side_effect = [
@@ -796,7 +816,9 @@ def test_generate_intents_processing_state(reducer):
     )
 
     assert len(intents) > 0
-    workflow_intents = [i for i in intents if i.intent_type == EnumIntentType.WORKFLOW_TRIGGER]
+    workflow_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.WORKFLOW_TRIGGER
+    ]
     assert len(workflow_intents) == 1
     assert workflow_intents[0].target == "intelligence_orchestrator"
 
@@ -813,7 +835,9 @@ def test_generate_intents_assessing_state(reducer):
     )
 
     assert len(intents) > 0
-    workflow_intents = [i for i in intents if i.intent_type == EnumIntentType.WORKFLOW_TRIGGER]
+    workflow_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.WORKFLOW_TRIGGER
+    ]
     assert len(workflow_intents) == 1
 
 
@@ -829,7 +853,9 @@ def test_generate_intents_matching_state(reducer):
     )
 
     assert len(intents) > 0
-    workflow_intents = [i for i in intents if i.intent_type == EnumIntentType.WORKFLOW_TRIGGER]
+    workflow_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.WORKFLOW_TRIGGER
+    ]
     assert len(workflow_intents) == 1
 
 
@@ -845,7 +871,9 @@ def test_generate_intents_indexed_completion(reducer):
     )
 
     # Should have event publish intent for completion
-    event_intents = [i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH]
+    event_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH
+    ]
     assert len(event_intents) == 1
     assert event_intents[0].target == "kafka_event_effect"
     assert "completed" in event_intents[0].payload["topic"]
@@ -862,7 +890,9 @@ def test_generate_intents_completed_state(reducer):
         payload={},
     )
 
-    event_intents = [i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH]
+    event_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH
+    ]
     assert len(event_intents) == 1
     assert "completed" in event_intents[0].payload["topic"]
 
@@ -878,7 +908,9 @@ def test_generate_intents_stored_state(reducer):
         payload={},
     )
 
-    event_intents = [i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH]
+    event_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH
+    ]
     assert len(event_intents) == 1
     assert "completed" in event_intents[0].payload["topic"]
 
@@ -894,7 +926,9 @@ def test_generate_intents_failed_state(reducer):
         payload={"error": "Processing failed"},
     )
 
-    event_intents = [i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH]
+    event_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH
+    ]
     assert len(event_intents) == 1
     assert "failed" in event_intents[0].payload["topic"]
     assert event_intents[0].payload["event_type"] == "FSM_FAILED"
@@ -928,7 +962,9 @@ def test_generate_intents_payload_included(reducer):
         payload=payload,
     )
 
-    event_intents = [i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH]
+    event_intents = [
+        i for i in intents if i.intent_type == EnumIntentType.EVENT_PUBLISH
+    ]
     assert len(event_intents) == 1
 
     event_payload = event_intents[0].payload["payload"]
@@ -977,7 +1013,9 @@ def test_get_fsm_contract_raises_for_unknown(reducer):
 async def test_full_process_flow_ingestion(reducer, mock_db_pool, mock_db_connection):
     """Test full process flow for ingestion FSM."""
     reducer._db_pool = mock_db_pool
-    mock_db_pool.acquire = MagicMock(return_value=AsyncContextManager(mock_db_connection))
+    mock_db_pool.acquire = MagicMock(
+        return_value=AsyncContextManager(mock_db_connection)
+    )
 
     # Setup mock to return RECEIVED state
     mock_db_connection.fetchrow.return_value = {
@@ -1010,7 +1048,9 @@ async def test_full_process_flow_ingestion(reducer, mock_db_pool, mock_db_connec
 async def test_full_process_flow_completion(reducer, mock_db_pool, mock_db_connection):
     """Test full process flow for completion transition."""
     reducer._db_pool = mock_db_pool
-    mock_db_pool.acquire = MagicMock(return_value=AsyncContextManager(mock_db_connection))
+    mock_db_pool.acquire = MagicMock(
+        return_value=AsyncContextManager(mock_db_connection)
+    )
 
     # Setup mock to return PROCESSING state
     mock_db_connection.fetchrow.return_value = {
@@ -1037,7 +1077,9 @@ async def test_full_process_flow_completion(reducer, mock_db_pool, mock_db_conne
     assert result.previous_state == "PROCESSING"
     assert result.current_state == "INDEXED"
     # Should have event publish intent for completion
-    event_intents = [i for i in result.intents if i.intent_type == EnumIntentType.EVENT_PUBLISH]
+    event_intents = [
+        i for i in result.intents if i.intent_type == EnumIntentType.EVENT_PUBLISH
+    ]
     assert len(event_intents) == 1
 
 

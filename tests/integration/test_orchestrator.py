@@ -59,7 +59,9 @@ async def test_document_ingestion_workflow(orchestrator):
     assert result.success is True
     assert result.workflow_id is not None
     assert "operation_type" in result.results
-    assert result.results["operation_type"] == EnumOperationType.DOCUMENT_INGESTION.value
+    assert (
+        result.results["operation_type"] == EnumOperationType.DOCUMENT_INGESTION.value
+    )
     assert result.results["entity_id"] == "doc_123"
 
 
@@ -105,7 +107,9 @@ async def test_quality_assessment_workflow(orchestrator):
     assert result.success is True
     assert result.workflow_id is not None
     assert "operation_type" in result.results
-    assert result.results["operation_type"] == EnumOperationType.QUALITY_ASSESSMENT.value
+    assert (
+        result.results["operation_type"] == EnumOperationType.QUALITY_ASSESSMENT.value
+    )
     assert result.results["entity_id"] == "file_123"
 
 

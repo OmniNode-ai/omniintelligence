@@ -1062,9 +1062,7 @@ class TestResponseParsing:
         mock_response.status_code = 200
         mock_response.json.return_value = mock_quality_response_data
 
-        result = client._parse_response(
-            mock_response, ModelQualityAssessmentResponse
-        )
+        result = client._parse_response(mock_response, ModelQualityAssessmentResponse)
 
         assert isinstance(result, ModelQualityAssessmentResponse)
         assert result.success is True
@@ -1472,9 +1470,7 @@ class TestEdgeCases:
         client = IntelligenceServiceClient(base_url="http://localhost:8053/")
         assert client.base_url == "http://localhost:8053"
 
-        client2 = IntelligenceServiceClient(
-            base_url="http://localhost:8053/api/v1/"
-        )
+        client2 = IntelligenceServiceClient(base_url="http://localhost:8053/api/v1/")
         assert client2.base_url == "http://localhost:8053/api/v1"
 
     @pytest.mark.asyncio

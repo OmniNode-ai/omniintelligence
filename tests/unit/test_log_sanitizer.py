@@ -360,7 +360,9 @@ class TestLogSanitizerCustomPatterns:
             (r"SECRET_B_[A-Z]+", "[SECRET_B]", "Secret B"),
         ]
         sanitizer = LogSanitizer(custom_patterns=custom_patterns)
-        text = "SECRET_A_123456789012345678901234 and SECRET_B_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        text = (
+            "SECRET_A_123456789012345678901234 and SECRET_B_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        )
         result = sanitizer.sanitize(text)
         assert "[SECRET_A]" in result
         assert "[SECRET_B]" in result
@@ -604,7 +606,9 @@ class TestGlobalSanitizer:
         custom_patterns_str = "CUSTOM_[0-9]+|[CUSTOM]|Custom pattern"
 
         with patch.dict(
-            os.environ, {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str}, clear=False
+            os.environ,
+            {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
+            clear=False,
         ):
             legacy_module._sanitizer = None
             sanitizer = get_log_sanitizer()
@@ -624,7 +628,9 @@ class TestGlobalSanitizer:
         custom_patterns_str = "PATTERN_A_[0-9]+|[PATTERN_A]|Pattern A;PATTERN_B_[A-Z]+|[PATTERN_B]|Pattern B"
 
         with patch.dict(
-            os.environ, {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str}, clear=False
+            os.environ,
+            {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
+            clear=False,
         ):
             legacy_module._sanitizer = None
             sanitizer = get_log_sanitizer()
@@ -644,7 +650,9 @@ class TestGlobalSanitizer:
         custom_patterns_str = "INVALID_PATTERN|[INVALID]"
 
         with patch.dict(
-            os.environ, {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str}, clear=False
+            os.environ,
+            {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
+            clear=False,
         ):
             module._sanitizer = None
             # Should not raise, just skip invalid pattern

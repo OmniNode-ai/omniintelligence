@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Integration Tests for Pattern Extraction System
 

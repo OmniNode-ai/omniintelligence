@@ -167,9 +167,7 @@ class TestModelIntelligenceConfigCustomValues:
             circuit_breaker_timeout_seconds=120.0,
             enable_event_publishing=False,
             input_topics=["custom.namespace.domain.pattern.op.v1"],
-            output_topics={
-                "custom_event": "custom.namespace.domain.pattern.event.v1"
-            },
+            output_topics={"custom_event": "custom.namespace.domain.pattern.event.v1"},
             consumer_group_id="custom_consumer_group",
         )
 
@@ -436,7 +434,7 @@ class TestModelIntelligenceConfigForEnvironment:
     def test_for_environment_invalid_raises_error(self):
         """Test that invalid environment raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            ModelIntelligenceConfig.for_environment("invalid")  # type: ignore
+            ModelIntelligenceConfig.for_environment("invalid")  # type: ignore[arg-type]
         assert "Invalid environment: invalid" in str(exc_info.value)
         assert "development, staging, production" in str(exc_info.value)
 

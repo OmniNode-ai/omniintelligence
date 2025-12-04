@@ -20,15 +20,15 @@ from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
 
-# Import from omniintelligence package
-from omniintelligence.contracts import ModelIntelligenceInput
-
 # Import client classes from omniintelligence (migrated from omninode_bridge)
 from omniintelligence.clients.client_intelligence_service import (
     CoreErrorCode,
     IntelligenceServiceClient,
     IntelligenceServiceError,
 )
+
+# Import from omniintelligence package
+from omniintelligence.contracts import ModelIntelligenceInput
 from omniintelligence.models import ModelIntelligenceConfig, ModelIntelligenceOutput
 from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 
@@ -453,7 +453,7 @@ class TestNodeIntelligenceAdapterEffect:
         async def mock_client_with_retry(*args, **kwargs):
             attempt_count["count"] += 1
             if attempt_count["count"] < 3:
-                raise Exception("Transient error")
+                raise RuntimeError("Transient error")
 
             # Success on third attempt
             mock_response = MagicMock()
