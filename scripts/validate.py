@@ -59,14 +59,19 @@ def run_omnibase_validator(
     if verbose:
         cmd.append("--verbose")
 
-    result = subprocess.run(cmd, capture_output=not verbose)
-    passed = result.returncode == 0
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        passed = result.returncode == 0
+        message = "" if passed else f"Exit code: {result.returncode}"
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "Validator timed out after 300 seconds"
 
     return ValidationResult(
         name=f"omnibase:{validator}",
         passed=passed,
         blocking=strict,
-        message="" if passed else f"Exit code: {result.returncode}",
+        message=message,
     )
 
 
@@ -97,14 +102,17 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     if verbose:
         cmd.append("--verbose")
 
-    result = subprocess.run(cmd, capture_output=not verbose)
-    passed = result.returncode == 0
-
-    message = (
-        f"Validated {len(contract_files)} contracts"
-        if passed
-        else f"Validation failed for {len(contract_files)} contracts"
-    )
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        passed = result.returncode == 0
+        message = (
+            f"Validated {len(contract_files)} contracts"
+            if passed
+            else f"Validation failed for {len(contract_files)} contracts"
+        )
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "Contract linter timed out after 300 seconds"
 
     return ValidationResult(
         name="contract_linter",
@@ -128,14 +136,19 @@ def run_mypy(verbose: bool = False) -> ValidationResult:
         "--strict",
     ]
 
-    result = subprocess.run(cmd, capture_output=not verbose)
-    passed = result.returncode == 0
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        passed = result.returncode == 0
+        message = "" if passed else "Type errors found"
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "MyPy timed out after 300 seconds"
 
     return ValidationResult(
         name="mypy:tools",
         passed=passed,
         blocking=True,
-        message="" if passed else "Type errors found",
+        message=message,
     )
 
 
@@ -158,14 +171,19 @@ def run_ruff(verbose: bool = False) -> ValidationResult:
         *paths_to_check,
     ]
 
-    result = subprocess.run(cmd, capture_output=not verbose)
-    passed = result.returncode == 0
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        passed = result.returncode == 0
+        message = "" if passed else "Linting errors found"
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "Ruff linter timed out after 300 seconds"
 
     return ValidationResult(
         name="ruff",
         passed=passed,
         blocking=True,
-        message="" if passed else "Linting errors found",
+        message=message,
     )
 
 

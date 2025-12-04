@@ -21,7 +21,7 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -33,6 +33,9 @@ from omnibase_core.models.contracts.subcontracts import (
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from omnibase_core.validation.contract_validator import ProtocolContractValidator
 from pydantic import BaseModel, ValidationError
+
+if TYPE_CHECKING:
+    from pydantic_core import ErrorDetails
 
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
 VALID_NODE_TYPES: frozenset[str] = frozenset(
@@ -117,16 +120,14 @@ class ContractValidationResult:
 
 
 def _pydantic_error_to_contract_error(
-    error: Any,
-    # Accepts pydantic_core.ErrorDetails (TypedDict) from ValidationError.errors().
-    # Type is Any since dict[str, Any] | Any is redundant - the Any in the union
-    # makes the entire union equivalent to just Any.
+    error: ErrorDetails,
 ) -> ContractValidationError:
     """
     Convert a Pydantic validation error to ContractValidationError.
 
     Args:
-        error: Single error dict from ValidationError.errors()
+        error: Single error dict from ValidationError.errors() - a pydantic_core.ErrorDetails
+               TypedDict containing 'type', 'loc', 'msg', 'input', and optional 'ctx'/'url' fields.
 
     Returns:
         ContractValidationError with appropriate field path and message

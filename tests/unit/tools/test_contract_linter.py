@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
+# Import contract linter module
 from omniintelligence.tools.contract_linter import (
     ContractLinter,
     ContractValidationError,
@@ -448,12 +449,12 @@ class TestContractValidationError:
         """Test error with nested field path (e.g., version.major)."""
         error = ContractValidationError(
             field="version.major",
-            message="Value must be a positive integer",
+            message="Value must be a non-negative integer",
             error_type=EnumContractErrorType.INVALID_VALUE,
         )
 
         assert error.field == "version.major"
-        assert "positive integer" in error.message
+        assert "non-negative integer" in error.message
 
     def test_error_with_list_index_path(self):
         """Test error with list index in field path (e.g., io_operations.0.name)."""
