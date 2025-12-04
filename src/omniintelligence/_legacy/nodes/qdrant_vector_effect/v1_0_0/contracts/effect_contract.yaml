@@ -14,30 +14,30 @@ description: |
 node_type: effect
 
 # Fully qualified model class names
-input_model: omniintelligence.nodes.qdrant_vector_effect.v1_0_0.models.ModelQdrantVectorInput
-output_model: omniintelligence.nodes.qdrant_vector_effect.v1_0_0.models.ModelQdrantVectorOutput
+input_model: omniintelligence._legacy.nodes.qdrant_vector_effect.v1_0_0.effect.ModelQdrantVectorInput
+output_model: omniintelligence._legacy.nodes.qdrant_vector_effect.v1_0_0.effect.ModelQdrantVectorOutput
 
 # I/O operations (required for effect nodes)
 io_operations:
-  - operation_type: vector_index
+  - operation_type: upsert
     atomic: true
     backup_enabled: false
     timeout_seconds: 30
     validation_enabled: true
 
-  - operation_type: vector_search
+  - operation_type: search
     atomic: false
     backup_enabled: false
     timeout_seconds: 30
     validation_enabled: true
 
-  - operation_type: vector_delete
+  - operation_type: delete
     atomic: true
     backup_enabled: false
     timeout_seconds: 30
     validation_enabled: true
 
-  - operation_type: collection_create
+  - operation_type: create_collection
     atomic: true
     backup_enabled: false
     timeout_seconds: 60

@@ -18,11 +18,9 @@ input_model: omniintelligence.nodes.intelligence_reducer.v1_0_0.models.ModelRedu
 output_model: omniintelligence.nodes.intelligence_reducer.v1_0_0.models.ModelReducerOutput
 
 # Dependencies
+# NOTE: REDUCER nodes can only depend on EFFECT and COMPUTE nodes per ONEX architecture
+# Flow: EFFECT → COMPUTE → REDUCER → ORCHESTRATOR (unidirectional)
 dependencies:
-  - name: intelligence_orchestrator
-    dependency_type: module
-    required: true
-    description: Intelligence orchestrator for workflow coordination
   - name: kafka_event_effect
     dependency_type: module
     required: true

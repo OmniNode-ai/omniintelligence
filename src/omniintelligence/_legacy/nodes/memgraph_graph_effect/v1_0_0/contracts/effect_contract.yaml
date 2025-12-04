@@ -14,8 +14,8 @@ description: |
 node_type: effect
 
 # Fully qualified model class names
-input_model: omniintelligence.nodes.memgraph_graph_effect.v1_0_0.models.ModelMemgraphGraphInput
-output_model: omniintelligence.nodes.memgraph_graph_effect.v1_0_0.models.ModelMemgraphGraphOutput
+input_model: omniintelligence._legacy.nodes.memgraph_graph_effect.v1_0_0.effect.ModelMemgraphGraphInput
+output_model: omniintelligence._legacy.nodes.memgraph_graph_effect.v1_0_0.effect.ModelMemgraphGraphOutput
 
 # I/O operations (required for effect nodes)
 io_operations:
@@ -49,11 +49,13 @@ retry_policies:
   circuit_breaker_threshold: 5
 
 # Dependencies
-dependencies:
-  - name: ProtocolGraphDatabase
-    dependency_type: protocol
-    required: true
-    description: Memgraph graph database service
+# NOTE: ProtocolGraphDatabaseHandler is pending implementation (see MVP_PROPOSED_WORK_ISSUES.md Issue 4.3)
+# Uncomment when ProtocolGraphDatabaseHandler is available in omnibase_spi
+dependencies: []
+  # - name: ProtocolGraphDatabase
+  #   dependency_type: protocol
+  #   required: true
+  #   description: Memgraph graph database service
 
 # Author and tags
 author: omniintelligence

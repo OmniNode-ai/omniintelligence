@@ -225,8 +225,11 @@ class ContractLinter:
     - Generic subcontracts
 
     Args:
-        strict: Enable strict mode for stricter validation (default: False)
-        schema_version: Schema version to validate against (default: "1.0.0")
+        strict: Reserved for future strict validation mode. Not yet implemented.
+            When implemented, will enable additional validation checks such as
+            deprecation warnings as errors, stricter type coercion rules, etc.
+        schema_version: Reserved for future schema version selection. Not yet
+            implemented. Currently only "1.0.0" is supported.
     """
 
     def __init__(
@@ -234,9 +237,30 @@ class ContractLinter:
         strict: bool = False,
         schema_version: str = "1.0.0",
     ) -> None:
-        """Initialize the contract linter."""
-        self.strict = strict
-        self.schema_version = schema_version
+        """Initialize the contract linter.
+
+        Args:
+            strict: Reserved for future strict validation mode. Not yet implemented.
+            schema_version: Reserved for future schema version selection. Not yet
+                implemented.
+
+        Raises:
+            NotImplementedError: If strict=True is passed (not yet implemented).
+            NotImplementedError: If schema_version other than "1.0.0" is passed
+                (not yet supported).
+        """
+        if strict:
+            raise NotImplementedError(
+                "Strict mode is reserved for future implementation. "
+                "Currently only default validation is supported."
+            )
+        if schema_version != "1.0.0":
+            raise NotImplementedError(
+                f"Schema version '{schema_version}' is not yet supported. "
+                "Currently only '1.0.0' is available."
+            )
+        self._strict = strict
+        self._schema_version = schema_version
 
     def _validate_with_pydantic_model(
         self,
@@ -392,10 +416,19 @@ class ContractLinter:
 
         # Convert ProtocolContractValidator result to our format
         for violation in result.violations:
-            # Parse field from violation message if possible
+            # Parse field from violation message if it starts with a field name pattern
             field_name = "contract"
             if ":" in violation:
-                field_name = violation.split(":")[0].strip()
+                # Only treat as field name if it looks like an identifier (before first colon)
+                potential_field = violation.split(":", 1)[0].strip()
+                # Field names are typically lowercase identifiers without spaces
+                # Reject if starts with uppercase (likely error message) or contains spaces
+                if (
+                    potential_field
+                    and not potential_field[0].isupper()
+                    and " " not in potential_field
+                ):
+                    field_name = potential_field
 
             errors.append(
                 ContractValidationError(
@@ -788,7 +821,7 @@ def main(args: list[str] | None = None) -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Enable strict validation mode",
+        help="Enable strict validation mode (reserved for future use, not yet implemented)",
     )
 
     parsed_args = parser.parse_args(args)

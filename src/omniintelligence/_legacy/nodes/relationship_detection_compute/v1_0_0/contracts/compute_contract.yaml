@@ -11,8 +11,8 @@ description: |
 
 node_type: compute
 
-input_model: omniintelligence.models.ModelRelationshipDetectionInput
-output_model: omniintelligence.models.ModelRelationshipDetectionOutput
+input_model: omniintelligence._legacy.nodes.relationship_detection_compute.v1_0_0.compute.ModelRelationshipDetectionInput
+output_model: omniintelligence._legacy.nodes.relationship_detection_compute.v1_0_0.compute.ModelRelationshipDetectionOutput
 
 algorithm:
   algorithm_type: relationship_detection

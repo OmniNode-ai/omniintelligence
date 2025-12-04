@@ -11,8 +11,8 @@ description: |
 
 node_type: compute
 
-input_model: omniintelligence.models.ModelEntityExtractionInput
-output_model: omniintelligence.models.ModelEntityExtractionOutput
+input_model: omniintelligence._legacy.nodes.entity_extraction_compute.v1_0_0.compute.ModelEntityExtractionInput
+output_model: omniintelligence._legacy.nodes.entity_extraction_compute.v1_0_0.compute.ModelEntityExtractionOutput
 
 algorithm:
   algorithm_type: entity_extraction

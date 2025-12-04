@@ -11,8 +11,8 @@ description: |
 
 node_type: orchestrator
 
-input_model: omniintelligence.nodes.intelligence_orchestrator.v1_0_0.models.ModelOrchestratorInput
-output_model: omniintelligence.nodes.intelligence_orchestrator.v1_0_0.models.ModelOrchestratorOutput
+input_model: omniintelligence._legacy.models.model_orchestrator.ModelOrchestratorInput
+output_model: omniintelligence._legacy.models.model_orchestrator.ModelOrchestratorOutput
 
 # Dependencies - orchestrator coordinates compute, effect, and reducer nodes
 dependencies:

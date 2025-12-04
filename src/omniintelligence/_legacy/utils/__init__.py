@@ -1,7 +1,7 @@
 """Utility modules for omniintelligence (legacy location).
 
-This module imports directly from the local log_sanitizer implementation.
-For the public API, use omniintelligence.utils instead.
+This module provides log sanitization utilities.
+These utilities are pending migration to a canonical ONEX node structure.
 """
 
 from omniintelligence._legacy.utils.log_sanitizer import (
