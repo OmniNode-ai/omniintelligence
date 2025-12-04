@@ -320,9 +320,9 @@ class TestCLIExitCodes:
 
         # Should return 1 because not all files had file errors
         # (valid.yaml was found and validated successfully)
-        assert exit_code == 1, (
-            "Expected exit code 1 when mix of file and validation issues"
-        )
+        assert (
+            exit_code == 1
+        ), "Expected exit code 1 when mix of file and validation issues"
 
     def test_exit_code_with_json_flag_valid(
         self, tmp_path: Path, valid_compute_contract_yaml: str
@@ -366,9 +366,9 @@ class TestCLIExitCodes:
 
         exit_code = main([str(contract), "--verbose"])
 
-        assert exit_code == 1, (
-            "Expected exit code 1 with --verbose for invalid contract"
-        )
+        assert (
+            exit_code == 1
+        ), "Expected exit code 1 with --verbose for invalid contract"
 
 
 # =============================================================================
@@ -790,10 +790,10 @@ class TestWatchAndValidateFunction:
         original_stat = Path.stat
         initial_mtime = contract.stat().st_mtime
 
-        def mock_stat(self):
+        def mock_stat(self, *, follow_symlinks=True):
             """Mock stat to simulate mtime change deterministically."""
             nonlocal stat_call_count
-            result = original_stat(self)
+            result = original_stat(self, follow_symlinks=follow_symlinks)
             stat_call_count += 1
             # After initial mtime capture (first few calls), simulate a change
             # The watch loop calls stat() multiple times per iteration
@@ -852,13 +852,14 @@ class TestWatchAndValidateFunction:
         original_stat = Path.stat
         initial_mtime = contract.stat().st_mtime
 
-        def mock_stat(self):
+        def mock_stat(self, *, follow_symlinks=True):
             """Mock stat to simulate mtime change deterministically."""
             nonlocal stat_call_count
-            result = original_stat(self)
+            result = original_stat(self, follow_symlinks=follow_symlinks)
             stat_call_count += 1
             # After initial mtime capture, simulate a change for JSON output test
             if stat_call_count > 2 and self == contract:
+
                 class MockStat:
                     st_mtime = initial_mtime + 1.0
 

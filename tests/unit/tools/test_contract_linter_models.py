@@ -92,7 +92,7 @@ class TestContractValidationError:
 
         assert error.field == "name"
         assert error.message == "Field required"
-        assert error.error_type == "missing_field"
+        assert error.error_type is EnumContractErrorType.MISSING_FIELD
 
     def test_error_with_nested_field_path(self):
         """Test error with nested field path (e.g., version.major)."""
