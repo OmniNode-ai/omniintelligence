@@ -234,7 +234,9 @@ class TestContractLinterFileHandling:
             "not found" in e.message.lower() or "does not exist" in e.message.lower()
             for e in result.errors
         )
-        assert any(e.error_type is EnumContractErrorType.FILE_NOT_FOUND for e in result.errors)
+        assert any(
+            e.error_type is EnumContractErrorType.FILE_NOT_FOUND for e in result.errors
+        )
 
     def test_validate_malformed_yaml(self, tmp_path: Path, malformed_yaml: str):
         """Test graceful handling of malformed YAML."""
@@ -246,7 +248,10 @@ class TestContractLinterFileHandling:
 
         assert result.valid is False
         assert len(result.errors) >= 1
-        assert any(e.error_type is EnumContractErrorType.YAML_PARSE_ERROR for e in result.errors)
+        assert any(
+            e.error_type is EnumContractErrorType.YAML_PARSE_ERROR
+            for e in result.errors
+        )
 
     def test_validate_empty_yaml(self, tmp_path: Path, empty_yaml: str):
         """Test handling of empty YAML file."""
@@ -312,7 +317,9 @@ class TestContractLinterFileHandling:
 
         assert result.valid is False
         assert any("exceeds maximum" in e.message for e in result.errors)
-        assert any(e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors)
+        assert any(
+            e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors
+        )
 
     def test_accepts_file_at_size_limit(self, tmp_path: Path):
         """Test that files exactly at the size limit are accepted for parsing."""
@@ -328,7 +335,9 @@ class TestContractLinterFileHandling:
         result = linter.validate(large_file)
 
         # Should not fail due to file size - may fail for other validation reasons
-        assert not any(e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors)
+        assert not any(
+            e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors
+        )
 
 
 # =============================================================================
@@ -415,7 +424,10 @@ class TestContractLinterBatchValidation:
         assert len(results) == 2
         assert results[0].valid is True
         assert results[1].valid is False
-        assert any(e.error_type is EnumContractErrorType.FILE_NOT_FOUND for e in results[1].errors)
+        assert any(
+            e.error_type is EnumContractErrorType.FILE_NOT_FOUND
+            for e in results[1].errors
+        )
 
     def test_validate_batch_summary(self, multiple_contract_files: list[Path]):
         """Test batch validation summary statistics."""

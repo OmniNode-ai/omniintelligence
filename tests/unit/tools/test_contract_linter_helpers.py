@@ -379,9 +379,9 @@ class TestFieldIdentifierPattern:
             # This simulates the parsing logic in _validate_node_contract
             potential_field = message.split(":", 1)[0].strip()
             # All these should fail the pattern match because they start with uppercase
-            assert FIELD_IDENTIFIER_PATTERN.match(potential_field) is None, (
-                f"'{potential_field}' should not match FIELD_IDENTIFIER_PATTERN"
-            )
+            assert (
+                FIELD_IDENTIFIER_PATTERN.match(potential_field) is None
+            ), f"'{potential_field}' should not match FIELD_IDENTIFIER_PATTERN"
 
     def test_valid_field_name_with_colon_message(self):
         """Test that valid field names followed by messages with colons are parsed correctly.
