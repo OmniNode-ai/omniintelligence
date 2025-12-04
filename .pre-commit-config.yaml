@@ -15,14 +15,14 @@ repos:
         name: ruff (format)
         files: ^(src/omniintelligence/tools/|tests/unit/tools/)
 
-  # MyPy - Static type checking
+  # MyPy - Static type checking (src only, tests don't have type annotations)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.13.0
     hooks:
       - id: mypy
         name: mypy (type check)
         args: [--strict, --ignore-missing-imports]
-        files: ^(src/omniintelligence/tools/|tests/unit/tools/)
+        files: ^src/omniintelligence/tools/
         additional_dependencies:
           - types-PyYAML
           - pydantic>=2.0.0

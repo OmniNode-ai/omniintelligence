@@ -788,7 +788,8 @@ class TestWatchAndValidateFunction:
         iteration_count = 0
         stat_call_count = 0
         original_stat = Path.stat
-        initial_mtime = contract.stat().st_mtime
+        initial_stat = contract.stat()
+        initial_mtime = initial_stat.st_mtime
 
         def mock_stat(self, *, follow_symlinks=True):
             """Mock stat to simulate mtime change deterministically."""
@@ -798,9 +799,11 @@ class TestWatchAndValidateFunction:
             # After initial mtime capture (first few calls), simulate a change
             # The watch loop calls stat() multiple times per iteration
             if stat_call_count > 2 and self == contract:
-                # Return a mock stat with different mtime
+                # Return a mock stat with different mtime but preserve other attrs
                 class MockStat:
                     st_mtime = initial_mtime + 1.0
+                    st_mode = initial_stat.st_mode
+                    st_size = initial_stat.st_size
 
                 return MockStat()
             return result
@@ -850,7 +853,8 @@ class TestWatchAndValidateFunction:
         iteration_count = 0
         stat_call_count = 0
         original_stat = Path.stat
-        initial_mtime = contract.stat().st_mtime
+        initial_stat = contract.stat()
+        initial_mtime = initial_stat.st_mtime
 
         def mock_stat(self, *, follow_symlinks=True):
             """Mock stat to simulate mtime change deterministically."""
@@ -862,6 +866,8 @@ class TestWatchAndValidateFunction:
 
                 class MockStat:
                     st_mtime = initial_mtime + 1.0
+                    st_mode = initial_stat.st_mode
+                    st_size = initial_stat.st_size
 
                 return MockStat()
             return result
