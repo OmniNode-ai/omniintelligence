@@ -67,6 +67,7 @@ dev = [
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
+    "types-pyyaml>=6.0.12",
 ]
 
 # Core node system dependencies
@@ -149,6 +150,7 @@ all = [
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
+    "types-pyyaml>=6.0.12",
 ]
 
 # Ruff configuration - aligned with omnibase_core
