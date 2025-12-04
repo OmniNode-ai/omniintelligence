@@ -1988,9 +1988,9 @@ class TestCLIExitCodes:
 
         # Should return 1 because not all files had file errors
         # (valid.yaml was found and validated successfully)
-        assert (
-            exit_code == 1
-        ), "Expected exit code 1 when mix of file and validation issues"
+        assert exit_code == 1, (
+            "Expected exit code 1 when mix of file and validation issues"
+        )
 
     def test_exit_code_with_json_flag_valid(
         self, tmp_path: Path, valid_compute_contract_yaml: str
@@ -2034,9 +2034,9 @@ class TestCLIExitCodes:
 
         exit_code = main([str(contract), "--verbose"])
 
-        assert (
-            exit_code == 1
-        ), "Expected exit code 1 with --verbose for invalid contract"
+        assert exit_code == 1, (
+            "Expected exit code 1 with --verbose for invalid contract"
+        )
 
 
 # =============================================================================
