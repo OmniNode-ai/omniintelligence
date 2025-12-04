@@ -1,303 +1,451 @@
 # OmniIntelligence MVP Plan
 
-**Date**: December 2, 2025
+**Date**: December 3, 2025
 **Branch**: `feature/intelligence-nodes-migration`
-**Goal**: Event-driven intelligence pipeline with local embedding support
+**Goal**: Declarative, event-driven intelligence pipeline with contract-driven nodes
 
 ---
 
 ## Executive Summary
 
 Build an MVP that:
-1. Uses **local MLX embeddings** (localhost:8001) - no external API dependencies
+1. Uses **declarative contract-driven nodes** (YAML contracts + generic runtime)
 2. Communicates **entirely via Kafka events** - no direct node-to-node calls
-3. Integrates with **Qdrant, Memgraph, PostgreSQL** storage backends
-4. Migrates the **LLM provider system** from omninode_bridge
+3. Integrates with **Qdrant, Memgraph, PostgreSQL** storage backends via protocol handlers
+4. Uses **local MLX embeddings** (localhost:8001) - no external API dependencies
 
-**Current State**: 8 nodes implemented (4 compute, 4 effect) but they only support direct calls, not event-driven communication.
+**Architecture Shift**: Moving from imperative Python node implementations to declarative YAML contracts executed by a generic runtime. See [DECLARATIVE_EFFECT_NODES_SPEC.md](specs/DECLARATIVE_EFFECT_NODES_SPEC.md) for full specification.
+
+**Current State**:
+- 8 legacy nodes in `src/omniintelligence/_legacy/nodes/` (imperative, to be replaced)
+- New declarative architecture defined in spec
+- Contract-driven nodes will replace legacy implementations
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    EVENT-DRIVEN INTELLIGENCE PIPELINE                    │
-└─────────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------------+
+|                 DECLARATIVE EVENT-DRIVEN INTELLIGENCE PIPELINE            |
++---------------------------------------------------------------------------+
 
-                          Kafka/Redpanda (Event Bus)
-    ┌──────────────────────────────────────────────────────────────────┐
-    │  Topics: dev.omni-intelligence.{domain}.{operation}.v1           │
-    └──────────────────────────────────────────────────────────────────┘
-           ▲           ▲           ▲           ▲           ▲
-           │           │           │           │           │
-    ┌──────┴──┐  ┌─────┴────┐  ┌───┴────┐  ┌───┴───┐  ┌────┴────┐
-    │ Ingest  │  │Vectorize │  │Extract │  │Relate │  │ Store   │
-    │ API     │  │ Compute  │  │Entities│  │ ships │  │ Effects │
-    └─────────┘  └──────────┘  └────────┘  └───────┘  └─────────┘
-                      │
-                      ▼
-              ┌──────────────┐
-              │ MLX Embeddings│
-              │ localhost:8001│
-              └──────────────┘
+                    +---------------------------+
+                    |    Kafka Event Bus        |
+                    | (Request/Response Topics) |
+                    +-------------+-------------+
+                                  |
+                    +-------------v-------------+
+                    |      Generic Runtime      |
+                    |  (NodeEffect/NodeCompute) |
+                    |  - Contract loading       |
+                    |  - Protocol handlers      |
+                    |  - Resilience policies    |
+                    +-------------+-------------+
+                                  |
+         +------------------------+------------------------+
+         |                        |                        |
++--------v--------+    +----------v----------+    +--------v--------+
+|   YAML Contracts|    |  Protocol Handlers  |    |   Observability |
+| - Effect nodes  |    | - HttpRestHandler   |    |   - Metrics     |
+| - Compute nodes |    | - BoltHandler       |    |   - Traces      |
+| - Resilience    |    | - PostgresHandler   |    |   - Logs        |
++-----------------+    | - KafkaHandler      |    +-----------------+
+                       +----------+----------+
+                                  |
+                    +-------------v-------------+
+                    |   External Systems        |
+                    | - Qdrant (vectors)        |
+                    | - Memgraph (graph)        |
+                    | - PostgreSQL (patterns)   |
+                    | - MLX (embeddings)        |
+                    +---------------------------+
 ```
+
+### Node Type Strategy
+
+| Node Type | Pattern | Location |
+|-----------|---------|----------|
+| **Effect** | Declarative (YAML + runtime) | `src/omniintelligence/nodes/` |
+| **Compute** | Declarative (YAML + runtime) | `src/omniintelligence/nodes/` |
+| **Reducer** | Imperative (Python FSM) | Valid pattern, keep or migrate later |
+| **Orchestrator** | Imperative (Python workflows) | Valid pattern, keep or migrate later |
+
+### Legacy Nodes (To Be Replaced)
+
+The following nodes are in `src/omniintelligence/_legacy/nodes/` and will be replaced by contract-driven equivalents:
+
+**Effect Nodes (4)** - Will become YAML contracts:
+- `qdrant_vector_effect/` -> `qdrant_vector_effect.yaml`
+- `memgraph_graph_effect/` -> `memgraph_graph_effect.yaml`
+- `postgres_pattern_effect/` -> `postgres_pattern_effect.yaml`
+- `kafka_event_effect/` -> `kafka_event_effect.yaml`
+
+**Compute Nodes (4)** - Will become YAML contracts:
+- `vectorization_compute/` -> `vectorization_compute.yaml`
+- `entity_extraction_compute/` -> `entity_extraction_compute.yaml`
+- `relationship_detection_compute/` -> `relationship_detection_compute.yaml`
+- `quality_scoring_compute/` -> `quality_scoring_compute.yaml`
+
+**Orchestrator/Reducer (Keep for now)**:
+- `intelligence_orchestrator/` - Workflow coordination (valid pattern)
+- `intelligence_reducer/` - FSM state management (valid pattern)
 
 ---
 
-## Phase 1: Local MLX Embedding Integration
+## Phase 1: Declarative Runtime Foundation
 
-**Priority**: CRITICAL (blocks all vectorization)
+**Priority**: CRITICAL (blocks all other phases)
+**Effort**: 1-2 weeks
+
+### Goal
+
+Create the generic runtime infrastructure that loads YAML contracts and executes them using protocol handlers.
+
+### Components to Create
+
+**File Structure**:
+```
+src/omniintelligence/
+├── nodes/
+│   ├── effect_runtime/
+│   │   ├── __init__.py
+│   │   └── v1_0_0/
+│   │       ├── __init__.py
+│   │       ├── runtime.py           # NodeEffect base class
+│   │       ├── handlers/
+│   │       │   ├── __init__.py
+│   │       │   ├── base.py          # ProtocolHandler ABC
+│   │       │   ├── http_rest.py     # HttpRestHandler
+│   │       │   ├── bolt.py          # BoltHandler (Memgraph)
+│   │       │   ├── postgres.py      # PostgresHandler
+│   │       │   ├── kafka.py         # KafkaHandler
+│   │       │   └── registry.py      # ProtocolHandlerRegistry
+│   │       ├── resilience/
+│   │       │   ├── __init__.py
+│   │       │   ├── retry.py         # RetryPolicy
+│   │       │   ├── circuit_breaker.py
+│   │       │   └── rate_limiter.py
+│   │       ├── models.py            # ModelEffectInput/Output
+│   │       ├── mapping.py           # JSONPath response mapping
+│   │       └── validation.py        # Contract validation
+│   └── compute_runtime/             # Similar structure for compute
+│       └── v1_0_0/
+│           ├── runtime.py           # NodeCompute base class
+│           └── ...
+├── schemas/
+│   └── effect_contract_v1.json      # JSON Schema for validation
+```
+
+### Implementation Tasks
+
+1. **Create base `ProtocolHandler` ABC**
+   - `initialize()`, `shutdown()`, `execute()`, `health_check()`
+   - Protocol-agnostic request/response models
+
+2. **Implement `HttpRestHandler`**
+   - Connection pooling with aiohttp
+   - Variable substitution in URLs/bodies
+   - Response parsing with JSONPath
+
+3. **Implement `NodeEffect` runtime**
+   - Load and validate YAML contracts
+   - Route operations to handler
+   - Apply resilience policies
+   - Collect metrics
+
+4. **Create contract validation**
+   - JSON Schema for YAML contracts
+   - Pydantic model generation from contracts
+
+### Success Criteria
+
+- [ ] `NodeEffect` class loads YAML contracts
+- [ ] `HttpRestHandler` makes HTTP calls with variable substitution
+- [ ] JSONPath response mapping works
+- [ ] Contract validation catches schema errors
+- [ ] Unit tests for runtime components
+
+---
+
+## Phase 2: Effect Node Contracts
+
+**Priority**: HIGH
+**Effort**: 1 week
+
+### Goal
+
+Create YAML contracts for the 4 effect nodes, replacing legacy Python implementations.
+
+### Contracts to Create
+
+**File**: `src/omniintelligence/nodes/qdrant_vector_effect/v1_0_0/contracts/qdrant_vector_effect.yaml`
+
+```yaml
+name: qdrant_vector_effect
+version: { major: 1, minor: 0, patch: 0 }
+description: "Vector storage operations for Qdrant"
+
+protocol:
+  type: http_rest
+  version: "HTTP/1.1"
+  content_type: application/json
+
+connection:
+  url: "http://${QDRANT_HOST}:${QDRANT_PORT}"
+  timeout_ms: 30000
+  pool:
+    min_size: 1
+    max_size: 10
+
+operations:
+  upsert:
+    description: "Upsert vectors into collection"
+    request:
+      method: POST
+      path: "/collections/${input.collection}/points"
+      body:
+        points:
+          - id: "${input.vector_id}"
+            vector: "${input.embeddings}"
+            payload: "${input.metadata}"
+    response:
+      success_codes: [200]
+      mapping:
+        operation_id: "$.result.operation_id"
+        status: "$.result.status"
+
+  search:
+    description: "Search for similar vectors"
+    request:
+      method: POST
+      path: "/collections/${input.collection}/points/search"
+      body:
+        vector: "${input.query_vector}"
+        limit: "${input.limit}"
+        with_payload: true
+    response:
+      success_codes: [200]
+      mapping:
+        results: "$.result"
+        scores: "$.result[*].score"
+
+events:
+  consume:
+    topic: "dev.omni-intelligence.effect.qdrant-vector.request.v1"
+    group_id: "omni-intelligence-qdrant-effect"
+  produce:
+    success_topic: "dev.omni-intelligence.effect.qdrant-vector.response.v1"
+    dlq_topic: "dev.omni-intelligence.effect.qdrant-vector.request.v1.dlq"
+
+resilience:
+  retry:
+    max_attempts: 3
+    initial_delay_ms: 1000
+    backoff_multiplier: 2.0
+  circuit_breaker:
+    failure_threshold: 5
+    timeout_ms: 60000
+```
+
+### Contracts Summary
+
+| Contract | Protocol | Key Operations |
+|----------|----------|----------------|
+| `qdrant_vector_effect.yaml` | HTTP REST | upsert, search, delete, get |
+| `memgraph_graph_effect.yaml` | Bolt | create_entity, create_relationship, query |
+| `postgres_pattern_effect.yaml` | PostgreSQL | store_pattern, query_patterns, update_pattern |
+| `kafka_event_effect.yaml` | Kafka | publish, publish_batch |
+
+### Success Criteria
+
+- [ ] All 4 effect contracts created and validated
+- [ ] Contracts match legacy node functionality
+- [ ] Integration tests pass with real backends
+- [ ] Contract-driven nodes produce same results as legacy
+
+---
+
+## Phase 3: MLX Embedding Adapter
+
+**Priority**: HIGH (blocks vectorization)
 **Effort**: 2-4 hours
 
-### What Exists
-- `VectorizationCompute` with OpenAI, SentenceTransformers, TF-IDF providers
-- MLX server running at `http://localhost:8001/v1/embeddings`
+### Goal
 
-### What's Missing
-- No support for local OpenAI-compatible endpoints
+Create contract for local MLX embedding service (localhost:8001).
 
-### Implementation
+### Contract
 
-**File**: `src/omniintelligence/nodes/vectorization_compute/v1_0_0/compute.py`
+**File**: `src/omniintelligence/nodes/mlx_embedding_adapter/v1_0_0/contracts/mlx_embedding_adapter.yaml`
 
-```python
-# Add new provider enum
-class EmbeddingProvider(str, Enum):
-    OPENAI = "openai"
-    LOCAL_OPENAI = "local-openai"  # NEW
-    SENTENCE_TRANSFORMERS = "sentence-transformers"
-    TFIDF = "tfidf"
-    AUTO = "auto"
+```yaml
+name: mlx_embedding_adapter
+version: { major: 1, minor: 0, patch: 0 }
+description: "Local MLX embedding generation via OpenAI-compatible API"
 
-# Add environment variables
-LOCAL_EMBEDDING_URL = os.getenv("LOCAL_EMBEDDING_URL", "http://localhost:8001/v1/embeddings")
-LOCAL_EMBEDDING_MODEL = os.getenv("LOCAL_EMBEDDING_MODEL", "mlx-embedding")
+protocol:
+  type: http_rest
+  content_type: application/json
 
-# Add method _generate_local_openai_embedding()
-async def _generate_local_openai_embedding(self, text: str) -> list[float]:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            LOCAL_EMBEDDING_URL,
-            json={"input": text, "model": LOCAL_EMBEDDING_MODEL},
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        return response.json()["data"][0]["embedding"]
+connection:
+  url: "http://${MLX_HOST}:${MLX_PORT}"
+  timeout_ms: 30000
+
+operations:
+  generate_embedding:
+    description: "Generate embeddings for text"
+    request:
+      method: POST
+      path: "/v1/embeddings"
+      body:
+        input: "${input.text}"
+        model: "${input.model}"
+    response:
+      success_codes: [200]
+      mapping:
+        embedding: "$.data[0].embedding"
+        model: "$.model"
+        usage: "$.usage"
+
+events:
+  consume:
+    topic: "dev.omni-intelligence.effect.mlx-embedding.request.v1"
+    group_id: "omni-intelligence-mlx-embedding"
+  produce:
+    success_topic: "dev.omni-intelligence.effect.mlx-embedding.response.v1"
+
+resilience:
+  retry:
+    max_attempts: 2
+    initial_delay_ms: 500
 ```
 
 ### Environment Variables
-```bash
-EMBEDDING_PROVIDER=local-openai
-LOCAL_EMBEDDING_URL=http://localhost:8001/v1/embeddings
-LOCAL_EMBEDDING_MODEL=mlx-embedding
-```
 
-### Docker Compose Update
-```yaml
-vectorization-compute:
-  environment:
-    - EMBEDDING_PROVIDER=local-openai
-    - LOCAL_EMBEDDING_URL=http://host.docker.internal:8001/v1/embeddings
+```bash
+MLX_HOST=localhost
+MLX_PORT=8001
+MLX_MODEL=mlx-embedding
 ```
 
 ### Success Criteria
-- [ ] `VectorizationCompute` can generate embeddings from MLX server
-- [ ] Auto fallback chain: LOCAL_OPENAI → SentenceTransformers → TF-IDF
-- [ ] Unit tests pass with mocked MLX endpoint
+
+- [ ] Contract generates embeddings from MLX server
+- [ ] Fallback chain: MLX -> SentenceTransformers -> TF-IDF
+- [ ] Unit tests pass with mocked endpoint
 
 ---
 
-## Phase 2: Event-Driven Node Communication
+## Phase 4: Compute Node Contracts
 
-**Priority**: HIGH
-**Effort**: 1-2 days
+**Priority**: MEDIUM
+**Effort**: 1 week
 
-### What Exists
-- `NodeKafkaEventEffect` for publishing events
-- `NodeIntelligenceAdapterEffect` with consumer loop pattern
-- Intent-based in-memory routing
+### Goal
 
-### What's Missing
-- Consumer loops on compute/effect nodes
-- Event models for each operation type
-- Topic registry
+Create YAML contracts for compute nodes. Note: Compute nodes are pure functions with no I/O, so contracts define input/output schemas and processing steps.
 
-### Implementation
+### Contracts to Create
 
-#### 2.1 Create Base Event Consumer
+| Contract | Input | Output | Processing |
+|----------|-------|--------|------------|
+| `vectorization_compute.yaml` | text, metadata | embeddings, dimension | MLX adapter call |
+| `entity_extraction_compute.yaml` | text, language | entities, types | NLP extraction |
+| `relationship_detection_compute.yaml` | entities, context | relationships | Pattern matching |
+| `quality_scoring_compute.yaml` | code, metrics | scores, recommendations | Rule-based scoring |
 
-**File**: `src/omniintelligence/shared/event_consumer.py`
-
-```python
-class NodeEventConsumer:
-    """Base class for wrapping nodes with Kafka consumption."""
-
-    def __init__(
-        self,
-        node: NodeCompute | NodeEffect,
-        input_topic: str,
-        output_topic: str,
-        failure_topic: str,
-        consumer_group: str,
-    ):
-        self.node = node
-        self.input_topic = input_topic
-        self.output_topic = output_topic
-        self.failure_topic = failure_topic
-        self.consumer_group = consumer_group
-
-    async def run(self):
-        """Main consumer loop."""
-        consumer = Consumer({
-            "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
-            "group.id": self.consumer_group,
-            "auto.offset.reset": "earliest",
-        })
-        consumer.subscribe([self.input_topic])
-
-        while not self._shutdown:
-            msg = consumer.poll(1.0)
-            if msg and not msg.error():
-                await self._process_message(msg)
-```
-
-#### 2.2 Event Topic Registry
-
-**File**: `src/omniintelligence/shared/topic_registry.py`
+### Event Topics
 
 ```python
-TOPIC_REGISTRY = {
-    "ingestion": {
-        "input": "dev.omni-intelligence.ingestion.document-received.v1",
-        "output": "dev.omni-intelligence.ingestion.completed.v1",
-        "failure": "dev.omni-intelligence.ingestion.failed.v1",
-    },
+COMPUTE_TOPICS = {
     "vectorization": {
-        "input": "dev.omni-intelligence.vectorization.requested.v1",
-        "output": "dev.omni-intelligence.vectorization.completed.v1",
-        "failure": "dev.omni-intelligence.vectorization.failed.v1",
+        "input": "dev.omni-intelligence.compute.vectorization.request.v1",
+        "output": "dev.omni-intelligence.compute.vectorization.response.v1",
     },
     "entity_extraction": {
-        "input": "dev.omni-intelligence.entity.extraction-requested.v1",
-        "output": "dev.omni-intelligence.entity.extraction-completed.v1",
-        "failure": "dev.omni-intelligence.entity.extraction-failed.v1",
+        "input": "dev.omni-intelligence.compute.entity-extraction.request.v1",
+        "output": "dev.omni-intelligence.compute.entity-extraction.response.v1",
     },
     "relationship_detection": {
-        "input": "dev.omni-intelligence.relationship.detection-requested.v1",
-        "output": "dev.omni-intelligence.relationship.detection-completed.v1",
-        "failure": "dev.omni-intelligence.relationship.detection-failed.v1",
+        "input": "dev.omni-intelligence.compute.relationship-detection.request.v1",
+        "output": "dev.omni-intelligence.compute.relationship-detection.response.v1",
     },
     "quality_scoring": {
-        "input": "dev.omni-intelligence.quality.scoring-requested.v1",
-        "output": "dev.omni-intelligence.quality.scoring-completed.v1",
-        "failure": "dev.omni-intelligence.quality.scoring-failed.v1",
+        "input": "dev.omni-intelligence.compute.quality-scoring.request.v1",
+        "output": "dev.omni-intelligence.compute.quality-scoring.response.v1",
     },
 }
 ```
 
-#### 2.3 Event Models
-
-**Files to create**:
-- `src/omniintelligence/models/events/model_vectorization_events.py`
-- `src/omniintelligence/models/events/model_entity_events.py`
-- `src/omniintelligence/models/events/model_relationship_events.py`
-- `src/omniintelligence/models/events/model_storage_events.py`
-
-```python
-# Example: model_vectorization_events.py
-class VectorizationRequestedPayload(BaseModel):
-    source_path: str
-    content: str
-    project_id: str | None = None
-    metadata: dict[str, Any] = {}
-
-class VectorizationCompletedPayload(BaseModel):
-    source_path: str
-    vector: list[float]
-    dimension: int
-    provider: str
-    metadata: dict[str, Any] = {}
-```
-
-#### 2.4 Wrap Existing Compute Nodes
-
-**File**: `src/omniintelligence/nodes/vectorization_compute/v1_0_0/__main__.py`
-
-```python
-# Update to run as event consumer
-async def main():
-    compute = VectorizationCompute()
-    consumer = NodeEventConsumer(
-        node=compute,
-        input_topic=TOPIC_REGISTRY["vectorization"]["input"],
-        output_topic=TOPIC_REGISTRY["vectorization"]["output"],
-        failure_topic=TOPIC_REGISTRY["vectorization"]["failure"],
-        consumer_group="omni-intelligence-vectorization",
-    )
-    await consumer.run()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
 ### Success Criteria
-- [ ] All 4 compute nodes run as event consumers
-- [ ] Events flow: request → compute → completed/failed
-- [ ] Correlation IDs preserved across event chain
-- [ ] DLQ routing for failed messages
+
+- [ ] All 4 compute contracts created
+- [ ] Event consumers wrap compute execution
+- [ ] Correlation IDs preserved through pipeline
 
 ---
 
-## Phase 3: Storage Integration via Events
+## Phase 5: Storage Router and Integration
 
 **Priority**: HIGH
 **Effort**: 1-2 days
 
-### What Exists
-- 4 storage effect nodes (Qdrant, Memgraph, PostgreSQL, Kafka)
-- All support direct `execute_effect()` calls
+### Goal
 
-### What's Missing
-- Event consumers on storage nodes
-- Storage coordination (which storage for which output)
+Create storage router that consumes compute outputs and routes to appropriate storage effects.
 
-### Implementation
+### Storage Router Pattern
 
-#### 3.1 Storage Router Pattern
+Instead of adding consumers to each storage node, create a **Storage Router Effect** that coordinates storage:
 
-Instead of adding consumers to each storage node, create a **Storage Router Effect**:
-
-**File**: `src/omniintelligence/nodes/storage_router_effect/v1_0_0/effect.py`
-
-```python
-class NodeStorageRouter(NodeEffect):
-    """
-    Routes completed compute events to appropriate storage nodes.
-
-    Consumes:
-    - vectorization.completed.v1 → QdrantEffect.upsert
-    - entity.extraction-completed.v1 → MemgraphEffect.CREATE_ENTITY
-    - relationship.detection-completed.v1 → MemgraphEffect.CREATE_RELATIONSHIP
-    - pattern.learned.v1 → PostgresEffect.store_pattern
-    """
-
-    async def _process_event(self, event: ModelEventEnvelope):
-        event_type = event.event_type
-
-        if "vectorization.completed" in event_type:
-            await self._store_vector(event)
-        elif "entity.extraction-completed" in event_type:
-            await self._store_entities(event)
-        elif "relationship.detection-completed" in event_type:
-            await self._store_relationships(event)
-        elif "pattern.learned" in event_type:
-            await self._store_pattern(event)
+```
+Compute Output Events
+         |
+         v
+  Storage Router Effect
+         |
+    +----+----+----+
+    |    |    |    |
+    v    v    v    v
+Qdrant  Memgraph  PostgreSQL  Kafka
+Effect   Effect    Effect    Effect
 ```
 
-#### 3.2 Cross-Storage ID Coordination
+### Routing Rules
 
-Create ID generation that links across storage systems:
+```yaml
+# storage_router_effect.yaml
+name: storage_router_effect
+version: { major: 1, minor: 0, patch: 0 }
+
+routing:
+  - event_type: "vectorization.completed"
+    target: "qdrant_vector_effect"
+    operation: "upsert"
+    mapping:
+      collection: "${input.project_id}_vectors"
+      vector_id: "${input.document_id}"
+      embeddings: "${input.embeddings}"
+
+  - event_type: "entity-extraction.completed"
+    target: "memgraph_graph_effect"
+    operation: "create_entity"
+    mapping:
+      entity_type: "${input.entity_type}"
+      entity_name: "${input.entity_name}"
+      properties: "${input.properties}"
+
+  - event_type: "relationship-detection.completed"
+    target: "memgraph_graph_effect"
+    operation: "create_relationship"
+    mapping:
+      source_id: "${input.source_entity_id}"
+      target_id: "${input.target_entity_id}"
+      relationship_type: "${input.relationship_type}"
+```
+
+### Cross-Storage ID Coordination
 
 ```python
 class StorageIdentifier:
@@ -314,95 +462,16 @@ class StorageIdentifier:
         return f"ent:{document_id}:{entity_type}:{entity_name}"
 ```
 
-#### 3.3 Storage Event Topics
-
-```python
-STORAGE_TOPICS = {
-    "vector_stored": "dev.omni-intelligence.storage.vector-stored.v1",
-    "entity_stored": "dev.omni-intelligence.storage.entity-stored.v1",
-    "relationship_stored": "dev.omni-intelligence.storage.relationship-stored.v1",
-    "pattern_stored": "dev.omni-intelligence.storage.pattern-stored.v1",
-}
-```
-
 ### Success Criteria
+
 - [ ] Storage router consumes compute completion events
 - [ ] Vectors stored in Qdrant with document IDs
 - [ ] Entities/relationships stored in Memgraph
-- [ ] Storage completion events published
-- [ ] Cross-storage ID consistency
+- [ ] Cross-storage ID consistency (100%)
 
 ---
 
-## Phase 4: LLM Provider System Migration
-
-**Priority**: MEDIUM (required for future features, not MVP blocking)
-**Effort**: 2-3 days
-
-### What to Migrate from omninode_bridge
-
-| Component | Source | Target | Lines |
-|-----------|--------|--------|-------|
-| MixinLLMProvider | `agents/intelligence/mixin_llm_provider.py` | `providers/mixin_llm_provider.py` | 521 |
-| LocalModelsAdapter | `agents/intelligence/adapters/local_models_adapter.py` | `providers/local_models_adapter.py` | 875 |
-| Provider Models | `agents/intelligence/models.py` | `providers/models.py` | 476 |
-| Exceptions | `agents/intelligence/exceptions.py` | `providers/exceptions.py` | 324 |
-| AI Quorum | `agents/workflows/ai_quorum.py` | `quorum/ai_quorum.py` | 478 |
-
-### Package Structure
-
-```
-src/omniintelligence/
-├── providers/
-│   ├── __init__.py
-│   ├── mixin_llm_provider.py    # Abstract base with circuit breaker
-│   ├── local_models_adapter.py   # vLLM/MLX endpoints
-│   ├── models.py                 # LLMRequest, LLMResponse, etc.
-│   └── exceptions.py             # LLMProviderError hierarchy
-├── quorum/
-│   ├── __init__.py
-│   ├── ai_quorum.py              # 4-model consensus
-│   └── llm_client.py             # Provider clients
-```
-
-### Database Migrations
-
-**File**: `migrations/001_create_llm_cost_tracking.sql`
-
-```sql
-CREATE TABLE llm_provider_costs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider VARCHAR(50) NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    input_token_cost DECIMAL(10,8) NOT NULL,
-    output_token_cost DECIMAL(10,8) NOT NULL,
-    effective_date DATE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE llm_request_costs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workflow_id UUID,
-    correlation_id UUID,
-    provider VARCHAR(50) NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    input_tokens INTEGER NOT NULL,
-    output_tokens INTEGER NOT NULL,
-    total_cost DECIMAL(10,6) NOT NULL,
-    latency_ms INTEGER,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### Success Criteria
-- [ ] LLM provider package migrated with tests
-- [ ] LocalModelsAdapter supports embeddings endpoint
-- [ ] Cost tracking tables created
-- [ ] VectorizationCompute uses LLM provider interface
-
----
-
-## Phase 5: End-to-End Pipeline Testing
+## Phase 6: End-to-End Pipeline Testing
 
 **Priority**: HIGH
 **Effort**: 1 day
@@ -414,18 +483,16 @@ async def test_document_ingestion_pipeline():
     """
     Full pipeline test:
     1. Publish document-received event
-    2. Verify vectorization event
-    3. Verify entity extraction event
-    4. Verify relationship detection event
-    5. Verify storage events
+    2. Verify vectorization request/response
+    3. Verify entity extraction request/response
+    4. Verify relationship detection request/response
+    5. Verify storage events (Qdrant, Memgraph)
     6. Query Qdrant for vector
     7. Query Memgraph for entities/relationships
     """
 ```
 
 ### Test Infrastructure
-
-**File**: `tests/integration/test_ingestion_pipeline.py`
 
 ```python
 @pytest.fixture
@@ -448,12 +515,30 @@ async def memgraph_driver():
 ```
 
 ### Success Criteria
+
 - [ ] Document flows through entire pipeline
 - [ ] Vector stored in Qdrant
 - [ ] Entities stored in Memgraph
 - [ ] Relationships stored in Memgraph
-- [ ] All events have correlation IDs
+- [ ] All events have correlation IDs (100% preservation)
 - [ ] Failed events route to DLQ
+
+---
+
+## Phase 7: LLM Provider System (Optional)
+
+**Priority**: LOW (post-MVP)
+**Effort**: 2-3 days
+
+### Migrate from omninode_bridge
+
+| Component | Source | Target |
+|-----------|--------|--------|
+| MixinLLMProvider | `omninode_bridge/agents/intelligence/` | `providers/` |
+| LocalModelsAdapter | `omninode_bridge/agents/intelligence/adapters/` | `providers/` |
+| AI Quorum | `omninode_bridge/agents/workflows/` | `quorum/` |
+
+This is **not required for MVP** - defer to post-MVP.
 
 ---
 
@@ -461,13 +546,15 @@ async def memgraph_driver():
 
 | Order | Phase | Duration | Dependencies |
 |-------|-------|----------|--------------|
-| 1 | Phase 1: MLX Integration | 2-4 hours | None |
-| 2 | Phase 2: Event Consumers | 1-2 days | Phase 1 |
-| 3 | Phase 3: Storage Integration | 1-2 days | Phase 2 |
-| 4 | Phase 5: E2E Testing | 1 day | Phase 3 |
-| 5 | Phase 4: LLM Migration | 2-3 days | Optional for MVP |
+| 1 | Phase 1: Declarative Runtime | 1-2 weeks | None |
+| 2 | Phase 2: Effect Contracts | 1 week | Phase 1 |
+| 3 | Phase 3: MLX Adapter | 2-4 hours | Phase 1 |
+| 4 | Phase 4: Compute Contracts | 1 week | Phase 1 |
+| 5 | Phase 5: Storage Router | 1-2 days | Phases 2, 4 |
+| 6 | Phase 6: E2E Testing | 1 day | Phase 5 |
+| 7 | Phase 7: LLM Migration | 2-3 days | Optional, post-MVP |
 
-**Total MVP Timeline**: 4-6 days
+**Total MVP Timeline**: 3-4 weeks
 
 ---
 
@@ -477,28 +564,36 @@ async def memgraph_driver():
 
 ```yaml
 services:
-  vectorization-compute:
-    environment:
-      - EMBEDDING_PROVIDER=local-openai
-      - LOCAL_EMBEDDING_URL=http://host.docker.internal:8001/v1/embeddings
-      - KAFKA_BOOTSTRAP_SERVERS=omninode-bridge-redpanda:9092
-      - KAFKA_CONSUMER_GROUP=omni-intelligence-vectorization
-      - KAFKA_INPUT_TOPIC=dev.omni-intelligence.vectorization.requested.v1
-      - KAFKA_OUTPUT_TOPIC=dev.omni-intelligence.vectorization.completed.v1
-
-  storage-router:
+  # Generic effect node runtime
+  effect-runtime:
     build:
       context: ../..
-      dockerfile: deployment/docker/Dockerfile.node
+      dockerfile: deployment/docker/Dockerfile.effect
     environment:
-      - NODE_NAME=storage_router_effect
       - KAFKA_BOOTSTRAP_SERVERS=omninode-bridge-redpanda:9092
       - QDRANT_URL=http://omni-qdrant:6333
       - MEMGRAPH_HOST=omni-memgraph
-      - DATABASE_URL=postgresql://postgres:PASSWORD@omninode-bridge-postgres:5432/omniintelligence
+      - POSTGRES_HOST=omninode-bridge-postgres
+      - MLX_HOST=host.docker.internal
+      - MLX_PORT=8001
+    volumes:
+      - ../../src/omniintelligence/nodes:/app/nodes:ro
     depends_on:
       - omni-qdrant
       - omni-memgraph
+    networks:
+      - omninode-bridge-network
+
+  # Storage router
+  storage-router:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.storage-router
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=omninode-bridge-redpanda:9092
+      - NODE_CONTRACTS_PATH=/app/contracts
+    volumes:
+      - ../../src/omniintelligence/nodes:/app/contracts:ro
     networks:
       - omninode-bridge-network
 ```
@@ -520,14 +615,22 @@ curl -X POST http://localhost:8001/v1/embeddings \
   -H "Content-Type: application/json" \
   -d '{"input": "test text", "model": "mlx-embedding"}'
 
+# Validate effect contract
+python -m omniintelligence.tools.contract_linter \
+  src/omniintelligence/nodes/qdrant_vector_effect/v1_0_0/contracts/qdrant_vector_effect.yaml
+
 # Publish test event
 python -c "
 from confluent_kafka import Producer
 import json
 producer = Producer({'bootstrap.servers': 'localhost:29092'})
 producer.produce(
-    'dev.omni-intelligence.vectorization.requested.v1',
-    json.dumps({'source_path': 'test.py', 'content': 'def hello(): pass'}).encode()
+    'dev.omni-intelligence.compute.vectorization.request.v1',
+    json.dumps({
+        'source_path': 'test.py',
+        'content': 'def hello(): pass',
+        'correlation_id': 'test-123'
+    }).encode()
 )
 producer.flush()
 "
@@ -541,34 +644,57 @@ docker exec omni-memgraph mgconsole -c "MATCH (n) RETURN n LIMIT 10;"
 
 ---
 
-## Files to Create/Modify Summary
+## Files to Create Summary
 
-### New Files (15)
-- `src/omniintelligence/shared/event_consumer.py`
-- `src/omniintelligence/shared/topic_registry.py`
-- `src/omniintelligence/shared/storage_identifier.py`
-- `src/omniintelligence/models/events/model_vectorization_events.py`
-- `src/omniintelligence/models/events/model_entity_events.py`
-- `src/omniintelligence/models/events/model_relationship_events.py`
-- `src/omniintelligence/models/events/model_storage_events.py`
-- `src/omniintelligence/nodes/storage_router_effect/v1_0_0/__init__.py`
-- `src/omniintelligence/nodes/storage_router_effect/v1_0_0/__main__.py`
-- `src/omniintelligence/nodes/storage_router_effect/v1_0_0/effect.py`
-- `src/omniintelligence/providers/__init__.py`
-- `src/omniintelligence/providers/mixin_llm_provider.py`
-- `src/omniintelligence/providers/local_models_adapter.py`
-- `src/omniintelligence/providers/models.py`
-- `src/omniintelligence/providers/exceptions.py`
+### New Files (Core Runtime)
 
-### Modified Files (8)
-- `src/omniintelligence/nodes/vectorization_compute/v1_0_0/compute.py`
-- `src/omniintelligence/nodes/vectorization_compute/v1_0_0/__main__.py`
-- `src/omniintelligence/nodes/entity_extraction_compute/v1_0_0/__main__.py`
-- `src/omniintelligence/nodes/relationship_detection_compute/v1_0_0/__main__.py`
-- `src/omniintelligence/nodes/quality_scoring_compute/v1_0_0/__main__.py`
-- `deployment/docker/docker-compose.nodes.yml`
-- `deployment/docker/.env`
-- `migrations/001_create_llm_cost_tracking.sql`
+```
+src/omniintelligence/
+├── nodes/
+│   ├── effect_runtime/v1_0_0/
+│   │   ├── runtime.py                    # NodeEffect base class
+│   │   ├── handlers/base.py              # ProtocolHandler ABC
+│   │   ├── handlers/http_rest.py         # HttpRestHandler
+│   │   ├── handlers/bolt.py              # BoltHandler
+│   │   ├── handlers/postgres.py          # PostgresHandler
+│   │   ├── handlers/kafka.py             # KafkaHandler
+│   │   ├── handlers/registry.py          # ProtocolHandlerRegistry
+│   │   ├── resilience/retry.py           # RetryPolicy
+│   │   ├── resilience/circuit_breaker.py # CircuitBreaker
+│   │   ├── models.py                     # Pydantic models
+│   │   ├── mapping.py                    # JSONPath mapping
+│   │   └── validation.py                 # Contract validation
+│   └── compute_runtime/v1_0_0/
+│       └── runtime.py                    # NodeCompute base class
+├── schemas/
+│   └── effect_contract_v1.json           # JSON Schema
+```
+
+### New Files (Contracts)
+
+```
+src/omniintelligence/nodes/
+├── qdrant_vector_effect/v1_0_0/contracts/
+│   └── qdrant_vector_effect.yaml
+├── memgraph_graph_effect/v1_0_0/contracts/
+│   └── memgraph_graph_effect.yaml
+├── postgres_pattern_effect/v1_0_0/contracts/
+│   └── postgres_pattern_effect.yaml
+├── kafka_event_effect/v1_0_0/contracts/
+│   └── kafka_event_effect.yaml
+├── mlx_embedding_adapter/v1_0_0/contracts/
+│   └── mlx_embedding_adapter.yaml
+├── vectorization_compute/v1_0_0/contracts/
+│   └── vectorization_compute.yaml
+├── entity_extraction_compute/v1_0_0/contracts/
+│   └── entity_extraction_compute.yaml
+├── relationship_detection_compute/v1_0_0/contracts/
+│   └── relationship_detection_compute.yaml
+├── quality_scoring_compute/v1_0_0/contracts/
+│   └── quality_scoring_compute.yaml
+└── storage_router_effect/v1_0_0/contracts/
+    └── storage_router_effect.yaml
+```
 
 ---
 
@@ -576,12 +702,22 @@ docker exec omni-memgraph mgconsole -c "MATCH (n) RETURN n LIMIT 10;"
 
 | Metric | Target |
 |--------|--------|
-| Event latency (request → completed) | < 500ms |
-| Vector dimension from MLX | Match model output (e.g., 768) |
+| Event latency (request -> completed) | < 500ms |
+| Contract validation time | < 50ms |
+| Protocol handler initialization | < 1s |
 | Storage success rate | > 99% |
 | DLQ message rate | < 1% |
 | Cross-storage ID consistency | 100% |
 | Correlation ID preservation | 100% |
+| Circuit breaker false opens | < 0.1% |
+
+---
+
+## References
+
+- [DECLARATIVE_EFFECT_NODES_SPEC.md](specs/DECLARATIVE_EFFECT_NODES_SPEC.md) - Full specification
+- [Legacy Nodes](../src/omniintelligence/_legacy/nodes/) - Imperative implementations (deprecated)
+- [Contract Linter](../src/omniintelligence/tools/README.md) - YAML contract validation tool
 
 ---
 

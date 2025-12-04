@@ -25,7 +25,6 @@ from src.omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (
     IntelligenceReducer,
 )
 
-
 # =========================================================================
 # Fixtures
 # =========================================================================
@@ -543,8 +542,8 @@ async def test_update_state_executes_correctly(reducer, mock_db_connection):
 def test_validate_wildcard_transition(reducer):
     """Test _validate_transition_from_contract handles wildcard from_state."""
     from omnibase_core.models.contracts.subcontracts.model_fsm_subcontract import (
-        ModelFSMSubcontract,
         ModelFSMStateTransition,
+        ModelFSMSubcontract,
     )
 
     # Create a mock contract with a wildcard transition

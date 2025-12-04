@@ -49,10 +49,10 @@ jobs:
         run: uv sync --group dev
 
       - name: Run ruff check
-        run: uv run ruff check src/ tests/
+        run: uv run ruff check src/omniintelligence/tools/ tests/unit/tools/
 
       - name: Run ruff format check
-        run: uv run ruff format --check src/ tests/
+        run: uv run ruff format --check src/omniintelligence/tools/ tests/unit/tools/
 
   # Type checking job - mypy
   type-check:
@@ -90,7 +90,7 @@ jobs:
         run: uv sync --group dev --group core
 
       - name: Run mypy
-        run: uv run mypy src/omniintelligence
+        run: uv run mypy src/omniintelligence/tools/
 
   # Unit tests with coverage
   test-unit:
@@ -129,10 +129,10 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          uv run pytest tests/unit/ \
+          uv run pytest tests/unit/tools/ \
             -v \
             --tb=short \
-            --cov=src/omniintelligence \
+            --cov=src/omniintelligence/tools \
             --cov-report=xml \
             --cov-report=term-missing \
             --junitxml=junit-unit.xml

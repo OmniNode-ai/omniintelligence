@@ -13,7 +13,6 @@ import pytest
 from omniintelligence.nodes.vectorization_compute.v1_0_0.compute import (
     ModelVectorizationConfig,
     ModelVectorizationInput,
-    ModelVectorizationOutput,
     VectorizationCompute,
 )
 

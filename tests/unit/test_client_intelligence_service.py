@@ -7,7 +7,7 @@ error handling, and metrics.
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -33,7 +33,6 @@ from omniintelligence.models.model_intelligence_api_contracts import (
     ModelQualityAssessmentRequest,
     ModelQualityAssessmentResponse,
 )
-
 
 # ============================================================================
 # Fixtures
@@ -115,7 +114,7 @@ def mock_health_response_data():
         "freshness_database_connected": True,
         "service_version": "1.0.0",
         "uptime_seconds": 12345.0,
-        "last_check": datetime.now(timezone.utc).isoformat(),
+        "last_check": datetime.now(UTC).isoformat(),
     }
 
 
@@ -142,7 +141,7 @@ def mock_quality_response_data():
         },
         "architectural_era": "modern_archon",
         "temporal_relevance": 0.85,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -158,7 +157,7 @@ def mock_performance_response_data():
         "quality_score": 0.75,
         "complexity_score": 0.80,
         "sample_size": 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "source": "code_analysis",
         "message": "Synthetic baseline generated",
     }
@@ -188,7 +187,7 @@ def mock_pattern_response_data():
         "analysis_summary": {"patterns_found": 1},
         "confidence_scores": {"overall_confidence": 0.85},
         "recommendations": ["Consider adding interface"],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 

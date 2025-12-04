@@ -5,25 +5,23 @@ Tests Pydantic model validation and serialization.
 """
 
 import os
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
-from datetime import datetime, timezone
 from pydantic import ValidationError
 
+from omniintelligence.enums import (
+    EnumFSMAction,
+    EnumFSMType,
+    EnumIntentType,
+)
 from omniintelligence.models import (
+    ModelFSMState,
+    ModelIntelligenceConfig,
     ModelIntent,
     ModelReducerInput,
     ModelReducerOutput,
-    ModelOrchestratorInput,
-    ModelOrchestratorOutput,
-    ModelFSMState,
-    ModelIntelligenceConfig,
-)
-from omniintelligence.enums import (
-    EnumIntentType,
-    EnumFSMType,
-    EnumFSMAction,
 )
 
 
@@ -88,7 +86,7 @@ def test_fsm_state_model():
         entity_id="pattern_123",
         current_state="FOUNDATION",
         previous_state=None,
-        transition_timestamp=datetime.now(timezone.utc),
+        transition_timestamp=datetime.now(UTC),
     )
 
     assert state.fsm_type == EnumFSMType.PATTERN_LEARNING

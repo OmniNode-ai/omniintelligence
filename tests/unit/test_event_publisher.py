@@ -18,7 +18,7 @@ All tests use mocked Kafka producer - NO real Kafka connection.
 import asyncio
 import json
 import time
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -30,9 +30,7 @@ from omniintelligence.events.publisher.event_publisher import (
 from omniintelligence.models import (
     ModelEventEnvelope,
     ModelEventMetadata,
-    ModelEventSource,
 )
-
 
 # ============================================================================
 # Fixtures
@@ -720,10 +718,9 @@ class TestDeadLetterQueue:
         def capture_dlq(topic, value, key=None, callback=None):
             if ".dlq" in topic:
                 dlq_payloads.append(json.loads(value.decode("utf-8")))
-            else:
-                # For non-DLQ topics, fail
-                if callback:
-                    callback(Exception("Failure"), None)
+            # For non-DLQ topics, fail
+            elif callback:
+                callback(Exception("Failure"), None)
 
         mock_producer_permanent_failure.produce.side_effect = capture_dlq
 

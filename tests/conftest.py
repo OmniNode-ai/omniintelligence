@@ -6,12 +6,11 @@ Shared test fixtures for all tests including intelligence nodes and pattern extr
 
 import asyncio
 import json
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-
 
 # =========================================================================
 # Core Pytest Configuration
@@ -89,7 +88,9 @@ def sample_pattern_context() -> dict[str, str]:
 def mock_onex_container():
     """Create a mock ONEX container for testing."""
     try:
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+        from omnibase_core.models.container.model_onex_container import (
+            ModelONEXContainer,
+        )
         return ModelONEXContainer()
     except ImportError:
         # Fallback to mock if omnibase_core not available
@@ -175,7 +176,7 @@ def mock_kafka_producer():
 
 
 @pytest.fixture
-def sample_intelligence_input_dict() -> Dict[str, Any]:
+def sample_intelligence_input_dict() -> dict[str, Any]:
     """Provide a sample intelligence input dictionary."""
     return {
         "operation_type": "assess_code_quality",

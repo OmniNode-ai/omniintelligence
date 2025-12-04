@@ -11,10 +11,8 @@ Tests cover:
 - Metrics tracking
 """
 
-import asyncio
 import json
-from typing import Any, Optional
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -22,7 +20,6 @@ import pytest
 from omniintelligence.nodes.kafka_event_effect import (
     ModelKafkaEventConfig,
     ModelKafkaEventInput,
-    ModelKafkaEventOutput,
     NodeKafkaEventEffect,
 )
 
