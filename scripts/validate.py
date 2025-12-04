@@ -91,7 +91,7 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     Returns:
         ValidationResult with pass/fail status
     """
-    contract_files = list(NODES_DIR.glob("*/v1_0_0/contracts/*.yaml"))
+    contract_files = list(NODES_DIR.glob("*/v*/contracts/*.yaml"))
 
     if not contract_files:
         return ValidationResult(
