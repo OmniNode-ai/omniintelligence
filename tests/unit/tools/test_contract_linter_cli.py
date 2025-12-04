@@ -735,7 +735,7 @@ class TestCLIWatchMode:
             main([str(contract), "--watch", "--verbose", "--json"])
 
         # Verify the arguments passed to _watch_and_validate
-        args, kwargs = mock_watch.call_args
+        args, _kwargs = mock_watch.call_args
         assert len(args) == 4
         # args[0] is linter instance
         assert args[1] == [str(contract)]  # file_paths
@@ -760,7 +760,7 @@ class TestCLIWatchMode:
             mock_watch.return_value = None
             main([str(contract1), str(contract2), "--watch"])
 
-        args, kwargs = mock_watch.call_args
+        args, _kwargs = mock_watch.call_args
         assert len(args[1]) == 2
         assert str(contract1) in args[1]
         assert str(contract2) in args[1]
@@ -776,37 +776,47 @@ class TestWatchAndValidateFunction:
         capsys,
     ):
         """Test that watch mode detects file changes and re-validates."""
+        import time as time_module
+
         from omniintelligence.tools.contract_linter import (
             ContractLinter,
             _watch_and_validate,
         )
-        import time as time_module
 
         contract = tmp_path / "watch_test.yaml"
         contract.write_text(valid_compute_contract_yaml)
 
         linter = ContractLinter()
         iteration_count = 0
+        stat_call_count = 0
+        original_stat = Path.stat
+        initial_mtime = contract.stat().st_mtime
 
-        # Patch time.sleep to control the loop and exit after first change detection
-        original_sleep = time_module.sleep
+        def mock_stat(self):
+            """Mock stat to simulate mtime change deterministically."""
+            nonlocal stat_call_count
+            result = original_stat(self)
+            stat_call_count += 1
+            # After initial mtime capture (first few calls), simulate a change
+            # The watch loop calls stat() multiple times per iteration
+            if stat_call_count > 2 and self == contract:
+                # Return a mock stat with different mtime
+                class MockStat:
+                    st_mtime = initial_mtime + 1.0
+
+                return MockStat()
+            return result
 
         def mock_sleep(seconds):
             nonlocal iteration_count
             iteration_count += 1
-
-            if iteration_count == 1:
-                # On first sleep, modify the file to trigger change detection
-                contract.write_text(valid_compute_contract_yaml + "\n# modified")
-            elif iteration_count >= 3:
-                # After a few iterations, raise KeyboardInterrupt to exit
+            if iteration_count >= 3:
                 raise KeyboardInterrupt
+            time_module.sleep(0.01)
 
-            # Use a very short actual sleep for faster tests
-            original_sleep(0.01)
-
-        with patch.object(time_module, "sleep", mock_sleep):
-            _watch_and_validate(linter, [str(contract)], False, False)
+        with patch.object(Path, "stat", mock_stat):
+            with patch.object(time_module, "sleep", mock_sleep):
+                _watch_and_validate(linter, [str(contract)], False, False)
 
         captured = capsys.readouterr()
         assert "Watching for file changes" in captured.out
@@ -817,11 +827,12 @@ class TestWatchAndValidateFunction:
         self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
     ):
         """Test that watch mode exits cleanly on Ctrl+C."""
+        import time as time_module
+
         from omniintelligence.tools.contract_linter import (
             ContractLinter,
             _watch_and_validate,
         )
-        import time as time_module
 
         contract = tmp_path / "watch_test.yaml"
         contract.write_text(valid_compute_contract_yaml)
@@ -841,30 +852,45 @@ class TestWatchAndValidateFunction:
         self, tmp_path: Path, valid_compute_contract_yaml: str, capsys
     ):
         """Test that watch mode outputs JSON when json_output is True."""
+        import time as time_module
+
         from omniintelligence.tools.contract_linter import (
             ContractLinter,
             _watch_and_validate,
         )
-        import time as time_module
 
         contract = tmp_path / "watch_test.yaml"
         contract.write_text(valid_compute_contract_yaml)
 
         linter = ContractLinter()
         iteration_count = 0
+        stat_call_count = 0
+        original_stat = Path.stat
+        initial_mtime = contract.stat().st_mtime
+
+        def mock_stat(self):
+            """Mock stat to simulate mtime change deterministically."""
+            nonlocal stat_call_count
+            result = original_stat(self)
+            stat_call_count += 1
+            # After initial mtime capture, simulate a change for JSON output test
+            if stat_call_count > 2 and self == contract:
+                class MockStat:
+                    st_mtime = initial_mtime + 1.0
+
+                return MockStat()
+            return result
 
         def mock_sleep(seconds):
             nonlocal iteration_count
             iteration_count += 1
-
-            if iteration_count == 1:
-                # Trigger a change
-                contract.write_text(valid_compute_contract_yaml + "\n# modified")
-            elif iteration_count >= 2:
+            if iteration_count >= 3:
                 raise KeyboardInterrupt
+            time_module.sleep(0.01)
 
-        with patch.object(time_module, "sleep", mock_sleep):
-            _watch_and_validate(linter, [str(contract)], True, False)
+        with patch.object(Path, "stat", mock_stat):
+            with patch.object(time_module, "sleep", mock_sleep):
+                _watch_and_validate(linter, [str(contract)], True, False)
 
         captured = capsys.readouterr()
         # JSON output should contain valid JSON with "valid" key
