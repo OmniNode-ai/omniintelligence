@@ -522,18 +522,38 @@ jobs:
             esac
           }
 
-          # Check if a job result is acceptable (success or skipped due to path filter)
+          # Check if a job result is acceptable for CI to pass
+          #
+          # Status handling logic:
+          #   - success:   Always acceptable - job completed without errors
+          #   - skipped:   Acceptable ONLY for production code jobs when no relevant files changed
+          #                (lint, type-check, test-unit use path filtering via changes job)
+          #   - cancelled: Never acceptable - indicates workflow was manually stopped or timed out
+          #   - failure:   Never acceptable - job encountered errors
+          #
+          # Args:
+          #   $1 - Job result status (success|failure|cancelled|skipped)
+          #   $2 - Whether this is a production code job with path filtering (true|false)
           is_acceptable() {
             local result="$1"
             local is_production_code_job="$2"
+
+            # Explicitly reject cancelled status - workflow was interrupted
+            if [[ "$result" == "cancelled" ]]; then
+              return 1
+            fi
+
             # Always accept success
             if [[ "$result" == "success" ]]; then
               return 0
             fi
+
             # For production code jobs, skipped is acceptable when no relevant files changed
             if [[ "$is_production_code_job" == "true" ]] && [[ "$result" == "skipped" ]] && [[ "$production_code_changed" != "true" ]]; then
               return 0
             fi
+
+            # All other statuses (failure, unexpected) are not acceptable
             return 1
           }
 

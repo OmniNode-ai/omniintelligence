@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 from dataclasses import dataclass, field
@@ -59,6 +60,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 import yaml
+
+# Configure logging for this module
+logger = logging.getLogger(__name__)
 
 # Repository root (parent of scripts/)
 REPO_ROOT = Path(__file__).parent.parent
@@ -150,44 +154,248 @@ def extract_ci_patterns(ci_config: dict) -> tuple[list[str], list[str]]:
     return sorted(set(source_dirs)), sorted(set(test_paths))
 
 
+def _normalize_quotes(pattern: str) -> str:
+    """Normalize quotes in a pattern string.
+
+    Handles both single and double quotes by converting double quotes to single.
+
+    Args:
+        pattern: The pattern string that may contain quotes
+
+    Returns:
+        Pattern with normalized quotes
+    """
+    if pattern is None:
+        return ""
+    # Replace double quotes with single quotes for consistent parsing
+    return pattern.replace('"', "'")
+
+
+def _extract_source_dirs_from_pattern(files_pattern: str) -> list[str]:
+    """Extract source directories from a pre-commit files pattern.
+
+    Handles patterns like:
+    - ^src/omniintelligence/(tools|utils|runtime)/
+    - ^(src/omniintelligence/(tools|utils)/|...)
+
+    Args:
+        files_pattern: The regex pattern from pre-commit files: field
+
+    Returns:
+        List of extracted source directory names
+    """
+    source_dirs: list[str] = []
+
+    if not files_pattern:
+        return source_dirs
+
+    try:
+        # Pattern: src/omniintelligence/(tools|utils|runtime)/
+        # This handles the alternation group for source directories
+        src_match = re.search(
+            r"src/omniintelligence/\(([^)]+)\)/", files_pattern
+        )
+        if src_match:
+            # Split by pipe to get individual directories
+            raw_dirs = src_match.group(1).split("|")
+            for dir_name in raw_dirs:
+                # Validate directory name is alphanumeric with underscores
+                cleaned = dir_name.strip()
+                if cleaned and re.match(r"^[\w]+$", cleaned):
+                    source_dirs.append(cleaned)
+                elif cleaned:
+                    logger.warning(
+                        f"Unexpected source directory format in pattern: '{cleaned}' "
+                        f"(from pattern: '{files_pattern[:80]}...')"
+                    )
+    except re.error as e:
+        logger.warning(
+            f"Failed to parse source dirs from pre-commit pattern: {e}. "
+            f"Pattern: '{files_pattern[:80]}...'"
+        )
+
+    return source_dirs
+
+
+def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
+    """Extract test paths from a pre-commit files pattern.
+
+    Handles patterns like:
+    - tests/unit/(tools/|test_log_sanitizer\\.py)
+    - tests/unit/tools/
+
+    Args:
+        files_pattern: The regex pattern from pre-commit files: field
+
+    Returns:
+        List of extracted test paths
+    """
+    test_paths: list[str] = []
+
+    if not files_pattern:
+        return test_paths
+
+    try:
+        # Pattern: tests/unit/(tools/|test_log_sanitizer\.py)
+        test_match = re.search(
+            r"tests/unit/\(([^)]+)\)", files_pattern
+        )
+        if test_match:
+            parts = test_match.group(1).split("|")
+            for part in parts:
+                if not part:
+                    continue
+                try:
+                    # Clean up regex escapes and trailing slashes
+                    # Handle both \. and literal . for .py extension
+                    cleaned = part.replace("\\.py", ".py").rstrip("/")
+                    if cleaned:
+                        test_paths.append(f"tests/unit/{cleaned}")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to clean test path part '{part}': {e}"
+                    )
+    except re.error as e:
+        logger.warning(
+            f"Failed to parse test paths from pre-commit pattern: {e}. "
+            f"Pattern: '{files_pattern[:80]}...'"
+        )
+
+    return test_paths
+
+
 def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[str]]:
     """Extract source dirs and test paths from pre-commit ruff hook pattern.
+
+    This function includes defensive validation for:
+    - Missing or malformed files: patterns in hooks
+    - Unexpected regex structures that don't match expected format
+    - Empty or None pattern values
+    - Both single and double quote styles
 
     Args:
         precommit_config: Parsed pre-commit config YAML
 
     Returns:
         Tuple of (source_dirs, test_paths)
+
+    Note:
+        Warnings are logged for patterns that cannot be parsed.
+        The function will not raise exceptions for malformed input.
     """
     source_dirs: list[str] = []
     test_paths: list[str] = []
 
-    repos = precommit_config.get("repos", [])
-    for repo in repos:
-        hooks = repo.get("hooks", [])
-        for hook in hooks:
-            # Check ruff hook (representative of all Python hooks)
-            if hook.get("id") == "ruff":
-                files_pattern = hook.get("files", "")
-                # Pattern: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
-                # Extract source dirs from (tools|utils|runtime)
-                src_match = re.search(
-                    r"src/omniintelligence/\(([^)]+)\)/", files_pattern
-                )
-                if src_match:
-                    dirs = src_match.group(1).split("|")
-                    source_dirs.extend(dirs)
+    # Validate input is a dict
+    if not isinstance(precommit_config, dict):
+        logger.warning(
+            f"Expected dict for precommit_config, got {type(precommit_config).__name__}. "
+            "Returning empty patterns."
+        )
+        return [], []
 
-                # Extract test paths from tests/unit/(tools/|test_log_sanitizer\.py)
-                test_match = re.search(
-                    r"tests/unit/\(([^)]+)\)", files_pattern
+    repos = precommit_config.get("repos")
+
+    # Validate repos is a list
+    if repos is None:
+        logger.warning("No 'repos' key found in pre-commit config")
+        return [], []
+
+    if not isinstance(repos, list):
+        logger.warning(
+            f"Expected list for 'repos', got {type(repos).__name__}. "
+            "Returning empty patterns."
+        )
+        return [], []
+
+    for repo_idx, repo in enumerate(repos):
+        # Validate repo is a dict
+        if not isinstance(repo, dict):
+            logger.warning(
+                f"Repo at index {repo_idx} is not a dict, skipping"
+            )
+            continue
+
+        hooks = repo.get("hooks")
+
+        # Validate hooks is a list
+        if hooks is None:
+            continue  # No hooks in this repo is valid
+
+        if not isinstance(hooks, list):
+            logger.warning(
+                f"Expected list for 'hooks' in repo at index {repo_idx}, "
+                f"got {type(hooks).__name__}. Skipping."
+            )
+            continue
+
+        for hook_idx, hook in enumerate(hooks):
+            # Validate hook is a dict
+            if not isinstance(hook, dict):
+                logger.warning(
+                    f"Hook at index {hook_idx} in repo {repo_idx} is not a dict, skipping"
                 )
-                if test_match:
-                    parts = test_match.group(1).split("|")
-                    for part in parts:
-                        # Clean up regex escapes and trailing slashes
-                        cleaned = part.replace("\\.py", ".py").rstrip("/")
-                        test_paths.append(f"tests/unit/{cleaned}")
+                continue
+
+            # Check ruff hook (representative of all Python hooks)
+            hook_id = hook.get("id")
+            if hook_id != "ruff":
+                continue
+
+            # Get files pattern with defensive handling
+            files_pattern = hook.get("files")
+
+            # Handle None or missing files pattern
+            if files_pattern is None:
+                logger.warning(
+                    f"Ruff hook at repo index {repo_idx} has no 'files' pattern. "
+                    "This hook will match all files."
+                )
+                continue
+
+            # Handle non-string files pattern
+            if not isinstance(files_pattern, str):
+                logger.warning(
+                    f"Expected string for 'files' in ruff hook, "
+                    f"got {type(files_pattern).__name__}. Skipping."
+                )
+                continue
+
+            # Handle empty string
+            if not files_pattern.strip():
+                logger.warning(
+                    "Ruff hook has empty 'files' pattern. "
+                    "This hook will match all files."
+                )
+                continue
+
+            # Normalize quotes (handle both single and double quotes)
+            normalized_pattern = _normalize_quotes(files_pattern)
+
+            # Validate pattern is a valid regex (basic check)
+            try:
+                re.compile(normalized_pattern)
+            except re.error as e:
+                logger.warning(
+                    f"Invalid regex in ruff hook 'files' pattern: {e}. "
+                    f"Pattern: '{files_pattern[:80]}...'"
+                )
+                continue
+
+            # Extract source directories
+            extracted_dirs = _extract_source_dirs_from_pattern(normalized_pattern)
+            source_dirs.extend(extracted_dirs)
+
+            # Extract test paths
+            extracted_tests = _extract_test_paths_from_pattern(normalized_pattern)
+            test_paths.extend(extracted_tests)
+
+            # Log if we couldn't extract anything (might indicate pattern format change)
+            if not extracted_dirs and not extracted_tests:
+                logger.warning(
+                    f"Could not extract any paths from ruff hook pattern. "
+                    f"Pattern may have unexpected format: '{files_pattern[:80]}...'"
+                )
 
     return sorted(set(source_dirs)), sorted(set(test_paths))
 
@@ -222,16 +430,34 @@ def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> Mypy
             cache_with = step.get("with", {})
             cache_key = cache_with.get("key", "")
             # Parse hashFiles patterns from the cache key
-            # Pattern: hashFiles('src/omniintelligence/tools/**/*.py', 'src/omniintelligence/utils/**/*.py', ...)
-            hashfiles_matches = re.findall(
-                r"hashFiles\('([^']+)'(?:,\s*'([^']+)')*\)", cache_key
-            )
-            # The regex captures groups, but we need to also capture the content directly
-            # Let's use a simpler approach - extract all quoted patterns from hashFiles
+            #
+            # Quote handling for hashFiles patterns:
+            # -----------------------------------------
+            # YAML and GitHub Actions support both single and double quotes:
+            #   - Single quotes: hashFiles('pattern1', 'pattern2')
+            #   - Double quotes: hashFiles("pattern1", "pattern2")
+            #   - Mixed quotes:  hashFiles('pattern1', "pattern2")
+            #
+            # YAML multiline strings (using > or |) preserve the original quotes,
+            # so we must handle both styles when parsing the cache key.
+            #
+            # Our approach:
+            #   1. Extract everything inside hashFiles(...) parentheses
+            #   2. Match all quoted strings using a pattern that handles both
+            #      single-quoted ('content') and double-quoted ("content") strings
+            #
+            # The regex ['"]([^'"]+)['"] matches:
+            #   - Opening quote (single or double): ['"]
+            #   - Pattern content (any chars except quotes): ([^'"]+)
+            #   - Closing quote (single or double): ['"]
+            #
+            # Note: This assumes patterns don't contain embedded quotes,
+            # which is valid for file glob patterns like 'src/**/*.py'.
             hashfiles_content = re.search(r"hashFiles\(([^)]+)\)", cache_key)
             if hashfiles_content:
                 patterns_str = hashfiles_content.group(1)
-                patterns = re.findall(r"'([^']+)'", patterns_str)
+                # Extract patterns with either single or double quotes
+                patterns = re.findall(r"""['"]([^'"]+)['"]""", patterns_str)
                 for pattern in patterns:
                     result.cache_patterns.append(pattern)
                     # Extract directory name from pattern like 'src/omniintelligence/tools/**/*.py'
