@@ -11,9 +11,26 @@
 # - pytest-smoke: Quick unit tests on commit
 # - pytest-tools: Full tools tests on push only
 #
-# Excluded from all hooks:
+# Global Exclusions (excluded from ALL hooks via exclude: block at bottom):
 # - _legacy/: Legacy code preserved for migration reference
 # - migration_sources/: Original omniarchon source code
+# - .git/: Git internals
+#
+# Per-Hook Exclusions (excluded from specific hooks only):
+# - .github/workflows/: Excluded from formatting hooks (yamlfmt, trailing-whitespace,
+#   end-of-file-fixer) because GitHub Actions workflows have specific YAML syntax
+#   requirements (expression syntax ${{ }}, multiline strings, run blocks) that
+#   conflict with standard formatting rules. NOT excluded from check-merge-conflict
+#   or check-added-large-files since those validations remain useful.
+#
+# Performance Optimizations:
+# - fail_fast: true - Stop on first failure to save time during development
+# - types: [python] - Faster than regex patterns for type-based filtering
+# - Hook ordering: Fast hooks (file hygiene) run before slow hooks (mypy, pytest)
+# - require_serial: false (default) - Allow parallel execution where possible
+
+# Stop on first failure to avoid wasted hook runs during development
+fail_fast: true
 
 repos:
   # ============================================================================
@@ -36,11 +53,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # GitHub Actions workflows excluded from formatting hooks - see header comment
+      # for rationale (YAML syntax requirements conflict with standard formatters)
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
         exclude: ^\.github/workflows/
       - id: end-of-file-fixer
         exclude: ^\.github/workflows/
+      # check-merge-conflict and check-added-large-files run on ALL files including workflows
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1000]
@@ -55,6 +75,8 @@ repos:
       - id: ruff
         name: ruff (lint)
         args: [--fix, --exit-non-zero-on-fix]
+        # types: [python] is more efficient than files regex for Python detection
+        types: [python]
         # Covers: tools/, utils/, runtime/ source code and their tests
         # test_log_sanitizer.py is included separately as it tests utils/log_sanitizer.py
         # functionality but lives in tests/unit/ rather than tests/unit/tools/
@@ -62,6 +84,8 @@ repos:
 
       - id: ruff-format
         name: ruff (format)
+        # types: [python] is more efficient than files regex for Python detection
+        types: [python]
         # Same scope as ruff lint (see comment above for test_log_sanitizer.py rationale)
         files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
 
@@ -75,7 +99,10 @@ repos:
     hooks:
       - id: mypy
         name: mypy (type check)
-        args: [--strict, --ignore-missing-imports]
+        # --incremental uses mypy cache for faster subsequent runs
+        args: [--strict, --ignore-missing-imports, --incremental]
+        # types: [python] is more efficient than files regex for Python detection
+        types: [python]
         # Covers: tools/, utils/, runtime/ source code (not tests)
         files: ^src/omniintelligence/(tools|utils|runtime)/
         additional_dependencies:
@@ -111,16 +138,18 @@ repos:
       # --------------------------------------------------------------------------
       # Pytest Smoke Tests - Quick unit tests on commit
       # Validates: Core functionality via fast unit tests
-      # Scope: Triggered on Python file changes in src or tests directories
+      # Scope: Triggered on changes to tools/utils/runtime source or their tests
       # Stage: pre-commit (fast, ~3s)
+      # Performance: Only triggers on relevant file changes, not all Python files
       # --------------------------------------------------------------------------
       - id: pytest-smoke
         name: pytest (smoke tests)
         entry: uv run pytest tests/unit/tools/ --maxfail=3 -x --tb=short -q
         language: system
         pass_filenames: false
-        # Trigger on Python file changes in src or tests
-        files: ^(src/omniintelligence/|tests/).*\.py$
+        types: [python]
+        # Trigger only on production code or test changes (not docs, scripts, etc.)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/).*\.py$
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
@@ -134,6 +163,7 @@ repos:
         entry: uv run pytest tests/unit/tools/ -v --tb=short
         language: system
         pass_filenames: false
+        types: [python]
         # Trigger when either tools source or tests change
         files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
         stages: [pre-push]
