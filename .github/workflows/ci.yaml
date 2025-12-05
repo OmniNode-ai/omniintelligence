@@ -23,7 +23,7 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
-      production-code: ${{ steps.filter.outputs.production-code }}
+      production_code: ${{ steps.filter.outputs.production_code }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
         with:
           # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
           filters: |
-            production-code:
+            production_code:
               - 'src/omniintelligence/tools/**'
               - 'src/omniintelligence/utils/**'
               - 'src/omniintelligence/runtime/**'
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: changes
-    if: needs.changes.outputs.production-code == 'true'
+    if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: changes
-    if: needs.changes.outputs.production-code == 'true'
+    if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
@@ -207,7 +207,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: changes
-    if: needs.changes.outputs.production-code == 'true'
+    if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
@@ -364,7 +364,7 @@ jobs:
           typecheck="${{ needs.type-check.result }}"
           unittest="${{ needs.test-unit.result }}"
           contracts="${{ needs.contract-validation.result }}"
-          production_code_changed="${{ needs.changes.outputs.production-code }}"
+          production_code_changed="${{ needs.changes.outputs.production_code }}"
 
           # Status emoji mapping
           get_status_icon() {

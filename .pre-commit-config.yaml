@@ -57,9 +57,9 @@ repos:
       # for rationale (YAML syntax requirements conflict with standard formatters)
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: ^\.github/workflows/
+        exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
       - id: end-of-file-fixer
-        exclude: ^\.github/workflows/
+        exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
       # check-merge-conflict and check-added-large-files run on ALL files including workflows
       - id: check-merge-conflict
       - id: check-added-large-files
