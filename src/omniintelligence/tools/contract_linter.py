@@ -46,6 +46,10 @@ if TYPE_CHECKING:
 # Maximum file size for YAML contracts (1MB default)
 MAX_YAML_SIZE_BYTES = 1024 * 1024  # 1MB
 
+# Default threshold for parallel validation (number of files)
+# When batch size exceeds this threshold, parallel validation is enabled
+DEFAULT_PARALLEL_THRESHOLD = 10
+
 # Regex pattern for valid Python-style field identifiers (lowercase snake_case)
 # Matches: field_name, version, _private, field123
 # Rejects: FieldName (uppercase), "field name" (spaces), 123field (starts with digit)
@@ -302,12 +306,15 @@ class ContractLinter:
             deprecation warnings as errors, stricter type coercion rules, etc.
         schema_version: Reserved for future schema version selection. Not yet
             implemented. Currently only "1.0.0" is supported.
+        parallel_threshold: Minimum number of files to trigger parallel validation
+            when parallel=True is passed to validate_batch(). Defaults to 10.
     """
 
     def __init__(
         self,
         strict: bool = False,
         schema_version: str = "1.0.0",
+        parallel_threshold: int = DEFAULT_PARALLEL_THRESHOLD,
     ) -> None:
         """Initialize the contract linter.
 
@@ -320,6 +327,9 @@ class ContractLinter:
             schema_version: Reserved for future schema version selection. Not yet
                 implemented. Will allow validating contracts against different schema
                 versions for backward compatibility. Currently only "1.0.0" is supported.
+            parallel_threshold: Minimum number of files to trigger parallel validation
+                when parallel=True is passed to validate_batch(). Defaults to 10.
+                Set to 0 to always use parallel validation when parallel=True.
 
         Raises:
             NotImplementedError: If strict=True is passed (not yet implemented).
@@ -357,6 +367,7 @@ class ContractLinter:
 
         self._strict = strict
         self._schema_version = schema_version
+        self._parallel_threshold = parallel_threshold
 
     def _validate_with_pydantic_model(
         self,
@@ -806,12 +817,13 @@ class ContractLinter:
 
         Args:
             file_paths: Sequence of paths to contract files
-            parallel: If True and batch size > 10, use parallel validation
+            parallel: If True and batch size exceeds parallel_threshold,
+                use parallel validation with ThreadPoolExecutor
 
         Returns:
             List of validation results for each file
         """
-        if parallel and len(file_paths) > 10:
+        if parallel and len(file_paths) > self._parallel_threshold:
             max_workers = min(len(file_paths), os.cpu_count() or 4)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 return list(

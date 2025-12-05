@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -88,6 +89,12 @@ def run_omnibase_validator(
     except subprocess.TimeoutExpired:
         passed = False
         message = "Validator timed out after 300 seconds"
+    except FileNotFoundError:
+        passed = False
+        message = "Validator module not found - check omnibase_core installation"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
 
     return ValidationResult(
         name=f"omnibase:{validator}",
@@ -106,8 +113,6 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     Returns:
         ValidationResult with pass/fail status
     """
-    import time
-
     start_time = time.monotonic()
 
     # Find all nodes directories
@@ -165,6 +170,12 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     except subprocess.TimeoutExpired:
         passed = False
         message = "Contract linter timed out after 300 seconds"
+    except FileNotFoundError:
+        passed = False
+        message = "Contract linter module not found - check omniintelligence installation"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
 
     return ValidationResult(
         name="contract_linter",
@@ -195,6 +206,12 @@ def run_mypy(verbose: bool = False) -> ValidationResult:
     except subprocess.TimeoutExpired:
         passed = False
         message = "MyPy timed out after 300 seconds"
+    except FileNotFoundError:
+        passed = False
+        message = "MyPy not found - check installation (pip install mypy)"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
 
     return ValidationResult(
         name="mypy:tools",
@@ -230,6 +247,12 @@ def run_ruff(verbose: bool = False) -> ValidationResult:
     except subprocess.TimeoutExpired:
         passed = False
         message = "Ruff linter timed out after 300 seconds"
+    except FileNotFoundError:
+        passed = False
+        message = "Ruff not found - check installation (pip install ruff)"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
 
     return ValidationResult(
         name="ruff",

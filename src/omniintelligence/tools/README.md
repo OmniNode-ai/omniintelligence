@@ -130,7 +130,7 @@ Watch mode is useful during contract development to get immediate feedback on ch
 
 When validating more than 10 contract files, the linter automatically uses parallel validation for improved performance:
 
-- **Threshold**: Parallel validation activates when batch size exceeds 10 files
+- **Threshold**: Parallel validation activates when batch size exceeds configurable threshold (default: 10 files)
 - **Workers**: Uses up to `min(file_count, cpu_count)` parallel workers
 - **Thread pool**: Uses `ThreadPoolExecutor` for concurrent file validation
 
@@ -141,6 +141,14 @@ from omniintelligence.tools.contract_linter import ContractLinter
 
 linter = ContractLinter()
 # Force parallel validation (will use parallel if > 10 files)
+results = linter.validate_batch(file_paths, parallel=True)
+
+# Custom threshold: use parallel for batches > 5 files
+linter = ContractLinter(parallel_threshold=5)
+results = linter.validate_batch(file_paths, parallel=True)
+
+# Always use parallel validation when parallel=True (threshold=0)
+linter = ContractLinter(parallel_threshold=0)
 results = linter.validate_batch(file_paths, parallel=True)
 ```
 
@@ -542,7 +550,11 @@ This pattern should only match main contracts and FSM files, excluding subcontra
 ```python
 from omniintelligence.tools.contract_linter import ContractLinter
 
-linter = ContractLinter(strict=False, schema_version="1.0.0")
+linter = ContractLinter(
+    strict=False,           # Reserved for future strict mode
+    schema_version="1.0.0", # Reserved for future schema versions
+    parallel_threshold=10,  # Min files for parallel validation (default: 10)
+)
 
 # Validate single file
 result = linter.validate("path/to/contract.yaml")

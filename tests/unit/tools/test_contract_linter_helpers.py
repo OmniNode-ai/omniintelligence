@@ -53,6 +53,11 @@ class TestStructuredErrorOutput:
 
         Uses FSM subcontract which validates via Pydantic and preserves nested paths.
         Node contracts use ProtocolContractValidator which doesn't preserve nested paths.
+
+        NOTE: This test uses inline YAML instead of conftest fixtures because it requires
+        a specific invalid nested field value (timeout_ms: not_a_number) to trigger
+        nested field path error reporting. This scenario is unique to testing error
+        path formatting and cannot be reused from standard valid/invalid fixtures.
         """
         # FSM subcontract with invalid nested field - timeout_ms must be int >= 1
         # but we provide a string that cannot be coerced to int
@@ -83,7 +88,14 @@ transitions:
         assert any("states" in e.field for e in result.errors)
 
     def test_multiple_errors_captured(self, tmp_path: Path):
-        """Test that multiple validation errors are captured."""
+        """Test that multiple validation errors are captured.
+
+        NOTE: This test uses inline YAML instead of conftest fixtures because it requires
+        a minimal contract with only version and node_type fields to trigger MULTIPLE
+        validation errors simultaneously (missing: name, description, input_model,
+        output_model, algorithm). The conftest invalid fixtures each test only a single
+        missing field at a time, which doesn't cover this multiple-error scenario.
+        """
         # Use a valid node_type but missing multiple required fields
         yaml_content = """
 version:
@@ -156,7 +168,9 @@ class TestLinterConfiguration:
         assert isinstance(result, ContractValidationResult)
         assert result.valid is True
 
-    def test_linter_custom_schema_version(self, tmp_path: Path):
+    def test_linter_custom_schema_version(
+        self, tmp_path: Path, valid_compute_contract_yaml: str
+    ):
         """Test linter with specific schema version.
 
         Currently only schema_version="1.0.0" is supported. This test verifies:
@@ -165,28 +179,11 @@ class TestLinterConfiguration:
 
         When schema versioning is fully implemented, this test should be expanded
         to verify version-specific validation behavior.
+
+        Uses valid_compute_contract_yaml fixture from conftest.py to avoid duplication.
         """
-        yaml_content = """
-name: test
-version:
-  major: 1
-  minor: 0
-  patch: 0
-description: Test
-node_type: compute
-input_model: Input
-output_model: Output
-algorithm:
-  algorithm_type: weighted_factor_algorithm
-  factors:
-    test_factor:
-      weight: 1.0
-      calculation_method: linear
-performance:
-  single_operation_max_ms: 1000
-"""
         contract_path = tmp_path / "contract.yaml"
-        contract_path.write_text(yaml_content)
+        contract_path.write_text(valid_compute_contract_yaml)
 
         # schema_version="1.0.0" is the only currently supported version
         linter = ContractLinter(schema_version="1.0.0")
@@ -267,41 +264,56 @@ class TestPathTraversalDetection:
         assert _is_safe_path(safe_file, allowed_dir) is True
 
     def test_handles_os_errors_gracefully(self):
-        """Test that OS errors during path resolution return False.
+        """Test that _is_safe_path never raises exceptions and always returns bool.
 
-        The _is_safe_path function is designed to return False (indicating an
-        unsafe path) when any OS-level error occurs during path resolution.
-        This is a fail-safe design: if we cannot safely resolve a path, we
-        treat it as potentially dangerous.
+        The _is_safe_path function is designed to be fail-safe: it must NEVER raise
+        an exception during path resolution. If any error occurs (OSError, ValueError,
+        etc.), it should return False (treating the path as potentially unsafe).
 
-        This test verifies that behavior by testing paths that may cause
-        OS errors, and confirms that the function either:
-        1. Returns False (the expected safe behavior), or
-        2. Returns True if the platform handles the path gracefully
+        This test verifies the key invariant: _is_safe_path always returns a boolean,
+        even for edge-case paths that might cause errors during resolution.
 
-        Note: The actual behavior depends on the platform's path handling.
-        The key invariant is that _is_safe_path never raises an exception -
-        it always returns a boolean.
+        The test specifically targets the internal error handling of _is_safe_path,
+        not errors during Path object construction (which are separate concerns).
         """
-        # Test paths that might cause OS errors on various platforms
-        test_paths = [
-            Path("/\x00invalid"),  # Null byte in path
-            Path(),  # Empty path
-        ]
+        # Test 1: Empty path - tests handling of edge case in path resolution
+        # Empty paths can cause issues in resolve() or relative_to() operations
+        empty_path = Path()
+        result = _is_safe_path(empty_path)
+        assert isinstance(result, bool), (
+            f"_is_safe_path must return bool for empty path, got {type(result)}"
+        )
+        # Empty path should be considered unsafe (fails resolution checks)
+        # Note: On some platforms, empty path resolves to cwd, so we don't assert False
 
-        for problematic_path in test_paths:
-            try:
-                result = _is_safe_path(problematic_path)
-                # _is_safe_path should NEVER raise - it must return a boolean
-                assert isinstance(result, bool), (
-                    f"_is_safe_path must return bool for path: {problematic_path!r}"
-                )
-                # For problematic paths, False is the expected safe response,
-                # but True is acceptable if the platform handles it gracefully
-            except (OSError, ValueError):
-                # Some platforms may raise when constructing the Path object
-                # itself, before we even call _is_safe_path. This is acceptable.
-                pass
+        # Test 2: Path with current directory reference
+        # Tests that the function handles . properly without errors
+        dot_path = Path()
+        result = _is_safe_path(dot_path)
+        assert isinstance(result, bool), (
+            f"_is_safe_path must return bool for '.' path, got {type(result)}"
+        )
+
+        # Test 3: Very long path component (may cause OS errors on some systems)
+        # This tests the try/except block around resolve() in _is_safe_path
+        long_component = "a" * 1000
+        long_path = Path(long_component)
+        result = _is_safe_path(long_path)
+        assert isinstance(result, bool), (
+            f"_is_safe_path must return bool for very long path, got {type(result)}"
+        )
+
+        # Test 4: Path with traversal that must be detected as unsafe
+        # This directly tests _is_safe_path's core behavior
+        traversal_path = Path("normal/../file.yaml")
+        result = _is_safe_path(traversal_path)
+        assert isinstance(result, bool), (
+            f"_is_safe_path must return bool for path with traversal, got {type(result)}"
+        )
+        # This path contains traversal, so it MUST be detected as unsafe
+        assert result is False, (
+            "Path with '..' traversal component must be detected as unsafe"
+        )
 
     def test_traversal_in_directory_component(self):
         """Test that traversal in directory components is detected."""
@@ -312,6 +324,57 @@ class TestPathTraversalDetection:
         # Single dot is safe - it doesn't traverse upward
         assert _is_safe_path(Path("./contract.yaml")) is True
         assert _is_safe_path(Path("./subdir/contract.yaml")) is True
+
+    def test_prefix_similar_paths_not_matched(self, tmp_path: Path):
+        """Test that prefix-similar paths outside allowed dir are detected.
+
+        This verifies that the path containment check uses proper path semantics
+        (via relative_to()) rather than string prefix matching which has false
+        positives.
+
+        Example false positive with string prefix:
+            "/allowed/path" and "/allowed/path-extra"
+            - String check: "/allowed/path-extra".startswith("/allowed/path") -> True (WRONG)
+            - Path check: Path("/allowed/path-extra").relative_to("/allowed/path") -> ValueError (CORRECT)
+
+        The directories 'path' and 'path-extra' are siblings, not parent-child.
+        """
+        allowed_dir = tmp_path / "allowed" / "path"
+        allowed_dir.mkdir(parents=True)
+        similar_dir = tmp_path / "allowed" / "path-extra"
+        similar_dir.mkdir(parents=True)
+        outside_file = similar_dir / "file.yaml"
+        outside_file.touch()
+
+        # This MUST return False because path-extra is a sibling of path, not a child
+        assert _is_safe_path(outside_file, allowed_dir) is False
+
+    def test_prefix_similar_paths_with_suffix(self, tmp_path: Path):
+        """Test variations of prefix-similar path names are rejected.
+
+        Tests multiple suffix patterns that could cause false positives with
+        naive string prefix matching.
+        """
+        allowed_dir = tmp_path / "contracts"
+        allowed_dir.mkdir()
+
+        # Various sibling directories with similar prefixes
+        similar_names = [
+            "contracts-backup",
+            "contracts_old",
+            "contracts2",
+            "contractsv2",
+        ]
+
+        for similar_name in similar_names:
+            similar_dir = tmp_path / similar_name
+            similar_dir.mkdir()
+            outside_file = similar_dir / "contract.yaml"
+            outside_file.touch()
+
+            assert _is_safe_path(outside_file, allowed_dir) is False, (
+                f"Path in '{similar_name}' should not be considered inside 'contracts'"
+            )
 
 
 # =============================================================================

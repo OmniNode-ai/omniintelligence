@@ -56,7 +56,6 @@ class TestCLIEntryPoint:
         with patch("sys.argv", ["contract_linter", str(contract_path)]):
             exit_code = main()
 
-        assert exit_code != 0
         assert exit_code == 1  # Convention: 1 for validation errors
 
     def test_cli_exit_code_on_file_not_found(self, tmp_path: Path):
@@ -66,7 +65,6 @@ class TestCLIEntryPoint:
         with patch("sys.argv", ["contract_linter", str(nonexistent_path)]):
             exit_code = main()
 
-        assert exit_code != 0
         assert exit_code == 2  # Convention: 2 for file errors
 
     def test_cli_exit_code_on_yaml_parse_error(
@@ -389,11 +387,11 @@ class TestCLIExitCodes:
         tmp_path: Path,
         valid_compute_contract_yaml: str,
     ):
-        """Exit code 1 when batch has mix of valid, invalid, and missing files.
+        """Exit code 1 when batch has mix of valid files and missing files.
 
-        When some files exist but have validation errors, the overall exit code
-        should be 1 (validation error) rather than 2 (file error), because
-        exit code 2 is reserved for cases where ALL files have file-level errors.
+        When some files exist and are valid, but others are missing, the overall
+        exit code should be 1 rather than 2, because exit code 2 is reserved for
+        cases where ALL files have file-level errors (none could be validated).
         """
         valid = tmp_path / "valid.yaml"
         valid.write_text(valid_compute_contract_yaml)
@@ -406,6 +404,66 @@ class TestCLIExitCodes:
         # (valid.yaml was found and validated successfully)
         assert exit_code == 1, (
             "Expected exit code 1 when mix of file and validation issues"
+        )
+
+    def test_exit_code_semantics_with_all_error_types(
+        self,
+        tmp_path: Path,
+        valid_compute_contract_yaml: str,
+        invalid_missing_name_yaml: str,
+    ):
+        """Exit code 1 when batch has valid, invalid (validation error), AND missing files.
+
+        Exit code semantics:
+        - 0: All files valid
+        - 1: Any validation failure OR mix of file/validation issues
+        - 2: ALL files have file-level errors (none could be validated)
+
+        This test validates the most complex case: a batch containing:
+        1. A valid contract (passes validation)
+        2. An invalid contract (validation error - missing required field)
+        3. A missing file (file-level error - not found)
+
+        Expected exit code is 1 because:
+        - At least one file was successfully read and processed (valid.yaml)
+        - At least one file had validation errors (invalid.yaml)
+        - Not ALL files had file-level errors, so exit code 2 does not apply
+        """
+        valid = tmp_path / "valid.yaml"
+        valid.write_text(valid_compute_contract_yaml)
+        invalid = tmp_path / "invalid.yaml"
+        invalid.write_text(invalid_missing_name_yaml)
+        missing = tmp_path / "missing.yaml"  # Don't create this file
+
+        exit_code = main([str(valid), str(invalid), str(missing)])
+
+        assert exit_code == 1, "Expected exit code 1 when mix of all error types"
+
+    def test_exit_code_2_only_file_errors_multiple_types(
+        self,
+        tmp_path: Path,
+    ):
+        """Exit code 2 when ALL files have file-level errors (various types).
+
+        Exit code 2 is specifically for cases where NO files could be validated
+        because ALL of them had file-level errors. This includes:
+        - File not found
+        - Path is a directory (not a file)
+        - Permission denied (not tested here as it requires OS-level setup)
+
+        This test validates that when multiple files ALL have file-level errors
+        (even of different types), the exit code is 2.
+        """
+        nonexistent1 = tmp_path / "nonexistent1.yaml"
+        nonexistent2 = tmp_path / "nonexistent2.yaml"
+        directory_path = tmp_path / "subdir"
+        directory_path.mkdir()  # Create as directory, not file
+
+        # All three have file-level errors: 2 not found + 1 directory
+        exit_code = main([str(nonexistent1), str(nonexistent2), str(directory_path)])
+
+        assert exit_code == 2, (
+            "Expected exit code 2 when ALL files have file-level errors"
         )
 
     def test_exit_code_with_json_flag_valid(
@@ -690,7 +748,15 @@ class TestCLIExitCodesSubprocess:
     def test_subprocess_verbose_output_shows_field_errors(
         self, invalid_contract_file: Path
     ):
-        """Test CLI verbose output shows field-level error details."""
+        """Test CLI verbose output shows field-level error details.
+
+        The invalid_contract_file fixture uses invalid_missing_name_yaml which
+        is missing the required 'name' field. Verbose output should show:
+        - [FAIL] marker for the failing file
+        - The field name 'name' in the error details
+        - Indented error lines with '  - ' prefix (verbose format)
+        - An indication that the field is required/missing
+        """
         result = subprocess.run(
             [
                 sys.executable,
@@ -705,8 +771,30 @@ class TestCLIExitCodesSubprocess:
         )
 
         assert result.returncode == 1
-        # Verbose output should show the field name in error details
-        assert "name" in result.stdout.lower() or "field" in result.stdout.lower()
+
+        # Verbose output must show FAIL status
+        assert "FAIL" in result.stdout, (
+            f"Verbose output must show FAIL for invalid contract. Got: {result.stdout}"
+        )
+
+        # Verbose output must show the 'name' field specifically (since that's the
+        # missing field in invalid_contract_file fixture)
+        assert "name" in result.stdout.lower(), (
+            f"Verbose output must show 'name' field in error details. Got: {result.stdout}"
+        )
+
+        # Verbose output must show indented error line (verbose format uses '  - ')
+        assert "  - " in result.stdout, (
+            f"Verbose output must show indented error lines with '  - ' prefix. "
+            f"Got: {result.stdout}"
+        )
+
+        # Verbose output must indicate the field is required/missing
+        stdout_lower = result.stdout.lower()
+        assert "required" in stdout_lower or "missing" in stdout_lower, (
+            f"Verbose output must indicate field is required or missing. "
+            f"Got: {result.stdout}"
+        )
 
 
 # =============================================================================
