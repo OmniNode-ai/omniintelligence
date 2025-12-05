@@ -33,7 +33,7 @@ types-pyyaml = "^6.0.12"
 pre-commit = "^4.5.0"
 
 [tool.poetry.group.core.dependencies]
-omnibase-core = ">=0.3.5"
+omnibase-core = "==0.3.5"  # Pin to 0.3.5 - 0.3.6 has node_type validation regression
 omnibase-spi = ">=0.2.0"
 
 [project]
@@ -73,7 +73,7 @@ dev = [
 # Core node system dependencies
 core = [
     # ONEX ecosystem dependencies
-    "omnibase-core>=0.3.5",
+    "omnibase-core==0.3.5",  # Pin to 0.3.5 - 0.3.6 has node_type validation regression
     "omnibase-spi>=0.2.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
@@ -112,7 +112,7 @@ core = [
 # All dependencies for development and testing
 all = [
     # Include all core dependencies
-    "omnibase-core>=0.3.5",
+    "omnibase-core==0.3.5",  # Pin to 0.3.5 - 0.3.6 has node_type validation regression
     "omnibase-spi>=0.2.0",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
