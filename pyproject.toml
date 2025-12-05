@@ -228,6 +228,24 @@ ignore = [
 # - Pytest fixtures with deferred imports to avoid circular dependencies
 # - Test isolation requiring fresh module state
 # - Conditional imports based on test parameters
+#
+# Example patterns:
+#   def test_module_reload():
+#       import importlib
+#       from mymodule import config  # PLC0415 - deferred import for reload
+#       importlib.reload(config)
+#
+#   @pytest.fixture
+#   def fresh_handler():
+#       from mymodule import handler  # PLC0415 - fixture isolation
+#       yield handler
+#
+#   @pytest.mark.parametrize("use_async", [True, False])
+#   def test_conditional_import(use_async):
+#       if use_async:
+#           from mymodule import async_client as client  # PLC0415 - conditional
+#       else:
+#           from mymodule import sync_client as client   # PLC0415 - conditional
 "tests/**/*.py" = ["PLC0415"]
 
 [tool.ruff.format]

@@ -4,6 +4,22 @@
 # This configuration aligns with the ONEX ecosystem standards.
 # Settings previously passed as inline args in .pre-commit-config.yaml
 # are now centralized here for better maintainability.
+#
+# EXCLUSIONS (defined in .pre-commit-config.yaml):
+# -------------------------------------------------
+# GitHub Actions workflows (.github/workflows/*.yml) are excluded from yamlfmt.
+#
+# Rationale:
+#   - GitHub Actions YAML uses special syntax that yamlfmt may incorrectly reformat:
+#     * Expression syntax: ${{ github.event.pull_request.number }}
+#     * Multiline run blocks with shell commands and heredocs
+#     * Conditional expressions: if: ${{ always() }}
+#     * Matrix strategies with complex nested structures
+#   - Formatting changes can break workflow functionality or reduce readability
+#   - GitHub's own YAML parser has specific expectations for these files
+#
+# The actual exclusion pattern is configured in .pre-commit-config.yaml:
+#   exclude: '^\.github/workflows/.*\.ya?ml$'
 
 formatter:
   # Preserve intentional line breaks in YAML files

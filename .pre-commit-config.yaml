@@ -3,6 +3,36 @@
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
 #
+# ============================================================================
+# PROFILING HOOK EXECUTION TIME
+# ============================================================================
+# To identify slow hooks and optimize performance, use --verbose (-v) mode:
+#
+#   pre-commit run --all-files --verbose
+#
+# This displays execution duration for each hook, e.g.:
+#   yamlfmt..............................................................Passed
+#   - hook id: yamlfmt
+#   - duration: 0.01s
+#
+# For total execution time, wrap with the `time` command:
+#
+#   time pre-commit run --all-files --verbose
+#
+# Typical durations (baseline for this repo):
+#   - yamlfmt, trailing-whitespace, end-of-file-fixer: <0.1s each
+#   - ruff (lint + format): <0.1s each
+#   - mypy: ~0.2s (with incremental cache)
+#   - pytest-smoke: ~3-5s (includes uv build)
+#
+# If a hook consistently exceeds these baselines, consider:
+#   1. Narrowing the `files` pattern to reduce scope
+#   2. Enabling caching (e.g., mypy --incremental)
+#   3. Moving slow hooks to pre-push stage instead of pre-commit
+#   4. Using fail_fast: true (already enabled) to stop on first failure
+#
+# ============================================================================
+#
 # Hook Scope Summary:
 # - yamlfmt: YAML formatting for consistency
 # - pre-commit-hooks: File hygiene (trailing whitespace, EOF, merge conflicts)
@@ -10,6 +40,21 @@
 # - contract-linter: ONEX node contracts (future nodes/ directory)
 # - pytest-smoke: Quick unit tests on commit
 # - pytest-tools: Full tools/utils/runtime tests on push only
+#
+# ============================================================================
+# CI ALIGNMENT NOTICE - KEEP IN SYNC WITH .github/workflows/ci.yaml
+# ============================================================================
+# The file patterns in ruff/mypy hooks MUST stay aligned with CI path filters.
+# When updating patterns here, also update the corresponding CI filters.
+#
+# Aligned patterns (pre-commit <-> CI):
+# - ruff/mypy files: regex      <-> CI production_code filter: glob patterns
+# - Source: tools/, utils/, runtime/ directories
+# - Tests: tests/unit/tools/, tests/unit/test_log_sanitizer.py
+#
+# Validation: scripts/validate_ci_precommit_alignment.py checks alignment
+# Run manually: uv run python scripts/validate_ci_precommit_alignment.py
+# ============================================================================
 #
 # Global Exclusions (excluded from ALL hooks via exclude: block at bottom):
 # - _legacy/: Legacy code preserved for migration reference
