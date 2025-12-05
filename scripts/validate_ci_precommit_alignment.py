@@ -20,10 +20,10 @@ WHAT THIS SCRIPT VALIDATES:
 2. Both configurations cover the same source directories
 3. Both configurations cover the same test paths
 4. Configurations match the canonical expected values
+5. Mypy cache hashFiles patterns match mypy command scope
 
 WHAT THIS SCRIPT DOES NOT VALIDATE:
 ------------------------------------
-- Mypy cache hashFiles patterns (these should match mypy command scope)
 - Pytest command scope (intentionally narrower than path filter)
 - Individual job command paths (validated by running the jobs)
 
@@ -84,6 +84,17 @@ ALIGNED_TEST_PATHS = ["tests/unit/tools", "tests/unit/test_log_sanitizer.py"]
 
 
 @dataclass
+class MypyCacheValidation:
+    """Result of mypy cache pattern validation."""
+
+    is_aligned: bool = True
+    cache_patterns: list[str] = field(default_factory=list)
+    command_paths: list[str] = field(default_factory=list)
+    missing_in_cache: list[str] = field(default_factory=list)
+    extra_in_cache: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ValidationResult:
     """Result of pattern alignment validation."""
 
@@ -95,6 +106,7 @@ class ValidationResult:
     missing_in_ci: list[str] = field(default_factory=list)
     missing_in_precommit: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    mypy_cache: MypyCacheValidation = field(default_factory=MypyCacheValidation)
 
 
 def extract_ci_patterns(ci_config: dict) -> tuple[list[str], list[str]]:
@@ -180,6 +192,84 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
     return sorted(set(source_dirs)), sorted(set(test_paths))
 
 
+def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> MypyCacheValidation:
+    """Validate that mypy cache hashFiles patterns match mypy command scope.
+
+    The mypy cache key in CI uses hashFiles() patterns to determine when to
+    invalidate the cache. These patterns MUST match the directories passed
+    to the mypy command, otherwise:
+    - Missing patterns: Source changes won't invalidate cache (stale results)
+    - Extra patterns: Unnecessary cache invalidation (slower builds)
+
+    Args:
+        ci_config: Parsed CI workflow YAML
+        verbose: Print detailed progress
+
+    Returns:
+        MypyCacheValidation with alignment status and details
+    """
+    result = MypyCacheValidation()
+
+    # Navigate to type-check job
+    jobs = ci_config.get("jobs", {})
+    type_check_job = jobs.get("type-check", {})
+    steps = type_check_job.get("steps", [])
+
+    # Extract hashFiles patterns from mypy cache step
+    cache_dirs: set[str] = set()
+    for step in steps:
+        if step.get("name") == "Cache mypy":
+            cache_with = step.get("with", {})
+            cache_key = cache_with.get("key", "")
+            # Parse hashFiles patterns from the cache key
+            # Pattern: hashFiles('src/omniintelligence/tools/**/*.py', 'src/omniintelligence/utils/**/*.py', ...)
+            hashfiles_matches = re.findall(
+                r"hashFiles\('([^']+)'(?:,\s*'([^']+)')*\)", cache_key
+            )
+            # The regex captures groups, but we need to also capture the content directly
+            # Let's use a simpler approach - extract all quoted patterns from hashFiles
+            hashfiles_content = re.search(r"hashFiles\(([^)]+)\)", cache_key)
+            if hashfiles_content:
+                patterns_str = hashfiles_content.group(1)
+                patterns = re.findall(r"'([^']+)'", patterns_str)
+                for pattern in patterns:
+                    result.cache_patterns.append(pattern)
+                    # Extract directory name from pattern like 'src/omniintelligence/tools/**/*.py'
+                    dir_match = re.match(r"src/omniintelligence/(\w+)/", pattern)
+                    if dir_match:
+                        cache_dirs.add(dir_match.group(1))
+
+    # Extract directories from mypy command step
+    command_dirs: set[str] = set()
+    for step in steps:
+        if step.get("name") == "Run mypy":
+            run_cmd = step.get("run", "")
+            # Parse mypy command arguments
+            # Pattern: src/omniintelligence/tools/ src/omniintelligence/utils/ ...
+            path_matches = re.findall(r"src/omniintelligence/(\w+)/", run_cmd)
+            for dir_name in path_matches:
+                result.command_paths.append(f"src/omniintelligence/{dir_name}/")
+                command_dirs.add(dir_name)
+
+    if verbose:
+        print(f"\nMypy cache hashFiles patterns: {result.cache_patterns}")
+        print(f"Mypy command paths: {result.command_paths}")
+
+    # Compare cache patterns with command scope
+    result.missing_in_cache = sorted(command_dirs - cache_dirs)
+    result.extra_in_cache = sorted(cache_dirs - command_dirs)
+
+    if result.missing_in_cache or result.extra_in_cache:
+        result.is_aligned = False
+        if verbose:
+            if result.missing_in_cache:
+                print(f"Directories in mypy command but not in cache: {result.missing_in_cache}")
+            if result.extra_in_cache:
+                print(f"Directories in cache but not in mypy command: {result.extra_in_cache}")
+
+    return result
+
+
 def validate_alignment(verbose: bool = False) -> ValidationResult:
     """Validate that CI and pre-commit patterns are aligned.
 
@@ -261,6 +351,14 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
         if verbose:
             print(f"\nWarning: Pre-commit source dirs differ from expected: {expected_src_set}")
 
+    # Validate mypy cache patterns match mypy command scope
+    result.mypy_cache = validate_mypy_cache_patterns(ci_config, verbose=verbose)
+    if not result.mypy_cache.is_aligned:
+        # Mypy cache drift is a warning, not a hard failure
+        # It causes suboptimal caching but doesn't break the build
+        if verbose:
+            print("\nWarning: Mypy cache patterns drift detected!")
+
     return result
 
 
@@ -285,6 +383,13 @@ def format_result(result: ValidationResult, output_json: bool = False) -> str:
                 "missing_in_ci": result.missing_in_ci,
                 "missing_in_precommit": result.missing_in_precommit,
                 "errors": result.errors,
+                "mypy_cache": {
+                    "is_aligned": result.mypy_cache.is_aligned,
+                    "cache_patterns": result.mypy_cache.cache_patterns,
+                    "command_paths": result.mypy_cache.command_paths,
+                    "missing_in_cache": result.mypy_cache.missing_in_cache,
+                    "extra_in_cache": result.mypy_cache.extra_in_cache,
+                },
             },
             indent=2,
         )
@@ -328,6 +433,38 @@ def format_result(result: ValidationResult, output_json: bool = False) -> str:
         lines.append("")
         lines.append("Action required: Update both files to maintain synchronization.")
         lines.append("See .pre-commit-config.yaml and .github/workflows/ci.yaml")
+
+    # Mypy cache validation section
+    lines.append("")
+    lines.append("Mypy Cache Validation")
+    lines.append("-" * 45)
+    if result.mypy_cache.cache_patterns:
+        lines.append("Cache hashFiles patterns:")
+        for pattern in result.mypy_cache.cache_patterns:
+            lines.append(f"  - {pattern}")
+    if result.mypy_cache.command_paths:
+        lines.append("Mypy command paths:")
+        for path in result.mypy_cache.command_paths:
+            lines.append(f"  - {path}")
+
+    if result.mypy_cache.is_aligned:
+        lines.append("")
+        lines.append("Mypy Cache Status: ALIGNED")
+        lines.append("Cache patterns match mypy command scope.")
+    else:
+        lines.append("")
+        lines.append("Mypy Cache Status: DRIFT DETECTED (Warning)")
+        if result.mypy_cache.missing_in_cache:
+            lines.append("Directories in mypy command but not in cache (will cause stale cache):")
+            for dir_name in result.mypy_cache.missing_in_cache:
+                lines.append(f"  - {dir_name}")
+        if result.mypy_cache.extra_in_cache:
+            lines.append("Directories in cache but not in mypy command (unnecessary invalidation):")
+            for dir_name in result.mypy_cache.extra_in_cache:
+                lines.append(f"  - {dir_name}")
+        lines.append("")
+        lines.append("Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yaml")
+        lines.append("        to match the mypy command scope (~line 309 and ~line 319)")
 
     return "\n".join(lines)
 

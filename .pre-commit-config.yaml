@@ -4,6 +4,32 @@
 # Run manually: pre-commit run --all-files
 #
 # ============================================================================
+# VERSION REQUIREMENTS
+# ============================================================================
+# Minimum version: pre-commit >= 4.5.0 (specified in pyproject.toml)
+#
+# Why 4.5.0+:
+#   - pre-commit 4.0.0 deprecated old stage names (commit -> pre-commit,
+#     push -> pre-push, merge-commit -> pre-merge-commit). This config uses
+#     the new stage names exclusively (stages: [pre-commit], stages: [pre-push],
+#     default_stages: [pre-commit]).
+#   - pre-commit 4.0.0 removed the deprecated `language: python_venv` in favor
+#     of `language: python`. While this config uses `language: system` for
+#     local hooks, ecosystem compatibility requires 4.0+.
+#   - pre-commit 4.4.0 added `--fail-fast` CLI option to `pre-commit run`,
+#     complementing the config-level `fail_fast: true` setting used here.
+#   - pre-commit 4.5.0 (November 2024) is the stable baseline ensuring all
+#     4.x features and bug fixes are available.
+#
+# Check your version:
+#   pre-commit --version
+#
+# Upgrade pre-commit:
+#   pip install --upgrade pre-commit    # pip users
+#   uv pip install --upgrade pre-commit # uv users
+#   pipx upgrade pre-commit             # pipx users
+#
+# ============================================================================
 # PROFILING HOOK EXECUTION TIME
 # ============================================================================
 # To identify slow hooks and optimize performance, use --verbose (-v) mode:

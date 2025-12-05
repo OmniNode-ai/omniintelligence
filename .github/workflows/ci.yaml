@@ -153,9 +153,13 @@ jobs:
           restore-keys: |
             pre-commit-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
+      # Verbose mode enables hook profiling - shows execution time for each hook
+      # This helps identify slow hooks and track performance regressions
+      # See .pre-commit-config.yaml for profiling documentation and thresholds
       - name: Run pre-commit hooks
         run: |
-          uv run pre-commit run --all-files --show-diff-on-failure
+          echo "Starting pre-commit hooks with profiling..."
+          time uv run pre-commit run --all-files --show-diff-on-failure --verbose
 
   # Validate CI and pre-commit scope alignment
   # Ensures path filters in CI match file patterns in pre-commit hooks
