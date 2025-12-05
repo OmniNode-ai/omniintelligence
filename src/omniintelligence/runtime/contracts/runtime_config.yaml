@@ -1,0 +1,204 @@
+# ONEX Runtime Configuration Contract
+# OmniIntelligence Application-Level Runtime Configuration
+#
+# This contract defines the configuration structure for the OmniIntelligence
+# runtime host. It is used by BaseRuntimeHostProcess (omnibase_infra) to
+# configure event bus, handlers, and runtime settings.
+#
+# Pattern: ONEX Configuration Contract
+# Version: 1.0.0
+#
+# Note: This is a configuration contract (contract_type: configuration), which
+# is distinct from node contracts (compute, effect, reducer, orchestrator).
+# The current contract_linter validates node contracts and FSM subcontracts.
+# Configuration contracts are validated by the Pydantic model directly.
+
+name: intelligence_runtime_config
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Configuration contract for the OmniIntelligence runtime host.
+
+  This contract defines:
+  - Event bus configuration (Kafka consumer for event-driven workflows)
+  - Handler configurations (for node-initiated operations)
+  - Runtime settings (logging, health checks, metrics)
+
+  Architecture:
+    IntelligenceRuntimeConfig is passed to BaseRuntimeHostProcess during
+    initialization. The runtime host uses this configuration to:
+    1. Configure the event bus (Kafka consumer)
+    2. Instantiate and wire handlers
+    3. Load nodes from IntelligenceNodeRegistry
+    4. Start the runtime event loop
+
+# Fully qualified model class name
+config_model: omniintelligence.runtime.runtime_config.IntelligenceRuntimeConfig
+
+# Contract type (configuration contract, not a node contract)
+contract_type: configuration
+
+# Environment variable support
+environment_variables:
+  supported: true
+  interpolation_syntax: "${VAR_NAME}"
+  required_variables:
+    production:
+      - KAFKA_BOOTSTRAP_SERVERS
+  optional_variables:
+    - INTELLIGENCE_RUNTIME_NAME
+    - INTELLIGENCE_RUNTIME_LOG_LEVEL
+    - INTELLIGENCE_RUNTIME_CONSUMER_GROUP
+    - INTELLIGENCE_RUNTIME_COMMAND_TOPIC
+    - INTELLIGENCE_RUNTIME_EVENT_TOPIC
+    - INTELLIGENCE_RUNTIME_HEALTH_CHECK_PORT
+    - INTELLIGENCE_RUNTIME_METRICS_ENABLED
+    - INTELLIGENCE_RUNTIME_METRICS_PORT
+
+# Default configuration values
+defaults:
+  runtime_name: "intelligence-runtime"
+  log_level: "INFO"
+
+  event_bus:
+    enabled: true
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+    consumer_group: "intelligence-runtime"
+    topics:
+      commands: "onex.intelligence.cmd.v1"
+      events: "onex.intelligence.evt.v1"
+      dlq: null
+    auto_offset_reset: "earliest"
+    enable_auto_commit: false
+    session_timeout_ms: 30000
+
+  handlers:
+    - handler_type: kafka_producer
+      enabled: true
+      config:
+        bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+
+  profile: null
+  health_check_port: 8080
+  metrics_enabled: true
+  metrics_port: 9090
+
+# Handler types and their SPI protocols
+handler_types:
+  kafka_producer:
+    protocol: IKafkaProducerHandler
+    description: Kafka producer for node-initiated event publishing
+    required_config:
+      - bootstrap_servers
+
+  vector_store:
+    protocol: IVectorStoreHandler
+    description: Vector store for semantic search (e.g., Qdrant)
+    required_config:
+      - url
+    optional_config:
+      - collection
+      - api_key
+
+  graph_database:
+    protocol: IGraphDatabaseHandler
+    description: Graph database for relationship storage (e.g., Memgraph, Neo4j)
+    required_config:
+      - uri
+    optional_config:
+      - user
+      - password
+
+  relational_database:
+    protocol: IRelationalDatabaseHandler
+    description: Relational database for structured data (e.g., PostgreSQL)
+    required_config:
+      - connection_string
+    optional_config:
+      - pool_size
+      - max_overflow
+
+  embedding:
+    protocol: IEmbeddingHandler
+    description: Embedding service for vectorization (e.g., OpenAI, local models)
+    required_config:
+      - model_name
+    optional_config:
+      - api_key
+      - batch_size
+
+  http_client:
+    protocol: IHttpClientHandler
+    description: HTTP client for external API calls
+    optional_config:
+      - base_url
+      - timeout_seconds
+      - max_retries
+
+# Validation rules
+validation:
+  runtime_name:
+    pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
+    min_length: 1
+    max_length: 128
+
+  log_level:
+    allowed_values:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+      - CRITICAL
+
+  ports:
+    range:
+      min: 1
+      max: 65535
+    unique_constraint:
+      - health_check_port
+      - metrics_port
+
+# Environment-specific overrides
+environments:
+  development:
+    log_level: "DEBUG"
+    event_bus:
+      bootstrap_servers: "localhost:9092"
+      consumer_group: "intelligence-dev"
+      topics:
+        commands: "dev.intelligence.cmd.v1"
+        events: "dev.intelligence.evt.v1"
+        dlq: "dev.intelligence.dlq.v1"
+
+  staging:
+    log_level: "INFO"
+    event_bus:
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+      consumer_group: "intelligence-staging"
+      topics:
+        commands: "staging.intelligence.cmd.v1"
+        events: "staging.intelligence.evt.v1"
+        dlq: "staging.intelligence.dlq.v1"
+
+  production:
+    log_level: "INFO"
+    event_bus:
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+      consumer_group: "intelligence-prod"
+      topics:
+        commands: "onex.intelligence.cmd.v1"
+        events: "onex.intelligence.evt.v1"
+        dlq: "onex.intelligence.dlq.v1"
+
+# Metadata
+author: omniintelligence
+created: "2025-12-05"
+tags:
+  - configuration
+  - runtime
+  - intelligence
+  - event-bus
+  - handlers
