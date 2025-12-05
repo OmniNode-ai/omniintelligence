@@ -25,6 +25,9 @@ repos:
     rev: v0.17.2
     hooks:
       - id: yamlfmt
+        # GitHub Actions workflows are excluded because they have specific YAML syntax
+        # requirements (e.g., expression syntax ${{ }}, multiline strings, run blocks)
+        # that may conflict with standard yamlfmt formatting rules.
         exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
 
   # ============================================================================

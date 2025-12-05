@@ -12,7 +12,38 @@ env:
   UV_VERSION: "0.5.14"
   CACHE_VERSION: "0.1.0"
 
+# Path filter for production code jobs (lint, type-check, test-unit)
+# Scope: tools/, utils/, runtime/ source code and their tests
+# This matches pre-commit hook scope (see .pre-commit-config.yaml)
+# Note: pre-commit and contract-validation run on all changes (no path filter)
+
 jobs:
+  # Detect which files changed to conditionally run production code jobs
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      production-code: ${{ steps.filter.outputs.production-code }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for production code changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
+          filters: |
+            production-code:
+              - 'src/omniintelligence/tools/**'
+              - 'src/omniintelligence/utils/**'
+              - 'src/omniintelligence/runtime/**'
+              - 'tests/unit/tools/**'
+              - 'tests/unit/test_log_sanitizer.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yaml'
+
   # Pre-commit hooks - comprehensive code quality validation
   pre-commit:
     name: Pre-commit Hooks
@@ -63,10 +94,14 @@ jobs:
           uv run pre-commit run --all-files --show-diff-on-failure
 
   # Lint job - ruff check and format validation
+  # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
+  # Only runs when production code changes
   lint:
     name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.production-code == 'true'
 
     steps:
       - name: Checkout code
@@ -97,17 +132,35 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      # Scope: tools/, utils/, runtime/ source code and their tests
+      # Matches pre-commit ruff hook scope (see .pre-commit-config.yaml)
       - name: Run ruff check
-        run: uv run ruff check src/omniintelligence/tools/ tests/unit/tools/
+        run: |
+          uv run ruff check \
+            src/omniintelligence/tools/ \
+            src/omniintelligence/utils/ \
+            src/omniintelligence/runtime/ \
+            tests/unit/tools/ \
+            tests/unit/test_log_sanitizer.py
 
       - name: Run ruff format check
-        run: uv run ruff format --check src/omniintelligence/tools/ tests/unit/tools/
+        run: |
+          uv run ruff format --check \
+            src/omniintelligence/tools/ \
+            src/omniintelligence/utils/ \
+            src/omniintelligence/runtime/ \
+            tests/unit/tools/ \
+            tests/unit/test_log_sanitizer.py
 
   # Type checking job - mypy
+  # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ source code)
+  # Only runs when production code changes
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.production-code == 'true'
 
     steps:
       - name: Checkout code
@@ -138,14 +191,23 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
+      # Scope: tools/, utils/, runtime/ source code (not tests)
+      # Matches pre-commit mypy hook scope (see .pre-commit-config.yaml)
       - name: Run mypy
-        run: uv run mypy src/omniintelligence/tools/
+        run: |
+          uv run mypy \
+            src/omniintelligence/tools/ \
+            src/omniintelligence/utils/ \
+            src/omniintelligence/runtime/
 
   # Unit tests with coverage
+  # Only runs when production code changes
   test-unit:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.production-code == 'true'
 
     steps:
       - name: Checkout code
@@ -291,7 +353,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [pre-commit, lint, type-check, test-unit, contract-validation]
+    needs: [changes, pre-commit, lint, type-check, test-unit, contract-validation]
     if: always()
 
     steps:
@@ -302,6 +364,7 @@ jobs:
           typecheck="${{ needs.type-check.result }}"
           unittest="${{ needs.test-unit.result }}"
           contracts="${{ needs.contract-validation.result }}"
+          production_code_changed="${{ needs.changes.outputs.production-code }}"
 
           # Status emoji mapping
           get_status_icon() {
@@ -314,8 +377,29 @@ jobs:
             esac
           }
 
+          # Check if a job result is acceptable (success or skipped due to path filter)
+          is_acceptable() {
+            local result="$1"
+            local is_production_code_job="$2"
+            # Always accept success
+            if [[ "$result" == "success" ]]; then
+              return 0
+            fi
+            # For production code jobs, skipped is acceptable when no relevant files changed
+            if [[ "$is_production_code_job" == "true" ]] && [[ "$result" == "skipped" ]] && [[ "$production_code_changed" != "true" ]]; then
+              return 0
+            fi
+            return 1
+          }
+
           echo "## CI Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Note if production code jobs were skipped due to path filter
+          if [[ "$production_code_changed" != "true" ]]; then
+            echo "> **Note:** Production code jobs (Lint, Type Check, Unit Tests) were skipped - no changes in \`tools/\`, \`utils/\`, or \`runtime/\` directories" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
 
           # Results table with status icons
           echo "| Job | Status | Result |" >> $GITHUB_STEP_SUMMARY
@@ -327,12 +411,12 @@ jobs:
           echo "| Contract Validation | $(get_status_icon $contracts) | \`$contracts\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Overall status
-          if [[ "$precommit" == "success" ]] && \
-             [[ "$lint" == "success" ]] && \
-             [[ "$typecheck" == "success" ]] && \
-             [[ "$unittest" == "success" ]] && \
-             [[ "$contracts" == "success" ]]; then
+          # Overall status - production code jobs can be skipped if no relevant changes
+          if is_acceptable "$precommit" "false" && \
+             is_acceptable "$lint" "true" && \
+             is_acceptable "$typecheck" "true" && \
+             is_acceptable "$unittest" "true" && \
+             is_acceptable "$contracts" "false"; then
             echo "### :rocket: All CI checks passed!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Ready for review and merge." >> $GITHUB_STEP_SUMMARY
