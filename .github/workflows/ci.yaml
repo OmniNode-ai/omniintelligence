@@ -196,6 +196,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
+      # Cache mypy's incremental analysis data for faster subsequent runs
+      # Without this cache, --incremental flag provides no benefit in CI (fresh containers)
+      # Key includes Python version and source file hashes for cache invalidation
+      - name: Cache mypy
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: >-
+            mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            ${{ hashFiles('src/omniintelligence/tools/**/*.py', 'src/omniintelligence/utils/**/*.py', 'src/omniintelligence/runtime/**/*.py') }}-
+            ${{ env.CACHE_VERSION }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
       # Scope: tools/, utils/, runtime/ source code (not tests)
       # Matches pre-commit mypy hook scope (see .pre-commit-config.yaml)
       - name: Run mypy
