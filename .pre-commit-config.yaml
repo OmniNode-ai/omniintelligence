@@ -15,21 +15,88 @@
 #   - hook id: yamlfmt
 #   - duration: 0.01s
 #
+# Profile a single hook in isolation:
+#
+#   pre-commit run mypy --all-files --verbose
+#   pre-commit run pytest-smoke --all-files --verbose
+#
 # For total execution time, wrap with the `time` command:
 #
 #   time pre-commit run --all-files --verbose
 #
-# Typical durations (baseline for this repo):
-#   - yamlfmt, trailing-whitespace, end-of-file-fixer: <0.1s each
-#   - ruff (lint + format): <0.1s each
-#   - mypy: ~0.2s (with incremental cache)
-#   - pytest-smoke: ~3-5s (includes uv build)
+# ============================================================================
+# EXPECTED TIMING BASELINES
+# ============================================================================
+# These are expected durations for a clean run. Use these to identify regressions:
 #
-# If a hook consistently exceeds these baselines, consider:
-#   1. Narrowing the `files` pattern to reduce scope
-#   2. Enabling caching (e.g., mypy --incremental)
-#   3. Moving slow hooks to pre-push stage instead of pre-commit
-#   4. Using fail_fast: true (already enabled) to stop on first failure
+#   Hook                      | Expected   | Warning Threshold | Action if Exceeded
+#   --------------------------|------------|-------------------|--------------------
+#   yamlfmt                   | <0.1s      | >0.5s             | Check file scope
+#   trailing-whitespace       | <0.1s      | >0.3s             | Normal
+#   end-of-file-fixer         | <0.1s      | >0.3s             | Normal
+#   check-merge-conflict      | <0.1s      | >0.3s             | Normal
+#   check-added-large-files   | <0.1s      | >0.5s             | Normal
+#   ruff (lint)               | <0.1s      | >0.5s             | Check file scope
+#   ruff (format)             | <0.1s      | >0.5s             | Check file scope
+#   mypy (type check)         | ~0.2s      | >2.0s             | Check cache*
+#   contract-linter           | <0.2s      | >1.0s             | Normal
+#   pytest-smoke              | ~3-5s      | >10s              | Check test scope
+#   pytest-tools (pre-push)   | ~5-10s     | >30s              | Check test scope
+#
+#   * mypy uses incremental cache - see "MYPY CACHE" section below
+#
+# ============================================================================
+# TROUBLESHOOTING SLOW HOOKS
+# ============================================================================
+# If a hook consistently exceeds warning thresholds:
+#
+# 1. Narrow file scope:
+#    - Check if `files` pattern is too broad
+#    - Use `types: [python]` instead of regex when possible (faster)
+#    - Add specific paths to the pattern rather than wildcards
+#
+# 2. Enable/verify caching:
+#    - mypy: Uses --incremental flag (enabled) with .mypy_cache/
+#    - pytest: Uses pytest cache in .pytest_cache/
+#    - Delete cache directories to reset if corrupted:
+#        rm -rf .mypy_cache .pytest_cache
+#
+# 3. Move to pre-push stage:
+#    - Slow comprehensive tests belong in `stages: [pre-push]`
+#    - Keep only fast smoke tests on pre-commit
+#
+# 4. Leverage fail_fast:
+#    - fail_fast: true (enabled) stops on first failure
+#    - Saves time during development by avoiding redundant hook runs
+#
+# 5. Check for environment issues:
+#    - Ensure uv is using cached virtual environment
+#    - Check disk I/O (slow on network drives)
+#    - Verify no antivirus scanning interference
+#
+# ============================================================================
+# MYPY INCREMENTAL CACHE
+# ============================================================================
+# mypy uses --incremental to leverage cached type information:
+#
+# How it works:
+#   - First run: Full analysis, populates .mypy_cache/
+#   - Subsequent runs: Only re-analyzes changed files (~10x faster)
+#   - Cache location: .mypy_cache/ in repository root
+#
+# Local development:
+#   - Cache persists between commits automatically
+#   - Delete .mypy_cache/ to force full re-analysis if issues occur
+#
+# CI environment:
+#   - .mypy_cache/ is cached in .github/workflows/ci.yaml (type-check job)
+#   - Cache key based on Python version and dependency lock file
+#   - Provides consistent incremental benefits across CI runs
+#
+# If mypy is slow (>2s):
+#   1. Check if .mypy_cache/ exists and has recent files
+#   2. Run `mypy --verbose` to see what's being re-analyzed
+#   3. Delete cache and re-run to rule out cache corruption
 #
 # ============================================================================
 #
@@ -68,11 +135,45 @@
 #   conflict with standard formatting rules. NOT excluded from check-merge-conflict
 #   or check-added-large-files since those validations remain useful.
 #
-# Performance Optimizations:
-# - fail_fast: true - Stop on first failure to save time during development
-# - types: [python] - Faster than regex patterns for type-based filtering
-# - Hook ordering: Fast hooks (file hygiene) run before slow hooks (mypy, pytest)
-# - require_serial: false (default) - Allow parallel execution where possible
+# ============================================================================
+# SMART PERFORMANCE OPTIMIZATIONS
+# ============================================================================
+# These optimizations minimize pre-commit execution time:
+#
+# 1. fail_fast: true
+#    - Stops processing on first hook failure
+#    - Benefit: Saves 5-10s on average during active development
+#    - Trade-off: May miss secondary failures (run without fail_fast periodically)
+#
+# 2. types: [python] instead of regex file matching
+#    - Pre-commit's type system uses file magic/extension detection
+#    - Faster than regex matching against all staged files
+#    - Used on: ruff (lint/format), mypy, pytest hooks
+#
+# 3. Scoped file patterns
+#    - Each hook only processes files it needs (not the entire repo)
+#    - ruff/mypy: Only tools/, utils/, runtime/ directories
+#    - pytest-smoke: Only tools/ directory (narrowest scope for fast feedback)
+#    - Global exclusions: _legacy/, migration_sources/ avoid processing dead code
+#
+# 4. Hook ordering (implicit via config order)
+#    - Fast hooks first: yamlfmt, trailing-whitespace, etc. (<0.1s each)
+#    - Slow hooks last: mypy, pytest (0.2s-5s+)
+#    - Benefit: Fail fast on simple issues before running expensive checks
+#
+# 5. Stage separation
+#    - pre-commit: Fast checks only (lint, format, smoke tests)
+#    - pre-push: Comprehensive tests (full pytest suite)
+#    - Benefit: Keep commits fast, run thorough tests before push
+#
+# 6. Incremental caching
+#    - mypy: --incremental flag uses .mypy_cache/ (~10x faster on re-runs)
+#    - pytest: Uses .pytest_cache/ for test ordering and failure tracking
+#    - uv: Caches virtual environment (avoids rebuild on each hook)
+#
+# 7. Parallel execution
+#    - require_serial: false (default) allows hooks to run in parallel
+#    - Note: Some hooks set require_serial: true when order matters
 
 # Stop on first failure to avoid wasted hook runs during development
 fail_fast: true
@@ -107,7 +208,9 @@ repos:
         exclude: ^\.github/workflows/
       - id: end-of-file-fixer
         exclude: ^\.github/workflows/
-      # check-merge-conflict and check-added-large-files run on ALL files including workflows
+      # These hooks intentionally have NO workflow exclusions (unlike formatting hooks above):
+      # - check-merge-conflict: Merge markers are invalid everywhere, including workflows
+      # - check-added-large-files: Size limits apply universally regardless of file type
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1000]
@@ -220,7 +323,12 @@ repos:
         types: [python]
         # Scope matches ruff/mypy: tools/, utils/, runtime/ and their tests
         # test_log_sanitizer.py is included separately (see comment above)
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py)).*\.py$
+        # Pattern breakdown:
+        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
+        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
+        # Note: The specific file pattern must NOT have .*\.py$ suffix as it's already complete
+        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
         stages: [pre-push]
 
 # Default stage for hooks (commit, not push)

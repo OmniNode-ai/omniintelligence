@@ -4,9 +4,35 @@
 This script ensures that the CI workflow path filters (.github/workflows/ci.yaml)
 stay synchronized with pre-commit hook file patterns (.pre-commit-config.yaml).
 
+SYNCHRONIZATION STRATEGY:
+-------------------------
 The patterns express the same scope in different formats:
 - CI uses glob patterns (e.g., 'src/omniintelligence/tools/**')
 - Pre-commit uses regex patterns (e.g., '^src/omniintelligence/(tools|utils|runtime)/')
+
+This script extracts the source directories and test paths from both configuration
+files and compares them against each other and the canonical expected values
+defined in ALIGNED_SOURCE_DIRS and ALIGNED_TEST_PATHS below.
+
+WHAT THIS SCRIPT VALIDATES:
+---------------------------
+1. CI production_code filter paths match pre-commit hook file patterns
+2. Both configurations cover the same source directories
+3. Both configurations cover the same test paths
+4. Configurations match the canonical expected values
+
+WHAT THIS SCRIPT DOES NOT VALIDATE:
+------------------------------------
+- Mypy cache hashFiles patterns (these should match mypy command scope)
+- Pytest command scope (intentionally narrower than path filter)
+- Individual job command paths (validated by running the jobs)
+
+ADDING A NEW MODULE:
+--------------------
+When adding a new source directory, update ALIGNED_SOURCE_DIRS below,
+then run this script. It will report any drift in CI or pre-commit configs.
+
+See .github/workflows/ci.yaml header for complete checklist of files to update.
 
 Usage:
     uv run python scripts/validate_ci_precommit_alignment.py
@@ -41,7 +67,18 @@ REPO_ROOT = Path(__file__).parent.parent
 CI_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yaml"
 PRECOMMIT_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
 
-# Expected aligned directories - the canonical source of truth
+# =============================================================================
+# CANONICAL SOURCE OF TRUTH - Update these when adding new modules
+# =============================================================================
+# These lists define the expected scope for CI and pre-commit configurations.
+# When adding a new source directory:
+# 1. Add to ALIGNED_SOURCE_DIRS below
+# 2. Run this script to detect drift
+# 3. Follow the checklist in .github/workflows/ci.yaml header
+#
+# Note: The mypy cache hashFiles patterns in ci.yaml should also include
+# the new module to ensure proper cache invalidation.
+# =============================================================================
 ALIGNED_SOURCE_DIRS = ["tools", "utils", "runtime"]
 ALIGNED_TEST_PATHS = ["tests/unit/tools", "tests/unit/test_log_sanitizer.py"]
 
