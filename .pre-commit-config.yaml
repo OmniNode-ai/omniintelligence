@@ -102,7 +102,9 @@ repos:
     hooks:
       - id: mypy
         name: mypy (type check)
-        # --incremental uses mypy cache for faster subsequent runs
+        # --incremental uses mypy cache for faster subsequent runs (locally)
+        # Note: In CI with fresh containers, --incremental provides no benefit but causes no harm.
+        # For CI optimization, consider caching .mypy_cache/ directory.
         args: [--strict, --ignore-missing-imports, --incremental]
         # types: [python] is more efficient than files regex for Python detection
         types: [python]
@@ -141,9 +143,10 @@ repos:
       # --------------------------------------------------------------------------
       # Pytest Smoke Tests - Quick unit tests on commit
       # Validates: Core functionality via fast unit tests
-      # Scope: Triggered on changes to tools/utils/runtime source or their tests
+      # Scope: Triggered on changes to tools/ source or tests only (fast feedback)
       # Stage: pre-commit (fast, ~3s)
-      # Performance: Only triggers on relevant file changes, not all Python files
+      # Performance: Narrow scope ensures smoke tests stay fast on every commit
+      # Note: Full utils/runtime testing runs on pre-push (pytest-tools hook)
       # --------------------------------------------------------------------------
       - id: pytest-smoke
         name: pytest (smoke tests)
@@ -151,8 +154,9 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-        # Trigger only on production code or test changes (not docs, scripts, etc.)
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/).*\.py$
+        # Trigger only on tools/ changes - narrow scope for fast smoke tests
+        # utils/runtime changes are tested by pytest-tools on pre-push
+        files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------

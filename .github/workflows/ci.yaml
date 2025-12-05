@@ -12,11 +12,6 @@ env:
   UV_VERSION: "0.5.14"
   CACHE_VERSION: "0.1.0"
 
-# Permissions required for dorny/paths-filter to access PR file list via GitHub API
-permissions:
-  contents: read
-  pull-requests: read
-
 # Path filter for production code jobs (lint, type-check, test-unit)
 # Scope: tools/, utils/, runtime/ source code and their tests
 # This matches pre-commit hook scope (see .pre-commit-config.yaml)
@@ -27,6 +22,11 @@ jobs:
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    # Permissions required for dorny/paths-filter to access PR file list via GitHub API
+    # Scoped to this job only (security best practice - least privilege)
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       production_code: ${{ steps.filter.outputs.production_code }}
     steps:

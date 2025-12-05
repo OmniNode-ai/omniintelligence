@@ -222,7 +222,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Allow imports inside functions in tests (common for module reset patterns)
+# PLC0415 (import-outside-toplevel): Allow imports inside functions in tests.
+# Common patterns requiring this:
+# - Module reloading/reset in test fixtures (importlib.reload)
+# - Pytest fixtures with deferred imports to avoid circular dependencies
+# - Test isolation requiring fresh module state
+# - Conditional imports based on test parameters
 "tests/**/*.py" = ["PLC0415"]
 
 [tool.ruff.format]
