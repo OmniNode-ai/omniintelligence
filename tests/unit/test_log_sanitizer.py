@@ -14,8 +14,6 @@ Tests cover:
 import os
 from unittest.mock import patch
 
-import pytest
-
 from omniintelligence.utils.log_sanitizer import (
     LogSanitizer,
     get_log_sanitizer,
@@ -362,7 +360,9 @@ class TestLogSanitizerCustomPatterns:
             (r"SECRET_B_[A-Z]+", "[SECRET_B]", "Secret B"),
         ]
         sanitizer = LogSanitizer(custom_patterns=custom_patterns)
-        text = "SECRET_A_123456789012345678901234 and SECRET_B_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        text = (
+            "SECRET_A_123456789012345678901234 and SECRET_B_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        )
         result = sanitizer.sanitize(text)
         assert "[SECRET_A]" in result
         assert "[SECRET_B]" in result
@@ -570,9 +570,9 @@ class TestGlobalSanitizer:
 
     def test_get_log_sanitizer_with_env_vars(self):
         """Test get_log_sanitizer reads environment variables."""
-        import omniintelligence.utils.log_sanitizer as module
+        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
 
-        module._sanitizer = None
+        legacy_module._sanitizer = None
 
         env_vars = {
             "ENABLE_LOG_SANITIZATION": "true",
@@ -581,34 +581,36 @@ class TestGlobalSanitizer:
         }
 
         with patch.dict(os.environ, env_vars, clear=False):
-            module._sanitizer = None
+            legacy_module._sanitizer = None
             sanitizer = get_log_sanitizer()
             assert sanitizer.sanitize_emails is True
             assert sanitizer.sanitize_ips is True
 
     def test_get_log_sanitizer_disabled_via_env(self):
         """Test disabling sanitization via environment variable."""
-        import omniintelligence.utils.log_sanitizer as module
+        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
 
-        module._sanitizer = None
+        legacy_module._sanitizer = None
 
         with patch.dict(os.environ, {"ENABLE_LOG_SANITIZATION": "false"}, clear=False):
-            module._sanitizer = None
+            legacy_module._sanitizer = None
             sanitizer = get_log_sanitizer()
             assert sanitizer.enable is False
 
     def test_get_log_sanitizer_custom_patterns_from_env(self):
         """Test custom patterns from environment variable (lines 381-388)."""
-        import omniintelligence.utils.log_sanitizer as module
+        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
 
-        module._sanitizer = None
+        legacy_module._sanitizer = None
 
         custom_patterns_str = "CUSTOM_[0-9]+|[CUSTOM]|Custom pattern"
 
         with patch.dict(
-            os.environ, {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str}, clear=False
+            os.environ,
+            {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
+            clear=False,
         ):
-            module._sanitizer = None
+            legacy_module._sanitizer = None
             sanitizer = get_log_sanitizer()
 
             # Test the custom pattern works
@@ -618,17 +620,19 @@ class TestGlobalSanitizer:
 
     def test_get_log_sanitizer_multiple_custom_patterns_from_env(self):
         """Test multiple custom patterns from environment variable."""
-        import omniintelligence.utils.log_sanitizer as module
+        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
 
-        module._sanitizer = None
+        legacy_module._sanitizer = None
 
         # Multiple patterns separated by semicolon
         custom_patterns_str = "PATTERN_A_[0-9]+|[PATTERN_A]|Pattern A;PATTERN_B_[A-Z]+|[PATTERN_B]|Pattern B"
 
         with patch.dict(
-            os.environ, {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str}, clear=False
+            os.environ,
+            {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
+            clear=False,
         ):
-            module._sanitizer = None
+            legacy_module._sanitizer = None
             sanitizer = get_log_sanitizer()
 
             patterns_info = sanitizer.get_patterns_info()
@@ -646,7 +650,9 @@ class TestGlobalSanitizer:
         custom_patterns_str = "INVALID_PATTERN|[INVALID]"
 
         with patch.dict(
-            os.environ, {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str}, clear=False
+            os.environ,
+            {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
+            clear=False,
         ):
             module._sanitizer = None
             # Should not raise, just skip invalid pattern

@@ -11,10 +11,8 @@ Tests cover:
 - Metrics tracking
 """
 
-import asyncio
 import json
-from typing import Any, Optional
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -22,7 +20,6 @@ import pytest
 from omniintelligence.nodes.kafka_event_effect import (
     ModelKafkaEventConfig,
     ModelKafkaEventInput,
-    ModelKafkaEventOutput,
     NodeKafkaEventEffect,
 )
 
@@ -59,7 +56,10 @@ async def kafka_effect_node(kafka_config, mock_producer):
     node = NodeKafkaEventEffect(container=None, config=kafka_config)
 
     # Mock producer initialization
-    with patch("omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer", return_value=mock_producer):
+    with patch(
+        "omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer",
+        return_value=mock_producer,
+    ):
         await node.initialize()
 
     yield node
@@ -75,7 +75,9 @@ class TestKafkaEventEffectInitialization:
         """Test successful initialization."""
         node = NodeKafkaEventEffect(container=None, config=kafka_config)
 
-        with patch("omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer") as mock_producer_class:
+        with patch(
+            "omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer"
+        ) as mock_producer_class:
             mock_producer = MagicMock()
             mock_producer_class.return_value = mock_producer
 
@@ -92,8 +94,13 @@ class TestKafkaEventEffectInitialization:
         """Test initialization failure."""
         node = NodeKafkaEventEffect(container=None, config=kafka_config)
 
-        with patch("omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer", side_effect=Exception("Connection failed")):
-            with pytest.raises(RuntimeError, match="Kafka producer initialization failed"):
+        with patch(
+            "omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer",
+            side_effect=Exception("Connection failed"),
+        ):
+            with pytest.raises(
+                RuntimeError, match="Kafka producer initialization failed"
+            ):
                 await node.initialize()
 
     def test_default_config(self):
@@ -399,7 +406,9 @@ class TestKafkaEventEffectMetrics:
 
         metrics = kafka_effect_node.get_metrics()
         assert metrics["events_published"] == initial_metrics["events_published"] + 1
-        assert metrics["total_publish_time_ms"] > initial_metrics["total_publish_time_ms"]
+        assert (
+            metrics["total_publish_time_ms"] > initial_metrics["total_publish_time_ms"]
+        )
         assert metrics["avg_publish_time_ms"] > 0
 
     @pytest.mark.asyncio
@@ -451,7 +460,9 @@ class TestKafkaEventEffectEdgeCases:
         """Test shutdown with pending messages."""
         node = NodeKafkaEventEffect(container=None, config=kafka_config)
 
-        with patch("omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer") as mock_producer_class:
+        with patch(
+            "omniintelligence.nodes.kafka_event_effect.v1_0_0.effect.Producer"
+        ) as mock_producer_class:
             mock_producer = MagicMock()
             mock_producer.flush.return_value = 2  # 2 pending messages
             mock_producer_class.return_value = mock_producer

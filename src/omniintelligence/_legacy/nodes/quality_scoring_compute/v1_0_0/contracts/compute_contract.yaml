@@ -1,0 +1,42 @@
+name: quality_scoring_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for assessing code quality across 6 dimensions.
+  Evaluates maintainability, readability, complexity, documentation, testing,
+  and security. Also checks ONEX compliance and generates improvement recommendations.
+
+node_type: compute
+
+input_model: omniintelligence.models.ModelQualityScoringInput
+output_model: omniintelligence.models.ModelQualityScoringOutput
+
+algorithm:
+  algorithm_type: weighted_factor_algorithm
+  factors:
+    maintainability:
+      weight: 0.20
+      calculation_method: maintainability_index
+    readability:
+      weight: 0.15
+      calculation_method: readability_score
+    complexity:
+      weight: 0.20
+      calculation_method: cyclomatic_complexity
+    documentation:
+      weight: 0.15
+      calculation_method: docstring_coverage
+    testing:
+      weight: 0.15
+      calculation_method: test_coverage
+    security:
+      weight: 0.15
+      calculation_method: vulnerability_scan
+
+performance:
+  single_operation_max_ms: 8000
+
+dependencies: []

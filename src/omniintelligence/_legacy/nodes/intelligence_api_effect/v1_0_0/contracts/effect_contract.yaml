@@ -1,0 +1,59 @@
+# ONEX Effect Contract - Intelligence API Effect
+# Migrated to strict ONEX schema
+
+name: intelligence_api_effect
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Effect node for exposing intelligence operations via REST API.
+  Provides external interface for quality scores, pattern queries, and entity searches.
+  Handles API request/response transformation.
+
+node_type: effect
+
+# Fully qualified model class names
+input_model: omniintelligence.nodes.intelligence_api_effect.v1_0_0.models.ModelIntelligenceApiInput
+output_model: omniintelligence.nodes.intelligence_api_effect.v1_0_0.models.ModelIntelligenceApiOutput
+
+# I/O operations (required for effect nodes)
+io_operations:
+  - operation_type: api_call
+    atomic: false
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
+
+  - operation_type: http_request
+    atomic: false
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
+
+# Transaction management
+transaction_management:
+  enabled: false
+
+# Retry policies
+retry_policies:
+  max_attempts: 3
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 3
+
+# Dependencies
+dependencies:
+  - name: ProtocolHttpClient
+    dependency_type: protocol
+    required: true
+    description: HTTP client for API calls
+
+# Author and tags
+author: omniintelligence
+tags:
+  - effect
+  - api
+  - rest
+  - external-interface
+  - http

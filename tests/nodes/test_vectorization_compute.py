@@ -13,7 +13,6 @@ import pytest
 from omniintelligence.nodes.vectorization_compute.v1_0_0.compute import (
     ModelVectorizationConfig,
     ModelVectorizationInput,
-    ModelVectorizationOutput,
     VectorizationCompute,
 )
 
@@ -53,9 +52,7 @@ class TestVectorizationCompute:
     async def test_initialization_with_api_key(self, node_with_api_key):
         """Test node initialization with API key."""
         assert node_with_api_key.openai_api_key == "test-api-key"
-        assert (
-            node_with_api_key.embedding_model == "text-embedding-3-small"
-        )
+        assert node_with_api_key.embedding_model == "text-embedding-3-small"
         assert node_with_api_key.config.embedding_dimension == 1536
 
     async def test_initialization_without_api_key(self, node_without_api_key):
@@ -66,19 +63,15 @@ class TestVectorizationCompute:
     async def test_openai_embedding_success(self, node_with_api_key):
         """Test successful OpenAI API embedding generation."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "data": [{"embedding": [0.1] * 1536}]
-        }
+        mock_response.json.return_value = {"data": [{"embedding": [0.1] * 1536}]}
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = (
-                AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
             )
 
-            input_data = ModelVectorizationInput(
-                content="Test content for embedding"
-            )
+            input_data = ModelVectorizationInput(content="Test content for embedding")
             result = await node_with_api_key.process(input_data)
 
             assert result.success is True
@@ -96,9 +89,7 @@ class TestVectorizationCompute:
                 )
             )
 
-            input_data = ModelVectorizationInput(
-                content="Test content for embedding"
-            )
+            input_data = ModelVectorizationInput(content="Test content for embedding")
             result = await node_with_api_key.process(input_data)
 
             assert result.success is True
@@ -168,9 +159,7 @@ class TestVectorizationCompute:
             if call_count < 3:
                 raise httpx.TimeoutException("Timeout")
             mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "data": [{"embedding": [0.1] * 1536}]
-            }
+            mock_response.json.return_value = {"data": [{"embedding": [0.1] * 1536}]}
             mock_response.raise_for_status = MagicMock()
             return mock_response
 

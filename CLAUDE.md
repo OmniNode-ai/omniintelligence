@@ -29,6 +29,11 @@ ruff check --fix src tests # Auto-fix
 black src tests            # Format
 isort src tests            # Sort imports
 mypy src                   # Type check
+
+# Contract validation
+python -m omniintelligence.tools.contract_linter path/to/contract.yaml           # Validate single contract
+python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml --verbose # Validate multiple contracts
+python -m omniintelligence.tools.contract_linter contract.yaml --json            # JSON output
 ```
 
 ## Architecture
@@ -169,6 +174,34 @@ Legacy source code is preserved in `migration_sources/omniarchon/` for reference
 - `MIGRATION_SUMMARY.md` - Migration overview
 - `OMNIARCHON_MIGRATION_INVENTORY.md` - Detailed component inventory
 - `QUICK_REFERENCE.md` - Legacy API reference
+
+## Tools
+
+OmniIntelligence provides CLI tools for development and validation:
+
+### Contract Linter
+
+Validates ONEX contract YAML files against canonical Pydantic models:
+
+```bash
+# Validate single contract
+uv run python -m omniintelligence.tools.contract_linter path/to/contract.yaml
+
+# Validate multiple contracts with verbose output
+uv run python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml --verbose
+
+# JSON output for CI/CD integration
+uv run python -m omniintelligence.tools.contract_linter contract.yaml --json
+```
+
+**Features:**
+- Validates node contracts (compute, effect, reducer, orchestrator)
+- Validates FSM subcontracts and workflow coordination contracts
+- Integrated with pre-commit hooks and GitHub Actions CI
+- Structured error output with field paths
+- Exit codes: 0 (success), 1 (validation errors), 2 (file errors)
+
+See [tools/README.md](src/omniintelligence/tools/README.md) for complete documentation.
 
 ## Configuration
 

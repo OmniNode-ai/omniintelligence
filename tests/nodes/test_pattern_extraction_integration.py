@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Integration Tests for Pattern Extraction System
 
@@ -9,7 +8,6 @@ Migrated from omniarchon to omniintelligence.
 import asyncio
 import json
 import sys
-from pathlib import Path
 
 import pytest
 

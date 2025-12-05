@@ -1,0 +1,37 @@
+name: relationship_detection_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for detecting relationships between code entities.
+  Identifies dependencies, imports, calls, inheritances, and other relationships.
+  Builds knowledge graph connections using static analysis and type inference.
+
+node_type: compute
+
+input_model: omniintelligence._legacy.nodes.relationship_detection_compute.v1_0_0.compute.ModelRelationshipDetectionInput
+output_model: omniintelligence._legacy.nodes.relationship_detection_compute.v1_0_0.compute.ModelRelationshipDetectionOutput
+
+algorithm:
+  algorithm_type: relationship_detection
+  factors:
+    static_analysis:
+      weight: 0.5
+      calculation_method: ast_analysis
+    type_inference:
+      weight: 0.3
+      calculation_method: type_resolution
+    pattern_matching:
+      weight: 0.2
+      calculation_method: naming_convention
+
+performance:
+  single_operation_max_ms: 6000
+
+dependencies:
+  - name: entity_extraction_compute
+    dependency_type: module
+    required: true
+    description: Entity extraction compute node for entity data

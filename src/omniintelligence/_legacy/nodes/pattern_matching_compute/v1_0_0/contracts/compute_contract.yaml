@@ -1,0 +1,37 @@
+name: pattern_matching_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for pattern matching and learning.
+  Implements 4-phase pattern learning: Foundation, Matching, Validation, Traceability.
+  Uses both structural and semantic matching techniques.
+
+node_type: compute
+
+input_model: omniintelligence.models.ModelPatternMatchingInput
+output_model: omniintelligence.models.ModelPatternMatchingOutput
+
+algorithm:
+  algorithm_type: pattern_matching
+  factors:
+    structural_matching:
+      weight: 0.4
+      calculation_method: ast_similarity
+    semantic_matching:
+      weight: 0.4
+      calculation_method: embedding_cosine
+    confidence_scoring:
+      weight: 0.2
+      calculation_method: weighted_average
+
+performance:
+  single_operation_max_ms: 10000
+
+dependencies:
+  - name: semantic_analysis_compute
+    dependency_type: module
+    required: true
+    description: Semantic analysis compute node for embedding-based matching

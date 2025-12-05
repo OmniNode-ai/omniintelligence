@@ -1,0 +1,41 @@
+name: semantic_analysis_compute
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Compute node for semantic code analysis.
+  Extracts semantic features, analyzes code semantics, and computes similarity scores.
+  Works with embeddings for deep semantic understanding of control flow,
+  data flow, complexity metrics, and intent classification.
+
+node_type: compute
+
+input_model: omniintelligence.models.ModelSemanticAnalysisInput
+output_model: omniintelligence.models.ModelSemanticAnalysisOutput
+
+algorithm:
+  algorithm_type: semantic_analysis
+  factors:
+    control_flow:
+      weight: 0.25
+      calculation_method: cfg_analysis
+    data_flow:
+      weight: 0.25
+      calculation_method: dfa_analysis
+    complexity:
+      weight: 0.25
+      calculation_method: complexity_metrics
+    intent:
+      weight: 0.25
+      calculation_method: intent_classification
+
+performance:
+  single_operation_max_ms: 7000
+
+dependencies:
+  - name: vectorization_compute
+    dependency_type: module
+    required: true
+    description: Vectorization compute node for embedding generation

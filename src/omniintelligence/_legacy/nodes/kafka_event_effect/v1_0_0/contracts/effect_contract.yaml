@@ -1,0 +1,58 @@
+# ONEX Effect Contract - Kafka Event Effect
+# Migrated to strict ONEX schema
+
+name: kafka_event_effect
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+description: |
+  Effect node for publishing events to Kafka topics.
+  Handles event serialization, topic routing, and delivery guarantees.
+
+node_type: effect
+
+# Fully qualified model class names
+input_model: omniintelligence.nodes.kafka_event_effect.v1_0_0.models.ModelKafkaEventInput
+output_model: omniintelligence.nodes.kafka_event_effect.v1_0_0.models.ModelKafkaEventOutput
+
+# I/O operations (required for effect nodes)
+io_operations:
+  - operation_type: message_publish
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 30
+    validation_enabled: true
+
+  - operation_type: message_batch_publish
+    atomic: true
+    backup_enabled: false
+    timeout_seconds: 60
+    validation_enabled: true
+
+# Transaction management
+transaction_management:
+  enabled: true
+  isolation_level: read_committed
+
+# Retry policies
+retry_policies:
+  max_attempts: 3
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 3
+
+# Dependencies
+dependencies:
+  - name: ProtocolMessageBroker
+    dependency_type: protocol
+    required: true
+    description: Kafka message broker service
+
+# Author and tags
+author: omniintelligence
+tags:
+  - effect
+  - kafka
+  - events
+  - messaging

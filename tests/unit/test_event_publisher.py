@@ -18,7 +18,7 @@ All tests use mocked Kafka producer - NO real Kafka connection.
 import asyncio
 import json
 import time
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -30,9 +30,7 @@ from omniintelligence.events.publisher.event_publisher import (
 from omniintelligence.models import (
     ModelEventEnvelope,
     ModelEventMetadata,
-    ModelEventSource,
 )
-
 
 # ============================================================================
 # Fixtures
@@ -121,7 +119,9 @@ def mock_producer_permanent_failure():
 @pytest.fixture
 def publisher(mock_producer):
     """Create an EventPublisher with mocked Kafka producer."""
-    with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+    with patch(
+        "omniintelligence.events.publisher.event_publisher.Producer"
+    ) as MockProducer:
         MockProducer.return_value = mock_producer
         pub = EventPublisher(
             bootstrap_servers="localhost:9092",
@@ -143,7 +143,9 @@ def publisher(mock_producer):
 @pytest.fixture
 def publisher_no_dlq(mock_producer):
     """Create an EventPublisher with DLQ disabled."""
-    with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+    with patch(
+        "omniintelligence.events.publisher.event_publisher.Producer"
+    ) as MockProducer:
         MockProducer.return_value = mock_producer
         pub = EventPublisher(
             bootstrap_servers="localhost:9092",
@@ -158,7 +160,9 @@ def publisher_no_dlq(mock_producer):
 @pytest.fixture
 def publisher_no_sanitization(mock_producer):
     """Create an EventPublisher with sanitization disabled."""
-    with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+    with patch(
+        "omniintelligence.events.publisher.event_publisher.Producer"
+    ) as MockProducer:
         MockProducer.return_value = mock_producer
         pub = EventPublisher(
             bootstrap_servers="localhost:9092",
@@ -264,7 +268,9 @@ class TestSuccessfulPublishing:
     """Tests for successful event publishing."""
 
     @pytest.mark.asyncio
-    async def test_publish_success(self, publisher, mock_producer, sample_payload, sample_correlation_id):
+    async def test_publish_success(
+        self, publisher, mock_producer, sample_payload, sample_correlation_id
+    ):
         """Test successful event publishing."""
         result = await publisher.publish(
             event_type="omninode.test.event.created.v1",
@@ -278,7 +284,9 @@ class TestSuccessfulPublishing:
         assert publisher.metrics["events_failed"] == 0
 
     @pytest.mark.asyncio
-    async def test_publish_with_explicit_correlation_id(self, publisher, mock_producer, sample_payload):
+    async def test_publish_with_explicit_correlation_id(
+        self, publisher, mock_producer, sample_payload
+    ):
         """Test publishing with explicit correlation ID."""
         correlation_id = uuid4()
         result = await publisher.publish(
@@ -299,7 +307,9 @@ class TestSuccessfulPublishing:
         assert event_data["correlation_id"] == str(correlation_id)
 
     @pytest.mark.asyncio
-    async def test_publish_with_custom_topic(self, publisher, mock_producer, sample_payload):
+    async def test_publish_with_custom_topic(
+        self, publisher, mock_producer, sample_payload
+    ):
         """Test publishing to custom topic override."""
         custom_topic = "custom.topic.name"
 
@@ -317,7 +327,9 @@ class TestSuccessfulPublishing:
         assert topic == custom_topic
 
     @pytest.mark.asyncio
-    async def test_publish_with_partition_key(self, publisher, mock_producer, sample_payload):
+    async def test_publish_with_partition_key(
+        self, publisher, mock_producer, sample_payload
+    ):
         """Test publishing with partition key for ordering."""
         partition_key = "user-123"
 
@@ -334,7 +346,9 @@ class TestSuccessfulPublishing:
         assert key == partition_key.encode()
 
     @pytest.mark.asyncio
-    async def test_publish_with_causation_id(self, publisher, mock_producer, sample_payload, sample_correlation_id):
+    async def test_publish_with_causation_id(
+        self, publisher, mock_producer, sample_payload, sample_correlation_id
+    ):
         """Test publishing with causation ID for event sourcing."""
         causation_id = uuid4()
 
@@ -352,7 +366,9 @@ class TestSuccessfulPublishing:
         assert event_data["causation_id"] == str(causation_id)
 
     @pytest.mark.asyncio
-    async def test_publish_with_metadata(self, publisher, mock_producer, sample_payload):
+    async def test_publish_with_metadata(
+        self, publisher, mock_producer, sample_payload
+    ):
         """Test publishing with custom metadata."""
         metadata = ModelEventMetadata(
             trace_id="4bf92f3577b34da6a3ce929d0e0e4736",
@@ -376,7 +392,9 @@ class TestSuccessfulPublishing:
         assert event_data["metadata"]["user_id"] == "user-456"
 
     @pytest.mark.asyncio
-    async def test_publish_updates_metrics(self, publisher, mock_producer, sample_payload):
+    async def test_publish_updates_metrics(
+        self, publisher, mock_producer, sample_payload
+    ):
         """Test that publishing updates metrics correctly."""
         # Publish multiple events
         for _ in range(3):
@@ -400,7 +418,9 @@ class TestEventSerialization:
     """Tests for event serialization and encoding."""
 
     @pytest.mark.asyncio
-    async def test_event_envelope_structure(self, publisher, mock_producer, sample_payload, sample_correlation_id):
+    async def test_event_envelope_structure(
+        self, publisher, mock_producer, sample_payload, sample_correlation_id
+    ):
         """Test serialized event has correct envelope structure."""
         await publisher.publish(
             event_type="omninode.test.event.created.v1",
@@ -430,7 +450,9 @@ class TestEventSerialization:
         assert event_data["payload"] == sample_payload
 
     @pytest.mark.asyncio
-    async def test_uuid_serialization(self, publisher, mock_producer, sample_payload, sample_correlation_id):
+    async def test_uuid_serialization(
+        self, publisher, mock_producer, sample_payload, sample_correlation_id
+    ):
         """Test UUIDs are serialized as strings."""
         await publisher.publish(
             event_type="omninode.test.event.created.v1",
@@ -485,11 +507,7 @@ class TestSecretSanitization:
     @pytest.mark.asyncio
     async def test_sanitizes_openai_api_key(self, publisher, mock_producer):
         """Test OpenAI API keys are sanitized from payloads."""
-        payload = {
-            "config": {
-                "api_key": "sk-abcdefghijklmnopqrstuvwxyz123456789012"
-            }
-        }
+        payload = {"config": {"api_key": "sk-abcdefghijklmnopqrstuvwxyz123456789012"}}
 
         await publisher.publish(
             event_type="omninode.test.event.created.v1",
@@ -509,9 +527,7 @@ class TestSecretSanitization:
     @pytest.mark.asyncio
     async def test_sanitizes_github_token(self, publisher, mock_producer):
         """Test GitHub tokens are sanitized from payloads."""
-        payload = {
-            "token": "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
-        }
+        payload = {"token": "ghp_abcdefghijklmnopqrstuvwxyz1234567890"}
 
         await publisher.publish(
             event_type="omninode.test.event.created.v1",
@@ -548,11 +564,11 @@ class TestSecretSanitization:
         assert "[JWT_TOKEN]" in event_str
 
     @pytest.mark.asyncio
-    async def test_sanitization_disabled(self, publisher_no_sanitization, mock_producer):
+    async def test_sanitization_disabled(
+        self, publisher_no_sanitization, mock_producer
+    ):
         """Test sanitization can be disabled."""
-        payload = {
-            "api_key": "sk-abcdefghijklmnopqrstuvwxyz123456789012"
-        }
+        payload = {"api_key": "sk-abcdefghijklmnopqrstuvwxyz123456789012"}
 
         await publisher_no_sanitization.publish(
             event_type="omninode.test.event.created.v1",
@@ -581,7 +597,9 @@ class TestRetryLogic:
         """Test retries on transient failures then succeeds."""
         producer, call_count = mock_producer_with_failure
 
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = producer
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -606,7 +624,9 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_max_retries_exceeded(self, mock_producer_permanent_failure):
         """Test behavior when max retries exceeded."""
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer_permanent_failure
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -646,7 +666,9 @@ class TestRetryLogic:
         producer.produce.side_effect = track_produce
         producer.poll.return_value = 0
 
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = producer
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -684,7 +706,9 @@ class TestDeadLetterQueue:
     @pytest.mark.asyncio
     async def test_dlq_routing_on_failure(self, mock_producer_permanent_failure):
         """Test failed events are sent to DLQ."""
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer_permanent_failure
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -720,14 +744,15 @@ class TestDeadLetterQueue:
         def capture_dlq(topic, value, key=None, callback=None):
             if ".dlq" in topic:
                 dlq_payloads.append(json.loads(value.decode("utf-8")))
-            else:
-                # For non-DLQ topics, fail
-                if callback:
-                    callback(Exception("Failure"), None)
+            # For non-DLQ topics, fail
+            elif callback:
+                callback(Exception("Failure"), None)
 
         mock_producer_permanent_failure.produce.side_effect = capture_dlq
 
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer_permanent_failure
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -763,7 +788,9 @@ class TestDeadLetterQueue:
     @pytest.mark.asyncio
     async def test_dlq_disabled(self, mock_producer_permanent_failure):
         """Test DLQ routing disabled when enable_dlq=False."""
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer_permanent_failure
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -793,9 +820,13 @@ class TestCircuitBreaker:
     """Tests for circuit breaker behavior."""
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_opens_on_threshold(self, mock_producer_permanent_failure):
+    async def test_circuit_breaker_opens_on_threshold(
+        self, mock_producer_permanent_failure
+    ):
         """Test circuit breaker opens after threshold failures."""
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer_permanent_failure
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -819,9 +850,13 @@ class TestCircuitBreaker:
             assert pub.metrics["circuit_breaker_opens"] == 1
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_rejects_requests(self, mock_producer_permanent_failure):
+    async def test_circuit_breaker_rejects_requests(
+        self, mock_producer_permanent_failure
+    ):
         """Test circuit breaker rejects requests when open."""
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer_permanent_failure
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -850,7 +885,9 @@ class TestCircuitBreaker:
                 )
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_resets_on_success(self, publisher, mock_producer, sample_payload):
+    async def test_circuit_breaker_resets_on_success(
+        self, publisher, mock_producer, sample_payload
+    ):
         """Test circuit breaker resets after successful publish."""
         # Manually set some failures
         publisher._circuit_breaker_failures = 3
@@ -884,7 +921,9 @@ class TestCircuitBreaker:
         producer.poll.return_value = 0
         producer.flush.return_value = 0
 
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = producer
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -898,8 +937,12 @@ class TestCircuitBreaker:
             pub.producer = producer
 
             # Cause failures to open circuit
-            await pub.publish("omninode.test.event.created.v1", {"test": 1}, correlation_id=uuid4())
-            await pub.publish("omninode.test.event.created.v1", {"test": 2}, correlation_id=uuid4())
+            await pub.publish(
+                "omninode.test.event.created.v1", {"test": 1}, correlation_id=uuid4()
+            )
+            await pub.publish(
+                "omninode.test.event.created.v1", {"test": 2}, correlation_id=uuid4()
+            )
 
             assert pub._circuit_breaker_open is True
 
@@ -907,7 +950,9 @@ class TestCircuitBreaker:
             await asyncio.sleep(0.15)
 
             # Should allow request after timeout (circuit half-open)
-            result = await pub.publish("omninode.test.event.created.v1", {"test": 3}, correlation_id=uuid4())
+            result = await pub.publish(
+                "omninode.test.event.created.v1", {"test": 3}, correlation_id=uuid4()
+            )
 
             # This should succeed and close the circuit
             assert result is True
@@ -985,7 +1030,9 @@ class TestClose:
         """Test close handles flush timeout gracefully."""
         mock_producer.flush.return_value = 5  # 5 messages remaining
 
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -1003,7 +1050,9 @@ class TestClose:
         """Test close handles flush exception gracefully."""
         mock_producer.flush.side_effect = Exception("Flush error")
 
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = mock_producer
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -1064,7 +1113,9 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_publish_with_none_producer(self):
         """Test publish raises when producer is None."""
-        with patch("omniintelligence.events.publisher.event_publisher.Producer") as MockProducer:
+        with patch(
+            "omniintelligence.events.publisher.event_publisher.Producer"
+        ) as MockProducer:
             MockProducer.return_value = None
             pub = EventPublisher(
                 bootstrap_servers="localhost:9092",
@@ -1098,9 +1149,7 @@ class TestEdgeCases:
         """Test publish with complex nested payload."""
         payload = {
             "level1": {
-                "level2": {
-                    "level3": [1, 2, {"nested": "value"}]
-                },
+                "level2": {"level3": [1, 2, {"nested": "value"}]},
                 "array": [{"a": 1}, {"b": 2}],
             },
             "unicode": "Hello 日本語 emoji 🎉",
@@ -1122,7 +1171,9 @@ class TestEdgeCases:
         event_data = json.loads(event_bytes.decode("utf-8"))
 
         assert event_data["payload"]["unicode"] == "Hello 日本語 emoji 🎉"
-        assert event_data["payload"]["level1"]["level2"]["level3"][2]["nested"] == "value"
+        assert (
+            event_data["payload"]["level1"]["level2"]["level3"][2]["nested"] == "value"
+        )
 
     @pytest.mark.asyncio
     async def test_correlation_id_propagation(self, publisher, mock_producer):
