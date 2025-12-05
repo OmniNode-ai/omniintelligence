@@ -19,5 +19,5 @@ formatter:
   # Include document start marker (---) for consistency
   include_document_start: true
 
-  # Use consistent spacing around colons
+  # Number of spaces before inline comments (e.g., "key: value  # comment")
   pad_line_comments: 2

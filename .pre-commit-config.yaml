@@ -9,7 +9,7 @@
 # - ruff/mypy: All production Python code (tools/, utils/, runtime/) and their tests
 # - contract-linter: ONEX node contracts (future nodes/ directory)
 # - pytest-smoke: Quick unit tests on commit
-# - pytest-tools: Full tools tests on push only
+# - pytest-tools: Full tools/utils/runtime tests on push only
 #
 # Global Exclusions (excluded from ALL hooks via exclude: block at bottom):
 # - _legacy/: Legacy code preserved for migration reference
@@ -45,7 +45,8 @@ repos:
         # GitHub Actions workflows are excluded because they have specific YAML syntax
         # requirements (e.g., expression syntax ${{ }}, multiline strings, run blocks)
         # that may conflict with standard yamlfmt formatting rules.
-        exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
+        # Note: migration_sources/ and _legacy/ are already covered by global exclusions
+        exclude: ^\.github/workflows/
 
   # ============================================================================
   # FILE HYGIENE - Essential file formatting (standard across ecosystem)
@@ -55,11 +56,12 @@ repos:
     hooks:
       # GitHub Actions workflows excluded from formatting hooks - see header comment
       # for rationale (YAML syntax requirements conflict with standard formatters)
+      # Note: migration_sources/ and _legacy/ are already covered by global exclusions
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
+        exclude: ^\.github/workflows/
       - id: end-of-file-fixer
-        exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
+        exclude: ^\.github/workflows/
       # check-merge-conflict and check-added-large-files run on ALL files including workflows
       - id: check-merge-conflict
       - id: check-added-large-files
@@ -95,6 +97,7 @@ repos:
   # Scope: Production source code only (tests may lack full type annotations)
   # ============================================================================
   - repo: https://github.com/pre-commit/mirrors-mypy
+    # mypy pinned to v1.13.0 for stability (latest stable release as of Nov 2024)
     rev: v1.13.0
     hooks:
       - id: mypy
@@ -153,19 +156,21 @@ repos:
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
-      # Pytest - Full tools tests on push
-      # Validates: Tools functionality via comprehensive unit tests
-      # Scope: Triggered when tools source or test files change
+      # Pytest - Full tools/utils/runtime tests on push
+      # Validates: Tools, utils, and runtime functionality via comprehensive unit tests
+      # Scope: Matches ruff/mypy scope - tools/, utils/, runtime/ source and their tests
       # Stage: pre-push (slower, more thorough)
+      # Note: test_log_sanitizer.py tests utils/log_sanitizer.py but lives in tests/unit/
       # --------------------------------------------------------------------------
       - id: pytest-tools
-        name: pytest (tools - full)
-        entry: uv run pytest tests/unit/tools/ -v --tb=short
+        name: pytest (tools/utils/runtime - full)
+        entry: uv run pytest tests/unit/tools/ tests/unit/test_log_sanitizer.py -v --tb=short
         language: system
         pass_filenames: false
         types: [python]
-        # Trigger when either tools source or tests change
-        files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
+        # Scope matches ruff/mypy: tools/, utils/, runtime/ and their tests
+        # test_log_sanitizer.py is included separately (see comment above)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py)).*\.py$
         stages: [pre-push]
 
 # Default stage for hooks (commit, not push)
