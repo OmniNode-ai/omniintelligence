@@ -34,7 +34,9 @@ repos:
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/workflows/
       - id: end-of-file-fixer
+        exclude: ^\.github/workflows/
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1000]
