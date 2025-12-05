@@ -3,9 +3,12 @@
 # Run manually: pre-commit run --all-files
 #
 # Hook Scope Summary:
-# - ruff/mypy: All production Python code (tools/, utils/) and their tests
+# - yamlfmt: YAML formatting for consistency
+# - pre-commit-hooks: File hygiene (trailing whitespace, EOF, merge conflicts)
+# - ruff/mypy: All production Python code (tools/, utils/, runtime/) and their tests
 # - contract-linter: ONEX node contracts (future nodes/ directory)
-# - pytest-tools: Unit tests for tools module (pre-push only)
+# - pytest-smoke: Quick unit tests on commit
+# - pytest-tools: Full tools tests on push only
 #
 # Excluded from all hooks:
 # - _legacy/: Legacy code preserved for migration reference
@@ -13,9 +16,33 @@
 
 repos:
   # ============================================================================
+  # YAML FORMATTING - Standard across ONEX ecosystem
+  # ============================================================================
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.17.2
+    hooks:
+      - id: yamlfmt
+        args: [--formatter, retain_line_breaks=true]
+        exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
+
+  # ============================================================================
+  # FILE HYGIENE - Essential file formatting (standard across ecosystem)
+  # ============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/workflows/
+      - id: end-of-file-fixer
+        exclude: ^(\.github/workflows/|\.mcp\.json$)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+  # ============================================================================
   # RUFF - Fast Python linter and formatter
   # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
-  # Scope: Production code (tools/, utils/) and their unit tests
+  # Scope: Production code (tools/, utils/, runtime/) and their unit tests
   # ============================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.7
@@ -23,13 +50,13 @@ repos:
       - id: ruff
         name: ruff (lint)
         args: [--fix, --exit-non-zero-on-fix]
-        # Covers: tools/, utils/ source code and their tests
-        files: ^(src/omniintelligence/(tools|utils)/|tests/unit/(tools|test_log_sanitizer)/)
+        # Covers: tools/, utils/, runtime/ source code and their tests
+        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
 
       - id: ruff-format
         name: ruff (format)
         # Same scope as ruff lint
-        files: ^(src/omniintelligence/(tools|utils)/|tests/unit/(tools|test_log_sanitizer)/)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
 
   # ============================================================================
   # MYPY - Static type checking
@@ -42,8 +69,8 @@ repos:
       - id: mypy
         name: mypy (type check)
         args: [--strict, --ignore-missing-imports]
-        # Covers: tools/ and utils/ source code (not tests)
-        files: ^src/omniintelligence/(tools|utils)/
+        # Covers: tools/, utils/, runtime/ source code (not tests)
+        files: ^src/omniintelligence/(tools|utils|runtime)/
         additional_dependencies:
           - types-PyYAML
           - pydantic>=2.0.0
@@ -75,13 +102,27 @@ repos:
         files: ^src/omniintelligence/nodes/[^/]+/v\d+(_\d+)*/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
 
       # --------------------------------------------------------------------------
-      # Pytest - Unit tests for tools module
-      # Validates: Tools functionality via unit tests
+      # Pytest Smoke Tests - Quick unit tests on commit
+      # Validates: Core functionality via fast unit tests
+      # Scope: Always runs on commit for immediate feedback
+      # Stage: pre-commit (fast, ~3s)
+      # --------------------------------------------------------------------------
+      - id: pytest-smoke
+        name: pytest (smoke tests)
+        entry: uv run pytest tests/unit/tools/ --maxfail=3 -x --tb=short -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Pytest - Full tools tests on push
+      # Validates: Tools functionality via comprehensive unit tests
       # Scope: Triggered when tools source or test files change
-      # Stage: pre-push (slower, not run on every commit)
+      # Stage: pre-push (slower, more thorough)
       # --------------------------------------------------------------------------
       - id: pytest-tools
-        name: pytest (tools)
+        name: pytest (tools - full)
         entry: uv run pytest tests/unit/tools/ -v --tb=short
         language: system
         pass_filenames: false
@@ -99,6 +140,7 @@ default_stages: [pre-commit]
 exclude: |
   (?x)^(
     # Legacy code preserved for migration reference - do not lint
+    _legacy/.*|
     src/omniintelligence/_legacy/.*|
     # Original omniarchon source - reference only
     migration_sources/.*|

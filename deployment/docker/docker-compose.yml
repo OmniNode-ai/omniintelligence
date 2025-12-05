@@ -61,8 +61,8 @@ services:
     image: memgraph/memgraph-platform:latest
     container_name: omni-memgraph
     ports:
-      - "${MEMGRAPH_PORT:-7687}:7687"  # Bolt protocol
-      - "${MEMGRAPH_HTTP_PORT:-3000}:3000"  # Lab UI
+      - "${MEMGRAPH_PORT:-7687}:7687" # Bolt protocol
+      - "${MEMGRAPH_HTTP_PORT:-3000}:3000" # Lab UI
     volumes:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
