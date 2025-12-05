@@ -1,0 +1,23 @@
+# yamlfmt configuration for omniintelligence
+# Reference: https://github.com/google/yamlfmt/blob/main/docs/config-file.md
+#
+# This configuration aligns with the ONEX ecosystem standards.
+# Settings previously passed as inline args in .pre-commit-config.yaml
+# are now centralized here for better maintainability.
+
+formatter:
+  # Preserve intentional line breaks in YAML files
+  # This maintains readability and logical grouping in complex configurations
+  retain_line_breaks: true
+
+  # Standard ONEX ecosystem line length (matches Python/Ruff settings)
+  max_line_length: 100
+
+  # Standard YAML indentation (2 spaces)
+  indent: 2
+
+  # Include document start marker (---) for consistency
+  include_document_start: true
+
+  # Use consistent spacing around colons
+  pad_line_comments: 2

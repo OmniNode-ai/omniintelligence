@@ -1,3 +1,4 @@
+---
 # Pre-commit hooks for omniintelligence
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
@@ -20,10 +21,10 @@ repos:
   # ============================================================================
   - repo: https://github.com/google/yamlfmt
     # yamlfmt pinned to v0.17.2 for consistency with omnibase_core ecosystem
+    # Configuration: .yamlfmt (repository root)
     rev: v0.17.2
     hooks:
       - id: yamlfmt
-        args: [--formatter, retain_line_breaks=true]
         exclude: ^(migration_sources/|_legacy/|\.github/workflows/)
 
   # ============================================================================
@@ -107,7 +108,7 @@ repos:
       # --------------------------------------------------------------------------
       # Pytest Smoke Tests - Quick unit tests on commit
       # Validates: Core functionality via fast unit tests
-      # Scope: Always runs on commit for immediate feedback
+      # Scope: Triggered on Python file changes in src or tests directories
       # Stage: pre-commit (fast, ~3s)
       # --------------------------------------------------------------------------
       - id: pytest-smoke
@@ -115,7 +116,8 @@ repos:
         entry: uv run pytest tests/unit/tools/ --maxfail=3 -x --tb=short -q
         language: system
         pass_filenames: false
-        always_run: true
+        # Trigger on Python file changes in src or tests
+        files: ^(src/omniintelligence/|tests/).*\.py$
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
