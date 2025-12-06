@@ -491,7 +491,9 @@ class IntelligenceRuntimeConfig(BaseModel):
             }
 
         if isinstance(value, list):
-            return [IntelligenceRuntimeConfig._interpolate_env_vars(item) for item in value]
+            return [
+                IntelligenceRuntimeConfig._interpolate_env_vars(item) for item in value
+            ]
 
         return value
 

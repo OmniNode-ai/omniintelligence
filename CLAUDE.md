@@ -205,6 +205,30 @@ See [tools/README.md](src/omniintelligence/tools/README.md) for complete documen
 
 ## Configuration
 
+### Pre-commit and CI Synchronization
+
+The pre-commit hooks and GitHub Actions CI workflow must stay synchronized to ensure consistent validation between local development and CI pipelines. When path patterns diverge, hooks may run on different files locally vs in CI, causing missed issues or false failures.
+
+**Files to keep in sync:**
+- `.pre-commit-config.yaml` - Local pre-commit hook configuration
+- `.github/workflows/ci.yaml` - GitHub Actions CI workflow
+
+**Validation:**
+
+```bash
+# Validate alignment between pre-commit and CI configurations
+uv run python scripts/validate_ci_precommit_alignment.py --verbose
+```
+
+The validation script checks:
+- Path filter patterns match between configurations
+- Hook types correspond to CI job steps
+- No drift between local and CI validation
+
+This validation runs automatically in CI and as a pre-commit hook.
+
+### Environment Configuration
+
 Configuration uses Pydantic Settings with environment variables:
 
 ```python

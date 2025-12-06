@@ -12,12 +12,162 @@ env:
   UV_VERSION: "0.5.14"
   CACHE_VERSION: "0.1.0"
 
+# ============================================================================
+# CI-PRECOMMIT ALIGNMENT NOTICE - KEEP IN SYNC WITH .pre-commit-config.yaml
+# ============================================================================
+#
+# OVERVIEW:
+# This workflow uses path-based filtering to run production code jobs only when
+# relevant files change. These paths must stay synchronized with pre-commit hooks.
+#
+# CURRENT SCOPE:
+# - Source directories: tools/, utils/, runtime/
+# - Test directories: tests/unit/tools/, tests/unit/test_log_sanitizer.py
+#
+# ALIGNED PATTERNS (must stay synchronized):
+# 1. CI production_code filter (changes job): glob patterns for path detection
+# 2. Pre-commit ruff/mypy files: regex patterns for hook filtering
+# 3. CI lint/type-check job paths: explicit paths for commands
+# 4. Mypy cache hashFiles: glob patterns for cache invalidation
+#
+# INTENTIONAL SCOPE DIFFERENCES:
+# - Path filter (broad): Triggers jobs on any production code change
+# - Pytest scope (narrow): Only runs tests/unit/tools/ (mature tests only)
+# - See test-unit job comments for detailed rationale and expansion TODO
+#
+# VALIDATION:
+# - Automated: scope-alignment job runs on every CI build
+# - Manual: uv run python scripts/validate_ci_precommit_alignment.py --verbose
+# - Script detects drift between CI globs and pre-commit regex patterns
+#
+# ADDING A NEW MODULE:
+# When adding a new source directory (e.g., models/), update ALL of these:
+#
+# 1. CI production_code filter (this file, changes job filters):
+#    Add: - 'src/omniintelligence/newmodule/**'
+#
+# 2. CI lint job paths (ruff check and ruff format commands):
+#    Add: src/omniintelligence/newmodule/ \
+#
+# 3. CI type-check job - mypy cache hashFiles (~line 272):
+#    Add: 'src/omniintelligence/newmodule/**/*.py' to the hashFiles() call
+#    IMPORTANT: hashFiles patterns must match the mypy command scope
+#
+# 4. CI type-check job - mypy command:
+#    Add: src/omniintelligence/newmodule/
+#
+# 5. Pre-commit ruff/mypy files pattern (.pre-commit-config.yaml):
+#    Update regex: (tools|utils|runtime|newmodule)
+#
+# 6. Validation script canonical list (scripts/validate_ci_precommit_alignment.py):
+#    Add 'newmodule' to ALIGNED_SOURCE_DIRS
+#
+# MYPY CACHE STRATEGY:
+# The mypy cache key includes hashes of all Python files in the checked scope.
+# This ensures cache invalidation when source files change, while allowing
+# cache reuse when only unrelated files change. The hashFiles patterns MUST
+# match the directories passed to the mypy command:
+#   - hashFiles: 'src/omniintelligence/{tools,utils,runtime}/**/*.py'
+#   - mypy command: src/omniintelligence/{tools,utils,runtime}/
+#
+# Note: pre-commit and contract-validation run on all changes (no path filter)
+# ============================================================================
+
 jobs:
-  # Lint job - ruff check and format validation
-  lint:
-    name: Lint
+  # Detect which files changed to conditionally run production code jobs
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    # Permissions required for dorny/paths-filter to access PR file list via GitHub API
+    # Scoped to this job only (security best practice - least privilege)
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      # NOTE: Output name uses underscores (production_code) intentionally.
+      # GitHub Actions outputs work reliably with underscores; hyphens can cause
+      # issues in expression contexts. This naming is correct per GitHub docs.
+      production_code: ${{ steps.filter.outputs.production_code }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for production code changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
+          filters: |
+            production_code:
+              - 'src/omniintelligence/tools/**'
+              - 'src/omniintelligence/utils/**'
+              - 'src/omniintelligence/runtime/**'
+              - 'tests/unit/tools/**'
+              - 'tests/unit/test_log_sanitizer.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yaml'
+
+  # Pre-commit hooks - comprehensive code quality validation
+  pre-commit:
+    name: Pre-commit Hooks
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: >-
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            ${{ hashFiles('**/uv.lock') }}-
+            ${{ env.CACHE_VERSION }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/uv.lock') }}-
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
+        run: uv sync --group dev --group core
+
+      - name: Cache pre-commit hooks
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: >-
+            pre-commit-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            ${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      # Verbose mode enables hook profiling - shows execution time for each hook
+      # This helps identify slow hooks and track performance regressions
+      # See .pre-commit-config.yaml for profiling documentation and thresholds
+      - name: Run pre-commit hooks
+        run: |
+          echo "Starting pre-commit hooks with profiling..."
+          time uv run pre-commit run --all-files --show-diff-on-failure --verbose
+
+  # Validate CI and pre-commit scope alignment
+  # Ensures path filters in CI match file patterns in pre-commit hooks
+  # Fast check (~1s) that catches configuration drift before it causes issues
+  scope-alignment:
+    name: Scope Alignment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -48,17 +198,79 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      - name: Validate CI-precommit scope alignment
+        run: |
+          echo "Validating alignment between CI path filters and pre-commit patterns..."
+          uv run python scripts/validate_ci_precommit_alignment.py --verbose
+
+  # Lint job - ruff check and format validation
+  # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
+  # Only runs when production code changes
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.production_code == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: >-
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            ${{ hashFiles('**/uv.lock') }}-
+            ${{ env.CACHE_VERSION }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/uv.lock') }}-
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      # Scope: tools/, utils/, runtime/ source code and their tests
+      # Matches pre-commit ruff hook scope (see .pre-commit-config.yaml)
       - name: Run ruff check
-        run: uv run ruff check src/omniintelligence/tools/ tests/unit/tools/
+        run: |
+          uv run ruff check \
+            src/omniintelligence/tools/ \
+            src/omniintelligence/utils/ \
+            src/omniintelligence/runtime/ \
+            tests/unit/tools/ \
+            tests/unit/test_log_sanitizer.py
 
       - name: Run ruff format check
-        run: uv run ruff format --check src/omniintelligence/tools/ tests/unit/tools/
+        run: |
+          uv run ruff format --check \
+            src/omniintelligence/tools/ \
+            src/omniintelligence/utils/ \
+            src/omniintelligence/runtime/ \
+            tests/unit/tools/ \
+            tests/unit/test_log_sanitizer.py
 
   # Type checking job - mypy
+  # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ source code)
+  # Only runs when production code changes
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
@@ -89,14 +301,55 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
+      # Cache mypy's incremental analysis data for faster subsequent runs
+      # Without this cache, --incremental flag provides no benefit in CI (fresh containers)
+      # Key includes Python version and source file hashes for cache invalidation
+      - name: Cache mypy
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: >-
+            mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            ${{ hashFiles('src/omniintelligence/tools/**/*.py', 'src/omniintelligence/utils/**/*.py', 'src/omniintelligence/runtime/**/*.py') }}-
+            ${{ env.CACHE_VERSION }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      # Scope: tools/, utils/, runtime/ source code (not tests)
+      # Matches pre-commit mypy hook scope (see .pre-commit-config.yaml)
       - name: Run mypy
-        run: uv run mypy src/omniintelligence/tools/
+        run: |
+          uv run mypy \
+            src/omniintelligence/tools/ \
+            src/omniintelligence/utils/ \
+            src/omniintelligence/runtime/
 
   # Unit tests with coverage
+  # Only runs when production code changes
+  #
+  # TEST SCOPE NOTICE:
+  # The pytest scope (tests/unit/tools/) is intentionally narrower than the path
+  # filter scope (tools/, utils/, runtime/). This is because:
+  #
+  # 1. Only tests/unit/tools/ has mature, comprehensive unit tests currently
+  # 2. utils/ has only test_log_sanitizer.py (not a full test suite)
+  # 3. runtime/ does not have unit tests yet (integration tests pending)
+  #
+  # The broader path filter ensures the test job RUNS when any production code
+  # changes (catching regressions), while the narrow pytest scope prevents CI
+  # failures from missing test files.
+  #
+  # TODO(OMN-XXX): Expand test scope as unit tests are added:
+  # - Add tests/unit/utils/ when utils test suite is complete
+  # - Add tests/unit/runtime/ when runtime unit tests exist
+  # - Update coverage target to include all tested modules
+  #
   test-unit:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
@@ -127,6 +380,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
+      # Scope: tests/unit/tools/ only (see TEST SCOPE NOTICE above)
+      # Coverage: tools/ only - expand when more test suites are added
       - name: Run unit tests with coverage
         run: |
           uv run pytest tests/unit/tools/ \
@@ -242,16 +497,19 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [lint, type-check, test-unit, contract-validation]
+    needs: [changes, pre-commit, scope-alignment, lint, type-check, test-unit, contract-validation]
     if: always()
 
     steps:
       - name: Check results
         run: |
+          precommit="${{ needs.pre-commit.result }}"
+          scopealign="${{ needs.scope-alignment.result }}"
           lint="${{ needs.lint.result }}"
           typecheck="${{ needs.type-check.result }}"
           unittest="${{ needs.test-unit.result }}"
           contracts="${{ needs.contract-validation.result }}"
+          production_code_changed="${{ needs.changes.outputs.production_code }}"
 
           # Status emoji mapping
           get_status_icon() {
@@ -264,23 +522,68 @@ jobs:
             esac
           }
 
+          # Check if a job result is acceptable for CI to pass
+          #
+          # Status handling logic:
+          #   - success:   Always acceptable - job completed without errors
+          #   - skipped:   Acceptable ONLY for production code jobs when no relevant files changed
+          #                (lint, type-check, test-unit use path filtering via changes job)
+          #   - cancelled: Never acceptable - indicates workflow was manually stopped or timed out
+          #   - failure:   Never acceptable - job encountered errors
+          #
+          # Args:
+          #   $1 - Job result status (success|failure|cancelled|skipped)
+          #   $2 - Whether this is a production code job with path filtering (true|false)
+          is_acceptable() {
+            local result="$1"
+            local is_production_code_job="$2"
+
+            # Explicitly reject cancelled status - workflow was interrupted
+            if [[ "$result" == "cancelled" ]]; then
+              return 1
+            fi
+
+            # Always accept success
+            if [[ "$result" == "success" ]]; then
+              return 0
+            fi
+
+            # For production code jobs, skipped is acceptable when no relevant files changed
+            if [[ "$is_production_code_job" == "true" ]] && [[ "$result" == "skipped" ]] && [[ "$production_code_changed" != "true" ]]; then
+              return 0
+            fi
+
+            # All other statuses (failure, unexpected) are not acceptable
+            return 1
+          }
+
           echo "## CI Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Note if production code jobs were skipped due to path filter
+          if [[ "$production_code_changed" != "true" ]]; then
+            echo "> **Note:** Production code jobs (Lint, Type Check, Unit Tests) were skipped - no changes in \`tools/\`, \`utils/\`, or \`runtime/\` directories" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
 
           # Results table with status icons
           echo "| Job | Status | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|:------:|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-commit Hooks | $(get_status_icon $precommit) | \`$precommit\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scope Alignment | $(get_status_icon $scopealign) | \`$scopealign\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Lint | $(get_status_icon $lint) | \`$lint\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Type Check | $(get_status_icon $typecheck) | \`$typecheck\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Unit Tests | $(get_status_icon $unittest) | \`$unittest\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Contract Validation | $(get_status_icon $contracts) | \`$contracts\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Overall status
-          if [[ "$lint" == "success" ]] && \
-             [[ "$typecheck" == "success" ]] && \
-             [[ "$unittest" == "success" ]] && \
-             [[ "$contracts" == "success" ]]; then
+          # Overall status - production code jobs can be skipped if no relevant changes
+          if is_acceptable "$precommit" "false" && \
+             is_acceptable "$scopealign" "false" && \
+             is_acceptable "$lint" "true" && \
+             is_acceptable "$typecheck" "true" && \
+             is_acceptable "$unittest" "true" && \
+             is_acceptable "$contracts" "false"; then
             echo "### :rocket: All CI checks passed!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Ready for review and merge." >> $GITHUB_STEP_SUMMARY

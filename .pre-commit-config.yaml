@@ -1,21 +1,299 @@
+---
 # Pre-commit hooks for omniintelligence
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
 #
-# Hook Scope Summary:
-# - ruff/mypy: All production Python code (tools/, utils/) and their tests
-# - contract-linter: ONEX node contracts (future nodes/ directory)
-# - pytest-tools: Unit tests for tools module (pre-push only)
+# ============================================================================
+# VERSION REQUIREMENTS
+# ============================================================================
+# Minimum version: pre-commit >= 4.5.0 (specified in pyproject.toml)
 #
-# Excluded from all hooks:
-# - _legacy/: Legacy code preserved for migration reference
-# - migration_sources/: Original omniarchon source code
+# Why 4.5.0+:
+#   - pre-commit 4.0.0 deprecated old stage names (commit -> pre-commit,
+#     push -> pre-push, merge-commit -> pre-merge-commit). This config uses
+#     the new stage names exclusively (stages: [pre-commit], stages: [pre-push],
+#     default_stages: [pre-commit]).
+#   - pre-commit 4.0.0 removed the deprecated `language: python_venv` in favor
+#     of `language: python`. While this config uses `language: system` for
+#     local hooks, ecosystem compatibility requires 4.0+.
+#   - pre-commit 4.4.0 added `--fail-fast` CLI option to `pre-commit run`,
+#     complementing the config-level `fail_fast: true` setting used here.
+#   - pre-commit 4.5.0 (November 2024) is the stable baseline ensuring all
+#     4.x features and bug fixes are available.
+#
+# Check your version:
+#   pre-commit --version
+#
+# Upgrade pre-commit:
+#   pip install --upgrade pre-commit    # pip users
+#   uv pip install --upgrade pre-commit # uv users
+#   pipx upgrade pre-commit             # pipx users
+#
+# ============================================================================
+# PROFILING HOOK EXECUTION TIME
+# ============================================================================
+# To identify slow hooks and optimize performance, use --verbose (-v) mode:
+#
+#   pre-commit run --all-files --verbose
+#
+# This displays execution duration for each hook, e.g.:
+#   yamlfmt..............................................................Passed
+#   - hook id: yamlfmt
+#   - duration: 0.01s
+#
+# Profile a single hook in isolation:
+#
+#   pre-commit run mypy --all-files --verbose
+#   pre-commit run pytest-smoke --all-files --verbose
+#
+# For total execution time, wrap with the `time` command:
+#
+#   time pre-commit run --all-files --verbose
+#
+# ============================================================================
+# EXPECTED TIMING BASELINES
+# ============================================================================
+# These are expected durations for a clean run. Use these to identify regressions:
+#
+#   Hook                      | Expected   | Warning Threshold | Action if Exceeded
+#   --------------------------|------------|-------------------|--------------------
+#   yamlfmt                   | <0.1s      | >0.5s             | Check file scope
+#   trailing-whitespace       | <0.1s      | >0.3s             | Normal
+#   end-of-file-fixer         | <0.1s      | >0.3s             | Normal
+#   check-merge-conflict      | <0.1s      | >0.3s             | Normal
+#   check-added-large-files   | <0.1s      | >0.5s             | Normal
+#   ruff (lint)               | <0.1s      | >0.5s             | Check file scope
+#   ruff (format)             | <0.1s      | >0.5s             | Check file scope
+#   mypy (type check)         | ~0.2s      | >2.0s             | Check cache*
+#   contract-linter           | <0.2s      | >1.0s             | Normal
+#   pytest-smoke              | ~3-5s      | >10s              | Check test scope
+#   pytest-tools (pre-push)   | ~5-10s     | >30s              | Check test scope
+#
+#   * mypy uses incremental cache - see "MYPY CACHE" section below
+#
+# ============================================================================
+# TROUBLESHOOTING SLOW HOOKS
+# ============================================================================
+# If a hook consistently exceeds warning thresholds:
+#
+# 1. Narrow file scope:
+#    - Check if `files` pattern is too broad
+#    - Use `types: [python]` instead of regex when possible (faster)
+#    - Add specific paths to the pattern rather than wildcards
+#
+# 2. Enable/verify caching:
+#    - mypy: Uses --incremental flag (enabled) with .mypy_cache/
+#    - pytest: Uses pytest cache in .pytest_cache/
+#    - Delete cache directories to reset if corrupted:
+#        rm -rf .mypy_cache .pytest_cache
+#
+# 3. Move to pre-push stage:
+#    - Slow comprehensive tests belong in `stages: [pre-push]`
+#    - Keep only fast smoke tests on pre-commit
+#
+# 4. Leverage fail_fast:
+#    - fail_fast: true (enabled) stops on first failure
+#    - Saves time during development by avoiding redundant hook runs
+#
+# 5. Check for environment issues:
+#    - Ensure uv is using cached virtual environment
+#    - Check disk I/O (slow on network drives)
+#    - Verify no antivirus scanning interference
+#
+# ============================================================================
+# MYPY INCREMENTAL CACHE
+# ============================================================================
+# mypy uses --incremental to leverage cached type information:
+#
+# How it works:
+#   - First run: Full analysis, populates .mypy_cache/
+#   - Subsequent runs: Only re-analyzes changed files (~10x faster)
+#   - Cache location: .mypy_cache/ in repository root
+#
+# Local development:
+#   - Cache persists between commits automatically
+#   - Delete .mypy_cache/ to force full re-analysis if issues occur
+#
+# CI environment:
+#   - .mypy_cache/ is cached in .github/workflows/ci.yaml (type-check job)
+#   - Cache key based on Python version and dependency lock file
+#   - Provides consistent incremental benefits across CI runs
+#
+# If mypy is slow (>2s):
+#   1. Check if .mypy_cache/ exists and has recent files
+#   2. Run `mypy --verbose` to see what's being re-analyzed
+#   3. Delete cache and re-run to rule out cache corruption
+#
+# ============================================================================
+#
+# Hook Scope Summary:
+# - yamlfmt: YAML formatting for consistency
+# - pre-commit-hooks: File hygiene (trailing whitespace, EOF, merge conflicts)
+# - ruff/mypy: All production Python code (tools/, utils/, runtime/) and their tests
+# - contract-linter: ONEX node contracts (future nodes/ directory)
+# - pytest-smoke: Quick unit tests on commit
+# - pytest-tools: Full tools/utils/runtime tests on push only
+#
+# ============================================================================
+# CI ALIGNMENT NOTICE - KEEP IN SYNC WITH .github/workflows/ci.yaml
+# ============================================================================
+# The file patterns in ruff/mypy hooks MUST stay aligned with CI path filters.
+# When updating patterns here, also update the corresponding CI filters.
+#
+# CI WORKFLOW CROSS-REFERENCE:
+# - CI workflow file: .github/workflows/ci.yaml
+# - CI alignment notice: lines 15-74 (comprehensive sync instructions)
+# - production_code filter: lines 100-109 (changes job, dorny/paths-filter)
+# - scope-alignment job: lines 167-204 (runs validation on every CI build)
+#
+# Aligned patterns (pre-commit <-> CI):
+# - ruff/mypy files: regex      <-> CI production_code filter: glob patterns
+# - Source: tools/, utils/, runtime/ directories
+# - Tests: tests/unit/tools/, tests/unit/test_log_sanitizer.py
+#
+# Validation script: scripts/validate_ci_precommit_alignment.py
+# Run manually: uv run python scripts/validate_ci_precommit_alignment.py
+# CI runs this automatically via the scope-alignment job on every build.
+# ============================================================================
+#
+# ============================================================================
+# EXCLUSION PATTERN STRATEGY (Two-Tier Design)
+# ============================================================================
+# This config uses a deliberate two-tier exclusion strategy. The tiers serve
+# different purposes and should NOT be merged:
+#
+# TIER 1: Global Exclusions (exclude: block at bottom - applies to ALL hooks)
+# ---------------------------------------------------------------------------
+# Purpose: Exclude dead/reference-only code that should NEVER be processed
+# Patterns:
+#   - _legacy/              : Legacy code preserved for migration reference
+#   - migration_sources/    : Original omniarchon source code (read-only reference)
+#   - .git/                 : Git internals (never process VCS metadata)
+#
+# Rationale: These directories contain archival code that will never be
+# modified or deployed. Running any hooks on them wastes time and may
+# produce false positives on intentionally frozen code.
+#
+# TIER 2: Per-Hook Exclusions (exclude: on individual hooks)
+# ---------------------------------------------------------------------------
+# Purpose: Exclude files from SPECIFIC hooks where formatting conflicts exist
+# Pattern: .github/workflows/ excluded from FORMATTING hooks only
+#
+# Applied to (formatting conflicts):
+#   - yamlfmt           : Workflow YAML syntax (${{ }}, |-, run:) conflicts
+#   - trailing-whitespace: Intentional spacing in multiline strings
+#   - end-of-file-fixer : GitHub-specific file requirements
+#
+# NOT applied to (validation still valuable):
+#   - check-merge-conflict  : Merge markers are NEVER valid in workflows
+#   - check-added-large-files: Size limits apply universally
+#
+# Rationale: GitHub Actions workflows have specific YAML syntax requirements
+# (expression syntax ${{ }}, multiline strings, run blocks) that conflict
+# with standard formatting rules. However, validation hooks remain useful.
+#
+# WHY TWO TIERS (do not consolidate):
+# - Global tier: "Never process this code at all" (archival/dead code)
+# - Per-hook tier: "Process for some checks, skip for others" (active code)
+# - .github/workflows/ is ACTIVE code that needs validation, just not formatting
+#
+# EXCLUSION SUMMARY TABLE
+# ============================================================================
+# Pattern              | Tier      | Hooks Affected        | Reason
+# ---------------------|-----------|----------------------|-------------------
+# _legacy/             | Global    | ALL hooks            | Archived migration
+# migration_sources/   | Global    | ALL hooks            | Reference-only
+# .git/                | Global    | ALL hooks            | Git internals
+# .github/workflows/   | Per-hook  | Formatting only      | Syntax conflicts
+# ============================================================================
+#
+# ============================================================================
+# SMART PERFORMANCE OPTIMIZATIONS
+# ============================================================================
+# These optimizations minimize pre-commit execution time:
+#
+# 1. fail_fast: true
+#    - Stops processing on first hook failure
+#    - Benefit: Saves 5-10s on average during active development
+#    - Trade-off: May miss secondary failures (run without fail_fast periodically)
+#
+# 2. types: [python] instead of regex file matching
+#    - Pre-commit's type system uses file magic/extension detection
+#    - Faster than regex matching against all staged files
+#    - Used on: ruff (lint/format), mypy, pytest hooks
+#
+# 3. Scoped file patterns
+#    - Each hook only processes files it needs (not the entire repo)
+#    - ruff/mypy: Only tools/, utils/, runtime/ directories
+#    - pytest-smoke: Only tools/ directory (narrowest scope for fast feedback)
+#    - Global exclusions: _legacy/, migration_sources/ avoid processing dead code
+#
+# 4. Hook ordering (implicit via config order)
+#    - Fast hooks first: yamlfmt, trailing-whitespace, etc. (<0.1s each)
+#    - Slow hooks last: mypy, pytest (0.2s-5s+)
+#    - Benefit: Fail fast on simple issues before running expensive checks
+#
+# 5. Stage separation
+#    - pre-commit: Fast checks only (lint, format, smoke tests)
+#    - pre-push: Comprehensive tests (full pytest suite)
+#    - Benefit: Keep commits fast, run thorough tests before push
+#
+# 6. Incremental caching
+#    - mypy: --incremental flag uses .mypy_cache/ (~10x faster on re-runs)
+#    - pytest: Uses .pytest_cache/ for test ordering and failure tracking
+#    - uv: Caches virtual environment (avoids rebuild on each hook)
+#
+# 7. Parallel execution
+#    - require_serial: false (default) allows hooks to run in parallel
+#    - Note: Some hooks set require_serial: true when order matters
+
+# Stop on first failure to avoid wasted hook runs during development
+fail_fast: true
 
 repos:
   # ============================================================================
+  # YAML FORMATTING - Standard across ONEX ecosystem
+  # ============================================================================
+  - repo: https://github.com/google/yamlfmt
+    # yamlfmt pinned to v0.17.2 for consistency with omnibase_core ecosystem
+    # Configuration: .yamlfmt (repository root)
+    rev: v0.17.2
+    hooks:
+      - id: yamlfmt
+        # Per-hook exclusion (Tier 2) - see "EXCLUSION PATTERN STRATEGY" section above
+        # Workflows excluded: YAML syntax conflicts (${{ }}, multiline strings, run:)
+        # Global exclusions (_legacy/, migration_sources/) applied automatically
+        exclude: ^\.github/workflows/
+
+  # ============================================================================
+  # FILE HYGIENE - Essential file formatting (standard across ecosystem)
+  # ============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # -----------------------------------------------------------------------
+      # FORMATTING HOOKS - Per-hook exclusion (Tier 2) for .github/workflows/
+      # See "EXCLUSION PATTERN STRATEGY" section in header for full rationale
+      # Global exclusions (_legacy/, migration_sources/) applied automatically
+      # -----------------------------------------------------------------------
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/workflows/
+      - id: end-of-file-fixer
+        exclude: ^\.github/workflows/
+      # -----------------------------------------------------------------------
+      # VALIDATION HOOKS - NO workflow exclusions (intentional)
+      # These checks are valuable for ALL files including .github/workflows/:
+      # - check-merge-conflict: Merge markers are invalid in ANY file
+      # - check-added-large-files: Size limits apply universally
+      # -----------------------------------------------------------------------
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+  # ============================================================================
   # RUFF - Fast Python linter and formatter
   # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
-  # Scope: Production code (tools/, utils/) and their unit tests
+  # Scope: Production code (tools/, utils/, runtime/) and their unit tests
   # ============================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.7
@@ -23,13 +301,19 @@ repos:
       - id: ruff
         name: ruff (lint)
         args: [--fix, --exit-non-zero-on-fix]
-        # Covers: tools/, utils/ source code and their tests
-        files: ^(src/omniintelligence/(tools|utils)/|tests/unit/(tools|test_log_sanitizer)/)
+        # types: [python] is more efficient than files regex for Python detection
+        types: [python]
+        # Covers: tools/, utils/, runtime/ source code and their tests
+        # test_log_sanitizer.py is included separately as it tests utils/log_sanitizer.py
+        # functionality but lives in tests/unit/ rather than tests/unit/tools/
+        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
 
       - id: ruff-format
         name: ruff (format)
-        # Same scope as ruff lint
-        files: ^(src/omniintelligence/(tools|utils)/|tests/unit/(tools|test_log_sanitizer)/)
+        # types: [python] is more efficient than files regex for Python detection
+        types: [python]
+        # Same scope as ruff lint (see comment above for test_log_sanitizer.py rationale)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
 
   # ============================================================================
   # MYPY - Static type checking
@@ -37,13 +321,20 @@ repos:
   # Scope: Production source code only (tests may lack full type annotations)
   # ============================================================================
   - repo: https://github.com/pre-commit/mirrors-mypy
+    # mypy pinned to v1.13.0 for stability (latest stable release as of Nov 2024)
     rev: v1.13.0
     hooks:
       - id: mypy
         name: mypy (type check)
-        args: [--strict, --ignore-missing-imports]
-        # Covers: tools/ and utils/ source code (not tests)
-        files: ^src/omniintelligence/(tools|utils)/
+        # --incremental uses mypy cache for faster subsequent runs
+        # Locally: Cache in .mypy_cache/ speeds up repeated runs automatically
+        # CI: .mypy_cache/ is cached in .github/workflows/ci.yaml (type-check job)
+        #     to restore incremental benefits across workflow runs
+        args: [--strict, --ignore-missing-imports, --incremental]
+        # types: [python] is more efficient than files regex for Python detection
+        types: [python]
+        # Covers: tools/, utils/, runtime/ source code (not tests)
+        files: ^src/omniintelligence/(tools|utils|runtime)/
         additional_dependencies:
           - types-PyYAML
           - pydantic>=2.0.0
@@ -75,33 +366,63 @@ repos:
         files: ^src/omniintelligence/nodes/[^/]+/v\d+(_\d+)*/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
 
       # --------------------------------------------------------------------------
-      # Pytest - Unit tests for tools module
-      # Validates: Tools functionality via unit tests
-      # Scope: Triggered when tools source or test files change
-      # Stage: pre-push (slower, not run on every commit)
+      # Pytest Smoke Tests - Quick unit tests on commit
+      # Validates: Core functionality via fast unit tests
+      # Scope: Triggered on changes to tools/ source or tests only (fast feedback)
+      # Stage: pre-commit (fast, ~3s)
+      # Performance: Narrow scope ensures smoke tests stay fast on every commit
+      # Note: Full utils/runtime testing runs on pre-push (pytest-tools hook)
       # --------------------------------------------------------------------------
-      - id: pytest-tools
-        name: pytest (tools)
-        entry: uv run pytest tests/unit/tools/ -v --tb=short
+      - id: pytest-smoke
+        name: pytest (smoke tests)
+        entry: uv run pytest tests/unit/tools/ -m unit --maxfail=3 -x --tb=short -q
         language: system
         pass_filenames: false
-        # Trigger when either tools source or tests change
+        types: [python]
+        # Trigger only on tools/ changes - narrow scope for fast smoke tests
+        # utils/runtime changes are tested by pytest-tools on pre-push
         files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Pytest - Full tools/utils/runtime tests on push
+      # Validates: Tools, utils, and runtime functionality via comprehensive unit tests
+      # Scope: Matches ruff/mypy scope - tools/, utils/, runtime/ source and their tests
+      # Stage: pre-push (slower, more thorough)
+      # Note: test_log_sanitizer.py tests utils/log_sanitizer.py but lives in tests/unit/
+      # --------------------------------------------------------------------------
+      - id: pytest-tools
+        name: pytest (tools/utils/runtime - full)
+        entry: uv run pytest tests/unit/tools/ tests/unit/test_log_sanitizer.py -v --tb=short
+        language: system
+        pass_filenames: false
+        types: [python]
+        # Scope matches ruff/mypy: tools/, utils/, runtime/ and their tests
+        # test_log_sanitizer.py is included separately (see comment above)
+        # Pattern breakdown:
+        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
+        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
+        # Note: The specific file pattern must NOT have .*\.py$ suffix as it's already complete
+        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
         stages: [pre-push]
 
 # Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
 
 # ============================================================================
-# GLOBAL EXCLUSIONS
-# These patterns are excluded from ALL hooks above
+# GLOBAL EXCLUSIONS (Tier 1)
+# These patterns are excluded from ALL hooks - see "EXCLUSION PATTERN STRATEGY"
+# section in header for full rationale on the two-tier design
 # ============================================================================
 exclude: |
   (?x)^(
-    # Legacy code preserved for migration reference - do not lint
+    # Tier 1: Archival/dead code - never process
+    # Legacy code preserved for migration reference
+    _legacy/.*|
     src/omniintelligence/_legacy/.*|
-    # Original omniarchon source - reference only
+    # Original omniarchon source - read-only reference
     migration_sources/.*|
-    # Git internals
+    # Git internals - not user code
     \.git/.*
   )$

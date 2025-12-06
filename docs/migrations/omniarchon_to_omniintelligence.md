@@ -133,4 +133,3 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 - Review active prep work:
   - Branch `feature/file-tree-graph-implementation` (currently ahead of `main` by two commits) contains file graph ingestion updates that may inform reducer scope.
   - Coordinate with open PRs (#27 `feature/file-tree-graph-implementation`, #26 Redpanda migration, #25 Haystack demo) to avoid rework or duplicate migration steps.
-
