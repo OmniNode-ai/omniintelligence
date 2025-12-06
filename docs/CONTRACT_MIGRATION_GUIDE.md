@@ -338,7 +338,6 @@ This section outlines when legacy patterns will be deprecated and removed from t
 | Legacy `timeout_seconds` field | v0.3.0 (Q2 2025) | v2.0.0 | 🟢 Planned |
 | Inline state definitions (missing `version`) | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
 | Effect contracts without `io_operations` | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
-| `_IntelligenceConfigDict` TypedDict with misleading `_seconds` field names | v0.3.0 (Q2 2025) | v2.0.0 | 🟢 Planned |
 
 ### Migration Urgency
 
@@ -387,7 +386,6 @@ Complete ONEX alignment:
 - **Remove all legacy `_seconds` field aliases**: Only `_ms` suffixed duration fields accepted.
 - **Strict ONEX naming conventions enforced**: All field names must follow ONEX conventions.
 - **Remove backward-compatible field mappings**: No automatic field name translation.
-- **Remove `_IntelligenceConfigDict` TypedDict**: This internal TypedDict in `omniintelligence._legacy.models.model_intelligence_config` has confusing field naming where fields named `timeout_seconds` and `circuit_breaker_timeout_seconds` actually store millisecond values. Use `ModelIntelligenceConfig` directly with proper `_ms` suffixed fields instead.
 
 ### Migration Path by Feature
 
@@ -423,47 +421,6 @@ input_model: ModelInput
 # After (required from v1.0.0)
 input_model: omniintelligence.nodes.vectorization.v1_0_0.models.ModelVectorizationInput
 ```
-
-#### `_IntelligenceConfigDict` to `ModelIntelligenceConfig` Migration
-
-The `_IntelligenceConfigDict` TypedDict uses misleading field names where `_seconds` suffix actually stores milliseconds. Migrate to using `ModelIntelligenceConfig` directly:
-
-```python
-# Before (deprecated in v0.3.0, removed in v2.0.0)
-# Using _IntelligenceConfigDict with confusing field names
-from omniintelligence._legacy.models.model_intelligence_config import _IntelligenceConfigDict
-
-config_dict: _IntelligenceConfigDict = {
-    "base_url": "http://localhost:8053",
-    "timeout_seconds": 30000,  # Misleading: actually milliseconds!
-    "circuit_breaker_timeout_seconds": 60000,  # Misleading: actually milliseconds!
-    # ... other fields
-}
-
-# After (required from v2.0.0)
-# Use ModelIntelligenceConfig directly with proper _ms field names
-from omniintelligence._legacy.models.model_intelligence_config import ModelIntelligenceConfig
-
-# Option 1: Use environment-based factory (recommended)
-config = ModelIntelligenceConfig.for_environment("development")
-
-# Option 2: Use environment variable detection
-config = ModelIntelligenceConfig.from_environment_variable()
-
-# Option 3: Direct instantiation with proper _ms fields
-config = ModelIntelligenceConfig(
-    base_url="http://localhost:8053",
-    timeout_ms=30000,  # Correct: _ms suffix matches millisecond value
-    circuit_breaker_timeout_ms=60000,  # Correct: _ms suffix matches millisecond value
-    max_retries=3,
-    retry_delay_ms=1000,
-    circuit_breaker_enabled=True,
-    circuit_breaker_threshold=5,
-    # ... other fields
-)
-```
-
-**Why this matters**: The `_IntelligenceConfigDict` TypedDict has fields like `timeout_seconds` that actually store millisecond values (e.g., `30000` for 30 seconds). This naming discrepancy can lead to bugs where developers assume the value is in seconds and pass `30` instead of `30000`. The `ModelIntelligenceConfig` Pydantic model uses proper `_ms` suffixed field names that match the actual unit of measurement.
 
 ### Deprecation Warning Output
 

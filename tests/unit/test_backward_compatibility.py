@@ -6,9 +6,8 @@ preventing accidental breaking changes during ONEX migration.
 
 The tests focus on:
 1. Legacy field names (timeout_seconds, circuit_breaker_timeout_seconds)
-2. TypedDict compatibility (_IntelligenceConfigDict)
-3. Environment-based configuration (for_environment, from_environment_variable)
-4. Serialization/deserialization with legacy field names
+2. Environment-based configuration (for_environment, from_environment_variable)
+3. Serialization/deserialization with legacy field names
 
 Note:
     This test imports directly from the model file rather than the package
@@ -28,63 +27,12 @@ import pytest
 repo_root = Path(__file__).parent.parent.parent
 models_path = repo_root / "src" / "omniintelligence" / "_legacy" / "models"
 sys.path.insert(0, str(models_path))
-from model_intelligence_config import (  # noqa: E402
-    ModelIntelligenceConfig,
-    _IntelligenceConfigDict,
-)
+from model_intelligence_config import ModelIntelligenceConfig  # noqa: E402
 
 
 @pytest.mark.unit
 class TestLegacyFieldCompatibility:
     """Test that legacy field names remain functional."""
-
-    def test_timeout_seconds_field_accepted_in_typed_dict(self):
-        """Verify timeout_seconds field works in TypedDict.
-
-        Legacy code uses timeout_seconds in configuration dictionaries.
-        This must remain valid for backward compatibility.
-        """
-        config_dict: _IntelligenceConfigDict = {
-            "base_url": "http://localhost:8053",
-            "timeout_seconds": 30000,  # Actually milliseconds despite name
-            "max_retries": 3,
-            "retry_delay_ms": 1000,
-            "circuit_breaker_enabled": True,
-            "circuit_breaker_threshold": 5,
-            "circuit_breaker_timeout_seconds": 60000,
-            "enable_event_publishing": True,
-            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
-            "output_topics": {
-                "quality_assessed": "dev.omninode.intelligence.event.quality_assessed.v1",
-            },
-            "consumer_group_id": "test-group",
-        }
-
-        assert config_dict["timeout_seconds"] == 30000
-        assert config_dict["circuit_breaker_timeout_seconds"] == 60000
-
-    def test_circuit_breaker_timeout_seconds_field_accepted(self):
-        """Verify circuit_breaker_timeout_seconds field works in TypedDict.
-
-        Legacy code uses circuit_breaker_timeout_seconds in configuration.
-        """
-        config_dict: _IntelligenceConfigDict = {
-            "base_url": "http://localhost:8053",
-            "timeout_seconds": 30000,
-            "max_retries": 3,
-            "retry_delay_ms": 1000,
-            "circuit_breaker_enabled": True,
-            "circuit_breaker_threshold": 5,
-            "circuit_breaker_timeout_seconds": 45000,  # 45 seconds in ms
-            "enable_event_publishing": True,
-            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
-            "output_topics": {
-                "error": "dev.omninode.intelligence.event.error.v1",
-            },
-            "consumer_group_id": "test-group",
-        }
-
-        assert config_dict["circuit_breaker_timeout_seconds"] == 45000
 
     def test_model_accepts_timeout_seconds_alias(self):
         """Verify ModelIntelligenceConfig accepts timeout_seconds via alias."""
@@ -353,69 +301,6 @@ class TestSerializationCompatibility:
         assert restored.input_topics == original.input_topics
         assert restored.output_topics == original.output_topics
         assert restored.consumer_group_id == original.consumer_group_id
-
-
-@pytest.mark.unit
-class TestTypedDictCompatibility:
-    """Test that _IntelligenceConfigDict remains compatible with legacy usage."""
-
-    def test_typed_dict_has_all_required_fields(self):
-        """Verify TypedDict has all fields expected by legacy code."""
-        # Create a complete config dict - if any field is missing, type checker
-        # would flag it (though runtime won't enforce)
-        config_dict: _IntelligenceConfigDict = {
-            "base_url": "http://localhost:8053",
-            "timeout_seconds": 30000,
-            "max_retries": 3,
-            "retry_delay_ms": 1000,
-            "circuit_breaker_enabled": True,
-            "circuit_breaker_threshold": 5,
-            "circuit_breaker_timeout_seconds": 60000,
-            "enable_event_publishing": True,
-            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
-            "output_topics": {
-                "quality_assessed": "dev.omninode.intelligence.event.quality_assessed.v1",
-            },
-            "consumer_group_id": "test-group",
-        }
-
-        # Verify all fields are accessible
-        assert "base_url" in config_dict
-        assert "timeout_seconds" in config_dict
-        assert "max_retries" in config_dict
-        assert "retry_delay_ms" in config_dict
-        assert "circuit_breaker_enabled" in config_dict
-        assert "circuit_breaker_threshold" in config_dict
-        assert "circuit_breaker_timeout_seconds" in config_dict
-        assert "enable_event_publishing" in config_dict
-        assert "input_topics" in config_dict
-        assert "output_topics" in config_dict
-        assert "consumer_group_id" in config_dict
-
-    def test_typed_dict_can_be_unpacked_to_model(self):
-        """Verify TypedDict can be unpacked into ModelIntelligenceConfig."""
-        config_dict: _IntelligenceConfigDict = {
-            "base_url": "http://localhost:8053",
-            "timeout_seconds": 30000,
-            "max_retries": 3,
-            "retry_delay_ms": 1000,
-            "circuit_breaker_enabled": True,
-            "circuit_breaker_threshold": 5,
-            "circuit_breaker_timeout_seconds": 60000,
-            "enable_event_publishing": True,
-            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
-            "output_topics": {
-                "quality_assessed": "dev.omninode.intelligence.event.quality_assessed.v1",
-            },
-            "consumer_group_id": "test-group",
-        }
-
-        # This should work due to alias support
-        config = ModelIntelligenceConfig(**config_dict)
-
-        assert config.base_url == "http://localhost:8053"
-        assert config.timeout_ms == 30000
-        assert config.circuit_breaker_timeout_ms == 60000
 
 
 @pytest.mark.unit

@@ -15,48 +15,9 @@ Pattern: ONEX Configuration Contract
 """
 
 import os
-from typing import Literal, TypedDict
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-
-class _IntelligenceConfigDict(TypedDict):
-    """TypedDict for environment-specific configuration values.
-
-    Warning:
-        Field Naming Convention Discrepancy:
-        For backward compatibility with legacy omniarchon APIs, some fields use
-        misleading suffixes. The following fields have ``_seconds`` in their name
-        but actually store **millisecond** values:
-
-        - ``timeout_seconds``: Actually stores milliseconds (not seconds)
-        - ``circuit_breaker_timeout_seconds``: Actually stores milliseconds (not seconds)
-
-        This naming convention is preserved to maintain API stability with existing
-        consumers that expect these alias names. The underlying Pydantic model
-        ``ModelIntelligenceConfig`` uses these as aliases mapping to properly-named
-        ``_ms`` fields (``timeout_ms``, ``circuit_breaker_timeout_ms``).
-
-        For new code, prefer using ``ModelIntelligenceConfig`` directly, which uses
-        the correct ``_ms`` suffix naming convention and provides proper validation.
-
-    Note:
-        This TypedDict is an internal implementation detail used by
-        ``ModelIntelligenceConfig.for_environment()`` to construct environment-specific
-        configuration dictionaries. It should not be used directly in application code.
-    """
-
-    base_url: str
-    timeout_seconds: int  # Alias for timeout_ms (in milliseconds despite name)
-    max_retries: int
-    retry_delay_ms: int
-    circuit_breaker_enabled: bool
-    circuit_breaker_threshold: int
-    circuit_breaker_timeout_seconds: int  # Alias for circuit_breaker_timeout_ms
-    enable_event_publishing: bool
-    input_topics: list[str]
-    output_topics: dict[str, str]
-    consumer_group_id: str
 
 
 class ModelIntelligenceConfig(BaseModel):
@@ -442,7 +403,7 @@ class ModelIntelligenceConfig(BaseModel):
                 10
         """
         # Environment-specific configurations
-        configs: dict[str, _IntelligenceConfigDict] = {
+        configs: dict[str, dict[str, Any]] = {
             "development": {
                 "base_url": os.getenv("INTELLIGENCE_BASE_URL", "http://localhost:8053"),
                 "timeout_seconds": 30000,  # 30 seconds in ms
