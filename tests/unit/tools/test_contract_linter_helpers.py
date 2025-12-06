@@ -2,8 +2,8 @@
 """
 Unit tests for Contract Linter helper functions and utilities.
 
-Tests for structured error output, linter configuration, path traversal
-detection, and field identifier pattern validation.
+Tests for structured error output, linter configuration, and field identifier
+pattern validation.
 """
 
 import json
@@ -15,7 +15,6 @@ from omniintelligence.tools.contract_linter import (
     FIELD_IDENTIFIER_PATTERN,
     ContractLinter,
     ModelContractValidationResult,
-    _is_safe_path,
 )
 
 # =============================================================================
@@ -192,189 +191,6 @@ class TestLinterConfiguration:
         # Verify we get a proper result and the contract is valid
         assert isinstance(result, ModelContractValidationResult)
         assert result.is_valid is True
-
-
-# =============================================================================
-# Test Class: Path Traversal Detection (Reserved for Strict Mode)
-# =============================================================================
-
-
-@pytest.mark.unit
-class TestPathTraversalDetection:
-    """Tests for path traversal detection helper function.
-
-    The _is_safe_path() function is reserved for future strict mode implementation.
-    It detects path traversal attempts like "../../../etc/passwd" but is NOT
-    enforced by default.
-
-    When strict mode is implemented, this function will be used to validate
-    file paths before processing to prevent malicious path traversal attacks.
-    """
-
-    def test_safe_path_absolute(self, tmp_path: Path):
-        """Test that absolute paths without traversal are safe."""
-        safe_path = tmp_path / "contract.yaml"
-        assert _is_safe_path(safe_path) is True
-
-    def test_safe_path_simple_relative(self):
-        """Test that simple relative paths without traversal are safe."""
-        assert _is_safe_path(Path("contract.yaml")) is True
-        assert _is_safe_path(Path("subdir/contract.yaml")) is True
-
-    def test_unsafe_path_simple_traversal(self):
-        """Test that simple path traversal is detected."""
-        assert _is_safe_path(Path("../etc/passwd")) is False
-
-    def test_unsafe_path_deep_traversal(self):
-        """Test that deep path traversal attempts are detected."""
-        assert _is_safe_path(Path("../../../etc/passwd")) is False
-
-    def test_unsafe_path_embedded_traversal(self):
-        """Test that embedded path traversal attempts are detected."""
-        assert _is_safe_path(Path("foo/../../../etc/passwd")) is False
-        assert _is_safe_path(Path("a/b/../../../etc/passwd")) is False
-
-    def test_safe_path_within_allowed_dir(self, tmp_path: Path):
-        """Test that paths within allowed directory are safe."""
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-        safe_file = allowed_dir / "contract.yaml"
-        safe_file.touch()
-
-        assert _is_safe_path(safe_file, allowed_dir) is True
-
-    def test_unsafe_path_outside_allowed_dir(self, tmp_path: Path):
-        """Test that paths outside allowed directory are unsafe."""
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-        outside_file = tmp_path / "outside.yaml"
-        outside_file.touch()
-
-        assert _is_safe_path(outside_file, allowed_dir) is False
-
-    def test_safe_path_subdirectory_of_allowed_dir(self, tmp_path: Path):
-        """Test that paths in subdirectories of allowed directory are safe."""
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-        subdir = allowed_dir / "v1_0_0"
-        subdir.mkdir()
-        safe_file = subdir / "contract.yaml"
-        safe_file.touch()
-
-        assert _is_safe_path(safe_file, allowed_dir) is True
-
-    def test_handles_os_errors_gracefully(self):
-        """Test that _is_safe_path never raises exceptions and always returns bool.
-
-        The _is_safe_path function is designed to be fail-safe: it must NEVER raise
-        an exception during path resolution. If any error occurs (OSError, ValueError,
-        etc.), it should return False (treating the path as potentially unsafe).
-
-        This test verifies the key invariant: _is_safe_path always returns a boolean,
-        even for edge-case paths that might cause errors during resolution.
-
-        The test specifically targets the internal error handling of _is_safe_path,
-        not errors during Path object construction (which are separate concerns).
-        """
-        # Test 1: Empty path - tests handling of edge case in path resolution
-        # Empty paths can cause issues in resolve() or relative_to() operations
-        empty_path = Path()
-        result = _is_safe_path(empty_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for empty path, got {type(result)}"
-        )
-        # Empty path should be considered unsafe (fails resolution checks)
-        # Note: On some platforms, empty path resolves to cwd, so we don't assert False
-
-        # Test 2: Path with current directory reference
-        # Tests that the function handles . properly without errors
-        dot_path = Path()
-        result = _is_safe_path(dot_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for '.' path, got {type(result)}"
-        )
-
-        # Test 3: Very long path component (may cause OS errors on some systems)
-        # This tests the try/except block around resolve() in _is_safe_path
-        long_component = "a" * 1000
-        long_path = Path(long_component)
-        result = _is_safe_path(long_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for very long path, got {type(result)}"
-        )
-
-        # Test 4: Path with traversal that must be detected as unsafe
-        # This directly tests _is_safe_path's core behavior
-        traversal_path = Path("normal/../file.yaml")
-        result = _is_safe_path(traversal_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for path with traversal, got {type(result)}"
-        )
-        # This path contains traversal, so it MUST be detected as unsafe
-        assert result is False, (
-            "Path with '..' traversal component must be detected as unsafe"
-        )
-
-    def test_traversal_in_directory_component(self):
-        """Test that traversal in directory components is detected."""
-        assert _is_safe_path(Path("safe/../../unsafe/file.yaml")) is False
-
-    def test_current_directory_reference_is_safe(self):
-        """Test that current directory reference (.) is safe."""
-        # Single dot is safe - it doesn't traverse upward
-        assert _is_safe_path(Path("./contract.yaml")) is True
-        assert _is_safe_path(Path("./subdir/contract.yaml")) is True
-
-    def test_prefix_similar_paths_not_matched(self, tmp_path: Path):
-        """Test that prefix-similar paths outside allowed dir are detected.
-
-        This verifies that the path containment check uses proper path semantics
-        (via relative_to()) rather than string prefix matching which has false
-        positives.
-
-        Example false positive with string prefix:
-            "/allowed/path" and "/allowed/path-extra"
-            - String check: "/allowed/path-extra".startswith("/allowed/path") -> True (WRONG)
-            - Path check: Path("/allowed/path-extra").relative_to("/allowed/path") -> ValueError (CORRECT)
-
-        The directories 'path' and 'path-extra' are siblings, not parent-child.
-        """
-        allowed_dir = tmp_path / "allowed" / "path"
-        allowed_dir.mkdir(parents=True)
-        similar_dir = tmp_path / "allowed" / "path-extra"
-        similar_dir.mkdir(parents=True)
-        outside_file = similar_dir / "file.yaml"
-        outside_file.touch()
-
-        # This MUST return False because path-extra is a sibling of path, not a child
-        assert _is_safe_path(outside_file, allowed_dir) is False
-
-    def test_prefix_similar_paths_with_suffix(self, tmp_path: Path):
-        """Test variations of prefix-similar path names are rejected.
-
-        Tests multiple suffix patterns that could cause false positives with
-        naive string prefix matching.
-        """
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-
-        # Various sibling directories with similar prefixes
-        similar_names = [
-            "contracts-backup",
-            "contracts_old",
-            "contracts2",
-            "contractsv2",
-        ]
-
-        for similar_name in similar_names:
-            similar_dir = tmp_path / similar_name
-            similar_dir.mkdir()
-            outside_file = similar_dir / "contract.yaml"
-            outside_file.touch()
-
-            assert _is_safe_path(outside_file, allowed_dir) is False, (
-                f"Path in '{similar_name}' should not be considered inside 'contracts'"
-            )
 
 
 # =============================================================================

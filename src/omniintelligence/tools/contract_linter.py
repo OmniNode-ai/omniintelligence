@@ -64,61 +64,17 @@ VALID_NODE_TYPES: frozenset[str] = frozenset(
     {"compute", "effect", "reducer", "orchestrator"}
 )
 
+# Default number of worker threads when os.cpu_count() returns None
+# Used as fallback for parallel batch validation
+DEFAULT_MAX_WORKERS_FALLBACK = 4
 
-def _is_safe_path(file_path: Path, allowed_dir: Path | None = None) -> bool:
-    """Check if path is safe (no traversal attacks).
+# Watch mode poll interval in seconds
+# Controls how frequently files are checked for changes in --watch mode
+WATCH_POLL_INTERVAL_SECONDS = 1
 
-    This helper function detects path traversal attempts like "../../../etc/passwd".
-    It is reserved for future strict mode implementation and is NOT enforced by
-    default.
-
-    When strict mode is implemented, this function will be used to validate
-    file paths before processing to prevent malicious path traversal attacks.
-
-    Args:
-        file_path: Path to validate
-        allowed_dir: If provided, path must be within this directory
-
-    Returns:
-        True if path is safe, False otherwise
-
-    Examples:
-        >>> _is_safe_path(Path("/home/user/contract.yaml"))
-        True
-        >>> _is_safe_path(Path("../../../etc/passwd"))
-        False
-        >>> _is_safe_path(Path("foo/../../../etc/passwd"))
-        False
-        >>> _is_safe_path(Path("/home/user/contract.yaml"), Path("/home/user"))
-        True
-        >>> _is_safe_path(Path("/etc/passwd"), Path("/home/user"))
-        False
-        >>> _is_safe_path(Path("/allowed/path-extra/file.yaml"), Path("/allowed/path"))
-        False  # Must not match prefix-similar paths
-    """
-    try:
-        resolved = file_path.resolve()
-        # Check for path traversal attempts in the original path string
-        # This catches attempts like "../../../etc/passwd" before resolution
-        if ".." in str(file_path):
-            return False
-        # If allowed_dir specified, ensure path is within it using proper path
-        # containment check. String prefix matching has false positives:
-        # e.g., "/allowed/path-extra" would incorrectly match "/allowed/path"
-        if allowed_dir:
-            allowed_resolved = allowed_dir.resolve()
-            # Use is_relative_to() for proper path containment (Python 3.9+)
-            # This correctly handles edge cases like "/allowed/path-extra"
-            # not being inside "/allowed/path"
-            try:
-                resolved.relative_to(allowed_resolved)
-                return True
-            except ValueError:
-                # resolved is not relative to allowed_resolved
-                return False
-        return True
-    except (OSError, ValueError):
-        return False
+# JSON output indentation (spaces)
+# Used for human-readable JSON formatting in CLI output
+JSON_INDENT_SPACES = 2
 
 
 class EnumContractErrorType(str, Enum):
@@ -427,8 +383,8 @@ class ContractLinter:
             strict: Reserved for future strict validation mode. Not yet implemented.
                 When implemented, strict mode will enable additional validation checks
                 such as: deprecation warnings treated as errors, stricter type coercion
-                rules, path traversal protection (via `_is_safe_path`), and enforcement
-                of optional best-practice fields.
+                rules, path traversal protection, and enforcement of optional
+                best-practice fields.
             schema_version: Reserved for future schema version selection. Not yet
                 implemented. Will allow validating contracts against different schema
                 versions. Currently only "1.0.0" is supported.
@@ -449,7 +405,7 @@ class ContractLinter:
         """
         # TODO(OMN-241): Implement strict validation mode
         # Planned features for strict=True:
-        # - Enable path traversal protection using _is_safe_path()
+        # - Enable path traversal protection
         # - Treat deprecation warnings as validation errors
         # - Enforce stricter type coercion (e.g., reject string "true" for bool)
         # - Require optional best-practice fields (e.g., description, examples)
@@ -930,7 +886,9 @@ class ContractLinter:
             List of validation results for each file
         """
         if parallel and len(file_paths) > self._parallel_threshold:
-            max_workers = min(len(file_paths), os.cpu_count() or 4)
+            max_workers = min(
+                len(file_paths), os.cpu_count() or DEFAULT_MAX_WORKERS_FALLBACK
+            )
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 return list(
                     executor.map(
@@ -1071,7 +1029,7 @@ def _format_json_output(
                 "invalid_count": sum(1 for r in results if not r.is_valid),
             },
         },
-        indent=2,
+        indent=JSON_INDENT_SPACES,
     )
 
 
@@ -1122,7 +1080,7 @@ def _watch_and_validate(
                 else:
                     print(_format_text_output(results, verbose=verbose))
 
-            time_module.sleep(1)  # Poll every 1 second
+            time_module.sleep(WATCH_POLL_INTERVAL_SECONDS)
     except KeyboardInterrupt:
         print("\nWatch mode stopped.")
 
@@ -1271,7 +1229,7 @@ def main(args: list[str] | None = None) -> int:
                     "error": str(e),
                     "cli_error_type": "not_implemented",
                 },
-                indent=2,
+                indent=JSON_INDENT_SPACES,
             )
         else:
             error_output = f"Error: {e}"
@@ -1286,7 +1244,7 @@ def main(args: list[str] | None = None) -> int:
                     "error": f"Unexpected error: {e}",
                     "cli_error_type": "unexpected_error",
                 },
-                indent=2,
+                indent=JSON_INDENT_SPACES,
             )
         else:
             error_output = f"Unexpected error: {e}"
