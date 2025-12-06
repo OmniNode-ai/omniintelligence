@@ -74,7 +74,6 @@ class ModelReducerConfig(BaseModel):
     lease_timeout_ms: int = Field(
         300000,
         description="Lease timeout in milliseconds",
-        alias="lease_timeout_seconds",
     )
     max_retries: int = Field(
         3, description="Max retry attempts", alias="max_retry_attempts"

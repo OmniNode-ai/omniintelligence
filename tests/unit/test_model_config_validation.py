@@ -250,10 +250,10 @@ class TestModelConfigValidation:
 
         # Known models that should be detected
         # These are models we know use Field(alias=...) based on code inspection
+        # NOTE: ModelIntelligenceConfig was removed as its aliases were deprecated
         expected_models = [
             ("model_workflow.py", "ModelWorkflowStep"),
             ("model_workflow.py", "ModelWorkflowExecution"),
-            ("model_intelligence_config.py", "ModelIntelligenceConfig"),
             ("model_reducer.py", "ModelReducerConfig"),
             ("model_orchestrator.py", "ModelOrchestratorConfig"),
         ]

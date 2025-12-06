@@ -312,14 +312,7 @@ When renaming fields for compliance:
 2. **Update all tests** referencing the field
 3. **Search codebase** for any usages (`grep -r "old_field_name"`)
 4. **Update YAML configs** if field is serialized
-5. **Add deprecation alias** if field is part of public API:
-
-```python
-class ModelExample(BaseModel):
-    timeout_ms: int = Field(..., alias="timeout_seconds")
-
-    model_config = ConfigDict(populate_by_name=True)
-```
+5. **Update all consumers** to use canonical names only
 
 ---
 

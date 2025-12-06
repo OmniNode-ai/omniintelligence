@@ -51,7 +51,7 @@ class ModelIntelligenceConfig(BaseModel):
         Development environment configuration:
             config = ModelIntelligenceConfig.for_environment("development")
             print(f"Base URL: {config.base_url}")
-            print(f"Timeout: {config.timeout_seconds}s")
+            print(f"Timeout: {config.timeout_ms}ms")
             print(f"Circuit breaker: {config.circuit_breaker_enabled}")
 
         Production environment configuration:
@@ -61,7 +61,7 @@ class ModelIntelligenceConfig(BaseModel):
         Custom configuration:
             config = ModelIntelligenceConfig(
                 base_url="http://archon-intelligence:8053",
-                timeout_seconds=60.0,
+                timeout_ms=60000,
                 circuit_breaker_threshold=10,
                 input_topics=["quality.requests", "performance.requests"],
                 output_topics={
@@ -73,14 +73,14 @@ class ModelIntelligenceConfig(BaseModel):
     Attributes:
         # Service Configuration
         base_url: Intelligence service base URL (default: http://localhost:8053)
-        timeout_seconds: API request timeout in seconds (5.0-300.0)
+        timeout_ms: API request timeout in milliseconds (5000-300000)
         max_retries: Number of retry attempts for failed requests (0-10)
         retry_delay_ms: Delay between retry attempts in milliseconds (100-10000)
 
         # Circuit Breaker Settings
         circuit_breaker_enabled: Enable circuit breaker pattern (default: True)
         circuit_breaker_threshold: Failures before opening circuit (1-100)
-        circuit_breaker_timeout_seconds: Recovery timeout in seconds (10.0-600.0)
+        circuit_breaker_timeout_ms: Recovery timeout in milliseconds (10000-600000)
 
         # Event Bus Settings
         enable_event_publishing: Enable Kafka event publishing (default: True)
@@ -130,7 +130,6 @@ class ModelIntelligenceConfig(BaseModel):
         ge=5000,
         le=300000,
         description="API request timeout in milliseconds (5000-300000)",
-        alias="timeout_seconds",
     )
 
     max_retries: int = Field(
@@ -168,7 +167,6 @@ class ModelIntelligenceConfig(BaseModel):
         ge=10000,
         le=600000,
         description="Circuit breaker recovery timeout in milliseconds (10000-600000)",
-        alias="circuit_breaker_timeout_seconds",
     )
 
     # ==========================================
@@ -379,8 +377,8 @@ class ModelIntelligenceConfig(BaseModel):
                 >>> config = ModelIntelligenceConfig.for_environment("development")
                 >>> config.base_url
                 'http://localhost:8053'
-                >>> config.timeout_seconds
-                30.0
+                >>> config.timeout_ms
+                30000
                 >>> config.circuit_breaker_threshold
                 3
 
@@ -388,8 +386,8 @@ class ModelIntelligenceConfig(BaseModel):
                 >>> config = ModelIntelligenceConfig.for_environment("staging")
                 >>> config.base_url
                 'http://archon-intelligence:8053'
-                >>> config.timeout_seconds
-                45.0
+                >>> config.timeout_ms
+                45000
                 >>> config.circuit_breaker_threshold
                 5
 
@@ -397,8 +395,8 @@ class ModelIntelligenceConfig(BaseModel):
                 >>> config = ModelIntelligenceConfig.for_environment("production")
                 >>> config.base_url
                 'http://archon-intelligence:8053'
-                >>> config.timeout_seconds
-                60.0
+                >>> config.timeout_ms
+                60000
                 >>> config.circuit_breaker_threshold
                 10
         """
@@ -406,12 +404,12 @@ class ModelIntelligenceConfig(BaseModel):
         configs: dict[str, dict[str, Any]] = {
             "development": {
                 "base_url": os.getenv("INTELLIGENCE_BASE_URL", "http://localhost:8053"),
-                "timeout_seconds": 30000,  # 30 seconds in ms
+                "timeout_ms": 30000,  # 30 seconds in ms
                 "max_retries": 3,
                 "retry_delay_ms": 1000,
                 "circuit_breaker_enabled": True,
                 "circuit_breaker_threshold": 3,
-                "circuit_breaker_timeout_seconds": 30000,  # 30 seconds in ms
+                "circuit_breaker_timeout_ms": 30000,  # 30 seconds in ms
                 "enable_event_publishing": True,
                 "input_topics": [
                     "dev.omninode.intelligence.request.assess.v1",
@@ -428,12 +426,12 @@ class ModelIntelligenceConfig(BaseModel):
                 "base_url": os.getenv(
                     "INTELLIGENCE_BASE_URL", "http://archon-intelligence:8053"
                 ),
-                "timeout_seconds": 45000,  # 45 seconds in ms
+                "timeout_ms": 45000,  # 45 seconds in ms
                 "max_retries": 4,
                 "retry_delay_ms": 1500,
                 "circuit_breaker_enabled": True,
                 "circuit_breaker_threshold": 5,
-                "circuit_breaker_timeout_seconds": 45000,  # 45 seconds in ms
+                "circuit_breaker_timeout_ms": 45000,  # 45 seconds in ms
                 "enable_event_publishing": True,
                 "input_topics": [
                     "staging.omninode.intelligence.request.quality.v1",
@@ -452,12 +450,12 @@ class ModelIntelligenceConfig(BaseModel):
                 "base_url": os.getenv(
                     "INTELLIGENCE_BASE_URL", "http://archon-intelligence:8053"
                 ),
-                "timeout_seconds": 60000,  # 60 seconds in ms
+                "timeout_ms": 60000,  # 60 seconds in ms
                 "max_retries": 5,
                 "retry_delay_ms": 2000,
                 "circuit_breaker_enabled": True,
                 "circuit_breaker_threshold": 10,
-                "circuit_breaker_timeout_seconds": 60000,  # 60 seconds in ms
+                "circuit_breaker_timeout_ms": 60000,  # 60 seconds in ms
                 "enable_event_publishing": True,
                 "input_topics": [
                     "prod.omninode.intelligence.request.quality.v1",
@@ -611,12 +609,12 @@ class ModelIntelligenceConfig(BaseModel):
                 # Development example
                 {
                     "base_url": "http://localhost:8053",
-                    "timeout_seconds": 30.0,
+                    "timeout_ms": 30000,
                     "max_retries": 3,
                     "retry_delay_ms": 1000,
                     "circuit_breaker_enabled": True,
                     "circuit_breaker_threshold": 3,
-                    "circuit_breaker_timeout_seconds": 30.0,
+                    "circuit_breaker_timeout_ms": 30000,
                     "enable_event_publishing": True,
                     "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
                     "output_topics": {
@@ -628,12 +626,12 @@ class ModelIntelligenceConfig(BaseModel):
                 # Production example
                 {
                     "base_url": "http://archon-intelligence:8053",
-                    "timeout_seconds": 60.0,
+                    "timeout_ms": 60000,
                     "max_retries": 5,
                     "retry_delay_ms": 2000,
                     "circuit_breaker_enabled": True,
                     "circuit_breaker_threshold": 10,
-                    "circuit_breaker_timeout_seconds": 60.0,
+                    "circuit_breaker_timeout_ms": 60000,
                     "enable_event_publishing": True,
                     "input_topics": [
                         "prod.omninode.intelligence.request.quality.v1",

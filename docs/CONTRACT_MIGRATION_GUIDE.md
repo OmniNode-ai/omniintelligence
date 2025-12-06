@@ -335,7 +335,6 @@ This section outlines when legacy patterns will be deprecated and removed from t
 | String versions (`version: "1.0.0"`) | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
 | Missing `node_type` field | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
 | Shorthand model references | v0.3.0 (Q2 2025) | v1.0.0 | 🟢 Planned |
-| Legacy `timeout_seconds` field | v0.3.0 (Q2 2025) | v2.0.0 | 🟢 Planned |
 | Inline state definitions (missing `version`) | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
 | Effect contracts without `io_operations` | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
 
@@ -363,9 +362,8 @@ Begin emitting deprecation warnings for:
 Additional deprecation warnings for:
 
 - **Shorthand model references**: Model paths like `ModelInput` will warn; prefer fully-qualified paths like `omniintelligence.nodes.my_node.v1_0_0.models.ModelInput`.
-- **Legacy `timeout_seconds` field**: Begin warning for `timeout_seconds` usage. Migrate to `timeout_ms` for consistency with ONEX naming conventions.
 
-**Action required**: Update model references to fully-qualified paths and convert time units to milliseconds.
+**Action required**: Update model references to fully-qualified paths.
 
 #### v1.0.0 (Target Q3 2025)
 
@@ -383,9 +381,7 @@ First stable release with breaking changes:
 
 Complete ONEX alignment:
 
-- **Remove all legacy `_seconds` field aliases**: Only `_ms` suffixed duration fields accepted.
 - **Strict ONEX naming conventions enforced**: All field names must follow ONEX conventions.
-- **Remove backward-compatible field mappings**: No automatic field name translation.
 
 ### Migration Path by Feature
 
@@ -400,16 +396,6 @@ version:
   major: 1
   minor: 0
   patch: 0
-```
-
-#### Timeout Field Migration
-
-```yaml
-# Before (deprecated in v0.3.0, removed in v2.0.0)
-timeout_seconds: 30
-
-# After (required from v2.0.0)
-timeout_ms: 30000
 ```
 
 #### Model Reference Migration

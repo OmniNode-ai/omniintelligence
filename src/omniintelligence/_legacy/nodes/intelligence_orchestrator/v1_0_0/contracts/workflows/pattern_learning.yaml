@@ -176,10 +176,10 @@ error_handling:
 
 # Performance settings
 performance:
-  timeout_seconds: 900  # 15 minutes for full 4-phase learning
+  timeout_ms: 900000  # 15 minutes for full 4-phase learning
   enable_caching: true
   cache_key_template: "pattern_learn:${input.project_name}:${input.code_snippet.hash}"
-  cache_ttl_seconds: 600
+  cache_ttl_ms: 600000
 
 # Monitoring
 monitoring:

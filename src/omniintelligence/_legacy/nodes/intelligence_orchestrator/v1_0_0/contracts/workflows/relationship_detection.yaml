@@ -80,7 +80,7 @@ error_handling:
 
 # Performance settings
 performance:
-  timeout_seconds: 300
+  timeout_ms: 300000
   enable_caching: false  # Relationships change frequently
 
 # Monitoring
