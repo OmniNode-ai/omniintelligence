@@ -16,7 +16,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
+import keyword
+import logging
 import os
 import re
 import sys
@@ -36,6 +39,10 @@ from omnibase_core.models.contracts.subcontracts import (
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from omnibase_core.validation.contract_validator import ProtocolContractValidator
 from pydantic import BaseModel, ValidationError
+
+# Module-level logger for contract linter operations
+# Outputs to stderr to avoid polluting stdout which is used for CLI results
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -59,6 +66,152 @@ DEFAULT_PARALLEL_THRESHOLD = 10
 # Rejects: FieldName (uppercase), "field name" (spaces), 123field (starts with digit)
 FIELD_IDENTIFIER_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
 
+
+def is_python_keyword(name: str) -> bool:
+    """
+    Check if a name is a Python reserved keyword.
+
+    Uses the standard library `keyword.iskeyword()` function to check
+    against all Python reserved keywords (if, for, class, def, return, etc.).
+
+    Args:
+        name: The identifier name to check
+
+    Returns:
+        True if the name is a Python reserved keyword, False otherwise
+
+    Examples:
+        >>> is_python_keyword("class")
+        True
+        >>> is_python_keyword("field_name")
+        False
+    """
+    return keyword.iskeyword(name)
+
+
+def is_dunder_name(name: str) -> bool:
+    """
+    Check if a name is a Python dunder (double underscore) name.
+
+    Dunder names start AND end with double underscores (__). These are
+    reserved for Python's internal use (e.g., __init__, __str__, __dict__).
+
+    Single leading underscore (_private) is allowed for convention-based
+    private attributes. Double leading underscore (__mangled) without
+    trailing underscores is allowed for name mangling.
+
+    Args:
+        name: The identifier name to check
+
+    Returns:
+        True if the name is a dunder name (starts AND ends with __), False otherwise
+
+    Examples:
+        >>> is_dunder_name("__init__")
+        True
+        >>> is_dunder_name("__dict__")
+        True
+        >>> is_dunder_name("_private")
+        False
+        >>> is_dunder_name("__mangled")
+        False
+    """
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
+
+
+def has_invalid_trailing_underscore(name: str) -> bool:
+    """
+    Check if a name has an invalid trailing underscore.
+
+    Names ending with a single underscore are typically used to avoid
+    conflicts with Python keywords (e.g., class_ instead of class).
+    However, ONEX naming conventions discourage trailing underscores
+    for field names as they indicate workarounds rather than clean design.
+
+    Single leading underscore (_private) is valid for private attributes.
+    Names ending with underscore but starting with underscore are valid
+    (e.g., _internal_ is a valid pattern).
+
+    Args:
+        name: The identifier name to check
+
+    Returns:
+        True if the name ends with underscore but doesn't start with underscore,
+        False otherwise
+
+    Examples:
+        >>> has_invalid_trailing_underscore("class_")
+        True
+        >>> has_invalid_trailing_underscore("return_")
+        True
+        >>> has_invalid_trailing_underscore("field_name")
+        False
+        >>> has_invalid_trailing_underscore("_private")
+        False
+        >>> has_invalid_trailing_underscore("_internal_")
+        False
+    """
+    # Don't flag dunder names here - they're handled by is_dunder_name
+    if is_dunder_name(name):
+        return False
+    # Valid: doesn't end with underscore, or starts with underscore (private convention)
+    # Invalid: ends with underscore but doesn't start with underscore
+    return name.endswith("_") and not name.startswith("_")
+
+
+def validate_field_identifier(name: str) -> tuple[bool, str | None]:
+    """
+    Validate a field identifier against ONEX naming conventions.
+
+    Checks for:
+    1. Basic identifier pattern (lowercase snake_case)
+    2. Python reserved keywords
+    3. Dunder names (double underscore start AND end)
+    4. Invalid trailing underscores
+
+    Args:
+        name: The field identifier to validate
+
+    Returns:
+        Tuple of (is_valid, error_message). If valid, error_message is None.
+
+    Examples:
+        >>> validate_field_identifier("field_name")
+        (True, None)
+        >>> validate_field_identifier("class")
+        (False, "Field name 'class' is a Python reserved keyword")
+        >>> validate_field_identifier("__init__")
+        (False, "Field name '__init__' uses Python dunder naming ...")
+        >>> validate_field_identifier("class_")
+        (False, "Field name 'class_' has trailing underscore ...")
+    """
+    # Check basic pattern first
+    if not FIELD_IDENTIFIER_PATTERN.match(name):
+        return (False, f"Field name '{name}' does not match snake_case pattern")
+
+    # Check for Python reserved keywords
+    if is_python_keyword(name):
+        return (False, f"Field name '{name}' is a Python reserved keyword")
+
+    # Check for dunder names
+    if is_dunder_name(name):
+        return (
+            False,
+            f"Field name '{name}' uses Python dunder naming "
+            "(reserved for internal use)",
+        )
+
+    # Check for trailing underscore (keyword workaround pattern)
+    if has_invalid_trailing_underscore(name):
+        return (
+            False,
+            f"Field name '{name}' has trailing underscore "
+            "(use a different name instead of keyword workaround)",
+        )
+
+    return (True, None)
+
+
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
 VALID_NODE_TYPES: frozenset[str] = frozenset(
     {"compute", "effect", "reducer", "orchestrator"}
@@ -75,6 +228,41 @@ WATCH_POLL_INTERVAL_SECONDS = 1
 # JSON output indentation (spaces)
 # Used for human-readable JSON formatting in CLI output
 JSON_INDENT_SPACES = 2
+
+# Patterns for sensitive environment variable names that should be redacted in error output.
+# These patterns use fnmatch-style wildcards (* matches any characters).
+# Values of matching env vars will be replaced with REDACTED_VALUE in error messages.
+SENSITIVE_ENV_VAR_PATTERNS: tuple[str, ...] = (
+    # API keys and secrets
+    "*_KEY",
+    "*_SECRET",
+    "*_PASSWORD",
+    "*_TOKEN",
+    "*_API_KEY",
+    "*_APIKEY",
+    # Credentials and auth
+    "*_PRIVATE_*",
+    "*_CREDENTIAL*",
+    "*_AUTH_*",
+    # Connection strings and URLs with credentials
+    "DATABASE_URL",
+    "*_CONNECTION_STRING",
+    "*_DSN",
+    # Cloud provider credentials
+    "AWS_*",
+    "AZURE_*",
+    "GCP_*",
+    "GOOGLE_*",
+    # Certificates and keys
+    "*_CERT",
+    "*_CERTIFICATE",
+    "*_PEM",
+    "*_RSA",
+    "*_PRIVATE_KEY",
+)
+
+# Redaction placeholder for sensitive values
+REDACTED_VALUE = "***REDACTED***"
 
 
 class EnumContractErrorType(str, Enum):
@@ -98,6 +286,7 @@ class EnumContractErrorType(str, Enum):
     YAML_PARSE_ERROR = "yaml_parse_error"
     UNKNOWN_CONTRACT_TYPE = "unknown_contract_type"
     UNEXPECTED_ERROR = "unexpected_error"
+    RESERVED_IDENTIFIER = "reserved_identifier"
 
 
 class ModelContractValidationError:
@@ -316,22 +505,30 @@ def _detect_contract_type(data: YamlData) -> str:
     """
     # FSM subcontract detection
     if "state_machine_name" in data or "states" in data:
+        logger.debug("Detected contract type: fsm_subcontract")
         return "fsm_subcontract"
 
     # Workflow detection - check for workflow-specific fields
     if "workflow_type" in data or (
         "subcontract_name" in data and "max_concurrent_workflows" in data
     ):
+        logger.debug("Detected contract type: workflow")
         return "workflow"
 
     # Node contract detection
     if "node_type" in data:
+        logger.debug(
+            "Detected contract type: node_contract (node_type=%s)",
+            data.get("node_type"),
+        )
         return "node_contract"
 
     # Generic subcontract detection
     if "operations" in data and "node_type" not in data:
+        logger.debug("Detected contract type: subcontract")
         return "subcontract"
 
+    logger.debug("Unable to detect contract type, returning 'unknown'")
     return "unknown"
 
 
@@ -348,6 +545,95 @@ def _is_valid_node_type(node_type: str | None) -> bool:
     if node_type is None:
         return False
     return node_type.lower() in VALID_NODE_TYPES
+
+
+def _is_sensitive_env_var(env_var_name: str) -> bool:
+    """
+    Check if an environment variable name matches sensitive patterns.
+
+    Uses fnmatch for glob-style pattern matching against SENSITIVE_ENV_VAR_PATTERNS.
+    Pattern matching is case-insensitive for robustness.
+
+    Args:
+        env_var_name: The environment variable name to check
+
+    Returns:
+        True if the env var name matches any sensitive pattern, False otherwise
+
+    Examples:
+        >>> _is_sensitive_env_var("AWS_SECRET_ACCESS_KEY")
+        True
+        >>> _is_sensitive_env_var("DATABASE_URL")
+        True
+        >>> _is_sensitive_env_var("PATH")
+        False
+        >>> _is_sensitive_env_var("MY_API_KEY")
+        True
+    """
+    # Normalize to uppercase for case-insensitive matching
+    upper_name = env_var_name.upper()
+    return any(
+        fnmatch.fnmatch(upper_name, pattern) for pattern in SENSITIVE_ENV_VAR_PATTERNS
+    )
+
+
+def _get_sensitive_env_values() -> frozenset[str]:
+    """
+    Get the set of sensitive environment variable values that should be redacted.
+
+    Scans current environment for variables matching SENSITIVE_ENV_VAR_PATTERNS
+    and returns their values. Empty values are excluded since they don't need
+    redaction and could cause false positives.
+
+    Returns:
+        Frozen set of sensitive environment variable values to redact
+
+    Note:
+        This function is called once during error message formatting to minimize
+        performance impact. The result should be cached if used repeatedly.
+    """
+    sensitive_values: set[str] = set()
+    for env_name, env_value in os.environ.items():
+        if env_value and _is_sensitive_env_var(env_name):
+            sensitive_values.add(env_value)
+    return frozenset(sensitive_values)
+
+
+def redact_sensitive_values(message: str) -> str:
+    """
+    Redact sensitive environment variable values from a message string.
+
+    Scans the message for values of environment variables that match
+    SENSITIVE_ENV_VAR_PATTERNS and replaces them with REDACTED_VALUE.
+    This prevents accidental exposure of secrets in error messages, logs,
+    or other output.
+
+    Args:
+        message: The message string that may contain sensitive values
+
+    Returns:
+        The message with sensitive values replaced by REDACTED_VALUE
+
+    Security:
+        - Only redacts values of env vars matching SENSITIVE_ENV_VAR_PATTERNS
+        - Empty env var values are not redacted (no false positives)
+        - Redaction is case-sensitive to avoid false positives on partial matches
+        - Values shorter than 3 characters are not redacted to avoid false positives
+    """
+    if not message:
+        return message
+
+    sensitive_values = _get_sensitive_env_values()
+
+    redacted_message = message
+    for value in sensitive_values:
+        # Skip very short values to avoid false positives
+        # (e.g., single character or empty values matching common words)
+        if len(value) < 3:
+            continue
+        redacted_message = redacted_message.replace(value, REDACTED_VALUE)
+
+    return redacted_message
 
 
 class ContractLinter:
@@ -471,7 +757,7 @@ class ContractLinter:
             validation_errors = [
                 ModelContractValidationError(
                     field_path="contract",
-                    error_message=str(e),
+                    error_message=redact_sensitive_values(str(e)),
                     validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             ]
@@ -486,7 +772,9 @@ class ContractLinter:
             validation_errors = [
                 ModelContractValidationError(
                     field_path="contract",
-                    error_message=f"Unexpected error during validation: {e}",
+                    error_message=redact_sensitive_values(
+                        f"Unexpected error during validation: {e}"
+                    ),
                     validation_error_type=EnumContractErrorType.UNEXPECTED_ERROR,
                 )
             ]
@@ -603,7 +891,9 @@ class ContractLinter:
             validation_errors.append(
                 ModelContractValidationError(
                     field_path="contract",
-                    error_message=f"Unexpected error during node contract validation: {e}",
+                    error_message=redact_sensitive_values(
+                        f"Unexpected error during node contract validation: {e}"
+                    ),
                     validation_error_type=EnumContractErrorType.UNEXPECTED_ERROR,
                 )
             )
@@ -703,6 +993,7 @@ class ContractLinter:
             ModelContractValidationResult with validation status and errors
         """
         path = Path(file_path)
+        logger.debug("Starting validation for: %s", path)
         validation_errors: list[ModelContractValidationError] = []
 
         # Check file exists
@@ -758,7 +1049,9 @@ class ContractLinter:
             validation_errors.append(
                 ModelContractValidationError(
                     field_path="file",
-                    error_message=f"Error checking file size: {e}",
+                    error_message=redact_sensitive_values(
+                        f"Error checking file size: {e}"
+                    ),
                     validation_error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
@@ -776,7 +1069,7 @@ class ContractLinter:
             validation_errors.append(
                 ModelContractValidationError(
                     field_path="file",
-                    error_message=f"Error reading file: {e}",
+                    error_message=redact_sensitive_values(f"Error reading file: {e}"),
                     validation_error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
@@ -840,14 +1133,22 @@ class ContractLinter:
         # Detect contract type and route to appropriate validator
         contract_type = _detect_contract_type(data)
 
+        # Warn about missing optional but recommended fields (non-critical)
+        if "description" not in data:
+            logger.warning(
+                "Contract '%s' is missing optional 'description' field "
+                "(recommended for documentation)",
+                path,
+            )
+
         if contract_type == "fsm_subcontract":
-            return self._validate_fsm_subcontract(data, path)
+            result = self._validate_fsm_subcontract(data, path)
         elif contract_type == "workflow":
-            return self._validate_workflow(data, path)
+            result = self._validate_workflow(data, path)
         elif contract_type == "node_contract":
-            return self._validate_node_contract(data, path)
+            result = self._validate_node_contract(data, path)
         elif contract_type == "subcontract":
-            return self._validate_subcontract(data, path)
+            result = self._validate_subcontract(data, path)
         else:
             # Unknown contract type - try to provide helpful error
             validation_errors.append(
@@ -862,12 +1163,27 @@ class ContractLinter:
                     validation_error_type=EnumContractErrorType.UNKNOWN_CONTRACT_TYPE,
                 )
             )
-            return ModelContractValidationResult(
+            result = ModelContractValidationResult(
                 file_path=path,
                 is_valid=False,
                 validation_errors=validation_errors,
                 contract_type=None,
             )
+
+        # Log validation result
+        if result.is_valid:
+            logger.debug(
+                "Validation passed for: %s (type=%s)", path, result.contract_type
+            )
+        else:
+            logger.debug(
+                "Validation failed for: %s (type=%s, error_count=%d)",
+                path,
+                result.contract_type,
+                len(result.validation_errors),
+            )
+
+        return result
 
     def validate_batch(
         self,
@@ -885,18 +1201,40 @@ class ContractLinter:
         Returns:
             List of validation results for each file
         """
-        if parallel and len(file_paths) > self._parallel_threshold:
+        file_count = len(file_paths)
+        logger.debug("Starting batch validation for %d file(s)", file_count)
+
+        if parallel and file_count > self._parallel_threshold:
             max_workers = min(
-                len(file_paths), os.cpu_count() or DEFAULT_MAX_WORKERS_FALLBACK
+                file_count, os.cpu_count() or DEFAULT_MAX_WORKERS_FALLBACK
+            )
+            logger.debug(
+                "Using parallel validation with %d workers (threshold=%d)",
+                max_workers,
+                self._parallel_threshold,
             )
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                return list(
+                results = list(
                     executor.map(
                         self.validate,
                         [Path(fp) if isinstance(fp, str) else fp for fp in file_paths],
                     )
                 )
-        return [self.validate(fp) for fp in file_paths]
+        else:
+            logger.debug("Using sequential validation")
+            results = [self.validate(fp) for fp in file_paths]
+
+        # Log batch summary at INFO level
+        valid_count = sum(1 for r in results if r.is_valid)
+        invalid_count = file_count - valid_count
+        logger.info(
+            "Batch validation complete: %d/%d passed, %d failed",
+            valid_count,
+            file_count,
+            invalid_count,
+        )
+
+        return results
 
     def get_summary(
         self,
@@ -1033,6 +1371,38 @@ def _format_json_output(
     )
 
 
+def _configure_logging(verbose: bool) -> None:
+    """Configure logging based on verbosity flag.
+
+    Sets up the module logger to output to stderr so it doesn't interfere
+    with stdout CLI output. In verbose mode, enables DEBUG level logging.
+    In non-verbose mode, only WARNING and above are shown.
+
+    Args:
+        verbose: If True, enable DEBUG level logging. If False, only WARNING+.
+    """
+    # Configure handler to write to stderr (not stdout)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+
+    # Set log level based on verbose flag
+    log_level = logging.DEBUG if verbose else logging.WARNING
+    logger.setLevel(log_level)
+    handler.setLevel(log_level)
+
+    # Remove existing handlers to avoid duplicates on repeated calls
+    logger.handlers.clear()
+    logger.addHandler(handler)
+
+    # Prevent propagation to root logger
+    logger.propagate = False
+
+    if verbose:
+        logger.debug("Debug logging enabled")
+
+
 def _watch_and_validate(
     linter: ContractLinter,
     file_paths: list[str],
@@ -1051,6 +1421,7 @@ def _watch_and_validate(
         verbose: If True, show detailed error messages in text output
     """
     print("Watching for file changes... (Ctrl+C to stop)")
+    logger.info("Watch mode started for %d file(s)", len(file_paths))
 
     # Convert to Path objects for file operations
     paths = [Path(fp) for fp in file_paths]
@@ -1060,18 +1431,25 @@ def _watch_and_validate(
     for fp in paths:
         if fp.exists():
             mtimes[fp] = fp.stat().st_mtime
+            logger.debug("Tracking file: %s (mtime=%.2f)", fp, mtimes[fp])
 
     try:
         while True:
             changed = False
+            changed_files: list[Path] = []
             for fp in paths:
                 if fp.exists():
                     current_mtime = fp.stat().st_mtime
                     if fp not in mtimes or mtimes[fp] != current_mtime:
                         mtimes[fp] = current_mtime
                         changed = True
+                        changed_files.append(fp)
 
             if changed:
+                logger.info(
+                    "File change detected: %s",
+                    ", ".join(str(f) for f in changed_files),
+                )
                 timestamp = time_module.strftime("%H:%M:%S")
                 print(f"\n[{timestamp}] Change detected, re-validating...")
                 results = linter.validate_batch(file_paths)
@@ -1082,6 +1460,7 @@ def _watch_and_validate(
 
             time_module.sleep(WATCH_POLL_INTERVAL_SECONDS)
     except KeyboardInterrupt:
+        logger.info("Watch mode stopped by user")
         print("\nWatch mode stopped.")
 
 
@@ -1145,7 +1524,7 @@ def main(args: list[str] | None = None) -> int:
         "--verbose",
         "-v",
         action="store_true",
-        help="Show detailed error messages",
+        help="Show detailed error messages and enable debug logging to stderr",
     )
 
     parser.add_argument(
@@ -1162,6 +1541,9 @@ def main(args: list[str] | None = None) -> int:
     )
 
     parsed_args = parser.parse_args(args)
+
+    # Configure logging based on verbose flag
+    _configure_logging(parsed_args.verbose)
 
     # No contracts provided
     if not parsed_args.contracts:
@@ -1226,13 +1608,13 @@ def main(args: list[str] | None = None) -> int:
         if parsed_args.json:
             error_output = json.dumps(
                 {
-                    "error": str(e),
+                    "error": redact_sensitive_values(str(e)),
                     "cli_error_type": "not_implemented",
                 },
                 indent=JSON_INDENT_SPACES,
             )
         else:
-            error_output = f"Error: {e}"
+            error_output = f"Error: {redact_sensitive_values(str(e))}"
         print(error_output, file=sys.stderr)
         return 2
 
@@ -1241,13 +1623,13 @@ def main(args: list[str] | None = None) -> int:
         if parsed_args.json:
             error_output = json.dumps(
                 {
-                    "error": f"Unexpected error: {e}",
+                    "error": redact_sensitive_values(f"Unexpected error: {e}"),
                     "cli_error_type": "unexpected_error",
                 },
                 indent=JSON_INDENT_SPACES,
             )
         else:
-            error_output = f"Unexpected error: {e}"
+            error_output = f"Unexpected error: {redact_sensitive_values(str(e))}"
         print(error_output, file=sys.stderr)
         return 2
 

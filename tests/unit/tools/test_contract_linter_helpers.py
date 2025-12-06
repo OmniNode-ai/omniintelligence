@@ -315,3 +315,340 @@ class TestFieldIdentifierPattern:
         # Should match because 'node_type' is a valid snake_case identifier
         assert FIELD_IDENTIFIER_PATTERN.match(potential_field) is not None
         assert potential_field == "node_type"
+
+
+# =============================================================================
+# Test Class: Python Keyword Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestPythonKeywordValidation:
+    """Tests for is_python_keyword function.
+
+    Validates that Python reserved keywords are correctly identified
+    to prevent field names that conflict with Python syntax.
+    """
+
+    def test_common_python_keywords(self):
+        """Test that common Python keywords are detected."""
+        from omniintelligence.tools.contract_linter import is_python_keyword
+
+        # Common keywords that might accidentally be used as field names
+        keywords = [
+            "class",
+            "def",
+            "return",
+            "if",
+            "for",
+            "while",
+            "try",
+            "except",
+            "import",
+            "from",
+            "with",
+            "as",
+            "in",
+            "is",
+            "not",
+            "and",
+            "or",
+            "pass",
+            "break",
+            "continue",
+            "lambda",
+            "yield",
+            "global",
+            "nonlocal",
+            "raise",
+            "assert",
+            "del",
+            "True",
+            "False",
+            "None",
+            "async",
+            "await",
+        ]
+
+        for kw in keywords:
+            assert is_python_keyword(kw) is True, f"'{kw}' should be a keyword"
+
+    def test_non_keywords(self):
+        """Test that valid field names are not flagged as keywords."""
+        from omniintelligence.tools.contract_linter import is_python_keyword
+
+        non_keywords = [
+            "name",
+            "version",
+            "field_name",
+            "node_type",
+            "_private",
+            "class_name",  # Contains 'class' but not a keyword
+            "def_value",  # Contains 'def' but not a keyword
+            "return_code",  # Contains 'return' but not a keyword
+            "if_condition",
+            "for_loop",
+            "classname",  # No underscore, merged
+        ]
+
+        for name in non_keywords:
+            assert is_python_keyword(name) is False, f"'{name}' should NOT be a keyword"
+
+
+# =============================================================================
+# Test Class: Dunder Name Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDunderNameValidation:
+    """Tests for is_dunder_name function.
+
+    Validates that Python dunder (double underscore) names are correctly
+    identified to prevent field names that conflict with Python internals.
+    """
+
+    def test_common_dunder_names(self):
+        """Test that common dunder names are detected."""
+        from omniintelligence.tools.contract_linter import is_dunder_name
+
+        dunders = [
+            "__init__",
+            "__str__",
+            "__repr__",
+            "__dict__",
+            "__class__",
+            "__name__",
+            "__doc__",
+            "__module__",
+            "__call__",
+            "__len__",
+            "__iter__",
+            "__next__",
+            "__getitem__",
+            "__setitem__",
+            "__delitem__",
+            "__enter__",
+            "__exit__",
+            "__hash__",
+            "__eq__",
+            "__ne__",
+            "__lt__",
+            "__gt__",
+            "__slots__",
+            "__all__",
+            "__file__",
+            "__version__",
+        ]
+
+        for name in dunders:
+            assert is_dunder_name(name) is True, f"'{name}' should be a dunder"
+
+    def test_non_dunder_names(self):
+        """Test that valid field names are not flagged as dunders."""
+        from omniintelligence.tools.contract_linter import is_dunder_name
+
+        non_dunders = [
+            "_private",  # Single leading underscore
+            "__mangled",  # Double leading, no trailing (name mangling)
+            "normal",
+            "field_name",
+            "node_type",
+            "__",  # Too short
+            "___",  # Too short
+            "____",  # Exactly 4 chars, still too short for content
+            "init",  # No underscores
+            "_init_",  # Single underscores
+        ]
+
+        for name in non_dunders:
+            assert is_dunder_name(name) is False, f"'{name}' should NOT be a dunder"
+
+
+# =============================================================================
+# Test Class: Trailing Underscore Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestTrailingUnderscoreValidation:
+    """Tests for has_invalid_trailing_underscore function.
+
+    Validates that trailing underscores (keyword workaround pattern) are
+    correctly identified to encourage proper naming instead of workarounds.
+    """
+
+    def test_invalid_trailing_underscore_names(self):
+        """Test that trailing underscore names are detected."""
+        from omniintelligence.tools.contract_linter import (
+            has_invalid_trailing_underscore,
+        )
+
+        invalid_names = [
+            "class_",  # Common keyword workaround
+            "def_",
+            "return_",
+            "type_",
+            "id_",
+            "list_",
+            "dict_",
+            "set_",
+            "str_",
+            "int_",
+            "float_",
+            "bool_",
+            "in_",
+            "is_",
+            "or_",
+            "and_",
+            "not_",
+            "async_",
+            "await_",
+            "field_",  # Even non-keyword names with trailing underscore
+            "value_",
+            "data_",
+        ]
+
+        for name in invalid_names:
+            assert has_invalid_trailing_underscore(name) is True, (
+                f"'{name}' should have invalid trailing underscore"
+            )
+
+    def test_valid_names_without_trailing_underscore(self):
+        """Test that valid field names are not flagged for trailing underscore."""
+        from omniintelligence.tools.contract_linter import (
+            has_invalid_trailing_underscore,
+        )
+
+        valid_names = [
+            "class_name",  # Underscore in middle is fine
+            "return_code",
+            "type_info",
+            "id_value",
+            "field_name",
+            "node_type",
+            "version",
+            "_private",  # Leading underscore is fine
+            "__mangled",  # Double leading is fine
+            "_internal_",  # Leading underscore allows trailing
+            "_private_field_",  # Leading underscore allows trailing
+            "__init__",  # Dunder names handled separately
+            "__str__",
+        ]
+
+        for name in valid_names:
+            assert has_invalid_trailing_underscore(name) is False, (
+                f"'{name}' should NOT have invalid trailing underscore"
+            )
+
+
+# =============================================================================
+# Test Class: Complete Field Identifier Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestValidateFieldIdentifier:
+    """Tests for validate_field_identifier function.
+
+    Comprehensive validation combining pattern matching, keyword checking,
+    dunder detection, and trailing underscore validation.
+    """
+
+    def test_valid_field_names(self):
+        """Test that valid field names pass validation."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        valid_names = [
+            "name",
+            "version",
+            "field_name",
+            "node_type",
+            "input_model",
+            "output_model",
+            "_private",
+            "_internal_field",
+            "field123",
+            "v1_0_0",
+            "step_1",
+            "io_operations",
+            "state_machine_name",
+        ]
+
+        for name in valid_names:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is True, f"'{name}' should be valid, got error: {error}"
+            assert error is None
+
+    def test_python_keywords_rejected(self):
+        """Test that Python keywords are rejected with clear message."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        keywords = ["class", "def", "return", "if", "for", "while", "import", "from"]
+
+        for kw in keywords:
+            is_valid, error = validate_field_identifier(kw)
+            assert is_valid is False, f"'{kw}' should be rejected"
+            assert error is not None
+            assert "Python reserved keyword" in error
+            assert kw in error
+
+    def test_dunder_names_rejected(self):
+        """Test that dunder names are rejected with clear message."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        dunders = ["__init__", "__str__", "__dict__", "__class__", "__name__"]
+
+        for name in dunders:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, f"'{name}' should be rejected"
+            assert error is not None
+            assert "dunder naming" in error
+            assert name in error
+
+    def test_trailing_underscore_rejected(self):
+        """Test that trailing underscores are rejected with clear message."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        trailing_underscore_names = ["class_", "type_", "id_", "return_"]
+
+        for name in trailing_underscore_names:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, f"'{name}' should be rejected"
+            assert error is not None
+            assert "trailing underscore" in error
+            assert name in error
+
+    def test_invalid_pattern_rejected(self):
+        """Test that names not matching snake_case pattern are rejected."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        invalid_patterns = [
+            "ClassName",  # Uppercase
+            "fieldName",  # camelCase
+            "123field",  # Starts with number
+            "field name",  # Contains space
+            "field-name",  # Contains hyphen
+        ]
+
+        for name in invalid_patterns:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, f"'{name}' should be rejected"
+            assert error is not None
+            assert "snake_case pattern" in error
+
+    def test_error_messages_are_descriptive(self):
+        """Test that error messages provide helpful guidance."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        # Keyword error should mention it's reserved
+        _, error = validate_field_identifier("class")
+        assert "reserved keyword" in error
+
+        # Dunder error should mention internal use
+        _, error = validate_field_identifier("__init__")
+        assert "internal use" in error or "reserved" in error
+
+        # Trailing underscore should suggest alternative
+        _, error = validate_field_identifier("class_")
+        assert "different name" in error or "workaround" in error
