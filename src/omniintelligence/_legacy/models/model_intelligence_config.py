@@ -23,7 +23,27 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class _IntelligenceConfigDict(TypedDict):
     """TypedDict for environment-specific configuration values.
 
-    Note: Uses alias names for backward compatibility.
+    Warning:
+        Field Naming Convention Discrepancy:
+        For backward compatibility with legacy omniarchon APIs, some fields use
+        misleading suffixes. The following fields have ``_seconds`` in their name
+        but actually store **millisecond** values:
+
+        - ``timeout_seconds``: Actually stores milliseconds (not seconds)
+        - ``circuit_breaker_timeout_seconds``: Actually stores milliseconds (not seconds)
+
+        This naming convention is preserved to maintain API stability with existing
+        consumers that expect these alias names. The underlying Pydantic model
+        ``ModelIntelligenceConfig`` uses these as aliases mapping to properly-named
+        ``_ms`` fields (``timeout_ms``, ``circuit_breaker_timeout_ms``).
+
+        For new code, prefer using ``ModelIntelligenceConfig`` directly, which uses
+        the correct ``_ms`` suffix naming convention and provides proper validation.
+
+    Note:
+        This TypedDict is an internal implementation detail used by
+        ``ModelIntelligenceConfig.for_environment()`` to construct environment-specific
+        configuration dictionaries. It should not be used directly in application code.
     """
 
     base_url: str

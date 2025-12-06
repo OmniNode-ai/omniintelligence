@@ -323,3 +323,135 @@ Files in `subcontracts/` and `workflows/` directories are excluded by default.
 
 - [Contract Linter Tool README](../src/omniintelligence/tools/README.md) - Full tool documentation
 - [CLAUDE.md](../CLAUDE.md) - Project development commands
+
+## Deprecation Timeline
+
+This section outlines when legacy patterns will be deprecated and removed from the contract system.
+
+### Timeline Overview
+
+| Deprecated Feature | Warning Phase | Removal Target | Status |
+|--------------------|---------------|----------------|--------|
+| String versions (`version: "1.0.0"`) | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
+| Missing `node_type` field | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
+| Shorthand model references | v0.3.0 (Q2 2025) | v1.0.0 | 🟢 Planned |
+| Legacy `timeout_seconds` field | v0.3.0 (Q2 2025) | v2.0.0 | 🟢 Planned |
+| Inline state definitions (missing `version`) | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
+| Effect contracts without `io_operations` | v0.2.0 (Q1 2025) | v1.0.0 | 🟡 Warning |
+
+### Migration Urgency
+
+- **Critical**: Feature removed or will break in next release. Migrate immediately.
+- **Warning**: Deprecation warnings active in linter. Plan migration soon.
+- **Planned**: Future deprecation announced. No immediate action required but plan ahead.
+
+### Version Milestones
+
+#### v0.2.0 (Target Q1 2025)
+
+Begin emitting deprecation warnings for:
+
+- **String version formats**: The linter will warn when encountering `version: "1.0.0"` instead of structured version objects. Contracts will still validate but emit warnings.
+- **Missing `node_type` fields**: Node contracts without explicit `node_type` will trigger warnings. The linter may infer types from context but explicit declaration is required.
+- **Inline state definitions**: FSM states missing required fields (`version`, `state_type`, `is_terminal`) will emit warnings.
+- **Effect contracts without `io_operations`**: Effect nodes must declare their I/O operations.
+
+**Action required**: Run `python -m omniintelligence.tools.contract_linter --verbose` to identify contracts needing updates.
+
+#### v0.3.0 (Target Q2 2025)
+
+Additional deprecation warnings for:
+
+- **Shorthand model references**: Model paths like `ModelInput` will warn; prefer fully-qualified paths like `omniintelligence.nodes.my_node.v1_0_0.models.ModelInput`.
+- **Legacy `timeout_seconds` field**: Begin warning for `timeout_seconds` usage. Migrate to `timeout_ms` for consistency with ONEX naming conventions.
+
+**Action required**: Update model references to fully-qualified paths and convert time units to milliseconds.
+
+#### v1.0.0 (Target Q3 2025)
+
+First stable release with breaking changes:
+
+- **Remove support for string version formats**: Contracts using `version: "1.0.0"` will fail validation. MUST use structured version objects.
+- **Require explicit `node_type`**: Contracts without `node_type` will fail validation.
+- **Require fully-qualified model paths**: Shorthand references will fail validation.
+- **Require complete FSM state definitions**: States must include all required fields.
+- **Require `io_operations` in effect contracts**: Effect nodes without I/O declarations will fail.
+
+**Action required**: Complete migration before upgrading. Run linter in strict mode to verify compliance.
+
+#### v2.0.0 (Target 2026)
+
+Complete ONEX alignment:
+
+- **Remove all legacy `_seconds` field aliases**: Only `_ms` suffixed duration fields accepted.
+- **Strict ONEX naming conventions enforced**: All field names must follow ONEX conventions.
+- **Remove backward-compatible field mappings**: No automatic field name translation.
+
+### Migration Path by Feature
+
+#### String Versions to Structured Versions
+
+```yaml
+# Before (deprecated in v0.2.0, removed in v1.0.0)
+version: "1.0.0"
+
+# After (required from v1.0.0)
+version:
+  major: 1
+  minor: 0
+  patch: 0
+```
+
+#### Timeout Field Migration
+
+```yaml
+# Before (deprecated in v0.3.0, removed in v2.0.0)
+timeout_seconds: 30
+
+# After (required from v2.0.0)
+timeout_ms: 30000
+```
+
+#### Model Reference Migration
+
+```yaml
+# Before (deprecated in v0.3.0, removed in v1.0.0)
+input_model: ModelInput
+
+# After (required from v1.0.0)
+input_model: omniintelligence.nodes.vectorization.v1_0_0.models.ModelVectorizationInput
+```
+
+### Deprecation Warning Output
+
+When running the linter with deprecated patterns, expect warnings like:
+
+```
+[WARN] src/nodes/my_node/v1_0_0/contracts/compute_contract.yaml
+  - version: String format deprecated, use structured version object (deprecated_format)
+  - input_model: Shorthand reference deprecated, use fully-qualified path (deprecated_reference)
+
+[PASS] Contract valid with 2 deprecation warnings
+```
+
+### CI/CD Strict Mode
+
+For CI/CD pipelines enforcing deprecation-free contracts:
+
+```bash
+# Treat deprecation warnings as errors (planned for v0.2.0)
+python -m omniintelligence.tools.contract_linter --strict contracts/*.yaml
+
+# Exit codes with --strict:
+# 0 - All contracts valid, no deprecation warnings
+# 1 - Validation errors or deprecation warnings found
+# 2 - File errors
+```
+
+### Questions and Support
+
+If you have questions about the deprecation timeline or need assistance migrating contracts:
+
+1. Check existing contracts in `src/omniintelligence/` for reference implementations
+2. Review the [ONEX Naming Conventions](conventions/NAMING_CONVENTIONS.md) document
+3. Run the linter with `--verbose` for detailed guidance on each issue

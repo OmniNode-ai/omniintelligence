@@ -1,0 +1,572 @@
+"""
+Backward compatibility regression tests.
+
+These tests ensure that legacy API patterns continue to work as expected,
+preventing accidental breaking changes during ONEX migration.
+
+The tests focus on:
+1. Legacy field names (timeout_seconds, circuit_breaker_timeout_seconds)
+2. TypedDict compatibility (_IntelligenceConfigDict)
+3. Environment-based configuration (for_environment, from_environment_variable)
+4. Serialization/deserialization with legacy field names
+
+Note:
+    This test imports directly from the model file rather than the package
+    __init__.py to avoid circular import issues during migration.
+"""
+
+import os
+import sys
+from unittest.mock import patch
+
+import pytest
+
+# Direct import from the file to avoid __init__.py import chain issues
+# This is a temporary workaround during the migration period
+sys.path.insert(
+    0, "/workspace/omniintelligence/src/omniintelligence/_legacy/models"
+)
+from model_intelligence_config import (  # noqa: E402
+    ModelIntelligenceConfig,
+    _IntelligenceConfigDict,
+)
+
+
+@pytest.mark.unit
+class TestLegacyFieldCompatibility:
+    """Test that legacy field names remain functional."""
+
+    def test_timeout_seconds_field_accepted_in_typed_dict(self):
+        """Verify timeout_seconds field works in TypedDict.
+
+        Legacy code uses timeout_seconds in configuration dictionaries.
+        This must remain valid for backward compatibility.
+        """
+        config_dict: _IntelligenceConfigDict = {
+            "base_url": "http://localhost:8053",
+            "timeout_seconds": 30000,  # Actually milliseconds despite name
+            "max_retries": 3,
+            "retry_delay_ms": 1000,
+            "circuit_breaker_enabled": True,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_timeout_seconds": 60000,
+            "enable_event_publishing": True,
+            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
+            "output_topics": {
+                "quality_assessed": "dev.omninode.intelligence.event.quality_assessed.v1",
+            },
+            "consumer_group_id": "test-group",
+        }
+
+        assert config_dict["timeout_seconds"] == 30000
+        assert config_dict["circuit_breaker_timeout_seconds"] == 60000
+
+    def test_circuit_breaker_timeout_seconds_field_accepted(self):
+        """Verify circuit_breaker_timeout_seconds field works in TypedDict.
+
+        Legacy code uses circuit_breaker_timeout_seconds in configuration.
+        """
+        config_dict: _IntelligenceConfigDict = {
+            "base_url": "http://localhost:8053",
+            "timeout_seconds": 30000,
+            "max_retries": 3,
+            "retry_delay_ms": 1000,
+            "circuit_breaker_enabled": True,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_timeout_seconds": 45000,  # 45 seconds in ms
+            "enable_event_publishing": True,
+            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
+            "output_topics": {
+                "error": "dev.omninode.intelligence.event.error.v1",
+            },
+            "consumer_group_id": "test-group",
+        }
+
+        assert config_dict["circuit_breaker_timeout_seconds"] == 45000
+
+    def test_model_accepts_timeout_seconds_alias(self):
+        """Verify ModelIntelligenceConfig accepts timeout_seconds via alias."""
+        config = ModelIntelligenceConfig(
+            base_url="http://localhost:8053",
+            timeout_seconds=60000,  # Legacy name (alias)
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+
+        # Both names should work due to populate_by_name=True
+        assert config.timeout_ms == 60000
+        # model_dump(by_alias=True) returns alias names
+        assert config.model_dump(by_alias=True)["timeout_seconds"] == 60000
+
+    def test_model_accepts_circuit_breaker_timeout_seconds_alias(self):
+        """Verify ModelIntelligenceConfig accepts circuit_breaker_timeout_seconds."""
+        config = ModelIntelligenceConfig(
+            base_url="http://localhost:8053",
+            circuit_breaker_timeout_seconds=120000,  # Legacy name (alias)
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+
+        assert config.circuit_breaker_timeout_ms == 120000
+        # model_dump(by_alias=True) returns alias names
+        assert config.model_dump(by_alias=True)["circuit_breaker_timeout_seconds"] == 120000
+
+    def test_model_accepts_both_legacy_and_canonical_names(self):
+        """Verify model can be created with either legacy or canonical field names."""
+        # Using legacy names
+        config_legacy = ModelIntelligenceConfig(
+            base_url="http://localhost:8053",
+            timeout_seconds=30000,
+            circuit_breaker_timeout_seconds=60000,
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+
+        # Using canonical names (timeout_ms, circuit_breaker_timeout_ms)
+        config_canonical = ModelIntelligenceConfig(
+            base_url="http://localhost:8053",
+            timeout_ms=30000,
+            circuit_breaker_timeout_ms=60000,
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+
+        # Both should result in identical internal state
+        assert config_legacy.timeout_ms == config_canonical.timeout_ms
+        assert (
+            config_legacy.circuit_breaker_timeout_ms
+            == config_canonical.circuit_breaker_timeout_ms
+        )
+
+
+@pytest.mark.unit
+class TestEnvironmentConfiguration:
+    """Test environment-based configuration backward compatibility."""
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_for_environment_development(self):
+        """Verify development environment config loads correctly."""
+        config = ModelIntelligenceConfig.for_environment("development")
+
+        assert config is not None
+        assert config.base_url == "http://localhost:8053"
+        assert config.timeout_ms == 30000
+        assert config.circuit_breaker_threshold == 3
+        assert config.circuit_breaker_timeout_ms == 30000
+        assert config.consumer_group_id == "intelligence_adapter_dev"
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_for_environment_production(self):
+        """Verify production environment config loads correctly."""
+        config = ModelIntelligenceConfig.for_environment("production")
+
+        assert config is not None
+        assert config.base_url == "http://archon-intelligence:8053"
+        assert config.timeout_ms == 60000
+        assert config.circuit_breaker_threshold == 10
+        assert config.circuit_breaker_timeout_ms == 60000
+        assert config.consumer_group_id == "intelligence_adapter_prod"
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_for_environment_staging(self):
+        """Verify staging environment config loads correctly."""
+        config = ModelIntelligenceConfig.for_environment("staging")
+
+        assert config is not None
+        assert config.base_url == "http://archon-intelligence:8053"
+        assert config.timeout_ms == 45000
+        assert config.circuit_breaker_threshold == 5
+        assert config.circuit_breaker_timeout_ms == 45000
+        assert config.consumer_group_id == "intelligence_adapter_staging"
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_from_environment_variable_defaults_to_development(self):
+        """Verify from_environment_variable defaults to development when unset."""
+        config = ModelIntelligenceConfig.from_environment_variable()
+
+        assert config is not None
+        assert config.timeout_ms == 30000
+        assert config.circuit_breaker_threshold == 3
+        assert config.consumer_group_id == "intelligence_adapter_dev"
+
+    @patch.dict(os.environ, {"ENVIRONMENT": "production"}, clear=True)
+    def test_from_environment_variable_reads_env(self):
+        """Verify from_environment_variable reads ENVIRONMENT variable."""
+        config = ModelIntelligenceConfig.from_environment_variable()
+
+        assert config.timeout_ms == 60000
+        assert config.circuit_breaker_threshold == 10
+
+    @patch.dict(os.environ, {"ENVIRONMENT": "STAGING"}, clear=True)
+    def test_from_environment_variable_case_insensitive(self):
+        """Verify ENVIRONMENT variable is case-insensitive."""
+        config = ModelIntelligenceConfig.from_environment_variable()
+
+        assert config.timeout_ms == 45000
+        assert config.circuit_breaker_threshold == 5
+
+    def test_for_environment_invalid_raises_value_error(self):
+        """Verify invalid environment raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            ModelIntelligenceConfig.for_environment("invalid")  # type: ignore[arg-type]
+
+        assert "Invalid environment" in str(exc_info.value)
+        assert "development, staging, production" in str(exc_info.value)
+
+    @patch.dict(os.environ, {"ENVIRONMENT": "unknown_env"}, clear=True)
+    def test_from_environment_variable_invalid_raises_value_error(self):
+        """Verify invalid ENVIRONMENT variable raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            ModelIntelligenceConfig.from_environment_variable()
+
+        assert "ENVIRONMENT must be one of" in str(exc_info.value)
+
+
+@pytest.mark.unit
+class TestSerializationCompatibility:
+    """Test that serialization remains backward compatible."""
+
+    def test_model_dump_uses_field_names_by_default(self):
+        """Verify model_dump() uses field names by default, not aliases.
+
+        In Pydantic v2, model_dump() uses the actual field names (timeout_ms)
+        by default, and model_dump(by_alias=True) uses aliases (timeout_seconds).
+        This is important to document for backward compatibility.
+        """
+        config = ModelIntelligenceConfig(
+            base_url="http://localhost:8053",
+            timeout_ms=45000,
+            circuit_breaker_timeout_ms=90000,
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+
+        # Default dump uses field names (canonical names)
+        data = config.model_dump()
+        assert "timeout_ms" in data
+        assert data["timeout_ms"] == 45000
+        assert "circuit_breaker_timeout_ms" in data
+        assert data["circuit_breaker_timeout_ms"] == 90000
+
+        # by_alias=True uses alias names (legacy names)
+        data_aliased = config.model_dump(by_alias=True)
+        assert "timeout_seconds" in data_aliased
+        assert data_aliased["timeout_seconds"] == 45000
+        assert "circuit_breaker_timeout_seconds" in data_aliased
+        assert data_aliased["circuit_breaker_timeout_seconds"] == 90000
+
+    def test_model_dump_by_alias_true(self):
+        """Verify model_dump(by_alias=True) uses legacy field names."""
+        config = ModelIntelligenceConfig(
+            timeout_ms=30000,
+            circuit_breaker_timeout_ms=60000,
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+
+        data = config.model_dump(by_alias=True)
+
+        assert "timeout_seconds" in data
+        assert data["timeout_seconds"] == 30000
+        assert "circuit_breaker_timeout_seconds" in data
+        assert data["circuit_breaker_timeout_seconds"] == 60000
+
+    def test_model_validates_from_dict_with_legacy_names(self):
+        """Verify model can be created from dictionary using legacy field names."""
+        data = {
+            "base_url": "http://localhost:8053",
+            "timeout_seconds": 60000,  # Legacy alias name
+            "max_retries": 3,
+            "retry_delay_ms": 1000,
+            "circuit_breaker_enabled": True,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_timeout_seconds": 30000,  # Legacy alias name
+            "enable_event_publishing": True,
+            "input_topics": ["ns.domain.pattern.op.v1"],
+            "output_topics": {"event": "ns.domain.pattern.event.v1"},
+            "consumer_group_id": "test-group",
+        }
+
+        config = ModelIntelligenceConfig.model_validate(data)
+
+        assert config.base_url == "http://localhost:8053"
+        assert config.timeout_ms == 60000
+        assert config.circuit_breaker_timeout_ms == 30000
+
+    def test_model_validates_from_dict_with_canonical_names(self):
+        """Verify model can be created from dictionary using canonical field names."""
+        data = {
+            "base_url": "http://localhost:8053",
+            "timeout_ms": 60000,  # Canonical name
+            "max_retries": 3,
+            "retry_delay_ms": 1000,
+            "circuit_breaker_enabled": True,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_timeout_ms": 30000,  # Canonical name
+            "enable_event_publishing": True,
+            "input_topics": ["ns.domain.pattern.op.v1"],
+            "output_topics": {"event": "ns.domain.pattern.event.v1"},
+            "consumer_group_id": "test-group",
+        }
+
+        config = ModelIntelligenceConfig.model_validate(data)
+
+        assert config.base_url == "http://localhost:8053"
+        assert config.timeout_ms == 60000
+        assert config.circuit_breaker_timeout_ms == 30000
+
+    def test_json_roundtrip_preserves_values(self):
+        """Verify JSON serialization/deserialization preserves all values."""
+        original = ModelIntelligenceConfig(
+            base_url="http://archon:8053",
+            timeout_ms=45000,
+            max_retries=5,
+            retry_delay_ms=2000,
+            circuit_breaker_enabled=True,
+            circuit_breaker_threshold=10,
+            circuit_breaker_timeout_ms=90000,
+            enable_event_publishing=True,
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"quality": "ns.domain.pattern.quality.v1"},
+            consumer_group_id="test-consumers",
+        )
+
+        # Serialize to JSON
+        json_str = original.model_dump_json()
+
+        # Deserialize back
+        restored = ModelIntelligenceConfig.model_validate_json(json_str)
+
+        # All values should be preserved
+        assert restored.base_url == original.base_url
+        assert restored.timeout_ms == original.timeout_ms
+        assert restored.max_retries == original.max_retries
+        assert restored.retry_delay_ms == original.retry_delay_ms
+        assert restored.circuit_breaker_enabled == original.circuit_breaker_enabled
+        assert restored.circuit_breaker_threshold == original.circuit_breaker_threshold
+        assert (
+            restored.circuit_breaker_timeout_ms == original.circuit_breaker_timeout_ms
+        )
+        assert restored.enable_event_publishing == original.enable_event_publishing
+        assert restored.input_topics == original.input_topics
+        assert restored.output_topics == original.output_topics
+        assert restored.consumer_group_id == original.consumer_group_id
+
+
+@pytest.mark.unit
+class TestTypedDictCompatibility:
+    """Test that _IntelligenceConfigDict remains compatible with legacy usage."""
+
+    def test_typed_dict_has_all_required_fields(self):
+        """Verify TypedDict has all fields expected by legacy code."""
+        # Create a complete config dict - if any field is missing, type checker
+        # would flag it (though runtime won't enforce)
+        config_dict: _IntelligenceConfigDict = {
+            "base_url": "http://localhost:8053",
+            "timeout_seconds": 30000,
+            "max_retries": 3,
+            "retry_delay_ms": 1000,
+            "circuit_breaker_enabled": True,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_timeout_seconds": 60000,
+            "enable_event_publishing": True,
+            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
+            "output_topics": {
+                "quality_assessed": "dev.omninode.intelligence.event.quality_assessed.v1",
+            },
+            "consumer_group_id": "test-group",
+        }
+
+        # Verify all fields are accessible
+        assert "base_url" in config_dict
+        assert "timeout_seconds" in config_dict
+        assert "max_retries" in config_dict
+        assert "retry_delay_ms" in config_dict
+        assert "circuit_breaker_enabled" in config_dict
+        assert "circuit_breaker_threshold" in config_dict
+        assert "circuit_breaker_timeout_seconds" in config_dict
+        assert "enable_event_publishing" in config_dict
+        assert "input_topics" in config_dict
+        assert "output_topics" in config_dict
+        assert "consumer_group_id" in config_dict
+
+    def test_typed_dict_can_be_unpacked_to_model(self):
+        """Verify TypedDict can be unpacked into ModelIntelligenceConfig."""
+        config_dict: _IntelligenceConfigDict = {
+            "base_url": "http://localhost:8053",
+            "timeout_seconds": 30000,
+            "max_retries": 3,
+            "retry_delay_ms": 1000,
+            "circuit_breaker_enabled": True,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_timeout_seconds": 60000,
+            "enable_event_publishing": True,
+            "input_topics": ["dev.omninode.intelligence.request.assess.v1"],
+            "output_topics": {
+                "quality_assessed": "dev.omninode.intelligence.event.quality_assessed.v1",
+            },
+            "consumer_group_id": "test-group",
+        }
+
+        # This should work due to alias support
+        config = ModelIntelligenceConfig(**config_dict)
+
+        assert config.base_url == "http://localhost:8053"
+        assert config.timeout_ms == 30000
+        assert config.circuit_breaker_timeout_ms == 60000
+
+
+@pytest.mark.unit
+class TestHelperMethodsBackwardCompatibility:
+    """Test that helper methods remain backward compatible."""
+
+    def test_get_health_check_url_format(self):
+        """Verify health check URL format is unchanged."""
+        config = ModelIntelligenceConfig()
+        url = config.get_health_check_url()
+
+        assert url == "http://localhost:8053/health"
+        assert url.endswith("/health")
+
+    def test_get_assess_code_url_format(self):
+        """Verify assess code URL format is unchanged."""
+        config = ModelIntelligenceConfig()
+        url = config.get_assess_code_url()
+
+        assert url == "http://localhost:8053/assess/code"
+        assert url.endswith("/assess/code")
+
+    def test_get_performance_baseline_url_format(self):
+        """Verify performance baseline URL format is unchanged."""
+        config = ModelIntelligenceConfig()
+        url = config.get_performance_baseline_url()
+
+        assert url == "http://localhost:8053/performance/baseline"
+        assert url.endswith("/performance/baseline")
+
+    def test_get_output_topic_for_event_returns_topic(self):
+        """Verify get_output_topic_for_event returns correct topic."""
+        config = ModelIntelligenceConfig()
+        topic = config.get_output_topic_for_event("quality_assessed")
+
+        assert topic is not None
+        assert "quality_assessed" in topic
+
+    def test_get_output_topic_for_event_returns_none_for_unknown(self):
+        """Verify get_output_topic_for_event returns None for unknown events."""
+        config = ModelIntelligenceConfig()
+        topic = config.get_output_topic_for_event("nonexistent_event")
+
+        assert topic is None
+
+    def test_is_circuit_breaker_enabled_method(self):
+        """Verify is_circuit_breaker_enabled method works."""
+        config_enabled = ModelIntelligenceConfig()
+        assert config_enabled.is_circuit_breaker_enabled() is True
+
+        config_disabled = ModelIntelligenceConfig(
+            circuit_breaker_enabled=False,
+            input_topics=["ns.domain.pattern.op.v1"],
+            output_topics={"event": "ns.domain.pattern.event.v1"},
+        )
+        assert config_disabled.is_circuit_breaker_enabled() is False
+
+
+@pytest.mark.unit
+class TestEnvironmentVariableOverrides:
+    """Test that environment variable overrides work correctly."""
+
+    @patch.dict(
+        os.environ,
+        {"INTELLIGENCE_BASE_URL": "http://custom-service:9999"},
+        clear=True,
+    )
+    def test_base_url_env_override_in_development(self):
+        """Verify INTELLIGENCE_BASE_URL overrides default in development."""
+        config = ModelIntelligenceConfig.for_environment("development")
+
+        assert config.base_url == "http://custom-service:9999"
+
+    @patch.dict(
+        os.environ,
+        {"INTELLIGENCE_BASE_URL": "http://custom-service:9999"},
+        clear=True,
+    )
+    def test_base_url_env_override_in_production(self):
+        """Verify INTELLIGENCE_BASE_URL overrides default in production."""
+        config = ModelIntelligenceConfig.for_environment("production")
+
+        assert config.base_url == "http://custom-service:9999"
+
+    @patch.dict(
+        os.environ,
+        {"INTELLIGENCE_BASE_URL": "http://custom-service:9999"},
+        clear=True,
+    )
+    def test_base_url_env_override_in_staging(self):
+        """Verify INTELLIGENCE_BASE_URL overrides default in staging."""
+        config = ModelIntelligenceConfig.for_environment("staging")
+
+        assert config.base_url == "http://custom-service:9999"
+
+
+@pytest.mark.unit
+class TestDefaultValuesBackwardCompatibility:
+    """Test that default values remain unchanged for backward compatibility."""
+
+    def test_default_base_url(self):
+        """Verify default base_url is unchanged."""
+        config = ModelIntelligenceConfig()
+        assert config.base_url == "http://localhost:8053"
+
+    def test_default_timeout_ms(self):
+        """Verify default timeout is 30000ms (30 seconds)."""
+        config = ModelIntelligenceConfig()
+        assert config.timeout_ms == 30000
+
+    def test_default_max_retries(self):
+        """Verify default max_retries is 3."""
+        config = ModelIntelligenceConfig()
+        assert config.max_retries == 3
+
+    def test_default_retry_delay_ms(self):
+        """Verify default retry_delay_ms is 1000."""
+        config = ModelIntelligenceConfig()
+        assert config.retry_delay_ms == 1000
+
+    def test_default_circuit_breaker_enabled(self):
+        """Verify circuit breaker is enabled by default."""
+        config = ModelIntelligenceConfig()
+        assert config.circuit_breaker_enabled is True
+
+    def test_default_circuit_breaker_threshold(self):
+        """Verify default circuit_breaker_threshold is 5."""
+        config = ModelIntelligenceConfig()
+        assert config.circuit_breaker_threshold == 5
+
+    def test_default_circuit_breaker_timeout_ms(self):
+        """Verify default circuit_breaker_timeout_ms is 60000 (60 seconds)."""
+        config = ModelIntelligenceConfig()
+        assert config.circuit_breaker_timeout_ms == 60000
+
+    def test_default_enable_event_publishing(self):
+        """Verify event publishing is enabled by default."""
+        config = ModelIntelligenceConfig()
+        assert config.enable_event_publishing is True
+
+    def test_default_consumer_group_id(self):
+        """Verify default consumer_group_id is unchanged."""
+        config = ModelIntelligenceConfig()
+        assert config.consumer_group_id == "intelligence_adapter_consumers"
+
+    def test_default_input_topics_format(self):
+        """Verify default input topics follow expected format."""
+        config = ModelIntelligenceConfig()
+        assert len(config.input_topics) == 1
+        assert "omninode.intelligence.request.assess.v1" in config.input_topics[0]
+
+    def test_default_output_topics_keys(self):
+        """Verify default output topics have expected keys."""
+        config = ModelIntelligenceConfig()
+        expected_keys = {"quality_assessed", "performance_optimized", "error", "audit"}
+        assert expected_keys == set(config.output_topics.keys())
