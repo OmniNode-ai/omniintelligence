@@ -403,7 +403,7 @@ class ContractLinter:
             in validation logic. They exist to establish the API surface for future
             enhancements.
         """
-        # TODO(OMN-241): Implement strict validation mode
+        # TODO(OMN-470): Implement strict validation mode
         # Planned features for strict=True:
         # - Enable path traversal protection
         # - Treat deprecation warnings as validation errors
@@ -415,7 +415,7 @@ class ContractLinter:
                 "Currently only default validation is supported."
             )
 
-        # TODO(OMN-241): Implement schema version selection
+        # TODO(OMN-471): Implement schema version selection
         # Planned features for schema_version:
         # - Support multiple schema versions (1.0.0, 1.1.0, 2.0.0, etc.)
         # - Validate contracts against their specified schema version
