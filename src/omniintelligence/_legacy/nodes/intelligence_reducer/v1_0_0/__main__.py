@@ -10,7 +10,7 @@ import os
 import signal
 import sys
 
-from omniintelligence.models import ModelReducerConfig
+from omniintelligence._legacy.models import ModelReducerConfig
 from omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (
     IntelligenceReducer,
 )

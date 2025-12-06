@@ -65,7 +65,7 @@ from omniintelligence.events.publisher.event_publisher import EventPublisher
 
 # Intelligence I/O models
 # Event contracts from canonical models location
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     EnumAnalysisErrorCode,
     EnumAnalysisOperationType,
     EnumCodeAnalysisEventType,
@@ -75,15 +75,15 @@ from omniintelligence.models import (
     ModelCodeAnalysisRequestPayload,
     ModelIntelligenceInput,
 )
-from omniintelligence.models.model_intelligence_api_contracts import (
+from omniintelligence._legacy.models.model_intelligence_api_contracts import (
     ModelPatternDetectionRequest,
     ModelPerformanceAnalysisRequest,
     ModelQualityAssessmentRequest,
 )
-from omniintelligence.models.model_intelligence_config import (
+from omniintelligence._legacy.models.model_intelligence_config import (
     ModelIntelligenceConfig,
 )
-from omniintelligence.models.model_intelligence_output import (
+from omniintelligence._legacy.models.model_intelligence_output import (
     ModelIntelligenceOutput,
 )
 
@@ -183,7 +183,7 @@ class NodeIntelligenceAdapterEffect:
 
     **Usage**:
         >>> from uuid import uuid4
-        >>> from omniintelligence.models import ModelIntelligenceInput
+        >>> from omniintelligence._legacy.models import ModelIntelligenceInput
         >>>
         >>> # Direct operation (non-event)
         >>> node = NodeIntelligenceAdapterEffect(service_url="http://localhost:8053")

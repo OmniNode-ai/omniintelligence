@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Backlog Cleanup**: Canceled tickets that conflict with Runtime Host architecture
   - OMN-369: NodeEventConsumer → Kafka consumption belongs in omnibase_infra
-  - OMN-372: Legacy suffix → Redundant (nodes already in `_legacy/` folder)
+  - OMN-372: Suffix removal → Redundant (nodes already in `_archived/` folder)
 
 ## [0.1.0] - 2025-12-04
 
@@ -40,8 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD Integration**: GitHub Actions workflow for contract validation
 - **Pre-commit Hooks**: Contract linter integrated with pre-commit
 
-#### Node Migration from OmniArchon
-- **16 Intelligence Nodes**: Migrated from legacy omniarchon repository
+#### Intelligence Nodes
+- **16 Intelligence Nodes**: Imported from omniarchon repository
   - **Compute Nodes** (6): vectorization, quality_scoring, entity_extraction, relationship_detection, semantic_analysis, pattern_matching
   - **Effect Nodes** (5): kafka_event, qdrant_vector, memgraph_graph, postgres_pattern, intelligence_api
   - **Orchestrator Nodes** (1): intelligence_orchestrator
@@ -51,10 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Documentation
 - **CLAUDE.md**: Project-specific instructions for Claude Code
-- **Migration Guides**: Documentation for migrating from omniarchon
-  - `MIGRATION_SUMMARY.md`: High-level migration overview
-  - `OMNIARCHON_MIGRATION_INVENTORY.md`: Detailed component inventory
-  - `QUICK_REFERENCE.md`: Legacy API reference
+- **Reference Documentation**: Documentation from omniarchon
+  - `OMNIARCHON_INVENTORY.md`: Detailed component inventory
+  - `QUICK_REFERENCE.md`: API reference
 
 #### Project Infrastructure
 - **pyproject.toml**: uv-based dependency management with dependency groups
@@ -68,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Repository Structure
 ```
 src/omniintelligence/
-├── _legacy/           # Migrated nodes (to be refactored)
+├── _archived/         # Archived nodes (to be refactored)
 │   ├── nodes/         # 16 intelligence nodes
 │   └── models/        # Shared models
 ├── runtime/           # Runtime host configuration
@@ -94,8 +93,8 @@ src/omniintelligence/
 - **Runtime Host Entrypoint** (OMN-305): Blocked on OMN-303
 - **Example Contracts** (OMN-374): Blocked on runtime architecture
 
-#### Legacy Code
-- All nodes in `_legacy/` contain direct I/O imports
+#### Archived Code
+- All nodes in `_archived/` contain direct I/O imports
 - Nodes will be refactored once omnibase_spi handler protocols are available
 - Direct Kafka, Qdrant, Memgraph, PostgreSQL imports to be removed
 
@@ -104,21 +103,21 @@ src/omniintelligence/
 - `pydantic` >= 2.0
 - `pyyaml` >= 6.0
 
-## Migration from OmniArchon
+## Architecture Overview
 
-### What Moved
+### From OmniArchon
 - Intelligence nodes (compute, effect, orchestrator, reducer)
 - Node contracts (YAML definitions)
 - FSM state machine contracts
 - Shared models and enums
 
-### What Stayed in OmniArchon
-- Legacy service implementations
+### OmniArchon Retained
+- Service implementations
 - Direct database clients
 - HTTP API servers
 - Kafka consumer loops
 
-### Architecture Changes
+### Architecture Benefits
 - **Before**: 1 container per node, direct I/O in nodes
 - **After**: Runtime Host pattern, handlers injected via SPI protocols
 - **Benefit**: Reduced from 10+ containers to 2-3, ~80% memory reduction

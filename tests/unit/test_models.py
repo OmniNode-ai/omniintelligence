@@ -11,12 +11,12 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from omniintelligence.enums import (
+from omniintelligence._legacy.enums import (
     EnumFSMAction,
     EnumFSMType,
     EnumIntentType,
 )
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelFSMState,
     ModelIntelligenceConfig,
     ModelIntent,

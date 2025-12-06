@@ -4,12 +4,12 @@ Intent Model for omniintelligence.
 Intent models used for communication between reducers and orchestrators.
 """
 
-from datetime import datetime, UTC
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.enums import EnumIntentType
+from omniintelligence._legacy.enums import EnumIntentType
 
 
 def _utc_now() -> datetime:
@@ -48,7 +48,7 @@ class ModelIntent(BaseModel):
     timestamp: datetime = Field(
         default_factory=_utc_now, description="Intent creation timestamp"
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None, description="Additional metadata"
     )
 

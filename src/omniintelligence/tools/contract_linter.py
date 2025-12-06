@@ -70,7 +70,7 @@ def _is_safe_path(file_path: Path, allowed_dir: Path | None = None) -> bool:
 
     This helper function detects path traversal attempts like "../../../etc/passwd".
     It is reserved for future strict mode implementation and is NOT enforced by
-    default to maintain backward compatibility with existing usage patterns.
+    default.
 
     When strict mode is implemented, this function will be used to validate
     file paths before processing to prevent malicious path traversal attacks.
@@ -125,8 +125,8 @@ class EnumContractErrorType(str, Enum):
     """
     Enumeration of contract validation error types.
 
-    Values are string-based for easy serialization and compatibility with
-    existing error handling code.
+    Values are string-based for easy serialization and integration with
+    error handling pipelines.
     """
 
     MISSING_FIELD = "missing_field"
@@ -431,7 +431,7 @@ class ContractLinter:
                 of optional best-practice fields.
             schema_version: Reserved for future schema version selection. Not yet
                 implemented. Will allow validating contracts against different schema
-                versions for backward compatibility. Currently only "1.0.0" is supported.
+                versions. Currently only "1.0.0" is supported.
             parallel_threshold: Minimum number of files to trigger parallel validation
                 when parallel=True is passed to validate_batch(). Defaults to 10.
                 Set to 0 to always use parallel validation when parallel=True.
@@ -445,7 +445,7 @@ class ContractLinter:
             The `strict` and `schema_version` parameters are stored as instance
             attributes (`_strict` and `_schema_version`) but are not currently used
             in validation logic. They exist to establish the API surface for future
-            enhancements without breaking backward compatibility.
+            enhancements.
         """
         # TODO(OMN-241): Implement strict validation mode
         # Planned features for strict=True:
@@ -462,8 +462,7 @@ class ContractLinter:
         # TODO(OMN-241): Implement schema version selection
         # Planned features for schema_version:
         # - Support multiple schema versions (1.0.0, 1.1.0, 2.0.0, etc.)
-        # - Enable backward-compatible validation for older contracts
-        # - Provide migration hints when validating old schemas
+        # - Validate contracts against their specified schema version
         if schema_version != "1.0.0":
             raise NotImplementedError(
                 f"Schema version '{schema_version}' is not yet supported. "
@@ -952,18 +951,22 @@ class ContractLinter:
             results: List of validation results
 
         Returns:
-            Dictionary with summary statistics
+            Dictionary with summary statistics using ONEX naming conventions:
+            - total_count: Total number of contracts validated
+            - valid_count: Number of contracts that passed validation
+            - invalid_count: Number of contracts that failed validation
+            - pass_rate: Percentage of contracts that passed (0.0-100.0)
         """
-        total = len(results)
-        valid = sum(1 for r in results if r.is_valid)
-        invalid = total - valid
+        total_count = len(results)
+        valid_count = sum(1 for r in results if r.is_valid)
+        invalid_count = total_count - valid_count
 
-        pass_rate = (valid / total * 100) if total > 0 else 0.0
+        pass_rate = (valid_count / total_count * 100) if total_count > 0 else 0.0
 
         return {
-            "total": total,
-            "valid": valid,
-            "invalid": invalid,
+            "total_count": total_count,
+            "valid_count": valid_count,
+            "invalid_count": invalid_count,
             "pass_rate": pass_rate,
         }
 
@@ -1057,12 +1060,13 @@ def _format_json_output(
 
     Returns:
         JSON string with structure: {"results": [...], "summary": {...}}
+        Summary uses ONEX naming conventions with *_count suffix for counts.
     """
     return json.dumps(
         {
             "results": [r.to_dict() for r in results],
             "summary": {
-                "total": len(results),
+                "total_count": len(results),
                 "valid_count": sum(1 for r in results if r.is_valid),
                 "invalid_count": sum(1 for r in results if not r.is_valid),
             },

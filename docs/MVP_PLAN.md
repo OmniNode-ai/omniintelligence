@@ -1,7 +1,7 @@
 # OmniIntelligence MVP Plan
 
 **Date**: December 3, 2025
-**Branch**: `feature/intelligence-nodes-migration`
+**Branch**: `feature/intelligence-nodes`
 **Goal**: Declarative, event-driven intelligence pipeline with contract-driven nodes
 
 ---
@@ -17,9 +17,9 @@ Build an MVP that:
 **Architecture Shift**: Moving from imperative Python node implementations to declarative YAML contracts executed by a generic runtime. See [DECLARATIVE_EFFECT_NODES_SPEC.md](specs/DECLARATIVE_EFFECT_NODES_SPEC.md) for full specification.
 
 **Current State**:
-- 8 legacy nodes in `src/omniintelligence/_legacy/nodes/` (imperative, to be replaced)
+- 8 nodes in `src/omniintelligence/_archived/nodes/` (imperative, to be replaced)
 - New declarative architecture defined in spec
-- Contract-driven nodes will replace legacy implementations
+- Contract-driven nodes will replace current implementations
 
 ---
 
@@ -71,9 +71,9 @@ Build an MVP that:
 | **Reducer** | Imperative (Python FSM) | Valid pattern, keep or migrate later |
 | **Orchestrator** | Imperative (Python workflows) | Valid pattern, keep or migrate later |
 
-### Legacy Nodes (To Be Replaced)
+### Current Nodes (To Be Replaced)
 
-The following nodes are in `src/omniintelligence/_legacy/nodes/` and will be replaced by contract-driven equivalents:
+The following nodes are in `src/omniintelligence/_archived/nodes/` and will be replaced by contract-driven equivalents:
 
 **Effect Nodes (4)** - Will become YAML contracts:
 - `qdrant_vector_effect/` -> `qdrant_vector_effect.yaml`
@@ -175,7 +175,7 @@ src/omniintelligence/
 
 ### Goal
 
-Create YAML contracts for the 4 effect nodes, replacing legacy Python implementations.
+Create YAML contracts for the 4 effect nodes, replacing current Python implementations.
 
 ### Contracts to Create
 
@@ -260,9 +260,9 @@ resilience:
 ### Success Criteria
 
 - [ ] All 4 effect contracts created and validated
-- [ ] Contracts match legacy node functionality
+- [ ] Contracts match current node functionality
 - [ ] Integration tests pass with real backends
-- [ ] Contract-driven nodes produce same results as legacy
+- [ ] Contract-driven nodes produce same results as current implementations
 
 ---
 
@@ -552,7 +552,7 @@ This is **not required for MVP** - defer to post-MVP.
 | 4 | Phase 4: Compute Contracts | 1 week | Phase 1 |
 | 5 | Phase 5: Storage Router | 1-2 days | Phases 2, 4 |
 | 6 | Phase 6: E2E Testing | 1 day | Phase 5 |
-| 7 | Phase 7: LLM Migration | 2-3 days | Optional, post-MVP |
+| 7 | Phase 7: LLM Integration | 2-3 days | Optional, post-MVP |
 
 **Total MVP Timeline**: 3-4 weeks
 
@@ -716,7 +716,7 @@ src/omniintelligence/nodes/
 ## References
 
 - [DECLARATIVE_EFFECT_NODES_SPEC.md](specs/DECLARATIVE_EFFECT_NODES_SPEC.md) - Full specification
-- [Legacy Nodes](../src/omniintelligence/_legacy/nodes/) - Imperative implementations (deprecated)
+- [Archived Nodes](../src/omniintelligence/_archived/nodes/) - Imperative implementations (deprecated)
 - [Contract Linter](../src/omniintelligence/tools/README.md) - YAML contract validation tool
 
 ---

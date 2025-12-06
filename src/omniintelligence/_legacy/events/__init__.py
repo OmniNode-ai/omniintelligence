@@ -6,7 +6,7 @@ from omniintelligence._legacy.events.publisher.event_publisher import (
 )
 
 # Event models are now re-exported from the canonical location (omniintelligence.models)
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelEventEnvelope,
     ModelEventMetadata,
     ModelEventSource,

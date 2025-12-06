@@ -46,7 +46,7 @@ from uuid import UUID, uuid4
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from pydantic import BaseModel, Field
 
-from omniintelligence.models import ModelEntity, ModelRelationship
+from omniintelligence._legacy.models import ModelEntity, ModelRelationship
 
 logger = logging.getLogger(__name__)
 
@@ -286,8 +286,8 @@ class NodeMemgraphGraphEffect:
         ...     NodeMemgraphGraphEffect,
         ...     ModelMemgraphGraphInput,
         ... )
-        >>> from omniintelligence.models import ModelEntity
-        >>> from omniintelligence.enums import EnumEntityType
+        >>> from omniintelligence._legacy.models import ModelEntity
+        >>> from omniintelligence._legacy.enums import EnumEntityType
         >>>
         >>> node = NodeMemgraphGraphEffect(container=None)
         >>> await node.initialize()

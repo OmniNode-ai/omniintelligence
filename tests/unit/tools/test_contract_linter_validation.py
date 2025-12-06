@@ -481,16 +481,16 @@ class TestContractLinterBatchValidation:
         )
 
     def test_validate_batch_summary(self, multiple_contract_files: list[Path]):
-        """Test batch validation summary statistics."""
+        """Test batch validation summary statistics using ONEX naming conventions."""
         linter = ContractLinter()
         results = linter.validate_batch(multiple_contract_files)
 
         summary = linter.get_summary(results)
 
         assert isinstance(summary, dict)
-        assert summary["total"] == 3
-        assert summary["valid"] == 2
-        assert summary["invalid"] == 1
+        assert summary["total_count"] == 3
+        assert summary["valid_count"] == 2
+        assert summary["invalid_count"] == 1
         assert "pass_rate" in summary
 
 

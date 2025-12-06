@@ -243,7 +243,6 @@ class ModelRuntimeProfileConfig(BaseModel):
         default="default",
         description="Profile name identifier",
         examples=["default", "development", "compute-only", "minimal"],
-        alias="name",  # Backward compatibility alias
     )
 
     node_types: list[Literal["compute", "effect", "reducer", "orchestrator"]] = Field(
@@ -263,7 +262,6 @@ class ModelRuntimeProfileConfig(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid",
-        populate_by_name=True,  # Allow both 'name' and 'profile_name'
     )
 
 

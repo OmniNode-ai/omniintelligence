@@ -603,7 +603,6 @@ class ModelIntelligenceConfig(BaseModel):
     # Pydantic v2 configuration
     model_config = ConfigDict(
         extra="forbid",  # Reject unknown fields for safety
-        populate_by_name=True,  # Allow both alias and field name
         json_schema_extra={
             "examples": [
                 # Development example

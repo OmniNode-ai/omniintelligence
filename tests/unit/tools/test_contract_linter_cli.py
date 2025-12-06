@@ -163,12 +163,12 @@ class TestCLIEntryPoint:
         assert isinstance(parsed["results"], list), "'results' must be a list"
         assert len(parsed["results"]) == 1, "Should have exactly one result"
 
-        # Validate summary structure
+        # Validate summary structure using ONEX naming conventions (*_count suffix)
         summary = parsed["summary"]
-        assert "total" in summary, "Summary must include 'total'"
+        assert "total_count" in summary, "Summary must include 'total_count'"
         assert "valid_count" in summary, "Summary must include 'valid_count'"
         assert "invalid_count" in summary, "Summary must include 'invalid_count'"
-        assert summary["total"] == 1, "Total should be 1"
+        assert summary["total_count"] == 1, "Total count should be 1"
         assert summary["valid_count"] == 1, "Valid count should be 1"
         assert summary["invalid_count"] == 0, "Invalid count should be 0"
 
@@ -716,7 +716,7 @@ class TestCLIExitCodesSubprocess:
         assert len(output["results"]) == 1
         assert output["results"][0]["is_valid"] is True
         assert output["results"][0]["validation_errors"] == []
-        assert output["summary"]["total"] == 1
+        assert output["summary"]["total_count"] == 1
         assert output["summary"]["valid_count"] == 1
 
     def test_subprocess_json_output_on_failure(self, invalid_contract_file: Path):
@@ -746,7 +746,7 @@ class TestCLIExitCodesSubprocess:
         assert len(output["results"]) == 1
         assert output["results"][0]["is_valid"] is False
         assert len(output["results"][0]["validation_errors"]) > 0
-        assert output["summary"]["total"] == 1
+        assert output["summary"]["total_count"] == 1
         assert output["summary"]["invalid_count"] == 1
 
     def test_subprocess_verbose_output_shows_field_errors(

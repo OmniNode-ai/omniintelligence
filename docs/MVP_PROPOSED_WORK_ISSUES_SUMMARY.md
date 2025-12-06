@@ -1,12 +1,12 @@
-# OmniIntelligence Runtime Host Migration - Summary
+# OmniIntelligence Runtime Host - Summary
 
 **Target**: v0.5.0 | **Total Issues**: 56 (35 MVP, 16 Beta, 5 GA)
 
 ---
 
-## TL;DR - What This Migration Does
+## TL;DR - What This Refactoring Does
 
-**Why this migration exists:**
+**Why this refactoring exists:**
 - **Autonomy → Determinism**: Nodes become pure functions, behavior is predictable
 - **Zero I/O → Safety**: Nodes can't cause side effects, easier to test and reason about
 - **Consolidation → Reliability**: Single Runtime Host simplifies debugging, reduces failure modes
@@ -26,7 +26,7 @@
 **Reading time**: ~30 minutes (full) | ~5 minutes (essentials)
 
 **Essential reading** (5 min):
-1. TL;DR (above) - What this migration does
+1. TL;DR (above) - What this refactoring does
 2. Architectural Invariants - The non-negotiable rules
 3. Node Behavioral Boundaries - What each node type can/cannot do
 
@@ -37,7 +37,7 @@
 
 **For active developers**:
 1. Jump to the Phase relevant to your current work
-2. Reference Node Migration Dashboard for status
+2. Reference Node Dashboard for status
 3. Use Node Compliance Checklist when completing work
 
 **Quick reference sections**:
@@ -90,7 +90,7 @@
 
 ## What Runtime Host Replaces
 
-| Before (Legacy) | After (Runtime Host) |
+| Before | After (Runtime Host) |
 |-----------------|----------------------|
 | Per-node `main.py` entrypoints | Single `RuntimeHostProcess` entrypoint |
 | Per-node Kafka consumers | Centralized `ProtocolEventBus` |
@@ -240,7 +240,7 @@ class QualityScoringCompute(NodeCompute):
 
 - Old node entrypoints (`main.py`, per-node containers) **will be removed**
 - All Kafka consumer logic in nodes **must be deleted entirely**
-- Legacy orchestrator patterns **must be rewritten** for handler injection
+- Old orchestrator patterns **must be rewritten** for handler injection
 - Any tool assuming direct DB/Qdrant/Memgraph access **must be updated**
 
 ### Cutover Strategy
@@ -248,13 +248,13 @@ class QualityScoringCompute(NodeCompute):
 **"Hard cutover" means:**
 - Runtime path switchover is atomic - only Runtime Host consumes Kafka after cutover
 - No parallel operation of old and new consumers (causes message duplication)
-- Legacy code/Dockerfiles remain during 2-week validation window for potential rollback
+- Old code/Dockerfiles remain during 2-week validation window for potential rollback
 
 **Rollback policy:**
 - Rollback is supported during 2-week validation window only
 - Rollback procedure: redeploy v0.4.x artifacts, disable Runtime Host profiles
 - After validation window closes: fix-forward only, no rollback supported
-- Legacy artifacts deleted in Phase 9 after validation passes
+- Old artifacts deleted in Phase 9 after validation passes
 
 ---
 
@@ -758,7 +758,7 @@ INITIALIZING → VALIDATING → BINDING → RUNNING
 | 7.1 | Create unified runtime host Dockerfile | MVP/Beta |
 | 7.2 | Create docker-compose.runtime.yml | MVP |
 | 7.3 | Create runtime profiles for node selection | MVP |
-| 7.4 | Archive legacy per-node Dockerfiles | Beta |
+| 7.4 | Archive per-node Dockerfiles | Beta |
 | 7.5 | Create Runtime Profile Compatibility Matrix | MVP |
 | 7.6 | Docker Compose Autogeneration from Registry | Beta |
 
@@ -781,7 +781,7 @@ INITIALIZING → VALIDATING → BINDING → RUNNING
 | 8.12 | Define Optional Handler Behavior Semantics | Beta |
 | 8.13 | Add Protocol Lockfile Snapshot Tests | Beta |
 
-### Phase 9: Legacy Cleanup (3 issues)
+### Phase 9: Cleanup (3 issues)
 **After 2 weeks production validation**
 
 | Issue | Title | Milestone |
@@ -810,14 +810,14 @@ INITIALIZING → VALIDATING → BINDING → RUNNING
 - omnibase_core v0.5.x receives these components
 - OmniInt v0.6.0 removes local copies, depends on core v0.5.x
 
-**Why not move now?**: Reduces cross-repo coordination during migration. Ship working code first, refactor second.
+**Why not move now?**: Reduces cross-repo coordination during implementation. Ship working code first, refactor second.
 
 ---
 
-## Node Migration Dashboard
+## Node Dashboard
 
 ### Compute Nodes (8)
-| Node | Handler | Version | I/O Violations | Migration | Tests |
+| Node | Handler | Version | I/O Violations | Status | Tests |
 |------|---------|---------|----------------|-----------|-------|
 | vectorization_compute | IEmbeddingHandler | v1.1.0 | OpenAI direct calls | TODO (3.1) | ❌ |
 | quality_scoring_compute | None (pure) | v1.0.0 | None | READY | ❌ |
@@ -829,7 +829,7 @@ INITIALIZING → VALIDATING → BINDING → RUNNING
 | execution_trace_parser_compute | None (pure) | v1.0.0 | None | READY | ❌ |
 
 ### Effect Nodes (5)
-| Node | Handler | Version | I/O Violations | Migration | Tests |
+| Node | Handler | Version | I/O Violations | Status | Tests |
 |------|---------|---------|----------------|-----------|-------|
 | kafka_event_effect | IKafkaProducerHandler | v2.0.0 | confluent_kafka direct | TODO (4.1) | ❌ |
 | qdrant_vector_effect | IVectorStoreHandler | v2.0.0 | qdrant_client direct | TODO (4.2) | ❌ |
@@ -840,7 +840,7 @@ INITIALIZING → VALIDATING → BINDING → RUNNING
 > **Note**: `intelligence_adapter` has ambiguous responsibilities. Consider future split into `IntelligenceEnvelopeBuilderEffect` + `IntelligenceAdapterProducerEffect`.
 
 ### Orchestrators (2) & Reducer (1)
-| Node | Dependencies | Version | I/O Violations | Migration | Tests |
+| Node | Dependencies | Version | I/O Violations | Status | Tests |
 |------|--------------|---------|----------------|-----------|-------|
 | intelligence_orchestrator | 5 workflow contracts | v1.5.0 | File I/O (YAML) | TODO (5.2) | ❌ |
 | pattern_assembler_orchestrator | 4-phase assembly | v1.5.0 | File I/O (YAML) | TODO (5.3) | ❌ |
@@ -953,8 +953,8 @@ Phase 9 (Cleanup)
 | Handler protocols need mid-milestone redesign | High | 3-4 | Protocol lockfile frozen before Phase 3 starts |
 | Kafka throughput requires handler-layer batching | Medium | 6 | Design batching API in handler config before Phase 6 |
 | Version skew between core/spi/infra | High | 2-6 | CI compatibility matrix updated each phase |
-| Legacy contracts missing required metadata | Medium | 2 | Contract linter (1.1) catches before Phase 3 |
-| Competing Kafka consumers in legacy code | High | 4 | `grep -r "Consumer" src/` audit before Phase 4.5 |
+| Contracts missing required metadata | Medium | 2 | Contract linter (1.1) catches before Phase 3 |
+| Competing Kafka consumers in old code | High | 4 | `grep -r "Consumer" src/` audit before Phase 4.5 |
 
 ---
 
@@ -965,7 +965,7 @@ Phase 9 (Cleanup)
 - Missing contract version increments after changes
 - Cyclic orchestrator workflow definitions
 - Forgetting to update envelope schemas
-- Assuming gradual migration is possible (it's not)
+- Assuming gradual rollout is possible (it's not)
 
 ---
 
@@ -981,9 +981,9 @@ Phase 9 (Cleanup)
 - Graph handler: verify topology
 - Kafka handler: verify broker connectivity
 
-### Safe Legacy Cleanup Criteria
+### Safe Cleanup Criteria
 - 2 consecutive releases with stable Runtime Host
-- All nodes fully migrated
+- All nodes fully refactored
 - All handler tests passing at ≥90% coverage
 
 ---
@@ -992,7 +992,7 @@ Phase 9 (Cleanup)
 
 **Location**: `docs/NODE_COMPLIANCE_CHECKLIST.md` (to be created in Phase 8.9)
 
-Every node must pass before migration is complete:
+Every node must pass before implementation is complete:
 
 | # | Requirement | Verification |
 |---|-------------|--------------|
@@ -1006,7 +1006,7 @@ Every node must pass before migration is complete:
 | 8 | Handler dependencies declared | Listed in contract `handlers` section |
 | 9 | Unit tests ≥80% coverage | Coverage report per-node |
 | 10 | Has profile membership | Listed in `IntelligenceNodeRegistry` |
-| 11 | Contract version updated | Matches migration table |
+| 11 | Contract version updated | Matches version table |
 | 12 | Logging uses unified logger | Uses `omnibase_core.logging`, not `print()` |
 
 ---
@@ -1020,7 +1020,7 @@ Every node must pass before migration is complete:
 - Add direct Kafka consumers (use `ProtocolEventBus`)
 - Import I/O libraries directly in nodes
 - Read environment variables in nodes
-- Assume gradual migration is possible
+- Assume gradual rollout is possible
 
 **MUST**:
 - Any new handler must implement SPI's `IHandler` protocol

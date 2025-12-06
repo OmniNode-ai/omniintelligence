@@ -2,16 +2,16 @@
 Event models for Kafka message schemas.
 
 DEPRECATED: This module is kept for backwards compatibility.
-Please import from omniintelligence.models instead:
+Please import from omniintelligence._legacy.models instead:
 
     # Preferred import (for models)
-    from omniintelligence.models import (
+    from omniintelligence._legacy.models import (
         ModelEventEnvelope,
         ModelCodeAnalysisRequestPayload,
     )
 
     # Preferred import (for enums)
-    from omniintelligence.enums import (
+    from omniintelligence._legacy.enums import (
         EnumCodeAnalysisEventType,
         EnumAnalysisOperationType,
     )
@@ -24,7 +24,7 @@ Please import from omniintelligence.models instead:
 """
 
 # Re-export all event models from the canonical location
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     # Event envelope models
     ModelEventEnvelope,
     ModelEventMetadata,

@@ -24,7 +24,7 @@ intelligence microservices, routing requests to appropriate backends:
 - Vector Service: Qdrant semantic search and indexing
 - Autonomous Service (8053): Autonomous learning and prediction
 
-Migration Notes:
+Usage:
 This model supports both content-based and path-based operations:
 - Content-based: Provide content field with code/document text
 - Path-based: Provide source_path for file-based operations
@@ -32,7 +32,7 @@ This model supports both content-based and path-based operations:
 
 Example (Code Quality Assessment):
     from uuid import uuid4
-    from omniintelligence.enums import EnumIntelligenceOperationType
+    from omniintelligence._legacy.enums import EnumIntelligenceOperationType
 
     input_data = ModelIntelligenceInput(
         operation_type=EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
@@ -67,8 +67,8 @@ See Also:
 - ModelIntelligenceOutput for response structure
 """
 
-from datetime import datetime, UTC
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -105,7 +105,7 @@ class ModelIntelligenceInput(BaseModel):
 
     Example (Code Quality with Content):
         >>> from uuid import uuid4
-        >>> from omniintelligence.enums import EnumIntelligenceOperationType
+        >>> from omniintelligence._legacy.enums import EnumIntelligenceOperationType
         >>>
         >>> quality_input = ModelIntelligenceInput(
         ...     operation_type=EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
@@ -240,7 +240,7 @@ class ModelIntelligenceInput(BaseModel):
     # Content Data
     # =============================================================================
 
-    content: Optional[str] = Field(
+    content: str | None = Field(
         default=None,
         description="""
         Code or document content to analyze.
@@ -281,7 +281,7 @@ class ModelIntelligenceInput(BaseModel):
     # File Path Context
     # =============================================================================
 
-    source_path: Optional[str] = Field(
+    source_path: str | None = Field(
         default=None,
         description="""
         Path to source file for context and identification.
@@ -317,7 +317,7 @@ class ModelIntelligenceInput(BaseModel):
     # Language Context
     # =============================================================================
 
-    language: Optional[str] = Field(
+    language: str | None = Field(
         default=None,
         description="""
         Programming or markup language identifier.
@@ -349,7 +349,7 @@ class ModelIntelligenceInput(BaseModel):
     # Operation Options
     # =============================================================================
 
-    options: Optional[dict[str, Any]] = Field(
+    options: dict[str, Any] | None = Field(
         default=None,
         description="""
         Operation-specific options and parameters.
@@ -402,7 +402,7 @@ class ModelIntelligenceInput(BaseModel):
     # Metadata
     # =============================================================================
 
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="""
         Additional metadata for extensibility and context.
@@ -472,7 +472,7 @@ class ModelIntelligenceInput(BaseModel):
         """
         # Import here to avoid circular dependency
         try:
-            from omniintelligence.enums import EnumIntelligenceOperationType
+            from omniintelligence._legacy.enums import EnumIntelligenceOperationType
 
             # Validate operation type
             if v not in [op.value for op in EnumIntelligenceOperationType]:
@@ -491,7 +491,7 @@ class ModelIntelligenceInput(BaseModel):
 
     @field_validator("source_path")
     @classmethod
-    def validate_path_security(cls, v: Optional[str]) -> Optional[str]:
+    def validate_path_security(cls, v: str | None) -> str | None:
         """
         Validate source_path for security concerns.
 
@@ -531,7 +531,7 @@ class ModelIntelligenceInput(BaseModel):
 
     @field_validator("content")
     @classmethod
-    def validate_content_security(cls, v: Optional[str]) -> Optional[str]:
+    def validate_content_security(cls, v: str | None) -> str | None:
         """
         Validate content for size and basic security.
 
@@ -563,7 +563,7 @@ class ModelIntelligenceInput(BaseModel):
 
     @field_validator("language")
     @classmethod
-    def validate_language(cls, v: Optional[str]) -> Optional[str]:
+    def validate_language(cls, v: str | None) -> str | None:
         """
         Validate and normalize language identifier.
 
@@ -633,7 +633,7 @@ class ModelIntelligenceInput(BaseModel):
             ValueError: If operation requirements are not met
         """
         # Import here to avoid circular dependency
-        from omniintelligence.enums import EnumIntelligenceOperationType
+        from omniintelligence._legacy.enums import EnumIntelligenceOperationType
 
         try:
             op_type = EnumIntelligenceOperationType(self.operation_type)
@@ -674,7 +674,7 @@ class ModelIntelligenceInput(BaseModel):
         Returns:
             Operation category string (quality, performance, document, etc.)
         """
-        from omniintelligence.enums import EnumIntelligenceOperationType
+        from omniintelligence._legacy.enums import EnumIntelligenceOperationType
 
         op_type = EnumIntelligenceOperationType(self.operation_type)
 
@@ -700,7 +700,7 @@ class ModelIntelligenceInput(BaseModel):
         Returns:
             True if operation does not modify state
         """
-        from omniintelligence.enums import EnumIntelligenceOperationType
+        from omniintelligence._legacy.enums import EnumIntelligenceOperationType
 
         op_type = EnumIntelligenceOperationType(self.operation_type)
         return op_type.is_read_only()

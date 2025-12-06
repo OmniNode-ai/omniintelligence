@@ -10,17 +10,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from omniintelligence.enums import (
+from omniintelligence._legacy.enums import (
     EnumFSMAction,
     EnumFSMType,
     EnumIntentType,
 )
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelReducerConfig,
     ModelReducerInput,
     ModelReducerOutput,
 )
-from omniintelligence.models.model_fsm_state import ModelFSMState
+from omniintelligence._legacy.models.model_fsm_state import ModelFSMState
 from src.omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (
     IntelligenceReducer,
 )

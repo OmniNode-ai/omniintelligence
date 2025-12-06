@@ -11,8 +11,8 @@ from typing import Any
 from omnibase_core.nodes import NodeCompute
 from pydantic import BaseModel, Field
 
-from omniintelligence.enums import EnumEntityType
-from omniintelligence.models import ModelEntity
+from omniintelligence._legacy.enums import EnumEntityType
+from omniintelligence._legacy.models import ModelEntity
 
 
 class ModelEntityExtractionInput(BaseModel):

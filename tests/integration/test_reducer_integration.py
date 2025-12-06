@@ -6,11 +6,11 @@ Tests FSM state transitions, lease management, and intent emission.
 
 import pytest
 
-from omniintelligence.enums import (
+from omniintelligence._legacy.enums import (
     EnumFSMAction,
     EnumFSMType,
 )
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelReducerConfig,
 )
 from src.omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (

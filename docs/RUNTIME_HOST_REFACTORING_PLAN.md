@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This document outlines the plan to refactor OmniIntelligence from the current **1-container-per-node** architecture to the new **Runtime Host** architecture. This migration will:
+This document outlines the plan to refactor OmniIntelligence from the current **1-container-per-node** architecture to the new **Runtime Host** architecture. This refactoring will:
 
 - Reduce container count from **10+ containers** to **2-3 containers**
 - Reduce memory footprint from **~1.5GB** to **~300MB**
@@ -194,19 +194,9 @@ NodeIntelligenceReducer
 NodeIntelligenceOrchestrator
 ```
 
-### Legacy (Imperative) - DEPRECATED
-
-```python
-NodeEffectLegacy           # Deprecated base
-NodeComputeLegacy          # Deprecated base
-
-# Deprecated implementations (v0.5.0 removal)
-NodeQdrantVectorEffectLegacy
-```
-
 ---
 
-## Migration Phases
+## Refactoring Phases
 
 ### Phase 0: Prerequisites (Blocked)
 
@@ -331,7 +321,7 @@ class NodeVectorizationCompute(NodeCompute[VectorizationInput, VectorizationOutp
 **Acceptance Criteria**:
 - [ ] No OmniIntelligence node imports `openai`, `sentence_transformers`, or `httpx` directly
 - [ ] All external calls go through SPI handler interfaces
-- [ ] Backward compatibility maintained
+- [ ] Existing functionality maintained
 
 ---
 
@@ -486,7 +476,7 @@ deployment/docker/
 deployment/docker/
 ├── Dockerfile.runtime-host           # Single runtime host image
 ├── docker-compose.runtime.yml        # 2-3 services
-└── legacy/                           # Old files for reference
+└── archived/                         # Old files for reference
 ```
 
 **Container Topology**:
@@ -530,20 +520,19 @@ All data plane dependencies (Kafka, Qdrant, etc.) are consumed via handlers - no
 **Deliverables**:
 - [ ] >80% test coverage
 - [ ] Performance benchmark report
-- [ ] Migration runbook
+- [ ] Deployment runbook
 
 ---
 
-### Phase 9: Legacy Cleanup
+### Phase 9: Cleanup
 
 **Goal**: Remove deprecated code after validation.
 
 **Cleanup Tasks**:
 - [ ] Remove per-node Dockerfiles
 - [ ] Remove any remaining direct I/O imports from nodes
-- [ ] Remove `*Legacy` class variants
 - [ ] Update documentation
-- [ ] Archive migration sources
+- [ ] Archive source references
 
 **Timeline**: After 2 weeks of production validation
 
@@ -585,7 +574,7 @@ Phase 3 (Compute)  Phase 4 (Effect)  Phase 5 (Orch/Red)   │ ← omniintelligen
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
 | omnibase_core/spi delays | HIGH | MEDIUM | OmniIntelligence is blocked - be explicit about this |
-| Breaking changes | HIGH | LOW | Backward compatibility layers, feature flags |
+| Breaking changes | HIGH | LOW | Feature flags, phased rollout |
 | Performance regression | MEDIUM | LOW | Benchmark before/after, connection pooling |
 | Handler complexity | MEDIUM | MEDIUM | Start with simple handlers (Qdrant), iterate |
 | Testing gaps | MEDIUM | MEDIUM | Require >80% coverage, integration tests |

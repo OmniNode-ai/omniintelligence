@@ -10,8 +10,8 @@ from typing import Any
 from omnibase_core.nodes import NodeCompute
 from pydantic import BaseModel, Field
 
-from omniintelligence.enums import EnumRelationshipType
-from omniintelligence.models import ModelEntity, ModelRelationship
+from omniintelligence._legacy.enums import EnumRelationshipType
+from omniintelligence._legacy.models import ModelEntity, ModelRelationship
 
 
 class ModelRelationshipDetectionInput(BaseModel):

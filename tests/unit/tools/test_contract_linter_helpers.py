@@ -205,7 +205,7 @@ class TestPathTraversalDetection:
 
     The _is_safe_path() function is reserved for future strict mode implementation.
     It detects path traversal attempts like "../../../etc/passwd" but is NOT
-    enforced by default to maintain backward compatibility.
+    enforced by default.
 
     When strict mode is implemented, this function will be used to validate
     file paths before processing to prevent malicious path traversal attacks.

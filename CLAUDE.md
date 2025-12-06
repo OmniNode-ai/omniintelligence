@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OmniIntelligence is a migration/rebuild of the legacy `omniarchon` intelligence platform into canonical ONEX nodes following the Omninode architecture patterns. The system provides code quality analysis, pattern learning, vectorization, and intelligence APIs as first-class nodes.
+OmniIntelligence provides code quality analysis, pattern learning, vectorization, and intelligence APIs as canonical ONEX nodes following the Omninode architecture patterns.
 
 ## Development Commands
 
@@ -214,12 +214,11 @@ Operation types are defined in `EnumIntelligenceOperationType`:
 - **Vectorization**: Semantic search, indexing, batch operations
 - **Traceability**: Lineage tracking, execution logs, analytics
 
-## Migration Context
+## Reference Documentation
 
-Legacy source code is preserved in `migration_sources/omniarchon/` for reference. See:
-- `MIGRATION_SUMMARY.md` - Migration overview
-- `OMNIARCHON_MIGRATION_INVENTORY.md` - Detailed component inventory
-- `QUICK_REFERENCE.md` - Legacy API reference
+Source reference material is preserved in `reference_sources/omniarchon/` for context. See:
+- `OMNIARCHON_INVENTORY.md` - Detailed component inventory
+- `QUICK_REFERENCE.md` - API reference
 
 ## Tools
 

@@ -304,17 +304,5 @@ See also:
 
 ---
 
-## Migration Guide
-
-When renaming fields for compliance:
-
-1. **Update model field name**
-2. **Update all tests** referencing the field
-3. **Search codebase** for any usages (`grep -r "old_field_name"`)
-4. **Update YAML configs** if field is serialized
-5. **Update all consumers** to use canonical names only
-
----
-
 **Version**: 1.0
 **Maintained By**: OmniIntelligence team

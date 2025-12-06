@@ -17,7 +17,7 @@ API Categories:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -88,7 +88,7 @@ class ModelQualityAssessmentRequest(BaseModel):
         description="File path for context and pattern tracking",
         examples=["src/api/endpoints.py", "services/intelligence/main.py"],
     )
-    language: Optional[str] = Field(
+    language: str | None = Field(
         default=None,
         description="Programming language (auto-detected from extension if None)",
         examples=["python", "typescript", "rust", "go"],
@@ -119,14 +119,11 @@ class ModelQualityAssessmentRequest(BaseModel):
 class ArchitecturalCompliance(BaseModel):
     """Architectural compliance details."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     compliance_score: float = Field(
         ...,
         ge=0.0,
         le=1.0,
         description="ONEX architectural compliance score (0.0-1.0)",
-        alias="score",
     )
     reasoning: str = Field(..., description="Explanation of compliance assessment")
 
@@ -151,14 +148,11 @@ class MaintainabilityMetrics(BaseModel):
 class OnexComplianceDetails(BaseModel):
     """ONEX compliance details and violations."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     compliance_score: float = Field(
         ...,
         ge=0.0,
         le=1.0,
         description="Overall ONEX compliance score",
-        alias="score",
     )
     violations: list[str] = Field(
         default_factory=list, description="List of ONEX compliance violations"
@@ -221,7 +215,7 @@ class ModelQualityAssessmentResponse(BaseModel):
         ..., ge=0.0, le=1.0, description="Temporal relevance score based on era"
     )
     timestamp: datetime = Field(..., description="Analysis timestamp (ISO 8601)")
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None, description="Error message if success=False"
     )
 
@@ -289,7 +283,7 @@ class ModelPerformanceAnalysisRequest(BaseModel):
         description="Code content to analyze for performance baseline",
         min_length=1,
     )
-    context: Optional[dict[str, Any]] = Field(
+    context: dict[str, Any] | None = Field(
         default=None,
         description="Execution context metadata (async/sync, I/O type, dependencies)",
     )
@@ -321,24 +315,20 @@ class ModelPerformanceAnalysisRequest(BaseModel):
 
 
 class BaselineMetrics(BaseModel):
-    """
-    Performance baseline metrics (DEPRECATED - kept for backward compatibility).
-
-    Use ModelPerformanceAnalysisResponse directly instead.
-    """
+    """Performance baseline metrics for operation tracking."""
 
     operation_name: str = Field(..., description="Operation identifier")
-    baseline_latency_ms: Optional[float] = Field(
+    baseline_latency_ms: float | None = Field(
         default=None, description="Baseline latency in milliseconds (if available)"
     )
-    target_latency_ms: Optional[float] = Field(
+    target_latency_ms: float | None = Field(
         default=None, description="Target latency based on percentile"
     )
     complexity_estimate: str = Field(
         default="medium",
         description="Estimated computational complexity (low, medium, high)",
     )
-    io_characteristics: Optional[dict[str, Any]] = Field(
+    io_characteristics: dict[str, Any] | None = Field(
         default=None,
         description="I/O characteristics (sync/async, blocking, network/disk)",
     )
@@ -412,13 +402,13 @@ class ModelPerformanceAnalysisResponse(BaseModel):
     p99_ms: float = Field(
         ..., ge=0.0, description="99th percentile response time in milliseconds"
     )
-    quality_score: Optional[float] = Field(
+    quality_score: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
         description="Overall quality score (0.0-1.0, code_analysis source only)",
     )
-    complexity_score: Optional[float] = Field(
+    complexity_score: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
@@ -432,10 +422,10 @@ class ModelPerformanceAnalysisResponse(BaseModel):
         ...,
         description="Baseline source: 'code_analysis' (synthetic), 'cached' (historical), or empty",
     )
-    message: Optional[str] = Field(
+    message: str | None = Field(
         default=None, description="Optional status or informational message"
     )
-    std_dev_ms: Optional[float] = Field(
+    std_dev_ms: float | None = Field(
         default=None,
         ge=0.0,
         description="Standard deviation in milliseconds (cached baseline only)",
@@ -493,7 +483,7 @@ class ModelPatternDetectionRequest(BaseModel):
         description="File path for context and tracking",
         examples=["src/api/routes.py", "services/auth/middleware.py"],
     )
-    pattern_categories: Optional[list[PatternCategory]] = Field(
+    pattern_categories: list[PatternCategory] | None = Field(
         default=None, description="Pattern categories to detect (None = all categories)"
     )
     min_confidence: float = Field(
@@ -522,8 +512,6 @@ class ModelPatternDetectionRequest(BaseModel):
 class DetectedPattern(BaseModel):
     """Single detected pattern with metadata."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     pattern_id: str = Field(..., description="Pattern identifier")
     pattern_type: str = Field(
         ..., description="Pattern type (e.g., 'singleton', 'factory', 'god_class')"
@@ -534,17 +522,16 @@ class DetectedPattern(BaseModel):
         ge=0.0,
         le=1.0,
         description="Detection confidence (0.0-1.0)",
-        alias="confidence",
     )
     description: str = Field(..., description="Pattern description and context")
-    location: Optional[dict[str, Any]] = Field(
+    location: dict[str, Any] | None = Field(
         default=None, description="Code location (line numbers, function names)"
     )
-    severity: Optional[str] = Field(
+    severity: str | None = Field(
         default=None,
         description="Severity for anti-patterns (low, medium, high, critical)",
     )
-    suggested_fix: Optional[str] = Field(
+    suggested_fix: str | None = Field(
         default=None, description="Suggested fix for anti-patterns"
     )
 
@@ -555,7 +542,7 @@ class ArchitecturalComplianceDetails(BaseModel):
     onex_compliance: bool = Field(
         ..., description="Whether patterns comply with ONEX standards"
     )
-    node_type_detected: Optional[str] = Field(
+    node_type_detected: str | None = Field(
         default=None,
         description="Detected ONEX node type (Effect, Compute, Reducer, Orchestrator)",
     )
@@ -594,7 +581,7 @@ class ModelPatternDetectionResponse(BaseModel):
         default_factory=list,
         description="Detected anti-patterns (subset for quick access)",
     )
-    architectural_compliance: Optional[ArchitecturalComplianceDetails] = Field(
+    architectural_compliance: ArchitecturalComplianceDetails | None = Field(
         default=None, description="ONEX architectural compliance assessment"
     )
     analysis_summary: dict[str, Any] = Field(
@@ -610,7 +597,7 @@ class ModelPatternDetectionResponse(BaseModel):
     timestamp: datetime = Field(
         default_factory=datetime.utcnow, description="Analysis timestamp (ISO 8601)"
     )
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None, description="Error message if success=False"
     )
 
@@ -661,12 +648,9 @@ class ModelPatternDetectionResponse(BaseModel):
 class ModelHealthCheckResponse(BaseModel):
     """Health check response from Intelligence Service."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     health_status: str = Field(
         ...,
         description="Service health status (healthy, degraded, unhealthy)",
-        alias="status",
     )
     memgraph_connected: bool = Field(
         ..., description="Memgraph knowledge graph connection status"
@@ -678,12 +662,11 @@ class ModelHealthCheckResponse(BaseModel):
         ..., description="Freshness database connection status"
     )
     service_version: str = Field(..., description="Service version")
-    uptime_ms: Optional[float] = Field(
+    uptime_ms: float | None = Field(
         default=None,
         description="Service uptime in milliseconds",
-        alias="uptime_seconds",
     )
-    error: Optional[str] = Field(default=None, description="Error message if unhealthy")
+    error: str | None = Field(default=None, description="Error message if unhealthy")
     last_check: datetime = Field(..., description="Last health check timestamp")
 
 
@@ -694,10 +677,10 @@ class ModelErrorResponse(BaseModel):
         default=False, description="Operation success status (always False for errors)"
     )
     error: str = Field(..., description="Error message")
-    error_code: Optional[str] = Field(
+    error_code: str | None = Field(
         default=None, description="Error code for programmatic handling"
     )
-    details: Optional[dict[str, Any]] = Field(
+    details: dict[str, Any] | None = Field(
         default=None, description="Additional error details"
     )
     timestamp: datetime = Field(

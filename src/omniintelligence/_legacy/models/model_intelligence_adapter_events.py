@@ -19,7 +19,7 @@ Reference: EVENT_BUS_ARCHITECTURE.md, omninode_bridge event patterns
 """
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -99,13 +99,13 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
         min_length=1,
     )
 
-    content: Optional[str] = Field(
+    content: str | None = Field(
         default=None,
         description="Code content to analyze (if not reading from source_path)",
         examples=["def hello():\n    pass"],
     )
 
-    language: Optional[str] = Field(
+    language: str | None = Field(
         default=None,
         description="Programming language (python, typescript, rust, etc.)",
         examples=["python", "typescript", "rust", "go"],
@@ -129,13 +129,13 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
         ],
     )
 
-    project_id: Optional[str] = Field(
+    project_id: str | None = Field(
         default=None,
         description="Project identifier for context and historical analysis",
         examples=["project-123", "omniarchon"],
     )
 
-    user_id: Optional[str] = Field(
+    user_id: str | None = Field(
         default=None,
         description="User identifier for authorization and audit",
         examples=["user-456", "auth0|abc123"],
@@ -240,7 +240,7 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
         description="Type of analysis that was performed",
     )
 
-    complexity_score: Optional[float] = Field(
+    complexity_score: float | None = Field(
         default=None,
         description="Code complexity score (0.0-1.0, lower is better)",
         ge=0.0,
@@ -248,7 +248,7 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
         examples=[0.45, 0.62, 0.38],
     )
 
-    maintainability_score: Optional[float] = Field(
+    maintainability_score: float | None = Field(
         default=None,
         description="Maintainability score (0.0-1.0, higher is better)",
         ge=0.0,
@@ -380,7 +380,7 @@ class ModelCodeAnalysisFailedPayload(BaseModel):
         ],
     )
 
-    suggested_action: Optional[str] = Field(
+    suggested_action: str | None = Field(
         default=None,
         description="Recommended action to resolve the error",
         examples=[
@@ -483,7 +483,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         query_time_ms: Time taken to complete scan in milliseconds
     """
 
-    postgresql: Optional[dict[str, Any]] = Field(
+    postgresql: dict[str, Any] | None = Field(
         None,
         description="PostgreSQL database information",
         examples=[
@@ -504,7 +504,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    kafka: Optional[dict[str, Any]] = Field(
+    kafka: dict[str, Any] | None = Field(
         None,
         description="Kafka/Redpanda information (see config.kafka_helper for context-aware defaults)",
         examples=[
@@ -524,7 +524,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    qdrant: Optional[dict[str, Any]] = Field(
+    qdrant: dict[str, Any] | None = Field(
         None,
         description="Qdrant vector database information",
         examples=[
@@ -543,7 +543,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    docker_services: Optional[list[dict[str, Any]]] = Field(
+    docker_services: list[dict[str, Any]] | None = Field(
         None,
         description="Docker services information",
         examples=[
@@ -558,7 +558,7 @@ class ModelInfrastructureScanPayload(BaseModel):
         ],
     )
 
-    archon_mcp: Optional[dict[str, Any]] = Field(
+    archon_mcp: dict[str, Any] | None = Field(
         None,
         description="Archon MCP service information",
         examples=[
@@ -593,7 +593,7 @@ class ModelDiscoveryPayload(BaseModel):
         query_time_ms: Time taken to complete discovery in milliseconds
     """
 
-    ai_models: Optional[dict[str, Any]] = Field(
+    ai_models: dict[str, Any] | None = Field(
         None,
         description="AI model providers and configurations",
         examples=[
@@ -617,7 +617,7 @@ class ModelDiscoveryPayload(BaseModel):
         ],
     )
 
-    onex_models: Optional[dict[str, Any]] = Field(
+    onex_models: dict[str, Any] | None = Field(
         None,
         description="ONEX node types and contracts",
         examples=[
@@ -641,7 +641,7 @@ class ModelDiscoveryPayload(BaseModel):
         ],
     )
 
-    intelligence_models: Optional[list[dict[str, Any]]] = Field(
+    intelligence_models: list[dict[str, Any]] | None = Field(
         None,
         description="Intelligence context models",
         examples=[
@@ -711,7 +711,6 @@ class ModelSchemaDiscoveryPayload(BaseModel):
         description="Total number of tables found",
         ge=0,
         examples=[15, 20, 30],
-        alias="total_tables",
     )
 
     query_time_ms: float = Field(
@@ -721,7 +720,7 @@ class ModelSchemaDiscoveryPayload(BaseModel):
         examples=[200.0, 300.0, 500.0],
     )
 
-    model_config = ConfigDict(frozen=True, populate_by_name=True)
+    model_config = ConfigDict(frozen=True)
 
 
 class IntelligenceAdapterEventHelpers:
@@ -741,8 +740,8 @@ class IntelligenceAdapterEventHelpers:
     @staticmethod
     def create_analysis_requested_event(
         payload: ModelCodeAnalysisRequestPayload,
-        correlation_id: Optional[UUID] = None,
-        source_instance: Optional[str] = None,
+        correlation_id: UUID | None = None,
+        source_instance: str | None = None,
     ) -> dict[str, Any]:
         """
         Create CODE_ANALYSIS_REQUESTED event envelope.
@@ -756,7 +755,7 @@ class IntelligenceAdapterEventHelpers:
             Event envelope dictionary ready for Kafka publishing
         """
         # Local import to avoid circular dependency
-        from omniintelligence.models.model_event_envelope import (
+        from omniintelligence._legacy.models.model_event_envelope import (
             ModelEventEnvelope,
             ModelEventSource,
         )
@@ -781,8 +780,8 @@ class IntelligenceAdapterEventHelpers:
     def create_analysis_completed_event(
         payload: ModelCodeAnalysisCompletedPayload,
         correlation_id: UUID,
-        causation_id: Optional[UUID] = None,
-        source_instance: Optional[str] = None,
+        causation_id: UUID | None = None,
+        source_instance: str | None = None,
     ) -> dict[str, Any]:
         """
         Create CODE_ANALYSIS_COMPLETED event envelope.
@@ -797,7 +796,7 @@ class IntelligenceAdapterEventHelpers:
             Event envelope dictionary ready for Kafka publishing
         """
         # Local import to avoid circular dependency
-        from omniintelligence.models.model_event_envelope import (
+        from omniintelligence._legacy.models.model_event_envelope import (
             ModelEventEnvelope,
             ModelEventSource,
         )
@@ -821,8 +820,8 @@ class IntelligenceAdapterEventHelpers:
     def create_analysis_failed_event(
         payload: ModelCodeAnalysisFailedPayload,
         correlation_id: UUID,
-        causation_id: Optional[UUID] = None,
-        source_instance: Optional[str] = None,
+        causation_id: UUID | None = None,
+        source_instance: str | None = None,
     ) -> dict[str, Any]:
         """
         Create CODE_ANALYSIS_FAILED event envelope.
@@ -837,7 +836,7 @@ class IntelligenceAdapterEventHelpers:
             Event envelope dictionary ready for Kafka publishing
         """
         # Local import to avoid circular dependency
-        from omniintelligence.models.model_event_envelope import (
+        from omniintelligence._legacy.models.model_event_envelope import (
             ModelEventEnvelope,
             ModelEventSource,
         )
@@ -920,11 +919,11 @@ class IntelligenceAdapterEventHelpers:
 
 def create_request_event(
     source_path: str,
-    content: Optional[str] = None,
-    language: Optional[str] = None,
+    content: str | None = None,
+    language: str | None = None,
     operation_type: EnumAnalysisOperationType = EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS,
-    options: Optional[dict[str, Any]] = None,
-    correlation_id: Optional[UUID] = None,
+    options: dict[str, Any] | None = None,
+    correlation_id: UUID | None = None,
 ) -> dict[str, Any]:
     """
     Convenience function to create CODE_ANALYSIS_REQUESTED event.
@@ -963,7 +962,7 @@ def create_completed_event(
     processing_time_ms: float,
     operation_type: EnumAnalysisOperationType,
     correlation_id: UUID,
-    results_summary: Optional[dict[str, Any]] = None,
+    results_summary: dict[str, Any] | None = None,
     cache_hit: bool = False,
 ) -> dict[str, Any]:
     """
@@ -1010,7 +1009,7 @@ def create_failed_event(
     correlation_id: UUID,
     retry_allowed: bool = True,
     processing_time_ms: float = 0.0,
-    error_details: Optional[dict[str, Any]] = None,
+    error_details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Convenience function to create CODE_ANALYSIS_FAILED event.

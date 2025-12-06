@@ -70,7 +70,7 @@ Example output:
 ```json
 {
   "file_path": "src/omniintelligence/nodes/my_node/v1_0_0/contracts/compute_contract.yaml",
-  "valid": false,
+  "is_valid": false,
   "validation_errors": [
     {
       "field_path": "version.major",
@@ -290,69 +290,6 @@ contract-validation:
 ```
 
 This ensures all contract files are validated on every pull request and push to main.
-
-## Legacy Contract Handling
-
-Contracts in `_legacy/` directories are **excluded** from validation in both pre-commit hooks and CI/CD pipelines. This allows legacy code to be preserved for migration reference without blocking development.
-
-### Archival Strategy
-
-The `_legacy/` directory naming convention is used to mark code that is:
-
-1. **Preserved for reference** - Original implementations kept for migration guidance
-2. **Not actively maintained** - May not comply with current ONEX schema
-3. **Excluded from validation** - Will not trigger linter errors or block commits/CI
-
-### Directory Structure
-
-```
-src/omniintelligence/
-├── nodes/                           # Active nodes (validated)
-│   └── intelligence_reducer/
-│       └── v1_0_0/
-│           └── contracts/
-│               └── reducer_contract.yaml  # Validated
-├── _legacy/                         # Legacy code (excluded from validation)
-│   └── nodes/
-│       └── intelligence_orchestrator/
-│           └── v1_0_0/
-│               └── contracts/
-│                   └── orchestrator_contract.yaml  # Not validated
-```
-
-### Naming Conventions
-
-| Pattern | Purpose | Validated |
-|---------|---------|-----------|
-| `src/omniintelligence/nodes/*/` | Active production nodes | Yes |
-| `src/omniintelligence/_legacy/*/` | Archived/migration reference | No |
-| `migration_sources/*/` | Original source code reference | No |
-
-### Migration Workflow
-
-When migrating legacy contracts to active nodes:
-
-1. Copy contract from `_legacy/` to `nodes/` directory
-2. Update contract to comply with current ONEX schema
-3. Run contract linter to validate: `uv run python -m omniintelligence.tools.contract_linter path/to/contract.yaml`
-4. Fix any validation errors
-5. Legacy original remains in `_legacy/` for reference
-
-### Exclusion Configuration
-
-**Pre-commit** (`.pre-commit-config.yaml`):
-```yaml
-exclude: |
-  (?x)^(
-    src/omniintelligence/_legacy/.*|
-    migration_sources/.*
-  )$
-```
-
-**CI/CD** searches only in `nodes/` directories, naturally excluding `_legacy/`:
-```bash
-find src/omniintelligence -type d -name "nodes" -exec find {} ... \;
-```
 
 ## Contract Type Detection
 
@@ -587,7 +524,7 @@ results = validate_contracts_batch(["file1.yaml", "file2.yaml"])
 @dataclass
 class ModelContractValidationResult:
     file_path: Path
-    valid: bool
+    is_valid: bool
     validation_errors: list[ModelContractValidationError]
     contract_type: str | None
 

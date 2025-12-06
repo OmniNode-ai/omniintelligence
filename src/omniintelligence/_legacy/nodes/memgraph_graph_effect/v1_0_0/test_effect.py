@@ -17,8 +17,8 @@ from uuid import uuid4
 
 import pytest
 
-from omniintelligence.enums import EnumEntityType, EnumRelationshipType
-from omniintelligence.models import ModelEntity, ModelRelationship
+from omniintelligence._legacy.enums import EnumEntityType, EnumRelationshipType
+from omniintelligence._legacy.models import ModelEntity, ModelRelationship
 from omniintelligence.nodes.memgraph_graph_effect.v1_0_0.effect import (
     ModelMemgraphGraphConfig,
     ModelMemgraphGraphInput,
