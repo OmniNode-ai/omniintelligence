@@ -257,16 +257,25 @@ Example output:
 
 ```json
 {
-  "file_path": "path/to/contract.yaml",
-  "valid": false,
-  "errors": [
+  "results": [
     {
-      "field": "version.major",
-      "message": "Input should be a valid integer",
-      "error_type": "invalid_type"
+      "file_path": "path/to/contract.yaml",
+      "is_valid": false,
+      "validation_errors": [
+        {
+          "field_path": "version.major",
+          "error_message": "Input should be a valid integer",
+          "validation_error_type": "invalid_type"
+        }
+      ],
+      "contract_type": null
     }
   ],
-  "contract_type": null
+  "summary": {
+    "total_count": 1,
+    "valid_count": 0,
+    "invalid_count": 1
+  }
 }
 ```
 

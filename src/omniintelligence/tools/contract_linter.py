@@ -1269,7 +1269,7 @@ def main(args: list[str] | None = None) -> int:
             error_output = json.dumps(
                 {
                     "error": str(e),
-                    "error_type": "not_implemented",
+                    "cli_error_type": "not_implemented",
                 },
                 indent=2,
             )
@@ -1284,7 +1284,7 @@ def main(args: list[str] | None = None) -> int:
             error_output = json.dumps(
                 {
                     "error": f"Unexpected error: {e}",
-                    "error_type": "unexpected_error",
+                    "cli_error_type": "unexpected_error",
                 },
                 indent=2,
             )
