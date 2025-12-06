@@ -764,16 +764,3 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 default_flow_style=False,
                 sort_keys=False,
             )
-
-
-# ==========================================================================
-# Backward Compatibility Aliases (deprecated, use Model* versions)
-# ==========================================================================
-
-# These aliases maintain backward compatibility with existing code.
-# New code should use the Model* prefixed versions.
-TopicConfig = ModelTopicConfig
-EventBusConfig = ModelEventBusConfig
-HandlerConfig = ModelHandlerConfig
-RuntimeProfileConfig = ModelRuntimeProfileConfig
-IntelligenceRuntimeConfig = ModelIntelligenceRuntimeConfig
