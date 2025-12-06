@@ -40,11 +40,11 @@ class TestStructuredErrorOutput:
         assert result.valid is False
         assert len(result.errors) >= 1
 
-        # Each error should have field, message, and error_type
+        # Each error should have field, message, and validation_error_type
         for error in result.errors:
             assert hasattr(error, "field")
             assert hasattr(error, "message")
-            assert hasattr(error, "error_type")
+            assert hasattr(error, "validation_error_type")
             assert error.field is not None
             assert error.message is not None
 
