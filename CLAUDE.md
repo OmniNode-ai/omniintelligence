@@ -88,12 +88,58 @@ nodes/
         └── node_tests/          # Node-specific tests
 ```
 
-### Naming Conventions
+## Naming Conventions
+
+All code artifacts must follow ONEX naming standards. See [NAMING_CONVENTIONS.md](docs/conventions/NAMING_CONVENTIONS.md) for complete reference.
+
+### File Prefixes
+
+| Prefix | Usage | Example |
+|--------|-------|---------|
+| `model_*` | Pydantic models | `model_intelligence_input.py` |
+| `enum_*` | Enumerations | `enum_operation_type.py` |
+| `protocol_*` | Protocol interfaces | `protocol_intelligence.py` |
+| `service_*` | Service implementations | `service_quality_scoring.py` |
+| `node_*` | ONEX nodes | `node_intelligence_reducer.py` |
+
+### Node Class Naming
 
 - **Effect nodes**: `Node{Name}Effect` (e.g., `NodeIntelligenceAdapterEffect`)
-- **Compute nodes**: `Node{Name}Compute`
-- **Reducer nodes**: `Node{Name}Reducer`
-- **Orchestrator nodes**: `Node{Name}Orchestrator`
+- **Compute nodes**: `Node{Name}Compute` (e.g., `NodeVectorizationCompute`)
+- **Reducer nodes**: `Node{Name}Reducer` (e.g., `NodeIntelligenceReducer`)
+- **Orchestrator nodes**: `Node{Name}Orchestrator` (e.g., `NodeIntelligenceOrchestrator`)
+
+### Field Naming Quick Reference
+
+| Pattern | Usage | Example |
+|---------|-------|---------|
+| `{entity}_id` | Identifiers | `task_id`, `correlation_id` |
+| `{entity}_type` | Type discriminators | `event_type`, `operation_type` |
+| `*_at` | Timestamps | `created_at`, `completed_at` |
+| `*_ms` | Durations (milliseconds) | `timeout_ms`, `latency_ms` |
+| `*_count` | Counts | `retry_count`, `completed_count` |
+| `*_score` | Scores (0.0-1.0) | `confidence_score`, `quality_score` |
+| `*_enabled` | Boolean feature flags | `cache_enabled`, `parallel_enabled` |
+| `is_*` | Boolean state checks | `is_success`, `is_complete` |
+| `has_*` | Boolean presence checks | `has_dependencies` |
+
+### Common Mistakes
+
+```python
+# ❌ Wrong
+timeout_seconds: int    # Use timeout_ms
+completed_tasks: int    # Use completed_count (it's a count, not a list)
+results: dict           # Use task_results (too generic)
+status: str             # Use batch_status (add entity prefix)
+timestamp: datetime     # Use created_at
+
+# ✅ Correct
+timeout_ms: int
+completed_count: int
+task_results: dict
+batch_status: str
+created_at: datetime
+```
 
 ## Key Dependencies
 
