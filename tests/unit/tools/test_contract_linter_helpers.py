@@ -14,7 +14,7 @@ import pytest
 from omniintelligence.tools.contract_linter import (
     FIELD_IDENTIFIER_PATTERN,
     ContractLinter,
-    ContractValidationResult,
+    ModelContractValidationResult,
     _is_safe_path,
 )
 
@@ -37,16 +37,16 @@ class TestStructuredErrorOutput:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert len(result.errors) >= 1
+        assert result.is_valid is False
+        assert len(result.validation_errors) >= 1
 
-        # Each error should have field, message, and validation_error_type
-        for error in result.errors:
-            assert hasattr(error, "field")
-            assert hasattr(error, "message")
+        # Each error should have field_path, error_message, and validation_error_type
+        for error in result.validation_errors:
+            assert hasattr(error, "field_path")
+            assert hasattr(error, "error_message")
             assert hasattr(error, "validation_error_type")
-            assert error.field is not None
-            assert error.message is not None
+            assert error.field_path is not None
+            assert error.error_message is not None
 
     def test_nested_field_path_in_errors(self, tmp_path: Path):
         """Test that nested field paths are properly formatted.
@@ -83,9 +83,9 @@ transitions:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         # Should have an error with nested path (e.g., "states.0.timeout_ms")
-        assert any("states" in e.field for e in result.errors)
+        assert any("states" in e.field_path for e in result.validation_errors)
 
     def test_multiple_errors_captured(self, tmp_path: Path):
         """Test that multiple validation errors are captured.
@@ -110,10 +110,10 @@ node_type: compute
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         # Should have multiple errors for missing fields:
         # name, description, input_model, output_model, algorithm
-        assert len(result.errors) >= 2
+        assert len(result.validation_errors) >= 2
 
     def test_error_output_as_json(self, tmp_path: Path, invalid_missing_name_yaml: str):
         """Test that errors can be serialized to JSON."""
@@ -128,9 +128,9 @@ node_type: compute
 
         assert isinstance(json_output, str)
         parsed = json.loads(json_output)
-        assert "valid" in parsed
-        assert "errors" in parsed
-        assert isinstance(parsed["errors"], list)
+        assert "is_valid" in parsed
+        assert "validation_errors" in parsed
+        assert isinstance(parsed["validation_errors"], list)
 
 
 # =============================================================================
@@ -165,8 +165,8 @@ class TestLinterConfiguration:
         result = linter.validate(contract_path)
 
         # Lenient mode should pass for base contracts
-        assert isinstance(result, ContractValidationResult)
-        assert result.valid is True
+        assert isinstance(result, ModelContractValidationResult)
+        assert result.is_valid is True
 
     def test_linter_custom_schema_version(
         self, tmp_path: Path, valid_compute_contract_yaml: str
@@ -190,8 +190,8 @@ class TestLinterConfiguration:
         result = linter.validate(contract_path)
 
         # Verify we get a proper result and the contract is valid
-        assert isinstance(result, ContractValidationResult)
-        assert result.valid is True
+        assert isinstance(result, ModelContractValidationResult)
+        assert result.is_valid is True
 
 
 # =============================================================================

@@ -148,15 +148,13 @@ class ModelContractValidationError:
     """
     Represents a single validation error with field path information.
 
+    Uses __slots__ instead of BaseModel for minimal memory footprint when
+    handling thousands of validation errors during batch contract validation.
+
     Attributes:
         field_path: The field path where the error occurred (e.g., "version.major")
         error_message: Human-readable error description
         validation_error_type: Category of error (missing_field, invalid_type, invalid_value, etc.)
-
-    Backward Compatibility:
-        Constructor accepts both old names (`field`, `message`) and new ONEX-compliant
-        names (`field_path`, `error_message`). The `field` and `message` properties
-        are provided as aliases for read access.
     """
 
     __slots__ = ("error_message", "field_path", "validation_error_type")
@@ -169,78 +167,27 @@ class ModelContractValidationError:
     def __init__(
         self,
         *,
-        field_path: str | None = None,
-        error_message: str | None = None,
-        validation_error_type: EnumContractErrorType | None = None,
-        # Backward compatibility aliases
-        field: str | None = None,
-        message: str | None = None,
-        error_type: EnumContractErrorType | None = None,
+        field_path: str,
+        error_message: str,
+        validation_error_type: EnumContractErrorType,
     ) -> None:
-        """Initialize validation error with ONEX-compliant or legacy field names.
+        """Initialize validation error with ONEX-compliant field names.
 
         Args:
-            field_path: The field path where the error occurred (preferred)
-            error_message: Human-readable error description (preferred)
-            validation_error_type: Category of error (preferred)
-            field: Deprecated alias for field_path (backward compatibility)
-            message: Deprecated alias for error_message (backward compatibility)
-            error_type: Deprecated alias for validation_error_type (backward compatibility)
-
-        Raises:
-            ValueError: If neither field_path nor field is provided
-            ValueError: If neither error_message nor message is provided
-            ValueError: If neither validation_error_type nor error_type is provided
+            field_path: The field path where the error occurred
+            error_message: Human-readable error description
+            validation_error_type: Category of error
         """
-        # Resolve field_path from new or old name
-        resolved_field_path = field_path if field_path is not None else field
-        if resolved_field_path is None:
-            raise ValueError("Either 'field_path' or 'field' must be provided")
-
-        # Resolve error_message from new or old name
-        resolved_error_message = error_message if error_message is not None else message
-        if resolved_error_message is None:
-            raise ValueError("Either 'error_message' or 'message' must be provided")
-
-        # Resolve validation_error_type from new or old name
-        resolved_error_type = (
-            validation_error_type if validation_error_type is not None else error_type
-        )
-        if resolved_error_type is None:
-            raise ValueError(
-                "Either 'validation_error_type' or 'error_type' must be provided"
-            )
-
-        object.__setattr__(self, "field_path", resolved_field_path)
-        object.__setattr__(self, "error_message", resolved_error_message)
-        object.__setattr__(self, "validation_error_type", resolved_error_type)
-
-    # Backward compatibility properties
-    @property
-    def field(self) -> str:
-        """Backward compatibility alias for field_path."""
-        return self.field_path
-
-    @property
-    def message(self) -> str:
-        """Backward compatibility alias for error_message."""
-        return self.error_message
-
-    @property
-    def error_type(self) -> EnumContractErrorType:
-        """Backward compatibility alias for validation_error_type."""
-        return self.validation_error_type
+        object.__setattr__(self, "field_path", field_path)
+        object.__setattr__(self, "error_message", error_message)
+        object.__setattr__(self, "validation_error_type", validation_error_type)
 
     def to_dict(self) -> dict[str, str]:
-        """Convert error to dictionary representation.
-
-        Note: Serializes field_path as "field" and error_message as "message"
-        for backward compatibility with existing consumers.
-        """
+        """Convert error to dictionary representation."""
         return {
-            "field": self.field_path,
-            "message": self.error_message,
-            "error_type": self.validation_error_type.value,
+            "field_path": self.field_path,
+            "error_message": self.error_message,
+            "validation_error_type": self.validation_error_type.value,
         }
 
     def __str__(self) -> str:
@@ -271,24 +218,18 @@ class ModelContractValidationError:
         return hash((self.field_path, self.error_message, self.validation_error_type))
 
 
-# Backward compatibility alias
-ContractValidationError = ModelContractValidationError
-
-
 class ModelContractValidationResult:
     """
     Result of validating a contract file.
+
+    Uses __slots__ instead of BaseModel for minimal memory footprint when
+    handling thousands of validation results during batch contract validation.
 
     Attributes:
         file_path: Path to the validated contract file
         is_valid: Whether the contract passed all validation checks
         validation_errors: List of validation errors found
         contract_type: Detected contract type (compute, effect, etc.) or None
-
-    Backward Compatibility:
-        Constructor accepts both old names (`valid`, `errors`) and new ONEX-compliant
-        names (`is_valid`, `validation_errors`). The `valid` and `errors` properties
-        are provided as aliases for read access.
     """
 
     __slots__ = ("contract_type", "file_path", "is_valid", "validation_errors")
@@ -303,66 +244,35 @@ class ModelContractValidationResult:
         self,
         *,
         file_path: Path,
-        is_valid: bool | None = None,
+        is_valid: bool,
         validation_errors: list[ModelContractValidationError] | None = None,
         contract_type: str | None = None,
-        # Backward compatibility aliases
-        valid: bool | None = None,
-        errors: list[ModelContractValidationError] | None = None,
     ) -> None:
-        """Initialize validation result with ONEX-compliant or legacy field names.
+        """Initialize validation result with ONEX-compliant field names.
 
         Args:
             file_path: Path to the validated contract file
-            is_valid: Whether the contract passed validation (preferred)
-            validation_errors: List of validation errors found (preferred)
+            is_valid: Whether the contract passed validation
+            validation_errors: List of validation errors found (defaults to empty list)
             contract_type: Detected contract type
-            valid: Deprecated alias for is_valid (backward compatibility)
-            errors: Deprecated alias for validation_errors (backward compatibility)
-
-        Raises:
-            ValueError: If neither is_valid nor valid is provided
         """
-        # Resolve is_valid from new or old name
-        resolved_is_valid = is_valid if is_valid is not None else valid
-        if resolved_is_valid is None:
-            raise ValueError("Either 'is_valid' or 'valid' must be provided")
-
-        # Resolve validation_errors from new or old name (default to empty list)
-        resolved_validation_errors = (
-            validation_errors if validation_errors is not None else errors
-        )
-        if resolved_validation_errors is None:
-            resolved_validation_errors = []
-
         object.__setattr__(self, "file_path", file_path)
-        object.__setattr__(self, "is_valid", resolved_is_valid)
-        object.__setattr__(self, "validation_errors", resolved_validation_errors)
+        object.__setattr__(self, "is_valid", is_valid)
+        object.__setattr__(
+            self,
+            "validation_errors",
+            validation_errors if validation_errors is not None else [],
+        )
         object.__setattr__(self, "contract_type", contract_type)
 
     def to_dict(self) -> dict[str, object]:
-        """Convert result to dictionary representation.
-
-        Note: Serializes is_valid as "valid" and validation_errors as "errors"
-        for backward compatibility with existing consumers.
-        """
+        """Convert result to dictionary representation."""
         return {
             "file_path": str(self.file_path),
-            "valid": self.is_valid,
-            "errors": [e.to_dict() for e in self.validation_errors],
+            "is_valid": self.is_valid,
+            "validation_errors": [e.to_dict() for e in self.validation_errors],
             "contract_type": self.contract_type,
         }
-
-    # Backward compatibility properties
-    @property
-    def valid(self) -> bool:
-        """Backward compatibility alias for is_valid."""
-        return self.is_valid
-
-    @property
-    def errors(self) -> list[ModelContractValidationError]:
-        """Backward compatibility alias for validation_errors."""
-        return self.validation_errors
 
     def __repr__(self) -> str:
         """Return detailed representation of the result."""
@@ -390,22 +300,18 @@ class ModelContractValidationResult:
     __hash__ = None  # type: ignore[assignment]
 
 
-# Backward compatibility alias
-ContractValidationResult = ModelContractValidationResult
-
-
 def _pydantic_error_to_contract_error(
     error: ErrorDetails,
-) -> ContractValidationError:
+) -> ModelContractValidationError:
     """
-    Convert a Pydantic validation error to ContractValidationError.
+    Convert a Pydantic validation error to ModelContractValidationError.
 
     Args:
         error: Single error dict from ValidationError.errors() - a pydantic_core.ErrorDetails
                TypedDict containing 'type', 'loc', 'msg', 'input', and optional 'ctx'/'url' fields.
 
     Returns:
-        ContractValidationError with appropriate field path and message
+        ModelContractValidationError with appropriate field path and message
     """
     # Build field path from location tuple
     loc = error.get("loc", ())
@@ -574,7 +480,7 @@ class ContractLinter:
         model_class: type[BaseModel],
         path: Path,
         contract_type_name: str,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate contract data against a Pydantic model.
 
@@ -585,7 +491,7 @@ class ContractLinter:
             contract_type_name: Human-readable contract type name
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         try:
             model_class.model_validate(data)
@@ -640,7 +546,7 @@ class ContractLinter:
         self,
         data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate FSM subcontract using ModelFSMSubcontract Pydantic model.
 
@@ -649,7 +555,7 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         return self._validate_with_pydantic_model(
             data, ModelFSMSubcontract, path, "fsm_subcontract"
@@ -659,7 +565,7 @@ class ContractLinter:
         self,
         data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate workflow contract using ModelWorkflowCoordinationSubcontract.
 
@@ -668,7 +574,7 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         return self._validate_with_pydantic_model(
             data, ModelWorkflowCoordinationSubcontract, path, "workflow"
@@ -678,7 +584,7 @@ class ContractLinter:
         self,
         data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate node contract using ProtocolContractValidator.
 
@@ -690,7 +596,7 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         validation_errors: list[ModelContractValidationError] = []
 
@@ -783,7 +689,7 @@ class ContractLinter:
         self,
         data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate generic subcontract with basic structure checks.
 
@@ -796,7 +702,7 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         validation_errors: list[ModelContractValidationError] = []
 
@@ -831,7 +737,7 @@ class ContractLinter:
             contract_type="subcontract",
         )
 
-    def validate(self, file_path: str | Path) -> ContractValidationResult:
+    def validate(self, file_path: str | Path) -> ModelContractValidationResult:
         """
         Validate a single contract file.
 
@@ -839,7 +745,7 @@ class ContractLinter:
             file_path: Path to the YAML contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         path = Path(file_path)
         validation_errors: list[ModelContractValidationError] = []
@@ -1012,7 +918,7 @@ class ContractLinter:
         self,
         file_paths: Sequence[str | Path],
         parallel: bool = False,
-    ) -> list[ContractValidationResult]:
+    ) -> list[ModelContractValidationResult]:
         """
         Validate multiple contract files.
 
@@ -1037,7 +943,7 @@ class ContractLinter:
 
     def get_summary(
         self,
-        results: list[ContractValidationResult],
+        results: list[ModelContractValidationResult],
     ) -> dict[str, object]:
         """
         Get summary statistics for batch validation results.
@@ -1049,7 +955,7 @@ class ContractLinter:
             Dictionary with summary statistics
         """
         total = len(results)
-        valid = sum(1 for r in results if r.valid)
+        valid = sum(1 for r in results if r.is_valid)
         invalid = total - valid
 
         pass_rate = (valid / total * 100) if total > 0 else 0.0
@@ -1062,7 +968,7 @@ class ContractLinter:
         }
 
 
-def validate_contract(file_path: str | Path) -> ContractValidationResult:
+def validate_contract(file_path: str | Path) -> ModelContractValidationResult:
     """
     Standalone function to validate a single contract file.
 
@@ -1070,7 +976,7 @@ def validate_contract(file_path: str | Path) -> ContractValidationResult:
         file_path: Path to the contract file
 
     Returns:
-        ContractValidationResult with validation status and errors
+        ModelContractValidationResult with validation status and errors
     """
     linter = ContractLinter()
     return linter.validate(file_path)
@@ -1079,7 +985,7 @@ def validate_contract(file_path: str | Path) -> ContractValidationResult:
 def validate_contracts_batch(
     file_paths: Sequence[str | Path],
     parallel: bool = False,
-) -> list[ContractValidationResult]:
+) -> list[ModelContractValidationResult]:
     """
     Standalone function to validate multiple contract files.
 
@@ -1095,7 +1001,7 @@ def validate_contracts_batch(
 
 
 def _format_text_output(
-    results: list[ContractValidationResult],
+    results: list[ModelContractValidationResult],
     verbose: bool = False,
 ) -> str:
     """
@@ -1114,23 +1020,23 @@ def _format_text_output(
     lines: list[str] = []
 
     for result in results:
-        status = "PASS" if result.valid else "FAIL"
-        if result.valid:
+        status = "PASS" if result.is_valid else "FAIL"
+        if result.is_valid:
             lines.append(f"[{status}] {result.file_path}")
         # In non-verbose mode, show error count; in verbose mode, just show FAIL
         # (detailed errors follow on subsequent lines)
         elif verbose:
             lines.append(f"[{status}] {result.file_path}")
-            for error in result.errors:
+            for error in result.validation_errors:
                 lines.append(f"  - {error.field_path}: {error.error_message}")
         else:
             # Surface brief error summary even in non-verbose mode
-            error_count = len(result.errors)
+            error_count = len(result.validation_errors)
             lines.append(f"[{status}] {result.file_path} ({error_count} error(s))")
 
     # Summary
     total = len(results)
-    valid = sum(1 for r in results if r.valid)
+    valid = sum(1 for r in results if r.is_valid)
     lines.append("")
     lines.append(f"Summary: {valid}/{total} contracts passed")
 
@@ -1138,7 +1044,7 @@ def _format_text_output(
 
 
 def _format_json_output(
-    results: list[ContractValidationResult],
+    results: list[ModelContractValidationResult],
 ) -> str:
     """
     Format validation results as JSON.
@@ -1157,8 +1063,8 @@ def _format_json_output(
             "results": [r.to_dict() for r in results],
             "summary": {
                 "total": len(results),
-                "valid": sum(1 for r in results if r.valid),
-                "invalid": sum(1 for r in results if not r.valid),
+                "valid_count": sum(1 for r in results if r.is_valid),
+                "invalid_count": sum(1 for r in results if not r.is_valid),
             },
         },
         indent=2,
@@ -1334,19 +1240,19 @@ def main(args: list[str] | None = None) -> int:
                     EnumContractErrorType.NOT_A_FILE,
                     EnumContractErrorType.FILE_READ_ERROR,
                 )
-                for e in r.errors
+                for e in r.validation_errors
             )
             for r in results
         )
 
         # Exit code 2: ALL files had file-level errors (none could be validated)
         # This indicates an input problem, not a validation failure
-        if has_file_errors and all(not r.valid for r in results):
+        if has_file_errors and all(not r.is_valid for r in results):
             return 2
 
         # Exit code 1: At least one file failed validation (schema violations)
         # This includes: missing fields, invalid values, malformed YAML, etc.
-        has_validation_errors = any(not r.valid for r in results)
+        has_validation_errors = any(not r.is_valid for r in results)
         if has_validation_errors:
             return 1
 

@@ -71,16 +71,16 @@ Example output:
 {
   "file_path": "src/omniintelligence/nodes/my_node/v1_0_0/contracts/compute_contract.yaml",
   "valid": false,
-  "errors": [
+  "validation_errors": [
     {
-      "field": "version.major",
-      "message": "Input should be a valid integer",
-      "error_type": "invalid_type"
+      "field_path": "version.major",
+      "error_message": "Input should be a valid integer",
+      "validation_error_type": "invalid_type"
     },
     {
-      "field": "operations.0.name",
-      "message": "Field required",
-      "error_type": "missing_field"
+      "field_path": "operations.0.name",
+      "error_message": "Field required",
+      "validation_error_type": "missing_field"
     }
   ],
   "contract_type": "compute"
@@ -581,28 +581,28 @@ result = validate_contract("contract.yaml")
 results = validate_contracts_batch(["file1.yaml", "file2.yaml"])
 ```
 
-### ContractValidationResult
+### ModelContractValidationResult
 
 ```python
 @dataclass
-class ContractValidationResult:
+class ModelContractValidationResult:
     file_path: Path
     valid: bool
-    errors: list[ContractValidationError]
+    validation_errors: list[ModelContractValidationError]
     contract_type: str | None
 
     def to_dict(self) -> dict[str, object]:
         """Convert to dictionary for JSON serialization."""
 ```
 
-### ContractValidationError
+### ModelContractValidationError
 
 ```python
 @dataclass
-class ContractValidationError:
-    field: str
-    message: str
-    error_type: EnumContractErrorType
+class ModelContractValidationError:
+    field_path: str
+    error_message: str
+    validation_error_type: EnumContractErrorType
 
     def to_dict(self) -> dict[str, str]:
         """Convert to dictionary for JSON serialization."""

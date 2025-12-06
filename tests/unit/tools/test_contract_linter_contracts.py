@@ -12,7 +12,7 @@ import pytest
 
 from omniintelligence.tools.contract_linter import (
     ContractLinter,
-    ContractValidationResult,
+    ModelContractValidationResult,
 )
 
 # =============================================================================
@@ -102,7 +102,7 @@ class TestRealContractFiles:
 
         # The real contract should be valid
         # Note: This may need adjustment based on actual contract conformance
-        assert isinstance(result, ContractValidationResult)
+        assert isinstance(result, ModelContractValidationResult)
         # We don't assert valid=True as the real contracts may have issues
 
     def test_validate_real_effect_contract(self, real_effect_contract_path: Path):
@@ -113,7 +113,7 @@ class TestRealContractFiles:
         linter = ContractLinter()
         result = linter.validate(real_effect_contract_path)
 
-        assert isinstance(result, ContractValidationResult)
+        assert isinstance(result, ModelContractValidationResult)
 
 
 # =============================================================================
@@ -147,8 +147,8 @@ class TestFSMSubcontractValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is True
-        assert result.errors == []
+        assert result.is_valid is True
+        assert result.validation_errors == []
         assert result.contract_type == "fsm_subcontract"
 
     def test_validate_fsm_missing_state_machine_name(
@@ -161,9 +161,11 @@ class TestFSMSubcontractValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         assert result.contract_type == "fsm_subcontract"
-        assert any("state_machine_name" in e.field for e in result.errors)
+        assert any(
+            "state_machine_name" in e.field_path for e in result.validation_errors
+        )
 
     def test_validate_fsm_missing_states(
         self, tmp_path: Path, invalid_fsm_missing_states_yaml: str
@@ -175,9 +177,9 @@ class TestFSMSubcontractValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         assert result.contract_type == "fsm_subcontract"
-        assert any("states" in e.field for e in result.errors)
+        assert any("states" in e.field_path for e in result.validation_errors)
 
     def test_validate_fsm_empty_states(
         self, tmp_path: Path, invalid_fsm_empty_states_yaml: str
@@ -189,11 +191,11 @@ class TestFSMSubcontractValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         assert result.contract_type == "fsm_subcontract"
         # Empty states triggers min_length validation - error message may say
         # "empty", "at least 1", "min_length", or similar
-        assert any("states" in e.field for e in result.errors)
+        assert any("states" in e.field_path for e in result.validation_errors)
 
     def test_fsm_detection_does_not_affect_node_contracts(
         self, tmp_path: Path, valid_compute_contract_yaml: str
@@ -226,7 +228,7 @@ class TestFSMSubcontractValidation:
 
         assert result.contract_type == "fsm_subcontract"
         # The real FSM subcontract should be valid
-        assert result.valid is True
+        assert result.is_valid is True
 
 
 # =============================================================================
@@ -272,9 +274,9 @@ class TestRealContractIntegration:
                 f"Wrong type detected for {contract_path.name}: "
                 f"expected 'compute', got '{result.contract_type}'"
             )
-            if not result.valid:
+            if not result.is_valid:
                 failed_contracts.append(
-                    (contract_path, [e.to_dict() for e in result.errors])
+                    (contract_path, [e.to_dict() for e in result.validation_errors])
                 )
 
         # Report all failures at once for better debugging
@@ -305,9 +307,9 @@ class TestRealContractIntegration:
                 f"Wrong type detected for {contract_path.name}: "
                 f"expected 'effect', got '{result.contract_type}'"
             )
-            if not result.valid:
+            if not result.is_valid:
                 failed_contracts.append(
-                    (contract_path, [e.to_dict() for e in result.errors])
+                    (contract_path, [e.to_dict() for e in result.validation_errors])
                 )
 
         if failed_contracts:
@@ -337,9 +339,9 @@ class TestRealContractIntegration:
                 f"Wrong type detected for {contract_path.name}: "
                 f"expected 'reducer', got '{result.contract_type}'"
             )
-            if not result.valid:
+            if not result.is_valid:
                 failed_contracts.append(
-                    (contract_path, [e.to_dict() for e in result.errors])
+                    (contract_path, [e.to_dict() for e in result.validation_errors])
                 )
 
         if failed_contracts:
@@ -369,9 +371,9 @@ class TestRealContractIntegration:
                 f"Wrong type detected for {contract_path.name}: "
                 f"expected 'orchestrator', got '{result.contract_type}'"
             )
-            if not result.valid:
+            if not result.is_valid:
                 failed_contracts.append(
-                    (contract_path, [e.to_dict() for e in result.errors])
+                    (contract_path, [e.to_dict() for e in result.validation_errors])
                 )
 
         if failed_contracts:
@@ -399,9 +401,9 @@ class TestRealContractIntegration:
                 f"Wrong type detected for {contract_path.name}: "
                 f"expected 'fsm_subcontract', got '{result.contract_type}'"
             )
-            if not result.valid:
+            if not result.is_valid:
                 failed_contracts.append(
-                    (contract_path, [e.to_dict() for e in result.errors])
+                    (contract_path, [e.to_dict() for e in result.validation_errors])
                 )
 
         if failed_contracts:
@@ -432,12 +434,15 @@ class TestRealContractIntegration:
         print(f"  Pass rate: {summary['pass_rate']:.1%}")
 
         # Collect failures for detailed reporting
-        failed_results = [r for r in results if not r.valid]
+        failed_results = [r for r in results if not r.is_valid]
         if failed_results:
             failure_details = []
             for result in failed_results:
                 rel_path = result.file_path.relative_to(contracts_base_dir)
-                errors = [f"{e.field}: {e.message}" for e in result.errors]
+                errors = [
+                    f"{e.field_path}: {e.error_message}"
+                    for e in result.validation_errors
+                ]
                 failure_details.append(
                     f"  - {rel_path}:\n      " + "\n      ".join(errors)
                 )
