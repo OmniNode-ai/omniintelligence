@@ -103,16 +103,16 @@ error_handling:
   retry_policy:
     max_retries: 3
     backoff_strategy: exponential
-    initial_delay_seconds: 2
+    initial_delay_ms: 2000
 
   timeout_policy:
-    default_timeout_seconds: 300
-    operation_timeouts:
-      ingest_document: 600
-      learn_patterns: 900
-      assess_quality: 300
-      analyze_semantics: 300
-      detect_relationships: 300
+    default_timeout_ms: 300000
+    operation_timeouts_ms:
+      ingest_document: 600000
+      learn_patterns: 900000
+      assess_quality: 300000
+      analyze_semantics: 300000
+      detect_relationships: 300000
 
   fallback_strategy: publish_to_dlq
 
@@ -121,4 +121,4 @@ performance:
   enable_parallel_execution: true
   max_concurrent_operations: 5
   enable_result_caching: true
-  cache_ttl_seconds: 300
+  cache_ttl_ms: 300000

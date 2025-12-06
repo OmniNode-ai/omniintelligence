@@ -163,33 +163,37 @@ class TestCLIEntryPoint:
         assert isinstance(parsed["results"], list), "'results' must be a list"
         assert len(parsed["results"]) == 1, "Should have exactly one result"
 
-        # Validate summary structure
+        # Validate summary structure using ONEX naming conventions (*_count suffix)
         summary = parsed["summary"]
-        assert "total" in summary, "Summary must include 'total'"
-        assert "valid" in summary, "Summary must include 'valid'"
-        assert "invalid" in summary, "Summary must include 'invalid'"
-        assert summary["total"] == 1, "Total should be 1"
-        assert summary["valid"] == 1, "Valid count should be 1"
-        assert summary["invalid"] == 0, "Invalid count should be 0"
+        assert "total_count" in summary, "Summary must include 'total_count'"
+        assert "valid_count" in summary, "Summary must include 'valid_count'"
+        assert "invalid_count" in summary, "Summary must include 'invalid_count'"
+        assert summary["total_count"] == 1, "Total count should be 1"
+        assert summary["valid_count"] == 1, "Valid count should be 1"
+        assert summary["invalid_count"] == 0, "Invalid count should be 0"
 
         # Validate the single result entry
         result = parsed["results"][0]
         assert "file_path" in result, "Result must include 'file_path'"
-        assert "valid" in result, "Result must include 'valid'"
-        assert "errors" in result, "Result must include 'errors'"
+        assert "is_valid" in result, "Result must include 'is_valid'"
+        assert "validation_errors" in result, "Result must include 'validation_errors'"
         assert "contract_type" in result, "Result must include 'contract_type'"
 
         # Validate types
         assert isinstance(result["file_path"], str), "'file_path' must be a string"
-        assert isinstance(result["valid"], bool), "'valid' must be a boolean"
-        assert isinstance(result["errors"], list), "'errors' must be a list"
+        assert isinstance(result["is_valid"], bool), "'is_valid' must be a boolean"
+        assert isinstance(result["validation_errors"], list), (
+            "'validation_errors' must be a list"
+        )
         assert result["contract_type"] is None or isinstance(
             result["contract_type"], str
         ), "'contract_type' must be string or null"
 
         # Validate values for valid contract
-        assert result["valid"] is True, "Valid contract should have valid=true"
-        assert result["errors"] == [], "Valid contract should have empty errors list"
+        assert result["is_valid"] is True, "Valid contract should have is_valid=true"
+        assert result["validation_errors"] == [], (
+            "Valid contract should have empty validation_errors list"
+        )
         assert result["contract_type"] == "compute", (
             "Contract type should be 'compute' for compute contract"
         )
@@ -710,13 +714,13 @@ class TestCLIExitCodesSubprocess:
         assert "results" in output
         assert "summary" in output
         assert len(output["results"]) == 1
-        assert output["results"][0]["valid"] is True
-        assert output["results"][0]["errors"] == []
-        assert output["summary"]["total"] == 1
-        assert output["summary"]["valid"] == 1
+        assert output["results"][0]["is_valid"] is True
+        assert output["results"][0]["validation_errors"] == []
+        assert output["summary"]["total_count"] == 1
+        assert output["summary"]["valid_count"] == 1
 
     def test_subprocess_json_output_on_failure(self, invalid_contract_file: Path):
-        """Test CLI JSON output includes valid=false and errors on failure.
+        """Test CLI JSON output includes is_valid=false and errors on failure.
 
         JSON output always has consistent structure: {"results": [...], "summary": {...}}
         regardless of the number of files validated.
@@ -740,10 +744,10 @@ class TestCLIExitCodesSubprocess:
         assert "results" in output
         assert "summary" in output
         assert len(output["results"]) == 1
-        assert output["results"][0]["valid"] is False
-        assert len(output["results"][0]["errors"]) > 0
-        assert output["summary"]["total"] == 1
-        assert output["summary"]["invalid"] == 1
+        assert output["results"][0]["is_valid"] is False
+        assert len(output["results"][0]["validation_errors"]) > 0
+        assert output["summary"]["total_count"] == 1
+        assert output["summary"]["invalid_count"] == 1
 
     def test_subprocess_verbose_output_shows_field_errors(
         self, invalid_contract_file: Path
@@ -969,5 +973,5 @@ class TestWatchAndValidateFunction:
                 _watch_and_validate(linter, [str(contract)], True, False)
 
         captured = capsys.readouterr()
-        # JSON output should contain valid JSON with "valid" key
-        assert '"valid"' in captured.out or '"results"' in captured.out
+        # JSON output should contain valid JSON with "is_valid" key
+        assert '"is_valid"' in captured.out or '"results"' in captured.out

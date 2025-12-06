@@ -2,11 +2,11 @@
 Intelligence Contracts - Input models and operation enums for intelligence operations.
 
 DEPRECATED: This module is kept for backwards compatibility.
-Please import from omniintelligence.models and omniintelligence.enums instead:
+Please import from omniintelligence._legacy.models and omniintelligence.enums instead:
 
     # Preferred imports
-    from omniintelligence.enums import EnumIntelligenceOperationType
-    from omniintelligence.models import ModelIntelligenceInput
+    from omniintelligence._legacy.enums import EnumIntelligenceOperationType
+    from omniintelligence._legacy.models import ModelIntelligenceInput
 
     # Deprecated import (still works)
     from omniintelligence.contracts import (
@@ -25,8 +25,8 @@ Operation Categories:
 """
 
 # Re-export from canonical locations
-from omniintelligence.enums import EnumIntelligenceOperationType
-from omniintelligence.models.model_intelligence_input import ModelIntelligenceInput
+from omniintelligence._legacy.enums import EnumIntelligenceOperationType
+from omniintelligence._legacy.models.model_intelligence_input import ModelIntelligenceInput
 
 __all__ = [
     "EnumIntelligenceOperationType",

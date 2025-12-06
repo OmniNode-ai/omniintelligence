@@ -140,10 +140,10 @@ error_handling:
 
 # Performance settings
 performance:
-  timeout_seconds: 300
+  timeout_ms: 300000
   enable_caching: true
   cache_key_template: "quality:${input.file_path}:${input.content.hash}"
-  cache_ttl_seconds: 600
+  cache_ttl_ms: 600000
 
 # Monitoring
 monitoring:

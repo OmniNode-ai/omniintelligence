@@ -2,10 +2,10 @@
 Shared models for omniintelligence.
 
 DEPRECATED: This module is kept for backwards compatibility.
-Please import from omniintelligence.models instead:
+Please import from omniintelligence._legacy.models instead:
 
     # Preferred import
-    from omniintelligence.models import ModelIntent, ModelReducerInput
+    from omniintelligence._legacy.models import ModelIntent, ModelReducerInput
 
     # Deprecated import (still works)
     from omniintelligence.shared.models import ModelIntent, ModelReducerInput
@@ -14,7 +14,7 @@ Data models used across all nodes for consistency.
 """
 
 # Re-export all models from the canonical location
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelIntent,
     ModelReducerInput,
     ModelReducerOutput,

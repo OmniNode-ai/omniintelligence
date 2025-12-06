@@ -84,10 +84,10 @@ error_handling:
 
 # Performance settings
 performance:
-  timeout_seconds: 300
+  timeout_ms: 300000
   enable_caching: true
   cache_key_template: "semantic:${input.code_snippet.hash}"
-  cache_ttl_seconds: 300
+  cache_ttl_ms: 300000
 
 # Monitoring
 monitoring:

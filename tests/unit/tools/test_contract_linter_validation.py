@@ -13,8 +13,8 @@ import pytest
 from omniintelligence.tools.contract_linter import (
     MAX_YAML_SIZE_BYTES,
     ContractLinter,
-    ContractValidationResult,
     EnumContractErrorType,
+    ModelContractValidationResult,
     validate_contract,
     validate_contracts_batch,
 )
@@ -38,8 +38,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is True
-        assert result.errors == []
+        assert result.is_valid is True
+        assert result.validation_errors == []
         assert result.file_path == contract_path
         assert result.contract_type == "compute"
 
@@ -53,8 +53,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is True
-        assert result.errors == []
+        assert result.is_valid is True
+        assert result.validation_errors == []
         assert result.contract_type == "effect"
 
     def test_validate_contract_with_optional_fields(
@@ -67,8 +67,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is True
-        assert result.errors == []
+        assert result.is_valid is True
+        assert result.validation_errors == []
 
     def test_validate_single_contract_missing_required_field_name(
         self, tmp_path: Path, invalid_missing_name_yaml: str
@@ -80,10 +80,12 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert len(result.errors) >= 1
-        assert any(e.field == "name" for e in result.errors)
-        assert any("required" in e.message.lower() for e in result.errors)
+        assert result.is_valid is False
+        assert len(result.validation_errors) >= 1
+        assert any(e.field_path == "name" for e in result.validation_errors)
+        assert any(
+            "required" in e.error_message.lower() for e in result.validation_errors
+        )
 
     def test_validate_single_contract_missing_required_field_version(
         self, tmp_path: Path, invalid_missing_version_yaml: str
@@ -95,8 +97,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert any(e.field == "version" for e in result.errors)
+        assert result.is_valid is False
+        assert any(e.field_path == "version" for e in result.validation_errors)
 
     def test_validate_single_contract_missing_required_field_description(
         self, tmp_path: Path, invalid_missing_description_yaml: str
@@ -108,8 +110,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert any(e.field == "description" for e in result.errors)
+        assert result.is_valid is False
+        assert any(e.field_path == "description" for e in result.validation_errors)
 
     def test_validate_single_contract_missing_required_field_node_type(
         self, tmp_path: Path, invalid_missing_node_type_yaml: str
@@ -121,13 +123,13 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         # Without node_type, linter can't determine contract type, so error may
         # be on "root" with "unknown_contract_type" or on "node_type" directly
         assert any(
-            "node_type" in e.field
-            or e.error_type is EnumContractErrorType.UNKNOWN_CONTRACT_TYPE
-            for e in result.errors
+            "node_type" in e.field_path
+            or e.validation_error_type is EnumContractErrorType.UNKNOWN_CONTRACT_TYPE
+            for e in result.validation_errors
         )
 
     def test_validate_single_contract_missing_required_field_input_model(
@@ -140,8 +142,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert any(e.field == "input_model" for e in result.errors)
+        assert result.is_valid is False
+        assert any(e.field_path == "input_model" for e in result.validation_errors)
 
     def test_validate_single_contract_missing_required_field_output_model(
         self, tmp_path: Path, invalid_missing_output_model_yaml: str
@@ -153,8 +155,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert any(e.field == "output_model" for e in result.errors)
+        assert result.is_valid is False
+        assert any(e.field_path == "output_model" for e in result.validation_errors)
 
     def test_validate_single_contract_invalid_node_type(
         self, tmp_path: Path, invalid_node_type_yaml: str
@@ -166,12 +168,12 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert any(e.field == "node_type" for e in result.errors)
+        assert result.is_valid is False
+        assert any(e.field_path == "node_type" for e in result.validation_errors)
         assert any(
-            "invalid_type" in e.message.lower()
-            or e.error_type is EnumContractErrorType.INVALID_ENUM
-            for e in result.errors
+            "invalid_type" in e.error_message.lower()
+            or e.validation_error_type is EnumContractErrorType.INVALID_ENUM
+            for e in result.validation_errors
         )
 
     def test_validate_single_contract_invalid_version_format(
@@ -184,8 +186,8 @@ class TestContractLinterSingleValidation:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert any("version" in e.field for e in result.errors)
+        assert result.is_valid is False
+        assert any("version" in e.field_path for e in result.validation_errors)
 
     def test_validate_compute_missing_algorithm(
         self, tmp_path: Path, invalid_compute_missing_algorithm_yaml: str
@@ -198,8 +200,8 @@ class TestContractLinterSingleValidation:
         result = linter.validate(contract_path)
 
         # When validating as compute contract, algorithm is required
-        assert result.valid is False
-        assert any("algorithm" in e.field for e in result.errors)
+        assert result.is_valid is False
+        assert any("algorithm" in e.field_path for e in result.validation_errors)
 
     def test_validate_effect_missing_io_operations(
         self, tmp_path: Path, invalid_effect_missing_io_operations_yaml: str
@@ -212,8 +214,8 @@ class TestContractLinterSingleValidation:
         result = linter.validate(contract_path)
 
         # When validating as effect contract, io_operations is required
-        assert result.valid is False
-        assert any("io_operations" in e.field for e in result.errors)
+        assert result.is_valid is False
+        assert any("io_operations" in e.field_path for e in result.validation_errors)
 
 
 # =============================================================================
@@ -232,14 +234,16 @@ class TestContractLinterFileHandling:
         linter = ContractLinter()
         result = linter.validate(nonexistent_path)
 
-        assert result.valid is False
-        assert len(result.errors) >= 1
+        assert result.is_valid is False
+        assert len(result.validation_errors) >= 1
         assert any(
-            "not found" in e.message.lower() or "does not exist" in e.message.lower()
-            for e in result.errors
+            "not found" in e.error_message.lower()
+            or "does not exist" in e.error_message.lower()
+            for e in result.validation_errors
         )
         assert any(
-            e.error_type is EnumContractErrorType.FILE_NOT_FOUND for e in result.errors
+            e.validation_error_type is EnumContractErrorType.FILE_NOT_FOUND
+            for e in result.validation_errors
         )
 
     def test_validate_malformed_yaml(self, tmp_path: Path, malformed_yaml: str):
@@ -250,11 +254,11 @@ class TestContractLinterFileHandling:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert len(result.errors) >= 1
+        assert result.is_valid is False
+        assert len(result.validation_errors) >= 1
         assert any(
-            e.error_type is EnumContractErrorType.YAML_PARSE_ERROR
-            for e in result.errors
+            e.validation_error_type is EnumContractErrorType.YAML_PARSE_ERROR
+            for e in result.validation_errors
         )
 
     def test_validate_empty_yaml(self, tmp_path: Path, empty_yaml: str):
@@ -265,12 +269,12 @@ class TestContractLinterFileHandling:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert len(result.errors) >= 1
+        assert result.is_valid is False
+        assert len(result.validation_errors) >= 1
         assert any(
-            "empty" in e.message.lower()
-            or e.error_type is EnumContractErrorType.EMPTY_FILE
-            for e in result.errors
+            "empty" in e.error_message.lower()
+            or e.validation_error_type is EnumContractErrorType.EMPTY_FILE
+            for e in result.validation_errors
         )
 
     def test_validate_yaml_with_only_comments(
@@ -297,22 +301,24 @@ class TestContractLinterFileHandling:
         result = linter.validate(contract_path)
 
         # Must fail validation
-        assert result.valid is False, "Comments-only YAML should fail validation"
+        assert result.is_valid is False, "Comments-only YAML should fail validation"
 
         # Must have at least one error
-        assert len(result.errors) >= 1, (
+        assert len(result.validation_errors) >= 1, (
             "Comments-only YAML should report at least one error"
         )
 
         # Must be treated as empty file error
         assert any(
-            e.error_type is EnumContractErrorType.EMPTY_FILE for e in result.errors
+            e.validation_error_type is EnumContractErrorType.EMPTY_FILE
+            for e in result.validation_errors
         ), "Comments-only YAML should report EMPTY_FILE error type"
 
         # Error message should mention empty/no content
         assert any(
-            "empty" in e.message.lower() or "no yaml content" in e.message.lower()
-            for e in result.errors
+            "empty" in e.error_message.lower()
+            or "no yaml content" in e.error_message.lower()
+            for e in result.validation_errors
         ), "Error message should indicate file has no content"
 
         # Contract type should be None (cannot detect type from empty content)
@@ -325,11 +331,11 @@ class TestContractLinterFileHandling:
         linter = ContractLinter()
         result = linter.validate(tmp_path)  # tmp_path is a directory
 
-        assert result.valid is False
+        assert result.is_valid is False
         assert any(
-            "directory" in e.message.lower()
-            or e.error_type is EnumContractErrorType.NOT_A_FILE
-            for e in result.errors
+            "directory" in e.error_message.lower()
+            or e.validation_error_type is EnumContractErrorType.NOT_A_FILE
+            for e in result.validation_errors
         )
 
     def test_validate_with_path_string(
@@ -342,7 +348,7 @@ class TestContractLinterFileHandling:
         linter = ContractLinter()
         result = linter.validate(str(contract_path))  # Pass as string
 
-        assert result.valid is True
+        assert result.is_valid is True
 
     def test_rejects_oversized_yaml_file(self, tmp_path: Path):
         """Test that oversized YAML files are rejected."""
@@ -353,11 +359,15 @@ class TestContractLinterFileHandling:
         linter = ContractLinter()
         result = linter.validate(large_file)
 
-        assert result.valid is False
+        assert result.is_valid is False
         # Case-insensitive check for robustness against message wording changes
-        assert any("exceeds maximum" in e.message.lower() for e in result.errors)
         assert any(
-            e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors
+            "exceeds maximum" in e.error_message.lower()
+            for e in result.validation_errors
+        )
+        assert any(
+            e.validation_error_type is EnumContractErrorType.FILE_TOO_LARGE
+            for e in result.validation_errors
         )
 
     def test_accepts_file_at_size_limit(self, tmp_path: Path):
@@ -375,7 +385,8 @@ class TestContractLinterFileHandling:
 
         # Should not fail due to file size - may fail for other validation reasons
         assert not any(
-            e.error_type is EnumContractErrorType.FILE_TOO_LARGE for e in result.errors
+            e.validation_error_type is EnumContractErrorType.FILE_TOO_LARGE
+            for e in result.validation_errors
         )
 
 
@@ -407,7 +418,7 @@ class TestContractLinterBatchValidation:
         results = linter.validate_batch(files)
 
         assert len(results) == 2
-        assert all(r.valid for r in results)
+        assert all(r.is_valid for r in results)
 
     def test_validate_batch_mixed_results(self, multiple_contract_files: list[Path]):
         """Test batch validation with mix of valid and invalid contracts."""
@@ -415,8 +426,8 @@ class TestContractLinterBatchValidation:
         results = linter.validate_batch(multiple_contract_files)
 
         assert len(results) == 3
-        valid_count = sum(1 for r in results if r.valid)
-        invalid_count = sum(1 for r in results if not r.valid)
+        valid_count = sum(1 for r in results if r.is_valid)
+        invalid_count = sum(1 for r in results if not r.is_valid)
 
         assert valid_count == 2
         assert invalid_count == 1
@@ -440,7 +451,7 @@ class TestContractLinterBatchValidation:
         results = linter.validate_batch(files)
 
         assert len(results) == 2
-        assert all(not r.valid for r in results)
+        assert all(not r.is_valid for r in results)
 
     def test_validate_batch_empty_list(self):
         """Test batch validation with empty file list."""
@@ -462,24 +473,24 @@ class TestContractLinterBatchValidation:
         results = linter.validate_batch([valid_path, nonexistent_path])
 
         assert len(results) == 2
-        assert results[0].valid is True
-        assert results[1].valid is False
+        assert results[0].is_valid is True
+        assert results[1].is_valid is False
         assert any(
-            e.error_type is EnumContractErrorType.FILE_NOT_FOUND
-            for e in results[1].errors
+            e.validation_error_type is EnumContractErrorType.FILE_NOT_FOUND
+            for e in results[1].validation_errors
         )
 
     def test_validate_batch_summary(self, multiple_contract_files: list[Path]):
-        """Test batch validation summary statistics."""
+        """Test batch validation summary statistics using ONEX naming conventions."""
         linter = ContractLinter()
         results = linter.validate_batch(multiple_contract_files)
 
         summary = linter.get_summary(results)
 
         assert isinstance(summary, dict)
-        assert summary["total"] == 3
-        assert summary["valid"] == 2
-        assert summary["invalid"] == 1
+        assert summary["total_count"] == 3
+        assert summary["valid_count"] == 2
+        assert summary["invalid_count"] == 1
         assert "pass_rate" in summary
 
 
@@ -501,8 +512,8 @@ class TestStandaloneFunctions:
 
         result = validate_contract(contract_path)
 
-        assert result.valid is True
-        assert isinstance(result, ContractValidationResult)
+        assert result.is_valid is True
+        assert isinstance(result, ModelContractValidationResult)
 
     def test_validate_contracts_batch_function(
         self, multiple_contract_files: list[Path]
@@ -511,4 +522,4 @@ class TestStandaloneFunctions:
         results = validate_contracts_batch(multiple_contract_files)
 
         assert len(results) == 3
-        assert isinstance(results[0], ContractValidationResult)
+        assert isinstance(results[0], ModelContractValidationResult)

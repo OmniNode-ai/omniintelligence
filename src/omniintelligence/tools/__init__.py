@@ -7,8 +7,8 @@ Provides CLI tools for ONEX node development and validation.
 
 from omniintelligence.tools.contract_linter import (
     ContractLinter,
-    ContractValidationError,
-    ContractValidationResult,
+    ModelContractValidationError,
+    ModelContractValidationResult,
     main,
     validate_contract,
     validate_contracts_batch,
@@ -16,8 +16,8 @@ from omniintelligence.tools.contract_linter import (
 
 __all__ = [
     "ContractLinter",
-    "ContractValidationError",
-    "ContractValidationResult",
+    "ModelContractValidationError",
+    "ModelContractValidationResult",
     "main",
     "validate_contract",
     "validate_contracts_batch",

@@ -2,8 +2,8 @@
 """
 Unit tests for Contract Linter helper functions and utilities.
 
-Tests for structured error output, linter configuration, path traversal
-detection, and field identifier pattern validation.
+Tests for structured error output, linter configuration, and field identifier
+pattern validation.
 """
 
 import json
@@ -14,8 +14,7 @@ import pytest
 from omniintelligence.tools.contract_linter import (
     FIELD_IDENTIFIER_PATTERN,
     ContractLinter,
-    ContractValidationResult,
-    _is_safe_path,
+    ModelContractValidationResult,
 )
 
 # =============================================================================
@@ -37,16 +36,16 @@ class TestStructuredErrorOutput:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
-        assert len(result.errors) >= 1
+        assert result.is_valid is False
+        assert len(result.validation_errors) >= 1
 
-        # Each error should have field, message, and error_type
-        for error in result.errors:
-            assert hasattr(error, "field")
-            assert hasattr(error, "message")
-            assert hasattr(error, "error_type")
-            assert error.field is not None
-            assert error.message is not None
+        # Each error should have field_path, error_message, and validation_error_type
+        for error in result.validation_errors:
+            assert hasattr(error, "field_path")
+            assert hasattr(error, "error_message")
+            assert hasattr(error, "validation_error_type")
+            assert error.field_path is not None
+            assert error.error_message is not None
 
     def test_nested_field_path_in_errors(self, tmp_path: Path):
         """Test that nested field paths are properly formatted.
@@ -83,9 +82,9 @@ transitions:
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         # Should have an error with nested path (e.g., "states.0.timeout_ms")
-        assert any("states" in e.field for e in result.errors)
+        assert any("states" in e.field_path for e in result.validation_errors)
 
     def test_multiple_errors_captured(self, tmp_path: Path):
         """Test that multiple validation errors are captured.
@@ -110,10 +109,10 @@ node_type: compute
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        assert result.valid is False
+        assert result.is_valid is False
         # Should have multiple errors for missing fields:
         # name, description, input_model, output_model, algorithm
-        assert len(result.errors) >= 2
+        assert len(result.validation_errors) >= 2
 
     def test_error_output_as_json(self, tmp_path: Path, invalid_missing_name_yaml: str):
         """Test that errors can be serialized to JSON."""
@@ -128,9 +127,9 @@ node_type: compute
 
         assert isinstance(json_output, str)
         parsed = json.loads(json_output)
-        assert "valid" in parsed
-        assert "errors" in parsed
-        assert isinstance(parsed["errors"], list)
+        assert "is_valid" in parsed
+        assert "validation_errors" in parsed
+        assert isinstance(parsed["validation_errors"], list)
 
 
 # =============================================================================
@@ -165,8 +164,8 @@ class TestLinterConfiguration:
         result = linter.validate(contract_path)
 
         # Lenient mode should pass for base contracts
-        assert isinstance(result, ContractValidationResult)
-        assert result.valid is True
+        assert isinstance(result, ModelContractValidationResult)
+        assert result.is_valid is True
 
     def test_linter_custom_schema_version(
         self, tmp_path: Path, valid_compute_contract_yaml: str
@@ -190,191 +189,8 @@ class TestLinterConfiguration:
         result = linter.validate(contract_path)
 
         # Verify we get a proper result and the contract is valid
-        assert isinstance(result, ContractValidationResult)
-        assert result.valid is True
-
-
-# =============================================================================
-# Test Class: Path Traversal Detection (Reserved for Strict Mode)
-# =============================================================================
-
-
-@pytest.mark.unit
-class TestPathTraversalDetection:
-    """Tests for path traversal detection helper function.
-
-    The _is_safe_path() function is reserved for future strict mode implementation.
-    It detects path traversal attempts like "../../../etc/passwd" but is NOT
-    enforced by default to maintain backward compatibility.
-
-    When strict mode is implemented, this function will be used to validate
-    file paths before processing to prevent malicious path traversal attacks.
-    """
-
-    def test_safe_path_absolute(self, tmp_path: Path):
-        """Test that absolute paths without traversal are safe."""
-        safe_path = tmp_path / "contract.yaml"
-        assert _is_safe_path(safe_path) is True
-
-    def test_safe_path_simple_relative(self):
-        """Test that simple relative paths without traversal are safe."""
-        assert _is_safe_path(Path("contract.yaml")) is True
-        assert _is_safe_path(Path("subdir/contract.yaml")) is True
-
-    def test_unsafe_path_simple_traversal(self):
-        """Test that simple path traversal is detected."""
-        assert _is_safe_path(Path("../etc/passwd")) is False
-
-    def test_unsafe_path_deep_traversal(self):
-        """Test that deep path traversal attempts are detected."""
-        assert _is_safe_path(Path("../../../etc/passwd")) is False
-
-    def test_unsafe_path_embedded_traversal(self):
-        """Test that embedded path traversal attempts are detected."""
-        assert _is_safe_path(Path("foo/../../../etc/passwd")) is False
-        assert _is_safe_path(Path("a/b/../../../etc/passwd")) is False
-
-    def test_safe_path_within_allowed_dir(self, tmp_path: Path):
-        """Test that paths within allowed directory are safe."""
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-        safe_file = allowed_dir / "contract.yaml"
-        safe_file.touch()
-
-        assert _is_safe_path(safe_file, allowed_dir) is True
-
-    def test_unsafe_path_outside_allowed_dir(self, tmp_path: Path):
-        """Test that paths outside allowed directory are unsafe."""
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-        outside_file = tmp_path / "outside.yaml"
-        outside_file.touch()
-
-        assert _is_safe_path(outside_file, allowed_dir) is False
-
-    def test_safe_path_subdirectory_of_allowed_dir(self, tmp_path: Path):
-        """Test that paths in subdirectories of allowed directory are safe."""
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-        subdir = allowed_dir / "v1_0_0"
-        subdir.mkdir()
-        safe_file = subdir / "contract.yaml"
-        safe_file.touch()
-
-        assert _is_safe_path(safe_file, allowed_dir) is True
-
-    def test_handles_os_errors_gracefully(self):
-        """Test that _is_safe_path never raises exceptions and always returns bool.
-
-        The _is_safe_path function is designed to be fail-safe: it must NEVER raise
-        an exception during path resolution. If any error occurs (OSError, ValueError,
-        etc.), it should return False (treating the path as potentially unsafe).
-
-        This test verifies the key invariant: _is_safe_path always returns a boolean,
-        even for edge-case paths that might cause errors during resolution.
-
-        The test specifically targets the internal error handling of _is_safe_path,
-        not errors during Path object construction (which are separate concerns).
-        """
-        # Test 1: Empty path - tests handling of edge case in path resolution
-        # Empty paths can cause issues in resolve() or relative_to() operations
-        empty_path = Path()
-        result = _is_safe_path(empty_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for empty path, got {type(result)}"
-        )
-        # Empty path should be considered unsafe (fails resolution checks)
-        # Note: On some platforms, empty path resolves to cwd, so we don't assert False
-
-        # Test 2: Path with current directory reference
-        # Tests that the function handles . properly without errors
-        dot_path = Path()
-        result = _is_safe_path(dot_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for '.' path, got {type(result)}"
-        )
-
-        # Test 3: Very long path component (may cause OS errors on some systems)
-        # This tests the try/except block around resolve() in _is_safe_path
-        long_component = "a" * 1000
-        long_path = Path(long_component)
-        result = _is_safe_path(long_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for very long path, got {type(result)}"
-        )
-
-        # Test 4: Path with traversal that must be detected as unsafe
-        # This directly tests _is_safe_path's core behavior
-        traversal_path = Path("normal/../file.yaml")
-        result = _is_safe_path(traversal_path)
-        assert isinstance(result, bool), (
-            f"_is_safe_path must return bool for path with traversal, got {type(result)}"
-        )
-        # This path contains traversal, so it MUST be detected as unsafe
-        assert result is False, (
-            "Path with '..' traversal component must be detected as unsafe"
-        )
-
-    def test_traversal_in_directory_component(self):
-        """Test that traversal in directory components is detected."""
-        assert _is_safe_path(Path("safe/../../unsafe/file.yaml")) is False
-
-    def test_current_directory_reference_is_safe(self):
-        """Test that current directory reference (.) is safe."""
-        # Single dot is safe - it doesn't traverse upward
-        assert _is_safe_path(Path("./contract.yaml")) is True
-        assert _is_safe_path(Path("./subdir/contract.yaml")) is True
-
-    def test_prefix_similar_paths_not_matched(self, tmp_path: Path):
-        """Test that prefix-similar paths outside allowed dir are detected.
-
-        This verifies that the path containment check uses proper path semantics
-        (via relative_to()) rather than string prefix matching which has false
-        positives.
-
-        Example false positive with string prefix:
-            "/allowed/path" and "/allowed/path-extra"
-            - String check: "/allowed/path-extra".startswith("/allowed/path") -> True (WRONG)
-            - Path check: Path("/allowed/path-extra").relative_to("/allowed/path") -> ValueError (CORRECT)
-
-        The directories 'path' and 'path-extra' are siblings, not parent-child.
-        """
-        allowed_dir = tmp_path / "allowed" / "path"
-        allowed_dir.mkdir(parents=True)
-        similar_dir = tmp_path / "allowed" / "path-extra"
-        similar_dir.mkdir(parents=True)
-        outside_file = similar_dir / "file.yaml"
-        outside_file.touch()
-
-        # This MUST return False because path-extra is a sibling of path, not a child
-        assert _is_safe_path(outside_file, allowed_dir) is False
-
-    def test_prefix_similar_paths_with_suffix(self, tmp_path: Path):
-        """Test variations of prefix-similar path names are rejected.
-
-        Tests multiple suffix patterns that could cause false positives with
-        naive string prefix matching.
-        """
-        allowed_dir = tmp_path / "contracts"
-        allowed_dir.mkdir()
-
-        # Various sibling directories with similar prefixes
-        similar_names = [
-            "contracts-backup",
-            "contracts_old",
-            "contracts2",
-            "contractsv2",
-        ]
-
-        for similar_name in similar_names:
-            similar_dir = tmp_path / similar_name
-            similar_dir.mkdir()
-            outside_file = similar_dir / "contract.yaml"
-            outside_file.touch()
-
-            assert _is_safe_path(outside_file, allowed_dir) is False, (
-                f"Path in '{similar_name}' should not be considered inside 'contracts'"
-            )
+        assert isinstance(result, ModelContractValidationResult)
+        assert result.is_valid is True
 
 
 # =============================================================================
@@ -499,3 +315,340 @@ class TestFieldIdentifierPattern:
         # Should match because 'node_type' is a valid snake_case identifier
         assert FIELD_IDENTIFIER_PATTERN.match(potential_field) is not None
         assert potential_field == "node_type"
+
+
+# =============================================================================
+# Test Class: Python Keyword Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestPythonKeywordValidation:
+    """Tests for is_python_keyword function.
+
+    Validates that Python reserved keywords are correctly identified
+    to prevent field names that conflict with Python syntax.
+    """
+
+    def test_common_python_keywords(self):
+        """Test that common Python keywords are detected."""
+        from omniintelligence.tools.contract_linter import is_python_keyword
+
+        # Common keywords that might accidentally be used as field names
+        keywords = [
+            "class",
+            "def",
+            "return",
+            "if",
+            "for",
+            "while",
+            "try",
+            "except",
+            "import",
+            "from",
+            "with",
+            "as",
+            "in",
+            "is",
+            "not",
+            "and",
+            "or",
+            "pass",
+            "break",
+            "continue",
+            "lambda",
+            "yield",
+            "global",
+            "nonlocal",
+            "raise",
+            "assert",
+            "del",
+            "True",
+            "False",
+            "None",
+            "async",
+            "await",
+        ]
+
+        for kw in keywords:
+            assert is_python_keyword(kw) is True, f"'{kw}' should be a keyword"
+
+    def test_non_keywords(self):
+        """Test that valid field names are not flagged as keywords."""
+        from omniintelligence.tools.contract_linter import is_python_keyword
+
+        non_keywords = [
+            "name",
+            "version",
+            "field_name",
+            "node_type",
+            "_private",
+            "class_name",  # Contains 'class' but not a keyword
+            "def_value",  # Contains 'def' but not a keyword
+            "return_code",  # Contains 'return' but not a keyword
+            "if_condition",
+            "for_loop",
+            "classname",  # No underscore, merged
+        ]
+
+        for name in non_keywords:
+            assert is_python_keyword(name) is False, f"'{name}' should NOT be a keyword"
+
+
+# =============================================================================
+# Test Class: Dunder Name Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDunderNameValidation:
+    """Tests for is_dunder_name function.
+
+    Validates that Python dunder (double underscore) names are correctly
+    identified to prevent field names that conflict with Python internals.
+    """
+
+    def test_common_dunder_names(self):
+        """Test that common dunder names are detected."""
+        from omniintelligence.tools.contract_linter import is_dunder_name
+
+        dunders = [
+            "__init__",
+            "__str__",
+            "__repr__",
+            "__dict__",
+            "__class__",
+            "__name__",
+            "__doc__",
+            "__module__",
+            "__call__",
+            "__len__",
+            "__iter__",
+            "__next__",
+            "__getitem__",
+            "__setitem__",
+            "__delitem__",
+            "__enter__",
+            "__exit__",
+            "__hash__",
+            "__eq__",
+            "__ne__",
+            "__lt__",
+            "__gt__",
+            "__slots__",
+            "__all__",
+            "__file__",
+            "__version__",
+        ]
+
+        for name in dunders:
+            assert is_dunder_name(name) is True, f"'{name}' should be a dunder"
+
+    def test_non_dunder_names(self):
+        """Test that valid field names are not flagged as dunders."""
+        from omniintelligence.tools.contract_linter import is_dunder_name
+
+        non_dunders = [
+            "_private",  # Single leading underscore
+            "__mangled",  # Double leading, no trailing (name mangling)
+            "normal",
+            "field_name",
+            "node_type",
+            "__",  # Too short
+            "___",  # Too short
+            "____",  # Exactly 4 chars, still too short for content
+            "init",  # No underscores
+            "_init_",  # Single underscores
+        ]
+
+        for name in non_dunders:
+            assert is_dunder_name(name) is False, f"'{name}' should NOT be a dunder"
+
+
+# =============================================================================
+# Test Class: Trailing Underscore Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestTrailingUnderscoreValidation:
+    """Tests for has_invalid_trailing_underscore function.
+
+    Validates that trailing underscores (keyword workaround pattern) are
+    correctly identified to encourage proper naming instead of workarounds.
+    """
+
+    def test_invalid_trailing_underscore_names(self):
+        """Test that trailing underscore names are detected."""
+        from omniintelligence.tools.contract_linter import (
+            has_invalid_trailing_underscore,
+        )
+
+        invalid_names = [
+            "class_",  # Common keyword workaround
+            "def_",
+            "return_",
+            "type_",
+            "id_",
+            "list_",
+            "dict_",
+            "set_",
+            "str_",
+            "int_",
+            "float_",
+            "bool_",
+            "in_",
+            "is_",
+            "or_",
+            "and_",
+            "not_",
+            "async_",
+            "await_",
+            "field_",  # Even non-keyword names with trailing underscore
+            "value_",
+            "data_",
+        ]
+
+        for name in invalid_names:
+            assert has_invalid_trailing_underscore(name) is True, (
+                f"'{name}' should have invalid trailing underscore"
+            )
+
+    def test_valid_names_without_trailing_underscore(self):
+        """Test that valid field names are not flagged for trailing underscore."""
+        from omniintelligence.tools.contract_linter import (
+            has_invalid_trailing_underscore,
+        )
+
+        valid_names = [
+            "class_name",  # Underscore in middle is fine
+            "return_code",
+            "type_info",
+            "id_value",
+            "field_name",
+            "node_type",
+            "version",
+            "_private",  # Leading underscore is fine
+            "__mangled",  # Double leading is fine
+            "_internal_",  # Leading underscore allows trailing
+            "_private_field_",  # Leading underscore allows trailing
+            "__init__",  # Dunder names handled separately
+            "__str__",
+        ]
+
+        for name in valid_names:
+            assert has_invalid_trailing_underscore(name) is False, (
+                f"'{name}' should NOT have invalid trailing underscore"
+            )
+
+
+# =============================================================================
+# Test Class: Complete Field Identifier Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestValidateFieldIdentifier:
+    """Tests for validate_field_identifier function.
+
+    Comprehensive validation combining pattern matching, keyword checking,
+    dunder detection, and trailing underscore validation.
+    """
+
+    def test_valid_field_names(self):
+        """Test that valid field names pass validation."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        valid_names = [
+            "name",
+            "version",
+            "field_name",
+            "node_type",
+            "input_model",
+            "output_model",
+            "_private",
+            "_internal_field",
+            "field123",
+            "v1_0_0",
+            "step_1",
+            "io_operations",
+            "state_machine_name",
+        ]
+
+        for name in valid_names:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is True, f"'{name}' should be valid, got error: {error}"
+            assert error is None
+
+    def test_python_keywords_rejected(self):
+        """Test that Python keywords are rejected with clear message."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        keywords = ["class", "def", "return", "if", "for", "while", "import", "from"]
+
+        for kw in keywords:
+            is_valid, error = validate_field_identifier(kw)
+            assert is_valid is False, f"'{kw}' should be rejected"
+            assert error is not None
+            assert "Python reserved keyword" in error
+            assert kw in error
+
+    def test_dunder_names_rejected(self):
+        """Test that dunder names are rejected with clear message."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        dunders = ["__init__", "__str__", "__dict__", "__class__", "__name__"]
+
+        for name in dunders:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, f"'{name}' should be rejected"
+            assert error is not None
+            assert "dunder naming" in error
+            assert name in error
+
+    def test_trailing_underscore_rejected(self):
+        """Test that trailing underscores are rejected with clear message."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        trailing_underscore_names = ["class_", "type_", "id_", "return_"]
+
+        for name in trailing_underscore_names:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, f"'{name}' should be rejected"
+            assert error is not None
+            assert "trailing underscore" in error
+            assert name in error
+
+    def test_invalid_pattern_rejected(self):
+        """Test that names not matching snake_case pattern are rejected."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        invalid_patterns = [
+            "ClassName",  # Uppercase
+            "fieldName",  # camelCase
+            "123field",  # Starts with number
+            "field name",  # Contains space
+            "field-name",  # Contains hyphen
+        ]
+
+        for name in invalid_patterns:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, f"'{name}' should be rejected"
+            assert error is not None
+            assert "snake_case pattern" in error
+
+    def test_error_messages_are_descriptive(self):
+        """Test that error messages provide helpful guidance."""
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        # Keyword error should mention it's reserved
+        _, error = validate_field_identifier("class")
+        assert "reserved keyword" in error
+
+        # Dunder error should mention internal use
+        _, error = validate_field_identifier("__init__")
+        assert "internal use" in error or "reserved" in error
+
+        # Trailing underscore should suggest alternative
+        _, error = validate_field_identifier("class_")
+        assert "different name" in error or "workaround" in error

@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.enums import EnumQualityDimension
+from omniintelligence._legacy.enums import EnumQualityDimension
 
 
 class ModelQualityScore(BaseModel):

@@ -7,8 +7,8 @@ Tests workflow routing and execution.
 import pytest
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
-from omniintelligence.enums import EnumOperationType
-from omniintelligence.models import ModelOrchestratorInput
+from omniintelligence._legacy.enums import EnumOperationType
+from omniintelligence._legacy.models import ModelOrchestratorInput
 from src.omniintelligence.nodes.intelligence_orchestrator.v1_0_0.orchestrator import (
     IntelligenceOrchestrator,
 )

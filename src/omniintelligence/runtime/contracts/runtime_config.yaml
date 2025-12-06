@@ -136,7 +136,7 @@ handler_types:
     description: HTTP client for external API calls
     optional_config:
       - base_url
-      - timeout_seconds
+      - timeout_ms
       - max_retries
 
 # Validation rules

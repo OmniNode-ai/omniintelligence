@@ -8,8 +8,8 @@ in the omniintelligence system.
 from typing import Any, Callable, Optional
 from uuid import uuid4
 
-from omniintelligence.enums import EnumIntentType, EnumOperationType, EnumFSMType
-from omniintelligence.models import ModelIntent
+from omniintelligence._legacy.enums import EnumIntentType, EnumOperationType, EnumFSMType
+from omniintelligence._legacy.models import ModelIntent
 
 
 class IntentFactory:

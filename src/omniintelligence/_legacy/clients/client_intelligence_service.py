@@ -31,7 +31,7 @@ from typing import Any, Dict, Optional
 import httpx
 
 # Import API contract models from omniintelligence
-from omniintelligence.models.model_intelligence_api_contracts import (
+from omniintelligence._legacy.models.model_intelligence_api_contracts import (
     ModelHealthCheckResponse,
     ModelPatternDetectionRequest,
     ModelPatternDetectionResponse,

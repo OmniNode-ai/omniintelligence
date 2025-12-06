@@ -4,7 +4,7 @@ Unit tests for shared enums.
 Tests enum definitions and values.
 """
 
-from omniintelligence.enums import (
+from omniintelligence._legacy.enums import (
     EnumEntityType,
     EnumFSMType,
     EnumIngestionState,

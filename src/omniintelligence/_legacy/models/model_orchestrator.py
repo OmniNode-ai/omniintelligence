@@ -4,11 +4,11 @@ Orchestrator Models for omniintelligence.
 Input, output, and configuration models for intelligence orchestrators.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.enums import EnumOperationType
+from omniintelligence._legacy.enums import EnumOperationType
 
 from .model_intent import ModelIntent
 
@@ -33,7 +33,7 @@ class ModelOrchestratorInput(BaseModel):
     operation_type: EnumOperationType = Field(..., description="Operation type")
     entity_id: str = Field(..., description="Entity identifier")
     payload: dict[str, Any] = Field(..., description="Operation payload")
-    context: Optional[dict[str, Any]] = Field(None, description="Additional context")
+    context: dict[str, Any] | None = Field(None, description="Additional context")
     correlation_id: str = Field(..., description="Correlation ID")
 
 
@@ -55,7 +55,7 @@ class ModelOrchestratorOutput(BaseModel):
 
     success: bool = Field(..., description="Whether orchestration succeeded")
     workflow_id: str = Field(..., description="Workflow execution ID")
-    results: Optional[dict[str, Any]] = Field(
+    results: dict[str, Any] | None = Field(
         default=None, description="Workflow results"
     )
     intents: list[ModelIntent] = Field(
@@ -68,9 +68,18 @@ class ModelOrchestratorConfig(BaseModel):
     """Configuration for intelligence orchestrator."""
 
     max_concurrent_workflows: int = Field(10, description="Max concurrent workflows")
-    workflow_timeout_seconds: int = Field(300, description="Workflow timeout")
-    enable_caching: bool = Field(True, description="Enable result caching")
-    cache_ttl_seconds: int = Field(300, description="Cache TTL")
+    workflow_timeout_ms: int = Field(
+        300000,
+        description="Workflow timeout in milliseconds",
+    )
+    caching_enabled: bool = Field(
+        True,
+        description="Enable result caching",
+    )
+    cache_ttl_ms: int = Field(
+        300000,
+        description="Cache TTL in milliseconds",
+    )
 
 
 __all__ = [

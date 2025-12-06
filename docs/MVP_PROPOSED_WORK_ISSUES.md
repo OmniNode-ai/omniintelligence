@@ -4,7 +4,7 @@
 **Version Target**: v0.5.0 (Runtime Host Integration)
 **Generated**: 2025-12-03
 **Last Updated**: 2025-12-03
-**Linear Project**: MVP - OmniIntelligence Runtime Host Migration
+**Linear Project**: MVP - OmniIntelligence Runtime Host
 
 ---
 
@@ -17,12 +17,6 @@ This document outlines proposed issues for migrating OmniIntelligence from the 1
 - `omnibase_core/docs/MINIMAL_RUNTIME_PHASED_PLAN.md`
 - `omnibase_spi/docs/PROTOCOL_INTERFACES_PLAN.md`
 - `omnibase_infra/docs/DECLARATIVE_EFFECT_NODES_PLAN.md`
-
----
-
-## Backward Compatibility Statement
-
-> **BREAKING CHANGE**: This migration is a breaking change. OmniIntelligence nodes will NOT remain backward-compatible with the existing standalone Docker node architecture. All consumers must migrate to the Runtime Host architecture.
 
 ---
 
@@ -83,7 +77,7 @@ Several components defined here should ultimately live in platform repos, not om
 | Phase 6: Runtime Host Integration | 8 | 5 | 2 | 1 | Ready when Phase 5 complete |
 | Phase 7: Docker Consolidation | 6 | 4 | 2 | 0 | Ready when Phase 6 complete |
 | Phase 8: Testing & Validation | 10 | 4 | 4 | 2 | Ready when Phase 7 complete |
-| Phase 9: Legacy Cleanup | 3 | 0 | 3 | 0 | Ready when Phase 8 validated |
+| Phase 9: Cleanup | 3 | 0 | 3 | 0 | Ready when Phase 8 validated |
 | **Total** | **56** | **35** | **16** | **5** | - |
 
 > **MVP Scope**: 35 issues required for minimum viable runtime host
@@ -140,9 +134,9 @@ Several components defined here should ultimately live in platform repos, not om
 **Dependencies**: None (can start immediately)
 **Purpose**: Build validation infrastructure before node refactoring begins
 
-### Epic: Build Pre-Migration Validation Tools
+### Epic: Build Validation Tools
 
-These tools ensure the migration proceeds correctly and catch issues early.
+These tools ensure the implementation proceeds correctly and catch issues early.
 
 #### Issue 1.1: Create Contract Linter CLI Tool
 
@@ -405,7 +399,7 @@ dot -Tpng deps.dot -o deps.png  # Generate visualization
 **Labels**: `tooling`, `reporting`, `contracts`
 
 **Description**:
-Create a script that generates a coverage report showing the migration status of all nodes.
+Create a script that generates a coverage report showing the contract status of all nodes.
 
 **Location**: `scripts/generate_contract_coverage_report.py`
 
@@ -453,7 +447,7 @@ Generated: 2025-12-03
 **Milestone**: **GA**
 **Labels**: `tooling`, `validation`, `kafka`
 
-> **Note**: GA implementation should include multi-version topic support validation (e.g., simultaneous v1 and v2 topic handling for migration scenarios).
+> **Note**: GA implementation should include multi-version topic support validation (e.g., simultaneous v1 and v2 topic handling).
 
 **Description**:
 Create a validator that enforces the topic naming schema across all contracts.
@@ -868,14 +862,14 @@ def test_vectorization_compute_contract_snapshot(vectorization_compute_contract,
 
 #### Issue 2.6: Document node versioning strategy
 
-**Title**: Document node versioning strategy for migration
+**Title**: Document node versioning strategy
 **Type**: Documentation
 **Priority**: Medium
 **Labels**: `documentation`, `contracts`, `versioning`
 **Milestone**: Beta
 
 **Description**:
-Create documentation explaining the versioning strategy used during migration.
+Create documentation explaining the versioning strategy for node contracts.
 
 **Location**: `docs/NODE_VERSIONING_STRATEGY.md`
 
@@ -893,14 +887,14 @@ Create documentation explaining the versioning strategy used during migration.
 | Contract injection | Minor (v1.5.0) | Orchestrators accepting workflow contracts |
 | Pure contract fixes | Patch (v1.0.1) | Typo fixes, doc updates |
 
-## Migration Version Table
+## Node Version Table
 
-| Node | Pre-Migration | Post-Migration | Change Type |
-|------|---------------|----------------|-------------|
-| vectorization_compute | v1.0.0 | v1.1.0 | Handler injection (additive) |
-| qdrant_vector_effect | v1.0.0 | v2.0.0 | Handler injection (breaking) |
-| intelligence_orchestrator | v1.0.0 | v1.5.0 | Contract injection |
-| ... | ... | ... | ... |
+| Node | Current Version | Change Type |
+|------|-----------------|-------------|
+| vectorization_compute | v1.1.0 | Handler injection (additive) |
+| qdrant_vector_effect | v2.0.0 | Handler injection (breaking) |
+| intelligence_orchestrator | v1.5.0 | Contract injection |
+| ... | ... | ... |
 ```
 
 **Acceptance Criteria**:
@@ -2396,7 +2390,7 @@ class NodeRuntime:
 - [ ] Metadata validated against YAML contract during startup
 - [ ] Handler dependencies declared in metadata
 - [ ] Topic subscriptions declared in metadata
-- [ ] TODO marker added for migration to omnibase_core
+- [ ] TODO marker added for move to omnibase_core
 - [ ] Unit tests for NodeMeta validation
 - [ ] mypy passes
 
@@ -2649,27 +2643,27 @@ class IntelligenceRuntimeConfig(RuntimeConfig):
 
 ---
 
-#### Issue 7.4: Archive legacy per-node Dockerfiles
+#### Issue 7.4: Archive per-node Dockerfiles
 
-**Title**: Archive legacy per-node Docker configuration
+**Title**: Archive per-node Docker configuration
 **Type**: Task
 **Priority**: Low
 **Labels**: `docker`, `cleanup`
 **Milestone**: **Beta**
 
 **Description**:
-Move legacy per-node Docker files to `deployment/docker/legacy/` for reference.
+Move per-node Docker files to `deployment/docker/archived/` for reference.
 
 **Files to Move**:
-- `Dockerfile.compute` → `legacy/Dockerfile.compute`
-- `Dockerfile.effect` → `legacy/Dockerfile.effect`
-- `Dockerfile.orchestrator` → `legacy/Dockerfile.orchestrator`
-- `Dockerfile.reducer` → `legacy/Dockerfile.reducer`
-- `docker-compose.nodes.yml` → `legacy/docker-compose.nodes.yml`
+- `Dockerfile.compute` -> `archived/Dockerfile.compute`
+- `Dockerfile.effect` -> `archived/Dockerfile.effect`
+- `Dockerfile.orchestrator` -> `archived/Dockerfile.orchestrator`
+- `Dockerfile.reducer` -> `archived/Dockerfile.reducer`
+- `docker-compose.nodes.yml` -> `archived/docker-compose.nodes.yml`
 
 **Acceptance Criteria**:
-- [ ] All legacy files moved to `legacy/` directory
-- [ ] `legacy/README.md` created explaining these are deprecated
+- [ ] All per-node files moved to `archived/` directory
+- [ ] `archived/README.md` created explaining these are no longer used
 - [ ] `.dockerignore` updated if needed
 - [ ] CI/CD pipelines updated to use new files
 
@@ -3272,14 +3266,14 @@ class TestEffectNodeChaos:
 
 #### Issue 8.9: Create Node Runtime Compliance Checklist
 
-**Title**: Create node runtime compliance checklist for migration validation
+**Title**: Create node runtime compliance checklist for validation
 **Type**: Documentation
 **Priority**: High
 **Labels**: `documentation`, `compliance`, `checklist`
 **Milestone**: **MVP**
 
 **Description**:
-Create a compliance checklist that must be completed for each node before the migration is considered done.
+Create a compliance checklist that must be completed for each node before the implementation is considered done.
 
 **Location**: `docs/NODE_RUNTIME_COMPLIANCE_CHECKLIST.md`
 
@@ -3287,7 +3281,7 @@ Create a compliance checklist that must be completed for each node before the mi
 ```markdown
 # Node Runtime Compliance Checklist
 
-Every node must pass this checklist before migration is complete.
+Every node must pass this checklist before implementation is complete.
 
 ## Checklist
 
@@ -3302,7 +3296,7 @@ For each of the 17 nodes, verify:
 | 5 | Logging uses unified logger | Uses `omnibase_core.logging`, not `print()` or bare `logging` |
 | 6 | Unit tests ≥ 80% coverage | Coverage report shows ≥80% for node directory |
 | 7 | Has runtime profile entry | Listed in IntelligenceNodeRegistry |
-| 8 | Contract version updated | Version matches migration table (Issue 2.6) |
+| 8 | Contract version updated | Version matches version table (Issue 2.6) |
 | 9 | Documented in registry | Export present in nodes/__init__.py |
 
 ## Node Compliance Status
@@ -3453,7 +3447,7 @@ class ModelRuntimeError(BaseModel):
 - [ ] Error includes code, message, and context
 - [ ] Errors are machine-readable (JSON serializable)
 - [ ] Documentation for each error code
-- [ ] TODO marker for migration to omnibase_core
+- [ ] TODO marker for move to omnibase_core
 
 ---
 
@@ -3592,12 +3586,12 @@ class TestProtocolSnapshots:
 - [ ] Snapshot files generated and committed
 - [ ] CI fails on unexpected protocol changes
 - [ ] Documentation for updating snapshots
-- [ ] Backward compatibility enforced by default
+- [ ] Protocol stability enforced by default
 - [ ] Breaking change process documented
 
 ---
 
-## Phase 9: Legacy Cleanup
+## Phase 9: Cleanup
 
 **Priority**: LOW
 **Dependencies**: Phase 8 validated, 2 weeks production validation
@@ -3606,16 +3600,16 @@ class TestProtocolSnapshots:
 
 #### Issue 9.1: Remove per-node Dockerfiles
 
-**Title**: Delete legacy per-node Docker files
+**Title**: Delete per-node Docker files
 **Type**: Task
 **Priority**: Low
 **Labels**: `cleanup`, `docker`
 
 **Description**:
-After production validation, delete legacy Docker files from `deployment/docker/legacy/`.
+After production validation, delete Docker files from `deployment/docker/archived/`.
 
 **Files to Delete**:
-- `deployment/docker/legacy/` (entire directory)
+- `deployment/docker/archived/` (entire directory)
 
 **Acceptance Criteria**:
 - [ ] 2 weeks of production validation complete
@@ -3658,13 +3652,13 @@ Update all documentation to reflect the new Runtime Host architecture.
 **Files to Update**:
 - `CLAUDE.md` - Update node execution model
 - `README.md` - Update deployment instructions
-- `docs/MVP_PLAN.md` - Mark runtime host migration complete
+- `docs/MVP_PLAN.md` - Mark runtime host implementation complete
 - `docs/RUNTIME_HOST_REFACTORING_PLAN.md` - Mark all phases complete
 
 **Acceptance Criteria**:
 - [ ] All documentation reflects new architecture
 - [ ] Deployment instructions use new Docker configuration
-- [ ] Migration guide added for consumers
+- [ ] Upgrade guide added for consumers
 - [ ] Version changelog updated
 
 ---
@@ -3674,7 +3668,7 @@ Update all documentation to reflect the new Runtime Host architecture.
 When creating these issues in Linear:
 
 1. **Team**: Omninode
-2. **Project**: MVP - OmniIntelligence Runtime Host Migration
+2. **Project**: MVP - OmniIntelligence Runtime Host
 3. **Labels**: Apply as indicated
 4. **Priority**:
    - 1 = Urgent (Issue 4.5 - Remove Kafka consumer)

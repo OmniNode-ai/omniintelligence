@@ -16,16 +16,18 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
+import keyword
+import logging
 import os
 import re
 import sys
 import time as time_module  # Avoid conflict with potential 'time' variable names
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -38,10 +40,19 @@ from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from omnibase_core.validation.contract_validator import ProtocolContractValidator
 from pydantic import BaseModel, ValidationError
 
+# Module-level logger for contract linter operations
+# Outputs to stderr to avoid polluting stdout which is used for CLI results
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from pydantic_core import ErrorDetails
+
+# Type alias for parsed YAML data. YAML values can be any scalar (str, int, float, bool, None)
+# or compound (list, dict) type. Using `object` instead of `Any` provides type safety by
+# requiring explicit type narrowing (via isinstance checks) before using values.
+YamlData = dict[str, object]
 
 # Maximum file size for YAML contracts (1MB default)
 MAX_YAML_SIZE_BYTES = 1024 * 1024  # 1MB
@@ -55,74 +66,211 @@ DEFAULT_PARALLEL_THRESHOLD = 10
 # Rejects: FieldName (uppercase), "field name" (spaces), 123field (starts with digit)
 FIELD_IDENTIFIER_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
 
+
+def is_python_keyword(name: str) -> bool:
+    """
+    Check if a name is a Python reserved keyword.
+
+    Uses the standard library `keyword.iskeyword()` function to check
+    against all Python reserved keywords (if, for, class, def, return, etc.).
+
+    Args:
+        name: The identifier name to check
+
+    Returns:
+        True if the name is a Python reserved keyword, False otherwise
+
+    Examples:
+        >>> is_python_keyword("class")
+        True
+        >>> is_python_keyword("field_name")
+        False
+    """
+    return keyword.iskeyword(name)
+
+
+def is_dunder_name(name: str) -> bool:
+    """
+    Check if a name is a Python dunder (double underscore) name.
+
+    Dunder names start AND end with double underscores (__). These are
+    reserved for Python's internal use (e.g., __init__, __str__, __dict__).
+
+    Single leading underscore (_private) is allowed for convention-based
+    private attributes. Double leading underscore (__mangled) without
+    trailing underscores is allowed for name mangling.
+
+    Args:
+        name: The identifier name to check
+
+    Returns:
+        True if the name is a dunder name (starts AND ends with __), False otherwise
+
+    Examples:
+        >>> is_dunder_name("__init__")
+        True
+        >>> is_dunder_name("__dict__")
+        True
+        >>> is_dunder_name("_private")
+        False
+        >>> is_dunder_name("__mangled")
+        False
+    """
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
+
+
+def has_invalid_trailing_underscore(name: str) -> bool:
+    """
+    Check if a name has an invalid trailing underscore.
+
+    Names ending with a single underscore are typically used to avoid
+    conflicts with Python keywords (e.g., class_ instead of class).
+    However, ONEX naming conventions discourage trailing underscores
+    for field names as they indicate workarounds rather than clean design.
+
+    Single leading underscore (_private) is valid for private attributes.
+    Names ending with underscore but starting with underscore are valid
+    (e.g., _internal_ is a valid pattern).
+
+    Args:
+        name: The identifier name to check
+
+    Returns:
+        True if the name ends with underscore but doesn't start with underscore,
+        False otherwise
+
+    Examples:
+        >>> has_invalid_trailing_underscore("class_")
+        True
+        >>> has_invalid_trailing_underscore("return_")
+        True
+        >>> has_invalid_trailing_underscore("field_name")
+        False
+        >>> has_invalid_trailing_underscore("_private")
+        False
+        >>> has_invalid_trailing_underscore("_internal_")
+        False
+    """
+    # Don't flag dunder names here - they're handled by is_dunder_name
+    if is_dunder_name(name):
+        return False
+    # Valid: doesn't end with underscore, or starts with underscore (private convention)
+    # Invalid: ends with underscore but doesn't start with underscore
+    return name.endswith("_") and not name.startswith("_")
+
+
+def validate_field_identifier(name: str) -> tuple[bool, str | None]:
+    """
+    Validate a field identifier against ONEX naming conventions.
+
+    Checks for:
+    1. Basic identifier pattern (lowercase snake_case)
+    2. Python reserved keywords
+    3. Dunder names (double underscore start AND end)
+    4. Invalid trailing underscores
+
+    Args:
+        name: The field identifier to validate
+
+    Returns:
+        Tuple of (is_valid, error_message). If valid, error_message is None.
+
+    Examples:
+        >>> validate_field_identifier("field_name")
+        (True, None)
+        >>> validate_field_identifier("class")
+        (False, "Field name 'class' is a Python reserved keyword")
+        >>> validate_field_identifier("__init__")
+        (False, "Field name '__init__' uses Python dunder naming ...")
+        >>> validate_field_identifier("class_")
+        (False, "Field name 'class_' has trailing underscore ...")
+    """
+    # Check basic pattern first
+    if not FIELD_IDENTIFIER_PATTERN.match(name):
+        return (False, f"Field name '{name}' does not match snake_case pattern")
+
+    # Check for Python reserved keywords
+    if is_python_keyword(name):
+        return (False, f"Field name '{name}' is a Python reserved keyword")
+
+    # Check for dunder names
+    if is_dunder_name(name):
+        return (
+            False,
+            f"Field name '{name}' uses Python dunder naming "
+            "(reserved for internal use)",
+        )
+
+    # Check for trailing underscore (keyword workaround pattern)
+    if has_invalid_trailing_underscore(name):
+        return (
+            False,
+            f"Field name '{name}' has trailing underscore "
+            "(use a different name instead of keyword workaround)",
+        )
+
+    return (True, None)
+
+
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
 VALID_NODE_TYPES: frozenset[str] = frozenset(
     {"compute", "effect", "reducer", "orchestrator"}
 )
 
+# Default number of worker threads when os.cpu_count() returns None
+# Used as fallback for parallel batch validation
+DEFAULT_MAX_WORKERS_FALLBACK = 4
 
-def _is_safe_path(file_path: Path, allowed_dir: Path | None = None) -> bool:
-    """Check if path is safe (no traversal attacks).
+# Watch mode poll interval in seconds
+# Controls how frequently files are checked for changes in --watch mode
+WATCH_POLL_INTERVAL_SECONDS = 1
 
-    This helper function detects path traversal attempts like "../../../etc/passwd".
-    It is reserved for future strict mode implementation and is NOT enforced by
-    default to maintain backward compatibility with existing usage patterns.
+# JSON output indentation (spaces)
+# Used for human-readable JSON formatting in CLI output
+JSON_INDENT_SPACES = 2
 
-    When strict mode is implemented, this function will be used to validate
-    file paths before processing to prevent malicious path traversal attacks.
+# Patterns for sensitive environment variable names that should be redacted in error output.
+# These patterns use fnmatch-style wildcards (* matches any characters).
+# Values of matching env vars will be replaced with REDACTED_VALUE in error messages.
+SENSITIVE_ENV_VAR_PATTERNS: tuple[str, ...] = (
+    # API keys and secrets
+    "*_KEY",
+    "*_SECRET",
+    "*_PASSWORD",
+    "*_TOKEN",
+    "*_API_KEY",
+    "*_APIKEY",
+    # Credentials and auth
+    "*_PRIVATE_*",
+    "*_CREDENTIAL*",
+    "*_AUTH_*",
+    # Connection strings and URLs with credentials
+    "DATABASE_URL",
+    "*_CONNECTION_STRING",
+    "*_DSN",
+    # Cloud provider credentials
+    "AWS_*",
+    "AZURE_*",
+    "GCP_*",
+    "GOOGLE_*",
+    # Certificates and keys
+    "*_CERT",
+    "*_CERTIFICATE",
+    "*_PEM",
+    "*_RSA",
+    "*_PRIVATE_KEY",
+)
 
-    Args:
-        file_path: Path to validate
-        allowed_dir: If provided, path must be within this directory
-
-    Returns:
-        True if path is safe, False otherwise
-
-    Examples:
-        >>> _is_safe_path(Path("/home/user/contract.yaml"))
-        True
-        >>> _is_safe_path(Path("../../../etc/passwd"))
-        False
-        >>> _is_safe_path(Path("foo/../../../etc/passwd"))
-        False
-        >>> _is_safe_path(Path("/home/user/contract.yaml"), Path("/home/user"))
-        True
-        >>> _is_safe_path(Path("/etc/passwd"), Path("/home/user"))
-        False
-        >>> _is_safe_path(Path("/allowed/path-extra/file.yaml"), Path("/allowed/path"))
-        False  # Must not match prefix-similar paths
-    """
-    try:
-        resolved = file_path.resolve()
-        # Check for path traversal attempts in the original path string
-        # This catches attempts like "../../../etc/passwd" before resolution
-        if ".." in str(file_path):
-            return False
-        # If allowed_dir specified, ensure path is within it using proper path
-        # containment check. String prefix matching has false positives:
-        # e.g., "/allowed/path-extra" would incorrectly match "/allowed/path"
-        if allowed_dir:
-            allowed_resolved = allowed_dir.resolve()
-            # Use is_relative_to() for proper path containment (Python 3.9+)
-            # This correctly handles edge cases like "/allowed/path-extra"
-            # not being inside "/allowed/path"
-            try:
-                resolved.relative_to(allowed_resolved)
-                return True
-            except ValueError:
-                # resolved is not relative to allowed_resolved
-                return False
-        return True
-    except (OSError, ValueError):
-        return False
+# Redaction placeholder for sensitive values
+REDACTED_VALUE = "***REDACTED***"
 
 
 class EnumContractErrorType(str, Enum):
     """
     Enumeration of contract validation error types.
 
-    Values are string-based for easy serialization and compatibility with
-    existing error handling code.
+    Values are string-based for easy serialization and integration with
+    error handling pipelines.
     """
 
     MISSING_FIELD = "missing_field"
@@ -138,75 +286,177 @@ class EnumContractErrorType(str, Enum):
     YAML_PARSE_ERROR = "yaml_parse_error"
     UNKNOWN_CONTRACT_TYPE = "unknown_contract_type"
     UNEXPECTED_ERROR = "unexpected_error"
+    RESERVED_IDENTIFIER = "reserved_identifier"
 
 
-@dataclass
-class ContractValidationError:
+class ModelContractValidationError:
     """
     Represents a single validation error with field path information.
 
+    Uses __slots__ instead of BaseModel for minimal memory footprint when
+    handling thousands of validation errors during batch contract validation.
+
     Attributes:
-        field: The field path where the error occurred (e.g., "version.major")
-        message: Human-readable error description
-        error_type: Category of error (missing_field, invalid_type, invalid_value, etc.)
+        field_path: The field path where the error occurred (e.g., "version.major")
+        error_message: Human-readable error description
+        validation_error_type: Category of error (missing_field, invalid_type, invalid_value, etc.)
     """
 
-    field: str
-    message: str
-    error_type: EnumContractErrorType
+    __slots__ = ("error_message", "field_path", "validation_error_type")
+
+    # Type annotations for mypy (required for __slots__ classes using object.__setattr__)
+    field_path: str
+    error_message: str
+    validation_error_type: EnumContractErrorType
+
+    def __init__(
+        self,
+        *,
+        field_path: str,
+        error_message: str,
+        validation_error_type: EnumContractErrorType,
+    ) -> None:
+        """Initialize validation error with ONEX-compliant field names.
+
+        Args:
+            field_path: The field path where the error occurred
+            error_message: Human-readable error description
+            validation_error_type: Category of error
+        """
+        object.__setattr__(self, "field_path", field_path)
+        object.__setattr__(self, "error_message", error_message)
+        object.__setattr__(self, "validation_error_type", validation_error_type)
 
     def to_dict(self) -> dict[str, str]:
         """Convert error to dictionary representation."""
         return {
-            "field": self.field,
-            "message": self.message,
-            "error_type": self.error_type.value,
+            "field_path": self.field_path,
+            "error_message": self.error_message,
+            "validation_error_type": self.validation_error_type.value,
         }
 
     def __str__(self) -> str:
         """Return string representation of the error."""
-        return f"{self.field}: {self.message} ({self.error_type})"
+        return f"{self.field_path}: {self.error_message} ({self.validation_error_type})"
+
+    def __repr__(self) -> str:
+        """Return detailed representation of the error."""
+        return (
+            f"ModelContractValidationError("
+            f"field_path={self.field_path!r}, "
+            f"error_message={self.error_message!r}, "
+            f"validation_error_type={self.validation_error_type!r})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality with another error."""
+        if not isinstance(other, ModelContractValidationError):
+            return NotImplemented
+        return (
+            self.field_path == other.field_path
+            and self.error_message == other.error_message
+            and self.validation_error_type == other.validation_error_type
+        )
+
+    def __hash__(self) -> int:
+        """Return hash of the error."""
+        return hash((self.field_path, self.error_message, self.validation_error_type))
 
 
-@dataclass
-class ContractValidationResult:
+class ModelContractValidationResult:
     """
     Result of validating a contract file.
 
+    Uses __slots__ instead of BaseModel for minimal memory footprint when
+    handling thousands of validation results during batch contract validation.
+
     Attributes:
         file_path: Path to the validated contract file
-        valid: Whether the contract passed all validation checks
-        errors: List of validation errors found
+        is_valid: Whether the contract passed all validation checks
+        validation_errors: List of validation errors found
         contract_type: Detected contract type (compute, effect, etc.) or None
     """
 
+    __slots__ = ("contract_type", "file_path", "is_valid", "validation_errors")
+
+    # Type annotations for mypy (required for __slots__ classes using object.__setattr__)
     file_path: Path
-    valid: bool
-    errors: list[ContractValidationError] = field(default_factory=list)
-    contract_type: str | None = None
+    is_valid: bool
+    validation_errors: list[ModelContractValidationError]
+    contract_type: str | None
+
+    def __init__(
+        self,
+        *,
+        file_path: Path,
+        is_valid: bool,
+        validation_errors: list[ModelContractValidationError] | None = None,
+        contract_type: str | None = None,
+    ) -> None:
+        """Initialize validation result with ONEX-compliant field names.
+
+        Args:
+            file_path: Path to the validated contract file
+            is_valid: Whether the contract passed validation
+            validation_errors: List of validation errors found (defaults to empty list)
+            contract_type: Detected contract type
+        """
+        object.__setattr__(self, "file_path", file_path)
+        object.__setattr__(self, "is_valid", is_valid)
+        object.__setattr__(
+            self,
+            "validation_errors",
+            validation_errors if validation_errors is not None else [],
+        )
+        object.__setattr__(self, "contract_type", contract_type)
 
     def to_dict(self) -> dict[str, object]:
         """Convert result to dictionary representation."""
         return {
             "file_path": str(self.file_path),
-            "valid": self.valid,
-            "errors": [e.to_dict() for e in self.errors],
+            "is_valid": self.is_valid,
+            "validation_errors": [e.to_dict() for e in self.validation_errors],
             "contract_type": self.contract_type,
         }
+
+    def __repr__(self) -> str:
+        """Return detailed representation of the result."""
+        return (
+            f"ModelContractValidationResult("
+            f"file_path={self.file_path!r}, "
+            f"is_valid={self.is_valid!r}, "
+            f"validation_errors={self.validation_errors!r}, "
+            f"contract_type={self.contract_type!r})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality with another result."""
+        if not isinstance(other, ModelContractValidationResult):
+            return NotImplemented
+        return (
+            self.file_path == other.file_path
+            and self.is_valid == other.is_valid
+            and self.validation_errors == other.validation_errors
+            and self.contract_type == other.contract_type
+        )
+
+    # Explicitly mark as unhashable since __eq__ is defined
+    # This is required by PLW1641 (object-with-eq-but-no-hash)
+    __hash__ = None  # type: ignore[assignment]
 
 
 def _pydantic_error_to_contract_error(
     error: ErrorDetails,
-) -> ContractValidationError:
+) -> ModelContractValidationError:
     """
-    Convert a Pydantic validation error to ContractValidationError.
+    Convert a Pydantic validation error to ModelContractValidationError.
 
     Args:
         error: Single error dict from ValidationError.errors() - a pydantic_core.ErrorDetails
                TypedDict containing 'type', 'loc', 'msg', 'input', and optional 'ctx'/'url' fields.
 
     Returns:
-        ContractValidationError with appropriate field path and message
+        ModelContractValidationError with appropriate field path and message
     """
     # Build field path from location tuple
     loc = error.get("loc", ())
@@ -229,14 +479,14 @@ def _pydantic_error_to_contract_error(
 
     mapped_type = error_type_map.get(error_type, EnumContractErrorType.VALIDATION_ERROR)
 
-    return ContractValidationError(
-        field=field_path,
-        message=error.get("msg", "Validation error"),
-        error_type=mapped_type,
+    return ModelContractValidationError(
+        field_path=field_path,
+        error_message=error.get("msg", "Validation error"),
+        validation_error_type=mapped_type,
     )
 
 
-def _detect_contract_type(data: dict[str, Any]) -> str:
+def _detect_contract_type(data: YamlData) -> str:
     """
     Detect the type of contract from YAML content.
 
@@ -255,22 +505,30 @@ def _detect_contract_type(data: dict[str, Any]) -> str:
     """
     # FSM subcontract detection
     if "state_machine_name" in data or "states" in data:
+        logger.debug("Detected contract type: fsm_subcontract")
         return "fsm_subcontract"
 
     # Workflow detection - check for workflow-specific fields
     if "workflow_type" in data or (
         "subcontract_name" in data and "max_concurrent_workflows" in data
     ):
+        logger.debug("Detected contract type: workflow")
         return "workflow"
 
     # Node contract detection
     if "node_type" in data:
+        logger.debug(
+            "Detected contract type: node_contract (node_type=%s)",
+            data.get("node_type"),
+        )
         return "node_contract"
 
     # Generic subcontract detection
     if "operations" in data and "node_type" not in data:
+        logger.debug("Detected contract type: subcontract")
         return "subcontract"
 
+    logger.debug("Unable to detect contract type, returning 'unknown'")
     return "unknown"
 
 
@@ -287,6 +545,95 @@ def _is_valid_node_type(node_type: str | None) -> bool:
     if node_type is None:
         return False
     return node_type.lower() in VALID_NODE_TYPES
+
+
+def _is_sensitive_env_var(env_var_name: str) -> bool:
+    """
+    Check if an environment variable name matches sensitive patterns.
+
+    Uses fnmatch for glob-style pattern matching against SENSITIVE_ENV_VAR_PATTERNS.
+    Pattern matching is case-insensitive for robustness.
+
+    Args:
+        env_var_name: The environment variable name to check
+
+    Returns:
+        True if the env var name matches any sensitive pattern, False otherwise
+
+    Examples:
+        >>> _is_sensitive_env_var("AWS_SECRET_ACCESS_KEY")
+        True
+        >>> _is_sensitive_env_var("DATABASE_URL")
+        True
+        >>> _is_sensitive_env_var("PATH")
+        False
+        >>> _is_sensitive_env_var("MY_API_KEY")
+        True
+    """
+    # Normalize to uppercase for case-insensitive matching
+    upper_name = env_var_name.upper()
+    return any(
+        fnmatch.fnmatch(upper_name, pattern) for pattern in SENSITIVE_ENV_VAR_PATTERNS
+    )
+
+
+def _get_sensitive_env_values() -> frozenset[str]:
+    """
+    Get the set of sensitive environment variable values that should be redacted.
+
+    Scans current environment for variables matching SENSITIVE_ENV_VAR_PATTERNS
+    and returns their values. Empty values are excluded since they don't need
+    redaction and could cause false positives.
+
+    Returns:
+        Frozen set of sensitive environment variable values to redact
+
+    Note:
+        This function is called once during error message formatting to minimize
+        performance impact. The result should be cached if used repeatedly.
+    """
+    sensitive_values: set[str] = set()
+    for env_name, env_value in os.environ.items():
+        if env_value and _is_sensitive_env_var(env_name):
+            sensitive_values.add(env_value)
+    return frozenset(sensitive_values)
+
+
+def redact_sensitive_values(message: str) -> str:
+    """
+    Redact sensitive environment variable values from a message string.
+
+    Scans the message for values of environment variables that match
+    SENSITIVE_ENV_VAR_PATTERNS and replaces them with REDACTED_VALUE.
+    This prevents accidental exposure of secrets in error messages, logs,
+    or other output.
+
+    Args:
+        message: The message string that may contain sensitive values
+
+    Returns:
+        The message with sensitive values replaced by REDACTED_VALUE
+
+    Security:
+        - Only redacts values of env vars matching SENSITIVE_ENV_VAR_PATTERNS
+        - Empty env var values are not redacted (no false positives)
+        - Redaction is case-sensitive to avoid false positives on partial matches
+        - Values shorter than 3 characters are not redacted to avoid false positives
+    """
+    if not message:
+        return message
+
+    sensitive_values = _get_sensitive_env_values()
+
+    redacted_message = message
+    for value in sensitive_values:
+        # Skip very short values to avoid false positives
+        # (e.g., single character or empty values matching common words)
+        if len(value) < 3:
+            continue
+        redacted_message = redacted_message.replace(value, REDACTED_VALUE)
+
+    return redacted_message
 
 
 class ContractLinter:
@@ -322,11 +669,11 @@ class ContractLinter:
             strict: Reserved for future strict validation mode. Not yet implemented.
                 When implemented, strict mode will enable additional validation checks
                 such as: deprecation warnings treated as errors, stricter type coercion
-                rules, path traversal protection (via `_is_safe_path`), and enforcement
-                of optional best-practice fields.
+                rules, path traversal protection, and enforcement of optional
+                best-practice fields.
             schema_version: Reserved for future schema version selection. Not yet
                 implemented. Will allow validating contracts against different schema
-                versions for backward compatibility. Currently only "1.0.0" is supported.
+                versions. Currently only "1.0.0" is supported.
             parallel_threshold: Minimum number of files to trigger parallel validation
                 when parallel=True is passed to validate_batch(). Defaults to 10.
                 Set to 0 to always use parallel validation when parallel=True.
@@ -340,11 +687,11 @@ class ContractLinter:
             The `strict` and `schema_version` parameters are stored as instance
             attributes (`_strict` and `_schema_version`) but are not currently used
             in validation logic. They exist to establish the API surface for future
-            enhancements without breaking backward compatibility.
+            enhancements.
         """
-        # TODO(OMN-241): Implement strict validation mode
+        # TODO(OMN-470): Implement strict validation mode
         # Planned features for strict=True:
-        # - Enable path traversal protection using _is_safe_path()
+        # - Enable path traversal protection
         # - Treat deprecation warnings as validation errors
         # - Enforce stricter type coercion (e.g., reject string "true" for bool)
         # - Require optional best-practice fields (e.g., description, examples)
@@ -354,11 +701,10 @@ class ContractLinter:
                 "Currently only default validation is supported."
             )
 
-        # TODO(OMN-241): Implement schema version selection
+        # TODO(OMN-471): Implement schema version selection
         # Planned features for schema_version:
         # - Support multiple schema versions (1.0.0, 1.1.0, 2.0.0, etc.)
-        # - Enable backward-compatible validation for older contracts
-        # - Provide migration hints when validating old schemas
+        # - Validate contracts against their specified schema version
         if schema_version != "1.0.0":
             raise NotImplementedError(
                 f"Schema version '{schema_version}' is not yet supported. "
@@ -371,11 +717,11 @@ class ContractLinter:
 
     def _validate_with_pydantic_model(
         self,
-        data: dict[str, Any],
+        data: YamlData,
         model_class: type[BaseModel],
         path: Path,
         contract_type_name: str,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate contract data against a Pydantic model.
 
@@ -386,60 +732,64 @@ class ContractLinter:
             contract_type_name: Human-readable contract type name
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         try:
             model_class.model_validate(data)
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=True,
-                errors=[],
+                is_valid=True,
+                validation_errors=[],
                 contract_type=contract_type_name,
             )
         except ValidationError as e:
-            errors = [_pydantic_error_to_contract_error(err) for err in e.errors()]
-            return ContractValidationResult(
+            validation_errors = [
+                _pydantic_error_to_contract_error(err) for err in e.errors()
+            ]
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
         except ModelOnexError as e:
             # Handle custom ONEX validation errors from omnibase_core
-            errors = [
-                ContractValidationError(
-                    field="contract",
-                    message=str(e),
-                    error_type=EnumContractErrorType.VALIDATION_ERROR,
+            validation_errors = [
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(str(e)),
+                    validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             ]
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
         except Exception as e:
             # Catch any unexpected errors during Pydantic model validation
-            errors = [
-                ContractValidationError(
-                    field="contract",
-                    message=f"Unexpected error during validation: {e}",
-                    error_type=EnumContractErrorType.UNEXPECTED_ERROR,
+            validation_errors = [
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"Unexpected error during validation: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.UNEXPECTED_ERROR,
                 )
             ]
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
 
     def _validate_fsm_subcontract(
         self,
-        data: dict[str, Any],
+        data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate FSM subcontract using ModelFSMSubcontract Pydantic model.
 
@@ -448,7 +798,7 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         return self._validate_with_pydantic_model(
             data, ModelFSMSubcontract, path, "fsm_subcontract"
@@ -456,9 +806,9 @@ class ContractLinter:
 
     def _validate_workflow(
         self,
-        data: dict[str, Any],
+        data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate workflow contract using ModelWorkflowCoordinationSubcontract.
 
@@ -467,7 +817,7 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         return self._validate_with_pydantic_model(
             data, ModelWorkflowCoordinationSubcontract, path, "workflow"
@@ -475,9 +825,9 @@ class ContractLinter:
 
     def _validate_node_contract(
         self,
-        data: dict[str, Any],
+        data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate node contract using ProtocolContractValidator.
 
@@ -489,24 +839,24 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
-        errors: list[ContractValidationError] = []
+        validation_errors: list[ModelContractValidationError] = []
 
         # Get node_type and validate
         node_type = data.get("node_type")
         if node_type is None:
-            errors.append(
-                ContractValidationError(
-                    field="node_type",
-                    message="Missing required field: node_type",
-                    error_type=EnumContractErrorType.MISSING_FIELD,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="node_type",
+                    error_message="Missing required field: node_type",
+                    validation_error_type=EnumContractErrorType.MISSING_FIELD,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -515,17 +865,17 @@ class ContractLinter:
 
         if not _is_valid_node_type(node_type_lower):
             valid_types = ", ".join(sorted(VALID_NODE_TYPES))
-            errors.append(
-                ContractValidationError(
-                    field="node_type",
-                    message=f"Invalid node_type: '{node_type}'. Must be one of: {valid_types}",
-                    error_type=EnumContractErrorType.INVALID_ENUM,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="node_type",
+                    error_message=f"Invalid node_type: '{node_type}'. Must be one of: {valid_types}",
+                    validation_error_type=EnumContractErrorType.INVALID_ENUM,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -538,17 +888,19 @@ class ContractLinter:
             )
         except Exception as e:
             # Catch unexpected errors from ProtocolContractValidator
-            errors.append(
-                ContractValidationError(
-                    field="contract",
-                    message=f"Unexpected error during node contract validation: {e}",
-                    error_type=EnumContractErrorType.UNEXPECTED_ERROR,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"Unexpected error during node contract validation: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.UNEXPECTED_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=node_type_lower,
             )
 
@@ -563,26 +915,26 @@ class ContractLinter:
                 if potential_field and FIELD_IDENTIFIER_PATTERN.match(potential_field):
                     field_name = potential_field
 
-            errors.append(
-                ContractValidationError(
-                    field=field_name,
-                    message=violation,
-                    error_type=EnumContractErrorType.VALIDATION_ERROR,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path=field_name,
+                    error_message=violation,
+                    validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             )
 
-        return ContractValidationResult(
+        return ModelContractValidationResult(
             file_path=path,
-            valid=result.is_valid,
-            errors=errors,
+            is_valid=result.is_valid,
+            validation_errors=validation_errors,
             contract_type=node_type_lower,
         )
 
     def _validate_subcontract(
         self,
-        data: dict[str, Any],
+        data: YamlData,
         path: Path,
-    ) -> ContractValidationResult:
+    ) -> ModelContractValidationResult:
         """
         Validate generic subcontract with basic structure checks.
 
@@ -595,42 +947,42 @@ class ContractLinter:
             path: Path to the contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
-        errors: list[ContractValidationError] = []
+        validation_errors: list[ModelContractValidationError] = []
 
         # Check for basic required fields
         required_fields = ("name", "version", "description", "operations")
         for field_name in required_fields:
             if field_name not in data:
-                errors.append(
-                    ContractValidationError(
-                        field=field_name,
-                        message=f"Missing required field: {field_name}",
-                        error_type=EnumContractErrorType.MISSING_FIELD,
+                validation_errors.append(
+                    ModelContractValidationError(
+                        field_path=field_name,
+                        error_message=f"Missing required field: {field_name}",
+                        validation_error_type=EnumContractErrorType.MISSING_FIELD,
                     )
                 )
 
         # Validate operations is a list or dict if present
         if "operations" in data:
             operations = data["operations"]
-            if not isinstance(operations, (list, dict)):
-                errors.append(
-                    ContractValidationError(
-                        field="operations",
-                        message="Operations must be a list or dict",
-                        error_type=EnumContractErrorType.INVALID_TYPE,
+            if not isinstance(operations, list | dict):
+                validation_errors.append(
+                    ModelContractValidationError(
+                        field_path="operations",
+                        error_message="Operations must be a list or dict",
+                        validation_error_type=EnumContractErrorType.INVALID_TYPE,
                     )
                 )
 
-        return ContractValidationResult(
+        return ModelContractValidationResult(
             file_path=path,
-            valid=len(errors) == 0,
-            errors=errors,
+            is_valid=len(validation_errors) == 0,
+            validation_errors=validation_errors,
             contract_type="subcontract",
         )
 
-    def validate(self, file_path: str | Path) -> ContractValidationResult:
+    def validate(self, file_path: str | Path) -> ModelContractValidationResult:
         """
         Validate a single contract file.
 
@@ -638,40 +990,41 @@ class ContractLinter:
             file_path: Path to the YAML contract file
 
         Returns:
-            ContractValidationResult with validation status and errors
+            ModelContractValidationResult with validation status and errors
         """
         path = Path(file_path)
-        errors: list[ContractValidationError] = []
+        logger.debug("Starting validation for: %s", path)
+        validation_errors: list[ModelContractValidationError] = []
 
         # Check file exists
         if not path.exists():
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"File not found: {path}",
-                    error_type=EnumContractErrorType.FILE_NOT_FOUND,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=f"File not found: {path}",
+                    validation_error_type=EnumContractErrorType.FILE_NOT_FOUND,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Check it's a file, not a directory
         if path.is_dir():
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"Path is a directory, not a file: {path}",
-                    error_type=EnumContractErrorType.NOT_A_FILE,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=f"Path is a directory, not a file: {path}",
+                    validation_error_type=EnumContractErrorType.NOT_A_FILE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -679,31 +1032,33 @@ class ContractLinter:
         try:
             file_size = path.stat().st_size
             if file_size > MAX_YAML_SIZE_BYTES:
-                errors.append(
-                    ContractValidationError(
-                        field="file",
-                        message=f"File size ({file_size} bytes) exceeds maximum allowed ({MAX_YAML_SIZE_BYTES} bytes)",
-                        error_type=EnumContractErrorType.FILE_TOO_LARGE,
+                validation_errors.append(
+                    ModelContractValidationError(
+                        field_path="file",
+                        error_message=f"File size ({file_size} bytes) exceeds maximum allowed ({MAX_YAML_SIZE_BYTES} bytes)",
+                        validation_error_type=EnumContractErrorType.FILE_TOO_LARGE,
                     )
                 )
-                return ContractValidationResult(
+                return ModelContractValidationResult(
                     file_path=path,
-                    valid=False,
-                    errors=errors,
+                    is_valid=False,
+                    validation_errors=validation_errors,
                     contract_type=None,
                 )
         except OSError as e:
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"Error checking file size: {e}",
-                    error_type=EnumContractErrorType.FILE_READ_ERROR,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=redact_sensitive_values(
+                        f"Error checking file size: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -711,33 +1066,33 @@ class ContractLinter:
         try:
             content = path.read_text(encoding="utf-8")
         except OSError as e:
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"Error reading file: {e}",
-                    error_type=EnumContractErrorType.FILE_READ_ERROR,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=redact_sensitive_values(f"Error reading file: {e}"),
+                    validation_error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Check for empty content
         if not content.strip():
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message="File is empty",
-                    error_type=EnumContractErrorType.EMPTY_FILE,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message="File is empty",
+                    validation_error_type=EnumContractErrorType.EMPTY_FILE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -745,73 +1100,96 @@ class ContractLinter:
         try:
             data = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            errors.append(
-                ContractValidationError(
-                    field="yaml",
-                    message=f"Invalid YAML syntax: {e}",
-                    error_type=EnumContractErrorType.YAML_PARSE_ERROR,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="yaml",
+                    error_message=f"Invalid YAML syntax: {e}",
+                    validation_error_type=EnumContractErrorType.YAML_PARSE_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Check for empty YAML (comments only)
         if data is None:
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message="File contains no YAML content (only comments or empty)",
-                    error_type=EnumContractErrorType.EMPTY_FILE,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message="File contains no YAML content (only comments or empty)",
+                    validation_error_type=EnumContractErrorType.EMPTY_FILE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Detect contract type and route to appropriate validator
         contract_type = _detect_contract_type(data)
 
+        # Warn about missing optional but recommended fields (non-critical)
+        if "description" not in data:
+            logger.warning(
+                "Contract '%s' is missing optional 'description' field "
+                "(recommended for documentation)",
+                path,
+            )
+
         if contract_type == "fsm_subcontract":
-            return self._validate_fsm_subcontract(data, path)
+            result = self._validate_fsm_subcontract(data, path)
         elif contract_type == "workflow":
-            return self._validate_workflow(data, path)
+            result = self._validate_workflow(data, path)
         elif contract_type == "node_contract":
-            return self._validate_node_contract(data, path)
+            result = self._validate_node_contract(data, path)
         elif contract_type == "subcontract":
-            return self._validate_subcontract(data, path)
+            result = self._validate_subcontract(data, path)
         else:
             # Unknown contract type - try to provide helpful error
-            errors.append(
-                ContractValidationError(
-                    field="root",
-                    message=(
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="root",
+                    error_message=(
                         "Unable to detect contract type. Expected one of: "
                         "node contract (with node_type), FSM subcontract "
                         "(with state_machine_name/states), workflow (with workflow_type), "
                         "or subcontract (with operations)"
                     ),
-                    error_type=EnumContractErrorType.UNKNOWN_CONTRACT_TYPE,
+                    validation_error_type=EnumContractErrorType.UNKNOWN_CONTRACT_TYPE,
                 )
             )
-            return ContractValidationResult(
+            result = ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
+
+        # Log validation result
+        if result.is_valid:
+            logger.debug(
+                "Validation passed for: %s (type=%s)", path, result.contract_type
+            )
+        else:
+            logger.debug(
+                "Validation failed for: %s (type=%s, error_count=%d)",
+                path,
+                result.contract_type,
+                len(result.validation_errors),
+            )
+
+        return result
 
     def validate_batch(
         self,
         file_paths: Sequence[str | Path],
         parallel: bool = False,
-    ) -> list[ContractValidationResult]:
+    ) -> list[ModelContractValidationResult]:
         """
         Validate multiple contract files.
 
@@ -823,20 +1201,44 @@ class ContractLinter:
         Returns:
             List of validation results for each file
         """
-        if parallel and len(file_paths) > self._parallel_threshold:
-            max_workers = min(len(file_paths), os.cpu_count() or 4)
+        file_count = len(file_paths)
+        logger.debug("Starting batch validation for %d file(s)", file_count)
+
+        if parallel and file_count > self._parallel_threshold:
+            max_workers = min(
+                file_count, os.cpu_count() or DEFAULT_MAX_WORKERS_FALLBACK
+            )
+            logger.debug(
+                "Using parallel validation with %d workers (threshold=%d)",
+                max_workers,
+                self._parallel_threshold,
+            )
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                return list(
+                results = list(
                     executor.map(
                         self.validate,
                         [Path(fp) if isinstance(fp, str) else fp for fp in file_paths],
                     )
                 )
-        return [self.validate(fp) for fp in file_paths]
+        else:
+            logger.debug("Using sequential validation")
+            results = [self.validate(fp) for fp in file_paths]
+
+        # Log batch summary at INFO level
+        valid_count = sum(1 for r in results if r.is_valid)
+        invalid_count = file_count - valid_count
+        logger.info(
+            "Batch validation complete: %d/%d passed, %d failed",
+            valid_count,
+            file_count,
+            invalid_count,
+        )
+
+        return results
 
     def get_summary(
         self,
-        results: list[ContractValidationResult],
+        results: list[ModelContractValidationResult],
     ) -> dict[str, object]:
         """
         Get summary statistics for batch validation results.
@@ -845,23 +1247,27 @@ class ContractLinter:
             results: List of validation results
 
         Returns:
-            Dictionary with summary statistics
+            Dictionary with summary statistics using ONEX naming conventions:
+            - total_count: Total number of contracts validated
+            - valid_count: Number of contracts that passed validation
+            - invalid_count: Number of contracts that failed validation
+            - pass_rate: Percentage of contracts that passed (0.0-100.0)
         """
-        total = len(results)
-        valid = sum(1 for r in results if r.valid)
-        invalid = total - valid
+        total_count = len(results)
+        valid_count = sum(1 for r in results if r.is_valid)
+        invalid_count = total_count - valid_count
 
-        pass_rate = (valid / total * 100) if total > 0 else 0.0
+        pass_rate = (valid_count / total_count * 100) if total_count > 0 else 0.0
 
         return {
-            "total": total,
-            "valid": valid,
-            "invalid": invalid,
+            "total_count": total_count,
+            "valid_count": valid_count,
+            "invalid_count": invalid_count,
             "pass_rate": pass_rate,
         }
 
 
-def validate_contract(file_path: str | Path) -> ContractValidationResult:
+def validate_contract(file_path: str | Path) -> ModelContractValidationResult:
     """
     Standalone function to validate a single contract file.
 
@@ -869,7 +1275,7 @@ def validate_contract(file_path: str | Path) -> ContractValidationResult:
         file_path: Path to the contract file
 
     Returns:
-        ContractValidationResult with validation status and errors
+        ModelContractValidationResult with validation status and errors
     """
     linter = ContractLinter()
     return linter.validate(file_path)
@@ -878,7 +1284,7 @@ def validate_contract(file_path: str | Path) -> ContractValidationResult:
 def validate_contracts_batch(
     file_paths: Sequence[str | Path],
     parallel: bool = False,
-) -> list[ContractValidationResult]:
+) -> list[ModelContractValidationResult]:
     """
     Standalone function to validate multiple contract files.
 
@@ -894,7 +1300,7 @@ def validate_contracts_batch(
 
 
 def _format_text_output(
-    results: list[ContractValidationResult],
+    results: list[ModelContractValidationResult],
     verbose: bool = False,
 ) -> str:
     """
@@ -913,23 +1319,23 @@ def _format_text_output(
     lines: list[str] = []
 
     for result in results:
-        status = "PASS" if result.valid else "FAIL"
-        if result.valid:
+        status = "PASS" if result.is_valid else "FAIL"
+        if result.is_valid:
             lines.append(f"[{status}] {result.file_path}")
         # In non-verbose mode, show error count; in verbose mode, just show FAIL
         # (detailed errors follow on subsequent lines)
         elif verbose:
             lines.append(f"[{status}] {result.file_path}")
-            for error in result.errors:
-                lines.append(f"  - {error.field}: {error.message}")
+            for error in result.validation_errors:
+                lines.append(f"  - {error.field_path}: {error.error_message}")
         else:
             # Surface brief error summary even in non-verbose mode
-            error_count = len(result.errors)
+            error_count = len(result.validation_errors)
             lines.append(f"[{status}] {result.file_path} ({error_count} error(s))")
 
     # Summary
     total = len(results)
-    valid = sum(1 for r in results if r.valid)
+    valid = sum(1 for r in results if r.is_valid)
     lines.append("")
     lines.append(f"Summary: {valid}/{total} contracts passed")
 
@@ -937,7 +1343,7 @@ def _format_text_output(
 
 
 def _format_json_output(
-    results: list[ContractValidationResult],
+    results: list[ModelContractValidationResult],
 ) -> str:
     """
     Format validation results as JSON.
@@ -950,18 +1356,51 @@ def _format_json_output(
 
     Returns:
         JSON string with structure: {"results": [...], "summary": {...}}
+        Summary uses ONEX naming conventions with *_count suffix for counts.
     """
     return json.dumps(
         {
             "results": [r.to_dict() for r in results],
             "summary": {
-                "total": len(results),
-                "valid": sum(1 for r in results if r.valid),
-                "invalid": sum(1 for r in results if not r.valid),
+                "total_count": len(results),
+                "valid_count": sum(1 for r in results if r.is_valid),
+                "invalid_count": sum(1 for r in results if not r.is_valid),
             },
         },
-        indent=2,
+        indent=JSON_INDENT_SPACES,
     )
+
+
+def _configure_logging(verbose: bool) -> None:
+    """Configure logging based on verbosity flag.
+
+    Sets up the module logger to output to stderr so it doesn't interfere
+    with stdout CLI output. In verbose mode, enables DEBUG level logging.
+    In non-verbose mode, only WARNING and above are shown.
+
+    Args:
+        verbose: If True, enable DEBUG level logging. If False, only WARNING+.
+    """
+    # Configure handler to write to stderr (not stdout)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+
+    # Set log level based on verbose flag
+    log_level = logging.DEBUG if verbose else logging.WARNING
+    logger.setLevel(log_level)
+    handler.setLevel(log_level)
+
+    # Remove existing handlers to avoid duplicates on repeated calls
+    logger.handlers.clear()
+    logger.addHandler(handler)
+
+    # Prevent propagation to root logger
+    logger.propagate = False
+
+    if verbose:
+        logger.debug("Debug logging enabled")
 
 
 def _watch_and_validate(
@@ -982,6 +1421,7 @@ def _watch_and_validate(
         verbose: If True, show detailed error messages in text output
     """
     print("Watching for file changes... (Ctrl+C to stop)")
+    logger.info("Watch mode started for %d file(s)", len(file_paths))
 
     # Convert to Path objects for file operations
     paths = [Path(fp) for fp in file_paths]
@@ -991,18 +1431,25 @@ def _watch_and_validate(
     for fp in paths:
         if fp.exists():
             mtimes[fp] = fp.stat().st_mtime
+            logger.debug("Tracking file: %s (mtime=%.2f)", fp, mtimes[fp])
 
     try:
         while True:
             changed = False
+            changed_files: list[Path] = []
             for fp in paths:
                 if fp.exists():
                     current_mtime = fp.stat().st_mtime
                     if fp not in mtimes or mtimes[fp] != current_mtime:
                         mtimes[fp] = current_mtime
                         changed = True
+                        changed_files.append(fp)
 
             if changed:
+                logger.info(
+                    "File change detected: %s",
+                    ", ".join(str(f) for f in changed_files),
+                )
                 timestamp = time_module.strftime("%H:%M:%S")
                 print(f"\n[{timestamp}] Change detected, re-validating...")
                 results = linter.validate_batch(file_paths)
@@ -1011,8 +1458,9 @@ def _watch_and_validate(
                 else:
                     print(_format_text_output(results, verbose=verbose))
 
-            time_module.sleep(1)  # Poll every 1 second
+            time_module.sleep(WATCH_POLL_INTERVAL_SECONDS)
     except KeyboardInterrupt:
+        logger.info("Watch mode stopped by user")
         print("\nWatch mode stopped.")
 
 
@@ -1076,7 +1524,7 @@ def main(args: list[str] | None = None) -> int:
         "--verbose",
         "-v",
         action="store_true",
-        help="Show detailed error messages",
+        help="Show detailed error messages and enable debug logging to stderr",
     )
 
     parser.add_argument(
@@ -1093,6 +1541,9 @@ def main(args: list[str] | None = None) -> int:
     )
 
     parsed_args = parser.parse_args(args)
+
+    # Configure logging based on verbose flag
+    _configure_logging(parsed_args.verbose)
 
     # No contracts provided
     if not parsed_args.contracts:
@@ -1127,25 +1578,25 @@ def main(args: list[str] | None = None) -> int:
         # Check if any results have file-level errors (cannot be validated at all)
         has_file_errors = any(
             any(
-                e.error_type
+                e.validation_error_type
                 in (
                     EnumContractErrorType.FILE_NOT_FOUND,
                     EnumContractErrorType.NOT_A_FILE,
                     EnumContractErrorType.FILE_READ_ERROR,
                 )
-                for e in r.errors
+                for e in r.validation_errors
             )
             for r in results
         )
 
         # Exit code 2: ALL files had file-level errors (none could be validated)
         # This indicates an input problem, not a validation failure
-        if has_file_errors and all(not r.valid for r in results):
+        if has_file_errors and all(not r.is_valid for r in results):
             return 2
 
         # Exit code 1: At least one file failed validation (schema violations)
         # This includes: missing fields, invalid values, malformed YAML, etc.
-        has_validation_errors = any(not r.valid for r in results)
+        has_validation_errors = any(not r.is_valid for r in results)
         if has_validation_errors:
             return 1
 
@@ -1157,13 +1608,13 @@ def main(args: list[str] | None = None) -> int:
         if parsed_args.json:
             error_output = json.dumps(
                 {
-                    "error": str(e),
-                    "error_type": "not_implemented",
+                    "error": redact_sensitive_values(str(e)),
+                    "cli_error_type": "not_implemented",
                 },
-                indent=2,
+                indent=JSON_INDENT_SPACES,
             )
         else:
-            error_output = f"Error: {e}"
+            error_output = f"Error: {redact_sensitive_values(str(e))}"
         print(error_output, file=sys.stderr)
         return 2
 
@@ -1172,13 +1623,13 @@ def main(args: list[str] | None = None) -> int:
         if parsed_args.json:
             error_output = json.dumps(
                 {
-                    "error": f"Unexpected error: {e}",
-                    "error_type": "unexpected_error",
+                    "error": redact_sensitive_values(f"Unexpected error: {e}"),
+                    "cli_error_type": "unexpected_error",
                 },
-                indent=2,
+                indent=JSON_INDENT_SPACES,
             )
         else:
-            error_output = f"Unexpected error: {e}"
+            error_output = f"Unexpected error: {redact_sensitive_values(str(e))}"
         print(error_output, file=sys.stderr)
         return 2
 

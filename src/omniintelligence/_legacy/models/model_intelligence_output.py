@@ -13,7 +13,7 @@ Reference: omninode_bridge/nodes/database_adapter_effect/v1_0_0/models/outputs/
 """
 
 from datetime import UTC, datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,7 +26,7 @@ class ModelPatternDetection(BaseModel):
     Attributes:
         pattern_type: Type/category of detected pattern
         pattern_name: Human-readable pattern name
-        confidence: Pattern detection confidence (0.0-1.0)
+        confidence_score: Pattern detection confidence (0.0-1.0)
         description: Pattern description and context
         location: Source location (file path, line numbers, etc.)
         severity: Pattern severity (info, warning, error, critical)
@@ -45,7 +45,7 @@ class ModelPatternDetection(BaseModel):
         examples=["ONEX_EFFECT_NODE", "ANTI_PATTERN_GOD_CLASS", "SQL_INJECTION"],
     )
 
-    confidence: float = Field(
+    confidence_score: float = Field(
         ...,
         description="Pattern detection confidence score",
         ge=0.0,
@@ -57,7 +57,7 @@ class ModelPatternDetection(BaseModel):
         description="Pattern description and context",
     )
 
-    location: Optional[str] = Field(
+    location: str | None = Field(
         None,
         description="Source location (file:line or function name)",
     )
@@ -67,7 +67,7 @@ class ModelPatternDetection(BaseModel):
         description="Pattern severity level",
     )
 
-    recommendation: Optional[str] = Field(
+    recommendation: str | None = Field(
         None,
         description="Suggested action or improvement",
     )
@@ -87,22 +87,22 @@ class ModelIntelligenceMetrics(BaseModel):
         cache_hit: Whether result was served from cache
         cache_key: Cache key used (if applicable)
         services_invoked: List of backend services called
-        total_api_calls: Total number of API calls made
+        api_call_count: Total number of API calls made
     """
 
-    rag_service_ms: Optional[int] = Field(
+    rag_service_ms: int | None = Field(
         None,
         description="RAG service execution time in milliseconds",
         ge=0,
     )
 
-    vector_service_ms: Optional[int] = Field(
+    vector_service_ms: int | None = Field(
         None,
         description="Vector search execution time in milliseconds",
         ge=0,
     )
 
-    knowledge_service_ms: Optional[int] = Field(
+    knowledge_service_ms: int | None = Field(
         None,
         description="Knowledge graph execution time in milliseconds",
         ge=0,
@@ -113,7 +113,7 @@ class ModelIntelligenceMetrics(BaseModel):
         description="Whether response was served from cache",
     )
 
-    cache_key: Optional[str] = Field(
+    cache_key: str | None = Field(
         None,
         description="Cache key used for this operation",
     )
@@ -124,7 +124,7 @@ class ModelIntelligenceMetrics(BaseModel):
         examples=[["intelligence", "search", "qdrant"]],
     )
 
-    total_api_calls: int = Field(
+    api_call_count: int = Field(
         default=0,
         description="Total number of backend API calls",
         ge=0,
@@ -386,21 +386,21 @@ class ModelIntelligenceOutput(BaseModel):
     )
 
     # Intelligence-specific scoring fields
-    quality_score: Optional[float] = Field(
+    quality_score: float | None = Field(
         default=None,
         description="Overall quality assessment score (0.0=poor, 1.0=excellent)",
         ge=0.0,
         le=1.0,
     )
 
-    onex_compliance: Optional[float] = Field(
+    onex_compliance: float | None = Field(
         default=None,
         description="ONEX architectural compliance score (0.0=non-compliant, 1.0=fully compliant)",
         ge=0.0,
         le=1.0,
     )
 
-    complexity_score: Optional[float] = Field(
+    complexity_score: float | None = Field(
         default=None,
         description="Code complexity score (0.0=simple, 1.0=highly complex)",
         ge=0.0,
@@ -418,25 +418,25 @@ class ModelIntelligenceOutput(BaseModel):
         description="List of actionable improvement recommendations",
     )
 
-    patterns: Optional[list[ModelPatternDetection]] = Field(
+    patterns: list[ModelPatternDetection] | None = Field(
         default=None,
         description="Detected patterns (architectural, quality, security, performance)",
     )
 
     # Operation-specific data
-    result_data: Optional[dict[str, Any]] = Field(
+    result_data: dict[str, Any] | None = Field(
         default=None,
         description="Operation-specific result data (structure varies by operation)",
     )
 
     # Execution metrics
-    metrics: Optional[ModelIntelligenceMetrics] = Field(
+    metrics: ModelIntelligenceMetrics | None = Field(
         default=None,
         description="Detailed execution metrics for performance tracking",
     )
 
     # Error handling
-    error_code: Optional[str] = Field(
+    error_code: str | None = Field(
         default=None,
         description="Machine-readable error code (None on success)",
         examples=[
@@ -447,7 +447,7 @@ class ModelIntelligenceOutput(BaseModel):
         ],
     )
 
-    error_message: Optional[str] = Field(
+    error_message: str | None = Field(
         default=None,
         description="Human-readable error description (None on success)",
     )
@@ -600,7 +600,7 @@ class ModelIntelligenceOutput(BaseModel):
         error_code: str,
         error_message: str,
         retry_allowed: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ModelIntelligenceOutput":
         """
         Create error response output.

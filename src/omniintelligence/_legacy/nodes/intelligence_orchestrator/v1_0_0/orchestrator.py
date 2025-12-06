@@ -35,8 +35,8 @@ from omnibase_core.nodes.node_orchestrator_declarative import (
     NodeOrchestratorDeclarative,
 )
 
-from omniintelligence.enums import EnumIntentType, EnumOperationType
-from omniintelligence.models import (
+from omniintelligence._legacy.enums import EnumIntentType, EnumOperationType
+from omniintelligence._legacy.models import (
     ModelIntent,
     ModelOrchestratorInput,
     ModelOrchestratorOutput,

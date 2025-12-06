@@ -6,7 +6,7 @@ This document outlines the plan to integrate `omnibase_core` validators to estab
 
 ```
 src/omniintelligence/
-├── _legacy/          # Archived legacy code (excluded from validation)
+├── _archived/        # Archived code (excluded from validation)
 │   ├── adapters/
 │   ├── clients/
 │   ├── contracts/
@@ -25,7 +25,7 @@ src/omniintelligence/
 |-----------|--------|-------|-------|
 | **ruff** | ✅ PASSED | tools/ | New code only |
 | **mypy** | ✅ PASSED | tools/ | --strict mode |
-| **Architecture** | ✅ PASSED | non-legacy | After _legacy move |
+| **Architecture** | ✅ PASSED | non-archived | After _archived move |
 | **Contracts** | ✅ PASSED | nodes/ | 16 contracts validated |
 | **Union-Usage** | ✅ PASSED | all | No issues |
 | **Patterns** | ✅ PASSED | all | No issues |
@@ -149,7 +149,7 @@ src/omniintelligence/models/
 1. **Create new files** with single model/enum each
 2. **Update imports** in existing code
 3. **Add re-exports** in `__init__.py` for backwards compatibility
-4. **Remove old multi-model files** after migration
+4. **Remove old multi-model files** after refactoring
 5. **Run architecture validator** to confirm compliance
 
 ---

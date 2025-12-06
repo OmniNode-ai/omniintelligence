@@ -1,10 +1,10 @@
-# Contract Migration Guide
+# Contract Validation Guide
 
-Guide for migrating ONEX contracts to the validated format supported by the contract linter.
+Reference guide for creating and validating ONEX contracts using the contract linter.
 
 ## Overview
 
-The contract linter validates YAML contracts against ONEX canonical Pydantic models from `omnibase_core`. This guide helps migrate existing contracts to the required format.
+The contract linter validates YAML contracts against ONEX canonical Pydantic models from `omnibase_core`. This guide documents the required contract formats and common validation errors.
 
 ## Contract Types
 
@@ -100,7 +100,7 @@ version:
   patch: "0"
 ```
 
-## Common Migration Issues
+## Common Validation Errors
 
 ### 1. String Versions
 
@@ -257,16 +257,25 @@ Example output:
 
 ```json
 {
-  "file_path": "path/to/contract.yaml",
-  "valid": false,
-  "errors": [
+  "results": [
     {
-      "field": "version.major",
-      "message": "Input should be a valid integer",
-      "error_type": "invalid_type"
+      "file_path": "path/to/contract.yaml",
+      "is_valid": false,
+      "validation_errors": [
+        {
+          "field_path": "version.major",
+          "error_message": "Input should be a valid integer",
+          "validation_error_type": "invalid_type"
+        }
+      ],
+      "contract_type": null
     }
   ],
-  "contract_type": null
+  "summary": {
+    "total_count": 1,
+    "valid_count": 0,
+    "invalid_count": 1
+  }
 }
 ```
 
@@ -293,16 +302,16 @@ else
 fi
 ```
 
-## Migration Checklist
+## Validation Checklist
 
-Use this checklist when migrating contracts:
+Use this checklist when creating or validating contracts:
 
-- [ ] Convert string versions to structured `major`/`minor`/`patch` format
-- [ ] Add explicit `node_type` field
+- [ ] Use structured `major`/`minor`/`patch` format for version
+- [ ] Include explicit `node_type` field
 - [ ] Use fully-qualified model paths for `input_model` and `output_model`
-- [ ] Add `io_operations` for effect nodes
-- [ ] Add required state fields for FSM subcontracts
-- [ ] Run linter in verbose mode to identify remaining issues
+- [ ] Include `io_operations` for effect nodes
+- [ ] Include required state fields for FSM subcontracts
+- [ ] Run linter in verbose mode to identify issues
 - [ ] Verify contracts pass in CI/CD pipeline
 
 ## Pre-commit Integration

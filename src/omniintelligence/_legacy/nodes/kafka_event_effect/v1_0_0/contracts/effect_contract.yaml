@@ -22,13 +22,13 @@ io_operations:
   - operation_type: message_publish
     atomic: true
     backup_enabled: false
-    timeout_seconds: 30
+    timeout_ms: 30000
     validation_enabled: true
 
   - operation_type: message_batch_publish
     atomic: true
     backup_enabled: false
-    timeout_seconds: 60
+    timeout_ms: 60000
     validation_enabled: true
 
 # Transaction management

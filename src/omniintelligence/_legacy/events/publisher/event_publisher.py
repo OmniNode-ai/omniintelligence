@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from confluent_kafka import Message
 from pydantic import BaseModel
 
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelEventEnvelope,
     ModelEventMetadata,
     ModelEventSource,

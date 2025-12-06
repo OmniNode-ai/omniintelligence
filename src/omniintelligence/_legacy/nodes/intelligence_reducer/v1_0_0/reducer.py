@@ -19,11 +19,11 @@ from omnibase_core.models.contracts.subcontracts.model_fsm_subcontract import (
 )
 from omnibase_core.utils.util_safe_yaml_loader import load_and_validate_yaml_model
 
-from omniintelligence.enums import (
+from omniintelligence._legacy.enums import (
     EnumFSMAction,
     EnumFSMType,
 )
-from omniintelligence.models import (
+from omniintelligence._legacy.models import (
     ModelFSMState,
     ModelIntent,
     ModelReducerConfig,
@@ -465,7 +465,7 @@ class IntelligenceReducer(MixinFSMExecution):
 
         # Emit workflow trigger for processing states
         if new_state in ["PROCESSING", "ASSESSING", "MATCHING"]:
-            from omniintelligence.enums import EnumOperationType
+            from omniintelligence._legacy.enums import EnumOperationType
 
             # Map FSM type to operation type
             operation_map = {

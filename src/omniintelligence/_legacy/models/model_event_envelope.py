@@ -30,7 +30,7 @@ Reference: EVENT_BUS_ARCHITECTURE.md
 """
 
 from datetime import UTC, datetime
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -61,7 +61,7 @@ class ModelEventSource(BaseModel):
         examples=["instance-123", "container-abc123"],
     )
 
-    hostname: Optional[str] = Field(
+    hostname: str | None = Field(
         default=None,
         description="Hostname or container name",
         examples=["archon-intelligence-abc123", "ip-10-0-1-42"],
@@ -78,27 +78,27 @@ class ModelEventMetadata(BaseModel):
 
     model_config = ConfigDict(frozen=True)  # Immutable after creation
 
-    trace_id: Optional[str] = Field(
+    trace_id: str | None = Field(
         default=None,
         description="Distributed trace ID (OpenTelemetry format: 32 hex digits)",
         examples=["4bf92f3577b34da6a3ce929d0e0e4736"],
         pattern=r"^[a-f0-9]{32}$",
     )
 
-    span_id: Optional[str] = Field(
+    span_id: str | None = Field(
         default=None,
         description="Trace span ID (OpenTelemetry format: 16 hex digits)",
         examples=["00f067aa0ba902b7"],
         pattern=r"^[a-f0-9]{16}$",
     )
 
-    user_id: Optional[str] = Field(
+    user_id: str | None = Field(
         default=None,
         description="User ID for authorization context",
         examples=["user-123", "auth0|abc123"],
     )
 
-    tenant_id: Optional[str] = Field(
+    tenant_id: str | None = Field(
         default=None,
         description="Tenant ID for multi-tenancy",
         examples=["tenant-acme", "org-456"],
@@ -198,7 +198,7 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
         description="Links related events in request/response flow",
     )
 
-    causation_id: Optional[UUID] = Field(
+    causation_id: UUID | None = Field(
         default=None,
         description="ID of event that caused this event (event sourcing)",
     )
@@ -219,7 +219,7 @@ class ModelEventEnvelope(BaseModel, Generic[T]):
         description="Service that published the event",
     )
 
-    metadata: Optional[ModelEventMetadata] = Field(
+    metadata: ModelEventMetadata | None = Field(
         default=None,
         description="Tracing, authorization, multi-tenancy data",
     )

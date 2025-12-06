@@ -4,12 +4,12 @@ Entity Models for omniintelligence.
 Models for entities and relationships in the knowledge graph.
 """
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.enums import EnumEntityType, EnumRelationshipType
+from omniintelligence._legacy.enums import EnumEntityType, EnumRelationshipType
 
 
 def _utc_now() -> datetime:

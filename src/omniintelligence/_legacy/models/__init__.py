@@ -6,7 +6,7 @@ Consolidated models for the omniintelligence system.
 This module provides a unified import path for all intelligence models:
 
     # Preferred import
-    from omniintelligence.models import (
+    from omniintelligence._legacy.models import (
         ModelIntent,
         ModelOrchestratorInput,
         ModelIntelligenceInput,
@@ -87,66 +87,30 @@ Exports:
 """
 
 # Intelligence adapter configuration
-from omniintelligence.models.model_intelligence_config import ModelIntelligenceConfig
-
-# Intelligence adapter input
-from omniintelligence.models.model_intelligence_input import ModelIntelligenceInput
-
-# Intelligence adapter output
-from omniintelligence.models.model_intelligence_output import (
-    ModelIntelligenceMetrics,
-    ModelIntelligenceOutput,
-    ModelPatternDetection,
-)
-
-# Intent models
-from omniintelligence.models.model_intent import ModelIntent
-
-# Reducer models
-from omniintelligence.models.model_reducer import (
-    ModelReducerConfig,
-    ModelReducerInput,
-    ModelReducerOutput,
-)
-
-# Orchestrator models
-from omniintelligence.models.model_orchestrator import (
-    ModelOrchestratorConfig,
-    ModelOrchestratorInput,
-    ModelOrchestratorOutput,
-)
-
 # Entity models
-from omniintelligence.models.model_entity import (
+from omniintelligence._legacy.models.model_entity import (
     ModelEntity,
     ModelRelationship,
 )
 
-# FSM models
-from omniintelligence.models.model_fsm_state import ModelFSMState
-
-# Quality models
-from omniintelligence.models.model_quality_score import ModelQualityScore
-
-# Workflow models
-from omniintelligence.models.model_workflow import (
-    ModelWorkflowExecution,
-    ModelWorkflowStep,
-)
-
 # Event envelope models
-from omniintelligence.models.model_event_envelope import (
+from omniintelligence._legacy.models.model_event_envelope import (
     ModelEventEnvelope,
     ModelEventMetadata,
     ModelEventSource,
 )
 
+# FSM models
+from omniintelligence._legacy.models.model_fsm_state import ModelFSMState
+
 # Intelligence adapter event models
-from omniintelligence.models.model_intelligence_adapter_events import (
+from omniintelligence._legacy.models.model_intelligence_adapter_events import (
     # Enums
     EnumAnalysisErrorCode,
     EnumAnalysisOperationType,
     EnumCodeAnalysisEventType,
+    # Helpers
+    IntelligenceAdapterEventHelpers,
     # Event payload models
     ModelCodeAnalysisCompletedPayload,
     ModelCodeAnalysisFailedPayload,
@@ -156,8 +120,6 @@ from omniintelligence.models.model_intelligence_adapter_events import (
     ModelInfrastructureScanPayload,
     ModelPatternExtractionPayload,
     ModelSchemaDiscoveryPayload,
-    # Helpers
-    IntelligenceAdapterEventHelpers,
     # Convenience functions
     create_completed_event,
     create_failed_event,
@@ -165,30 +127,71 @@ from omniintelligence.models.model_intelligence_adapter_events import (
 )
 
 # API contract models (migrated from omninode_bridge)
-from omniintelligence.models.model_intelligence_api_contracts import (
-    # Enums
-    ArchitecturalEra,
-    PatternCategory,
-    ValidationStatus,
+from omniintelligence._legacy.models.model_intelligence_api_contracts import (
     # Quality Assessment
     ArchitecturalCompliance,
-    MaintainabilityMetrics,
-    ModelQualityAssessmentRequest,
-    ModelQualityAssessmentResponse,
-    OnexComplianceDetails,
-    # Performance Analysis
-    BaselineMetrics,
-    ModelPerformanceAnalysisRequest,
-    ModelPerformanceAnalysisResponse,
-    OptimizationOpportunity,
     # Pattern Detection
     ArchitecturalComplianceDetails,
+    # Enums
+    ArchitecturalEra,
+    # Performance Analysis
+    BaselineMetrics,
     DetectedPattern,
-    ModelPatternDetectionRequest,
-    ModelPatternDetectionResponse,
+    MaintainabilityMetrics,
     # Additional
     ModelErrorResponse,
     ModelHealthCheckResponse,
+    ModelPatternDetectionRequest,
+    ModelPatternDetectionResponse,
+    ModelPerformanceAnalysisRequest,
+    ModelPerformanceAnalysisResponse,
+    ModelQualityAssessmentRequest,
+    ModelQualityAssessmentResponse,
+    OnexComplianceDetails,
+    OptimizationOpportunity,
+    PatternCategory,
+    ValidationStatus,
+)
+from omniintelligence._legacy.models.model_intelligence_config import (
+    ModelIntelligenceConfig,
+)
+
+# Intelligence adapter input
+from omniintelligence._legacy.models.model_intelligence_input import (
+    ModelIntelligenceInput,
+)
+
+# Intelligence adapter output
+from omniintelligence._legacy.models.model_intelligence_output import (
+    ModelIntelligenceMetrics,
+    ModelIntelligenceOutput,
+    ModelPatternDetection,
+)
+
+# Intent models
+from omniintelligence._legacy.models.model_intent import ModelIntent
+
+# Orchestrator models
+from omniintelligence._legacy.models.model_orchestrator import (
+    ModelOrchestratorConfig,
+    ModelOrchestratorInput,
+    ModelOrchestratorOutput,
+)
+
+# Quality models
+from omniintelligence._legacy.models.model_quality_score import ModelQualityScore
+
+# Reducer models
+from omniintelligence._legacy.models.model_reducer import (
+    ModelReducerConfig,
+    ModelReducerInput,
+    ModelReducerOutput,
+)
+
+# Workflow models
+from omniintelligence._legacy.models.model_workflow import (
+    ModelWorkflowExecution,
+    ModelWorkflowStep,
 )
 
 __all__ = [

@@ -23,13 +23,13 @@ io_operations:
   - operation_type: api_call
     atomic: false
     backup_enabled: false
-    timeout_seconds: 30
+    timeout_ms: 30000
     validation_enabled: true
 
   - operation_type: http_request
     atomic: false
     backup_enabled: false
-    timeout_seconds: 30
+    timeout_ms: 30000
     validation_enabled: true
 
 # Transaction management

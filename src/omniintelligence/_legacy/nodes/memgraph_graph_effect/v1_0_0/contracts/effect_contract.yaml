@@ -22,19 +22,19 @@ io_operations:
   - operation_type: graph_write
     atomic: true
     backup_enabled: false
-    timeout_seconds: 30
+    timeout_ms: 30000
     validation_enabled: true
 
   - operation_type: graph_query
     atomic: false
     backup_enabled: false
-    timeout_seconds: 30
+    timeout_ms: 30000
     validation_enabled: true
 
   - operation_type: graph_delete
     atomic: true
     backup_enabled: true
-    timeout_seconds: 30
+    timeout_ms: 30000
     validation_enabled: true
 
 # Transaction management

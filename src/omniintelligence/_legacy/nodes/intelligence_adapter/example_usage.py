@@ -30,8 +30,8 @@ from uuid import uuid4
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Import models from the canonical location
-from omniintelligence.models import ModelIntelligenceInput
-from omniintelligence.models.model_intelligence_output import ModelIntelligenceOutput
+from omniintelligence._legacy.models import ModelIntelligenceInput
+from omniintelligence._legacy.models.model_intelligence_output import ModelIntelligenceOutput
 from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 
 # Configure logging

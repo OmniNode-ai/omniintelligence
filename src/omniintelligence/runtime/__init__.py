@@ -5,22 +5,22 @@ OmniIntelligence Runtime Package.
 Provides configuration and registry components for the OmniIntelligence runtime host.
 
 This package contains:
-    - IntelligenceRuntimeConfig: Application-level runtime configuration
+    - ModelIntelligenceRuntimeConfig: Application-level runtime configuration
     - IntelligenceNodeRegistry: Node registration and discovery (Phase 6)
 
 Usage:
     from omniintelligence.runtime import (
-        IntelligenceRuntimeConfig,
-        EventBusConfig,
-        HandlerConfig,
-        TopicConfig,
+        ModelIntelligenceRuntimeConfig,
+        ModelEventBusConfig,
+        ModelHandlerConfig,
+        ModelTopicConfig,
     )
 
     # Load from YAML file
-    config = IntelligenceRuntimeConfig.from_yaml("/path/to/config.yaml")
+    config = ModelIntelligenceRuntimeConfig.from_yaml("/path/to/config.yaml")
 
     # Load from environment
-    config = IntelligenceRuntimeConfig.from_environment()
+    config = ModelIntelligenceRuntimeConfig.from_environment()
 
 Note:
     This package does NOT contain:
@@ -29,16 +29,26 @@ Note:
     - Protocol definitions (belong in omnibase_spi)
 """
 
-from omniintelligence.runtime.runtime_config import (
-    EventBusConfig,
-    HandlerConfig,
-    IntelligenceRuntimeConfig,
-    TopicConfig,
+from omniintelligence.runtime.model_runtime_config import (
+    # Enums (ONEX compliant - Enum prefix)
+    EnumHandlerType,
+    EnumLogLevel,
+    # ONEX-compliant Model* prefixed classes
+    ModelEventBusConfig,
+    ModelHandlerConfig,
+    ModelIntelligenceRuntimeConfig,
+    ModelRuntimeProfileConfig,
+    ModelTopicConfig,
 )
 
 __all__ = [
-    "EventBusConfig",
-    "HandlerConfig",
-    "IntelligenceRuntimeConfig",
-    "TopicConfig",
+    # Enums
+    "EnumHandlerType",
+    "EnumLogLevel",
+    # ONEX-compliant Model* prefixed classes
+    "ModelEventBusConfig",
+    "ModelHandlerConfig",
+    "ModelIntelligenceRuntimeConfig",
+    "ModelRuntimeProfileConfig",
+    "ModelTopicConfig",
 ]
