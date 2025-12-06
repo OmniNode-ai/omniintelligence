@@ -9,6 +9,8 @@ from omniintelligence.tools.contract_linter import (
     ContractLinter,
     ContractValidationError,
     ContractValidationResult,
+    ModelContractValidationError,
+    ModelContractValidationResult,
     main,
     validate_contract,
     validate_contracts_batch,
@@ -16,6 +18,10 @@ from omniintelligence.tools.contract_linter import (
 
 __all__ = [
     "ContractLinter",
+    # ONEX-compliant names (preferred)
+    "ModelContractValidationError",
+    "ModelContractValidationResult",
+    # Backward compatibility aliases
     "ContractValidationError",
     "ContractValidationResult",
     "main",

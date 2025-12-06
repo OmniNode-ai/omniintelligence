@@ -65,10 +65,20 @@ class ModelReducerOutput(BaseModel):
 class ModelReducerConfig(BaseModel):
     """Configuration for intelligence reducer."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     database_url: str = Field(..., description="PostgreSQL connection URL")
-    enable_lease_management: bool = Field(True, description="Enable action leases")
-    lease_timeout_seconds: int = Field(300, description="Lease timeout")
-    max_retry_attempts: int = Field(3, description="Max retry attempts")
+    lease_management_enabled: bool = Field(
+        True, description="Enable action leases", alias="enable_lease_management"
+    )
+    lease_timeout_ms: int = Field(
+        300000,
+        description="Lease timeout in milliseconds",
+        alias="lease_timeout_seconds",
+    )
+    max_retries: int = Field(
+        3, description="Max retry attempts", alias="max_retry_attempts"
+    )
 
 
 __all__ = [

@@ -67,10 +67,20 @@ class ModelOrchestratorOutput(BaseModel):
 class ModelOrchestratorConfig(BaseModel):
     """Configuration for intelligence orchestrator."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     max_concurrent_workflows: int = Field(10, description="Max concurrent workflows")
-    workflow_timeout_seconds: int = Field(300, description="Workflow timeout")
-    enable_caching: bool = Field(True, description="Enable result caching")
-    cache_ttl_seconds: int = Field(300, description="Cache TTL")
+    workflow_timeout_ms: int = Field(
+        300000,
+        description="Workflow timeout in milliseconds",
+        alias="workflow_timeout_seconds",
+    )
+    caching_enabled: bool = Field(
+        True, description="Enable result caching", alias="enable_caching"
+    )
+    cache_ttl_ms: int = Field(
+        300000, description="Cache TTL in milliseconds", alias="cache_ttl_seconds"
+    )
 
 
 __all__ = [

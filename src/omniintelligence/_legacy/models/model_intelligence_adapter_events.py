@@ -706,11 +706,12 @@ class ModelSchemaDiscoveryPayload(BaseModel):
         ],
     )
 
-    total_tables: int = Field(
+    table_count: int = Field(
         ...,
         description="Total number of tables found",
         ge=0,
         examples=[15, 20, 30],
+        alias="total_tables",
     )
 
     query_time_ms: float = Field(
@@ -720,7 +721,7 @@ class ModelSchemaDiscoveryPayload(BaseModel):
         examples=[200.0, 300.0, 500.0],
     )
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
 
 class IntelligenceAdapterEventHelpers:

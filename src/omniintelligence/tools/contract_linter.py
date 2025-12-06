@@ -22,7 +22,6 @@ import re
 import sys
 import time as time_module  # Avoid conflict with potential 'time' variable names
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -140,59 +139,237 @@ class EnumContractErrorType(str, Enum):
     UNEXPECTED_ERROR = "unexpected_error"
 
 
-@dataclass
-class ContractValidationError:
+class ModelContractValidationError:
     """
     Represents a single validation error with field path information.
 
     Attributes:
-        field: The field path where the error occurred (e.g., "version.major")
-        message: Human-readable error description
+        field_path: The field path where the error occurred (e.g., "version.major")
+        error_message: Human-readable error description
         error_type: Category of error (missing_field, invalid_type, invalid_value, etc.)
+
+    Backward Compatibility:
+        Constructor accepts both old names (`field`, `message`) and new ONEX-compliant
+        names (`field_path`, `error_message`). The `field` and `message` properties
+        are provided as aliases for read access.
     """
 
-    field: str
-    message: str
+    __slots__ = ("error_message", "error_type", "field_path")
+
+    # Type annotations for mypy (required for __slots__ classes using object.__setattr__)
+    field_path: str
+    error_message: str
     error_type: EnumContractErrorType
 
+    def __init__(
+        self,
+        *,
+        field_path: str | None = None,
+        error_message: str | None = None,
+        error_type: EnumContractErrorType,
+        # Backward compatibility aliases
+        field: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        """Initialize validation error with ONEX-compliant or legacy field names.
+
+        Args:
+            field_path: The field path where the error occurred (preferred)
+            error_message: Human-readable error description (preferred)
+            error_type: Category of error
+            field: Deprecated alias for field_path (backward compatibility)
+            message: Deprecated alias for error_message (backward compatibility)
+
+        Raises:
+            ValueError: If neither field_path nor field is provided
+            ValueError: If neither error_message nor message is provided
+        """
+        # Resolve field_path from new or old name
+        resolved_field_path = field_path if field_path is not None else field
+        if resolved_field_path is None:
+            raise ValueError("Either 'field_path' or 'field' must be provided")
+
+        # Resolve error_message from new or old name
+        resolved_error_message = error_message if error_message is not None else message
+        if resolved_error_message is None:
+            raise ValueError("Either 'error_message' or 'message' must be provided")
+
+        object.__setattr__(self, "field_path", resolved_field_path)
+        object.__setattr__(self, "error_message", resolved_error_message)
+        object.__setattr__(self, "error_type", error_type)
+
+    # Backward compatibility properties
+    @property
+    def field(self) -> str:
+        """Backward compatibility alias for field_path."""
+        return self.field_path
+
+    @property
+    def message(self) -> str:
+        """Backward compatibility alias for error_message."""
+        return self.error_message
+
     def to_dict(self) -> dict[str, str]:
-        """Convert error to dictionary representation."""
+        """Convert error to dictionary representation.
+
+        Note: Serializes field_path as "field" and error_message as "message"
+        for backward compatibility with existing consumers.
+        """
         return {
-            "field": self.field,
-            "message": self.message,
+            "field": self.field_path,
+            "message": self.error_message,
             "error_type": self.error_type.value,
         }
 
     def __str__(self) -> str:
         """Return string representation of the error."""
-        return f"{self.field}: {self.message} ({self.error_type})"
+        return f"{self.field_path}: {self.error_message} ({self.error_type})"
+
+    def __repr__(self) -> str:
+        """Return detailed representation of the error."""
+        return (
+            f"ModelContractValidationError("
+            f"field_path={self.field_path!r}, "
+            f"error_message={self.error_message!r}, "
+            f"error_type={self.error_type!r})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality with another error."""
+        if not isinstance(other, ModelContractValidationError):
+            return NotImplemented
+        return (
+            self.field_path == other.field_path
+            and self.error_message == other.error_message
+            and self.error_type == other.error_type
+        )
+
+    def __hash__(self) -> int:
+        """Return hash of the error."""
+        return hash((self.field_path, self.error_message, self.error_type))
 
 
-@dataclass
-class ContractValidationResult:
+# Backward compatibility alias
+ContractValidationError = ModelContractValidationError
+
+
+class ModelContractValidationResult:
     """
     Result of validating a contract file.
 
     Attributes:
         file_path: Path to the validated contract file
-        valid: Whether the contract passed all validation checks
-        errors: List of validation errors found
+        is_valid: Whether the contract passed all validation checks
+        validation_errors: List of validation errors found
         contract_type: Detected contract type (compute, effect, etc.) or None
+
+    Backward Compatibility:
+        Constructor accepts both old names (`valid`, `errors`) and new ONEX-compliant
+        names (`is_valid`, `validation_errors`). The `valid` and `errors` properties
+        are provided as aliases for read access.
     """
 
+    __slots__ = ("contract_type", "file_path", "is_valid", "validation_errors")
+
+    # Type annotations for mypy (required for __slots__ classes using object.__setattr__)
     file_path: Path
-    valid: bool
-    errors: list[ContractValidationError] = field(default_factory=list)
-    contract_type: str | None = None
+    is_valid: bool
+    validation_errors: list[ModelContractValidationError]
+    contract_type: str | None
+
+    def __init__(
+        self,
+        *,
+        file_path: Path,
+        is_valid: bool | None = None,
+        validation_errors: list[ModelContractValidationError] | None = None,
+        contract_type: str | None = None,
+        # Backward compatibility aliases
+        valid: bool | None = None,
+        errors: list[ModelContractValidationError] | None = None,
+    ) -> None:
+        """Initialize validation result with ONEX-compliant or legacy field names.
+
+        Args:
+            file_path: Path to the validated contract file
+            is_valid: Whether the contract passed validation (preferred)
+            validation_errors: List of validation errors found (preferred)
+            contract_type: Detected contract type
+            valid: Deprecated alias for is_valid (backward compatibility)
+            errors: Deprecated alias for validation_errors (backward compatibility)
+
+        Raises:
+            ValueError: If neither is_valid nor valid is provided
+        """
+        # Resolve is_valid from new or old name
+        resolved_is_valid = is_valid if is_valid is not None else valid
+        if resolved_is_valid is None:
+            raise ValueError("Either 'is_valid' or 'valid' must be provided")
+
+        # Resolve validation_errors from new or old name (default to empty list)
+        resolved_validation_errors = (
+            validation_errors if validation_errors is not None else errors
+        )
+        if resolved_validation_errors is None:
+            resolved_validation_errors = []
+
+        object.__setattr__(self, "file_path", file_path)
+        object.__setattr__(self, "is_valid", resolved_is_valid)
+        object.__setattr__(self, "validation_errors", resolved_validation_errors)
+        object.__setattr__(self, "contract_type", contract_type)
 
     def to_dict(self) -> dict[str, object]:
-        """Convert result to dictionary representation."""
+        """Convert result to dictionary representation.
+
+        Note: Serializes is_valid as "valid" and validation_errors as "errors"
+        for backward compatibility with existing consumers.
+        """
         return {
             "file_path": str(self.file_path),
-            "valid": self.valid,
-            "errors": [e.to_dict() for e in self.errors],
+            "valid": self.is_valid,
+            "errors": [e.to_dict() for e in self.validation_errors],
             "contract_type": self.contract_type,
         }
+
+    # Backward compatibility properties
+    @property
+    def valid(self) -> bool:
+        """Backward compatibility alias for is_valid."""
+        return self.is_valid
+
+    @property
+    def errors(self) -> list[ModelContractValidationError]:
+        """Backward compatibility alias for validation_errors."""
+        return self.validation_errors
+
+    def __repr__(self) -> str:
+        """Return detailed representation of the result."""
+        return (
+            f"ModelContractValidationResult("
+            f"file_path={self.file_path!r}, "
+            f"is_valid={self.is_valid!r}, "
+            f"validation_errors={self.validation_errors!r}, "
+            f"contract_type={self.contract_type!r})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality with another result."""
+        if not isinstance(other, ModelContractValidationResult):
+            return NotImplemented
+        return (
+            self.file_path == other.file_path
+            and self.is_valid == other.is_valid
+            and self.validation_errors == other.validation_errors
+            and self.contract_type == other.contract_type
+        )
+
+    # Explicitly mark as unhashable since __eq__ is defined
+    # This is required by PLW1641 (object-with-eq-but-no-hash)
+    __hash__ = None  # type: ignore[assignment]
+
+
+# Backward compatibility alias
+ContractValidationResult = ModelContractValidationResult
 
 
 def _pydantic_error_to_contract_error(
@@ -229,9 +406,9 @@ def _pydantic_error_to_contract_error(
 
     mapped_type = error_type_map.get(error_type, EnumContractErrorType.VALIDATION_ERROR)
 
-    return ContractValidationError(
-        field=field_path,
-        message=error.get("msg", "Validation error"),
+    return ModelContractValidationError(
+        field_path=field_path,
+        error_message=error.get("msg", "Validation error"),
         error_type=mapped_type,
     )
 
@@ -390,48 +567,50 @@ class ContractLinter:
         """
         try:
             model_class.model_validate(data)
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=True,
-                errors=[],
+                is_valid=True,
+                validation_errors=[],
                 contract_type=contract_type_name,
             )
         except ValidationError as e:
-            errors = [_pydantic_error_to_contract_error(err) for err in e.errors()]
-            return ContractValidationResult(
+            validation_errors = [
+                _pydantic_error_to_contract_error(err) for err in e.errors()
+            ]
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
         except ModelOnexError as e:
             # Handle custom ONEX validation errors from omnibase_core
-            errors = [
-                ContractValidationError(
-                    field="contract",
-                    message=str(e),
+            validation_errors = [
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=str(e),
                     error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             ]
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
         except Exception as e:
             # Catch any unexpected errors during Pydantic model validation
-            errors = [
-                ContractValidationError(
-                    field="contract",
-                    message=f"Unexpected error during validation: {e}",
+            validation_errors = [
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=f"Unexpected error during validation: {e}",
                     error_type=EnumContractErrorType.UNEXPECTED_ERROR,
                 )
             ]
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
 
@@ -491,22 +670,22 @@ class ContractLinter:
         Returns:
             ContractValidationResult with validation status and errors
         """
-        errors: list[ContractValidationError] = []
+        validation_errors: list[ModelContractValidationError] = []
 
         # Get node_type and validate
         node_type = data.get("node_type")
         if node_type is None:
-            errors.append(
-                ContractValidationError(
-                    field="node_type",
-                    message="Missing required field: node_type",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="node_type",
+                    error_message="Missing required field: node_type",
                     error_type=EnumContractErrorType.MISSING_FIELD,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -515,17 +694,17 @@ class ContractLinter:
 
         if not _is_valid_node_type(node_type_lower):
             valid_types = ", ".join(sorted(VALID_NODE_TYPES))
-            errors.append(
-                ContractValidationError(
-                    field="node_type",
-                    message=f"Invalid node_type: '{node_type}'. Must be one of: {valid_types}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="node_type",
+                    error_message=f"Invalid node_type: '{node_type}'. Must be one of: {valid_types}",
                     error_type=EnumContractErrorType.INVALID_ENUM,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -538,17 +717,17 @@ class ContractLinter:
             )
         except Exception as e:
             # Catch unexpected errors from ProtocolContractValidator
-            errors.append(
-                ContractValidationError(
-                    field="contract",
-                    message=f"Unexpected error during node contract validation: {e}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=f"Unexpected error during node contract validation: {e}",
                     error_type=EnumContractErrorType.UNEXPECTED_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=node_type_lower,
             )
 
@@ -563,18 +742,18 @@ class ContractLinter:
                 if potential_field and FIELD_IDENTIFIER_PATTERN.match(potential_field):
                     field_name = potential_field
 
-            errors.append(
-                ContractValidationError(
-                    field=field_name,
-                    message=violation,
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path=field_name,
+                    error_message=violation,
                     error_type=EnumContractErrorType.VALIDATION_ERROR,
                 )
             )
 
-        return ContractValidationResult(
+        return ModelContractValidationResult(
             file_path=path,
-            valid=result.is_valid,
-            errors=errors,
+            is_valid=result.is_valid,
+            validation_errors=validation_errors,
             contract_type=node_type_lower,
         )
 
@@ -597,16 +776,16 @@ class ContractLinter:
         Returns:
             ContractValidationResult with validation status and errors
         """
-        errors: list[ContractValidationError] = []
+        validation_errors: list[ModelContractValidationError] = []
 
         # Check for basic required fields
         required_fields = ("name", "version", "description", "operations")
         for field_name in required_fields:
             if field_name not in data:
-                errors.append(
-                    ContractValidationError(
-                        field=field_name,
-                        message=f"Missing required field: {field_name}",
+                validation_errors.append(
+                    ModelContractValidationError(
+                        field_path=field_name,
+                        error_message=f"Missing required field: {field_name}",
                         error_type=EnumContractErrorType.MISSING_FIELD,
                     )
                 )
@@ -614,19 +793,19 @@ class ContractLinter:
         # Validate operations is a list or dict if present
         if "operations" in data:
             operations = data["operations"]
-            if not isinstance(operations, (list, dict)):
-                errors.append(
-                    ContractValidationError(
-                        field="operations",
-                        message="Operations must be a list or dict",
+            if not isinstance(operations, list | dict):
+                validation_errors.append(
+                    ModelContractValidationError(
+                        field_path="operations",
+                        error_message="Operations must be a list or dict",
                         error_type=EnumContractErrorType.INVALID_TYPE,
                     )
                 )
 
-        return ContractValidationResult(
+        return ModelContractValidationResult(
             file_path=path,
-            valid=len(errors) == 0,
-            errors=errors,
+            is_valid=len(validation_errors) == 0,
+            validation_errors=validation_errors,
             contract_type="subcontract",
         )
 
@@ -641,37 +820,37 @@ class ContractLinter:
             ContractValidationResult with validation status and errors
         """
         path = Path(file_path)
-        errors: list[ContractValidationError] = []
+        validation_errors: list[ModelContractValidationError] = []
 
         # Check file exists
         if not path.exists():
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"File not found: {path}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=f"File not found: {path}",
                     error_type=EnumContractErrorType.FILE_NOT_FOUND,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Check it's a file, not a directory
         if path.is_dir():
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"Path is a directory, not a file: {path}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=f"Path is a directory, not a file: {path}",
                     error_type=EnumContractErrorType.NOT_A_FILE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -679,31 +858,31 @@ class ContractLinter:
         try:
             file_size = path.stat().st_size
             if file_size > MAX_YAML_SIZE_BYTES:
-                errors.append(
-                    ContractValidationError(
-                        field="file",
-                        message=f"File size ({file_size} bytes) exceeds maximum allowed ({MAX_YAML_SIZE_BYTES} bytes)",
+                validation_errors.append(
+                    ModelContractValidationError(
+                        field_path="file",
+                        error_message=f"File size ({file_size} bytes) exceeds maximum allowed ({MAX_YAML_SIZE_BYTES} bytes)",
                         error_type=EnumContractErrorType.FILE_TOO_LARGE,
                     )
                 )
-                return ContractValidationResult(
+                return ModelContractValidationResult(
                     file_path=path,
-                    valid=False,
-                    errors=errors,
+                    is_valid=False,
+                    validation_errors=validation_errors,
                     contract_type=None,
                 )
         except OSError as e:
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"Error checking file size: {e}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=f"Error checking file size: {e}",
                     error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -711,33 +890,33 @@ class ContractLinter:
         try:
             content = path.read_text(encoding="utf-8")
         except OSError as e:
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message=f"Error reading file: {e}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message=f"Error reading file: {e}",
                     error_type=EnumContractErrorType.FILE_READ_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Check for empty content
         if not content.strip():
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message="File is empty",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message="File is empty",
                     error_type=EnumContractErrorType.EMPTY_FILE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -745,33 +924,33 @@ class ContractLinter:
         try:
             data = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            errors.append(
-                ContractValidationError(
-                    field="yaml",
-                    message=f"Invalid YAML syntax: {e}",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="yaml",
+                    error_message=f"Invalid YAML syntax: {e}",
                     error_type=EnumContractErrorType.YAML_PARSE_ERROR,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
         # Check for empty YAML (comments only)
         if data is None:
-            errors.append(
-                ContractValidationError(
-                    field="file",
-                    message="File contains no YAML content (only comments or empty)",
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="file",
+                    error_message="File contains no YAML content (only comments or empty)",
                     error_type=EnumContractErrorType.EMPTY_FILE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -788,10 +967,10 @@ class ContractLinter:
             return self._validate_subcontract(data, path)
         else:
             # Unknown contract type - try to provide helpful error
-            errors.append(
-                ContractValidationError(
-                    field="root",
-                    message=(
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="root",
+                    error_message=(
                         "Unable to detect contract type. Expected one of: "
                         "node contract (with node_type), FSM subcontract "
                         "(with state_machine_name/states), workflow (with workflow_type), "
@@ -800,10 +979,10 @@ class ContractLinter:
                     error_type=EnumContractErrorType.UNKNOWN_CONTRACT_TYPE,
                 )
             )
-            return ContractValidationResult(
+            return ModelContractValidationResult(
                 file_path=path,
-                valid=False,
-                errors=errors,
+                is_valid=False,
+                validation_errors=validation_errors,
                 contract_type=None,
             )
 
@@ -921,7 +1100,7 @@ def _format_text_output(
         elif verbose:
             lines.append(f"[{status}] {result.file_path}")
             for error in result.errors:
-                lines.append(f"  - {error.field}: {error.message}")
+                lines.append(f"  - {error.field_path}: {error.error_message}")
         else:
             # Surface brief error summary even in non-verbose mode
             error_count = len(result.errors)

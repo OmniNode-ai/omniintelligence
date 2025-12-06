@@ -119,8 +119,14 @@ class ModelQualityAssessmentRequest(BaseModel):
 class ArchitecturalCompliance(BaseModel):
     """Architectural compliance details."""
 
-    score: float = Field(
-        ..., ge=0.0, le=1.0, description="ONEX architectural compliance score (0.0-1.0)"
+    model_config = ConfigDict(populate_by_name=True)
+
+    compliance_score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="ONEX architectural compliance score (0.0-1.0)",
+        alias="score",
     )
     reasoning: str = Field(..., description="Explanation of compliance assessment")
 
@@ -145,8 +151,14 @@ class MaintainabilityMetrics(BaseModel):
 class OnexComplianceDetails(BaseModel):
     """ONEX compliance details and violations."""
 
-    score: float = Field(
-        ..., ge=0.0, le=1.0, description="Overall ONEX compliance score"
+    model_config = ConfigDict(populate_by_name=True)
+
+    compliance_score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Overall ONEX compliance score",
+        alias="score",
     )
     violations: list[str] = Field(
         default_factory=list, description="List of ONEX compliance violations"
@@ -510,13 +522,19 @@ class ModelPatternDetectionRequest(BaseModel):
 class DetectedPattern(BaseModel):
     """Single detected pattern with metadata."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     pattern_id: str = Field(..., description="Pattern identifier")
     pattern_type: str = Field(
         ..., description="Pattern type (e.g., 'singleton', 'factory', 'god_class')"
     )
     category: PatternCategory = Field(..., description="Pattern category")
-    confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Detection confidence (0.0-1.0)"
+    confidence_score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Detection confidence (0.0-1.0)",
+        alias="confidence",
     )
     description: str = Field(..., description="Pattern description and context")
     location: Optional[dict[str, Any]] = Field(
@@ -643,8 +661,12 @@ class ModelPatternDetectionResponse(BaseModel):
 class ModelHealthCheckResponse(BaseModel):
     """Health check response from Intelligence Service."""
 
-    status: str = Field(
-        ..., description="Service health status (healthy, degraded, unhealthy)"
+    model_config = ConfigDict(populate_by_name=True)
+
+    health_status: str = Field(
+        ...,
+        description="Service health status (healthy, degraded, unhealthy)",
+        alias="status",
     )
     memgraph_connected: bool = Field(
         ..., description="Memgraph knowledge graph connection status"
@@ -656,8 +678,10 @@ class ModelHealthCheckResponse(BaseModel):
         ..., description="Freshness database connection status"
     )
     service_version: str = Field(..., description="Service version")
-    uptime_seconds: Optional[float] = Field(
-        default=None, description="Service uptime in seconds"
+    uptime_ms: Optional[float] = Field(
+        default=None,
+        description="Service uptime in milliseconds",
+        alias="uptime_seconds",
     )
     error: Optional[str] = Field(default=None, description="Error message if unhealthy")
     last_check: datetime = Field(..., description="Last health check timestamp")

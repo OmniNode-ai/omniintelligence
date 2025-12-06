@@ -21,15 +21,18 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _IntelligenceConfigDict(TypedDict):
-    """TypedDict for environment-specific configuration values."""
+    """TypedDict for environment-specific configuration values.
+
+    Note: Uses alias names for backward compatibility.
+    """
 
     base_url: str
-    timeout_seconds: float
+    timeout_seconds: int  # Alias for timeout_ms (in milliseconds despite name)
     max_retries: int
     retry_delay_ms: int
     circuit_breaker_enabled: bool
     circuit_breaker_threshold: int
-    circuit_breaker_timeout_seconds: float
+    circuit_breaker_timeout_seconds: int  # Alias for circuit_breaker_timeout_ms
     enable_event_publishing: bool
     input_topics: list[str]
     output_topics: dict[str, str]
@@ -141,11 +144,12 @@ class ModelIntelligenceConfig(BaseModel):
         ],
     )
 
-    timeout_seconds: float = Field(
-        default=30.0,
-        ge=5.0,
-        le=300.0,
-        description="API request timeout in seconds (5.0-300.0)",
+    timeout_ms: int = Field(
+        default=30000,
+        ge=5000,
+        le=300000,
+        description="API request timeout in milliseconds (5000-300000)",
+        alias="timeout_seconds",
     )
 
     max_retries: int = Field(
@@ -178,11 +182,12 @@ class ModelIntelligenceConfig(BaseModel):
         description="Number of consecutive failures before opening circuit (1-100)",
     )
 
-    circuit_breaker_timeout_seconds: float = Field(
-        default=60.0,
-        ge=10.0,
-        le=600.0,
-        description="Circuit breaker recovery timeout in seconds (10.0-600.0)",
+    circuit_breaker_timeout_ms: int = Field(
+        default=60000,
+        ge=10000,
+        le=600000,
+        description="Circuit breaker recovery timeout in milliseconds (10000-600000)",
+        alias="circuit_breaker_timeout_seconds",
     )
 
     # ==========================================
@@ -420,12 +425,12 @@ class ModelIntelligenceConfig(BaseModel):
         configs: dict[str, _IntelligenceConfigDict] = {
             "development": {
                 "base_url": os.getenv("INTELLIGENCE_BASE_URL", "http://localhost:8053"),
-                "timeout_seconds": 30.0,
+                "timeout_seconds": 30000,  # 30 seconds in ms
                 "max_retries": 3,
                 "retry_delay_ms": 1000,
                 "circuit_breaker_enabled": True,
                 "circuit_breaker_threshold": 3,
-                "circuit_breaker_timeout_seconds": 30.0,
+                "circuit_breaker_timeout_seconds": 30000,  # 30 seconds in ms
                 "enable_event_publishing": True,
                 "input_topics": [
                     "dev.omninode.intelligence.request.assess.v1",
@@ -442,12 +447,12 @@ class ModelIntelligenceConfig(BaseModel):
                 "base_url": os.getenv(
                     "INTELLIGENCE_BASE_URL", "http://archon-intelligence:8053"
                 ),
-                "timeout_seconds": 45.0,
+                "timeout_seconds": 45000,  # 45 seconds in ms
                 "max_retries": 4,
                 "retry_delay_ms": 1500,
                 "circuit_breaker_enabled": True,
                 "circuit_breaker_threshold": 5,
-                "circuit_breaker_timeout_seconds": 45.0,
+                "circuit_breaker_timeout_seconds": 45000,  # 45 seconds in ms
                 "enable_event_publishing": True,
                 "input_topics": [
                     "staging.omninode.intelligence.request.quality.v1",
@@ -466,12 +471,12 @@ class ModelIntelligenceConfig(BaseModel):
                 "base_url": os.getenv(
                     "INTELLIGENCE_BASE_URL", "http://archon-intelligence:8053"
                 ),
-                "timeout_seconds": 60.0,
+                "timeout_seconds": 60000,  # 60 seconds in ms
                 "max_retries": 5,
                 "retry_delay_ms": 2000,
                 "circuit_breaker_enabled": True,
                 "circuit_breaker_threshold": 10,
-                "circuit_breaker_timeout_seconds": 60.0,
+                "circuit_breaker_timeout_seconds": 60000,  # 60 seconds in ms
                 "enable_event_publishing": True,
                 "input_topics": [
                     "prod.omninode.intelligence.request.quality.v1",
@@ -619,6 +624,7 @@ class ModelIntelligenceConfig(BaseModel):
     # Pydantic v2 configuration
     model_config = ConfigDict(
         extra="forbid",  # Reject unknown fields for safety
+        populate_by_name=True,  # Allow both alias and field name
         json_schema_extra={
             "examples": [
                 # Development example

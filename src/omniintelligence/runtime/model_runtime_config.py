@@ -75,7 +75,7 @@ class EnumHandlerType(str, Enum):
     HTTP_CLIENT = "http_client"
 
 
-class TopicConfig(BaseModel):
+class ModelTopicConfig(BaseModel):
     """
     Kafka topic configuration for event bus.
 
@@ -112,7 +112,7 @@ class TopicConfig(BaseModel):
     )
 
 
-class EventBusConfig(BaseModel):
+class ModelEventBusConfig(BaseModel):
     """
     Event bus configuration for Kafka integration.
 
@@ -155,8 +155,8 @@ class EventBusConfig(BaseModel):
         examples=["intelligence-runtime", "intelligence-dev", "intelligence-prod"],
     )
 
-    topics: TopicConfig = Field(
-        default_factory=TopicConfig,
+    topics: ModelTopicConfig = Field(
+        default_factory=ModelTopicConfig,
         description="Topic configuration for commands and events",
     )
 
@@ -182,7 +182,7 @@ class EventBusConfig(BaseModel):
     )
 
 
-class HandlerConfig(BaseModel):
+class ModelHandlerConfig(BaseModel):
     """
     Handler configuration for runtime dependency injection.
 
@@ -225,7 +225,7 @@ class HandlerConfig(BaseModel):
     )
 
 
-class RuntimeProfileConfig(BaseModel):
+class ModelRuntimeProfileConfig(BaseModel):
     """
     Optional runtime profile configuration for node selection.
 
@@ -233,16 +233,17 @@ class RuntimeProfileConfig(BaseModel):
     Useful for running subset of nodes in development or specialized deployments.
 
     Attributes:
-        name: Profile name identifier.
+        profile_name: Profile name identifier.
         node_types: List of node types to include (compute, effect, reducer, orchestrator).
         node_names: Optional list of specific node names to include.
         exclude_nodes: Optional list of node names to exclude.
     """
 
-    name: str = Field(
+    profile_name: str = Field(
         default="default",
         description="Profile name identifier",
         examples=["default", "development", "compute-only", "minimal"],
+        alias="name",  # Backward compatibility alias
     )
 
     node_types: list[Literal["compute", "effect", "reducer", "orchestrator"]] = Field(
@@ -262,10 +263,11 @@ class RuntimeProfileConfig(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid",
+        populate_by_name=True,  # Allow both 'name' and 'profile_name'
     )
 
 
-class IntelligenceRuntimeConfig(BaseModel):
+class ModelIntelligenceRuntimeConfig(BaseModel):
     """
     Application-level configuration for OmniIntelligence runtime host.
 
@@ -333,17 +335,17 @@ class IntelligenceRuntimeConfig(BaseModel):
         description="Logging level for the runtime",
     )
 
-    event_bus: EventBusConfig = Field(
-        default_factory=EventBusConfig,
+    event_bus: ModelEventBusConfig = Field(
+        default_factory=ModelEventBusConfig,
         description="Event bus (Kafka) configuration",
     )
 
-    handlers: list[HandlerConfig] = Field(
+    handlers: list[ModelHandlerConfig] = Field(
         default_factory=list,
         description="List of handler configurations for dependency injection",
     )
 
-    profile: RuntimeProfileConfig | None = Field(
+    profile: ModelRuntimeProfileConfig | None = Field(
         default=None,
         description="Optional runtime profile for node selection",
     )
@@ -431,7 +433,7 @@ class IntelligenceRuntimeConfig(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_port_uniqueness(self) -> IntelligenceRuntimeConfig:
+    def validate_port_uniqueness(self) -> ModelIntelligenceRuntimeConfig:
         """
         Validate that health check and metrics ports are different.
 
@@ -486,13 +488,14 @@ class IntelligenceRuntimeConfig(BaseModel):
 
         if isinstance(value, dict):
             return {
-                k: IntelligenceRuntimeConfig._interpolate_env_vars(v)
+                k: ModelIntelligenceRuntimeConfig._interpolate_env_vars(v)
                 for k, v in value.items()
             }
 
         if isinstance(value, list):
             return [
-                IntelligenceRuntimeConfig._interpolate_env_vars(item) for item in value
+                ModelIntelligenceRuntimeConfig._interpolate_env_vars(item)
+                for item in value
             ]
 
         return value
@@ -507,7 +510,7 @@ class IntelligenceRuntimeConfig(BaseModel):
         path: str | Path,
         *,
         interpolate_env: bool = True,
-    ) -> IntelligenceRuntimeConfig:
+    ) -> ModelIntelligenceRuntimeConfig:
         """
         Load configuration from a YAML file.
 
@@ -525,7 +528,7 @@ class IntelligenceRuntimeConfig(BaseModel):
             pydantic.ValidationError: If configuration validation fails.
 
         Example:
-            config = IntelligenceRuntimeConfig.from_yaml(
+            config = ModelIntelligenceRuntimeConfig.from_yaml(
                 "/etc/omniintelligence/runtime.yaml"
             )
         """
@@ -549,7 +552,7 @@ class IntelligenceRuntimeConfig(BaseModel):
     def from_environment(
         cls,
         prefix: str = "INTELLIGENCE_RUNTIME_",
-    ) -> IntelligenceRuntimeConfig:
+    ) -> ModelIntelligenceRuntimeConfig:
         """
         Load configuration from environment variables.
 
@@ -577,7 +580,7 @@ class IntelligenceRuntimeConfig(BaseModel):
             os.environ["INTELLIGENCE_RUNTIME_NAME"] = "my-runtime"
             os.environ["KAFKA_BOOTSTRAP_SERVERS"] = "localhost:9092"
 
-            config = IntelligenceRuntimeConfig.from_environment()
+            config = ModelIntelligenceRuntimeConfig.from_environment()
         """
         # Build configuration from environment
         config_data: dict[str, Any] = {}
@@ -632,27 +635,27 @@ class IntelligenceRuntimeConfig(BaseModel):
         return cls.model_validate(config_data)
 
     @classmethod
-    def default_development(cls) -> IntelligenceRuntimeConfig:
+    def default_development(cls) -> ModelIntelligenceRuntimeConfig:
         """
         Create default development configuration.
 
         Returns:
-            IntelligenceRuntimeConfig with development defaults.
+            ModelIntelligenceRuntimeConfig with development defaults.
         """
         return cls(
             runtime_name="intelligence-dev",
             log_level=EnumLogLevel.DEBUG,
-            event_bus=EventBusConfig(
+            event_bus=ModelEventBusConfig(
                 bootstrap_servers="localhost:9092",
                 consumer_group="intelligence-dev",
-                topics=TopicConfig(
+                topics=ModelTopicConfig(
                     commands="dev.intelligence.cmd.v1",
                     events="dev.intelligence.evt.v1",
                     dlq="dev.intelligence.dlq.v1",
                 ),
             ),
             handlers=[
-                HandlerConfig(
+                ModelHandlerConfig(
                     handler_type=EnumHandlerType.KAFKA_PRODUCER,
                     config={"bootstrap_servers": "localhost:9092"},
                 ),
@@ -663,12 +666,12 @@ class IntelligenceRuntimeConfig(BaseModel):
         )
 
     @classmethod
-    def default_production(cls) -> IntelligenceRuntimeConfig:
+    def default_production(cls) -> ModelIntelligenceRuntimeConfig:
         """
         Create default production configuration.
 
         Returns:
-            IntelligenceRuntimeConfig with production defaults.
+            ModelIntelligenceRuntimeConfig with production defaults.
 
         Raises:
             ValueError: If required environment variables are not set.
@@ -686,17 +689,17 @@ class IntelligenceRuntimeConfig(BaseModel):
         return cls(
             runtime_name="intelligence-prod",
             log_level=EnumLogLevel.INFO,
-            event_bus=EventBusConfig(
+            event_bus=ModelEventBusConfig(
                 bootstrap_servers=bootstrap_servers,
                 consumer_group="intelligence-prod",
-                topics=TopicConfig(
+                topics=ModelTopicConfig(
                     commands="onex.intelligence.cmd.v1",
                     events="onex.intelligence.evt.v1",
                     dlq="onex.intelligence.dlq.v1",
                 ),
             ),
             handlers=[
-                HandlerConfig(
+                ModelHandlerConfig(
                     handler_type=EnumHandlerType.KAFKA_PRODUCER,
                     config={"bootstrap_servers": bootstrap_servers},
                 ),
@@ -713,7 +716,7 @@ class IntelligenceRuntimeConfig(BaseModel):
     def get_handler_config(
         self,
         handler_type: EnumHandlerType,
-    ) -> HandlerConfig | None:
+    ) -> ModelHandlerConfig | None:
         """
         Get configuration for a specific handler type.
 
@@ -748,7 +751,7 @@ class IntelligenceRuntimeConfig(BaseModel):
             path: Path to write the YAML file.
 
         Example:
-            config = IntelligenceRuntimeConfig.default_development()
+            config = ModelIntelligenceRuntimeConfig.default_development()
             config.to_yaml("/etc/omniintelligence/runtime.yaml")
         """
         path = Path(path)
@@ -761,3 +764,16 @@ class IntelligenceRuntimeConfig(BaseModel):
                 default_flow_style=False,
                 sort_keys=False,
             )
+
+
+# ==========================================================================
+# Backward Compatibility Aliases (deprecated, use Model* versions)
+# ==========================================================================
+
+# These aliases maintain backward compatibility with existing code.
+# New code should use the Model* prefixed versions.
+TopicConfig = ModelTopicConfig
+EventBusConfig = ModelEventBusConfig
+HandlerConfig = ModelHandlerConfig
+RuntimeProfileConfig = ModelRuntimeProfileConfig
+IntelligenceRuntimeConfig = ModelIntelligenceRuntimeConfig

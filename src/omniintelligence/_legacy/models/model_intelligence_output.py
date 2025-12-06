@@ -26,12 +26,14 @@ class ModelPatternDetection(BaseModel):
     Attributes:
         pattern_type: Type/category of detected pattern
         pattern_name: Human-readable pattern name
-        confidence: Pattern detection confidence (0.0-1.0)
+        confidence_score: Pattern detection confidence (0.0-1.0)
         description: Pattern description and context
         location: Source location (file path, line numbers, etc.)
         severity: Pattern severity (info, warning, error, critical)
         recommendation: Suggested action or improvement
     """
+
+    model_config = ConfigDict(populate_by_name=True)
 
     pattern_type: str = Field(
         ...,
@@ -45,11 +47,12 @@ class ModelPatternDetection(BaseModel):
         examples=["ONEX_EFFECT_NODE", "ANTI_PATTERN_GOD_CLASS", "SQL_INJECTION"],
     )
 
-    confidence: float = Field(
+    confidence_score: float = Field(
         ...,
         description="Pattern detection confidence score",
         ge=0.0,
         le=1.0,
+        alias="confidence",
     )
 
     description: str = Field(
@@ -87,8 +90,10 @@ class ModelIntelligenceMetrics(BaseModel):
         cache_hit: Whether result was served from cache
         cache_key: Cache key used (if applicable)
         services_invoked: List of backend services called
-        total_api_calls: Total number of API calls made
+        api_call_count: Total number of API calls made
     """
+
+    model_config = ConfigDict(populate_by_name=True)
 
     rag_service_ms: Optional[int] = Field(
         None,
@@ -124,10 +129,11 @@ class ModelIntelligenceMetrics(BaseModel):
         examples=[["intelligence", "search", "qdrant"]],
     )
 
-    total_api_calls: int = Field(
+    api_call_count: int = Field(
         default=0,
         description="Total number of backend API calls",
         ge=0,
+        alias="total_api_calls",
     )
 
 
