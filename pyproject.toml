@@ -68,7 +68,7 @@ dev = [
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
     "types-pyyaml>=6.0.12",
-    "pre-commit>=4.5.0",  # Synced with Poetry group.dev.dependencies
+    "pre-commit>=4.5.0,<5.0.0",  # Synced with Poetry group.dev.dependencies (^4.5.0)
 ]
 
 # Core node system dependencies
@@ -152,7 +152,7 @@ all = [
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
     "types-pyyaml>=6.0.12",
-    "pre-commit>=4.5.0",  # Synced with Poetry group.dev.dependencies
+    "pre-commit>=4.5.0,<5.0.0",  # Synced with Poetry group.dev.dependencies (^4.5.0)
 ]
 
 # Ruff configuration - aligned with omnibase_core

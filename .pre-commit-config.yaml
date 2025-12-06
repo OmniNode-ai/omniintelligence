@@ -140,26 +140,72 @@
 # The file patterns in ruff/mypy hooks MUST stay aligned with CI path filters.
 # When updating patterns here, also update the corresponding CI filters.
 #
+# CI WORKFLOW CROSS-REFERENCE:
+# - CI workflow file: .github/workflows/ci.yaml
+# - CI alignment notice: lines 15-74 (comprehensive sync instructions)
+# - production_code filter: lines 100-109 (changes job, dorny/paths-filter)
+# - scope-alignment job: lines 167-204 (runs validation on every CI build)
+#
 # Aligned patterns (pre-commit <-> CI):
 # - ruff/mypy files: regex      <-> CI production_code filter: glob patterns
 # - Source: tools/, utils/, runtime/ directories
 # - Tests: tests/unit/tools/, tests/unit/test_log_sanitizer.py
 #
-# Validation: scripts/validate_ci_precommit_alignment.py checks alignment
+# Validation script: scripts/validate_ci_precommit_alignment.py
 # Run manually: uv run python scripts/validate_ci_precommit_alignment.py
+# CI runs this automatically via the scope-alignment job on every build.
 # ============================================================================
 #
-# Global Exclusions (excluded from ALL hooks via exclude: block at bottom):
-# - _legacy/: Legacy code preserved for migration reference
-# - migration_sources/: Original omniarchon source code
-# - .git/: Git internals
+# ============================================================================
+# EXCLUSION PATTERN STRATEGY (Two-Tier Design)
+# ============================================================================
+# This config uses a deliberate two-tier exclusion strategy. The tiers serve
+# different purposes and should NOT be merged:
 #
-# Per-Hook Exclusions (excluded from specific hooks only):
-# - .github/workflows/: Excluded from formatting hooks (yamlfmt, trailing-whitespace,
-#   end-of-file-fixer) because GitHub Actions workflows have specific YAML syntax
-#   requirements (expression syntax ${{ }}, multiline strings, run blocks) that
-#   conflict with standard formatting rules. NOT excluded from check-merge-conflict
-#   or check-added-large-files since those validations remain useful.
+# TIER 1: Global Exclusions (exclude: block at bottom - applies to ALL hooks)
+# ---------------------------------------------------------------------------
+# Purpose: Exclude dead/reference-only code that should NEVER be processed
+# Patterns:
+#   - _legacy/              : Legacy code preserved for migration reference
+#   - migration_sources/    : Original omniarchon source code (read-only reference)
+#   - .git/                 : Git internals (never process VCS metadata)
+#
+# Rationale: These directories contain archival code that will never be
+# modified or deployed. Running any hooks on them wastes time and may
+# produce false positives on intentionally frozen code.
+#
+# TIER 2: Per-Hook Exclusions (exclude: on individual hooks)
+# ---------------------------------------------------------------------------
+# Purpose: Exclude files from SPECIFIC hooks where formatting conflicts exist
+# Pattern: .github/workflows/ excluded from FORMATTING hooks only
+#
+# Applied to (formatting conflicts):
+#   - yamlfmt           : Workflow YAML syntax (${{ }}, |-, run:) conflicts
+#   - trailing-whitespace: Intentional spacing in multiline strings
+#   - end-of-file-fixer : GitHub-specific file requirements
+#
+# NOT applied to (validation still valuable):
+#   - check-merge-conflict  : Merge markers are NEVER valid in workflows
+#   - check-added-large-files: Size limits apply universally
+#
+# Rationale: GitHub Actions workflows have specific YAML syntax requirements
+# (expression syntax ${{ }}, multiline strings, run blocks) that conflict
+# with standard formatting rules. However, validation hooks remain useful.
+#
+# WHY TWO TIERS (do not consolidate):
+# - Global tier: "Never process this code at all" (archival/dead code)
+# - Per-hook tier: "Process for some checks, skip for others" (active code)
+# - .github/workflows/ is ACTIVE code that needs validation, just not formatting
+#
+# EXCLUSION SUMMARY TABLE
+# ============================================================================
+# Pattern              | Tier      | Hooks Affected        | Reason
+# ---------------------|-----------|----------------------|-------------------
+# _legacy/             | Global    | ALL hooks            | Archived migration
+# migration_sources/   | Global    | ALL hooks            | Reference-only
+# .git/                | Global    | ALL hooks            | Git internals
+# .github/workflows/   | Per-hook  | Formatting only      | Syntax conflicts
+# ============================================================================
 #
 # ============================================================================
 # SMART PERFORMANCE OPTIMIZATIONS
@@ -214,10 +260,9 @@ repos:
     rev: v0.17.2
     hooks:
       - id: yamlfmt
-        # GitHub Actions workflows are excluded because they have specific YAML syntax
-        # requirements (e.g., expression syntax ${{ }}, multiline strings, run blocks)
-        # that may conflict with standard yamlfmt formatting rules.
-        # Note: migration_sources/ and _legacy/ are already covered by global exclusions
+        # Per-hook exclusion (Tier 2) - see "EXCLUSION PATTERN STRATEGY" section above
+        # Workflows excluded: YAML syntax conflicts (${{ }}, multiline strings, run:)
+        # Global exclusions (_legacy/, migration_sources/) applied automatically
         exclude: ^\.github/workflows/
 
   # ============================================================================
@@ -226,17 +271,22 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      # GitHub Actions workflows excluded from formatting hooks - see header comment
-      # for rationale (YAML syntax requirements conflict with standard formatters)
-      # Note: migration_sources/ and _legacy/ are already covered by global exclusions
+      # -----------------------------------------------------------------------
+      # FORMATTING HOOKS - Per-hook exclusion (Tier 2) for .github/workflows/
+      # See "EXCLUSION PATTERN STRATEGY" section in header for full rationale
+      # Global exclusions (_legacy/, migration_sources/) applied automatically
+      # -----------------------------------------------------------------------
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
         exclude: ^\.github/workflows/
       - id: end-of-file-fixer
         exclude: ^\.github/workflows/
-      # These hooks intentionally have NO workflow exclusions (unlike formatting hooks above):
-      # - check-merge-conflict: Merge markers are invalid everywhere, including workflows
-      # - check-added-large-files: Size limits apply universally regardless of file type
+      # -----------------------------------------------------------------------
+      # VALIDATION HOOKS - NO workflow exclusions (intentional)
+      # These checks are valuable for ALL files including .github/workflows/:
+      # - check-merge-conflict: Merge markers are invalid in ANY file
+      # - check-added-large-files: Size limits apply universally
+      # -----------------------------------------------------------------------
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1000]
@@ -361,16 +411,18 @@ repos:
 default_stages: [pre-commit]
 
 # ============================================================================
-# GLOBAL EXCLUSIONS
-# These patterns are excluded from ALL hooks above
+# GLOBAL EXCLUSIONS (Tier 1)
+# These patterns are excluded from ALL hooks - see "EXCLUSION PATTERN STRATEGY"
+# section in header for full rationale on the two-tier design
 # ============================================================================
 exclude: |
   (?x)^(
-    # Legacy code preserved for migration reference - do not lint
+    # Tier 1: Archival/dead code - never process
+    # Legacy code preserved for migration reference
     _legacy/.*|
     src/omniintelligence/_legacy/.*|
-    # Original omniarchon source - reference only
+    # Original omniarchon source - read-only reference
     migration_sources/.*|
-    # Git internals
+    # Git internals - not user code
     \.git/.*
   )$
