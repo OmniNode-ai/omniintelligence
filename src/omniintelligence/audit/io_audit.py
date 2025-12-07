@@ -7,6 +7,55 @@ Forbidden patterns:
 - net-client: Network/DB client imports
 - env-access: Environment variable access
 - file-io: File system operations
+
+Whitelist Hierarchy
+-------------------
+The I/O audit uses a two-level whitelist system with a strict hierarchy:
+
+1. **YAML Whitelist (Primary Source of Truth)**:
+   - Located at ``tests/audit/io_audit_whitelist.yaml``
+   - Defines which files are allowed exceptions and which rules apply
+   - ALL exceptions MUST be registered here first
+
+2. **Inline Pragmas (Secondary, Line-Level Granularity)**:
+   - Format: ``# io-audit: ignore-next-line <rule>``
+   - Provides fine-grained control within whitelisted files
+
+**CRITICAL LIMITATION**: Inline pragmas ONLY work for files that are ALREADY
+listed in the YAML whitelist. This is by design - the YAML whitelist is the
+authoritative source of truth for which files may have I/O exceptions.
+
+Example - Correct Usage
+~~~~~~~~~~~~~~~~~~~~~~~
+Step 1: Add file to YAML whitelist (io_audit_whitelist.yaml)::
+
+    files:
+      - path: "src/omniintelligence/nodes/my_effect_node.py"
+        reason: "Effect node requires Kafka client for event publishing"
+        allowed_rules:
+          - "net-client"
+
+Step 2: Use inline pragma for specific lines (my_effect_node.py)::
+
+    # io-audit: ignore-next-line net-client
+    from confluent_kafka import Producer  # Whitelisted by pragma
+
+Example - INCORRECT Usage (pragma will be IGNORED)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If the file is NOT in the YAML whitelist, pragmas have no effect::
+
+    # This pragma is IGNORED because file is not in YAML whitelist!
+    # io-audit: ignore-next-line net-client
+    from confluent_kafka import Producer  # VIOLATION REPORTED
+
+Rationale
+~~~~~~~~~
+This design ensures:
+
+- Central visibility of all I/O exceptions in one YAML file
+- Code review coverage for any new exceptions (YAML changes are visible in PRs)
+- Prevents developers from silently adding I/O to pure compute nodes
+- Inline pragmas provide convenience without bypassing the approval process
 """
 
 from __future__ import annotations
@@ -17,7 +66,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, overload
 
 import yaml
 
@@ -57,6 +106,30 @@ PATHLIB_IO_METHODS: frozenset[str] = frozenset(
         "read_bytes",
         "write_bytes",
         "open",
+    }
+)
+
+# Variable name patterns that strongly suggest a Path object
+# Used heuristically to detect likely Path I/O operations
+PATHLIB_VARIABLE_PATTERNS: frozenset[str] = frozenset(
+    {
+        "path",
+        "file_path",
+        "filepath",
+        "dir_path",
+        "dirpath",
+        "directory_path",
+        "folder_path",
+        "p",
+        "fp",
+        "source_path",
+        "target_path",
+        "dest_path",
+        "destination_path",
+        "input_path",
+        "output_path",
+        "config_path",
+        "log_path",
     }
 )
 
@@ -332,11 +405,57 @@ class IOAuditVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         """Check function calls for I/O violations."""
+        self._check_call_for_forbidden_alias(node)
         self._check_call_for_open(node)
         self._check_call_for_env_access(node)
         self._check_call_for_pathlib_io(node)
         self._check_call_for_logging_handler(node)
         self.generic_visit(node)
+
+    def _check_call_for_forbidden_alias(self, node: ast.Call) -> None:
+        """Check for calls using aliased forbidden imports.
+
+        Detects patterns like:
+            import httpx as h
+            h.get(url)  # Should be detected
+
+            import confluent_kafka as ck
+            ck.Producer({})  # Should be detected
+        """
+        func = node.func
+
+        # Check for attribute access on a name (e.g., alias.method())
+        if isinstance(func, ast.Attribute):
+            if isinstance(func.value, ast.Name):
+                alias = func.value.id
+                # Check if this alias maps to a forbidden module
+                if alias in self._imported_names:
+                    module = self._imported_names[alias]
+                    for forbidden in FORBIDDEN_IMPORTS:
+                        if module == forbidden or module.startswith(f"{forbidden}."):
+                            self._add_violation(
+                                node,
+                                EnumIOAuditRule.NET_CLIENT,
+                                f"Forbidden call via alias '{alias}': "
+                                f"{alias}.{func.attr}() (import: {module})",
+                            )
+                            return
+
+        # Check for direct call of an imported name (e.g., Producer())
+        # This handles: from confluent_kafka import Producer as P; P({})
+        if isinstance(func, ast.Name):
+            alias = func.id
+            if alias in self._imported_names:
+                module = self._imported_names[alias]
+                for forbidden in FORBIDDEN_IMPORTS:
+                    if module.startswith(f"{forbidden}."):
+                        self._add_violation(
+                            node,
+                            EnumIOAuditRule.NET_CLIENT,
+                            f"Forbidden call via alias '{alias}': "
+                            f"{alias}() (import: {module})",
+                        )
+                        return
 
     def _check_call_for_open(self, node: ast.Call) -> None:
         """Check for open() and io.open() calls."""
@@ -364,7 +483,7 @@ class IOAuditVisitor(ast.NodeVisitor):
                         )
 
     def _check_call_for_env_access(self, node: ast.Call) -> None:
-        """Check for os.getenv() and os.putenv() calls."""
+        """Check for os.getenv(), os.putenv(), and os.environ mutation method calls."""
         func = node.func
 
         if isinstance(func, ast.Attribute):
@@ -381,27 +500,107 @@ class IOAuditVisitor(ast.NodeVisitor):
                         EnumIOAuditRule.ENV_ACCESS,
                         "Forbidden call: os.putenv()",
                     )
-            # Check for os.environ.get()
+            # Check for os.environ method calls: get(), pop(), setdefault(), clear(), update()
             elif isinstance(func.value, ast.Attribute):
                 if (
                     isinstance(func.value.value, ast.Name)
                     and func.value.value.id == "os"
                     and func.value.attr == "environ"
-                    and func.attr == "get"
                 ):
-                    self._add_violation(
-                        node,
-                        EnumIOAuditRule.ENV_ACCESS,
-                        "Forbidden call: os.environ.get()",
-                    )
+                    environ_methods = {"get", "pop", "setdefault", "clear", "update"}
+                    if func.attr in environ_methods:
+                        self._add_violation(
+                            node,
+                            EnumIOAuditRule.ENV_ACCESS,
+                            f"Forbidden call: os.environ.{func.attr}()",
+                        )
+
+    def _is_likely_path_object(self, node: ast.expr) -> bool:
+        """Check if an expression is likely a Path object.
+
+        Uses heuristics based on:
+        1. Whether pathlib or Path is imported in the file
+        2. Variable naming patterns (e.g., "path", "file_path")
+        3. Direct Path() constructor calls
+        4. Chained method calls on Path-like expressions
+
+        Args:
+            node: The AST expression to check.
+
+        Returns:
+            True if the expression is likely a Path object.
+        """
+        # Check for Path() constructor call: Path(...).read_text()
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == "Path":
+                return True
+            # Check for pathlib.Path() call
+            if isinstance(node.func, ast.Attribute):
+                if (
+                    isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "pathlib"
+                    and node.func.attr == "Path"
+                ):
+                    return True
+
+        # Check for variable with Path-like name
+        if isinstance(node, ast.Name):
+            var_name = node.id.lower()
+            # Exact match with known patterns
+            if var_name in PATHLIB_VARIABLE_PATTERNS:
+                return True
+            # Check for patterns like my_path, config_path, etc.
+            if var_name.endswith(("_path", "path")):
+                return True
+
+        # Check for attribute access that might return a Path
+        # e.g., self.path, config.file_path
+        if isinstance(node, ast.Attribute):
+            attr_name = node.attr.lower()
+            if attr_name in PATHLIB_VARIABLE_PATTERNS:
+                return True
+            if attr_name.endswith(("_path", "path")):
+                return True
+
+        return False
+
+    def _has_pathlib_import(self) -> bool:
+        """Check if pathlib or Path is imported in this file.
+
+        Returns:
+            True if pathlib module or Path class is imported.
+        """
+        for alias, module in self._imported_names.items():
+            # Check for: import pathlib, from pathlib import Path
+            if module == "pathlib" or module.startswith("pathlib."):
+                return True
+            # Check for: from pathlib import Path (as something)
+            if alias in {"Path", "pathlib"}:
+                return True
+        return False
 
     def _check_call_for_pathlib_io(self, node: ast.Call) -> None:
-        """Check for pathlib I/O method calls."""
+        """Check for pathlib I/O method calls.
+
+        Only flags violations when:
+        1. pathlib is imported in the file, AND
+        2. The method is called on a likely Path object (based on heuristics)
+
+        This reduces false positives for custom objects that happen to have
+        methods with the same names (read_text, write_text, etc.).
+        """
         func = node.func
 
         if isinstance(func, ast.Attribute):
             if func.attr in PATHLIB_IO_METHODS:
-                # This might be a Path method call
+                # Only flag if pathlib is imported
+                if not self._has_pathlib_import():
+                    return
+
+                # Only flag if the receiver looks like a Path object
+                if not self._is_likely_path_object(func.value):
+                    return
+
                 self._add_violation(
                     node,
                     EnumIOAuditRule.FILE_IO,
@@ -545,6 +744,65 @@ def load_whitelist(path: Path) -> ModelWhitelistConfig:
     )
 
 
+def _is_glob_pattern(pattern: str) -> bool:
+    """Check if a pattern contains glob wildcards.
+
+    Args:
+        pattern: The pattern to check.
+
+    Returns:
+        True if pattern contains * or ? glob characters.
+    """
+    return "*" in pattern or "?" in pattern
+
+
+def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) -> bool:
+    """Check if a file matches a whitelist entry.
+
+    Matching rules:
+    - If entry_path is a glob pattern (contains * or ?), use fnmatch
+    - If entry_path is a specific file, match exactly by:
+      - Full path equality
+      - File name equality (basename only)
+
+    This prevents security holes where "bad_node.py" would incorrectly
+    match "my_bad_node.py" or "bad_node.py.backup".
+
+    Args:
+        file_str: String representation of the file path.
+        file_path: Path object of the file.
+        entry_path: The whitelist entry path or pattern.
+
+    Returns:
+        True if the file matches the whitelist entry.
+    """
+    if _is_glob_pattern(entry_path):
+        # For glob patterns, use fnmatch matching
+        # Support both the pattern as-is and with leading wildcard for subpaths
+        return fnmatch.fnmatch(file_str, entry_path) or fnmatch.fnmatch(
+            file_str, f"**/{entry_path}"
+        )
+    else:
+        # For specific files, require exact match
+        # Match either the full path or just the file name
+        file_name = file_path.name
+        entry_name = Path(entry_path).name
+
+        # Exact full path match
+        if file_str == entry_path:
+            return True
+
+        # Exact file name match (for convenience when specifying just filenames)
+        if file_name == entry_name and entry_name == entry_path:
+            return True
+
+        # Path ends with the entry (for relative paths like "nodes/whitelisted_node.py")
+        if file_str.endswith((f"/{entry_path}", f"\\{entry_path}")):
+            return True
+
+        return False
+
+
 def apply_whitelist(
     violations: list[ModelIOAuditViolation],
     whitelist: ModelWhitelistConfig,
@@ -576,10 +834,8 @@ def apply_whitelist(
     file_in_whitelist = False
 
     for entry in whitelist.files:
-        # Check if file matches pattern
-        if fnmatch.fnmatch(file_str, f"*{entry.path}") or fnmatch.fnmatch(
-            file_str, entry.path
-        ):
+        # Check if file matches pattern using secure matching
+        if _matches_whitelist_entry(file_str, file_path, entry.path):
             file_in_whitelist = True
             allowed_rules.update(entry.allowed_rules)
 
@@ -617,14 +873,38 @@ def apply_whitelist(
 # =========================================================================
 
 
-def audit_file(file_path: Path) -> list[ModelIOAuditViolation]:
+@overload
+def audit_file(
+    file_path: Path,
+    *,
+    return_source_lines: Literal[False] = False,
+) -> list[ModelIOAuditViolation]: ...
+
+
+@overload
+def audit_file(
+    file_path: Path,
+    *,
+    return_source_lines: Literal[True],
+) -> tuple[list[ModelIOAuditViolation], list[str]]: ...
+
+
+def audit_file(
+    file_path: Path,
+    *,
+    return_source_lines: bool = False,
+) -> list[ModelIOAuditViolation] | tuple[list[ModelIOAuditViolation], list[str]]:
     """Audit a single Python file for I/O violations.
 
     Args:
         file_path: Path to the Python file to audit.
+        return_source_lines: If True, return a tuple of (violations, source_lines).
+            This avoids redundant file reads when source lines are needed later.
+            Defaults to False for backward compatibility.
 
     Returns:
-        List of violations found.
+        List of violations found if return_source_lines is False.
+        Tuple of (violations, source_lines) if return_source_lines is True.
 
     Raises:
         FileNotFoundError: If the file doesn't exist.
@@ -645,6 +925,8 @@ def audit_file(file_path: Path) -> list[ModelIOAuditViolation]:
     visitor = IOAuditVisitor(file_path, source_lines)
     visitor.visit(tree)
 
+    if return_source_lines:
+        return visitor.violations, source_lines
     return visitor.violations
 
 
@@ -715,9 +997,8 @@ def run_audit(
     all_violations: list[ModelIOAuditViolation] = []
 
     for file_path in files:
-        violations = audit_file(file_path)
-        # Read source for inline pragma processing
-        source_lines = file_path.read_text().splitlines()
+        # Get violations and source_lines in single read (avoids redundant file read)
+        violations, source_lines = audit_file(file_path, return_source_lines=True)
         remaining = apply_whitelist(violations, whitelist, file_path, source_lines)
         all_violations.extend(remaining)
 

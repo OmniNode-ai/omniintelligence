@@ -4,6 +4,21 @@
 # This file defines exceptions to the I/O audit rules for ONEX nodes.
 # All exceptions must have a documented reason.
 #
+# ============================================================================
+# IMPORTANT: Inline Pragma Requirement
+# ============================================================================
+# Inline pragmas (# io-audit: ignore-next-line <rule>) ONLY work for files
+# that are listed in this YAML whitelist. This is BY DESIGN.
+#
+# If you add a pragma to a file NOT listed here, it will be SILENTLY IGNORED.
+#
+# Correct workflow:
+#   1. Add the file to this YAML whitelist with allowed_rules
+#   2. Then use inline pragmas in that file for line-level granularity
+#
+# This ensures all I/O exceptions are centrally tracked and code-reviewed.
+# ============================================================================
+#
 # Rule IDs:
 #   - net-client: Network/DB/external client imports
 #   - env-access: Environment variable access
@@ -15,11 +30,23 @@
 #       reason: "Why this exception is needed"
 #       allowed_rules:
 #         - "rule-id"
+#
+# Example with inline pragma usage:
+#   1. Add entry here:
+#      - path: "src/omniintelligence/nodes/my_effect_node.py"
+#        reason: "Effect node requires Kafka"
+#        allowed_rules:
+#          - "net-client"
+#
+#   2. In my_effect_node.py, use pragma for specific lines:
+#      # io-audit: ignore-next-line net-client
+#      from confluent_kafka import Producer
 
 schema_version: "1.0.0"
 
 files:
   # Test fixtures are whitelisted for testing purposes
+  # Note: Inline pragmas work in this file because it's listed here
   - path: "tests/audit/fixtures/io/whitelisted_node.py"
     reason: "Test fixture for whitelist functionality"
     allowed_rules:

@@ -66,3 +66,27 @@ async def read_file_async(path: str) -> str:
     """BAD: Reads file asynchronously in node."""
     async with aiofiles.open(path) as f:
         return await f.read()
+
+
+# =========================================================================
+# Aliased Import Violations
+# =========================================================================
+
+# VIOLATION: httpx import with alias
+import httpx as http_client  # noqa: E402
+
+# VIOLATION: confluent_kafka with alias
+import confluent_kafka as ck  # noqa: E402
+
+
+async def make_aliased_http_request(url: str) -> str:
+    """BAD: Makes HTTP request using aliased import."""
+    # VIOLATION: Using aliased httpx import
+    http_client.get(url)  # Should be detected
+    return "response"
+
+
+def create_aliased_kafka_producer() -> None:
+    """BAD: Creates Kafka producer using aliased import."""
+    # VIOLATION: Using aliased confluent_kafka import
+    ck.Producer({"bootstrap.servers": "localhost:9092"})  # Should be detected

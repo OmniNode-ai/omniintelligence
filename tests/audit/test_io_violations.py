@@ -117,6 +117,30 @@ class TestEnvAccessDetection:
         # The 'in os.environ' pattern should be caught
         assert len(env_violations) >= 4  # At least 4 violations in bad_env.py
 
+    def test_detects_os_environ_pop(self) -> None:
+        """Should detect os.environ.pop() calls."""
+        violations = audit_file(fixture_path("bad_env.py"))
+        env_violations = [v for v in violations if v.rule == EnumIOAuditRule.ENV_ACCESS]
+        assert any("environ.pop" in v.message.lower() for v in env_violations)
+
+    def test_detects_os_environ_setdefault(self) -> None:
+        """Should detect os.environ.setdefault() calls."""
+        violations = audit_file(fixture_path("bad_env.py"))
+        env_violations = [v for v in violations if v.rule == EnumIOAuditRule.ENV_ACCESS]
+        assert any("environ.setdefault" in v.message.lower() for v in env_violations)
+
+    def test_detects_os_environ_clear(self) -> None:
+        """Should detect os.environ.clear() calls."""
+        violations = audit_file(fixture_path("bad_env.py"))
+        env_violations = [v for v in violations if v.rule == EnumIOAuditRule.ENV_ACCESS]
+        assert any("environ.clear" in v.message.lower() for v in env_violations)
+
+    def test_detects_os_environ_update(self) -> None:
+        """Should detect os.environ.update() calls."""
+        violations = audit_file(fixture_path("bad_env.py"))
+        env_violations = [v for v in violations if v.rule == EnumIOAuditRule.ENV_ACCESS]
+        assert any("environ.update" in v.message.lower() for v in env_violations)
+
     def test_env_violation_includes_line_number(self) -> None:
         """Violations should include accurate line numbers."""
         violations = audit_file(fixture_path("bad_env.py"))
@@ -190,6 +214,155 @@ class TestFileIODetection:
 
 
 # =========================================================================
+# Test: Pathlib False Positive Prevention
+# =========================================================================
+
+
+class TestPathlibFalsePositivePrevention:
+    """Tests that custom objects with pathlib-like method names don't trigger false positives."""
+
+    def test_no_false_positive_for_custom_read_text_without_pathlib_import(
+        self, tmp_path: Path
+    ) -> None:
+        """Custom object with read_text() should NOT trigger violation when pathlib not imported."""
+        code = '''
+class CustomReader:
+    """A custom class with read_text method that is NOT pathlib-related."""
+
+    def read_text(self) -> str:
+        """Read from a database or API, not a file."""
+        return "data from api"
+
+def process_data():
+    reader = CustomReader()
+    # This should NOT be flagged - no pathlib import
+    content = reader.read_text()
+    return content
+'''
+        test_file = tmp_path / "custom_reader.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 0, f"Unexpected violations: {file_violations}"
+
+    def test_no_false_positive_for_custom_write_text_without_pathlib_import(
+        self, tmp_path: Path
+    ) -> None:
+        """Custom object with write_text() should NOT trigger violation when pathlib not imported."""
+        code = '''
+class CustomWriter:
+    """A custom class with write_text method for API calls."""
+
+    def write_text(self, content: str) -> None:
+        """Write to a database or API, not a file."""
+        pass
+
+def save_data(data: str):
+    writer = CustomWriter()
+    # This should NOT be flagged - no pathlib import
+    writer.write_text(data)
+'''
+        test_file = tmp_path / "custom_writer.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 0, f"Unexpected violations: {file_violations}"
+
+    def test_no_false_positive_for_mock_path_object(self, tmp_path: Path) -> None:
+        """Mock Path objects in tests should NOT trigger violations without pathlib import."""
+        code = '''
+class MockPath:
+    """Mock Path for testing purposes."""
+
+    def read_text(self) -> str:
+        return "mocked content"
+
+    def write_text(self, content: str) -> None:
+        pass
+
+    def read_bytes(self) -> bytes:
+        return b"mocked bytes"
+
+def test_something():
+    mock = MockPath()
+    # None of these should trigger violations
+    content = mock.read_text()
+    mock.write_text("test")
+    data = mock.read_bytes()
+'''
+        test_file = tmp_path / "test_mock_path.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 0, f"Unexpected violations: {file_violations}"
+
+    def test_detects_pathlib_io_when_path_imported(self, tmp_path: Path) -> None:
+        """Should still detect pathlib I/O when Path is properly imported."""
+        code = """
+from pathlib import Path
+
+def read_config():
+    path = Path("config.yaml")
+    # This SHOULD be flagged - pathlib imported and variable named "path"
+    return path.read_text()
+"""
+        test_file = tmp_path / "uses_pathlib.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 1, f"Expected 1 violation, got: {file_violations}"
+        assert "read_text" in file_violations[0].message.lower()
+
+    def test_detects_pathlib_io_with_path_constructor_chain(self, tmp_path: Path) -> None:
+        """Should detect Path().read_text() chained calls."""
+        code = """
+from pathlib import Path
+
+def read_inline():
+    # Direct Path() constructor chained with read_text
+    return Path("data.txt").read_text()
+"""
+        test_file = tmp_path / "path_chain.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 1, f"Expected 1 violation, got: {file_violations}"
+
+    def test_detects_pathlib_io_with_file_path_variable(self, tmp_path: Path) -> None:
+        """Should detect pathlib I/O on variables named file_path, config_path, etc."""
+        code = """
+from pathlib import Path
+
+def read_config(config_path):
+    # Variable named config_path is likely a Path object
+    return config_path.read_text()
+"""
+        test_file = tmp_path / "config_reader.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 1, f"Expected 1 violation, got: {file_violations}"
+
+    def test_no_false_positive_for_arbitrary_variable_without_pathlib(
+        self, tmp_path: Path
+    ) -> None:
+        """Arbitrary objects with read_text should not trigger without pathlib import."""
+        code = """
+class TextProcessor:
+    def read_text(self):
+        return "processed"
+
+processor = TextProcessor()
+result = processor.read_text()  # Should NOT be flagged
+"""
+        test_file = tmp_path / "text_processor.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 0, f"Unexpected violations: {file_violations}"
+
+
+# =========================================================================
 # Test: Network Client Detection (net-client)
 # =========================================================================
 
@@ -239,6 +412,39 @@ class TestNetClientDetection:
         violations = audit_file(fixture_path("bad_client.py"))
         net_violations = [v for v in violations if v.rule == EnumIOAuditRule.NET_CLIENT]
         assert any("aiofiles" in v.message.lower() for v in net_violations)
+
+    def test_detects_aliased_httpx_usage(self) -> None:
+        """Should detect httpx usage via alias (import httpx as http_client)."""
+        violations = audit_file(fixture_path("bad_client.py"))
+        net_violations = [v for v in violations if v.rule == EnumIOAuditRule.NET_CLIENT]
+        # Should detect: http_client.get(url) where http_client is aliased httpx
+        alias_violations = [v for v in net_violations if "http_client" in v.message]
+        assert len(alias_violations) >= 1, (
+            f"Expected at least 1 aliased httpx violation, got: {alias_violations}"
+        )
+        # Verify the message includes the alias and original module info
+        assert any("alias" in v.message.lower() for v in alias_violations)
+
+    def test_detects_aliased_confluent_kafka_usage(self) -> None:
+        """Should detect confluent_kafka usage via alias (import confluent_kafka as ck)."""
+        violations = audit_file(fixture_path("bad_client.py"))
+        net_violations = [v for v in violations if v.rule == EnumIOAuditRule.NET_CLIENT]
+        # Should detect: ck.Producer({}) where ck is aliased confluent_kafka
+        alias_violations = [
+            v for v in net_violations if "ck.producer" in v.message.lower()
+        ]
+        assert len(alias_violations) >= 1, (
+            f"Expected at least 1 aliased confluent_kafka violation, got: {alias_violations}"
+        )
+
+    def test_aliased_import_violations_have_correct_rule(self) -> None:
+        """Aliased import usage violations should have NET_CLIENT rule."""
+        violations = audit_file(fixture_path("bad_client.py"))
+        alias_violations = [v for v in violations if "alias" in v.message.lower()]
+        for v in alias_violations:
+            assert v.rule == EnumIOAuditRule.NET_CLIENT, (
+                f"Expected NET_CLIENT rule for alias violation, got: {v.rule}"
+            )
 
 
 # =========================================================================
@@ -337,6 +543,243 @@ value = os.getenv("SHOULD_STILL_FAIL")
         # Without YAML entry, inline pragma should NOT work
         # (This enforces the design requirement that YAML is source of truth)
         assert len(remaining) >= 1
+
+
+# =========================================================================
+# Test: Whitelist Pattern Matching Security
+# =========================================================================
+
+
+class TestWhitelistPatternMatchingSecurity:
+    """Tests for secure whitelist pattern matching.
+
+    These tests ensure that whitelist entries with specific file names
+    do not accidentally match files with similar names, preventing
+    security holes in the whitelist system.
+    """
+
+    def test_exact_filename_match_works(self, tmp_path: Path) -> None:
+        """Whitelisting 'bad_node.py' should match exactly 'bad_node.py'."""
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = tmp_path / "bad_node.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="bad_node.py",
+                    reason="Test exact match",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have no violations - exact match should work
+        assert len(remaining) == 0, f"Expected whitelist to apply, got: {remaining}"
+
+    def test_similar_filename_not_matched(self, tmp_path: Path) -> None:
+        """Whitelisting 'bad_node.py' should NOT match 'my_bad_node.py'.
+
+        This is a critical security test - the old pattern f"*{entry.path}"
+        would incorrectly match 'my_bad_node.py' when only 'bad_node.py'
+        was whitelisted.
+        """
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = tmp_path / "my_bad_node.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="bad_node.py",
+                    reason="Only whitelist exact file",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have violations - similar name should NOT match
+        assert len(remaining) > 0, "Similar filename should NOT be whitelisted"
+
+    def test_backup_file_not_matched(self, tmp_path: Path) -> None:
+        """Whitelisting 'bad_node.py' should NOT match 'bad_node.py.backup'.
+
+        This is another security test - ensures file extensions/suffixes
+        don't cause unintended matches.
+        """
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = tmp_path / "bad_node.py.backup"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="bad_node.py",
+                    reason="Only whitelist exact file",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have violations - backup file should NOT match
+        assert len(remaining) > 0, "Backup file should NOT be whitelisted"
+
+    def test_glob_pattern_still_works(self, tmp_path: Path) -> None:
+        """Glob patterns like 'legacy_*.py' should still work correctly."""
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = tmp_path / "legacy_foo.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="legacy_*.py",
+                    reason="Whitelist all legacy files",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have no violations - glob should match
+        assert len(remaining) == 0, f"Glob pattern should match, got: {remaining}"
+
+    def test_glob_pattern_with_question_mark(self, tmp_path: Path) -> None:
+        """Glob patterns with '?' wildcard should work correctly."""
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = tmp_path / "node_v1.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="node_v?.py",
+                    reason="Whitelist all version files",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have no violations - ? pattern should match
+        assert len(remaining) == 0, f"? pattern should match, got: {remaining}"
+
+    def test_relative_path_matching(self, tmp_path: Path) -> None:
+        """Relative paths like 'nodes/whitelisted_node.py' should work."""
+        subdir = tmp_path / "nodes"
+        subdir.mkdir()
+
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = subdir / "whitelisted_node.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="nodes/whitelisted_node.py",
+                    reason="Whitelist specific path",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have no violations - relative path should match
+        assert len(remaining) == 0, f"Relative path should match, got: {remaining}"
+
+    def test_full_path_matching(self, tmp_path: Path) -> None:
+        """Full absolute paths should match exactly."""
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = tmp_path / "specific_node.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path=str(test_file),
+                    reason="Whitelist full path",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        # Should have no violations - full path should match
+        assert len(remaining) == 0, f"Full path should match, got: {remaining}"
+
+    def test_glob_pattern_does_not_match_similar_names_incorrectly(
+        self, tmp_path: Path
+    ) -> None:
+        """Glob pattern '*.py' should match 'foo.py' but NOT 'foo.py.txt'."""
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        # Create a .py file - should match
+        py_file = tmp_path / "foo.py"
+        py_file.write_text(code)
+
+        # Create a .py.txt file - should NOT match
+        txt_file = tmp_path / "foo.py.txt"
+        txt_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="*.py",
+                    reason="Whitelist all Python files",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        # .py file should be whitelisted
+        violations = audit_file(py_file)
+        remaining = apply_whitelist(violations, whitelist, py_file)
+        assert len(remaining) == 0, f"*.py should match foo.py, got: {remaining}"
+
+        # .py.txt file should NOT be whitelisted
+        violations = audit_file(txt_file)
+        remaining = apply_whitelist(violations, whitelist, txt_file)
+        assert len(remaining) > 0, "*.py should NOT match foo.py.txt"
 
 
 # =========================================================================
