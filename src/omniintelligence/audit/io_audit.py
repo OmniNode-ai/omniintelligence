@@ -737,14 +737,23 @@ def parse_inline_pragma(line: str) -> ModelInlinePragma | None:
 
 
 def _validate_whitelist_entry(entry: ModelWhitelistEntry) -> None:
-    """Validate a whitelist entry's allowed_rules.
+    """Validate a whitelist entry's allowed_rules and reason field.
 
     Args:
         entry: The whitelist entry to validate.
 
     Raises:
-        ValueError: If any rule ID in allowed_rules is invalid.
+        ValueError: If any rule ID in allowed_rules is invalid,
+            or if the reason field is empty or whitespace-only.
     """
+    # Validate that reason is non-empty
+    if not entry.reason or not entry.reason.strip():
+        raise ValueError(
+            f"Empty 'reason' field in whitelist entry for '{entry.path}'. "
+            f"All whitelist entries must have a documented reason for the exception."
+        )
+
+    # Validate rule IDs
     for rule_id in entry.allowed_rules:
         if rule_id not in VALID_RULE_IDS:
             raise ValueError(

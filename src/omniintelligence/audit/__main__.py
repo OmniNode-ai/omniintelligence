@@ -29,42 +29,47 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from omniintelligence.audit.io_audit import (
     IO_AUDIT_TARGETS,
+    REMEDIATION_HINTS,
+    EnumIOAuditRule,
     ModelAuditResult,
+    ModelIOAuditViolation,
     run_audit,
 )
-
-if TYPE_CHECKING:
-    from omniintelligence.audit.io_audit import ModelIOAuditViolation
 
 # JSON output indentation (spaces)
 JSON_INDENT_SPACES = 2
 
 
-def _format_violation(violation: ModelIOAuditViolation) -> str:
-    """Format a single violation as a human-readable string.
+def _format_violation_line(violation: ModelIOAuditViolation) -> str:
+    """Format a single violation for display within a file group.
 
     Args:
         violation: The violation to format.
 
     Returns:
-        Formatted string in format: "file:line:column: [rule] message"
+        Formatted string in format: "Line N: [rule] message"
+        (File path is omitted since it's shown in the group header)
     """
-    return (
-        f"{violation.file}:{violation.line}:{violation.column}: "
-        f"[{violation.rule.value}] {violation.message}"
-    )
+    return f"Line {violation.line}: [{violation.rule.value}] {violation.message}"
 
 
 def _format_text_output(result: ModelAuditResult, verbose: bool = False) -> str:
     """Format audit result as human-readable text.
 
+    Output format groups violations by file to reduce redundancy:
+        src/path/file.py:
+          Line 5: [net-client] Forbidden import: confluent_kafka
+          Line 12: [env-access] Forbidden call: os.getenv()
+          -> Hints: Move to Effect node...; Pass config via constructor...
+
+        Summary: 2 violations in 1 file (5 files scanned)
+
     Args:
         result: The audit result to format.
-        verbose: If True, include additional context.
+        verbose: If True, include whitelist usage hints.
 
     Returns:
         Formatted text output.
@@ -72,32 +77,45 @@ def _format_text_output(result: ModelAuditResult, verbose: bool = False) -> str:
     lines: list[str] = []
 
     if result.is_clean:
-        lines.append("No I/O violations found.")
+        lines.append(f"No I/O violations found. ({result.files_scanned} files scanned)")
     else:
-        lines.append(f"Found {len(result.violations)} I/O violation(s):")
-        lines.append("")
-
         # Group violations by file for better readability
-        violations_by_file: dict[Path, list[str]] = {}
+        violations_by_file: dict[Path, list[ModelIOAuditViolation]] = {}
         for v in result.violations:
             if v.file not in violations_by_file:
                 violations_by_file[v.file] = []
-            violations_by_file[v.file].append(_format_violation(v))
+            violations_by_file[v.file].append(v)
 
         for file_path, file_violations in sorted(violations_by_file.items()):
             lines.append(f"{file_path}:")
-            for violation_str in file_violations:
-                lines.append(f"  {violation_str}")
-            lines.append("")
 
-    # Summary
-    lines.append(f"Files scanned: {result.files_scanned}")
-    status = "PASS" if result.is_clean else "FAIL"
-    lines.append(f"Status: {status}")
+            # Collect unique rules for hint deduplication
+            rules_in_file: set[EnumIOAuditRule] = set()
+
+            for v in sorted(file_violations, key=lambda x: x.line):
+                lines.append(f"  {_format_violation_line(v)}")
+                rules_in_file.add(v.rule)
+
+            # Add deduplicated hints for this file
+            hints = [
+                REMEDIATION_HINTS[rule]
+                for rule in sorted(rules_in_file, key=lambda r: r.value)
+                if rule in REMEDIATION_HINTS
+            ]
+            if hints:
+                lines.append(f"  -> Hints: {'; '.join(hints)}")
+
+        # Compact summary
+        file_count = len(violations_by_file)
+        lines.append("")
+        lines.append(
+            f"Summary: {len(result.violations)} violation(s) in {file_count} file(s) "
+            f"({result.files_scanned} files scanned)"
+        )
 
     if verbose and not result.is_clean:
         lines.append("")
-        lines.append("Hint: Use --whitelist to specify allowed exceptions.")
+        lines.append("Use --whitelist to specify allowed exceptions.")
         lines.append("See CLAUDE.md for whitelist hierarchy documentation.")
 
     return "\n".join(lines)

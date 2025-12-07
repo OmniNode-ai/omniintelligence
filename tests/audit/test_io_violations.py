@@ -22,6 +22,7 @@ from omniintelligence.audit.io_audit import (
     IOAuditVisitor,
     ModelWhitelistConfig,
     ModelWhitelistEntry,
+    _validate_whitelist_entry,
     apply_whitelist,
     audit_file,
     audit_files,
@@ -543,6 +544,95 @@ value = os.getenv("SHOULD_STILL_FAIL")
         # Without YAML entry, inline pragma should NOT work
         # (This enforces the design requirement that YAML is source of truth)
         assert len(remaining) >= 1
+
+
+# =========================================================================
+# Test: Whitelist Entry Validation
+# =========================================================================
+
+
+class TestWhitelistEntryValidation:
+    """Tests for whitelist entry validation."""
+
+    def test_empty_reason_raises_error(self) -> None:
+        """Empty reason field should raise ValueError."""
+        entry = ModelWhitelistEntry(
+            path="some_file.py",
+            reason="",
+            allowed_rules=["env-access"],
+        )
+        with pytest.raises(ValueError) as exc_info:
+            _validate_whitelist_entry(entry)
+
+        assert "Empty 'reason' field" in str(exc_info.value)
+        assert "some_file.py" in str(exc_info.value)
+
+    def test_whitespace_only_reason_raises_error(self) -> None:
+        """Whitespace-only reason field should raise ValueError."""
+        entry = ModelWhitelistEntry(
+            path="another_file.py",
+            reason="   \t\n  ",
+            allowed_rules=["file-io"],
+        )
+        with pytest.raises(ValueError) as exc_info:
+            _validate_whitelist_entry(entry)
+
+        assert "Empty 'reason' field" in str(exc_info.value)
+        assert "another_file.py" in str(exc_info.value)
+
+    def test_valid_reason_passes_validation(self) -> None:
+        """Valid non-empty reason should pass validation."""
+        entry = ModelWhitelistEntry(
+            path="valid_file.py",
+            reason="Effect node requires Kafka client for event publishing",
+            allowed_rules=["net-client"],
+        )
+        # Should not raise
+        _validate_whitelist_entry(entry)
+
+    def test_invalid_rule_id_raises_error(self) -> None:
+        """Invalid rule ID should raise ValueError."""
+        entry = ModelWhitelistEntry(
+            path="file.py",
+            reason="Valid reason",
+            allowed_rules=["invalid-rule"],
+        )
+        with pytest.raises(ValueError) as exc_info:
+            _validate_whitelist_entry(entry)
+
+        assert "Invalid rule ID 'invalid-rule'" in str(exc_info.value)
+
+    def test_load_whitelist_with_empty_reason_raises_error(self, tmp_path: Path) -> None:
+        """Loading a whitelist YAML with empty reason should raise ValueError."""
+        whitelist_yaml = tmp_path / "whitelist.yaml"
+        whitelist_yaml.write_text("""
+schema_version: "1.0.0"
+files:
+  - path: "some_node.py"
+    reason: ""
+    allowed_rules:
+      - env-access
+""")
+        with pytest.raises(ValueError) as exc_info:
+            load_whitelist(whitelist_yaml)
+
+        assert "Empty 'reason' field" in str(exc_info.value)
+        assert "some_node.py" in str(exc_info.value)
+
+    def test_load_whitelist_with_missing_reason_raises_error(self, tmp_path: Path) -> None:
+        """Loading a whitelist YAML with missing reason should raise ValueError."""
+        whitelist_yaml = tmp_path / "whitelist.yaml"
+        whitelist_yaml.write_text("""
+schema_version: "1.0.0"
+files:
+  - path: "some_node.py"
+    allowed_rules:
+      - env-access
+""")
+        with pytest.raises(ValueError) as exc_info:
+            load_whitelist(whitelist_yaml)
+
+        assert "Empty 'reason' field" in str(exc_info.value)
 
 
 # =========================================================================
