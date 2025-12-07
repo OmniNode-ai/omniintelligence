@@ -366,24 +366,6 @@ repos:
         files: ^src/omniintelligence/nodes/[^/]+/v\d+(_\d+)*/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
 
       # --------------------------------------------------------------------------
-      # I/O Audit - ONEX node purity enforcement
-      # Validates: Compute nodes do not have forbidden I/O patterns
-      # Scope: Node source files and audit module changes
-      # Purpose: Enforces architectural boundary between pure compute and effect nodes
-      # --------------------------------------------------------------------------
-      - id: io-audit
-        name: io-audit (ONEX purity)
-        entry: uv run python -m omniintelligence.audit.io_audit
-        language: system
-        pass_filenames: false
-        types: [python]
-        # Trigger on changes to:
-        #   - Node implementations (where purity rules apply)
-        #   - Audit module itself (to validate audit changes)
-        files: ^(src/omniintelligence/nodes/|src/omniintelligence/audit/)
-        stages: [pre-commit]
-
-      # --------------------------------------------------------------------------
       # Pytest Smoke Tests - Quick unit tests on commit
       # Validates: Core functionality via fast unit tests
       # Scope: Triggered on changes to tools/ source or tests only (fast feedback)

@@ -248,51 +248,6 @@ uv run python -m omniintelligence.tools.contract_linter contract.yaml --json
 
 See [tools/README.md](src/omniintelligence/tools/README.md) for complete documentation.
 
-### I/O Audit
-
-Enforces ONEX node purity by detecting forbidden I/O patterns in compute nodes:
-
-```bash
-# Run I/O audit on default targets
-uv run python -m omniintelligence.audit.io_audit
-
-# Run with custom whitelist
-uv run python -m omniintelligence.audit.io_audit --whitelist tests/audit/io_audit_whitelist.yaml
-```
-
-**Forbidden Patterns:**
-- `net-client`: Network/DB client imports (confluent_kafka, httpx, asyncpg, etc.)
-- `env-access`: Environment variable access (os.environ, os.getenv)
-- `file-io`: File system operations (open(), Path.read_text(), FileHandler)
-
-**Whitelist Hierarchy (CRITICAL):**
-
-The I/O audit uses a two-level whitelist with a strict hierarchy:
-
-1. **YAML Whitelist** (`tests/audit/io_audit_whitelist.yaml`) - Primary source of truth
-2. **Inline Pragmas** (`# io-audit: ignore-next-line <rule>`) - Line-level granularity
-
-**IMPORTANT**: Inline pragmas ONLY work for files already listed in the YAML whitelist. If you add a pragma to a file not in the whitelist, it will be silently ignored.
-
-**Correct Usage Pattern:**
-
-```yaml
-# Step 1: Add to io_audit_whitelist.yaml
-files:
-  - path: "src/omniintelligence/nodes/my_effect_node.py"
-    reason: "Effect node requires Kafka client"
-    allowed_rules:
-      - "net-client"
-```
-
-```python
-# Step 2: Use inline pragma in the whitelisted file
-# io-audit: ignore-next-line net-client
-from confluent_kafka import Producer  # Now correctly whitelisted
-```
-
-See the module docstring in `src/omniintelligence/audit/io_audit.py` for complete documentation.
-
 ## Configuration
 
 ### Pre-commit and CI Synchronization
