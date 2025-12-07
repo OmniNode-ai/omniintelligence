@@ -13,6 +13,7 @@ TDD: Tests are written first, implementation follows.
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -115,8 +116,18 @@ class TestEnvAccessDetection:
         """Should detect 'key in os.environ' checks."""
         violations = audit_file(fixture_path("bad_env.py"))
         env_violations = [v for v in violations if v.rule == EnumIOAuditRule.ENV_ACCESS]
-        # The 'in os.environ' pattern should be caught
-        assert len(env_violations) >= 4  # At least 4 violations in bad_env.py
+        # bad_env.py contains 9 distinct env-access violations:
+        # 1. os.environ["API_KEY"] (line 16)
+        # 2. os.environ.get("TIMEOUT") (line 19)
+        # 3. os.getenv("SERVICE_HOST") (line 22)
+        # 4. os.putenv(key, value) (line 34)
+        # 5. "DEBUG_MODE" in os.environ (line 40)
+        # 6. os.environ.pop(key) (line 46)
+        # 7. os.environ.setdefault(key, default) (line 52)
+        # 8. os.environ.clear() (line 58)
+        # 9. os.environ.update(values) (line 64)
+        # We check for at least 4 to allow for implementation variations
+        assert len(env_violations) >= 4
 
     def test_detects_os_environ_pop(self) -> None:
         """Should detect os.environ.pop() calls."""
@@ -192,7 +203,19 @@ class TestFileIODetection:
         """Should detect Path.open() calls."""
         violations = audit_file(fixture_path("bad_file.py"))
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        # path.open() should be detected
+        # bad_file.py contains 11 distinct file-io violations:
+        # 1. RotatingFileHandler import (line 16)
+        # 2. open(path) read (line 23)
+        # 3. open(path, "w") write (line 30)
+        # 4. path.read_text() (line 37)
+        # 5. path.write_text() (line 43)
+        # 6. path.read_bytes() (line 49)
+        # 7. path.write_bytes() (line 55)
+        # 8. path.open() (line 61)
+        # 9. io.open(path) (line 68)
+        # 10. logging.FileHandler("node.log") (line 77)
+        # 11. RotatingFileHandler(...) (line 88)
+        # We check for at least 5 to cover core file I/O patterns
         assert len(file_violations) >= 5
 
     def test_detects_io_open(self) -> None:
@@ -1112,8 +1135,6 @@ class TestIOAuditVisitor:
 
     def test_visitor_tracks_imports(self) -> None:
         """Visitor should track all imports for context."""
-        import ast
-
         code = """
 import os
 from pathlib import Path
@@ -1126,8 +1147,6 @@ from pathlib import Path
 
     def test_visitor_collects_violations(self) -> None:
         """Visitor should collect violations as it walks AST."""
-        import ast
-
         code = """
 import os
 x = os.getenv("TEST")

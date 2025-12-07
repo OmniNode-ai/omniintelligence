@@ -85,6 +85,10 @@ IO_AUDIT_TARGETS: list[str] = [
     # "src/omnibase_core/nodes",
 ]
 
+
+# Default whitelist path (relative to repository root)
+DEFAULT_WHITELIST_PATH: str = "tests/audit/io_audit_whitelist.yaml"
+
 # Forbidden network/DB client imports (prefix match)
 FORBIDDEN_IMPORTS: frozenset[str] = frozenset(
     {
@@ -713,12 +717,8 @@ def parse_inline_pragma(line: str) -> ModelInlinePragma | None:
 
     rule_str = match.group(1)
 
-    # Map string to enum
-    rule_map = {
-        "net-client": EnumIOAuditRule.NET_CLIENT,
-        "env-access": EnumIOAuditRule.ENV_ACCESS,
-        "file-io": EnumIOAuditRule.FILE_IO,
-    }
+    # Derive rule_map from enum to stay in sync automatically
+    rule_map = {rule.value: rule for rule in EnumIOAuditRule}
 
     rule = rule_map.get(rule_str)
     if rule is None:
@@ -769,16 +769,23 @@ def load_whitelist(path: Path) -> ModelWhitelistConfig:
         path: Path to the whitelist YAML file.
 
     Returns:
-        Parsed whitelist configuration.
+        Parsed whitelist configuration. Returns an empty ModelWhitelistConfig
+        if the file does not exist.
 
     Raises:
-        FileNotFoundError: If the whitelist file doesn't exist.
+        ValueError: If the YAML file is malformed, or if any whitelist entry
+            has an invalid rule ID or empty reason.
     """
     if not path.exists():
         return ModelWhitelistConfig()
 
     with path.open() as f:
-        data = yaml.safe_load(f) or {}
+        try:
+            data = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise ValueError(
+                f"Invalid YAML in whitelist file '{path}': {e}"
+            ) from e
 
     files: list[ModelWhitelistEntry] = []
     for entry in data.get("files", []):
@@ -813,14 +820,12 @@ def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) ->
     """Check if a file matches a whitelist entry.
 
     Matching rules:
-    - If entry_path is a glob pattern (contains * or ?), use Path.match()
-      which properly supports ** for recursive directory matching
-    - If entry_path is a specific file, match exactly by:
-      - Full path equality
-      - File name equality (basename only)
-
-    This prevents security holes where "bad_node.py" would incorrectly
-    match "my_bad_node.py" or "bad_node.py.backup".
+        - If entry_path is a glob pattern (contains * or ?), use Path.match()
+          which properly supports ** for recursive directory matching
+        - If entry_path is a specific file, match exactly by:
+          - Full path equality
+          - File name equality (basename only)
+          - Path suffix matching (for relative paths)
 
     Args:
         file_str: String representation of the file path.
@@ -829,6 +834,26 @@ def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) ->
 
     Returns:
         True if the file matches the whitelist entry.
+
+    Security Considerations:
+        This function uses exact matching for non-glob patterns to prevent
+        security vulnerabilities where a whitelist entry like "bad_node.py"
+        would incorrectly match "my_bad_node.py" or "bad_node.py.backup".
+        Substring or partial matching would allow attackers to bypass I/O
+        restrictions by naming files to include whitelisted file names as
+        substrings.
+
+    Examples:
+        Non-glob patterns (exact matching):
+            - Entry "node.py" matches: "node.py", "src/nodes/node.py"
+            - Entry "node.py" does NOT match: "my_node.py", "node.py.bak"
+            - Entry "src/effect.py" matches: "project/src/effect.py"
+            - Entry "src/effect.py" does NOT match: "other_src/effect.py"
+
+        Glob patterns (wildcard matching):
+            - Entry "*.py" matches: "foo.py", "bar.py"
+            - Entry "**/test_*.py" matches: "a/b/test_foo.py", "test_bar.py"
+            - Entry "nodes/*.py" matches: "nodes/effect.py", "src/nodes/compute.py"
     """
     if _is_glob_pattern(entry_path):
         # For glob patterns, use Path.match() which supports ** recursive matching
@@ -1016,18 +1041,30 @@ def audit_files(
 def discover_python_files(targets: Sequence[str]) -> list[Path]:
     """Discover Python files in the target directories.
 
+    Symlinks are resolved to their canonical paths to avoid duplicate
+    processing of the same file through different paths. Broken or
+    circular symlinks are skipped gracefully.
+
     Args:
         targets: List of directory paths to scan.
 
     Returns:
-        List of Python file paths found.
+        List of Python file paths found, deduplicated by canonical path.
     """
-    files: list[Path] = []
+    files: set[Path] = set()  # Use set for deduplication
 
     for target in targets:
         target_path = Path(target)
         if target_path.exists() and target_path.is_dir():
-            files.extend(target_path.rglob("*.py"))
+            for py_file in target_path.rglob("*.py"):
+                # Resolve to canonical path for deduplication
+                try:
+                    canonical = py_file.resolve()
+                    if canonical.is_file():  # Skip broken symlinks
+                        files.add(canonical)
+                except OSError:
+                    # Skip files that can't be resolved (circular symlinks, etc.)
+                    pass
 
     return sorted(files)
 

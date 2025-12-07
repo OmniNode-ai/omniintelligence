@@ -244,7 +244,7 @@ Examples:
         if parsed_args.json:
             print(
                 json.dumps(
-                    {"error": str(e), "error_type": "file_not_found"},
+                    {"error": error_msg, "error_type": "file_not_found"},
                     indent=JSON_INDENT_SPACES,
                 )
             )
@@ -257,7 +257,7 @@ Examples:
         if parsed_args.json:
             print(
                 json.dumps(
-                    {"error": str(e), "error_type": "unexpected_error"},
+                    {"error": error_msg, "error_type": "unexpected_error"},
                     indent=JSON_INDENT_SPACES,
                 )
             )
