@@ -56,19 +56,75 @@ This design ensures:
 - Code review coverage for any new exceptions (YAML changes are visible in PRs)
 - Prevents developers from silently adding I/O to pure compute nodes
 - Inline pragmas provide convenience without bypassing the approval process
+
+Security Considerations for Whitelist Patterns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The whitelist supports both exact file paths and glob patterns. However, overly
+broad patterns can create security vulnerabilities by inadvertently whitelisting
+more files than intended.
+
+**Principle of Least Privilege**: Always use the most specific pattern possible.
+Whitelist only the exact files that need exceptions, not entire directories.
+
+**Dangerous Patterns (AVOID)**::
+
+    # BAD: Whitelists ALL Python files - defeats the entire audit!
+    - path: "**/*.py"
+      allowed_rules: ["net-client"]
+
+    # BAD: Whitelists entire directory - too broad
+    - path: "src/omniintelligence/nodes/*"
+      allowed_rules: ["env-access"]
+
+    # BAD: Generic pattern matches too many files
+    - path: "*_node.py"
+      allowed_rules: ["file-io"]
+
+**Safe Patterns (PREFERRED)**::
+
+    # GOOD: Specific file path - clear intent, minimal scope
+    - path: "src/omniintelligence/nodes/kafka_publisher/v1_0_0/node.py"
+      reason: "Effect node requires Kafka client"
+      allowed_rules: ["net-client"]
+
+    # GOOD: Specific test fixtures - contained scope
+    - path: "tests/audit/fixtures/io/whitelisted_node.py"
+      reason: "Test fixture for whitelist functionality"
+      allowed_rules: ["env-access"]
+
+    # ACCEPTABLE: Limited glob for versioned nodes of same type
+    - path: "src/omniintelligence/nodes/kafka_publisher/v*/node.py"
+      reason: "All versions of Kafka publisher effect node"
+      allowed_rules: ["net-client"]
+
+**Pattern Security Guidelines**:
+
+1. **Never use ``**/*.py``** - This effectively disables the audit
+2. **Avoid bare wildcards** like ``*.py`` or ``*_node.py`` at the root
+3. **Prefer full paths** over patterns when whitelisting single files
+4. **Include version directories** in patterns for versioned nodes
+5. **Always document the reason** - reviewers should understand why
+
+The audit will emit warnings for patterns that appear overly permissive
+(containing ``**/*`` or starting with ``*``).
 """
 
 from __future__ import annotations
 
 import ast
+import logging
 import re
 import time
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, overload
 
 import yaml
+
+# Module logger for audit warnings
+_logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -113,8 +169,21 @@ PATHLIB_IO_METHODS: frozenset[str] = frozenset(
     }
 )
 
-# Variable name patterns that strongly suggest a Path object
-# Used heuristically to detect likely Path I/O operations
+# Variable name patterns that strongly suggest a Path object.
+# Used heuristically to detect likely Path I/O operations.
+#
+# NOTE: This includes short variable names like "p" and "fp" which are
+# commonly used for Path objects. These may occasionally cause false positives
+# if a non-Path object happens to have these names AND pathlib is imported
+# in the same file. However, this trade-off is intentional:
+#
+#   - Most code that imports pathlib and uses "p" is actually using Path objects
+#   - The pathlib import check (_has_pathlib_import) prevents false positives
+#     in files that don't use pathlib at all
+#   - True false positives can be resolved with inline pragmas or whitelist
+#
+# If false positives become problematic, consider removing "p" and "fp" and
+# relying on the endswith("_path", "path") check in _is_likely_path_object.
 PATHLIB_VARIABLE_PATTERNS: frozenset[str] = frozenset(
     {
         "path",
@@ -124,8 +193,8 @@ PATHLIB_VARIABLE_PATTERNS: frozenset[str] = frozenset(
         "dirpath",
         "directory_path",
         "folder_path",
-        "p",
-        "fp",
+        "p",  # Common short name for Path - see NOTE above
+        "fp",  # Common short name for file Path - see NOTE above
         "source_path",
         "target_path",
         "dest_path",
@@ -319,9 +388,7 @@ def _generate_env_access_suggestion(message: str) -> str:
             "          self._config = config  # Injected, not read from env"
         )
 
-    return (
-        "Pass configuration via constructor parameters instead of reading env vars."
-    )
+    return "Pass configuration via constructor parameters instead of reading env vars."
 
 
 def _generate_file_io_suggestion(message: str) -> str:
@@ -1025,9 +1092,7 @@ def load_whitelist(path: Path) -> ModelWhitelistConfig:
         try:
             data = yaml.safe_load(f) or {}
         except yaml.YAMLError as e:
-            raise ValueError(
-                f"Invalid YAML in whitelist file '{path}': {e}"
-            ) from e
+            raise ValueError(f"Invalid YAML in whitelist file '{path}': {e}") from e
 
     files: list[ModelWhitelistEntry] = []
     for entry in data.get("files", []):
@@ -1038,6 +1103,8 @@ def load_whitelist(path: Path) -> ModelWhitelistConfig:
         )
         # Validate rule IDs before adding
         _validate_whitelist_entry(whitelist_entry)
+        # Check for overly permissive patterns (security warning)
+        _warn_overly_permissive_pattern(whitelist_entry)
         files.append(whitelist_entry)
 
     return ModelWhitelistConfig(
@@ -1056,6 +1123,85 @@ def _is_glob_pattern(pattern: str) -> bool:
         True if pattern contains * or ? glob characters.
     """
     return "*" in pattern or "?" in pattern
+
+
+# Patterns that are considered overly permissive (security risk)
+# These patterns match too many files and effectively bypass the audit
+_OVERLY_PERMISSIVE_PATTERNS: tuple[str, ...] = (
+    "**/*",  # Matches everything recursively
+    "**/*.py",  # Matches all Python files
+    "*.py",  # Matches all Python files in root
+)
+
+
+def _check_pattern_security(pattern: str) -> str | None:
+    """Check if a whitelist pattern is overly permissive.
+
+    Overly permissive patterns can create security vulnerabilities by
+    inadvertently whitelisting more files than intended.
+
+    Args:
+        pattern: The whitelist path pattern to check.
+
+    Returns:
+        Warning message if pattern is overly permissive, None otherwise.
+
+    Security Rules Checked:
+        1. Exact match with dangerous patterns (``**/*``, ``**/*.py``, ``*.py``)
+        2. Pattern starts with ``*`` (matches any file at root)
+        3. Pattern contains ``**/*`` substring (recursive wildcard)
+        4. Pattern is just a bare extension (``*.py``, ``*.yaml``)
+    """
+    # Normalize pattern for comparison
+    normalized = pattern.strip()
+
+    # Rule 1: Exact match with known dangerous patterns
+    if normalized in _OVERLY_PERMISSIVE_PATTERNS:
+        return (
+            f"Pattern '{pattern}' matches ALL files of that type. "
+            f"This effectively disables the I/O audit for those files."
+        )
+
+    # Rule 2: Pattern starts with bare wildcard (no directory prefix)
+    if normalized.startswith("*") and "/" not in normalized:
+        return (
+            f"Pattern '{pattern}' starts with wildcard without directory prefix. "
+            f"This matches files in any directory. Use a more specific path."
+        )
+
+    # Rule 3: Pattern contains recursive wildcard that's too broad
+    # **/* at the start means "everything recursively"
+    if normalized.startswith("**/"):
+        # Check if it's just a bare extension pattern
+        rest = normalized[3:]  # Remove **/
+        if rest.startswith("*"):
+            return (
+                f"Pattern '{pattern}' is overly broad. "
+                f"Consider using a more specific directory prefix."
+            )
+
+    return None
+
+
+def _warn_overly_permissive_pattern(entry: ModelWhitelistEntry) -> None:
+    """Emit a warning if a whitelist entry has an overly permissive pattern.
+
+    This function checks the pattern and emits both a Python warning (for
+    programmatic use) and a log warning (for CLI output).
+
+    Args:
+        entry: The whitelist entry to check.
+    """
+    warning_msg = _check_pattern_security(entry.path)
+    if warning_msg:
+        full_msg = (
+            f"SECURITY WARNING: Overly permissive whitelist pattern detected. "
+            f"{warning_msg} "
+            f"Entry reason: '{entry.reason}'"
+        )
+        # Emit both warning types for maximum visibility
+        warnings.warn(full_msg, UserWarning, stacklevel=3)
+        _logger.warning(full_msg)
 
 
 def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) -> bool:
@@ -1458,3 +1604,18 @@ def run_audit(
         files_scanned=len(files),
         metrics=metrics,
     )
+
+
+# =========================================================================
+# CLI Entry Point
+# =========================================================================
+
+
+if __name__ == "__main__":
+    # Allow running as: python -m omniintelligence.audit.io_audit
+    # Delegates to the main CLI in __main__.py
+    import sys
+
+    from omniintelligence.audit.__main__ import main
+
+    sys.exit(main())

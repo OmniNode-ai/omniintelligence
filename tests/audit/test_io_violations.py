@@ -290,7 +290,10 @@ class TestFileIODetection:
         """Should detect io.open() calls."""
         violations = audit_file(fixture_path("bad_file.py"))
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert any("io.open" in v.message.lower() or "io open" in v.message.lower() for v in file_violations)
+        assert any(
+            "io.open" in v.message.lower() or "io open" in v.message.lower()
+            for v in file_violations
+        )
 
     def test_detects_logging_file_handler(self) -> None:
         """Should detect logging.FileHandler usage."""
@@ -402,10 +405,14 @@ def read_config():
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert len(file_violations) == 1, f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
         assert "read_text" in file_violations[0].message.lower()
 
-    def test_detects_pathlib_io_with_path_constructor_chain(self, tmp_path: Path) -> None:
+    def test_detects_pathlib_io_with_path_constructor_chain(
+        self, tmp_path: Path
+    ) -> None:
         """Should detect Path().read_text() chained calls."""
         code = """
 from pathlib import Path
@@ -418,7 +425,9 @@ def read_inline():
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert len(file_violations) == 1, f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
 
     def test_detects_pathlib_io_with_file_path_variable(self, tmp_path: Path) -> None:
         """Should detect pathlib I/O on variables named file_path, config_path, etc."""
@@ -433,7 +442,9 @@ def read_config(config_path):
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert len(file_violations) == 1, f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
 
     def test_no_false_positive_for_arbitrary_variable_without_pathlib(
         self, tmp_path: Path
@@ -448,6 +459,63 @@ processor = TextProcessor()
 result = processor.read_text()  # Should NOT be flagged
 """
         test_file = tmp_path / "text_processor.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        assert len(file_violations) == 0, f"Unexpected violations: {file_violations}"
+
+    def test_short_variable_name_with_pathlib_triggers_violation(
+        self, tmp_path: Path
+    ) -> None:
+        """Short variable names like 'p' should trigger when pathlib is imported.
+
+        PATHLIB_VARIABLE_PATTERNS includes short names like 'p' and 'fp' which
+        are commonly used for Path objects. When pathlib is imported, these
+        should be flagged.
+
+        Note: This is intentional behavior - in code that imports pathlib,
+        variables named 'p' are very likely Path objects. This may cause
+        rare false positives, but the benefit of catching real violations
+        outweighs the occasional false positive.
+        """
+        code = """
+from pathlib import Path
+
+def read_file(p):
+    # Variable 'p' is in PATHLIB_VARIABLE_PATTERNS and pathlib is imported
+    # This SHOULD be flagged as a potential violation
+    return p.read_text()
+"""
+        test_file = tmp_path / "short_var.py"
+        test_file.write_text(code)
+        violations = audit_file(test_file)
+        file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
+        # Should detect the p.read_text() call
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
+        assert "read_text" in file_violations[0].message.lower()
+
+    def test_short_variable_name_without_pathlib_no_false_positive(
+        self, tmp_path: Path
+    ) -> None:
+        """Short variable names should NOT trigger when pathlib is NOT imported.
+
+        This test ensures that even with short variable names like 'p', we don't
+        get false positives when pathlib is not imported. The heuristic only
+        applies when pathlib is in scope.
+        """
+        code = """
+class Printer:
+    def read_text(self):
+        return "printed"
+
+def print_stuff(p):
+    # Variable 'p' is in PATHLIB_VARIABLE_PATTERNS but pathlib is NOT imported
+    # This should NOT be flagged
+    return p.read_text()
+"""
+        test_file = tmp_path / "no_pathlib.py"
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
@@ -557,7 +625,9 @@ class TestWhitelistFunctionality:
         """Violations whitelisted in YAML should be filtered out."""
         violations = audit_file(fixture_path("whitelisted_node.py"))
         whitelist = load_whitelist(WHITELIST_PATH)
-        remaining = apply_whitelist(violations, whitelist, fixture_path("whitelisted_node.py"))
+        remaining = apply_whitelist(
+            violations, whitelist, fixture_path("whitelisted_node.py")
+        )
 
         # The whitelisted violations (env-access, file-io) should be removed
         # Only un-whitelisted violations should remain
@@ -599,7 +669,19 @@ other = os.getenv("NOT_ALLOWED")
         # Should have exactly 1 violation (the non-whitelisted one)
         env_violations = [v for v in remaining if v.rule == EnumIOAuditRule.ENV_ACCESS]
         assert len(env_violations) == 1
-        assert env_violations[0].line == 8  # Line with "NOT_ALLOWED"
+        # Verify the violation is from the line with "NOT_ALLOWED" by checking message content
+        # Using message content is more robust than hardcoding line numbers which can drift
+        assert "getenv" in env_violations[0].message.lower()
+        # The non-whitelisted call should be on the line after the comment (line 8 in this test)
+        # We use the comment as an anchor: find "This should still be caught" and verify
+        # the violation is on the next non-empty line
+        comment_line = next(
+            i
+            for i, line in enumerate(source_lines, start=1)
+            if "This should still be caught" in line
+        )
+        expected_violation_line = comment_line + 1
+        assert env_violations[0].line == expected_violation_line
 
     def test_parse_inline_pragma_valid(self) -> None:
         """Should correctly parse valid inline pragmas."""
@@ -614,7 +696,9 @@ other = os.getenv("NOT_ALLOWED")
         assert parse_inline_pragma("# noqa: E501") is None
         assert parse_inline_pragma("# io-audit: invalid-scope file-io") is None
 
-    def test_whitelist_requires_yaml_entry_for_inline_pragma(self, tmp_path: Path) -> None:
+    def test_whitelist_requires_yaml_entry_for_inline_pragma(
+        self, tmp_path: Path
+    ) -> None:
         """Inline pragma alone should NOT whitelist if file not in YAML."""
         code = """
 import os
@@ -630,7 +714,9 @@ value = os.getenv("SHOULD_STILL_FAIL")
 
         violations = audit_file(test_file)
         source_lines = code.splitlines()
-        remaining = apply_whitelist(violations, empty_whitelist, test_file, source_lines)
+        remaining = apply_whitelist(
+            violations, empty_whitelist, test_file, source_lines
+        )
 
         # Without YAML entry, inline pragma should NOT work
         # (This enforces the design requirement that YAML is source of truth)
@@ -693,7 +779,9 @@ class TestWhitelistEntryValidation:
 
         assert "Invalid rule ID 'invalid-rule'" in str(exc_info.value)
 
-    def test_load_whitelist_with_empty_reason_raises_error(self, tmp_path: Path) -> None:
+    def test_load_whitelist_with_empty_reason_raises_error(
+        self, tmp_path: Path
+    ) -> None:
         """Loading a whitelist YAML with empty reason should raise ValueError."""
         whitelist_yaml = tmp_path / "whitelist.yaml"
         whitelist_yaml.write_text("""
@@ -710,7 +798,9 @@ files:
         assert "Empty 'reason' field" in str(exc_info.value)
         assert "some_node.py" in str(exc_info.value)
 
-    def test_load_whitelist_with_missing_reason_raises_error(self, tmp_path: Path) -> None:
+    def test_load_whitelist_with_missing_reason_raises_error(
+        self, tmp_path: Path
+    ) -> None:
         """Loading a whitelist YAML with missing reason should raise ValueError."""
         whitelist_yaml = tmp_path / "whitelist.yaml"
         whitelist_yaml.write_text("""
@@ -1460,3 +1550,129 @@ class TestMainAudit:
             pytest.fail(error_msg)
 
         assert result.is_clean, "Audit should pass with no violations"
+
+
+# =========================================================================
+# Test: Security Pattern Validation
+# =========================================================================
+
+
+class TestOverlyPermissivePatternDetection:
+    """Tests for detecting overly permissive whitelist patterns.
+
+    Overly broad patterns like **/*.py can create security vulnerabilities
+    by inadvertently whitelisting more files than intended.
+    """
+
+    def test_check_pattern_security_detects_all_py_files(self) -> None:
+        """Pattern '**/*.py' should be flagged as dangerous."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security("**/*.py")
+        assert warning is not None
+        assert "ALL files" in warning or "overly broad" in warning.lower()
+
+    def test_check_pattern_security_detects_bare_wildcard(self) -> None:
+        """Pattern '*.py' without directory should be flagged."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security("*.py")
+        assert warning is not None
+        # *.py is caught as a known dangerous pattern (matches ALL .py files)
+        assert "ALL files" in warning or "disables" in warning.lower()
+
+    def test_check_pattern_security_detects_wildcard_without_directory(self) -> None:
+        """Pattern '*_node.py' without directory prefix should be flagged."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security("*_node.py")
+        assert warning is not None
+        # Caught by Rule 2: starts with wildcard, no directory prefix
+        assert "wildcard" in warning.lower() or "directory" in warning.lower()
+
+    def test_check_pattern_security_detects_star_star_star(self) -> None:
+        """Pattern '**/*' should be flagged as matching everything."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security("**/*")
+        assert warning is not None
+        assert "ALL files" in warning
+
+    def test_check_pattern_security_allows_specific_path(self) -> None:
+        """Specific file paths should not be flagged."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security(
+            "src/omniintelligence/nodes/kafka_publisher/v1_0_0/node.py"
+        )
+        assert warning is None
+
+    def test_check_pattern_security_allows_scoped_glob(self) -> None:
+        """Glob patterns with directory prefix should be allowed."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security("nodes/legacy_*.py")
+        assert warning is None
+
+    def test_check_pattern_security_allows_versioned_glob(self) -> None:
+        """Versioned glob patterns should be allowed."""
+        from omniintelligence.audit.io_audit import _check_pattern_security
+
+        warning = _check_pattern_security(
+            "src/omniintelligence/nodes/kafka_publisher/v*/node.py"
+        )
+        assert warning is None
+
+    def test_load_whitelist_warns_on_permissive_pattern(self, tmp_path: Path) -> None:
+        """Loading a whitelist with overly permissive pattern should warn."""
+        import warnings
+
+        whitelist_file = tmp_path / "whitelist.yaml"
+        whitelist_file.write_text("""
+schema_version: "1.0.0"
+files:
+  - path: "**/*.py"
+    reason: "Testing dangerous pattern"
+    allowed_rules:
+      - "net-client"
+""")
+
+        # Capture warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            load_whitelist(whitelist_file)
+
+            # Check that a warning was raised
+            assert len(w) >= 1
+            warning_messages = [str(warning.message) for warning in w]
+            assert any(
+                "SECURITY WARNING" in msg or "permissive" in msg.lower()
+                for msg in warning_messages
+            ), f"Expected security warning, got: {warning_messages}"
+
+    def test_load_whitelist_no_warning_for_safe_pattern(self, tmp_path: Path) -> None:
+        """Loading a whitelist with safe patterns should not warn."""
+        import warnings
+
+        whitelist_file = tmp_path / "whitelist.yaml"
+        whitelist_file.write_text("""
+schema_version: "1.0.0"
+files:
+  - path: "tests/audit/fixtures/io/specific_node.py"
+    reason: "Test fixture for specific functionality"
+    allowed_rules:
+      - "env-access"
+""")
+
+        # Capture warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            load_whitelist(whitelist_file)
+
+            # Filter for our security warnings only
+            security_warnings = [
+                warning for warning in w if "SECURITY WARNING" in str(warning.message)
+            ]
+            assert len(security_warnings) == 0, (
+                f"Expected no security warnings, got: {security_warnings}"
+            )

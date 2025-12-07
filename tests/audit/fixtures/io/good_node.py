@@ -56,7 +56,5 @@ def compute_quality_score(
 def transform_data(input_data: dict[str, Any]) -> dict[str, Any]:
     """Transform input data - pure function, no I/O."""
     return {
-        key.upper(): value
-        for key, value in input_data.items()
-        if value is not None
+        key.upper(): value for key, value in input_data.items() if value is not None
     }
