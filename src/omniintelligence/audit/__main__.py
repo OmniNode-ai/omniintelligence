@@ -336,6 +336,11 @@ Examples:
   %(prog)s --dry-run                         # Show what would be scanned
   %(prog)s --metrics                         # Include timing and whitelist stats
   %(prog)s --json --metrics                  # JSON output with metrics
+
+Exit codes:
+  0   Success: No I/O violations found
+  1   Violations found: One or more files contain forbidden I/O patterns
+  2   Error: CLI usage error or unexpected failure
 """,
     )
 
