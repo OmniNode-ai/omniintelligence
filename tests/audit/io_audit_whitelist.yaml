@@ -1,0 +1,33 @@
+---
+# I/O Audit Whitelist Configuration
+#
+# This file defines exceptions to the I/O audit rules for ONEX nodes.
+# All exceptions must have a documented reason.
+#
+# Rule IDs:
+#   - net-client: Network/DB/external client imports
+#   - env-access: Environment variable access
+#   - file-io: File system operations
+#
+# Format:
+#   files:
+#     - path: "relative/path/to/file.py"  # or glob pattern
+#       reason: "Why this exception is needed"
+#       allowed_rules:
+#         - "rule-id"
+
+schema_version: "1.0.0"
+
+files:
+  # Test fixtures are whitelisted for testing purposes
+  - path: "tests/audit/fixtures/io/whitelisted_node.py"
+    reason: "Test fixture for whitelist functionality"
+    allowed_rules:
+      - "env-access"
+      - "file-io"
+
+# Example of a legacy node pending refactor
+# - path: "src/omniintelligence/nodes/legacy_*.py"
+#   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"
+#   allowed_rules:
+#     - "env-access"
