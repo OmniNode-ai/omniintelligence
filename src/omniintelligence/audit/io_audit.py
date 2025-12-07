@@ -61,7 +61,6 @@ This design ensures:
 from __future__ import annotations
 
 import ast
-import fnmatch
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -160,6 +159,29 @@ class EnumIOAuditRule(Enum):
     FILE_IO = "file-io"
 
 
+# Valid rule IDs for whitelist validation
+VALID_RULE_IDS: frozenset[str] = frozenset(r.value for r in EnumIOAuditRule)
+
+
+# =========================================================================
+# Remediation Hints
+# =========================================================================
+
+# Actionable guidance for each rule violation type.
+# These hints follow ONEX architecture patterns (Effect nodes, DI).
+REMEDIATION_HINTS: dict[EnumIOAuditRule, str] = {
+    EnumIOAuditRule.NET_CLIENT: (
+        "Move to an Effect node or inject client via dependency injection."
+    ),
+    EnumIOAuditRule.ENV_ACCESS: (
+        "Pass configuration via constructor parameters instead of reading env vars."
+    ),
+    EnumIOAuditRule.FILE_IO: (
+        "Move file I/O to an Effect node or pass file content as input parameter."
+    ),
+}
+
+
 # =========================================================================
 # Models
 # =========================================================================
@@ -184,8 +206,12 @@ class ModelIOAuditViolation:
     message: str
 
     def __str__(self) -> str:
-        """Format as file:line: rule: message."""
-        return f"{self.file}:{self.line}: {self.rule.value}: {self.message}"
+        """Format as file:line: rule: message with remediation hint."""
+        base = f"{self.file}:{self.line}: {self.rule.value}: {self.message}"
+        hint = REMEDIATION_HINTS.get(self.rule, "")
+        if hint:
+            return f"{base}\n  -> Hint: {hint}"
+        return base
 
 
 @dataclass
@@ -710,6 +736,23 @@ def parse_inline_pragma(line: str) -> ModelInlinePragma | None:
 # =========================================================================
 
 
+def _validate_whitelist_entry(entry: ModelWhitelistEntry) -> None:
+    """Validate a whitelist entry's allowed_rules.
+
+    Args:
+        entry: The whitelist entry to validate.
+
+    Raises:
+        ValueError: If any rule ID in allowed_rules is invalid.
+    """
+    for rule_id in entry.allowed_rules:
+        if rule_id not in VALID_RULE_IDS:
+            raise ValueError(
+                f"Invalid rule ID '{rule_id}' in whitelist entry for '{entry.path}'. "
+                f"Valid rule IDs are: {sorted(VALID_RULE_IDS)}"
+            )
+
+
 def load_whitelist(path: Path) -> ModelWhitelistConfig:
     """Load whitelist configuration from a YAML file.
 
@@ -730,13 +773,14 @@ def load_whitelist(path: Path) -> ModelWhitelistConfig:
 
     files: list[ModelWhitelistEntry] = []
     for entry in data.get("files", []):
-        files.append(
-            ModelWhitelistEntry(
-                path=entry.get("path", ""),
-                reason=entry.get("reason", ""),
-                allowed_rules=entry.get("allowed_rules", []),
-            )
+        whitelist_entry = ModelWhitelistEntry(
+            path=entry.get("path", ""),
+            reason=entry.get("reason", ""),
+            allowed_rules=entry.get("allowed_rules", []),
         )
+        # Validate rule IDs before adding
+        _validate_whitelist_entry(whitelist_entry)
+        files.append(whitelist_entry)
 
     return ModelWhitelistConfig(
         files=files,
@@ -760,7 +804,8 @@ def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) ->
     """Check if a file matches a whitelist entry.
 
     Matching rules:
-    - If entry_path is a glob pattern (contains * or ?), use fnmatch
+    - If entry_path is a glob pattern (contains * or ?), use Path.match()
+      which properly supports ** for recursive directory matching
     - If entry_path is a specific file, match exactly by:
       - Full path equality
       - File name equality (basename only)
@@ -777,11 +822,9 @@ def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) ->
         True if the file matches the whitelist entry.
     """
     if _is_glob_pattern(entry_path):
-        # For glob patterns, use fnmatch matching
-        # Support both the pattern as-is and with leading wildcard for subpaths
-        return fnmatch.fnmatch(file_str, entry_path) or fnmatch.fnmatch(
-            file_str, f"**/{entry_path}"
-        )
+        # For glob patterns, use Path.match() which supports ** recursive matching
+        # Try the pattern as-is, and also try with leading **/ for flexibility
+        return file_path.match(entry_path) or file_path.match(f"**/{entry_path}")
     else:
         # For specific files, require exact match
         # Match either the full path or just the file name
@@ -909,11 +952,22 @@ def audit_file(
     Raises:
         FileNotFoundError: If the file doesn't exist.
         SyntaxError: If the file has Python syntax errors.
+        UnicodeDecodeError: If the file contains non-UTF8 characters.
     """
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    source = file_path.read_text()
+    try:
+        source = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise UnicodeDecodeError(
+            e.encoding,
+            e.object,
+            e.start,
+            e.end,
+            f"File '{file_path}' contains non-UTF8 characters. "
+            f"Please ensure the file is saved with UTF-8 encoding.",
+        ) from e
     source_lines = source.splitlines()
 
     try:

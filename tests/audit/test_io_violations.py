@@ -781,6 +781,116 @@ value = os.getenv("TEST")
         remaining = apply_whitelist(violations, whitelist, txt_file)
         assert len(remaining) > 0, "*.py should NOT match foo.py.txt"
 
+    def test_recursive_glob_pattern_matches_nested_files(self, tmp_path: Path) -> None:
+        """Pattern '**/test_*.py' should match files in any subdirectory."""
+        # Create nested directory structure
+        nested = tmp_path / "a" / "b" / "c"
+        nested.mkdir(parents=True)
+
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = nested / "test_something.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="**/test_*.py",
+                    reason="Whitelist all test files",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        assert len(remaining) == 0, f"Recursive glob should match, got: {remaining}"
+
+    def test_recursive_glob_matches_at_any_depth(self, tmp_path: Path) -> None:
+        """Pattern '**/nodes/**/*.py' should match at any depth."""
+        # Create: tmp/src/nodes/deep/node.py
+        deep = tmp_path / "src" / "nodes" / "deep"
+        deep.mkdir(parents=True)
+
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        test_file = deep / "node.py"
+        test_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="**/nodes/**/*.py",
+                    reason="Whitelist all node files",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(test_file)
+        remaining = apply_whitelist(violations, whitelist, test_file)
+
+        assert len(remaining) == 0
+
+    def test_recursive_glob_does_not_match_wrong_pattern(self, tmp_path: Path) -> None:
+        """Pattern '**/test_*.py' should NOT match 'prod_foo.py'."""
+        code = """
+import os
+value = os.getenv("TEST")
+"""
+        prod_file = tmp_path / "prod_foo.py"
+        prod_file.write_text(code)
+
+        whitelist = ModelWhitelistConfig(
+            files=[
+                ModelWhitelistEntry(
+                    path="**/test_*.py",
+                    reason="Only test files",
+                    allowed_rules=["env-access"],
+                )
+            ]
+        )
+
+        violations = audit_file(prod_file)
+        remaining = apply_whitelist(violations, whitelist, prod_file)
+
+        assert len(remaining) > 0, "Non-matching file should NOT be whitelisted"
+
+
+# =========================================================================
+# Test: Symlink Handling
+# =========================================================================
+
+
+class TestSymlinkHandling:
+    """Tests for symlink behavior in the audit."""
+
+    def test_audit_follows_symlink_to_file(self, tmp_path: Path) -> None:
+        """Audit should follow symlinks and audit the target file."""
+        # Create a real file with violations
+        real_file = tmp_path / "real_file.py"
+        real_file.write_text("import os\nx = os.getenv('TEST')")
+
+        # Create symlink
+        symlink = tmp_path / "link.py"
+        symlink.symlink_to(real_file)
+
+        violations = audit_file(symlink)
+        assert len(violations) > 0
+
+    def test_audit_broken_symlink_raises_error(self, tmp_path: Path) -> None:
+        """Broken symlinks should raise FileNotFoundError."""
+        broken_link = tmp_path / "broken.py"
+        broken_link.symlink_to(tmp_path / "nonexistent.py")
+
+        with pytest.raises(FileNotFoundError):
+            audit_file(broken_link)
+
 
 # =========================================================================
 # Test: Violation Model
@@ -885,6 +995,21 @@ class TestErrorHandling:
         binary_file.write_bytes(b"\x00\x01\x02\x03")
         with pytest.raises((UnicodeDecodeError, SyntaxError)):
             audit_file(binary_file)
+
+    def test_non_utf8_file_raises_error_with_file_path(self, tmp_path: Path) -> None:
+        """Non-UTF8 files should raise UnicodeDecodeError with file path in message."""
+        # Create a file with Latin-1 encoded content (valid Latin-1, invalid UTF-8)
+        non_utf8_file = tmp_path / "non_utf8.py"
+        # This is valid Python but uses Latin-1 encoding with a non-UTF8 character
+        non_utf8_file.write_bytes(b"# Comment with accent: caf\xe9\nx = 1\n")
+
+        with pytest.raises(UnicodeDecodeError) as exc_info:
+            audit_file(non_utf8_file)
+
+        # Verify the enhanced error message includes the file path
+        error_reason = exc_info.value.reason
+        assert "non_utf8.py" in error_reason
+        assert "non-UTF8" in error_reason or "UTF-8" in error_reason
 
 
 # =========================================================================
