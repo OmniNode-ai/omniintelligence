@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import ast
 import re
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -146,6 +147,18 @@ LOGGING_FILE_HANDLERS: frozenset[str] = frozenset(
     }
 )
 
+# os.environ mutation/access methods that indicate env variable access
+# These are dict-like methods called on os.environ that read or mutate env vars
+ENVIRON_MUTATION_METHODS: frozenset[str] = frozenset(
+    {
+        "get",
+        "pop",
+        "setdefault",
+        "clear",
+        "update",
+    }
+)
+
 
 # =========================================================================
 # Enums
@@ -168,7 +181,7 @@ VALID_RULE_IDS: frozenset[str] = frozenset(r.value for r in EnumIOAuditRule)
 
 
 # =========================================================================
-# Remediation Hints
+# Remediation Hints and Suggestions
 # =========================================================================
 
 # Actionable guidance for each rule violation type.
@@ -186,6 +199,194 @@ REMEDIATION_HINTS: dict[EnumIOAuditRule, str] = {
 }
 
 
+def _generate_suggestion(rule: EnumIOAuditRule, message: str) -> str:
+    """Generate a context-specific remediation suggestion based on the violation.
+
+    Analyzes the violation message to provide actionable code snippets or patterns
+    that demonstrate the correct way to handle the I/O operation.
+
+    Args:
+        rule: The rule that was violated.
+        message: The violation message containing context about the specific issue.
+
+    Returns:
+        A concrete suggestion with code example where applicable.
+    """
+    # Use match statement for exhaustive enum handling
+    match rule:
+        case EnumIOAuditRule.NET_CLIENT:
+            return _generate_net_client_suggestion(message)
+        case EnumIOAuditRule.ENV_ACCESS:
+            return _generate_env_access_suggestion(message)
+        case EnumIOAuditRule.FILE_IO:
+            return _generate_file_io_suggestion(message)
+
+
+def _generate_net_client_suggestion(message: str) -> str:
+    """Generate suggestion for network/DB client violations."""
+    # Extract the module/client name from the message
+    msg_lower = message.lower()
+
+    if "confluent_kafka" in msg_lower:
+        return (
+            "Create a separate Effect node for Kafka operations:\n"
+            "  # node_kafka_publisher_effect.py\n"
+            "  class NodeKafkaPublisherEffect:\n"
+            "      def __init__(self, producer: Producer) -> None:\n"
+            "          self._producer = producer  # Injected dependency"
+        )
+    elif "qdrant_client" in msg_lower:
+        return (
+            "Create a separate Effect node for Qdrant operations:\n"
+            "  # node_vector_store_effect.py\n"
+            "  class NodeVectorStoreEffect:\n"
+            "      def __init__(self, client: QdrantClient) -> None:\n"
+            "          self._client = client  # Injected dependency"
+        )
+    elif "httpx" in msg_lower:
+        return (
+            "Create a separate Effect node for HTTP operations:\n"
+            "  # node_http_client_effect.py\n"
+            "  class NodeHttpClientEffect:\n"
+            "      def __init__(self, client: httpx.AsyncClient) -> None:\n"
+            "          self._client = client  # Injected dependency"
+        )
+    elif "asyncpg" in msg_lower or "neo4j" in msg_lower:
+        db_name = "PostgreSQL" if "asyncpg" in msg_lower else "Neo4j"
+        return (
+            f"Create a separate Effect node for {db_name} operations:\n"
+            "  # node_database_effect.py\n"
+            "  class NodeDatabaseEffect:\n"
+            "      def __init__(self, connection: Connection) -> None:\n"
+            "          self._conn = connection  # Injected dependency"
+        )
+    elif "aiofiles" in msg_lower:
+        return (
+            "Create a separate Effect node for async file operations:\n"
+            "  # node_file_reader_effect.py\n"
+            "  class NodeFileReaderEffect:\n"
+            "      async def read_file(self, path: str) -> str:\n"
+            "          async with aiofiles.open(path) as f:\n"
+            "              return await f.read()"
+        )
+
+    # Generic suggestion for unknown clients
+    return (
+        "Create a separate Effect node and inject the client:\n"
+        "  class NodeYourEffect:\n"
+        "      def __init__(self, client: YourClient) -> None:\n"
+        "          self._client = client  # Injected via DI"
+    )
+
+
+def _generate_env_access_suggestion(message: str) -> str:
+    """Generate suggestion for environment variable access violations."""
+    msg_lower = message.lower()
+
+    # Try to extract the env var name if present
+    # Pattern: os.getenv("FOO") or os.environ["FOO"] or os.environ.get("FOO")
+    env_var_match = _ENV_VAR_PATTERN.search(message)
+
+    if "getenv" in msg_lower or "environ" in msg_lower:
+        if env_var_match:
+            env_var = env_var_match.group(1)
+            # Generate a config class name from the env var
+            config_name = "".join(
+                word.capitalize() for word in env_var.lower().split("_")
+            )
+            return (
+                f"Inject configuration via constructor instead of reading {env_var}:\n"
+                f"  from pydantic_settings import BaseSettings\n"
+                f"\n"
+                f"  class {config_name}Config(BaseSettings):\n"
+                f"      {env_var.lower()}: str\n"
+                f"\n"
+                f"  class NodeYourCompute:\n"
+                f"      def __init__(self, config: {config_name}Config) -> None:\n"
+                f"          self._config = config  # Injected, not read from env"
+            )
+
+        # Generic env access suggestion
+        return (
+            "Inject configuration via constructor:\n"
+            "  from pydantic_settings import BaseSettings\n"
+            "\n"
+            "  class YourConfig(BaseSettings):\n"
+            "      your_setting: str\n"
+            "\n"
+            "  class NodeYourCompute:\n"
+            "      def __init__(self, config: YourConfig) -> None:\n"
+            "          self._config = config  # Injected, not read from env"
+        )
+
+    return (
+        "Pass configuration via constructor parameters instead of reading env vars."
+    )
+
+
+def _generate_file_io_suggestion(message: str) -> str:
+    """Generate suggestion for file I/O violations."""
+    msg_lower = message.lower()
+
+    if "open()" in msg_lower or "io.open()" in msg_lower:
+        return (
+            "Pass file content as a parameter instead of reading directly:\n"
+            "  # Before (violation):\n"
+            "  def process(self, file_path: str) -> Result:\n"
+            "      with open(file_path) as f:\n"
+            "          content = f.read()\n"
+            "\n"
+            "  # After (pure compute):\n"
+            "  def process(self, content: str) -> Result:\n"
+            "      # Content passed in, no I/O in compute node"
+        )
+    elif "read_text" in msg_lower or "read_bytes" in msg_lower:
+        method = "read_text" if "read_text" in msg_lower else "read_bytes"
+        return_type = "str" if method == "read_text" else "bytes"
+        return (
+            f"Pass file content as a parameter instead of using Path.{method}():\n"
+            f"  # Before (violation):\n"
+            f"  def process(self, path: Path) -> Result:\n"
+            f"      content = path.{method}()\n"
+            f"\n"
+            f"  # After (pure compute):\n"
+            f"  def process(self, content: {return_type}) -> Result:\n"
+            f"      # Content passed in, no I/O in compute node"
+        )
+    elif "write_text" in msg_lower or "write_bytes" in msg_lower:
+        return (
+            "Return data to be written instead of writing directly:\n"
+            "  # Before (violation):\n"
+            "  def process(self, path: Path, data: str) -> None:\n"
+            "      path.write_text(data)\n"
+            "\n"
+            "  # After (pure compute):\n"
+            "  def process(self, data: str) -> str:\n"
+            "      return processed_data  # Effect node handles writing"
+        )
+    elif "filehandler" in msg_lower:
+        return (
+            "Use structured logging without file handlers in compute nodes:\n"
+            "  # Configure logging in Effect node or entry point, not in compute\n"
+            "  # Compute nodes should use standard logging without file handlers:\n"
+            "  import logging\n"
+            "  logger = logging.getLogger(__name__)\n"
+            "  logger.info('Message')  # Handler configured externally"
+        )
+
+    # Generic file I/O suggestion
+    return (
+        "Move file I/O to an Effect node or pass content as input:\n"
+        "  class NodeFileReaderEffect:\n"
+        "      def read(self, path: Path) -> str:\n"
+        "          return path.read_text()\n"
+        "\n"
+        "  class NodeYourCompute:\n"
+        "      def process(self, content: str) -> Result:\n"
+        "          # Pure computation, no I/O"
+    )
+
+
 # =========================================================================
 # Models
 # =========================================================================
@@ -201,6 +402,7 @@ class ModelIOAuditViolation:
         column: Column number (0-indexed).
         rule: The rule that was violated.
         message: Human-readable description of the violation.
+        suggestion: Context-specific remediation suggestion with code example.
     """
 
     file: Path
@@ -208,14 +410,30 @@ class ModelIOAuditViolation:
     column: int
     rule: EnumIOAuditRule
     message: str
+    suggestion: str = ""
+
+    def __post_init__(self) -> None:
+        """Generate suggestion if not provided."""
+        if not self.suggestion:
+            # Use object.__setattr__ since dataclass is frozen
+            object.__setattr__(
+                self, "suggestion", _generate_suggestion(self.rule, self.message)
+            )
 
     def __str__(self) -> str:
-        """Format as file:line: rule: message with remediation hint."""
+        """Format as file:line: rule: message with remediation hint and suggestion."""
         base = f"{self.file}:{self.line}: {self.rule.value}: {self.message}"
         hint = REMEDIATION_HINTS.get(self.rule, "")
+        lines = [base]
         if hint:
-            return f"{base}\n  -> Hint: {hint}"
-        return base
+            lines.append(f"  -> Hint: {hint}")
+        if self.suggestion:
+            # Indent the suggestion for better readability
+            suggestion_lines = self.suggestion.split("\n")
+            lines.append("  -> Suggestion:")
+            for sline in suggestion_lines:
+                lines.append(f"     {sline}")
+        return "\n".join(lines)
 
 
 @dataclass
@@ -262,17 +480,38 @@ class ModelWhitelistConfig:
 
 
 @dataclass
+class ModelAuditMetrics:
+    """Metrics about an audit run.
+
+    Attributes:
+        duration_ms: Time taken for the audit in milliseconds.
+        violations_total: Total violations found before whitelisting.
+        whitelisted_yaml_count: Violations whitelisted by YAML rules.
+        whitelisted_pragma_count: Violations whitelisted by inline pragmas.
+        violations_by_rule: Breakdown of total violations by rule type.
+    """
+
+    duration_ms: int = 0
+    violations_total: int = 0
+    whitelisted_yaml_count: int = 0
+    whitelisted_pragma_count: int = 0
+    violations_by_rule: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
 class ModelAuditResult:
     """Result of an audit run.
 
     Attributes:
-        violations: List of violations found.
+        violations: List of violations found (after whitelisting).
         files_scanned: Number of files scanned.
         is_clean: True if no violations were found.
+        metrics: Optional detailed metrics about the audit run.
     """
 
     violations: list[ModelIOAuditViolation]
     files_scanned: int
+    metrics: ModelAuditMetrics | None = None
 
     @property
     def is_clean(self) -> bool:
@@ -537,8 +776,7 @@ class IOAuditVisitor(ast.NodeVisitor):
                     and func.value.value.id == "os"
                     and func.value.attr == "environ"
                 ):
-                    environ_methods = {"get", "pop", "setdefault", "clear", "update"}
-                    if func.attr in environ_methods:
+                    if func.attr in ENVIRON_MUTATION_METHODS:
                         self._add_violation(
                             node,
                             EnumIOAuditRule.ENV_ACCESS,
@@ -700,6 +938,10 @@ class IOAuditVisitor(ast.NodeVisitor):
 PRAGMA_PATTERN = re.compile(
     r"#\s*io-audit:\s*ignore-next-line\s+(net-client|env-access|file-io)"
 )
+
+# Regex for extracting environment variable names from violation messages
+# Matches: "FOO", 'FOO', "DATABASE_URL", etc.
+_ENV_VAR_PATTERN = re.compile(r'["\']([A-Z_][A-Z0-9_]*)["\']')
 
 
 def parse_inline_pragma(line: str) -> ModelInlinePragma | None:
@@ -880,12 +1122,29 @@ def _matches_whitelist_entry(file_str: str, file_path: Path, entry_path: str) ->
         return False
 
 
+@dataclass
+class ModelWhitelistStats:
+    """Statistics about whitelist application for a file.
+
+    Attributes:
+        remaining: Violations remaining after whitelisting.
+        yaml_count: Number of violations whitelisted by YAML rules.
+        pragma_count: Number of violations whitelisted by inline pragmas.
+    """
+
+    remaining: list[ModelIOAuditViolation]
+    yaml_count: int = 0
+    pragma_count: int = 0
+
+
 def apply_whitelist(
     violations: list[ModelIOAuditViolation],
     whitelist: ModelWhitelistConfig,
     file_path: Path,
     source_lines: list[str] | None = None,
-) -> list[ModelIOAuditViolation]:
+    *,
+    return_stats: bool = False,
+) -> list[ModelIOAuditViolation] | ModelWhitelistStats:
     """Filter violations based on whitelist configuration.
 
     Inline pragmas are ONLY honored for files that appear in the YAML whitelist.
@@ -896,11 +1155,15 @@ def apply_whitelist(
         whitelist: Whitelist configuration.
         file_path: Path to the file being checked.
         source_lines: Source lines for inline pragma parsing (optional).
+        return_stats: If True, return ModelWhitelistStats with counts.
 
     Returns:
-        List of violations not covered by whitelist.
+        List of violations not covered by whitelist, or ModelWhitelistStats
+        if return_stats is True.
     """
     if not violations:
+        if return_stats:
+            return ModelWhitelistStats(remaining=[])
         return violations
 
     # Convert file_path to string for matching
@@ -918,6 +1181,8 @@ def apply_whitelist(
 
     # If file not in whitelist, inline pragmas don't apply
     if not file_in_whitelist:
+        if return_stats:
+            return ModelWhitelistStats(remaining=violations)
         return violations
 
     # Parse inline pragmas if source lines provided
@@ -929,19 +1194,30 @@ def apply_whitelist(
                 # Pragma on line i applies to line i+1
                 pragma_whitelist[i + 1] = pragma.rule
 
-    # Filter out whitelisted violations
+    # Filter out whitelisted violations, tracking counts
     remaining: list[ModelIOAuditViolation] = []
+    yaml_count = 0
+    pragma_count = 0
+
     for v in violations:
         # Check YAML rule whitelist
         if v.rule.value in allowed_rules:
+            yaml_count += 1
             continue
 
         # Check inline pragma whitelist (only for files in YAML)
         if v.line in pragma_whitelist and pragma_whitelist[v.line] == v.rule:
+            pragma_count += 1
             continue
 
         remaining.append(v)
 
+    if return_stats:
+        return ModelWhitelistStats(
+            remaining=remaining,
+            yaml_count=yaml_count,
+            pragma_count=pragma_count,
+        )
     return remaining
 
 
@@ -1041,15 +1317,42 @@ def audit_files(
 def discover_python_files(targets: Sequence[str]) -> list[Path]:
     """Discover Python files in the target directories.
 
-    Symlinks are resolved to their canonical paths to avoid duplicate
-    processing of the same file through different paths. Broken or
-    circular symlinks are skipped gracefully.
+    This function recursively scans the specified directories for Python files
+    (*.py) and returns a deduplicated, sorted list of canonical file paths.
+
+    Symlink Handling
+    ----------------
+    The function handles symlinks as follows:
+
+    - **File symlinks**: Resolved to canonical paths for deduplication. If the
+      same file is reachable via multiple paths (direct + symlink), it appears
+      only once in the result.
+
+    - **Directory symlinks**: NOT followed by rglob() for security. If you need
+      to audit files in a symlinked directory, add it to targets directly.
+
+    - **Broken symlinks**: Skipped gracefully. When resolve() returns a path
+      that doesn't exist (is_file() returns False), the symlink is ignored.
+
+    - **Circular symlinks**: Skipped gracefully. When resolve() raises OSError
+      (e.g., for self-referencing symlinks), the symlink is ignored.
+
+    This behavior prevents:
+    - Infinite loops from circular symlinks
+    - Duplicate processing of files accessible via multiple paths
+    - Crashes from broken symlinks in the target directories
 
     Args:
         targets: List of directory paths to scan.
 
     Returns:
-        List of Python file paths found, deduplicated by canonical path.
+        List of Python file paths found, deduplicated by canonical path
+        and sorted alphabetically.
+
+    Example:
+        >>> files = discover_python_files(["src/nodes", "src/effects"])
+        >>> for f in files:
+        ...     violations = audit_file(f)
     """
     files: set[Path] = set()  # Use set for deduplication
 
@@ -1062,7 +1365,9 @@ def discover_python_files(targets: Sequence[str]) -> list[Path]:
                     canonical = py_file.resolve()
                     if canonical.is_file():  # Skip broken symlinks
                         files.add(canonical)
-                except OSError:
+                except (OSError, RuntimeError):
+                    # OSError: General file system errors
+                    # RuntimeError: Python 3.12+ raises this for symlink loops
                     # Skip files that can't be resolved (circular symlinks, etc.)
                     pass
 
@@ -1072,16 +1377,22 @@ def discover_python_files(targets: Sequence[str]) -> list[Path]:
 def run_audit(
     targets: Sequence[str] | None = None,
     whitelist_path: Path | None = None,
+    *,
+    collect_metrics: bool = False,
 ) -> ModelAuditResult:
     """Run the full I/O audit on target directories.
 
     Args:
         targets: List of directory paths to audit. Defaults to IO_AUDIT_TARGETS.
         whitelist_path: Path to whitelist YAML. Optional.
+        collect_metrics: If True, collect detailed metrics about the audit run.
 
     Returns:
-        Audit result with violations and metadata.
+        Audit result with violations and metadata. If collect_metrics is True,
+        includes a ModelAuditMetrics object with detailed statistics.
     """
+    start_time = time.perf_counter() if collect_metrics else 0
+
     if targets is None:
         targets = IO_AUDIT_TARGETS
 
@@ -1096,13 +1407,54 @@ def run_audit(
     # Audit files and apply whitelist
     all_violations: list[ModelIOAuditViolation] = []
 
+    # Metrics tracking (only when collecting)
+    total_violations = 0
+    total_yaml_whitelisted = 0
+    total_pragma_whitelisted = 0
+    violations_by_rule: dict[str, int] = {}
+
     for file_path in files:
         # Get violations and source_lines in single read (avoids redundant file read)
         violations, source_lines = audit_file(file_path, return_source_lines=True)
-        remaining = apply_whitelist(violations, whitelist, file_path, source_lines)
-        all_violations.extend(remaining)
+
+        if collect_metrics:
+            # Count violations by rule before whitelisting
+            total_violations += len(violations)
+            for v in violations:
+                rule_key = v.rule.value
+                violations_by_rule[rule_key] = violations_by_rule.get(rule_key, 0) + 1
+
+            # Get whitelist stats
+            stats = apply_whitelist(
+                violations, whitelist, file_path, source_lines, return_stats=True
+            )
+            # Type guard: stats is ModelWhitelistStats when return_stats=True
+            assert isinstance(stats, ModelWhitelistStats)
+            all_violations.extend(stats.remaining)
+            total_yaml_whitelisted += stats.yaml_count
+            total_pragma_whitelisted += stats.pragma_count
+        else:
+            # Fast path without metrics
+            remaining = apply_whitelist(violations, whitelist, file_path, source_lines)
+            # Type guard: remaining is list when return_stats=False
+            assert isinstance(remaining, list)
+            all_violations.extend(remaining)
+
+    # Build metrics if requested
+    metrics = None
+    if collect_metrics:
+        end_time = time.perf_counter()
+        duration_ms = int((end_time - start_time) * 1000)
+        metrics = ModelAuditMetrics(
+            duration_ms=duration_ms,
+            violations_total=total_violations,
+            whitelisted_yaml_count=total_yaml_whitelisted,
+            whitelisted_pragma_count=total_pragma_whitelisted,
+            violations_by_rule=violations_by_rule,
+        )
 
     return ModelAuditResult(
         violations=all_violations,
         files_scanned=len(files),
+        metrics=metrics,
     )

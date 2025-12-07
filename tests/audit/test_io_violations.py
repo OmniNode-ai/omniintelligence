@@ -38,10 +38,78 @@ from omniintelligence.audit.io_audit import (
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "io"
 WHITELIST_PATH = Path(__file__).parent / "io_audit_whitelist.yaml"
 
+# =========================================================================
+# Fixture Violation Inventory (Canonical Reference)
+# =========================================================================
+# bad_env.py: 9 env-access violations (lines 16,19,22,34,40,46,52,58,64)
+# bad_file.py: 11 file-io violations (lines 16,23,30,37,43,49,55,61,68,77,88)
+# bad_client.py: 17 net-client violations (9 imports + 6 usages + 2 aliased)
+#
+# Tests use "at least X" for forward compatibility; use EXPECTED_VIOLATIONS
+# for exact counts. Update both comment AND dict if fixtures change.
+# =========================================================================
+
+EXPECTED_VIOLATIONS = {
+    "bad_env.py": {
+        "rule": EnumIOAuditRule.ENV_ACCESS,
+        "count": 9,
+        "description": "Environment variable access violations",
+    },
+    "bad_file.py": {
+        "rule": EnumIOAuditRule.FILE_IO,
+        "count": 11,
+        "description": "File I/O operation violations",
+    },
+    "bad_client.py": {
+        "rule": EnumIOAuditRule.NET_CLIENT,
+        "count": 17,
+        "description": "Network/DB client violations (9 imports + 6 usages + 2 aliased)",
+    },
+}
+
 
 def fixture_path(name: str) -> Path:
     """Get path to a test fixture file."""
     return FIXTURES_DIR / name
+
+
+# =========================================================================
+# Test: Fixture Violation Count Verification
+# =========================================================================
+
+
+class TestFixtureViolationCounts:
+    """Verify exact violation counts per fixture match EXPECTED_VIOLATIONS."""
+
+    def test_bad_env_violation_count(self) -> None:
+        """Verify bad_env.py has exactly 9 env-access violations."""
+        expected = EXPECTED_VIOLATIONS["bad_env.py"]
+        violations = audit_file(fixture_path("bad_env.py"))
+        rule_violations = [v for v in violations if v.rule == expected["rule"]]
+        assert len(rule_violations) == expected["count"], (
+            f"Expected {expected['count']} {expected['rule'].value} violations, "
+            f"got {len(rule_violations)}. See EXPECTED_VIOLATIONS for details."
+        )
+
+    def test_bad_file_violation_count(self) -> None:
+        """Verify bad_file.py has exactly 11 file-io violations."""
+        expected = EXPECTED_VIOLATIONS["bad_file.py"]
+        violations = audit_file(fixture_path("bad_file.py"))
+        rule_violations = [v for v in violations if v.rule == expected["rule"]]
+        assert len(rule_violations) == expected["count"], (
+            f"Expected {expected['count']} {expected['rule'].value} violations, "
+            f"got {len(rule_violations)}. See EXPECTED_VIOLATIONS for details."
+        )
+
+    def test_bad_client_violation_count(self) -> None:
+        """Verify bad_client.py has exactly 17 net-client violations."""
+        expected = EXPECTED_VIOLATIONS["bad_client.py"]
+        violations = audit_file(fixture_path("bad_client.py"))
+        rule_violations = [v for v in violations if v.rule == expected["rule"]]
+        assert len(rule_violations) == expected["count"], (
+            f"Expected {expected['count']} {expected['rule'].value} violations, "
+            f"got {len(rule_violations)}. See EXPECTED_VIOLATIONS for details."
+        )
 
 
 # =========================================================================
@@ -981,7 +1049,40 @@ value = os.getenv("TEST")
 
 
 class TestSymlinkHandling:
-    """Tests for symlink behavior in the audit."""
+    """Tests for symlink behavior in the audit.
+
+    Symlink Handling Policy
+    -----------------------
+    The I/O audit handles symlinks as follows:
+
+    **For audit_file() (single file audit):**
+    - Symlinks to files are followed and the target file is audited
+    - Broken symlinks raise FileNotFoundError (target doesn't exist)
+    - The violation reports use the original symlink path, not the resolved path
+
+    **For discover_python_files() (directory scanning):**
+    - Symlinks to files are resolved to canonical paths for deduplication
+    - Symlinks to directories are NOT followed (Python's rglob security behavior)
+    - Broken symlinks are skipped gracefully (is_file() returns False)
+    - Circular symlinks are skipped gracefully (resolve() raises RuntimeError)
+    - This prevents infinite loops and duplicate processing
+
+    **Why directory symlinks are not followed:**
+    Python's ``pathlib.Path.rglob()`` does not follow symlinks to directories
+    by default. This is a security feature to prevent:
+
+    - Symlink attacks that could access files outside the intended tree
+    - Infinite loops from circular directory symlinks
+    - Unpredictable traversal behavior
+
+    If you need to audit files in a symlinked directory, add that directory
+    to the targets list directly.
+
+    **Security Considerations:**
+    - Symlink resolution prevents auditing the same file twice via different paths
+    - Circular symlink protection prevents resource exhaustion attacks
+    - Not following directory symlinks prevents symlink escape attacks
+    """
 
     def test_audit_follows_symlink_to_file(self, tmp_path: Path) -> None:
         """Audit should follow symlinks and audit the target file."""
@@ -1003,6 +1104,151 @@ class TestSymlinkHandling:
 
         with pytest.raises(FileNotFoundError):
             audit_file(broken_link)
+
+    def test_discover_skips_circular_symlinks_gracefully(self, tmp_path: Path) -> None:
+        """Circular symlinks should be skipped without error.
+
+        A circular symlink is one that eventually points back to itself,
+        either directly (a -> a) or through a chain (a -> b -> c -> a).
+        The discover_python_files function should skip these to prevent
+        infinite loops during directory traversal.
+        """
+        from omniintelligence.audit.io_audit import discover_python_files
+
+        # Create a directory structure
+        nodes_dir = tmp_path / "nodes"
+        nodes_dir.mkdir()
+
+        # Create a real Python file
+        real_file = nodes_dir / "real_node.py"
+        real_file.write_text("# Valid Python file")
+
+        # Create a self-referencing circular symlink
+        # Note: On most systems, symlink_to with target=self creates a broken link
+        # but we handle it the same way as circular
+        circular_link = nodes_dir / "circular.py"
+        circular_link.symlink_to(circular_link)
+
+        # Should complete without raising any error
+        files = discover_python_files([str(nodes_dir)])
+
+        # Should find the real file but not the circular symlink
+        assert len(files) == 1
+        assert files[0].name == "real_node.py"
+
+    def test_discover_skips_broken_symlinks_gracefully(self, tmp_path: Path) -> None:
+        """Broken symlinks in directory traversal should be skipped without error.
+
+        Unlike audit_file() which raises FileNotFoundError for broken symlinks,
+        discover_python_files() should skip them silently to allow the audit
+        to continue processing valid files.
+        """
+        from omniintelligence.audit.io_audit import discover_python_files
+
+        # Create a directory structure
+        nodes_dir = tmp_path / "nodes"
+        nodes_dir.mkdir()
+
+        # Create a real Python file
+        real_file = nodes_dir / "real_node.py"
+        real_file.write_text("# Valid Python file")
+
+        # Create a broken symlink (points to non-existent file)
+        broken_link = nodes_dir / "broken.py"
+        broken_link.symlink_to(nodes_dir / "does_not_exist.py")
+
+        # Should complete without raising any error
+        files = discover_python_files([str(nodes_dir)])
+
+        # Should find only the real file
+        assert len(files) == 1
+        assert files[0].name == "real_node.py"
+
+    def test_discover_does_not_follow_directory_symlinks(self, tmp_path: Path) -> None:
+        """Symlinks to directories are not followed during discovery.
+
+        Python's rglob() does not follow symlinks to directories for security
+        reasons. If you need to audit files in a symlinked directory, add that
+        directory to the targets list directly.
+        """
+        from omniintelligence.audit.io_audit import discover_python_files
+
+        # Create main nodes directory
+        nodes_dir = tmp_path / "nodes"
+        nodes_dir.mkdir()
+
+        # Create a separate directory with Python files
+        external_dir = tmp_path / "external_nodes"
+        external_dir.mkdir()
+        external_file = external_dir / "external_node.py"
+        external_file.write_text("# External node")
+
+        # Create a symlink from nodes/ to external_nodes/
+        linked_dir = nodes_dir / "linked"
+        linked_dir.symlink_to(external_dir)
+
+        # Should NOT find the file through the symlinked directory
+        # (rglob does not follow directory symlinks)
+        files = discover_python_files([str(nodes_dir)])
+
+        # No files should be found (the only Python file is through the symlink)
+        assert len(files) == 0
+
+        # But if we add the external directory directly, it should work
+        files = discover_python_files([str(nodes_dir), str(external_dir)])
+        assert len(files) == 1
+        assert files[0].name == "external_node.py"
+
+    def test_discover_deduplicates_symlinked_files(self, tmp_path: Path) -> None:
+        """Files reachable via multiple paths should only be audited once.
+
+        If the same file is accessible via both a direct path and a symlink,
+        discover_python_files() should deduplicate to avoid redundant auditing.
+        """
+        from omniintelligence.audit.io_audit import discover_python_files
+
+        # Create directory structure
+        nodes_dir = tmp_path / "nodes"
+        nodes_dir.mkdir()
+
+        # Create a Python file
+        original_file = nodes_dir / "original.py"
+        original_file.write_text("# Original file")
+
+        # Create a symlink to the same file
+        link_file = nodes_dir / "link_to_original.py"
+        link_file.symlink_to(original_file)
+
+        # Discover files
+        files = discover_python_files([str(nodes_dir)])
+
+        # Should only find one file (deduplicated by canonical path)
+        assert len(files) == 1
+        assert files[0].name == "original.py"
+
+    def test_symlink_violation_reports_symlink_path(self, tmp_path: Path) -> None:
+        """Violation reports should include the symlink path, not the resolved path.
+
+        When auditing via a symlink, the violation should report the path
+        that was passed to audit_file(), making it easier to locate the issue.
+        """
+        # Create a real file with violations
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        real_file = real_dir / "target.py"
+        real_file.write_text("import os\nx = os.getenv('TEST')")
+
+        # Create symlink in a different location
+        link_dir = tmp_path / "links"
+        link_dir.mkdir()
+        symlink = link_dir / "linked_node.py"
+        symlink.symlink_to(real_file)
+
+        violations = audit_file(symlink)
+
+        # Violation should report the symlink path
+        assert len(violations) > 0
+        assert "linked_node.py" in str(violations[0].file)
 
 
 # =========================================================================
