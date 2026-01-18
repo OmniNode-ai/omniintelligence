@@ -63,7 +63,7 @@ def calculate_sum(numbers: list[int]) -> int:
 def sample_metadata() -> dict[str, str]:
     """Sample metadata for testing."""
     return {
-        "file_path": "src/utils/math.py",
+        "source_path": "src/utils/math.py",
         "language": "python",
         "project_name": "test_project",
         "author": "test_user",
@@ -74,7 +74,7 @@ def sample_metadata() -> dict[str, str]:
 def sample_pattern_context() -> dict[str, str]:
     """Provide sample context for pattern extraction tests."""
     return {
-        "file_path": "/test/example.py",
+        "source_path": "/test/example.py",
         "language": "python",
         "framework": "none",
     }

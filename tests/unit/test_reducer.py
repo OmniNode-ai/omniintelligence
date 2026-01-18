@@ -96,7 +96,7 @@ def sample_reducer_input():
         entity_id="doc_123",
         action=EnumFSMAction.START_PROCESSING,
         correlation_id="corr_456",
-        payload={"file_path": "test.py"},
+        payload={"source_path": "test.py"},
     )
 
 
@@ -303,7 +303,7 @@ async def test_execute_transition_successful(reducer, mock_db_pool, mock_db_conn
         entity_id="doc_123",
         action=EnumFSMAction.START_PROCESSING,
         correlation_id="corr_456",
-        payload={"file_path": "test.py"},
+        payload={"source_path": "test.py"},
     )
 
     fsm_contract = reducer._get_fsm_contract(EnumFSMType.INGESTION)
@@ -538,7 +538,7 @@ async def test_update_state_executes_correctly(reducer, mock_db_connection):
         "RECEIVED",
         "PROCESSING",
         EnumFSMAction.START_PROCESSING,
-        {"file_path": "test.py"},
+        {"source_path": "test.py"},
         "corr_456",
     )
 
@@ -812,7 +812,7 @@ def test_generate_intents_processing_state(reducer):
         old_state="RECEIVED",
         new_state="PROCESSING",
         correlation_id="corr_456",
-        payload={"file_path": "test.py"},
+        payload={"source_path": "test.py"},
     )
 
     assert len(intents) > 0
@@ -867,7 +867,7 @@ def test_generate_intents_indexed_completion(reducer):
         old_state="PROCESSING",
         new_state="INDEXED",
         correlation_id="corr_456",
-        payload={"file_path": "test.py"},
+        payload={"source_path": "test.py"},
     )
 
     # Should have event publish intent for completion
@@ -951,7 +951,7 @@ def test_generate_intents_no_intents_for_intermediate_states(reducer):
 
 def test_generate_intents_payload_included(reducer):
     """Test payload is included in event publish intent."""
-    payload = {"file_path": "test.py", "custom_key": "custom_value"}
+    payload = {"source_path": "test.py", "custom_key": "custom_value"}
 
     intents = reducer._generate_intents(
         fsm_type=EnumFSMType.INGESTION,
@@ -968,7 +968,7 @@ def test_generate_intents_payload_included(reducer):
     assert len(event_intents) == 1
 
     event_payload = event_intents[0].payload["payload"]
-    assert event_payload["file_path"] == "test.py"
+    assert event_payload["source_path"] == "test.py"
     assert event_payload["custom_key"] == "custom_value"
     assert event_payload["entity_id"] == "doc_123"
     assert event_payload["fsm_type"] == "INGESTION"
@@ -1033,7 +1033,7 @@ async def test_full_process_flow_ingestion(reducer, mock_db_pool, mock_db_connec
         entity_id="doc_123",
         action=EnumFSMAction.START_PROCESSING,
         correlation_id="corr_456",
-        payload={"file_path": "test.py"},
+        payload={"source_path": "test.py"},
     )
 
     result = await reducer.process(input_data)

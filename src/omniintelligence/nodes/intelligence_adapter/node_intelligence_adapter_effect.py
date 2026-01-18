@@ -23,8 +23,14 @@ Event Flow:
 4. Publish CODE_ANALYSIS_COMPLETED or CODE_ANALYSIS_FAILED events
 5. Commit offsets after successful processing
 
+Architecture Note:
+    This adapter currently handles multiple operation types (quality assessment,
+    pattern detection, performance analysis). A future consideration is to split
+    this into smaller, focused adapters. See ARCHITECTURE.md in this directory
+    for detailed analysis and implementation roadmap.
+
 Created: 2025-10-21
-Reference: EVENT_BUS_ARCHITECTURE.md, intelligence_adapter_events.py
+Reference: EVENT_BUS_ARCHITECTURE.md, intelligence_adapter_events.py, ARCHITECTURE.md
 """
 
 import asyncio

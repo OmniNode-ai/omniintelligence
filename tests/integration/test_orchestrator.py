@@ -47,7 +47,7 @@ async def test_document_ingestion_workflow(orchestrator):
         operation_type=EnumOperationType.DOCUMENT_INGESTION,
         entity_id="doc_123",
         payload={
-            "file_path": "test.py",
+            "source_path": "test.py",
             "content": "def main(): pass",
             "metadata": {"language": "python"},
         },
@@ -94,7 +94,7 @@ async def test_quality_assessment_workflow(orchestrator):
         operation_type=EnumOperationType.QUALITY_ASSESSMENT,
         entity_id="file_123",
         payload={
-            "file_path": "test.py",
+            "source_path": "test.py",
             "content": "def main(): pass",
             "language": "python",
             "project_name": "test_project",

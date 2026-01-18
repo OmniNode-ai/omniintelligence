@@ -283,7 +283,7 @@ docker volume rm \
 docker compose -f deployment/docker/docker-compose.nodes.yml up -d --scale vectorization-compute=3
 
 # Scale effect nodes
-docker compose -f deployment/docker/docker-compose.nodes.yml up -d --scale kafka-event-effect=2
+docker compose -f deployment/docker/docker-compose.nodes.yml up -d --scale qdrant-vector-effect=2
 ```
 
 ### Resource Limits

@@ -18,7 +18,7 @@ class ModelRelationshipDetectionInput(BaseModel):
     """Input model for relationship detection."""
 
     content: str = Field(..., description="Source code content to analyze")
-    file_path: str = Field(..., description="Path to the source file")
+    source_path: str = Field(..., description="Path to the source file")
     entities: list[ModelEntity] = Field(
         default_factory=list, description="Extracted entities from the code"
     )
@@ -108,7 +108,7 @@ class RelationshipDetectionCompute(NodeCompute):
                 success=True,
                 relationships=[],
                 metadata={
-                    "file_path": input_data.file_path,
+                    "source_path": input_data.source_path,
                     "message": "No entities provided for relationship detection",
                 },
             )
@@ -118,14 +118,14 @@ class RelationshipDetectionCompute(NodeCompute):
             relationships = self._detect_relationships(
                 tree=tree,
                 entities=input_data.entities,
-                file_path=input_data.file_path,
+                file_path=input_data.source_path,
             )
 
             return ModelRelationshipDetectionOutput(
                 success=True,
                 relationships=relationships,
                 metadata={
-                    "file_path": input_data.file_path,
+                    "source_path": input_data.source_path,
                     "relationship_count": len(relationships),
                     "entity_count": len(input_data.entities),
                     "language": input_data.language,
@@ -136,13 +136,13 @@ class RelationshipDetectionCompute(NodeCompute):
             return ModelRelationshipDetectionOutput(
                 success=False,
                 parse_errors=[f"Syntax error at line {e.lineno}: {e.msg}"],
-                metadata={"file_path": input_data.file_path},
+                metadata={"source_path": input_data.source_path},
             )
         except Exception as e:
             return ModelRelationshipDetectionOutput(
                 success=False,
                 parse_errors=[f"Unexpected error: {e!s}"],
-                metadata={"file_path": input_data.file_path},
+                metadata={"source_path": input_data.source_path},
             )
 
     def _detect_relationships(

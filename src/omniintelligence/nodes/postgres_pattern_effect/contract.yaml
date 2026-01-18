@@ -15,25 +15,31 @@ output_model:
   name: "ModelPostgresPatternOutput"
   module: "omniintelligence.nodes.postgres_pattern_effect.models"
   description: "Output containing operation status and query results."
-handler_routing:
-  routing_strategy: "payload_type_match"
-  handlers:
-    - operation: "store_pattern"
-      handler:
-        name: "HandlerPostgresStorePattern"
-        module: "omniintelligence.nodes.postgres_pattern_effect.handlers.handler_postgres_store_pattern"
-      description: "Store pattern in PostgreSQL"
-    - operation: "query_patterns"
-      handler:
-        name: "HandlerPostgresQueryPatterns"
-        module: "omniintelligence.nodes.postgres_pattern_effect.handlers.handler_postgres_query_patterns"
-      description: "Query patterns from database"
-    - operation: "update_pattern_score"
-      handler:
-        name: "HandlerPostgresUpdateScore"
-        module: "omniintelligence.nodes.postgres_pattern_effect.handlers.handler_postgres_update_score"
-      description: "Update pattern scoring"
-  execution_mode: "sequential"
+# TODO: Handler routing - modules not yet implemented
+# When implementing, create handlers/ directory with the following modules:
+# - handler_postgres_store_pattern.py (HandlerPostgresStorePattern)
+# - handler_postgres_query_patterns.py (HandlerPostgresQueryPatterns)
+# - handler_postgres_update_score.py (HandlerPostgresUpdateScore)
+#
+# handler_routing:
+#   routing_strategy: "payload_type_match"
+#   handlers:
+#     - operation: "store_pattern"
+#       handler:
+#         name: "HandlerPostgresStorePattern"
+#         module: "omniintelligence.nodes.postgres_pattern_effect.handlers.handler_postgres_store_pattern"
+#       description: "Store pattern in PostgreSQL"
+#     - operation: "query_patterns"
+#       handler:
+#         name: "HandlerPostgresQueryPatterns"
+#         module: "omniintelligence.nodes.postgres_pattern_effect.handlers.handler_postgres_query_patterns"
+#       description: "Query patterns from database"
+#     - operation: "update_pattern_score"
+#       handler:
+#         name: "HandlerPostgresUpdateScore"
+#         module: "omniintelligence.nodes.postgres_pattern_effect.handlers.handler_postgres_update_score"
+#       description: "Update pattern scoring"
+#   execution_mode: "sequential"
 error_handling:
   retry_policy:
     max_retries: 3

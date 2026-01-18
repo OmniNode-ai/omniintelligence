@@ -19,7 +19,7 @@ class ModelEntityExtractionInput(BaseModel):
     """Input model for entity extraction."""
 
     content: str = Field(..., description="Source code content to analyze")
-    file_path: str = Field(..., description="Path to the source file")
+    source_path: str = Field(..., description="Path to the source file")
     language: str = Field(default="python", description="Programming language")
     extract_docstrings: bool = Field(default=True, description="Extract docstrings")
     extract_decorators: bool = Field(default=True, description="Extract decorators")
@@ -93,7 +93,7 @@ class EntityExtractionCompute(NodeCompute):
             tree = ast.parse(input_data.content)
             entities = self._extract_entities(
                 tree=tree,
-                file_path=input_data.file_path,
+                file_path=input_data.source_path,
                 extract_docstrings=input_data.extract_docstrings,
                 extract_decorators=input_data.extract_decorators,
             )
@@ -102,7 +102,7 @@ class EntityExtractionCompute(NodeCompute):
                 success=True,
                 entities=entities,
                 metadata={
-                    "file_path": input_data.file_path,
+                    "file_path": input_data.source_path,
                     "entity_count": len(entities),
                     "language": input_data.language,
                 },
@@ -112,13 +112,13 @@ class EntityExtractionCompute(NodeCompute):
             return ModelEntityExtractionOutput(
                 success=False,
                 parse_errors=[f"Syntax error at line {e.lineno}: {e.msg}"],
-                metadata={"file_path": input_data.file_path},
+                metadata={"file_path": input_data.source_path},
             )
         except Exception as e:
             return ModelEntityExtractionOutput(
                 success=False,
                 parse_errors=[f"Unexpected error: {e!s}"],
-                metadata={"file_path": input_data.file_path},
+                metadata={"file_path": input_data.source_path},
             )
 
     def _extract_entities(
@@ -194,7 +194,7 @@ class EntityExtractionCompute(NodeCompute):
             entity_type=EnumEntityType.MODULE,
             name=file_path.split("/")[-1].replace(".py", ""),
             metadata={
-                "file_path": file_path,
+                "source_path": file_path,
                 "docstring": docstring,
                 "line_start": 1,
                 "line_end": self._get_last_line(tree),
@@ -241,7 +241,7 @@ class EntityExtractionCompute(NodeCompute):
         is_dunder = node.name.startswith("__") and node.name.endswith("__")
 
         metadata = {
-            "file_path": file_path,
+            "source_path": file_path,
             "line_start": node.lineno,
             "line_end": node.end_lineno or node.lineno,
             "is_async": is_async,
@@ -313,7 +313,7 @@ class EntityExtractionCompute(NodeCompute):
         is_private = node.name.startswith("_") and not node.name.startswith("__")
 
         metadata = {
-            "file_path": file_path,
+            "source_path": file_path,
             "line_start": node.lineno,
             "line_end": node.end_lineno or node.lineno,
             "bases": bases,
@@ -355,7 +355,7 @@ class EntityExtractionCompute(NodeCompute):
                     entity_type=EnumEntityType.DEPENDENCY,
                     name=alias.name,
                     metadata={
-                        "file_path": file_path,
+                        "source_path": file_path,
                         "line_number": node.lineno,
                         "import_type": "import",
                         "alias": alias.asname if alias.asname else None,
@@ -372,7 +372,7 @@ class EntityExtractionCompute(NodeCompute):
                     entity_type=EnumEntityType.DEPENDENCY,
                     name=f"{module}.{alias.name}" if module else alias.name,
                     metadata={
-                        "file_path": file_path,
+                        "source_path": file_path,
                         "line_number": node.lineno,
                         "import_type": "from_import",
                         "module": module,
@@ -414,7 +414,7 @@ class EntityExtractionCompute(NodeCompute):
                     value_repr = None
 
                 metadata = {
-                    "file_path": file_path,
+                    "source_path": file_path,
                     "line_number": node.lineno,
                     "is_constant": is_constant,
                 }

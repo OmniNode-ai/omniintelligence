@@ -19,7 +19,7 @@ operations:
   - name: "score_quality"
     description: "Score code quality"
     input_fields:
-      - file_path
+      - source_path
       - content
       - language
       - project_name

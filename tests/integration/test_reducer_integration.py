@@ -92,7 +92,7 @@ async def test_intent_emission():
         old_state="RECEIVED",
         new_state="PROCESSING",
         correlation_id="corr_456",
-        payload={"file_path": "test.py"},
+        payload={"source_path": "test.py"},
     )
 
     assert len(intents) > 0

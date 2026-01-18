@@ -37,7 +37,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -81,7 +81,7 @@ services:
       - intelligence-reducer
       - valkey
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -118,6 +118,12 @@ services:
       - omni-network
     depends_on:
       - valkey
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -145,39 +151,12 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
       - omni-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  # ============================================================================
-  # Kafka Event Effect Node
-  # ============================================================================
-
-  kafka-event-effect:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.effect
-      args:
-        NODE_NAME: kafka_event_effect
-    container_name: omni-kafka-event-effect
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
-      TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-dev.omni-intelligence}
-      ENABLE_IDEMPOTENCE: ${KAFKA_ENABLE_IDEMPOTENCE:-true}
-      ACKS: ${KAFKA_ACKS:-all}
-      MAX_RETRIES: ${KAFKA_MAX_RETRIES:-3}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    networks:
-      - omni-network
-    depends_on:
-      redpanda:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -211,6 +190,12 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -244,6 +229,12 @@ services:
     depends_on:
       memgraph:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -276,6 +267,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:

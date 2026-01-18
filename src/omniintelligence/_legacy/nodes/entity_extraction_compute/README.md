@@ -53,7 +53,7 @@ compute = EntityExtractionCompute(container=container)
 # Prepare input
 input_data = ModelEntityExtractionInput(
     content=source_code,
-    file_path="path/to/file.py",
+    source_path="path/to/file.py",
     language="python",
     extract_docstrings=True,
     extract_decorators=True,
@@ -75,7 +75,7 @@ else:
 ```python
 class ModelEntityExtractionInput(BaseModel):
     content: str                    # Source code to analyze
-    file_path: str                  # Path to source file
+    source_path: str                  # Path to source file
     language: str = "python"        # Programming language
     extract_docstrings: bool = True # Extract docstrings
     extract_decorators: bool = True # Extract decorators
@@ -107,7 +107,7 @@ class ModelEntityExtractionConfig(BaseModel):
 
 ```python
 {
-    "file_path": "example.py",
+    "source_path": "example.py",
     "line_start": 10,
     "line_end": 15,
     "is_async": False,
@@ -124,7 +124,7 @@ class ModelEntityExtractionConfig(BaseModel):
 
 ```python
 {
-    "file_path": "example.py",
+    "source_path": "example.py",
     "line_start": 20,
     "line_end": 45,
     "bases": ["BaseClass", "Mixin"],
@@ -140,7 +140,7 @@ class ModelEntityExtractionConfig(BaseModel):
 
 ```python
 {
-    "file_path": "example.py",
+    "source_path": "example.py",
     "line_number": 5,
     "import_type": "from_import",
     "module": "typing",

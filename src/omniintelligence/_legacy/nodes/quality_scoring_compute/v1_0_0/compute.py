@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 class ModelQualityScoringInput(BaseModel):
     """Input model for quality scoring."""
-    file_path: str
+    source_path: str
     content: str
     language: str
     project_name: str
@@ -548,7 +548,7 @@ class QualityScoringCompute(NodeCompute):
             )
 
         # Create analyzer
-        analyzer = PythonCodeAnalyzer(input_data.content, input_data.file_path)
+        analyzer = PythonCodeAnalyzer(input_data.content, input_data.source_path)
 
         # Run all analyses
         complexity_score, complexity_issues = analyzer.analyze_complexity()

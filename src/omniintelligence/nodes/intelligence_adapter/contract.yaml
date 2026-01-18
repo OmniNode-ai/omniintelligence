@@ -3,6 +3,19 @@
 # This effect node adapts between Kafka events and Archon intelligence services.
 # Consumes CODE_ANALYSIS_REQUESTED events and publishes completion/failure events.
 # =============================================================================
+#
+# TODO(v2.0): Consider splitting this adapter into smaller, focused adapters
+# -------------------------------------------------------------------------
+# This adapter currently handles multiple responsibilities (quality assessment,
+# pattern detection, performance analysis). For better single-responsibility
+# adherence, consider decomposing into:
+#   - quality_adapter: Quality assessment and ONEX compliance
+#   - pattern_adapter: Pattern detection and matching
+#   - performance_adapter: Performance analysis and optimization
+#
+# See ARCHITECTURE.md in this directory for detailed analysis and tradeoffs.
+# Status: Future consideration - current implementation is functional.
+# =============================================================================
 contract_version:
   major: 1
   minor: 0
@@ -39,30 +52,37 @@ published_events:
     description: "Code analysis failed"
 # Handler Routing Configuration
 # =============================
-handler_routing:
-  routing_strategy: "payload_type_match"
-  handlers:
-    - operation: "analyze_code"
-      handler:
-        name: "HandlerAnalyzeCode"
-        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_code"
-      description: "Analyze code quality and patterns"
-    - operation: "assess_quality"
-      handler:
-        name: "HandlerAssessQuality"
-        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_assess_quality"
-      description: "Assess code quality metrics"
-    - operation: "detect_patterns"
-      handler:
-        name: "HandlerDetectPatterns"
-        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_detect_patterns"
-      description: "Detect code patterns"
-    - operation: "analyze_performance"
-      handler:
-        name: "HandlerAnalyzePerformance"
-        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_performance"
-      description: "Analyze performance characteristics"
-  execution_mode: "sequential"
+# TODO: Handler routing - modules not yet implemented
+# When implementing, create handlers/ directory with the following modules:
+# - handler_analyze_code.py (HandlerAnalyzeCode)
+# - handler_assess_quality.py (HandlerAssessQuality)
+# - handler_detect_patterns.py (HandlerDetectPatterns)
+# - handler_analyze_performance.py (HandlerAnalyzePerformance)
+#
+# handler_routing:
+#   routing_strategy: "payload_type_match"
+#   handlers:
+#     - operation: "analyze_code"
+#       handler:
+#         name: "HandlerAnalyzeCode"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_code"
+#       description: "Analyze code quality and patterns"
+#     - operation: "assess_quality"
+#       handler:
+#         name: "HandlerAssessQuality"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_assess_quality"
+#       description: "Assess code quality metrics"
+#     - operation: "detect_patterns"
+#       handler:
+#         name: "HandlerDetectPatterns"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_detect_patterns"
+#       description: "Detect code patterns"
+#     - operation: "analyze_performance"
+#       handler:
+#         name: "HandlerAnalyzePerformance"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_performance"
+#       description: "Analyze performance characteristics"
+#   execution_mode: "sequential"
 # Error Handling Configuration
 # ============================
 error_handling:

@@ -15,25 +15,31 @@ output_model:
   name: "ModelIntelligenceApiOutput"
   module: "omniintelligence.nodes.intelligence_api_effect.models"
   description: "Output containing API response and status."
-handler_routing:
-  routing_strategy: "payload_type_match"
-  handlers:
-    - operation: "call_llm"
-      handler:
-        name: "HandlerLLMCall"
-        module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_llm_call"
-      description: "Call LLM API for text generation"
-    - operation: "generate_embeddings"
-      handler:
-        name: "HandlerEmbeddingsCall"
-        module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_embeddings_call"
-      description: "Generate embeddings via API"
-    - operation: "analyze_code"
-      handler:
-        name: "HandlerCodeAnalysis"
-        module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_code_analysis"
-      description: "Analyze code quality via API"
-  execution_mode: "sequential"
+# TODO: Handler routing - modules not yet implemented
+# When implementing, create handlers/ directory with the following modules:
+# - handler_llm_call.py (HandlerLLMCall)
+# - handler_embeddings_call.py (HandlerEmbeddingsCall)
+# - handler_code_analysis.py (HandlerCodeAnalysis)
+#
+# handler_routing:
+#   routing_strategy: "payload_type_match"
+#   handlers:
+#     - operation: "call_llm"
+#       handler:
+#         name: "HandlerLLMCall"
+#         module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_llm_call"
+#       description: "Call LLM API for text generation"
+#     - operation: "generate_embeddings"
+#       handler:
+#         name: "HandlerEmbeddingsCall"
+#         module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_embeddings_call"
+#       description: "Generate embeddings via API"
+#     - operation: "analyze_code"
+#       handler:
+#         name: "HandlerCodeAnalysis"
+#         module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_code_analysis"
+#       description: "Analyze code quality via API"
+#   execution_mode: "sequential"
 error_handling:
   retry_policy:
     max_retries: 3

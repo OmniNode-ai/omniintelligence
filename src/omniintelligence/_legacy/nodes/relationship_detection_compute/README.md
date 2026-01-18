@@ -47,7 +47,7 @@ The Relationship Detection Compute Node analyzes Python source code to identify 
 ```python
 ModelRelationshipDetectionInput(
     content: str,              # Source code content
-    file_path: str,           # Path to source file
+    source_path: str,           # Path to source file
     entities: list[ModelEntity],  # Pre-extracted entities
     language: str = "python",     # Programming language
     detect_cross_file: bool = True  # Detect cross-file relationships
@@ -98,7 +98,7 @@ entity_extractor = EntityExtractionCompute(container=container)
 entity_output = await entity_extractor.process(
     ModelEntityExtractionInput(
         content=source_code,
-        file_path="example.py",
+        source_path="example.py",
     )
 )
 
@@ -107,7 +107,7 @@ relationship_detector = RelationshipDetectionCompute(container=container)
 relationship_output = await relationship_detector.process(
     ModelRelationshipDetectionInput(
         content=source_code,
-        file_path="example.py",
+        source_path="example.py",
         entities=entity_output.entities,
     )
 )

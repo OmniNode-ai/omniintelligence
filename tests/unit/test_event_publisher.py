@@ -176,7 +176,7 @@ def sample_payload():
     return {
         "code_content": "def hello(): pass",
         "language": "python",
-        "file_path": "src/test.py",
+        "source_path": "src/test.py",
     }
 
 

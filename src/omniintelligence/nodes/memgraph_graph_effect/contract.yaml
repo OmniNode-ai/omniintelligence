@@ -15,25 +15,31 @@ output_model:
   name: "ModelMemgraphGraphOutput"
   module: "omniintelligence.nodes.memgraph_graph_effect.models"
   description: "Output containing operation status and query results."
-handler_routing:
-  routing_strategy: "payload_type_match"
-  handlers:
-    - operation: "create_nodes"
-      handler:
-        name: "HandlerMemgraphCreateNodes"
-        module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_create_nodes"
-      description: "Create graph nodes for entities"
-    - operation: "create_relationships"
-      handler:
-        name: "HandlerMemgraphCreateRelationships"
-        module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_create_relationships"
-      description: "Create relationships between nodes"
-    - operation: "execute_query"
-      handler:
-        name: "HandlerMemgraphQuery"
-        module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_query"
-      description: "Execute Cypher query"
-  execution_mode: "sequential"
+# TODO: Handler routing - modules not yet implemented
+# When implementing, create handlers/ directory with the following modules:
+# - handler_memgraph_create_nodes.py (HandlerMemgraphCreateNodes)
+# - handler_memgraph_create_relationships.py (HandlerMemgraphCreateRelationships)
+# - handler_memgraph_query.py (HandlerMemgraphQuery)
+#
+# handler_routing:
+#   routing_strategy: "payload_type_match"
+#   handlers:
+#     - operation: "create_nodes"
+#       handler:
+#         name: "HandlerMemgraphCreateNodes"
+#         module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_create_nodes"
+#       description: "Create graph nodes for entities"
+#     - operation: "create_relationships"
+#       handler:
+#         name: "HandlerMemgraphCreateRelationships"
+#         module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_create_relationships"
+#       description: "Create relationships between nodes"
+#     - operation: "execute_query"
+#       handler:
+#         name: "HandlerMemgraphQuery"
+#         module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_query"
+#       description: "Execute Cypher query"
+#   execution_mode: "sequential"
 error_handling:
   retry_policy:
     max_retries: 3

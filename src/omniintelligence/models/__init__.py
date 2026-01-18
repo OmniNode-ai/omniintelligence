@@ -2,6 +2,21 @@
 
 These models are shared across multiple nodes and provide common
 data structures for intelligence operations.
+
+Migration from Legacy (omniarchon):
+    These canonical models are intentionally simplified from the legacy
+    omniarchon models. Key differences include:
+
+    - ModelIntelligenceInput: Unified input model replacing multiple
+      operation-specific request models (ModelQualityAssessmentRequest, etc.)
+
+    - ModelIntelligenceOutput: Simplified output with:
+      - correlation_id as Optional[str] (was required UUID)
+      - onex_compliant as bool (was onex_compliance float score)
+      - patterns_detected as list[str] (was list[ModelPatternDetection])
+      - Removed: processing_time_ms, metrics, error_code, retry_allowed, timestamp
+
+    For complete migration guidance, see MIGRATION.md in this directory.
 """
 from omniintelligence.models.model_intelligence_input import ModelIntelligenceInput
 from omniintelligence.models.model_intelligence_output import ModelIntelligenceOutput

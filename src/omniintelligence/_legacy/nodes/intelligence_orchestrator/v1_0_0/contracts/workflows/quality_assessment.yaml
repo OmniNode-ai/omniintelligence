@@ -31,7 +31,7 @@ steps:
     description: Compute quality score across all dimensions
     compute_node: quality_scoring_compute
     input:
-      file_path: ${input.file_path}
+      source_path: ${input.source_path}
       content: ${input.content}
       language: ${input.language}
       project_name: ${input.project_name}
@@ -68,7 +68,7 @@ steps:
       topic: quality.assessed.v1
       event_type: QUALITY_ASSESSMENT_COMPLETED
       payload:
-        file_path: ${input.file_path}
+        source_path: ${input.source_path}
         project_name: ${input.project_name}
         overall_score: ${quality_result.overall_score}
         dimensions: ${quality_result.dimensions}
@@ -84,7 +84,7 @@ steps:
       endpoint: /quality/store
       method: POST
       payload:
-        file_path: ${input.file_path}
+        source_path: ${input.source_path}
         quality_score: ${quality_result}
         compliance: ${compliance_result}
         recommendations: ${recommendations}
@@ -97,7 +97,7 @@ steps:
     intent_type: STATE_UPDATE
     payload:
       fsm_type: QUALITY_ASSESSMENT
-      entity_id: ${input.file_path}
+      entity_id: ${input.source_path}
       new_state: STORED
       metadata:
         overall_score: ${quality_result.overall_score}
@@ -113,7 +113,7 @@ error_handling:
         topic: quality.assessment.failed.v1
         event_type: QUALITY_ASSESSMENT_FAILED
         payload:
-          file_path: ${input.file_path}
+          source_path: ${input.source_path}
           failed_step: ${error.step}
           error_message: ${error.message}
         correlation_id: ${input.correlation_id}
@@ -124,7 +124,7 @@ error_handling:
       intent_type: STATE_UPDATE
       payload:
         fsm_type: QUALITY_ASSESSMENT
-        entity_id: ${input.file_path}
+        entity_id: ${input.source_path}
         new_state: FAILED
         metadata:
           error: ${error.message}
@@ -142,7 +142,7 @@ error_handling:
 performance:
   timeout_ms: 300000
   enable_caching: true
-  cache_key_template: "quality:${input.file_path}:${input.content.hash}"
+  cache_key_template: "quality:${input.source_path}:${input.content.hash}"
   cache_ttl_ms: 600000
 
 # Monitoring

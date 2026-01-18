@@ -1,16 +1,32 @@
-"""ONEX Intelligence Nodes.
+"""Legacy ONEX Intelligence Nodes.
 
-This module provides lazy imports to allow individual nodes to be imported
-without loading all dependencies. Use explicit imports from submodules for
-production use.
+.. deprecated:: 0.1.0
+    This module is deprecated. Use :mod:`omniintelligence.nodes` instead.
+    Legacy nodes will be removed in v2.0.0.
 
-Example:
-    # Recommended - direct import from specific node:
-    from omniintelligence.nodes.vectorization_compute.v1_0_0.compute import VectorizationCompute
+This module provides legacy node implementations migrated from omniarchon.
+These implementations use older, more verbose patterns that have been
+superseded by canonical ONEX declarative nodes.
 
-    # For convenience imports (loads dependencies):
+Migration Guide:
+    # DEPRECATED - legacy import:
+    from omniintelligence._legacy.nodes import NodeIntelligenceAdapterEffect
+
+    # RECOMMENDED - canonical import:
     from omniintelligence.nodes import NodeIntelligenceAdapterEffect
+
+See _legacy/DEPRECATION.md for complete migration guidance and timeline.
 """
+
+import warnings
+
+warnings.warn(
+    "The omniintelligence._legacy.nodes module is deprecated as of v0.1.0 and "
+    "will be removed in v2.0.0. Use omniintelligence.nodes instead. "
+    "See _legacy/DEPRECATION.md for migration guidance.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from typing import TYPE_CHECKING
 

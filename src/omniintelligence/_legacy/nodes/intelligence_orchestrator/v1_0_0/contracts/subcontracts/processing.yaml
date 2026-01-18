@@ -13,7 +13,7 @@ operations:
     description: Orchestrate document ingestion workflow
     input:
       document_id: str
-      file_path: str
+      source_path: str
       content: str
       metadata: dict
     output:
@@ -52,7 +52,7 @@ operations:
   assess_quality:
     description: Orchestrate quality assessment workflow
     input:
-      file_path: str
+      source_path: str
       content: str
       language: str
       project_name: str

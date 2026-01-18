@@ -18,7 +18,7 @@ class ModelVectorizationInput(BaseModel):
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
-        description="Additional metadata (language, file_path, etc.)",
+        description="Additional metadata (language, source_path, etc.)",
     )
     model_name: str = Field(
         default="text-embedding-3-small",

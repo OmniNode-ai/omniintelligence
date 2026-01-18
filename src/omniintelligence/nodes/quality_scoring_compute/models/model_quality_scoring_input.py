@@ -12,9 +12,9 @@ class ModelQualityScoringInput(BaseModel):
     This model represents the input for scoring code quality.
     """
 
-    file_path: str = Field(
+    source_path: str = Field(
         ...,
-        description="Path to the file being scored",
+        description="Path to the source file being scored",
     )
     content: str = Field(
         ...,
