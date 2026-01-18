@@ -18,7 +18,7 @@ import pytest
 
 @pytest.fixture
 def valid_base_contract_yaml() -> str:
-    """Minimal valid base contract YAML (compute type with required algorithm)."""
+    """Minimal valid base contract YAML (compute type with algorithm included)."""
     return """
 name: test_node
 version:
@@ -50,7 +50,7 @@ performance:
 
 @pytest.fixture
 def valid_compute_contract_yaml() -> str:
-    """Valid compute contract YAML with required algorithm field."""
+    """Valid compute contract YAML with algorithm field included."""
     return """
 name: test_compute_node
 version:
@@ -82,7 +82,7 @@ performance:
 
 @pytest.fixture
 def valid_effect_contract_yaml() -> str:
-    """Valid effect contract YAML with required io_operations field."""
+    """Valid effect contract YAML with io_operations field included."""
     return """
 name: test_effect_node
 version:
@@ -333,7 +333,7 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_compute_missing_algorithm_yaml() -> str:
-    """Compute contract missing required 'algorithm' field."""
+    """Compute contract without 'algorithm' field (currently optional in stub validator)."""
     return """
 name: test_compute
 version:
@@ -357,7 +357,7 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_effect_missing_io_operations_yaml() -> str:
-    """Effect contract missing required 'io_operations' field."""
+    """Effect contract without 'io_operations' field (currently optional in stub validator)."""
     return """
 name: test_effect
 version:

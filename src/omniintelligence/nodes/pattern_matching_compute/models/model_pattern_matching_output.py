@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ModelPatternMatchingOutput(BaseModel):
@@ -41,6 +41,35 @@ class ModelPatternMatchingOutput(BaseModel):
                     f"got {score}"
                 )
         return v
+
+    @model_validator(mode="after")
+    def validate_pattern_scores_match_patterns(self) -> Self:
+        """Validate that pattern_scores keys match patterns_matched list.
+
+        Ensures consistency between the list of matched patterns and the
+        dictionary containing their confidence scores. Every scored pattern
+        must be in the matched patterns list.
+
+        Note: Not all matched patterns require scores (scores are optional),
+        but all scored patterns must be in the matched list.
+
+        Returns:
+            Self with validated pattern/score consistency.
+
+        Raises:
+            ValueError: If pattern_scores contains patterns not in patterns_matched.
+        """
+        patterns_set = set(self.patterns_matched)
+        scores_keys = set(self.pattern_scores.keys())
+
+        # Scores are optional, so we only check that scored patterns exist in matched
+        extra_scores = scores_keys - patterns_set
+        if extra_scores:
+            raise ValueError(
+                f"pattern_scores contains patterns not in patterns_matched: "
+                f"{sorted(extra_scores)}"
+            )
+        return self
 
     model_config = {"frozen": True, "extra": "forbid"}
 

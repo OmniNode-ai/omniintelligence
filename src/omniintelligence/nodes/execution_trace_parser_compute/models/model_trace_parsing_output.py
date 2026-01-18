@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Self, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ParsedEventDict(TypedDict, total=False):
@@ -80,6 +80,52 @@ class ModelTraceParsingOutput(BaseModel):
         default=None,
         description="Additional metadata about the parsing",
     )
+
+    @model_validator(mode="after")
+    def validate_metadata_counts_match_lists(self) -> Self:
+        """Validate that metadata counts match actual list lengths when provided.
+
+        When metadata contains event_count or error_count, these should match
+        the lengths of parsed_events and error_events respectively. This ensures
+        consistency between the reported counts and actual data.
+
+        Returns:
+            Self with validated metadata counts.
+
+        Raises:
+            ValueError: If metadata counts don't match actual list lengths.
+        """
+        if self.metadata is None:
+            return self
+
+        error_parts = []
+
+        # Validate event_count if present in metadata
+        if "event_count" in self.metadata:
+            metadata_event_count = self.metadata["event_count"]
+            actual_event_count = len(self.parsed_events)
+            if metadata_event_count != actual_event_count:
+                error_parts.append(
+                    f"metadata.event_count ({metadata_event_count}) "
+                    f"!= len(parsed_events) ({actual_event_count})"
+                )
+
+        # Validate error_count if present in metadata
+        if "error_count" in self.metadata:
+            metadata_error_count = self.metadata["error_count"]
+            actual_error_count = len(self.error_events)
+            if metadata_error_count != actual_error_count:
+                error_parts.append(
+                    f"metadata.error_count ({metadata_error_count}) "
+                    f"!= len(error_events) ({actual_error_count})"
+                )
+
+        if error_parts:
+            raise ValueError(
+                f"Metadata counts must match list lengths: {'; '.join(error_parts)}"
+            )
+
+        return self
 
     model_config = {"frozen": True, "extra": "forbid"}
 

@@ -28,11 +28,27 @@ description: >-
 input_model:
   name: "ModelReducerInput"
   module: "omniintelligence.nodes.intelligence_reducer.models"
-  description: "Reducer input containing FSM type, entity ID, action, and payload."
+  description: >-
+    Discriminated union of FSM-specific input models (ModelReducerInputIngestion,
+    ModelReducerInputPatternLearning, ModelReducerInputQualityAssessment).
+    Each variant has a typed payload model specific to its FSM type.
+  variants:
+    - name: "ModelReducerInputIngestion"
+      discriminator_value: "INGESTION"
+      payload_model: "ModelIngestionPayload"
+    - name: "ModelReducerInputPatternLearning"
+      discriminator_value: "PATTERN_LEARNING"
+      payload_model: "ModelPatternLearningPayload"
+    - name: "ModelReducerInputQualityAssessment"
+      discriminator_value: "QUALITY_ASSESSMENT"
+      payload_model: "ModelQualityAssessmentPayload"
 output_model:
   name: "ModelReducerOutput"
   module: "omniintelligence.nodes.intelligence_reducer.models"
-  description: "Reducer output containing new state and emitted intents."
+  description: >-
+    Reducer output containing success status, state transition details,
+    typed intents (ModelReducerIntent), and typed metadata (ModelReducerMetadata).
+    All fields use strong typing without dict[str, Any].
 # FSM State Machine Definition
 # ============================
 # The intelligence reducer manages three FSM types, each with its own state machine.
@@ -302,30 +318,45 @@ state_machine:
           action_type: "state_update"
   persistence_enabled: true
   terminal_states: []
-# Intent Emission Configuration
-# ============================
-# TODO: Intent emission models not yet implemented. Create these models when
-# implementing intent-based workflow triggering:
-# - ModelWorkflowTriggerPayload: Payload for triggering orchestrator workflows
-# - ModelEventPublishPayload: Payload for publishing Kafka events
+# =============================================================================
+# IMPLEMENTATION STATUS AND TODO TRACKING
+# =============================================================================
+# This section tracks pending implementation work for the intelligence reducer.
+# Status: PARTIAL - Core models complete, intent emission pending.
+#
+# COMPLETED:
+#   - [x] Typed input models (ModelReducerInput discriminated union)
+#   - [x] FSM-specific payload models (Ingestion, PatternLearning, QualityAssessment)
+#   - [x] Typed output models (ModelReducerOutput, ModelReducerIntent, ModelReducerMetadata)
+#   - [x] Idempotency hash using only validated fields (entity_id, fsm_type, action)
+#   - [x] Validation rules for required fields
+#
+# PENDING:
+#   - [ ] Intent emission integration with orchestrator
+#   - [ ] State model for pure reducer pattern (ModelIntelligenceState)
+#   - [ ] Action enum to restrict valid actions per FSM type
+#
+# Intent Emission Configuration (PENDING)
+# =======================================
+# When implementing intent-based workflow triggering, enable this configuration:
 #
 # intent_emission:
 #   enabled: true
 #   intents:
 #     - intent_type: "workflow.trigger"
 #       target_pattern: "orchestrator://intelligence/{operation_type}"
-#       payload_model: "ModelWorkflowTriggerPayload"
+#       payload_model: "ModelReducerIntentPayload"
 #       payload_module: "omniintelligence.nodes.intelligence_reducer.models"
 #       description: "Trigger workflow execution in orchestrator"
 #     - intent_type: "event.publish"
 #       target_pattern: "kafka://{topic}"
-#       payload_model: "ModelEventPublishPayload"
+#       payload_model: "ModelReducerIntentPayload"
 #       payload_module: "omniintelligence.nodes.intelligence_reducer.models"
 #       description: "Publish event to Kafka"
-# State Model Configuration
-# =========================
-# TODO: State model not yet implemented. Create ModelIntelligenceState when
-# implementing pure reducer pattern with immutable state.
+#
+# State Model Configuration (PENDING)
+# ===================================
+# When implementing pure reducer pattern with immutable state:
 #
 # state_model:
 #   name: "ModelIntelligenceState"
@@ -421,3 +452,5 @@ metadata:
     - "fsm"
     - "pure-function"
     - "intelligence"
+    - "type-safe"
+    - "discriminated-union"

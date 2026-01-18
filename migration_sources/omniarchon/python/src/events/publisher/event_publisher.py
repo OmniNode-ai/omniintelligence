@@ -175,6 +175,23 @@ class EventPublisher:
 
         Raises:
             RuntimeError: If circuit breaker is open
+            ValueError: If envelope creation or serialization fails (data errors).
+                These are programming/data errors that do NOT trip the circuit breaker.
+
+        Circuit Breaker Behavior:
+            The circuit breaker ONLY trips on transient infrastructure errors:
+            - Network connection failures
+            - Broker unavailable
+            - Timeouts during publish
+
+            The circuit breaker does NOT trip on data/programming errors:
+            - Envelope validation errors (bad payload structure)
+            - Serialization errors (JSON encoding failures)
+            - Schema validation errors
+
+            This distinction is important because infrastructure errors may resolve
+            with retries or after a cooldown period, while data errors require
+            code/data fixes and will never self-heal.
         """
         # Check circuit breaker
         if self._is_circuit_breaker_open():
@@ -186,6 +203,11 @@ class EventPublisher:
 
         start_time = time.perf_counter()
 
+        # =====================================================================
+        # PHASE 1: Envelope Creation & Serialization (Data Errors)
+        # These are programming/data errors that will NOT resolve by retrying.
+        # Do NOT trip the circuit breaker for these errors.
+        # =====================================================================
         try:
             # Create event envelope
             envelope = self._create_event_envelope(
@@ -195,13 +217,40 @@ class EventPublisher:
                 causation_id=causation_id,
                 metadata=metadata,
             )
+        except Exception as e:
+            # Envelope creation failed (validation error, bad data)
+            # This is a programming/data error - do NOT trip circuit breaker
+            self.metrics["events_failed"] += 1
+            logger.error(
+                f"Event envelope creation failed (data error, circuit breaker NOT tripped) | "
+                f"event_type={event_type} | error={e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Event envelope creation failed: {e}") from e
 
-            # Determine topic (default to event_type)
-            publish_topic = topic or event_type
+        # Determine topic (default to event_type)
+        publish_topic = topic or event_type
 
+        try:
             # Serialize event
             event_bytes = self._serialize_event(envelope)
+        except Exception as e:
+            # Serialization failed (JSON encoding error, bad data types)
+            # This is a programming/data error - do NOT trip circuit breaker
+            self.metrics["events_failed"] += 1
+            logger.error(
+                f"Event serialization failed (data error, circuit breaker NOT tripped) | "
+                f"event_type={event_type} | correlation_id={envelope.correlation_id} | error={e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Event serialization failed: {e}") from e
 
+        # =====================================================================
+        # PHASE 2: Infrastructure Operations (Transient Errors)
+        # These are network/broker errors that MAY resolve by retrying.
+        # ONLY trip the circuit breaker for these errors.
+        # =====================================================================
+        try:
             # Publish with retry
             success = await self._publish_with_retry(
                 topic=publish_topic,
@@ -226,7 +275,8 @@ class EventPublisher:
                 )
                 return True
             else:
-                # Publish failed after retries
+                # Publish failed after retries - this IS an infrastructure failure
+                # Trip the circuit breaker
                 self.metrics["events_failed"] += 1
                 self._record_circuit_breaker_failure()
 
@@ -245,11 +295,14 @@ class EventPublisher:
                 return False
 
         except Exception as e:
+            # Infrastructure error during publish (connection, timeout, broker error)
+            # This IS a transient error - trip the circuit breaker
             self.metrics["events_failed"] += 1
             self._record_circuit_breaker_failure()
 
             logger.error(
-                f"Event publish error | event_type={event_type} | error={e}",
+                f"Event publish infrastructure error (circuit breaker tripped) | "
+                f"event_type={event_type} | correlation_id={envelope.correlation_id} | error={e}",
                 exc_info=True,
             )
             return False

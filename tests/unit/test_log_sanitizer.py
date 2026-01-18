@@ -762,3 +762,83 @@ class TestLogSanitizerIntegration:
         # All results should be sanitized
         for result in results:
             assert "[OPENAI_API_KEY]" in result
+
+
+class TestLogSanitizerLegacyImports:
+    """Test backwards compatibility with legacy import paths."""
+
+    def test_legacy_import_emits_deprecation_warning(self):
+        """Test that importing from _legacy emits deprecation warning."""
+        import sys
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # Clear any cached imports to force reimport
+            modules_to_clear = [
+                k for k in sys.modules if k.startswith("omniintelligence._legacy")
+            ]
+            for mod in modules_to_clear:
+                del sys.modules[mod]
+
+            # Now import and check for warnings
+            from omniintelligence._legacy.utils import log_sanitizer as legacy_module  # noqa: F401
+
+            # Should have at least one deprecation warning
+            deprecation_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+            ]
+            assert len(deprecation_warnings) >= 1
+            assert "deprecated" in str(deprecation_warnings[0].message).lower()
+
+    def test_legacy_import_provides_same_class(self):
+        """Test that legacy import provides the same LogSanitizer class."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from omniintelligence._legacy.utils.log_sanitizer import (
+                LogSanitizer as LegacyLogSanitizer,
+            )
+
+        from omniintelligence.utils.log_sanitizer import LogSanitizer
+
+        assert LogSanitizer is LegacyLogSanitizer
+
+    def test_legacy_import_provides_same_functions(self):
+        """Test that legacy import provides the same functions."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from omniintelligence._legacy.utils.log_sanitizer import (
+                get_log_sanitizer as legacy_get_log_sanitizer,
+            )
+            from omniintelligence._legacy.utils.log_sanitizer import (
+                sanitize_logs as legacy_sanitize_logs,
+            )
+
+        from omniintelligence.utils.log_sanitizer import (
+            get_log_sanitizer,
+            sanitize_logs,
+        )
+
+        assert get_log_sanitizer is legacy_get_log_sanitizer
+        assert sanitize_logs is legacy_sanitize_logs
+
+    def test_legacy_sanitizer_works_correctly(self):
+        """Test that sanitizer from legacy import works correctly."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from omniintelligence._legacy.utils.log_sanitizer import LogSanitizer
+
+        sanitizer = LogSanitizer()
+        text = "Using key: sk-1234567890abcdefghijklmnop"
+        result = sanitizer.sanitize(text)
+        assert "[OPENAI_API_KEY]" in result
+        assert "sk-1234567890" not in result

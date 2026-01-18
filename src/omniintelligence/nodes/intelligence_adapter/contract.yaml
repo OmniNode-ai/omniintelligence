@@ -44,14 +44,22 @@ output_model:
   description: "Output containing analysis results, scores, and recommendations."
 # Consumed Events
 # ===============
-# NOTE: Event payload models currently reside in omniintelligence._legacy.models.
-# TODO: Migrate these models to canonical location (omniintelligence.events.models)
-# when completing the _legacy migration. Implementation imports from _legacy.
+# NOTE: Event payload models are currently defined as inline stubs in the node
+# implementation (node_intelligence_adapter_effect.py). These provide type
+# compatibility during development.
+#
+# TODO: Migrate event payload models to canonical location:
+#   - Target module: omniintelligence.events.models
+#   - Models to migrate: ModelCodeAnalysisRequestPayload,
+#     ModelCodeAnalysisCompletedPayload, ModelCodeAnalysisFailedPayload
+#   - Update payload_module references below when migration is complete
+#
 consumed_events:
   - topic: "{env}.archon-intelligence.intelligence.code-analysis-requested.v1"
     event_type: "CodeAnalysisRequested"
     payload_model: "ModelCodeAnalysisRequestPayload"
-    payload_module: "omniintelligence._legacy.models"
+    # TODO: Update to "omniintelligence.events.models" after migration
+    payload_module: "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect"
     description: "Code analysis request from external services"
 # Published Events
 # ================
@@ -59,12 +67,14 @@ published_events:
   - topic: "{env}.archon-intelligence.intelligence.code-analysis-completed.v1"
     event_type: "CodeAnalysisCompleted"
     payload_model: "ModelCodeAnalysisCompletedPayload"
-    payload_module: "omniintelligence._legacy.models"
+    # TODO: Update to "omniintelligence.events.models" after migration
+    payload_module: "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect"
     description: "Code analysis completed successfully"
   - topic: "{env}.archon-intelligence.intelligence.code-analysis-failed.v1"
     event_type: "CodeAnalysisFailed"
     payload_model: "ModelCodeAnalysisFailedPayload"
-    payload_module: "omniintelligence._legacy.models"
+    # TODO: Update to "omniintelligence.events.models" after migration
+    payload_module: "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect"
     description: "Code analysis failed"
 # Handler Routing Configuration
 # =============================
@@ -153,6 +163,11 @@ metadata:
   author: "OmniNode Team"
   created: "2025-10-21"
   updated: "2026-01-18"
+  notes: |
+    - 2026-01-18: Fixed payload_module references to point to actual node implementation
+      where inline stub models are defined. Marked for future migration to canonical
+      omniintelligence.events.models module.
+    - Handler routing remains commented out pending implementation.
   tags:
     - "ONEX"
     - "effect"

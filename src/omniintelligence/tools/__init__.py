@@ -16,9 +16,9 @@ from omniintelligence.tools.contract_linter import (
 
 __all__ = [
     "ContractLinter",
+    "main",
     "ModelContractValidationError",
     "ModelContractValidationResult",
-    "main",
     "validate_contract",
     "validate_contracts_batch",
 ]

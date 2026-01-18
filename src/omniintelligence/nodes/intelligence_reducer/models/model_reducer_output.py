@@ -1,40 +1,150 @@
-"""Output model for Intelligence Reducer."""
+"""Output model for Intelligence Reducer.
+
+This module provides type-safe output models for the intelligence reducer node.
+All models use strong typing to eliminate dict[str, Any].
+
+ONEX Compliance:
+    - Strong typing for all fields
+    - Frozen immutable models
+    - No dict[str, Any] usage
+"""
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class ReducerIntentDict(TypedDict, total=False):
+class ModelReducerIntentPayload(BaseModel):
+    """Typed payload for reducer intents.
+
+    Contains the data needed by the intent target (orchestrator, Kafka, etc.).
+    """
+
+    # Workflow trigger fields
+    operation_type: str | None = Field(
+        default=None,
+        description="Operation type for workflow triggers",
+    )
+    entity_id: str | None = Field(
+        default=None,
+        description="Entity ID for the workflow",
+    )
+    fsm_type: str | None = Field(
+        default=None,
+        description="FSM type for context",
+    )
+    current_state: str | None = Field(
+        default=None,
+        description="Current FSM state",
+    )
+
+    # Event publish fields
+    topic: str | None = Field(
+        default=None,
+        description="Kafka topic for event publish intents",
+    )
+    event_type: str | None = Field(
+        default=None,
+        description="Event type identifier",
+    )
+    event_data: str | None = Field(
+        default=None,
+        description="Serialized event data",
+    )
+
+    # Additional context
+    source_action: str | None = Field(
+        default=None,
+        description="The action that triggered this intent",
+    )
+    priority: int | None = Field(
+        default=None,
+        description="Priority level for intent processing",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
+class ModelReducerIntent(BaseModel):
     """Typed structure for intents emitted by the reducer.
 
-    Provides stronger typing for intent fields while allowing
-    additional fields via dict[str, Any] union.
+    Intents represent side effects that should be executed by the orchestrator
+    or other downstream systems. They are emitted during state transitions.
     """
 
-    intent_type: str
-    target: str
-    payload: dict[str, Any]
-    correlation_id: str
-    timestamp: str
-    metadata: dict[str, Any] | None
+    intent_type: str = Field(
+        ...,
+        description="Type of intent (e.g., 'workflow.trigger', 'event.publish')",
+    )
+    target: str = Field(
+        ...,
+        description="Target URI pattern (e.g., 'orchestrator://intelligence/ingestion')",
+    )
+    payload: ModelReducerIntentPayload = Field(
+        default_factory=ModelReducerIntentPayload,
+        description="Intent payload data",
+    )
+    correlation_id: UUID = Field(
+        ...,
+        description="Correlation ID for tracing",
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp when intent was created",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
-class ReducerMetadataDict(TypedDict, total=False):
+class ModelReducerMetadata(BaseModel):
     """Typed structure for reducer output metadata.
 
-    Provides stronger typing for common metadata fields.
+    Contains timing, context, and traceability information about the
+    state transition.
     """
 
-    transition_timestamp: str
-    processing_time_ms: float
-    lease_id: str | None
-    epoch: int | None
-    fsm_type: str
-    entity_id: str
-    action: str
+    transition_timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp of the state transition",
+    )
+    processing_time_ms: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Processing time in milliseconds",
+    )
+    lease_id: str | None = Field(
+        default=None,
+        description="Action lease ID if distributed coordination was used",
+    )
+    epoch: int | None = Field(
+        default=None,
+        description="Epoch for action lease management",
+    )
+    fsm_type: str = Field(
+        ...,
+        description="FSM type that was processed",
+    )
+    entity_id: str = Field(
+        ...,
+        description="Entity ID that was processed",
+    )
+    action: str = Field(
+        ...,
+        description="Action that triggered the transition",
+    )
+    idempotency_key: str | None = Field(
+        default=None,
+        description="Idempotency key used for deduplication",
+    )
+    was_duplicate: bool = Field(
+        default=False,
+        description="Whether this was a duplicate action (skipped)",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
 class ModelReducerOutput(BaseModel):
@@ -42,6 +152,7 @@ class ModelReducerOutput(BaseModel):
 
     This model represents the output from the intelligence reducer,
     containing the state transition result and any emitted intents.
+    All fields use strong typing without dict[str, Any].
     """
 
     success: bool = Field(
@@ -56,13 +167,13 @@ class ModelReducerOutput(BaseModel):
         ...,
         description="Current FSM state after transition",
     )
-    intents: list[ReducerIntentDict | dict[str, Any]] = Field(
+    intents: list[ModelReducerIntent] = Field(
         default_factory=list,
         description="Intents emitted to orchestrator",
     )
-    metadata: ReducerMetadataDict | dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the transition",
+    metadata: ModelReducerMetadata | None = Field(
+        default=None,
+        description="Metadata about the transition",
     )
     errors: list[str] = Field(
         default_factory=list,
@@ -73,7 +184,8 @@ class ModelReducerOutput(BaseModel):
 
 
 __all__ = [
+    "ModelReducerIntent",
+    "ModelReducerIntentPayload",
+    "ModelReducerMetadata",
     "ModelReducerOutput",
-    "ReducerIntentDict",
-    "ReducerMetadataDict",
 ]

@@ -151,8 +151,8 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
         raise
 
     finally:
-        # Cleanup
-        await adapter._cleanup_node_resources()
+        # Cleanup using public shutdown API
+        await adapter.shutdown()
         logger.info("\n✓ Cleanup complete")
 
 
@@ -230,9 +230,9 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]
             for rec in result.recommendations:
                 logger.info(f"  - {rec}")
 
-        if result.result_data:
+        if result.analysis_results:
             logger.info("\nAdditional Data:")
-            for key, value in result.result_data.items():
+            for key, value in result.analysis_results.items():
                 logger.info(f"  {key}: {value}")
 
         return result
@@ -252,7 +252,8 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]
         raise
 
     finally:
-        await adapter._cleanup_node_resources()
+        # Cleanup using public shutdown API
+        await adapter.shutdown()
 
 
 async def main() -> None:

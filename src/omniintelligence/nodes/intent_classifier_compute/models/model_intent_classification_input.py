@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -17,9 +17,9 @@ class ConversationMessageDict(TypedDict):
 class IntentContextDict(TypedDict, total=False):
     """Typed structure for intent classification context.
 
-    Provides stronger typing for common context fields while allowing
-    additional fields via dict[str, Any] union. Use this typed dict
-    for better IDE support and type checking.
+    Provides stronger typing for common context fields. With total=False,
+    all fields are optional, allowing any subset to be provided. Use this
+    typed dict for better IDE support and type checking.
     """
 
     # User and session tracking
@@ -60,9 +60,10 @@ class ModelIntentClassificationInput(BaseModel):
         description="Correlation ID for tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
-    context: IntentContextDict | dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional context for intent classification",
+    context: IntentContextDict = Field(
+        default_factory=lambda: IntentContextDict(),
+        description="Additional context for intent classification. Uses IntentContextDict "
+        "with total=False, allowing any subset of typed fields.",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}

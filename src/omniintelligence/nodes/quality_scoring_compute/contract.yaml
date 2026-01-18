@@ -35,13 +35,14 @@ operations:
       - dimensions
       - onex_compliant
       - recommendations
-# TODO(ONEX-PROTO-003): Create omniintelligence.protocols module with quality analyzer protocol
-# - Create protocols/ directory with QualityAnalyzerProtocol
-# - Define interface for quality analysis (analyze, score, get_recommendations)
-# - Currently no protocols directory exists - this is a placeholder for future implementation
-# - Tracked in: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
-#
+      - metadata
+# Protocol Dependencies (Future)
+# ==============================
+# When implementing full functionality, a quality analyzer protocol will be needed.
+# Tracked in: https://github.com/OmniNode-ai/omniintelligence/issues/13
+# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "quality_analyzer"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -58,10 +59,8 @@ error_handling:
       description: "Error during quality scoring computation"
       recoverable: true
       retry_strategy: "immediate_retry"
-health_check:
-  enabled: true
-  endpoint: "/health"
-  interval_seconds: 30
+# Note: health_check omitted - pure compute nodes are stateless with no external
+# dependencies, so health checks are not applicable.
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"

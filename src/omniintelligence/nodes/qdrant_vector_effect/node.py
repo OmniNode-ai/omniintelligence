@@ -5,15 +5,16 @@
 from __future__ import annotations
 
 import warnings
+from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
+from uuid import uuid4
 
+from omnibase_core.enums.enum_effect_types import EnumTransactionState
+from omnibase_core.models.effect.model_effect_input import ModelEffectInput
+from omnibase_core.models.effect.model_effect_output import ModelEffectOutput
 from omnibase_core.nodes.node_effect import NodeEffect
 
-from omniintelligence.nodes.qdrant_vector_effect.models import ModelQdrantVectorOutput
-
 if TYPE_CHECKING:
-    from typing import Any
-
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
@@ -47,14 +48,14 @@ class NodeQdrantVectorEffect(NodeEffect):
         )
         super().__init__(container)
 
-    async def process(self, _input_data: dict[str, Any]) -> ModelQdrantVectorOutput:
+    async def process(self, input_data: ModelEffectInput) -> ModelEffectOutput:
         """Process vector operation (STUB - returns empty result).
 
         Args:
-            _input_data: Input data for vector operation (unused in stub).
+            input_data: Effect input data (unused in stub, but signature matches base class).
 
         Returns:
-            Stub result with success=True but no vectors processed.
+            ModelEffectOutput with stub result indicating no vectors were processed.
         """
         warnings.warn(
             f"NodeQdrantVectorEffect.process() is a stub that returns empty "
@@ -63,16 +64,26 @@ class NodeQdrantVectorEffect(NodeEffect):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return ModelQdrantVectorOutput(
-            success=True,
-            vectors_processed=0,
-            search_results=[],
-            deleted_count=0,
-            metadata={
-                "status": "stub",
-                "message": "NodeQdrantVectorEffect is not yet implemented",
-                "tracking_url": _STUB_TRACKING_URL,
+        return ModelEffectOutput(
+            result={
+                "success": True,
+                "vectors_processed": 0,
+                "search_results": [],
+                "deleted_count": 0,
+                "metadata": {
+                    "status": "stub",
+                    "message": "NodeQdrantVectorEffect is not yet implemented",
+                    "tracking_url": _STUB_TRACKING_URL,
+                },
             },
+            operation_id=input_data.operation_id or uuid4(),
+            effect_type=input_data.effect_type,
+            transaction_state=EnumTransactionState.COMMITTED,
+            processing_time_ms=0.0,
+            retry_count=0,
+            side_effects_applied=[],
+            rollback_operations=[],
+            timestamp=datetime.now(),
         )
 
 

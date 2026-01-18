@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -51,13 +51,15 @@ class ModelIntentClassificationOutput(BaseModel):
         le=1.0,
         description="Confidence score for the primary intent (0.0 to 1.0)",
     )
-    secondary_intents: list[SecondaryIntentDict | dict[str, Any]] = Field(
+    secondary_intents: list[SecondaryIntentDict] = Field(
         default_factory=list,
-        description="List of secondary intents with confidence scores",
+        description="List of secondary intents with confidence scores. Uses SecondaryIntentDict "
+        "with total=False, allowing any subset of typed fields per entry.",
     )
-    metadata: IntentMetadataDict | dict[str, Any] | None = Field(
+    metadata: IntentMetadataDict | None = Field(
         default=None,
-        description="Additional metadata about the classification",
+        description="Additional metadata about the classification. Uses IntentMetadataDict "
+        "with total=False, allowing any subset of typed fields.",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}

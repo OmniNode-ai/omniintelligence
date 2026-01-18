@@ -60,11 +60,15 @@ class NodeMemgraphGraphEffect(NodeEffect):
             stacklevel=2,
         )
         return {
-            "status": "stub",
-            "message": "NodeMemgraphGraphEffect is not yet implemented",
-            "nodes": [],
-            "edges": [],
-            "tracking_url": _STUB_TRACKING_URL,
+            "success": True,
+            "nodes_created": 0,
+            "relationships_created": 0,
+            "query_results": [],
+            "metadata": {
+                "is_stub": True,
+                "message": "NodeMemgraphGraphEffect is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
+            },
         }
 
 

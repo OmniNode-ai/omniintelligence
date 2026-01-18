@@ -404,7 +404,7 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                 payload={
                     "document_id": input_data.document_id,
                     "new_state": new_state.value,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
             ))
 
@@ -447,7 +447,7 @@ class IntelligenceReducer(NodeOmniAgentReducer[
                     "topic": "dev.intelligence.ingestion.completed.v1",
                     "event": {
                         "document_id": input_data.document_id,
-                        "completed_at": datetime.utcnow().isoformat()
+                        "completed_at": datetime.now(timezone.utc).isoformat()
                     }
                 }
             ))
@@ -987,7 +987,7 @@ intents.append(ModelIntent(
         "updates": {
             "current_state": new_state.value,
             "previous_state": current_state.value,
-            "transition_timestamp": datetime.utcnow().isoformat(),
+            "transition_timestamp": datetime.now(timezone.utc).isoformat(),
             "metadata": input_data.metadata  # FSM-specific data
         }
     }

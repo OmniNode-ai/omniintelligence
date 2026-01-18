@@ -8,8 +8,6 @@ This script applies SQL migrations in order to set up the database schema.
 import asyncio
 import sys
 from pathlib import Path
-from typing import List, Optional
-
 import asyncpg
 
 
@@ -35,14 +33,14 @@ class MigrationRunner:
             )
         """)
 
-    async def get_applied_migrations(self, conn: asyncpg.Connection) -> List[str]:
+    async def get_applied_migrations(self, conn: asyncpg.Connection) -> list[str]:
         """Get list of applied migrations."""
         rows = await conn.fetch(
             "SELECT migration_name FROM schema_migrations ORDER BY migration_name"
         )
         return [row["migration_name"] for row in rows]
 
-    def get_pending_migrations(self, applied: List[str]) -> List[Path]:
+    def get_pending_migrations(self, applied: list[str]) -> list[Path]:
         """Get list of pending migration files."""
         all_migrations = sorted(self.migrations_dir.glob("*.sql"))
         return [

@@ -907,6 +907,9 @@ class NodeIntelligenceAdapterEffect:
             causation_id: Event ID that caused this event
             start_time: Request start time for metrics
         """
+        # Initialize input_data before try block to ensure it exists in exception handlers
+        input_data: ModelIntelligenceInput | None = None
+
         try:
             # Step 1: Convert event payload to intelligence input
             input_data = ModelIntelligenceInput(
@@ -968,7 +971,7 @@ class NodeIntelligenceAdapterEffect:
             )
             processing_time_ms = (time.perf_counter() - start_time) * 1000
             await self._publish_analysis_failed_event(
-                input_data=input_data if "input_data" in locals() else None,
+                input_data=input_data,
                 error_message=str(e),
                 error_code="SERVICE_UNAVAILABLE",
                 correlation_id=correlation_id,
@@ -990,7 +993,7 @@ class NodeIntelligenceAdapterEffect:
             # Publish failure event
             processing_time_ms = (time.perf_counter() - start_time) * 1000
             await self._publish_analysis_failed_event(
-                input_data=input_data if "input_data" in locals() else None,
+                input_data=input_data,
                 error_message=str(e),
                 error_code="INTERNAL_ERROR",
                 correlation_id=correlation_id,
@@ -1242,11 +1245,9 @@ class NodeIntelligenceAdapterEffect:
                         ts_value / 1000, tz=UTC
                     ).isoformat()
 
-            # Determine error type using simplified extraction pattern
-            resolved_error_type = (
-                error_type  # Use explicit type if provided
-                or (type(error).__name__ if isinstance(error, Exception) else None)
-                or "ProcessingError"  # Default fallback
+            # Determine error type: use explicit type, extract from exception, or default
+            resolved_error_type = error_type or (
+                type(error).__name__ if isinstance(error, Exception) else "ProcessingError"
             )
             error_message = str(error)
 
@@ -1410,8 +1411,6 @@ class NodeIntelligenceAdapterEffect:
                 message="Intelligence Adapter Effect Node not initialized. Call initialize() first.",
             )
 
-        # Track analysis start
-        start_time = time.perf_counter()
         # Type-safe increment of total_analyses
         total = self._stats.get("total_analyses", 0)
         self._stats["total_analyses"] = (int(total) if total is not None else 0) + 1

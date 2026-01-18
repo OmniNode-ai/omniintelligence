@@ -42,6 +42,7 @@ class ModelPatternAssemblyComputeInput(BaseModel):
     correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for traceability",
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
 
 

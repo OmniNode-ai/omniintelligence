@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Self, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class KeywordContextEntry(TypedDict, total=False):
@@ -73,14 +73,49 @@ class ModelKeywordExtractionOutput(BaseModel):
         default_factory=list,
         description="List of extracted keywords",
     )
-    keyword_contexts: dict[str, KeywordContextEntry] | dict[str, Any] = Field(
+    keyword_contexts: dict[str, KeywordContextEntry] = Field(
         default_factory=dict,
         description="Context information for each keyword with typed structure",
     )
-    metadata: ExtractionMetadataDict | dict[str, Any] | None = Field(
+    metadata: ExtractionMetadataDict | None = Field(
         default=None,
         description="Additional metadata about the extraction with typed fields",
     )
+
+    @model_validator(mode="after")
+    def validate_keywords_match_contexts(self) -> Self:
+        """Validate that keywords list matches keyword_contexts keys.
+
+        Ensures consistency between the list of keywords and the dictionary
+        containing their context information. Every keyword should have a
+        corresponding context entry and vice versa.
+
+        Returns:
+            Self with validated keyword/context consistency.
+
+        Raises:
+            ValueError: If keywords list doesn't match keyword_contexts keys.
+        """
+        keywords_set = set(self.keywords)
+        contexts_set = set(self.keyword_contexts.keys())
+
+        if keywords_set != contexts_set:
+            missing_contexts = keywords_set - contexts_set
+            extra_contexts = contexts_set - keywords_set
+            error_parts = []
+            if missing_contexts:
+                error_parts.append(
+                    f"keywords missing context entries: {sorted(missing_contexts)}"
+                )
+            if extra_contexts:
+                error_parts.append(
+                    f"context entries without keywords: {sorted(extra_contexts)}"
+                )
+            raise ValueError(
+                f"keywords list must match keyword_contexts keys. "
+                f"{'; '.join(error_parts)}"
+            )
+        return self
 
     model_config = {"frozen": True, "extra": "forbid"}
 

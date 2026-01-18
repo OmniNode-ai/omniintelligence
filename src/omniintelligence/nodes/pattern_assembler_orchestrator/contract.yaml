@@ -109,23 +109,43 @@ error_handling:
     reset_timeout_ms: 60000
   error_types:
     - name: "TraceParsingError"
-      error_code: "PATTERN_ASSEMBLER_TRACE_PARSING_ERROR"
+      error_code: "PAO_001"
       description: "Error during execution trace parsing"
       recoverable: true
       retry_strategy: "exponential_backoff"
     - name: "KeywordExtractionError"
-      error_code: "PATTERN_ASSEMBLER_KEYWORD_EXTRACTION_ERROR"
+      error_code: "PAO_002"
       description: "Error during keyword extraction"
       recoverable: true
       retry_strategy: "exponential_backoff"
+    - name: "IntentClassificationError"
+      error_code: "PAO_003"
+      description: "Error during intent classification"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "CriteriaMatchingError"
+      error_code: "PAO_004"
+      description: "Error during success criteria matching"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
     - name: "PatternAssemblyError"
-      error_code: "PATTERN_ASSEMBLER_ASSEMBLY_ERROR"
+      error_code: "PAO_005"
       description: "Error during pattern assembly"
       recoverable: true
       retry_strategy: "exponential_backoff"
     - name: "WorkflowTimeoutError"
-      error_code: "PATTERN_ASSEMBLER_WORKFLOW_TIMEOUT"
+      error_code: "PAO_006"
       description: "Workflow execution exceeded timeout"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DependencyResolutionError"
+      error_code: "PAO_007"
+      description: "Error resolving workflow dependencies"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "InvalidInputError"
+      error_code: "PAO_008"
+      description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
 health_check:

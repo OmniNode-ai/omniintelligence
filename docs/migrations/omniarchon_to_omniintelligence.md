@@ -115,29 +115,166 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 ## 9. Validation Checklist
 
 ### Required Node Artifacts
-- [ ] All node directories include the following required artifacts:
-  - `contract.yaml` - Main node contract definition
-  - `contracts/` - Additional subcontracts directory (if node uses subcontracts)
-  - `models/` - Pydantic input/output models
-  - `node.py` - Main node implementation
-  - `introspection.py` - Introspection support module (optional for stubs)
-  - `scenarios/` - Integration test scenarios (YAML-based, optional for stubs)
-  - `node_tests/` - Node-specific unit tests (optional for stubs)
-- [ ] Linked document contracts are present where applicable:
-  - `node_config.yaml` - Node-specific configuration schema (linked from contract.yaml)
-  - `deployment_config.yaml` - Deployment and infrastructure configuration
-  - `subcontracts/*.yaml` - FSM, EventType, Aggregation, StateManagement, Routing, Caching
-- [ ] Linked document contract references in contract.yaml follow pattern:
-  ```yaml
-  linked_contracts:
-    - type: "node_config"
-      path: "./node_config.yaml"
-      description: "Node-specific configuration"
-    - type: "subcontract"
-      path: "./contracts/fsm_contract.yaml"
-      description: "FSM state transitions"
-  ```
-- [ ] Architecture decisions documented in `ARCHITECTURE_DECISIONS.md` (for complex nodes)
+
+All ONEX nodes must follow the canonical directory structure. Two patterns are supported:
+
+**Pattern A: Flat Structure** (current implementation)
+```
+nodes/
+└── node_name/
+    ├── __init__.py              # Module initialization (REQUIRED)
+    ├── __main__.py              # CLI entry point (REQUIRED for executable nodes)
+    ├── contract.yaml            # Main node contract definition (REQUIRED)
+    ├── models/                  # Pydantic models directory (REQUIRED)
+    │   ├── __init__.py          # Model exports
+    │   ├── model_*.py           # Input/output model classes
+    │   └── enum_*.py            # Enumeration definitions
+    └── node.py                  # Main node implementation (REQUIRED)
+```
+
+**Pattern B: Versioned Structure** (canonical reference)
+```
+nodes/
+└── node_name/
+    ├── __init__.py
+    └── v1_0_0/
+        ├── __init__.py
+        ├── __main__.py
+        ├── contract.yaml
+        ├── contracts/           # Subcontracts directory
+        ├── models/
+        ├── node.py
+        ├── introspection.py
+        ├── scenarios/
+        └── node_tests/
+```
+
+**Required Artifacts Checklist**:
+
+- [ ] `__init__.py` - Module initialization with exports
+- [ ] `__main__.py` - CLI entry point (for executable nodes)
+- [ ] `contract.yaml` - Main node contract with:
+  - `contract_version` (semver)
+  - `node_version` (semver)
+  - `name`, `node_type`, `description`
+  - `input_model` and `output_model` references
+  - `operations` list with input/output field mappings
+  - `error_handling` configuration
+  - `health_check` settings
+  - `metadata` (author, dates, tags)
+- [ ] `models/` directory containing:
+  - `__init__.py` with model exports
+  - `model_<name>_input.py` - Input Pydantic model
+  - `model_<name>_output.py` - Output Pydantic model
+  - `enum_*.py` - Enumeration types (operation types, states, etc.)
+- [ ] `node.py` - Main implementation with:
+  - Node class following naming convention (`Node<Name><Type>`)
+  - Async execution method (`execute_compute`, `execute_effect`, etc.)
+  - Proper error handling and logging
+
+**Optional Artifacts** (required for production nodes):
+
+- [ ] `introspection.py` - Introspection support for runtime inspection
+- [ ] `scenarios/` - YAML-based integration test scenarios
+- [ ] `node_tests/` - Node-specific unit tests
+- [ ] `infrastructure/` - Supporting infrastructure code (for effect nodes)
+- [ ] `ARCHITECTURE_DECISIONS.md` - Design rationale for complex nodes
+
+### Linked Document Contracts
+
+ONEX uses a linked-doc architecture where contracts reference external configuration files.
+
+**Configuration Contracts**:
+
+- [ ] `node_config.yaml` - Node-specific configuration schema:
+  - Performance settings (timeouts, memory limits, concurrency)
+  - Resource requirements (CPU, memory, disk, network)
+  - Runtime configuration (environment variables, startup/shutdown)
+  - Monitoring configuration (metrics, health checks, alerts)
+  - Security configuration (input sanitization, access controls)
+  - Feature flags
+
+- [ ] `deployment_config.yaml` - Deployment and infrastructure configuration:
+  - Container settings (image, resources, replicas)
+  - Environment-specific overrides
+  - Secret references (never hardcoded values)
+  - Network configuration
+  - Scaling policies
+
+**Subcontract Types** (6 canonical types):
+
+- [ ] `contracts/fsm_contract.yaml` - Finite State Machine definition:
+  - State enumeration
+  - Transition rules
+  - Guard conditions
+  - Entry/exit actions
+
+- [ ] `contracts/event_type_contract.yaml` - Event type definitions:
+  - Event schemas
+  - Topic mappings
+  - Payload validation rules
+
+- [ ] `contracts/aggregation_contract.yaml` - Aggregation patterns:
+  - Aggregation strategies
+  - Windowing configuration
+  - Merge operations
+
+- [ ] `contracts/state_management_contract.yaml` - State persistence:
+  - State schema
+  - Persistence strategy
+  - Recovery procedures
+  - Snapshot configuration
+
+- [ ] `contracts/routing_contract.yaml` - Message routing:
+  - Routing rules
+  - Filter expressions
+  - Destination mappings
+
+- [ ] `contracts/caching_contract.yaml` - Cache configuration:
+  - Cache strategy (LRU, TTL, etc.)
+  - Key patterns
+  - Invalidation rules
+  - Size limits
+
+**Linked Document Reference Patterns**:
+
+In `contract.yaml`, use `$ref` for external references:
+```yaml
+# Schema references
+input_state:
+  full_schema: {$ref: "contracts/contract_models.yaml#/input_state"}
+
+output_state:
+  full_schema: {$ref: "contracts/contract_models.yaml#/output_state"}
+
+# CLI parameter references
+cli_parameters: {$ref: "contracts/contract_cli.yaml#/cli_parameters"}
+
+# Subcontract references
+subcontracts:
+  models: {$ref: "contracts/contract_models.yaml"}
+  cli: {$ref: "contracts/contract_cli.yaml"}
+  actions: {$ref: "contracts/contract_actions.yaml"}
+  validation: {$ref: "contracts/contract_validation.yaml"}
+  fsm: {$ref: "contracts/fsm_contract.yaml"}
+```
+
+Alternative explicit linked_contracts format:
+```yaml
+linked_contracts:
+  - type: "node_config"
+    path: "./node_config.yaml"
+    description: "Node-specific configuration"
+  - type: "deployment_config"
+    path: "./deployment_config.yaml"
+    description: "Deployment configuration"
+  - type: "subcontract"
+    path: "./contracts/fsm_contract.yaml"
+    description: "FSM state transitions"
+  - type: "subcontract"
+    path: "./contracts/event_type_contract.yaml"
+    description: "Event type definitions"
+```
 
 ### Code Quality
 - [ ] Enumerations replace string literals for tool names, topics, and status codes.

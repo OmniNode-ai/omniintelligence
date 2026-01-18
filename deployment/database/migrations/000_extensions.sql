@@ -29,12 +29,17 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enables: similarity(), word_similarity(), GIN/GiST trigram indexes
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- btree_gin: B-tree operations for GIN indexes
+-- Used for: Efficient indexing of JSONB fields, composite indexes
+-- Enables: GIN indexes on scalar types (int, text, timestamp, etc.)
+CREATE EXTENSION IF NOT EXISTS btree_gin;
+
 -- ============================================================================
 -- Verification Query (for debugging/validation)
 -- ============================================================================
 -- Uncomment to verify extensions are installed:
 -- SELECT extname, extversion FROM pg_extension
--- WHERE extname IN ('pgcrypto', 'uuid-ossp', 'pg_trgm')
+-- WHERE extname IN ('pgcrypto', 'uuid-ossp', 'pg_trgm', 'btree_gin')
 -- ORDER BY extname;
 
 -- ============================================================================
@@ -47,9 +52,6 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 --
 -- - hstore: Key-value pair storage
 --   CREATE EXTENSION IF NOT EXISTS hstore;
---
--- - btree_gin: GIN index support for scalar types
---   CREATE EXTENSION IF NOT EXISTS btree_gin;
 --
 -- - pg_stat_statements: Query performance statistics
 --   CREATE EXTENSION IF NOT EXISTS pg_stat_statements;

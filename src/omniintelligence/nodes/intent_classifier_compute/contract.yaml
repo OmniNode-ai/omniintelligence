@@ -35,11 +35,14 @@ operations:
       - intent_category
       - confidence
       - secondary_intents
-# TODO(ONEX-PROTO-002): Create omniintelligence.protocols module with intent classifier protocol
-# - Create protocols/ directory with IntentClassifierProtocol
-# - Define interface for intent classification (classify, get_categories, get_confidence)
-# - Currently no protocols directory exists - this is a placeholder for future implementation
-# - Tracked in: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
+# Future Enhancement: Protocol Integration (ONEX-PROTO-002)
+# ---------------------------------------------------------
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
+# Status: Backlog - Protocols directory not yet implemented
+# When implemented:
+#   - Create omniintelligence.protocols.IntentClassifierProtocol
+#   - Define classify(), get_categories(), get_confidence() interface
+#   - Uncomment dependency below
 #
 dependencies: []
 # - name: "intent_classifier"

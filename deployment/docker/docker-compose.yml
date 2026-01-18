@@ -57,17 +57,29 @@ services:
       POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS:-200}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Mount migrations to docker-entrypoint-initdb.d for automatic execution on first run
-      # 000_extensions.sql creates: uuid-ossp, pgcrypto, pg_trgm
-      # 001_create_fsm_state_table.sql, 002_create_fsm_state_history.sql, etc.
+      # ========================================================================
+      # PostgreSQL Migrations (Auto-executed on first run)
+      # ========================================================================
+      # docker-entrypoint-initdb.d executes *.sql files in alphabetical order:
+      #   000_extensions.sql    - Creates: pgcrypto, uuid-ossp, pg_trgm, btree_gin
+      #   001_create_fsm_state_table.sql   - FSM state tracking
+      #   002_create_fsm_state_history.sql - FSM history audit trail
+      #   003_create_workflow_executions.sql - Workflow execution tracking
+      #
+      # IMPORTANT: Files only run on first container initialization (empty volume)
+      # For existing volumes, manually run: psql -f /docker-entrypoint-initdb.d/<file>
+      # ========================================================================
       - ../database/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - omni-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      # Uses pg_isready which checks PostgreSQL is accepting connections
+      # The -d flag verifies the specific database exists and is accessible
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-omniintelligence}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -86,19 +98,25 @@ services:
     image: qdrant/qdrant:v1.7.4
     container_name: omni-qdrant
     ports:
-      - "${QDRANT_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
+      - "${QDRANT_PORT:-6333}:6333"     # REST API
+      - "${QDRANT_GRPC_PORT:-6334}:6334" # gRPC API
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
       - omni-network
     healthcheck:
-      # NOTE: qdrant/qdrant image does NOT include curl - use wget instead
-      # Uses /readiness endpoint for Kubernetes-style health checks (more reliable than /health)
+      # ========================================================================
+      # Qdrant Health Check Configuration
+      # ========================================================================
+      # IMPORTANT: qdrant/qdrant image does NOT include curl - must use wget
+      # /readiness endpoint returns 200 when service is ready to accept requests
+      # This is more reliable than /health for load balancer integration
+      # ========================================================================
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/readiness"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
     restart: unless-stopped
     deploy:
       resources:
@@ -117,8 +135,8 @@ services:
     image: memgraph/memgraph-platform:latest
     container_name: omni-memgraph
     ports:
-      - "${MEMGRAPH_PORT:-7687}:7687"  # Bolt protocol
-      - "${MEMGRAPH_HTTP_PORT:-3000}:3000"  # Lab UI
+      - "${MEMGRAPH_PORT:-7687}:7687"      # Bolt protocol (Cypher queries)
+      - "${MEMGRAPH_HTTP_PORT:-3000}:3000"  # Lab UI (web interface)
     volumes:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
@@ -127,10 +145,13 @@ services:
     networks:
       - omni-network
     healthcheck:
+      # Uses netcat (nc) to verify Bolt port is accepting connections
+      # The memgraph-platform image includes nc for health checks
       test: ["CMD", "nc", "-z", "localhost", "7687"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -160,12 +181,18 @@ services:
     networks:
       - omni-network
     healthcheck:
-      # Uses REDISCLI_AUTH env var for authentication - password not visible in process listing
-      # Verifies PONG response to ensure service is fully operational
+      # ========================================================================
+      # Valkey Health Check (Redis-compatible)
+      # ========================================================================
+      # Uses REDISCLI_AUTH env var for authentication - password not visible in ps
+      # valkey-cli PING returns "PONG" when service is operational
+      # The grep ensures we verify the response, not just command success
+      # ========================================================================
       test: ["CMD", "sh", "-c", "valkey-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
     deploy:
       resources:
@@ -249,6 +276,7 @@ services:
     ports:
       - "${REDPANDA_CONSOLE_PORT:-8080}:8080"
     environment:
+      # Connect to Redpanda using internal Docker network port (9092)
       KAFKA_BROKERS: redpanda:9092
     networks:
       - omni-network
@@ -256,8 +284,14 @@ services:
       redpanda:
         condition: service_healthy
     healthcheck:
-      # Use wget for healthcheck - curl may not be available in all console image versions
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      # ========================================================================
+      # Redpanda Console Health Check
+      # ========================================================================
+      # The console image includes curl for health checks
+      # /api/health returns 200 when the UI is ready and connected to Kafka
+      # -f flag makes curl fail on HTTP errors (4xx/5xx)
+      # ========================================================================
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 15s
       timeout: 5s
       retries: 5

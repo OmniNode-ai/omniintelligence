@@ -157,8 +157,7 @@ class ProtocolContractValidator:
             self._validate_version_fields(data, is_node_contract=is_node_contract)
         )
 
-        # Get or validate node_type
-        node_type = data.get("node_type")
+        # Validate node_type matches expected contract_type (if provided)
         if (
             contract_type
             and node_type
@@ -258,57 +257,79 @@ class ProtocolContractValidator:
     def _validate_version_structure(
         self, version: Any, field_name: str = "version"
     ) -> list[str]:
-        """Validate version field structure.
+        """Validate version field structure and semantic version format.
 
         Version must be an object with major, minor, and patch fields.
+        Each component must be a non-negative integer following semantic versioning.
         String versions like "1.0.0" are not valid for ONEX contracts.
+
+        Args:
+            version: The version value to validate.
+            field_name: The field name for error messages (e.g., "contract_version").
+
+        Returns:
+            List of violation messages for any validation failures.
         """
         violations: list[str] = []
+
+        if version is None:
+            violations.append(f"{field_name}: Version field cannot be null")
+            return violations
 
         if isinstance(version, str):
             # String version is not valid for ONEX contracts - must be object
             violations.append(
-                f"{field_name}: Expected object with major/minor/patch fields, got string '{version}'"
+                f"{field_name}: Expected object with major/minor/patch fields, got string '{version}'. "
+                f"Use structured format: {field_name}: {{major: 1, minor: 0, patch: 0}}"
             )
         elif isinstance(version, dict):
-            # Structured version object - validate required fields
-            if "major" not in version:
-                violations.append(f"{field_name}.major: Missing required field")
-            if "minor" not in version:
-                violations.append(f"{field_name}.minor: Missing required field")
-            if "patch" not in version:
-                violations.append(f"{field_name}.patch: Missing required field")
-        elif version is not None:
+            # Structured version object - validate required fields and their types
+            version_components = ("major", "minor", "patch")
+
+            for component in version_components:
+                if component not in version:
+                    violations.append(
+                        f"{field_name}.{component}: Missing required field. "
+                        f"Semantic version requires major, minor, and patch components."
+                    )
+                else:
+                    component_value = version[component]
+                    violations.extend(
+                        self._validate_version_component(
+                            component_value, f"{field_name}.{component}"
+                        )
+                    )
+        else:
             violations.append(
-                f"{field_name}: Expected object with major/minor/patch, got {type(version).__name__}"
+                f"{field_name}: Expected object with major/minor/patch, got {type(version).__name__}. "
+                f"Use structured format: {field_name}: {{major: 1, minor: 0, patch: 0}}"
             )
 
         return violations
 
-    def _validate_version(self, version: Any) -> list[str]:
-        """Validate version field structure.
+    def _validate_version_component(
+        self, value: Any, component_path: str
+    ) -> list[str]:
+        """Validate a single version component (major, minor, or patch).
 
-        Version must be an object with major, minor, and patch fields.
-        String versions like "1.0.0" are not valid for ONEX contracts.
+        Args:
+            value: The component value to validate.
+            component_path: Full path for error messages (e.g., "contract_version.major").
+
+        Returns:
+            List of violation messages for any validation failures.
         """
         violations: list[str] = []
 
-        if isinstance(version, str):
-            # String version is not valid for ONEX contracts - must be object
+        if value is None:
+            violations.append(f"{component_path}: Version component cannot be null")
+        elif not isinstance(value, int):
             violations.append(
-                f"version: Expected object with major/minor/patch fields, got string '{version}'"
+                f"{component_path}: Expected non-negative integer, got {type(value).__name__} ({value!r})"
             )
-        elif isinstance(version, dict):
-            # Structured version object - validate required fields
-            if "major" not in version:
-                violations.append("version.major: Missing required field")
-            if "minor" not in version:
-                violations.append("version.minor: Missing required field")
-            if "patch" not in version:
-                violations.append("version.patch: Missing required field")
-        elif version is not None:
+        elif value < 0:
             violations.append(
-                f"version: Expected object with major/minor/patch, got {type(version).__name__}"
+                f"{component_path}: Version component must be non-negative, got {value}"
             )
 
         return violations
