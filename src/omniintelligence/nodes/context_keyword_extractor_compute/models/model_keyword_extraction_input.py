@@ -27,6 +27,7 @@ class ModelKeywordExtractionInput(BaseModel):
     )
     max_keywords: int = Field(
         default=20,
+        ge=1,
         description="Maximum number of keywords to extract",
     )
 

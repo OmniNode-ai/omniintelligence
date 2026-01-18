@@ -5,11 +5,15 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
+from omniintelligence.nodes.qdrant_vector_effect.models import ModelQdrantVectorOutput
+
 if TYPE_CHECKING:
+    from typing import Any
+
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
@@ -43,14 +47,14 @@ class NodeQdrantVectorEffect(NodeEffect):
         )
         super().__init__(container)
 
-    async def process(self, _input_data: dict[str, Any]) -> dict[str, Any]:
+    async def process(self, _input_data: dict[str, Any]) -> ModelQdrantVectorOutput:
         """Process vector operation (STUB - returns empty result).
 
         Args:
             _input_data: Input data for vector operation (unused in stub).
 
         Returns:
-            Empty result dictionary indicating stub status.
+            Stub result with success=True but no vectors processed.
         """
         warnings.warn(
             f"NodeQdrantVectorEffect.process() is a stub that returns empty "
@@ -59,18 +63,17 @@ class NodeQdrantVectorEffect(NodeEffect):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        # Return payload matching ModelQdrantVectorOutput schema
-        return {
-            "success": True,  # Stub completed without error
-            "vectors_processed": 0,
-            "search_results": [],
-            "deleted_count": 0,
-            "metadata": {
+        return ModelQdrantVectorOutput(
+            success=True,
+            vectors_processed=0,
+            search_results=[],
+            deleted_count=0,
+            metadata={
                 "status": "stub",
                 "message": "NodeQdrantVectorEffect is not yet implemented",
                 "tracking_url": _STUB_TRACKING_URL,
             },
-        }
+        )
 
 
 __all__ = ["NodeQdrantVectorEffect"]

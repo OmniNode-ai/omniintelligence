@@ -15,6 +15,7 @@ class ModelRelationshipDetectionInput(BaseModel):
 
     entities: list[dict[str, Any]] = Field(
         ...,
+        min_length=1,
         description="List of entities to analyze for relationships",
     )
     context: dict[str, Any] = Field(

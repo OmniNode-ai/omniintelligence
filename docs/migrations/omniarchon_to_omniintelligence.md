@@ -117,15 +117,26 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 ### Required Node Artifacts
 - [ ] All node directories include the following required artifacts:
   - `contract.yaml` - Main node contract definition
-  - `contracts/` - Additional subcontracts directory
+  - `contracts/` - Additional subcontracts directory (if node uses subcontracts)
   - `models/` - Pydantic input/output models
   - `node.py` - Main node implementation
-  - `introspection.py` - Introspection support module
-  - `scenarios/` - Integration test scenarios (YAML-based)
-  - `node_tests/` - Node-specific unit tests
+  - `introspection.py` - Introspection support module (optional for stubs)
+  - `scenarios/` - Integration test scenarios (YAML-based, optional for stubs)
+  - `node_tests/` - Node-specific unit tests (optional for stubs)
 - [ ] Linked document contracts are present where applicable:
-  - `node_config.yaml` - Node-specific configuration schema
+  - `node_config.yaml` - Node-specific configuration schema (linked from contract.yaml)
   - `deployment_config.yaml` - Deployment and infrastructure configuration
+  - `subcontracts/*.yaml` - FSM, EventType, Aggregation, StateManagement, Routing, Caching
+- [ ] Linked document contract references in contract.yaml follow pattern:
+  ```yaml
+  linked_contracts:
+    - type: "node_config"
+      path: "./node_config.yaml"
+      description: "Node-specific configuration"
+    - type: "subcontract"
+      path: "./contracts/fsm_contract.yaml"
+      description: "FSM state transitions"
+  ```
 - [ ] Architecture decisions documented in `ARCHITECTURE_DECISIONS.md` (for complex nodes)
 
 ### Code Quality
@@ -155,16 +166,26 @@ The following items are marked as TODO in contract files and require implementat
 
 ### Intent/State Model TODOs
 
-| Location | TODO | Priority | Notes |
-|----------|------|----------|-------|
-| `nodes/intelligence_reducer/contract.yaml:307` | Intent emission models not implemented | Medium | Create `ModelWorkflowTriggerPayload` and `ModelEventPublishPayload` when implementing intent-based workflow triggering |
-| `nodes/intelligence_reducer/contract.yaml:327` | State model not implemented | Medium | Create `ModelIntelligenceState` for pure reducer pattern with immutable state |
-| `nodes/intent_classifier_compute/contract.yaml:38` | Protocol module not created | Low | Create `omniintelligence.protocols` module with intent classifier protocol definition |
+| Location | TODO ID | Description | Priority | Notes |
+|----------|---------|-------------|----------|-------|
+| `nodes/intelligence_reducer/contract.yaml:307` | - | Intent emission models not implemented | Medium | Create `ModelWorkflowTriggerPayload` and `ModelEventPublishPayload` when implementing intent-based workflow triggering |
+| `nodes/intelligence_reducer/contract.yaml:327` | - | State model not implemented | Medium | Create `ModelIntelligenceState` for pure reducer pattern with immutable state |
+
+### Protocol Module TODOs
+
+| Location | TODO ID | Description | Priority | Notes |
+|----------|---------|-------------|----------|-------|
+| `nodes/vectorization_compute/contract.yaml:52` | ONEX-EMBED-001 | Embedding model protocol not created | Low | Create `EmbeddingModelProtocol` in `omniintelligence.protocols` |
+| `nodes/intent_classifier_compute/contract.yaml:38` | ONEX-PROTO-002 | Intent classifier protocol not created | Low | Create `IntentClassifierProtocol` in `omniintelligence.protocols` |
+| `nodes/quality_scoring_compute/contract.yaml:38` | ONEX-PROTO-003 | Quality analyzer protocol not created | Low | Create `QualityAnalyzerProtocol` in `omniintelligence.protocols` |
 
 ### Resolution Plan
 
 1. **Phase 1 (v0.2.0)**: Implement `ModelIntelligenceState` for pure reducer pattern
 2. **Phase 2 (v0.3.0)**: Add intent emission infrastructure with `ModelWorkflowTriggerPayload`
-3. **Phase 3 (v0.4.0)**: Create protocols module and formalize intent classifier interface
+3. **Phase 3 (v0.4.0)**: Create protocols module and formalize all protocol interfaces:
+   - `EmbeddingModelProtocol` - Interface for embedding generation
+   - `IntentClassifierProtocol` - Interface for intent classification
+   - `QualityAnalyzerProtocol` - Interface for quality analysis
 
-These TODOs are tracked in the contract files themselves with inline comments explaining the intended implementation.
+These TODOs are tracked in the contract files themselves with inline comments explaining the intended implementation. Each TODO includes a reference back to this document for traceability.

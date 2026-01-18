@@ -35,7 +35,12 @@ operations:
       - dimensions
       - onex_compliant
       - recommendations
-# TODO: Create omniintelligence.protocols module with quality analyzer protocol
+# TODO(ONEX-PROTO-003): Create omniintelligence.protocols module with quality analyzer protocol
+# - Create protocols/ directory with QualityAnalyzerProtocol
+# - Define interface for quality analysis (analyze, score, get_recommendations)
+# - Currently no protocols directory exists - this is a placeholder for future implementation
+# - Tracked in: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
+#
 dependencies: []
 # - name: "quality_analyzer"
 #   type: "protocol"

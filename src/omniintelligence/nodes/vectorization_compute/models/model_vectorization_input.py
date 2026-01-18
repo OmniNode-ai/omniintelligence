@@ -15,6 +15,7 @@ class ModelVectorizationInput(BaseModel):
 
     content: str = Field(
         ...,
+        min_length=1,
         description="Text content to vectorize",
     )
     metadata: dict[str, Any] = Field(

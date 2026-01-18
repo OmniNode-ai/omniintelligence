@@ -60,9 +60,11 @@ files:
       - "net-client"
       - "env-access"
 
-  # Orchestrator entry points - these are CLI runners, not pure nodes
-  - path: "src/omniintelligence/nodes/intelligence_orchestrator/__main__.py"
-    reason: "Entry point script for running the orchestrator, not a pure node"
+  # Node entry points (__main__.py) - these are CLI runners, not pure nodes
+  # They legitimately read env vars (LOG_LEVEL, HEALTH_PORT) to configure
+  # the node before instantiation. This is standard entrypoint behavior.
+  - path: "src/omniintelligence/nodes/*/__main__.py"
+    reason: "Entry point scripts bootstrap nodes and require env var configuration"
     allowed_rules:
       - "env-access"
 

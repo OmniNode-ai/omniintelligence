@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelRelationshipDetectionOutput(BaseModel):
@@ -31,16 +31,20 @@ class ModelRelationshipDetectionOutput(BaseModel):
         description="Additional metadata about the detection",
     )
 
-    @field_validator("relationship_count")
-    @classmethod
-    def validate_relationship_count(cls, v: int, info: Any) -> int:
-        """Validate that relationship_count matches the length of relationships list."""
-        relationships = info.data.get("relationships", [])
-        if relationships and v != len(relationships):
+    @model_validator(mode="after")
+    def validate_relationship_count_matches_list(self) -> Self:
+        """Validate that relationship_count matches the length of relationships list.
+
+        This validator runs after all fields are populated, ensuring
+        proper validation even when relationships list is empty.
+        """
+        actual_count = len(self.relationships)
+        if self.relationship_count != actual_count:
             raise ValueError(
-                f"relationship_count ({v}) must match len(relationships) ({len(relationships)})"
+                f"relationship_count ({self.relationship_count}) must match "
+                f"len(relationships) ({actual_count})"
             )
-        return v
+        return self
 
     model_config = {"frozen": True, "extra": "forbid"}
 

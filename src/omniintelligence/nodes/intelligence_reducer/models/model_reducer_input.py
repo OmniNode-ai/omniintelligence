@@ -2,12 +2,48 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from omniintelligence.enums import EnumFSMType
+
+
+class ReducerPayloadDict(TypedDict, total=False):
+    """Typed structure for reducer action payload.
+
+    Provides stronger typing for common payload fields while allowing
+    additional fields via dict[str, Any] union. Fields are optional
+    (total=False) since payloads vary by action type.
+    """
+
+    # Common fields across FSM types
+    document_id: str
+    content: str
+    file_path: str
+    source_type: str
+
+    # Ingestion-specific fields
+    document_hash: str
+    indexing_options: dict[str, bool]
+
+    # Pattern learning-specific fields
+    pattern_id: str
+    pattern_name: str
+    confidence_threshold: float
+    pattern_metadata: dict[str, str]
+
+    # Quality assessment-specific fields
+    quality_score: float
+    compliance_status: str
+    recommendations: list[str]
+    assessment_metadata: dict[str, str]
+
+    # Error/failure fields
+    failure_reason: str
+    error_code: str
+    error_details: str
 
 
 class ModelReducerInput(BaseModel):
@@ -32,9 +68,9 @@ class ModelReducerInput(BaseModel):
         min_length=1,
         description="FSM action to execute",
     )
-    payload: dict[str, Any] = Field(
+    payload: ReducerPayloadDict | dict[str, Any] = Field(
         default_factory=dict,
-        description="Action-specific payload data",
+        description="Action-specific payload data with typed common fields",
     )
     correlation_id: UUID = Field(
         ...,
@@ -52,4 +88,4 @@ class ModelReducerInput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelReducerInput"]
+__all__ = ["ModelReducerInput", "ReducerPayloadDict"]

@@ -13,10 +13,12 @@ class ModelQualityScoringInput(BaseModel):
 
     source_path: str = Field(
         ...,
+        min_length=1,
         description="Path to the source file being scored",
     )
     content: str = Field(
         ...,
+        min_length=1,
         description="Source code content to score",
     )
     language: str = Field(

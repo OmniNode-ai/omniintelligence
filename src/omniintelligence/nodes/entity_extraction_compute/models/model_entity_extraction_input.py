@@ -13,6 +13,7 @@ class ModelEntityExtractionInput(BaseModel):
 
     content: str = Field(
         ...,
+        min_length=1,
         description="Content to extract entities from",
     )
     language: str = Field(

@@ -5,11 +5,17 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.nodes.quality_scoring_compute.models import (
+    ModelQualityScoringOutput,
+)
+
 if TYPE_CHECKING:
+    from typing import Any
+
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
@@ -43,14 +49,16 @@ class NodeQualityScoringCompute(NodeCompute):
         )
         super().__init__(container)
 
-    async def compute(self, _input_data: dict[str, Any]) -> dict[str, Any]:
+    async def compute(
+        self, _input_data: dict[str, Any]
+    ) -> ModelQualityScoringOutput:
         """Compute quality score (STUB - returns empty result).
 
         Args:
             _input_data: Input data for quality scoring (unused in stub).
 
         Returns:
-            Empty result dictionary indicating stub status.
+            Stub result with success=True but default quality values.
         """
         warnings.warn(
             f"NodeQualityScoringCompute.compute() is a stub that returns empty "
@@ -59,13 +67,18 @@ class NodeQualityScoringCompute(NodeCompute):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return {
-            "status": "stub",
-            "message": "NodeQualityScoringCompute is not yet implemented",
-            "quality_score": 0.0,
-            "recommendations": [],
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+        return ModelQualityScoringOutput(
+            success=True,
+            quality_score=0.0,
+            dimensions={},
+            onex_compliant=False,
+            recommendations=[],
+            metadata={
+                "status": "stub",
+                "message": "NodeQualityScoringCompute is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
+            },
+        )
 
 
 __all__ = ["NodeQualityScoringCompute"]

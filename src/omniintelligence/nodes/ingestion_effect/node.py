@@ -5,11 +5,15 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
+from omniintelligence.nodes.ingestion_effect.models import ModelIngestionOutput
+
 if TYPE_CHECKING:
+    from typing import Any
+
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
@@ -44,14 +48,14 @@ class NodeIngestionEffect(NodeEffect):
         )
         super().__init__(container)
 
-    async def process(self, _input_data: dict[str, Any]) -> dict[str, Any]:
+    async def process(self, _input_data: dict[str, Any]) -> ModelIngestionOutput:
         """Process ingestion request (STUB - returns empty result).
 
         Args:
             _input_data: Input data for ingestion operation (unused in stub).
 
         Returns:
-            Empty result dictionary indicating stub status.
+            Stub result with success=True but no content ingested.
         """
         warnings.warn(
             f"NodeIngestionEffect.process() is a stub that returns empty results. "
@@ -59,11 +63,16 @@ class NodeIngestionEffect(NodeEffect):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return {
-            "status": "stub",
-            "message": "NodeIngestionEffect is not yet implemented",
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+        return ModelIngestionOutput(
+            success=True,
+            ingested_content=None,
+            content_metadata={},
+            metadata={
+                "status": "stub",
+                "message": "NodeIngestionEffect is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
+            },
+        )
 
 
 __all__ = ["NodeIngestionEffect"]

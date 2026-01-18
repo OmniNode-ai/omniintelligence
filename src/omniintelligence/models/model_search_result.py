@@ -90,7 +90,7 @@ class ModelPatternMatch(BaseModel):
         ...     pattern_name="SINGLETON_PATTERN",
         ...     match_score=0.92,
         ...     matched_code="class Singleton: _instance = None ...",
-        ...     file_path="src/patterns/singleton.py",
+        ...     source_path="src/patterns/singleton.py",
         ... )
     """
 
@@ -102,7 +102,7 @@ class ModelPatternMatch(BaseModel):
                 "pattern_name": "SINGLETON_PATTERN",
                 "match_score": 0.92,
                 "matched_code": "class Singleton: _instance = None ...",
-                "file_path": "src/patterns/singleton.py",
+                "source_path": "src/patterns/singleton.py",
             }
         },
     )
@@ -122,10 +122,10 @@ class ModelPatternMatch(BaseModel):
         default=None,
         description="Code snippet that matched the pattern",
     )
-    file_path: str | None = Field(
+    source_path: str | None = Field(
         default=None,
         min_length=1,
-        description="Path to the file containing the match",
+        description="Path to the source file containing the match",
     )
     line_start: int | None = Field(
         default=None,

@@ -219,7 +219,9 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]
         logger.info("Performance Analysis Results")
         logger.info("=" * 60)
         logger.info(f"Success: {result.success}")
-        logger.info(f"Processing Time: {result.processing_time_ms}ms")
+        # Processing time is now in metadata for canonical model
+        processing_time = result.metadata.get("processing_time_ms", "N/A")
+        logger.info(f"Processing Time: {processing_time}ms")
 
         if result.recommendations:
             logger.info(

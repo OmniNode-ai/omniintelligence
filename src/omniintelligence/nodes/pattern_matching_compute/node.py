@@ -5,11 +5,17 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.nodes.pattern_matching_compute.models import (
+    ModelPatternMatchingOutput,
+)
+
 if TYPE_CHECKING:
+    from typing import Any
+
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
@@ -43,14 +49,16 @@ class NodePatternMatchingCompute(NodeCompute):
         )
         super().__init__(container)
 
-    async def compute(self, _input_data: dict[str, Any]) -> dict[str, Any]:
+    async def compute(
+        self, _input_data: dict[str, Any]
+    ) -> ModelPatternMatchingOutput:
         """Compute pattern matching (STUB - returns empty result).
 
         Args:
             _input_data: Input data for pattern matching (unused in stub).
 
         Returns:
-            Empty result dictionary indicating stub status.
+            Stub result with success=True but no patterns matched.
         """
         warnings.warn(
             f"NodePatternMatchingCompute.compute() is a stub that returns empty "
@@ -59,13 +67,16 @@ class NodePatternMatchingCompute(NodeCompute):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return {
-            "status": "stub",
-            "message": "NodePatternMatchingCompute is not yet implemented",
-            "matches": [],
-            "similarity_scores": [],
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+        return ModelPatternMatchingOutput(
+            success=True,
+            patterns_matched=[],
+            pattern_scores={},
+            metadata={
+                "status": "stub",
+                "message": "NodePatternMatchingCompute is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
+            },
+        )
 
 
 __all__ = ["NodePatternMatchingCompute"]

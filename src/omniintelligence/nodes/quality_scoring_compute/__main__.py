@@ -19,9 +19,23 @@ import signal
 import sys
 from typing import Any
 
+
+def _get_log_level() -> int:
+    """Get log level from environment with safe fallback.
+
+    Returns logging.INFO if LOG_LEVEL is invalid or not set.
+    """
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, None)
+    if not isinstance(level, int):
+        # Invalid level name, fall back to INFO
+        return logging.INFO
+    return level
+
+
 # Configure logging
 logging.basicConfig(
-    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper()),
+    level=_get_log_level(),
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -99,8 +113,9 @@ async def main() -> None:
         # User-initiated shutdown via Ctrl+C
         logger.info("Received keyboard interrupt, shutting down")
     except asyncio.CancelledError:
-        # Task cancellation during shutdown
+        # Task cancellation during shutdown - must re-raise to preserve semantics
         logger.info("Event loop cancelled, shutting down")
+        raise
     except Exception as e:
         # Intentionally broad: top-level entry point catch-all to ensure any
         # unexpected error is logged before exiting with error code. This is

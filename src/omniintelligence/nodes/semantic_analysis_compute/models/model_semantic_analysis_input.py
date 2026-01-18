@@ -15,6 +15,7 @@ class ModelSemanticAnalysisInput(BaseModel):
 
     code_snippet: str = Field(
         ...,
+        min_length=1,
         description="Code snippet to analyze semantically",
     )
     context: dict[str, Any] = Field(

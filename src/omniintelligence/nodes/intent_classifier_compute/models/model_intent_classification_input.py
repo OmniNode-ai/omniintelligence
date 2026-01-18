@@ -7,21 +7,41 @@ from typing import Any, TypedDict
 from pydantic import BaseModel, Field
 
 
+class ConversationMessageDict(TypedDict):
+    """Typed structure for a conversation message."""
+
+    role: str  # e.g., "user", "assistant", "system"
+    content: str
+
+
 class IntentContextDict(TypedDict, total=False):
     """Typed structure for intent classification context.
 
     Provides stronger typing for common context fields while allowing
-    additional fields via dict[str, Any] union.
+    additional fields via dict[str, Any] union. Use this typed dict
+    for better IDE support and type checking.
     """
 
+    # User and session tracking
     user_id: str
     session_id: str
+    request_id: str
+
+    # Intent classification context
     previous_intents: list[str]
     language: str
     domain: str
-    conversation_history: list[dict[str, str]]
+    conversation_history: list[ConversationMessageDict]
+
+    # Classification parameters
     custom_labels: list[str]
     confidence_threshold: float
+    max_intents: int
+    include_confidence_scores: bool
+
+    # Source metadata
+    source_system: str
+    timestamp_utc: str
 
 
 class ModelIntentClassificationInput(BaseModel):
@@ -49,6 +69,7 @@ class ModelIntentClassificationInput(BaseModel):
 
 
 __all__ = [
+    "ConversationMessageDict",
     "IntentContextDict",
     "ModelIntentClassificationInput",
 ]
