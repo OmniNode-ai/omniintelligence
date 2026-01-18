@@ -32,9 +32,9 @@ from omniintelligence.tools.contract_linter import (
 # Project root directory (relative to this test file)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
-# Contracts base directory in the legacy nodes
-LEGACY_CONTRACTS_DIR = (
-    PROJECT_ROOT / "src" / "omniintelligence" / "_legacy" / "nodes"
+# Contracts base directory in the canonical nodes
+CONTRACTS_DIR = (
+    PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
 )
 
 # Runtime contracts directory
@@ -63,15 +63,15 @@ def _collect_contracts_by_pattern(base_dir: Path, pattern: str) -> list[Path]:
     return list(base_dir.glob(pattern))
 
 
-def _get_all_legacy_contracts() -> list[Path]:
-    """Get all contract files from the legacy nodes directory.
+def _get_all_contracts() -> list[Path]:
+    """Get all contract files from the canonical nodes directory.
 
     Returns:
         List of all contract YAML files
     """
-    if not LEGACY_CONTRACTS_DIR.exists():
+    if not CONTRACTS_DIR.exists():
         return []
-    return list(LEGACY_CONTRACTS_DIR.glob("*/v1_0_0/contracts/*.yaml"))
+    return list(CONTRACTS_DIR.glob("*/v1_0_0/contracts/*.yaml"))
 
 
 # =============================================================================
@@ -80,49 +80,49 @@ def _get_all_legacy_contracts() -> list[Path]:
 
 
 @pytest.fixture
-def legacy_compute_contracts() -> list[Path]:
-    """Collect all compute contract files from legacy nodes."""
+def compute_contracts() -> list[Path]:
+    """Collect all compute contract files from canonical nodes."""
     return _collect_contracts_by_pattern(
-        LEGACY_CONTRACTS_DIR, "*/v1_0_0/contracts/compute_contract.yaml"
+        CONTRACTS_DIR, "*/v1_0_0/contracts/compute_contract.yaml"
     )
 
 
 @pytest.fixture
-def legacy_effect_contracts() -> list[Path]:
-    """Collect all effect contract files from legacy nodes."""
+def effect_contracts() -> list[Path]:
+    """Collect all effect contract files from canonical nodes."""
     return _collect_contracts_by_pattern(
-        LEGACY_CONTRACTS_DIR, "*/v1_0_0/contracts/effect_contract.yaml"
+        CONTRACTS_DIR, "*/v1_0_0/contracts/effect_contract.yaml"
     )
 
 
 @pytest.fixture
-def legacy_reducer_contracts() -> list[Path]:
-    """Collect all reducer contract files from legacy nodes."""
+def reducer_contracts() -> list[Path]:
+    """Collect all reducer contract files from canonical nodes."""
     return _collect_contracts_by_pattern(
-        LEGACY_CONTRACTS_DIR, "*/v1_0_0/contracts/reducer_contract.yaml"
+        CONTRACTS_DIR, "*/v1_0_0/contracts/reducer_contract.yaml"
     )
 
 
 @pytest.fixture
-def legacy_orchestrator_contracts() -> list[Path]:
-    """Collect all orchestrator contract files from legacy nodes."""
+def orchestrator_contracts() -> list[Path]:
+    """Collect all orchestrator contract files from canonical nodes."""
     return _collect_contracts_by_pattern(
-        LEGACY_CONTRACTS_DIR, "*/v1_0_0/contracts/orchestrator_contract.yaml"
+        CONTRACTS_DIR, "*/v1_0_0/contracts/orchestrator_contract.yaml"
     )
 
 
 @pytest.fixture
-def legacy_fsm_contracts() -> list[Path]:
-    """Collect all FSM subcontract files from legacy nodes."""
+def fsm_contracts() -> list[Path]:
+    """Collect all FSM subcontract files from canonical nodes."""
     return _collect_contracts_by_pattern(
-        LEGACY_CONTRACTS_DIR, "*/v1_0_0/contracts/fsm_*.yaml"
+        CONTRACTS_DIR, "*/v1_0_0/contracts/fsm_*.yaml"
     )
 
 
 @pytest.fixture
-def all_legacy_contracts() -> list[Path]:
-    """Collect all contract files from legacy nodes."""
-    return _get_all_legacy_contracts()
+def all_contracts() -> list[Path]:
+    """Collect all contract files from canonical nodes."""
+    return _get_all_contracts()
 
 
 @pytest.fixture
@@ -180,14 +180,14 @@ class TestRealContractValidation:
     """
 
     def test_validate_compute_contracts_structure(
-        self, legacy_compute_contracts: list[Path]
+        self, compute_contracts: list[Path]
     ) -> None:
         """Verify compute contracts are detected and have correct type."""
-        if not legacy_compute_contracts:
+        if not compute_contracts:
             pytest.skip("No compute contracts found in codebase")
 
         linter = ContractLinter()
-        for contract_path in legacy_compute_contracts:
+        for contract_path in compute_contracts:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
@@ -199,14 +199,14 @@ class TestRealContractValidation:
             )
 
     def test_validate_effect_contracts_structure(
-        self, legacy_effect_contracts: list[Path]
+        self, effect_contracts: list[Path]
     ) -> None:
         """Verify effect contracts are detected and have correct type."""
-        if not legacy_effect_contracts:
+        if not effect_contracts:
             pytest.skip("No effect contracts found in codebase")
 
         linter = ContractLinter()
-        for contract_path in legacy_effect_contracts:
+        for contract_path in effect_contracts:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
@@ -216,14 +216,14 @@ class TestRealContractValidation:
             )
 
     def test_validate_reducer_contracts_structure(
-        self, legacy_reducer_contracts: list[Path]
+        self, reducer_contracts: list[Path]
     ) -> None:
         """Verify reducer contracts are detected and have correct type."""
-        if not legacy_reducer_contracts:
+        if not reducer_contracts:
             pytest.skip("No reducer contracts found in codebase")
 
         linter = ContractLinter()
-        for contract_path in legacy_reducer_contracts:
+        for contract_path in reducer_contracts:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
@@ -233,14 +233,14 @@ class TestRealContractValidation:
             )
 
     def test_validate_orchestrator_contracts_structure(
-        self, legacy_orchestrator_contracts: list[Path]
+        self, orchestrator_contracts: list[Path]
     ) -> None:
         """Verify orchestrator contracts are detected and have correct type."""
-        if not legacy_orchestrator_contracts:
+        if not orchestrator_contracts:
             pytest.skip("No orchestrator contracts found in codebase")
 
         linter = ContractLinter()
-        for contract_path in legacy_orchestrator_contracts:
+        for contract_path in orchestrator_contracts:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
@@ -250,14 +250,14 @@ class TestRealContractValidation:
             )
 
     def test_validate_fsm_subcontracts_structure(
-        self, legacy_fsm_contracts: list[Path]
+        self, fsm_contracts: list[Path]
     ) -> None:
         """Verify FSM subcontracts are detected and have correct type."""
-        if not legacy_fsm_contracts:
+        if not fsm_contracts:
             pytest.skip("No FSM subcontracts found in codebase")
 
         linter = ContractLinter()
-        for contract_path in legacy_fsm_contracts:
+        for contract_path in fsm_contracts:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
@@ -267,18 +267,18 @@ class TestRealContractValidation:
             )
 
     def test_batch_validate_all_contracts(
-        self, all_legacy_contracts: list[Path]
+        self, all_contracts: list[Path]
     ) -> None:
         """Test batch validation of all contracts with summary statistics."""
-        if not all_legacy_contracts:
+        if not all_contracts:
             pytest.skip("No contracts found in codebase")
 
         linter = ContractLinter()
-        results = linter.validate_batch(all_legacy_contracts)
+        results = linter.validate_batch(all_contracts)
         summary = linter.get_summary(results)
 
         # Verify we got results for all files
-        assert len(results) == len(all_legacy_contracts)
+        assert len(results) == len(all_contracts)
 
         # Log summary for visibility (use ONEX naming convention keys)
         print("\nContract validation summary:")
@@ -297,7 +297,7 @@ class TestRealContractValidation:
                     print(f"      {error.field_path}: {error.error_message}")
 
     def test_contract_count_sanity_check(
-        self, all_legacy_contracts: list[Path]
+        self, all_contracts: list[Path]
     ) -> None:
         """Verify expected minimum number of contracts exist in codebase.
 
@@ -308,31 +308,31 @@ class TestRealContractValidation:
         # (6 compute, 5 effect, 1 reducer, 1 orchestrator, 3 FSM)
         expected_minimum = 10
 
-        assert len(all_legacy_contracts) >= expected_minimum, (
+        assert len(all_contracts) >= expected_minimum, (
             f"Expected at least {expected_minimum} contracts, "
-            f"found {len(all_legacy_contracts)}. "
+            f"found {len(all_contracts)}. "
             "This may indicate the contracts directory structure has changed."
         )
 
         # Print contract breakdown
         compute_count = len([
-            p for p in all_legacy_contracts
+            p for p in all_contracts
             if "compute_contract" in p.name
         ])
         effect_count = len([
-            p for p in all_legacy_contracts
+            p for p in all_contracts
             if "effect_contract" in p.name
         ])
         reducer_count = len([
-            p for p in all_legacy_contracts
+            p for p in all_contracts
             if "reducer_contract" in p.name
         ])
         orchestrator_count = len([
-            p for p in all_legacy_contracts
+            p for p in all_contracts
             if "orchestrator_contract" in p.name
         ])
         fsm_count = len([
-            p for p in all_legacy_contracts
+            p for p in all_contracts
             if p.name.startswith("fsm_")
         ])
 
@@ -342,7 +342,7 @@ class TestRealContractValidation:
         print(f"  Reducer: {reducer_count}")
         print(f"  Orchestrator: {orchestrator_count}")
         print(f"  FSM subcontracts: {fsm_count}")
-        print(f"  Total: {len(all_legacy_contracts)}")
+        print(f"  Total: {len(all_contracts)}")
 
 
 # =============================================================================
@@ -803,7 +803,7 @@ tags:
         # Should handle unicode without crashing
 
     def test_validate_batch_with_mixed_contract_types(
-        self, all_legacy_contracts: list[Path]
+        self, all_contracts: list[Path]
     ) -> None:
         """Test batch validation with diverse contract types.
 
@@ -811,11 +811,11 @@ tags:
         and FSM contracts all together. The linter should correctly
         identify and validate each type.
         """
-        if not all_legacy_contracts:
+        if not all_contracts:
             pytest.skip("No contracts found in codebase")
 
         linter = ContractLinter()
-        results = linter.validate_batch(all_legacy_contracts)
+        results = linter.validate_batch(all_contracts)
 
         # Group results by detected contract type
         types_found: dict[str | None, int] = {}

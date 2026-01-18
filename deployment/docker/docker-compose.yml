@@ -57,6 +57,9 @@ services:
       POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS:-200}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Mount migrations to docker-entrypoint-initdb.d for automatic execution on first run
+      # 000_extensions.sql creates: uuid-ossp, pgcrypto, pg_trgm
+      # 001_create_fsm_state_table.sql, 002_create_fsm_state_history.sql, etc.
       - ../database/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - omni-network
@@ -91,7 +94,8 @@ services:
       - omni-network
     healthcheck:
       # NOTE: qdrant/qdrant image does NOT include curl - use wget instead
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/health"]
+      # Uses /readiness endpoint for Kubernetes-style health checks (more reliable than /health)
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/readiness"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -200,7 +204,17 @@ services:
       - --node-id 0
       - --check=false
     ports:
-      # External Kafka port: 29092 (standard for external access)
+      # ========================================================================
+      # Kafka Port Strategy (Dual-Listener Pattern)
+      # ========================================================================
+      # Internal port 9092: Used by Docker services (container-to-container)
+      #   - Services connect via: redpanda:9092
+      #   - NOT published to host
+      #
+      # External port 29092: Published to host for development access
+      #   - Host scripts connect via: localhost:29092 or 192.168.86.200:29092
+      #   - Standard dual-listener pattern used by Confluent/Redpanda
+      # ========================================================================
       - "${REDPANDA_KAFKA_PORT:-29092}:29092"
       - "${REDPANDA_ADMIN_PORT:-9644}:9644"
       - "${REDPANDA_PROXY_PORT:-18082}:18082"

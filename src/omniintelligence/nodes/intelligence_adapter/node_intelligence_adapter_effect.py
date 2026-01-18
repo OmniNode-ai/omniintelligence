@@ -68,38 +68,148 @@ except ImportError:
             "set OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true to use defaults."
         )
 
-# Import at module level for test patching
-from omniintelligence._legacy.models.model_intelligence_config import (
-    ModelIntelligenceConfig,
-)
-from omniintelligence._legacy.models.model_intelligence_output import (
-    ModelIntelligenceOutput,
-)
-from omniintelligence._legacy.clients.client_intelligence_service import (
-    IntelligenceServiceClient,
-)
-from omniintelligence._legacy.models.model_intelligence_api_contracts import (
-    ModelPatternDetectionRequest,
-    ModelPerformanceAnalysisRequest,
-    ModelQualityAssessmentRequest,
-)
+# Canonical models
+from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
 
-# Event infrastructure
-from omniintelligence._legacy.events.publisher.event_publisher import EventPublisher
+# Stub implementations for removed legacy dependencies
+# These provide type compatibility without the full implementation
+# TODO: Implement full replacements if needed for production use
 
-# Intelligence I/O models
-from omniintelligence._legacy.models import ModelIntelligenceInput
 
-# Event contracts from canonical models location
-from omniintelligence._legacy.models import (
-    EnumAnalysisErrorCode,
-    EnumAnalysisOperationType,
-    EnumCodeAnalysisEventType,
-    IntelligenceAdapterEventHelpers,
-    ModelCodeAnalysisCompletedPayload,
-    ModelCodeAnalysisFailedPayload,
-    ModelCodeAnalysisRequestPayload,
-)
+class ModelIntelligenceConfig(BaseModel):
+    """Stub config - use environment variables directly."""
+
+    service_url: str = Field(default="http://localhost:8080")
+    timeout: int = Field(default=30)
+
+    @classmethod
+    def from_environment_variable(cls) -> "ModelIntelligenceConfig":
+        return cls(
+            service_url=os.getenv("INTELLIGENCE_SERVICE_URL", "http://localhost:8080"),
+            timeout=int(os.getenv("INTELLIGENCE_TIMEOUT", "30")),
+        )
+
+
+class IntelligenceServiceClient:
+    """Stub client - raises NotImplementedError for actual calls."""
+
+    def __init__(self, config: ModelIntelligenceConfig):
+        self.config = config
+
+    async def analyze_code(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
+        raise NotImplementedError("IntelligenceServiceClient requires implementation")
+
+    async def close(self) -> None:
+        pass
+
+
+class EventPublisher:
+    """Stub event publisher - logs instead of publishing."""
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        self._logger = logging.getLogger(__name__)
+
+    async def publish(self, topic: str, payload: Any, **kwargs: Any) -> None:
+        self._logger.info(f"[STUB] Would publish to {topic}: {type(payload).__name__}")
+
+    async def close(self) -> None:
+        pass
+
+
+# Stub request models
+class ModelQualityAssessmentRequest(BaseModel):
+    """Stub for quality assessment requests."""
+
+    source_path: str = ""
+    content: str = ""
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelPatternDetectionRequest(BaseModel):
+    """Stub for pattern detection requests."""
+
+    source_path: str = ""
+    content: str = ""
+    patterns: list[str] = Field(default_factory=list)
+
+
+class ModelPerformanceAnalysisRequest(BaseModel):
+    """Stub for performance analysis requests."""
+
+    source_path: str = ""
+    content: str = ""
+    metrics: list[str] = Field(default_factory=list)
+
+
+# Stub enums and event models
+from enum import Enum
+
+
+class EnumAnalysisErrorCode(str, Enum):
+    """Analysis error codes."""
+
+    UNKNOWN = "unknown"
+    TIMEOUT = "timeout"
+    INVALID_INPUT = "invalid_input"
+    SERVICE_ERROR = "service_error"
+
+
+class EnumAnalysisOperationType(str, Enum):
+    """Analysis operation types."""
+
+    QUALITY_ASSESSMENT = "quality_assessment"
+    PATTERN_DETECTION = "pattern_detection"
+    PERFORMANCE_ANALYSIS = "performance_analysis"
+
+
+class EnumCodeAnalysisEventType(str, Enum):
+    """Code analysis event types."""
+
+    REQUESTED = "requested"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ModelCodeAnalysisRequestPayload(BaseModel):
+    """Event payload for code analysis requests."""
+
+    correlation_id: str = ""
+    source_path: str = ""
+    content: str = ""
+    operation_type: str = ""
+
+
+class ModelCodeAnalysisCompletedPayload(BaseModel):
+    """Event payload for completed analysis."""
+
+    correlation_id: str = ""
+    result: dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelCodeAnalysisFailedPayload(BaseModel):
+    """Event payload for failed analysis."""
+
+    correlation_id: str = ""
+    error_code: str = ""
+    error_message: str = ""
+
+
+class IntelligenceAdapterEventHelpers:
+    """Stub helpers for event creation."""
+
+    @staticmethod
+    def create_completed_event(correlation_id: str, result: Any) -> dict[str, Any]:
+        return {"correlation_id": correlation_id, "result": result}
+
+    @staticmethod
+    def create_failed_event(
+        correlation_id: str, error_code: str, error_message: str
+    ) -> dict[str, Any]:
+        return {
+            "correlation_id": correlation_id,
+            "error_code": error_code,
+            "error_message": error_message,
+        }
 from datetime import UTC
 
 logger = logging.getLogger(__name__)
@@ -198,7 +308,7 @@ class NodeIntelligenceAdapterEffect:
 
     **Usage**:
         >>> from uuid import uuid4
-        >>> from omniintelligence._legacy.models import ModelIntelligenceInput
+        >>> from omniintelligence.models import ModelIntelligenceInput
         >>>
         >>> # Direct operation (non-event)
         >>> node = NodeIntelligenceAdapterEffect(service_url="http://localhost:8053")

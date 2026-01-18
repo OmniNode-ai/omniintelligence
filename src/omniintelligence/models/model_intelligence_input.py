@@ -71,7 +71,7 @@ class ModelIntelligenceInput(BaseModel):
 
     operation_type: EnumIntelligenceOperationType = Field(
         ...,
-        description="Type of intelligence operation (analyze_code, assess_quality, detect_patterns, etc.)",
+        description="Type of intelligence operation (assess_code_quality, pattern_match, establish_performance_baseline, etc.)",
     )
     content: str = Field(
         ...,

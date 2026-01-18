@@ -294,6 +294,13 @@ services:
           memory: 256M
           cpus: '0.25'
 
+# =============================================================================
+# Network Configuration
+# =============================================================================
+# This compose file uses the external network created by docker-compose.yml
+# The fully-qualified name is: {project_name}_{network_name} = omniintelligence_omni-network
+# This avoids duplicate network definitions and ensures all services share the same network
+# =============================================================================
 networks:
   omni-network:
     external: true

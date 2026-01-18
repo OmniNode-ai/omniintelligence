@@ -90,7 +90,11 @@ class TestContractLinterSingleValidation:
     def test_validate_single_contract_missing_required_field_version(
         self, tmp_path: Path, invalid_missing_version_yaml: str
     ):
-        """Test validation error when 'version' field is missing."""
+        """Test validation error when 'contract_version' field is missing.
+
+        Note: Node contracts now require contract_version and node_version fields.
+        The old 'version' field alone is not sufficient for node contracts.
+        """
         contract_path = tmp_path / "missing_version.yaml"
         contract_path.write_text(invalid_missing_version_yaml)
 
@@ -98,7 +102,7 @@ class TestContractLinterSingleValidation:
         result = linter.validate(contract_path)
 
         assert result.is_valid is False
-        assert any(e.field_path == "version" for e in result.validation_errors)
+        assert any(e.field_path == "contract_version" for e in result.validation_errors)
 
     def test_validate_single_contract_missing_required_field_description(
         self, tmp_path: Path, invalid_missing_description_yaml: str

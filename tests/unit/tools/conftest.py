@@ -25,6 +25,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: A test node for validation
 node_type: compute
 input_model: ModelTestInput
@@ -46,6 +54,14 @@ def valid_compute_contract_yaml() -> str:
     return """
 name: test_compute_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -73,6 +89,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: A test effect node
 node_type: effect
 input_model: ModelEffectInput
@@ -92,6 +116,14 @@ version:
   major: 2
   minor: 1
   patch: 3
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: A fully specified test node
 node_type: compute
 input_model: ModelFullInput
@@ -126,6 +158,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Missing name field
 node_type: compute
 input_model: ModelInput
@@ -135,10 +175,19 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_missing_version_yaml() -> str:
-    """Contract missing required 'version' field."""
+    """Contract missing required 'contract_version' and 'node_version' fields.
+
+    Note: The old 'version' field is no longer strictly required when
+    contract_version and node_version are present. This fixture tests
+    that contract_version is required for node contracts.
+    """
     return """
 name: test_node
-description: Missing version field
+version:
+  major: 1
+  minor: 0
+  patch: 0
+description: Missing contract_version field
 node_type: compute
 input_model: ModelInput
 output_model: ModelOutput
@@ -151,6 +200,14 @@ def invalid_missing_description_yaml() -> str:
     return """
 name: test_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -169,6 +226,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Missing node_type
 input_model: ModelInput
 output_model: ModelOutput
@@ -181,6 +246,14 @@ def invalid_missing_input_model_yaml() -> str:
     return """
 name: test_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -199,6 +272,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Missing output_model
 node_type: compute
 input_model: ModelInput
@@ -211,6 +292,14 @@ def invalid_node_type_yaml() -> str:
     return """
 name: test_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -227,6 +316,14 @@ def invalid_version_format_yaml() -> str:
     return """
 name: test_node
 version: "1.0.0"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Invalid version format (should be object)
 node_type: compute
 input_model: ModelInput
@@ -243,6 +340,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Compute node without algorithm
 node_type: compute
 input_model: ModelInput
@@ -256,6 +361,14 @@ def invalid_effect_missing_io_operations_yaml() -> str:
     return """
 name: test_effect
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0

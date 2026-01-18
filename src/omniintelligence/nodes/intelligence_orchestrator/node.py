@@ -25,12 +25,7 @@ Design Decisions:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 
 class NodeIntelligenceOrchestrator(NodeOrchestrator):
@@ -46,13 +41,7 @@ class NodeIntelligenceOrchestrator(NodeOrchestrator):
     contract.yaml workflow_coordination configuration.
     """
 
-    def __init__(self, container: ModelONEXContainer) -> None:
-        """Initialize the orchestrator.
-
-        Args:
-            container: ONEX dependency injection container
-        """
-        super().__init__(container)
+    # No custom __init__ needed - uses NodeOrchestrator's default initialization
 
 
 __all__ = ["NodeIntelligenceOrchestrator"]

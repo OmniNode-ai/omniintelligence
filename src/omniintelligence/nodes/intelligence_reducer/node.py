@@ -24,12 +24,7 @@ Design Decisions:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from omnibase_core.nodes.node_reducer import NodeReducer
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 
 class NodeIntelligenceReducer(NodeReducer):
@@ -45,13 +40,7 @@ class NodeIntelligenceReducer(NodeReducer):
     entirely by the contract.yaml FSM configuration.
     """
 
-    def __init__(self, container: ModelONEXContainer) -> None:
-        """Initialize the reducer.
-
-        Args:
-            container: ONEX dependency injection container
-        """
-        super().__init__(container)
+    # No custom __init__ needed - uses NodeReducer's default initialization
 
 
 __all__ = ["NodeIntelligenceReducer"]

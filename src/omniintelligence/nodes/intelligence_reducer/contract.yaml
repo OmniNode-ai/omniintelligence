@@ -348,6 +348,10 @@ validation:
         - "QUALITY_ASSESSMENT"
       error_code: "invalid_fsm_type"
       error_message: "fsm_type must be INGESTION, PATTERN_LEARNING, or QUALITY_ASSESSMENT"
+    - field: "action"
+      required: true
+      error_code: "missing_action"
+      error_message: "action (trigger) is required for FSM state transitions"
 # Idempotency Configuration
 # =========================
 # NOTE: hash_fields must only include fields guaranteed by validation rules above.
@@ -360,7 +364,7 @@ idempotency:
   hash_fields:
     - "entity_id"      # Required - validated above
     - "fsm_type"       # Required - validated above
-    - "action"         # Required - part of input model
+    - "action"         # Required - validated above
   # Optional: If event_id is provided in input, use it directly instead of hash
   fallback_to_event_id: true
   description: "Skip duplicate actions based on event_id or derived hash from validated fields"

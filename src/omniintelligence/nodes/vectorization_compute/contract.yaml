@@ -49,8 +49,11 @@ operations:
       - metadata
 # Dependencies
 # ============
-# TODO: Create omniintelligence.protocols module with embedding model protocol
-# Currently no protocols directory exists - this is a placeholder for future implementation
+# TODO(ONEX-EMBED-001): Create omniintelligence.protocols module with embedding model protocol
+# - Create protocols/ directory with EmbeddingModelProtocol
+# - Define interface for embedding generation (encode, batch_encode, get_dimension)
+# - Currently no protocols directory exists - this is a placeholder for future implementation
+# - Tracked in: https://linear.app/omninode/issue/ONEX-EMBED-001 (placeholder)
 #
 dependencies: []
 # - name: "embedding_model"
