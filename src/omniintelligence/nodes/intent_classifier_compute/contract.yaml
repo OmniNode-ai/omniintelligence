@@ -1,0 +1,49 @@
+# ONEX Node Contract - Intent Classifier Compute Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "intent_classifier_compute"
+node_type: "COMPUTE_GENERIC"
+description: "Compute node for classifying user intents from code patterns and execution traces. Maps observed behavior to intent categories."
+input_model:
+  name: "ModelIntentClassificationInput"
+  module: "omniintelligence.nodes.intent_classifier_compute.models"
+  description: "Input containing content and classification parameters."
+output_model:
+  name: "ModelIntentClassificationOutput"
+  module: "omniintelligence.nodes.intent_classifier_compute.models"
+  description: "Output containing classified intents and confidence scores."
+operations:
+  - name: "classify_intent"
+    description: "Classify intent from content"
+    input_fields:
+      - content
+      - correlation_id
+      - context
+    output_fields:
+      - success
+      - intent_category
+      - confidence
+      - secondary_intents
+dependencies:
+  - name: "intent_classifier"
+    type: "protocol"
+    module: "omniintelligence.protocols"
+    description: "Intent classification engine"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-02"
+  updated: "2026-01-18"
+  tags:
+    - "compute"
+    - "intent"
+    - "classifier"
+    - "pattern-extraction"

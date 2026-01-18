@@ -4,14 +4,17 @@ Unit tests for shared enums.
 Tests enum definitions and values.
 """
 
+import pytest
+
 from omniintelligence._legacy.enums import (
-    EnumEntityType,
     EnumFSMType,
-    EnumIngestionState,
-    EnumIntentType,
     EnumOperationType,
+    EnumIntentType,
+    EnumFSMAction,
+    EnumIngestionState,
     EnumPatternLearningState,
     EnumQualityAssessmentState,
+    EnumEntityType,
     EnumRelationshipType,
 )
 

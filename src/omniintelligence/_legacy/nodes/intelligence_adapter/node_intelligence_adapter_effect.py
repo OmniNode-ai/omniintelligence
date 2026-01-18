@@ -56,12 +56,12 @@ except ImportError:
 # Import at module level for test patching
 from datetime import UTC
 
-from omniintelligence.clients.client_intelligence_service import (
+from omniintelligence._legacy.clients.client_intelligence_service import (
     IntelligenceServiceClient,
 )
 
 # Event infrastructure
-from omniintelligence.events.publisher.event_publisher import EventPublisher
+from omniintelligence._legacy.events.publisher.event_publisher import EventPublisher
 
 # Intelligence I/O models
 # Event contracts from canonical models location

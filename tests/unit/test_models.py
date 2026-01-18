@@ -5,23 +5,25 @@ Tests Pydantic model validation and serialization.
 """
 
 import os
-from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
+from datetime import datetime, timezone
 from pydantic import ValidationError
 
-from omniintelligence._legacy.enums import (
-    EnumFSMAction,
-    EnumFSMType,
-    EnumIntentType,
-)
 from omniintelligence._legacy.models import (
-    ModelFSMState,
-    ModelIntelligenceConfig,
     ModelIntent,
     ModelReducerInput,
     ModelReducerOutput,
+    ModelOrchestratorInput,
+    ModelOrchestratorOutput,
+    ModelFSMState,
+    ModelIntelligenceConfig,
+)
+from omniintelligence._legacy.enums import (
+    EnumIntentType,
+    EnumFSMType,
+    EnumFSMAction,
 )
 
 
@@ -86,7 +88,7 @@ def test_fsm_state_model():
         entity_id="pattern_123",
         current_state="FOUNDATION",
         previous_state=None,
-        transition_timestamp=datetime.now(UTC),
+        transition_timestamp=datetime.now(timezone.utc),
     )
 
     assert state.fsm_type == EnumFSMType.PATTERN_LEARNING
@@ -167,7 +169,9 @@ class TestModelIntelligenceConfigCustomValues:
             circuit_breaker_timeout_seconds=120.0,
             enable_event_publishing=False,
             input_topics=["custom.namespace.domain.pattern.op.v1"],
-            output_topics={"custom_event": "custom.namespace.domain.pattern.event.v1"},
+            output_topics={
+                "custom_event": "custom.namespace.domain.pattern.event.v1"
+            },
             consumer_group_id="custom_consumer_group",
         )
 
@@ -434,7 +438,7 @@ class TestModelIntelligenceConfigForEnvironment:
     def test_for_environment_invalid_raises_error(self):
         """Test that invalid environment raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            ModelIntelligenceConfig.for_environment("invalid")  # type: ignore[arg-type]
+            ModelIntelligenceConfig.for_environment("invalid")  # type: ignore
         assert "Invalid environment: invalid" in str(exc_info.value)
         assert "development, staging, production" in str(exc_info.value)
 

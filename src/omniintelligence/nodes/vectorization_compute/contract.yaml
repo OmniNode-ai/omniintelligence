@@ -1,0 +1,69 @@
+# ONEX Node Contract - Vectorization Compute Node
+#
+# This compute node generates embeddings from code and documents.
+# Supports multiple embedding models and batch processing.
+# Pure compute node with no side effects.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "vectorization_compute"
+node_type: "COMPUTE_GENERIC"
+description: "Compute node for generating embeddings from code and documents. Supports multiple embedding models and batch processing with result caching."
+input_model:
+  name: "ModelVectorizationInput"
+  module: "omniintelligence.nodes.vectorization_compute.models"
+  description: "Input containing content to vectorize, metadata, and model preferences."
+output_model:
+  name: "ModelVectorizationOutput"
+  module: "omniintelligence.nodes.vectorization_compute.models"
+  description: "Output containing generated embeddings and model information."
+# Operations
+# ==========
+operations:
+  - name: "vectorize"
+    description: "Generate embeddings for content"
+    input_fields:
+      - content
+      - metadata
+      - model_name
+    output_fields:
+      - success
+      - embeddings
+      - model_used
+      - metadata
+  - name: "batch_vectorize"
+    description: "Generate embeddings for multiple contents"
+    input_fields:
+      - contents
+      - metadata_list
+      - model_name
+    output_fields:
+      - success
+      - embeddings_list
+      - model_used
+# Dependencies
+# ============
+dependencies:
+  - name: "embedding_model"
+    type: "protocol"
+    module: "omniintelligence.protocols"
+    description: "Embedding model for vector generation"
+# Health Check
+# ============
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+# Metadata
+# ========
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "compute"
+    - "vectorization"
+    - "embeddings"

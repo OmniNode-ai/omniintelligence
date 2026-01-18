@@ -13,7 +13,7 @@ Exports:
     - CircuitBreakerState: Circuit breaker state management
 """
 
-from omniintelligence.clients.client_intelligence_service import (
+from omniintelligence._legacy.clients.client_intelligence_service import (
     CircuitBreakerState,
     IntelligenceServiceClient,
     IntelligenceServiceError,

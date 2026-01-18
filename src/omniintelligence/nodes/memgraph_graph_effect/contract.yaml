@@ -1,0 +1,67 @@
+# ONEX Node Contract - Memgraph Graph Effect Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "memgraph_graph_effect"
+node_type: "EFFECT_GENERIC"
+description: "Effect node for storing entities and relationships in Memgraph. Handles graph node creation, relationship linking, and Cypher query execution."
+input_model:
+  name: "ModelMemgraphGraphInput"
+  module: "omniintelligence.nodes.memgraph_graph_effect.models"
+  description: "Input containing entities, relationships, and graph operations."
+output_model:
+  name: "ModelMemgraphGraphOutput"
+  module: "omniintelligence.nodes.memgraph_graph_effect.models"
+  description: "Output containing operation status and query results."
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - operation: "create_nodes"
+      handler:
+        name: "HandlerMemgraphCreateNodes"
+        module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_create_nodes"
+      description: "Create graph nodes for entities"
+    - operation: "create_relationships"
+      handler:
+        name: "HandlerMemgraphCreateRelationships"
+        module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_create_relationships"
+      description: "Create relationships between nodes"
+    - operation: "execute_query"
+      handler:
+        name: "HandlerMemgraphQuery"
+        module: "omniintelligence.nodes.memgraph_graph_effect.handlers.handler_memgraph_query"
+      description: "Execute Cypher query"
+  execution_mode: "sequential"
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "MemgraphConnectionError"
+      - "MemgraphTimeoutError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+dependencies:
+  - name: "memgraph_client"
+    type: "protocol"
+    module: "neo4j"
+    description: "Memgraph/Neo4j client for graph operations"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "effect"
+    - "memgraph"
+    - "graph"
+    - "storage"

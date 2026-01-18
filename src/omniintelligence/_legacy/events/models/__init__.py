@@ -17,7 +17,7 @@ Please import from omniintelligence._legacy.models instead:
     )
 
     # Deprecated import (still works)
-    from omniintelligence.events.models import (
+    from omniintelligence._legacy.events.models import (
         ModelEventEnvelope,
         EnumCodeAnalysisEventType,
     )

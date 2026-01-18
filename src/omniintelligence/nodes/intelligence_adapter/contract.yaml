@@ -1,0 +1,118 @@
+# ONEX Node Contract - Intelligence Adapter Effect Node
+#
+# This effect node adapts between Kafka events and Archon intelligence services.
+# Consumes CODE_ANALYSIS_REQUESTED events and publishes completion/failure events.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "intelligence_adapter"
+node_type: "EFFECT_GENERIC"
+description: "Effect node that adapts between Kafka events and Archon intelligence services. Consumes code analysis requests and publishes completion/failure events with DLQ routing support."
+input_model:
+  name: "ModelIntelligenceInput"
+  module: "omniintelligence.models"
+  description: "Input containing operation type, content, and analysis parameters."
+output_model:
+  name: "ModelIntelligenceOutput"
+  module: "omniintelligence.models.model_intelligence_output"
+  description: "Output containing analysis results, scores, and recommendations."
+# Consumed Events
+# ===============
+consumed_events:
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-requested.v1"
+    event_type: "CodeAnalysisRequested"
+    payload_model: "ModelCodeAnalysisRequestPayload"
+    description: "Code analysis request from external services"
+# Published Events
+# ================
+published_events:
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-completed.v1"
+    event_type: "CodeAnalysisCompleted"
+    payload_model: "ModelCodeAnalysisCompletedPayload"
+    description: "Code analysis completed successfully"
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-failed.v1"
+    event_type: "CodeAnalysisFailed"
+    payload_model: "ModelCodeAnalysisFailedPayload"
+    description: "Code analysis failed"
+# Handler Routing Configuration
+# =============================
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - operation: "analyze_code"
+      handler:
+        name: "HandlerAnalyzeCode"
+        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_code"
+      description: "Analyze code quality and patterns"
+    - operation: "assess_quality"
+      handler:
+        name: "HandlerAssessQuality"
+        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_assess_quality"
+      description: "Assess code quality metrics"
+    - operation: "detect_patterns"
+      handler:
+        name: "HandlerDetectPatterns"
+        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_detect_patterns"
+      description: "Detect code patterns"
+    - operation: "analyze_performance"
+      handler:
+        name: "HandlerAnalyzePerformance"
+        module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_performance"
+      description: "Analyze performance characteristics"
+  execution_mode: "sequential"
+# Error Handling Configuration
+# ============================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 1000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "ServiceUnavailableError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+  dlq_routing:
+    enabled: true
+    topic_suffix: ".dlq"
+    include_error_context: true
+# Dependencies
+# ============
+dependencies:
+  - name: "intelligence_client"
+    type: "protocol"
+    module: "omniintelligence.clients.client_intelligence_service"
+    description: "Client for Archon intelligence service"
+  - name: "kafka_consumer"
+    type: "protocol"
+    module: "confluent_kafka"
+    description: "Kafka consumer for event subscription"
+  - name: "event_publisher"
+    type: "protocol"
+    module: "omniintelligence.events.publisher.event_publisher"
+    description: "Event publisher for result events"
+# Health Check
+# ============
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+# Metadata
+# ========
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-21"
+  updated: "2026-01-18"
+  tags:
+    - "effect"
+    - "intelligence"
+    - "adapter"
+    - "kafka"
+    - "events"

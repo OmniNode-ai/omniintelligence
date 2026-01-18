@@ -9,7 +9,7 @@ Please import from omniintelligence._legacy.models and omniintelligence.enums in
     from omniintelligence._legacy.models import ModelIntelligenceInput
 
     # Deprecated import (still works)
-    from omniintelligence.contracts import (
+    from omniintelligence._legacy.contracts import (
         EnumIntelligenceOperationType,
         ModelIntelligenceInput,
     )

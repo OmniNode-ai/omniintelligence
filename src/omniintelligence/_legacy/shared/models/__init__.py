@@ -8,7 +8,7 @@ Please import from omniintelligence._legacy.models instead:
     from omniintelligence._legacy.models import ModelIntent, ModelReducerInput
 
     # Deprecated import (still works)
-    from omniintelligence.shared.models import ModelIntent, ModelReducerInput
+    from omniintelligence._legacy.shared.models import ModelIntent, ModelReducerInput
 
 Data models used across all nodes for consistency.
 """

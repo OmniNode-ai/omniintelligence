@@ -1,0 +1,210 @@
+# ONEX Node Contract - Intelligence Orchestrator Node
+#
+# This orchestrator coordinates intelligence workflows using Llama Index.
+# Routes operations via EnumIntelligenceOperationType to appropriate workflows:
+#   - DOCUMENT_INGESTION: Vectorize, extract entities, store in Qdrant/Memgraph
+#   - PATTERN_LEARNING: 4-phase (Foundation -> Matching -> Validation -> Traceability)
+#   - QUALITY_ASSESSMENT: Score code quality, check ONEX compliance
+#   - SEMANTIC_ANALYSIS: Generate embeddings, compute similarity
+#   - RELATIONSHIP_DETECTION: Detect and classify relationships, store in graph
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "intelligence_orchestrator"
+node_type: "ORCHESTRATOR_GENERIC"
+description: "Unified orchestrator for all intelligence operations using Llama Index workflows. Handles document ingestion, pattern learning, quality assessment, semantic analysis, and relationship detection workflows."
+input_model:
+  name: "ModelOrchestratorInput"
+  module: "omniintelligence.nodes.intelligence_orchestrator.models"
+  description: "Input containing operation type, entity ID, payload, and correlation ID."
+output_model:
+  name: "ModelOrchestratorOutput"
+  module: "omniintelligence.nodes.intelligence_orchestrator.models"
+  description: "Output containing workflow execution results, intents, and any errors."
+# Workflow Coordination Configuration
+# ====================================
+# Defines the Llama Index workflow execution graph for intelligence operations.
+# Each workflow is triggered by the operation_type field in the input model.
+workflow_coordination:
+  workflow_definition:
+    workflow_metadata:
+      workflow_name: "intelligence_workflow"
+      workflow_version:
+        major: 1
+        minor: 0
+        patch: 0
+      description: "Routes intelligence operations to appropriate compute/effect nodes"
+    execution_graph:
+      nodes:
+        - node_id: "receive_request"
+          node_type: EFFECT_GENERIC
+          description: "Receive intelligence operation request"
+          step_config:
+            event_pattern: ["intelligence.*"]
+        - node_id: "route_operation"
+          node_type: COMPUTE_GENERIC
+          description: "Route operation based on EnumIntelligenceOperationType"
+          depends_on: ["receive_request"]
+          step_config:
+            routing_field: "operation_type"
+        - node_id: "execute_compute"
+          node_type: COMPUTE_GENERIC
+          description: "Execute compute node for operation"
+          depends_on: ["route_operation"]
+          step_config:
+            compute_nodes:
+              - vectorization_compute
+              - entity_extraction_compute
+              - pattern_matching_compute
+              - quality_scoring_compute
+              - semantic_analysis_compute
+              - relationship_detection_compute
+        - node_id: "execute_effects"
+          node_type: EFFECT_GENERIC
+          description: "Execute effect nodes for persistence"
+          depends_on: ["execute_compute"]
+          step_config:
+            effect_nodes:
+              - qdrant_vector_effect
+              - memgraph_graph_effect
+              - postgres_pattern_effect
+              - intelligence_api_effect
+        - node_id: "publish_outcome"
+          node_type: EFFECT_GENERIC
+          description: "Publish workflow outcome event"
+          depends_on: ["execute_effects"]
+          step_config:
+            event_type: "IntelligenceOperationResult"
+    coordination_rules:
+      execution_mode: parallel
+      parallel_execution_allowed: true
+      max_parallel_branches: 5
+      failure_recovery_strategy: retry
+      max_retries: 3
+      recovery_enabled: true
+      timeout_ms: 300000
+      checkpoint_enabled: true
+      checkpoint_interval_ms: 10000
+      state_persistence_enabled: true
+      rollback_enabled: true
+# Consumed Events
+# ===============
+consumed_events:
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-requested.v1"
+    event_type: "CodeAnalysisRequested"
+  - topic: "{env}.archon-intelligence.intelligence.document-ingestion-requested.v1"
+    event_type: "DocumentIngestionRequested"
+  - topic: "{env}.archon-intelligence.intelligence.pattern-learning-requested.v1"
+    event_type: "PatternLearningRequested"
+  - topic: "{env}.archon-intelligence.intelligence.quality-assessment-requested.v1"
+    event_type: "QualityAssessmentRequested"
+# Published Events
+# ================
+published_events:
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-completed.v1"
+    event_type: "CodeAnalysisCompleted"
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-failed.v1"
+    event_type: "CodeAnalysisFailed"
+  - topic: "{env}.archon-intelligence.intelligence.document-ingested.v1"
+    event_type: "DocumentIngested"
+  - topic: "{env}.archon-intelligence.intelligence.pattern-learned.v1"
+    event_type: "PatternLearned"
+  - topic: "{env}.archon-intelligence.intelligence.quality-assessed.v1"
+    event_type: "QualityAssessed"
+# Dependencies
+# ============
+dependencies:
+  - name: "vectorization_compute"
+    type: "node"
+    module: "omniintelligence.nodes.vectorization_compute"
+    description: "Compute node for generating embeddings."
+  - name: "entity_extraction_compute"
+    type: "node"
+    module: "omniintelligence.nodes.entity_extraction_compute"
+    description: "Compute node for extracting entities."
+  - name: "pattern_matching_compute"
+    type: "node"
+    module: "omniintelligence.nodes.pattern_matching_compute"
+    description: "Compute node for pattern matching."
+  - name: "quality_scoring_compute"
+    type: "node"
+    module: "omniintelligence.nodes.quality_scoring_compute"
+    description: "Compute node for quality scoring."
+  - name: "semantic_analysis_compute"
+    type: "node"
+    module: "omniintelligence.nodes.semantic_analysis_compute"
+    description: "Compute node for semantic analysis."
+  - name: "relationship_detection_compute"
+    type: "node"
+    module: "omniintelligence.nodes.relationship_detection_compute"
+    description: "Compute node for relationship detection."
+  - name: "intelligence_reducer"
+    type: "node"
+    module: "omniintelligence.nodes.intelligence_reducer"
+    description: "Reducer for FSM state management."
+  - name: "qdrant_vector_effect"
+    type: "node"
+    module: "omniintelligence.nodes.qdrant_vector_effect"
+    description: "Effect node for Qdrant vector storage."
+  - name: "memgraph_graph_effect"
+    type: "node"
+    module: "omniintelligence.nodes.memgraph_graph_effect"
+    description: "Effect node for Memgraph graph storage."
+  - name: "postgres_pattern_effect"
+    type: "node"
+    module: "omniintelligence.nodes.postgres_pattern_effect"
+    description: "Effect node for PostgreSQL pattern storage."
+  - name: "intelligence_api_effect"
+    type: "node"
+    module: "omniintelligence.nodes.intelligence_api_effect"
+    description: "Effect node for intelligence API calls."
+# Error Handling Configuration
+# ============================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 2000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      - "ComputeExecutionError"
+      - "EffectExecutionError"
+      - "ConnectionError"
+      - "TimeoutError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+  error_types:
+    - name: "ComputeExecutionError"
+      description: "Error during compute node execution"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "EffectExecutionError"
+      description: "Error during effect node execution"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "WorkflowTimeoutError"
+      description: "Workflow execution exceeded timeout"
+      recoverable: false
+      retry_strategy: "none"
+# Health Check
+# ============
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+# Metadata
+# ========
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "orchestrator"
+    - "intelligence"
+    - "workflows"
+    - "llama-index"

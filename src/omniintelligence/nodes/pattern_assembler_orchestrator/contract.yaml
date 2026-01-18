@@ -1,0 +1,94 @@
+# ONEX Node Contract - Pattern Assembler Orchestrator Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "pattern_assembler_orchestrator"
+node_type: "ORCHESTRATOR_GENERIC"
+description: "Orchestrator node for assembling patterns from extracted components. Coordinates trace parsing, keyword extraction, intent classification, and success criteria matching."
+input_model:
+  name: "ModelPatternAssemblyInput"
+  module: "omniintelligence.nodes.pattern_assembler_orchestrator.models"
+  description: "Input containing raw data and assembly parameters."
+output_model:
+  name: "ModelPatternAssemblyOutput"
+  module: "omniintelligence.nodes.pattern_assembler_orchestrator.models"
+  description: "Output containing assembled pattern and metadata."
+workflow_coordination:
+  workflow_definition:
+    workflow_metadata:
+      workflow_name: "pattern_assembly_workflow"
+      workflow_version:
+        major: 1
+        minor: 0
+        patch: 0
+      description: "Coordinates pattern assembly from component nodes"
+    execution_graph:
+      nodes:
+        - node_id: "parse_traces"
+          node_type: COMPUTE_GENERIC
+          description: "Parse execution traces"
+          step_config:
+            compute_node: "execution_trace_parser_compute"
+        - node_id: "extract_keywords"
+          node_type: COMPUTE_GENERIC
+          description: "Extract contextual keywords"
+          depends_on: ["parse_traces"]
+          step_config:
+            compute_node: "context_keyword_extractor_compute"
+        - node_id: "classify_intent"
+          node_type: COMPUTE_GENERIC
+          description: "Classify user intent"
+          depends_on: ["parse_traces"]
+          step_config:
+            compute_node: "intent_classifier_compute"
+        - node_id: "match_criteria"
+          node_type: COMPUTE_GENERIC
+          description: "Match success criteria"
+          depends_on: ["classify_intent"]
+          step_config:
+            compute_node: "success_criteria_matcher_compute"
+        - node_id: "assemble_pattern"
+          node_type: COMPUTE_GENERIC
+          description: "Assemble final pattern"
+          depends_on: ["extract_keywords", "match_criteria"]
+    coordination_rules:
+      execution_mode: parallel
+      parallel_execution_allowed: true
+      max_parallel_branches: 4
+      failure_recovery_strategy: retry
+      max_retries: 3
+      timeout_ms: 120000
+dependencies:
+  - name: "execution_trace_parser_compute"
+    type: "node"
+    module: "omniintelligence.nodes.execution_trace_parser_compute"
+    description: "Trace parsing compute node"
+  - name: "context_keyword_extractor_compute"
+    type: "node"
+    module: "omniintelligence.nodes.context_keyword_extractor_compute"
+    description: "Keyword extraction compute node"
+  - name: "intent_classifier_compute"
+    type: "node"
+    module: "omniintelligence.nodes.intent_classifier_compute"
+    description: "Intent classification compute node"
+  - name: "success_criteria_matcher_compute"
+    type: "node"
+    module: "omniintelligence.nodes.success_criteria_matcher_compute"
+    description: "Success criteria matching compute node"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-02"
+  updated: "2026-01-18"
+  tags:
+    - "orchestrator"
+    - "pattern"
+    - "assembly"
+    - "pattern-extraction"

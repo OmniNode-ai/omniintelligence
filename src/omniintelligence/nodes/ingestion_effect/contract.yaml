@@ -1,0 +1,37 @@
+# ONEX Node Contract - Ingestion Effect Node (STUB)
+#
+# STATUS: STUB - Minimal contract for forward compatibility
+# This node will handle document ingestion effects when implemented.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "ingestion_effect"
+node_type: "EFFECT_GENERIC"
+status: "stub"
+description: "STUB: Effect node for document ingestion operations. Will handle file reading, format detection, and preprocessing effects."
+input_model:
+  name: "ModelIngestionInput"
+  module: "omniintelligence.nodes.ingestion_effect.models"
+  description: "STUB: Input containing document path and ingestion parameters."
+output_model:
+  name: "ModelIngestionOutput"
+  module: "omniintelligence.nodes.ingestion_effect.models"
+  description: "STUB: Output containing ingested content and metadata."
+# Minimal sections for stub
+dependencies: []
+health_check:
+  enabled: false
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  status: "stub"
+  tags:
+    - "effect"
+    - "ingestion"
+    - "stub"

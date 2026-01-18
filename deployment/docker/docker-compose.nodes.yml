@@ -1,26 +1,12 @@
----
 # ============================================================================
 # OmniIntelligence - ONEX Nodes
 # ============================================================================
 # Purpose: ONEX 4.0 node deployments (orchestrator, reducer, compute, effect)
-#
-# Dependencies:
-#   - omninode-bridge infrastructure must be running (postgres, redpanda, valkey)
-#   - docker-compose.yml (qdrant, memgraph) should be running
-#
+# Dependencies: Requires docker-compose.yml (base infrastructure) running
 # Usage: docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
-#
-# External Services (from omninode-bridge):
-#   - PostgreSQL: omninode-bridge-postgres:5432
-#   - Redpanda: omninode-bridge-redpanda:9092
-#   - Valkey: omninode-bridge-valkey:6379
 # ============================================================================
 
 name: omniintelligence
-
-networks:
-  omninode-bridge-network:
-    external: true
 
 services:
 
@@ -34,8 +20,8 @@ services:
       dockerfile: deployment/docker/Dockerfile.reducer
     container_name: omni-intelligence-reducer
     environment:
-      # Database Configuration (uses omninode-bridge postgres)
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omninode-bridge-postgres:5432/omniintelligence}
+      # Database Configuration
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/omniintelligence}
 
       # Reducer Configuration
       ENABLE_LEASE_MANAGEMENT: ${ENABLE_LEASE_MANAGEMENT:-true}
@@ -46,8 +32,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     networks:
-      - omninode-bridge-network
-    # Note: postgres is external - no depends_on, just ensure omninode-bridge is running
+      - omni-network
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
       interval: 30s
@@ -80,17 +68,18 @@ services:
       ENABLE_CACHING: ${ENABLE_CACHING:-true}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
 
-      # Dependencies (uses omninode-bridge valkey)
+      # Dependencies
       REDUCER_URL: http://intelligence-reducer:8000
-      VALKEY_URL: redis://:${VALKEY_PASSWORD}@omninode-bridge-valkey:6379/0
+      VALKEY_URL: redis://:${VALKEY_PASSWORD}@valkey:6379/0
 
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     networks:
-      - omninode-bridge-network
+      - omni-network
     depends_on:
       - intelligence-reducer
+      - valkey
     healthcheck:
       test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
       interval: 30s
@@ -126,7 +115,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
+    depends_on:
+      - valkey
     restart: unless-stopped
     deploy:
       resources:
@@ -153,63 +144,7 @@ services:
       GENERATE_RECOMMENDATIONS: ${GENERATE_RECOMMENDATIONS:-true}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  # ============================================================================
-  # Entity Extraction Compute Node
-  # ============================================================================
-
-  entity-extraction-compute:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.compute
-      args:
-        NODE_NAME: entity_extraction_compute
-    container_name: omni-entity-extraction-compute
-    environment:
-      MAX_CONTENT_SIZE: ${MAX_CONTENT_SIZE:-1000000}
-      SUPPORTED_LANGUAGES: ${SUPPORTED_LANGUAGES:-python}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    networks:
-      - omninode-bridge-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  # ============================================================================
-  # Relationship Detection Compute Node
-  # ============================================================================
-
-  relationship-detection-compute:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.compute
-      args:
-        NODE_NAME: relationship_detection_compute
-    container_name: omni-relationship-detection-compute
-    environment:
-      ENABLE_CALLS_DETECTION: ${ENABLE_CALLS_DETECTION:-true}
-      ENABLE_IMPORTS_DETECTION: ${ENABLE_IMPORTS_DETECTION:-true}
-      ENABLE_INHERITANCE_DETECTION: ${ENABLE_INHERITANCE_DETECTION:-true}
-      ENABLE_CONTAINMENT_DETECTION: ${ENABLE_CONTAINMENT_DETECTION:-true}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    networks:
-      - omninode-bridge-network
+      - omni-network
     restart: unless-stopped
     deploy:
       resources:
@@ -232,16 +167,17 @@ services:
         NODE_NAME: kafka_event_effect
     container_name: omni-kafka-event-effect
     environment:
-      # Uses omninode-bridge redpanda
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-dev.omni-intelligence}
       ENABLE_IDEMPOTENCE: ${KAFKA_ENABLE_IDEMPOTENCE:-true}
       ACKS: ${KAFKA_ACKS:-all}
       MAX_RETRIES: ${KAFKA_MAX_RETRIES:-3}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
-    # Note: redpanda is external - ensure omninode-bridge is running
+      - omni-network
+    depends_on:
+      redpanda:
+        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -271,7 +207,7 @@ services:
       BATCH_SIZE: ${QDRANT_BATCH_SIZE:-100}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
     depends_on:
       qdrant:
         condition: service_healthy
@@ -304,7 +240,7 @@ services:
       QUERY_TIMEOUT_SECONDS: ${MEMGRAPH_QUERY_TIMEOUT:-30}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
     depends_on:
       memgraph:
         condition: service_healthy
@@ -330,15 +266,16 @@ services:
         NODE_NAME: postgres_pattern_effect
     container_name: omni-postgres-pattern-effect
     environment:
-      # Uses omninode-bridge postgres
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omninode-bridge-postgres:5432/omniintelligence}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/omniintelligence}
       ENABLE_FULL_TEXT_SEARCH: ${ENABLE_FULL_TEXT_SEARCH:-true}
       ENABLE_LINEAGE_TRACKING: ${ENABLE_LINEAGE_TRACKING:-true}
       BATCH_SIZE: ${PATTERN_BATCH_SIZE:-50}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
-    # Note: postgres is external - ensure omninode-bridge is running
+      - omni-network
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -348,3 +285,8 @@ services:
         reservations:
           memory: 256M
           cpus: '0.25'
+
+networks:
+  omni-network:
+    external: true
+    name: omniintelligence_omni-network

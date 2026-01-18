@@ -1,0 +1,67 @@
+# ONEX Node Contract - Qdrant Vector Effect Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+name: "qdrant_vector_effect"
+node_type: "EFFECT_GENERIC"
+description: "Effect node for storing and querying vectors in Qdrant. Handles vector upsert, search, and collection management operations."
+input_model:
+  name: "ModelQdrantVectorInput"
+  module: "omniintelligence.nodes.qdrant_vector_effect.models"
+  description: "Input containing vectors, metadata, and operation type."
+output_model:
+  name: "ModelQdrantVectorOutput"
+  module: "omniintelligence.nodes.qdrant_vector_effect.models"
+  description: "Output containing operation status and search results."
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - operation: "upsert_vectors"
+      handler:
+        name: "HandlerQdrantUpsert"
+        module: "omniintelligence.nodes.qdrant_vector_effect.handlers.handler_qdrant_upsert"
+      description: "Upsert vectors to Qdrant collection"
+    - operation: "search_vectors"
+      handler:
+        name: "HandlerQdrantSearch"
+        module: "omniintelligence.nodes.qdrant_vector_effect.handlers.handler_qdrant_search"
+      description: "Search for similar vectors"
+    - operation: "delete_vectors"
+      handler:
+        name: "HandlerQdrantDelete"
+        module: "omniintelligence.nodes.qdrant_vector_effect.handlers.handler_qdrant_delete"
+      description: "Delete vectors from collection"
+  execution_mode: "sequential"
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "QdrantConnectionError"
+      - "QdrantTimeoutError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+dependencies:
+  - name: "qdrant_client"
+    type: "protocol"
+    module: "qdrant_client"
+    description: "Qdrant client for vector operations"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "effect"
+    - "qdrant"
+    - "vectors"
+    - "storage"

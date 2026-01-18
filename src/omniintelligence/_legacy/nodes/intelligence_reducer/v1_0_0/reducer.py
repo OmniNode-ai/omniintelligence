@@ -30,7 +30,7 @@ from omniintelligence._legacy.models import (
     ModelReducerInput,
     ModelReducerOutput,
 )
-from omniintelligence.shared.intents import IntentFactory
+from omniintelligence._legacy.shared.intents import IntentFactory
 
 # Contract directory path (relative to this file)
 _CONTRACTS_DIR = Path(__file__).parent / "contracts"
