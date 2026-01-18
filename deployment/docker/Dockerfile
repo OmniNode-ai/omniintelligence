@@ -25,8 +25,8 @@ RUN pip install --no-cache-dir uv==0.5.0
 # Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY pyproject.toml .
+# Copy project files (include lock file for reproducible builds)
+COPY pyproject.toml uv.lock* ./
 COPY src/ src/
 COPY deployment/ deployment/
 COPY scripts/ scripts/
@@ -78,8 +78,8 @@ ENV NODE_NAME=${NODE_NAME}
 # Expose health check port
 EXPOSE 8000
 
-# Run compute node
-CMD python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.compute
+# Run compute node (use shell form for variable expansion)
+CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.compute"]
 
 # ============================================================================
 # Stage 5: Effect Node (generic)
@@ -95,8 +95,8 @@ ENV NODE_NAME=${NODE_NAME}
 # Expose health check port
 EXPOSE 8000
 
-# Run effect node
-CMD python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.effect
+# Run effect node (use shell form for variable expansion)
+CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.effect"]
 
 # ============================================================================
 # Stage 6: Development/Testing

@@ -1,8 +1,6 @@
 """Input model for Context Keyword Extractor Compute."""
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -16,7 +14,7 @@ class ModelKeywordExtractionInput(BaseModel):
         ...,
         description="Content to extract keywords from",
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",

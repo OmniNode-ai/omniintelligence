@@ -53,8 +53,16 @@ error_handling:
     max_delay_ms: 30000
     exponential_base: 2
     retry_on:
-      - "ApiConnectionError"
-      - "ApiTimeoutError"
+      # Standard Python transient errors
+      - "ConnectionError"
+      - "TimeoutError"
+      - "OSError"
+      # httpx-specific errors (transient)
+      - "httpx.ConnectError"
+      - "httpx.ConnectTimeout"
+      - "httpx.ReadTimeout"
+      - "httpx.WriteTimeout"
+      # HTTP 429 rate limiting (via status code check, not exception)
       - "RateLimitError"
   circuit_breaker:
     enabled: true

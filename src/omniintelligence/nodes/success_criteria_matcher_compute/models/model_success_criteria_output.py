@@ -1,7 +1,7 @@
 """Output model for Success Criteria Matcher Compute."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -22,13 +22,15 @@ class ModelSuccessCriteriaOutput(BaseModel):
     )
     match_score: float = Field(
         default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Overall match score (0.0 to 1.0)",
     )
     unmatched_criteria: list[str] = Field(
         default_factory=list,
         description="List of unmatched criteria identifiers",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the matching",
     )

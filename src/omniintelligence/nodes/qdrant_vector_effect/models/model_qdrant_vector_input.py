@@ -1,7 +1,7 @@
 """Input model for Qdrant Vector Effect."""
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -32,7 +32,7 @@ class ModelQdrantVectorInput(BaseModel):
         default_factory=list,
         description="IDs for the vectors",
     )
-    query_vector: Optional[list[float]] = Field(
+    query_vector: list[float] | None = Field(
         default=None,
         description="Query vector for search operations",
     )
@@ -44,7 +44,7 @@ class ModelQdrantVectorInput(BaseModel):
         default_factory=dict,
         description="Filters for search or delete operations",
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",

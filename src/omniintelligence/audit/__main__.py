@@ -448,7 +448,38 @@ Exit codes:
             print(error_msg, file=sys.stderr)
         return 2
 
+    except PermissionError as e:
+        # Permission denied when accessing files or directories
+        error_msg = f"Permission denied: {e}"
+        if parsed_args.json:
+            print(
+                json.dumps(
+                    {"error": error_msg, "error_type": "permission_error"},
+                    indent=JSON_INDENT_SPACES,
+                )
+            )
+        else:
+            print(error_msg, file=sys.stderr)
+        return 2
+
+    except ValueError as e:
+        # Configuration or validation errors (e.g., invalid whitelist format)
+        error_msg = f"Validation error: {e}"
+        if parsed_args.json:
+            print(
+                json.dumps(
+                    {"error": error_msg, "error_type": "validation_error"},
+                    indent=JSON_INDENT_SPACES,
+                )
+            )
+        else:
+            print(error_msg, file=sys.stderr)
+        return 2
+
     except Exception as e:
+        # Intentionally broad: CLI entry point catch-all to ensure any unexpected
+        # error is reported to the user with a proper exit code. Specific exceptions
+        # (FileNotFoundError, PermissionError, ValueError) are caught above.
         error_msg = f"Unexpected error: {e}"
         if parsed_args.json:
             print(

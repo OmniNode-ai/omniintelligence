@@ -53,8 +53,14 @@ error_handling:
     max_delay_ms: 5000
     exponential_base: 2
     retry_on:
-      - "PostgresConnectionError"
-      - "PostgresTimeoutError"
+      # Standard Python transient errors
+      - "ConnectionError"
+      - "TimeoutError"
+      - "OSError"
+      # asyncpg-specific errors (transient)
+      - "asyncpg.exceptions.ConnectionDoesNotExistError"
+      - "asyncpg.exceptions.InterfaceError"
+      - "asyncpg.exceptions.TooManyConnectionsError"
   circuit_breaker:
     enabled: true
     failure_threshold: 5

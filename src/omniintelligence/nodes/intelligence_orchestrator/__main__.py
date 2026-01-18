@@ -95,7 +95,16 @@ async def main() -> None:
         logger.info("Health endpoint available at /health")
         # Keep the node running until shutdown signal
         await shutdown_event.wait()
+    except KeyboardInterrupt:
+        # User-initiated shutdown via Ctrl+C
+        logger.info("Received keyboard interrupt, shutting down")
+    except asyncio.CancelledError:
+        # Task cancellation during shutdown
+        logger.info("Event loop cancelled, shutting down")
     except Exception as e:
+        # Intentionally broad: top-level entry point catch-all to ensure any
+        # unexpected error is logged before exiting with error code. This is
+        # the last line of defense for unhandled exceptions in the main loop.
         logger.error(f"Node error: {e}", exc_info=True)
         sys.exit(1)
     finally:

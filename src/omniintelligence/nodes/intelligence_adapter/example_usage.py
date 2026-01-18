@@ -131,8 +131,18 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
 
         return result
 
+    except (ConnectionError, TimeoutError, OSError) as e:
+        # Network-related errors during initialization or analysis
+        logger.error(f"Network error during code analysis: {e}", exc_info=True)
+        raise
+    except ValueError as e:
+        # Configuration or validation errors
+        logger.error(f"Validation error during code analysis: {e}", exc_info=True)
+        raise
     except Exception as e:
-        logger.error(f"Error during code analysis: {e}", exc_info=True)
+        # Intentionally broad: example script catch-all to ensure errors are logged
+        # before re-raising. In production code, use more specific exception handlers.
+        logger.error(f"Unexpected error during code analysis: {e}", exc_info=True)
         raise
 
     finally:
@@ -153,7 +163,7 @@ async def example_performance_analysis() -> ModelIntelligenceOutput:
     logger.info("=" * 80)
 
     code_content = '''
-async def fetch_user_dashboard_data(user_id: int, db: Session) -> Dict[str, Any]:
+async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]:
     """Fetch all data for user dashboard."""
     user = await db.query(User).filter(User.id == user_id).first()
     posts = await db.query(Post).filter(Post.author_id == user_id).all()
@@ -220,8 +230,18 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> Dict[str, Any]
 
         return result
 
+    except (ConnectionError, TimeoutError, OSError) as e:
+        # Network-related errors during initialization or analysis
+        logger.error(f"Network error during performance analysis: {e}", exc_info=True)
+        raise
+    except ValueError as e:
+        # Configuration or validation errors
+        logger.error(f"Validation error during performance analysis: {e}", exc_info=True)
+        raise
     except Exception as e:
-        logger.error(f"Error during performance analysis: {e}", exc_info=True)
+        # Intentionally broad: example script catch-all to ensure errors are logged
+        # before re-raising. In production code, use more specific exception handlers.
+        logger.error(f"Unexpected error during performance analysis: {e}", exc_info=True)
         raise
 
     finally:
@@ -246,6 +266,8 @@ async def main() -> None:
         logger.info("=" * 80)
 
     except Exception as e:
+        # Intentionally broad: top-level example script catch-all to ensure any
+        # unexpected error is logged with full traceback before propagating.
         logger.error(f"Example execution failed: {e}", exc_info=True)
         raise
 

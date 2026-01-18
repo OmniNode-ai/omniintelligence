@@ -2,6 +2,8 @@
 -- Description: Create table for FSM state transition history
 -- Author: omniintelligence
 -- Date: 2025-11-14
+--
+-- Dependencies: 000_extensions.sql, 001_create_fsm_state_table.sql
 
 -- ============================================================================
 -- FSM State History Table

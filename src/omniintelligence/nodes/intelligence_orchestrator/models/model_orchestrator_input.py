@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from omniintelligence.enums import EnumOrchestratorWorkflowType
+
 
 class ModelOrchestratorInput(BaseModel):
     """Input model for intelligence orchestrator operations.
@@ -15,7 +17,7 @@ class ModelOrchestratorInput(BaseModel):
     and correlation ID for distributed tracing.
     """
 
-    operation_type: str = Field(
+    operation_type: EnumOrchestratorWorkflowType = Field(
         ...,
         description="Type of intelligence operation (e.g., DOCUMENT_INGESTION, PATTERN_LEARNING)",
     )

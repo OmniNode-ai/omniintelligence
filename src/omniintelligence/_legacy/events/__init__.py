@@ -29,28 +29,21 @@ from omniintelligence._legacy.models import (
 __all__ = [
     "EnumAnalysisErrorCode",
     "EnumAnalysisOperationType",
-    # Code analysis event types
     "EnumCodeAnalysisEventType",
-    # Publisher
     "EventPublisher",
-    # Helpers
     "IntelligenceAdapterEventHelpers",
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
-    # Code analysis payloads
     "ModelCodeAnalysisRequestPayload",
     "ModelDiscoveryPayload",
-    # Event envelope models
     "ModelEventEnvelope",
     "ModelEventMetadata",
     "ModelEventSource",
     "ModelInfrastructureScanPayload",
-    # Intelligence payloads
     "ModelPatternExtractionPayload",
     "ModelSchemaDiscoveryPayload",
     "create_completed_event",
     "create_event_publisher",
     "create_failed_event",
-    # Convenience functions
     "create_request_event",
 ]

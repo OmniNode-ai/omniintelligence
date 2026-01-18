@@ -2,6 +2,9 @@
 -- Description: Create table for workflow execution tracking
 -- Author: omniintelligence
 -- Date: 2025-11-14
+--
+-- Dependencies: 000_extensions.sql, 001_create_fsm_state_table.sql
+-- Note: Reuses update_fsm_state_updated_at() function from 001
 
 -- ============================================================================
 -- Workflow Executions Table

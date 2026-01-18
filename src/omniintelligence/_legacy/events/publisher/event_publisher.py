@@ -250,12 +250,25 @@ class EventPublisher:
                 )
                 return False
 
-        except Exception as e:
+        except (ValueError, TypeError) as e:
+            # Serialization or envelope creation errors - not retryable
             self.metrics["events_failed"] += 1
             self._record_circuit_breaker_failure()
 
             logger.error(
-                f"Event publish error | event_type={event_type} | error={e}",
+                f"Event serialization error | event_type={event_type} | error={e}",
+                exc_info=True,
+            )
+            return False
+
+        except Exception as e:
+            # Intentionally broad: catch-all for any unexpected error during publishing
+            # to ensure consistent metrics tracking and circuit breaker updates.
+            self.metrics["events_failed"] += 1
+            self._record_circuit_breaker_failure()
+
+            logger.error(
+                f"Unexpected event publish error | event_type={event_type} | error={e}",
                 exc_info=True,
             )
             return False
@@ -297,6 +310,9 @@ class EventPublisher:
                 return True
 
             except Exception as e:
+                # Intentionally broad: retry loop catches all errors from Kafka producer.
+                # Specific Kafka exceptions vary by client library and version; treating
+                # all errors as potentially transient allows retry logic to handle them.
                 if attempt < self.max_retries:
                     # Calculate backoff with exponential increase
                     backoff_ms = self.retry_backoff_ms * (2**attempt)
@@ -501,6 +517,8 @@ class EventPublisher:
             )
 
         except Exception as e:
+            # Intentionally broad: DLQ is best-effort and must never propagate errors
+            # back to the caller. Any failure is logged but silently swallowed.
             logger.error(
                 f"Failed to send event to DLQ | dlq_topic={dlq_topic} | error={e}",
                 exc_info=True,
@@ -597,6 +615,8 @@ class EventPublisher:
                 else:
                     logger.info("All messages flushed successfully")
             except Exception as e:
+                # Intentionally broad: cleanup must never raise. Any flush error
+                # is logged but swallowed to allow graceful shutdown to continue.
                 logger.error(f"Error flushing producer: {e}")
 
         logger.info(f"EventPublisher closed | metrics={self.get_metrics()}")

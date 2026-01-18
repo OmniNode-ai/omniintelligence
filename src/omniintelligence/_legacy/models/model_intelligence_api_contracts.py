@@ -106,7 +106,7 @@ class ModelQualityAssessmentRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "content": "def calculate_total(items: List[Item]) -> float:\n    return sum(item.price for item in items)",
+                "content": "def calculate_total(items: list[Item]) -> float:\n    return sum(item.price for item in items)",
                 "source_path": "src/core/calculator.py",
                 "language": "python",
                 "include_recommendations": True,
@@ -301,7 +301,7 @@ class ModelPerformanceAnalysisRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "operation_name": "database_query_users",
-                "code_content": "async def query_users(db: Session) -> List[User]:\n    return db.query(User).all()",
+                "code_content": "async def query_users(db: Session) -> list[User]:\n    return db.query(User).all()",
                 "context": {
                     "execution_type": "async",
                     "io_type": "database",

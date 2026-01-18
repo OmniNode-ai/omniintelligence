@@ -1,9 +1,9 @@
 """Output model for Pattern Matching Compute."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModelPatternMatchingOutput(BaseModel):
@@ -22,12 +22,24 @@ class ModelPatternMatchingOutput(BaseModel):
     )
     pattern_scores: dict[str, float] = Field(
         default_factory=dict,
-        description="Confidence scores for each matched pattern",
+        description="Confidence scores for each matched pattern (0.0 to 1.0)",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the matching",
     )
+
+    @field_validator("pattern_scores")
+    @classmethod
+    def validate_pattern_scores(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate that all pattern scores are within 0.0 to 1.0 range."""
+        for pattern_name, score in v.items():
+            if not 0.0 <= score <= 1.0:
+                raise ValueError(
+                    f"Pattern score for '{pattern_name}' must be between 0.0 and 1.0, "
+                    f"got {score}"
+                )
+        return v
 
     model_config = {"frozen": True, "extra": "forbid"}
 

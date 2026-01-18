@@ -21,7 +21,7 @@ description: >-
 input_model:
   name: "ModelIngestionInput"
   module: "omniintelligence.nodes.ingestion_effect.models"
-  description: "STUB: Input containing document path and ingestion parameters."
+  description: "STUB: Input containing source_path and options for ingestion."
 output_model:
   name: "ModelIngestionOutput"
   module: "omniintelligence.nodes.ingestion_effect.models"

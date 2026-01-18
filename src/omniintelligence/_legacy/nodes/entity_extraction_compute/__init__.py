@@ -13,7 +13,7 @@ from omniintelligence.nodes.entity_extraction_compute.v1_0_0.compute import (
 
 __all__ = [
     "EntityExtractionCompute",
+    "ModelEntityExtractionConfig",
     "ModelEntityExtractionInput",
     "ModelEntityExtractionOutput",
-    "ModelEntityExtractionConfig",
 ]

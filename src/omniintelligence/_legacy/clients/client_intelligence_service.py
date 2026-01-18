@@ -424,6 +424,8 @@ class IntelligenceServiceClient:
             )
 
         except Exception as e:
+            # Intentionally broad: catch-all for health check to ensure client state
+            # is updated consistently. Specific network errors are caught above.
             self._is_healthy = False
             self._last_health_check = datetime.now(timezone.utc)
             logger.error(f"Health check failed: {e}", exc_info=True)
@@ -491,6 +493,8 @@ class IntelligenceServiceClient:
             )
             raise
         except Exception as e:
+            # Intentionally broad: catch-all for logging metrics on any failure type.
+            # The exception is re-raised after logging; specific handling is in _execute_with_retry.
             duration_ms = (time.perf_counter() - start_time) * 1000
             logger.error(
                 f"Code quality assessment failed | duration={duration_ms:.2f}ms | "
@@ -769,6 +773,9 @@ class IntelligenceServiceClient:
             raise
 
         except Exception as e:
+            # Intentionally broad: catch-all to convert any unexpected error to
+            # IntelligenceServiceError. Specific exceptions (timeout, network,
+            # our own errors) are caught above.
             logger.error(f"Unexpected error during request: {e}", exc_info=True)
             raise IntelligenceServiceError(f"Unexpected error: {e}")
 
@@ -793,8 +800,17 @@ class IntelligenceServiceClient:
             try:
                 data = response.json()
                 return response_model_class(**data)
+            except (ValueError, TypeError, KeyError) as e:
+                # JSON parsing or model instantiation errors
+                logger.error(f"Failed to parse response data: {e}", exc_info=True)
+                raise IntelligenceServiceError(
+                    f"Failed to parse response: {e}",
+                    details={"response_text": response.text[:500]},
+                )
             except Exception as e:
-                logger.error(f"Failed to parse response: {e}", exc_info=True)
+                # Intentionally broad: catch unexpected errors during response parsing
+                # (e.g., Pydantic validation errors with unexpected structure)
+                logger.error(f"Unexpected error parsing response: {e}", exc_info=True)
                 raise IntelligenceServiceError(
                     f"Failed to parse response: {e}",
                     details={"response_text": response.text[:500]},
@@ -804,7 +820,8 @@ class IntelligenceServiceClient:
             # Validation error
             try:
                 error_data = response.json()
-            except Exception:
+            except (ValueError, TypeError):
+                # JSON parsing failed - use raw response text as fallback
                 error_data = {"detail": response.text}
 
             raise IntelligenceServiceValidation(
@@ -831,7 +848,8 @@ class IntelligenceServiceClient:
             # Server error
             try:
                 error_data = response.json()
-            except Exception:
+            except (ValueError, TypeError):
+                # JSON parsing failed - use raw response text as fallback
                 error_data = {"error": response.text}
 
             raise IntelligenceServiceError(
@@ -869,6 +887,8 @@ class IntelligenceServiceClient:
                 logger.info("Health check task cancelled")
                 break
             except Exception as e:
+                # Intentionally broad: background health check must never crash.
+                # Failures are logged but the loop continues to try again later.
                 logger.warning(f"Periodic health check failed: {e}")
                 # Don't raise - just log and continue
 

@@ -53,8 +53,13 @@ error_handling:
     max_delay_ms: 5000
     exponential_base: 2
     retry_on:
-      - "QdrantConnectionError"
-      - "QdrantTimeoutError"
+      # Standard Python transient errors
+      - "ConnectionError"
+      - "TimeoutError"
+      - "OSError"
+      # Qdrant-specific errors (qdrant_client library)
+      - "qdrant_client.http.exceptions.ResponseHandlingException"
+      - "qdrant_client.http.exceptions.UnexpectedResponse"
   circuit_breaker:
     enabled: true
     failure_threshold: 5

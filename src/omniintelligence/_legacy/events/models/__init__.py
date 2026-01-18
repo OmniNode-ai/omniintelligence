@@ -53,25 +53,19 @@ from omniintelligence._legacy.models import (
 __all__ = [
     "EnumAnalysisErrorCode",
     "EnumAnalysisOperationType",
-    # Code analysis event types
     "EnumCodeAnalysisEventType",
-    # Helpers
     "IntelligenceAdapterEventHelpers",
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
-    # Code analysis payloads
     "ModelCodeAnalysisRequestPayload",
     "ModelDiscoveryPayload",
-    # Event envelope models
     "ModelEventEnvelope",
     "ModelEventMetadata",
     "ModelEventSource",
     "ModelInfrastructureScanPayload",
-    # Intelligence payloads
     "ModelPatternExtractionPayload",
     "ModelSchemaDiscoveryPayload",
     "create_completed_event",
     "create_failed_event",
-    # Convenience functions
     "create_request_event",
 ]

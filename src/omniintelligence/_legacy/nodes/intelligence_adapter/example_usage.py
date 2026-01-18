@@ -152,7 +152,7 @@ async def example_performance_analysis() -> ModelIntelligenceOutput:
     logger.info("=" * 80)
 
     code_content = '''
-async def fetch_user_dashboard_data(user_id: int, db: Session) -> Dict[str, Any]:
+async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]:
     """Fetch all data for user dashboard."""
     user = await db.query(User).filter(User.id == user_id).first()
     posts = await db.query(Post).filter(Post.author_id == user_id).all()

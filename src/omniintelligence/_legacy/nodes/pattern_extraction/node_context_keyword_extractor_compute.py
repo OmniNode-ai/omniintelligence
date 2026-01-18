@@ -477,7 +477,7 @@ async def test_keyword_extractor() -> None:
     # Test 2: Code snippet context
     test_input = ModelKeywordExtractionInput(
         context_text="""
-        def calculate_metrics(data: List[int]) -> Dict[str, float]:
+        def calculate_metrics(data: list[int]) -> dict[str, float]:
             total = sum(data)
             average = total / len(data)
             return {"total": total, "average": average}

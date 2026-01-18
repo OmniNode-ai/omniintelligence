@@ -1,7 +1,7 @@
 """Output model for Relationship Detection Compute."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ class ModelRelationshipDetectionOutput(BaseModel):
         default=0,
         description="Total number of detected relationships",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the detection",
     )

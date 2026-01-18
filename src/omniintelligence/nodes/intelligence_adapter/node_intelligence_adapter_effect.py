@@ -37,7 +37,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 try:
@@ -242,7 +242,7 @@ class NodeIntelligenceAdapterEffect:
         container: Any,
         service_url: str = "http://archon-intelligence:8053",
         bootstrap_servers: str = _DEFAULT_KAFKA_SERVERS,
-        consumer_config: Optional[ModelKafkaConsumerConfig] = None,
+        consumer_config: ModelKafkaConsumerConfig | None = None,
     ):
         """
         Initialize Intelligence Adapter Effect Node.
@@ -262,13 +262,13 @@ class NodeIntelligenceAdapterEffect:
         )
 
         # ONEX-compliant attributes
-        self._config: Optional[ModelIntelligenceConfig] = None
-        self._client: Optional[IntelligenceServiceClient] = None
+        self._config: ModelIntelligenceConfig | None = None
+        self._client: IntelligenceServiceClient | None = None
 
         # Kafka infrastructure
-        self.event_publisher: Optional[EventPublisher] = None
-        self.kafka_consumer: Optional[Consumer] = None
-        self._event_consumption_task: Optional[asyncio.Task[None]] = None
+        self.event_publisher: EventPublisher | None = None
+        self.kafka_consumer: Consumer | None = None
+        self._event_consumption_task: asyncio.Task[None] | None = None
 
         # Lifecycle state
         self.is_running = False
@@ -351,16 +351,29 @@ class NodeIntelligenceAdapterEffect:
                     f"status={health_response.status} | "
                     f"version={health_response.service_version}"
                 )
-            except Exception as health_error:
+            except (ConnectionError, TimeoutError, OSError) as health_error:
+                # Network-related errors during health check are non-fatal
                 logger.warning(
                     f"Health check failed (continuing anyway): {health_error}"
+                )
+            except Exception as health_error:
+                # Intentionally broad: health check should never prevent initialization
+                # This catches unexpected errors like response parsing failures
+                logger.warning(
+                    f"Health check failed with unexpected error (continuing anyway): {health_error}"
                 )
 
             # Step 5-7: Initialize Kafka infrastructure (if available)
             if KAFKA_AVAILABLE:
                 try:
                     await self._initialize_kafka_infrastructure()
-                except Exception as kafka_error:
+                except (KafkaException, ConnectionError, TimeoutError) as kafka_error:
+                    # Kafka-specific or network errors during initialization are non-fatal
+                    logger.warning(
+                        f"Kafka initialization failed (continuing without event bus): {kafka_error}"
+                    )
+                except RuntimeError as kafka_error:
+                    # RuntimeError from our own _initialize_kafka_infrastructure
                     logger.warning(
                         f"Kafka initialization failed (continuing without event bus): {kafka_error}"
                     )
@@ -378,9 +391,29 @@ class NodeIntelligenceAdapterEffect:
                 f"kafka_available={KAFKA_AVAILABLE}"
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
+            # Network-related initialization failures
             logger.error(
-                f"Failed to initialize Intelligence Adapter: {e}", exc_info=True
+                f"Failed to initialize Intelligence Adapter (network error): {e}", exc_info=True
+            )
+            raise ModelOnexError(
+                error_code=EnumCoreErrorCode.INITIALIZATION_FAILED,
+                message=f"Failed to initialize Intelligence Adapter (network error): {e!s}",
+            ) from e
+        except ValueError as e:
+            # Configuration or validation errors
+            logger.error(
+                f"Failed to initialize Intelligence Adapter (config error): {e}", exc_info=True
+            )
+            raise ModelOnexError(
+                error_code=EnumCoreErrorCode.INITIALIZATION_FAILED,
+                message=f"Failed to initialize Intelligence Adapter (config error): {e!s}",
+            ) from e
+        except Exception as e:
+            # Intentionally broad: top-level catch-all to convert any unexpected error
+            # to ModelOnexError for consistent error handling across the ONEX system
+            logger.error(
+                f"Failed to initialize Intelligence Adapter (unexpected): {e}", exc_info=True
             )
             raise ModelOnexError(
                 error_code=EnumCoreErrorCode.INITIALIZATION_FAILED,
@@ -444,11 +477,25 @@ class NodeIntelligenceAdapterEffect:
 
             logger.info("Kafka infrastructure initialized and consumption started")
 
-        except Exception as e:
+        except KafkaException as e:
+            # Kafka-specific errors (broker connection, subscription, etc.)
             logger.error(
-                f"Failed to initialize Kafka infrastructure: {e}", exc_info=True
+                f"Failed to initialize Kafka infrastructure (Kafka error): {e}", exc_info=True
             )
-            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}")
+            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}") from e
+        except (ConnectionError, TimeoutError) as e:
+            # Network-related errors during Kafka initialization
+            logger.error(
+                f"Failed to initialize Kafka infrastructure (network error): {e}", exc_info=True
+            )
+            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}") from e
+        except Exception as e:
+            # Intentionally broad: catch unexpected errors during Kafka setup
+            # and convert to RuntimeError for consistent handling
+            logger.error(
+                f"Failed to initialize Kafka infrastructure (unexpected): {e}", exc_info=True
+            )
+            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}") from e
 
     async def shutdown(self) -> None:
         """
@@ -487,7 +534,11 @@ class NodeIntelligenceAdapterEffect:
                 self.kafka_consumer.commit()
                 self.kafka_consumer.close()
                 logger.info("Kafka consumer closed, offsets committed")
+            except KafkaException as e:
+                # Kafka-specific errors during cleanup
+                logger.warning(f"Kafka error closing consumer: {e}")
             except Exception as e:
+                # Intentionally broad: cleanup must never raise, any error is logged only
                 logger.warning(f"Error closing Kafka consumer: {e}")
 
         # Step 4: Close event publisher
@@ -496,6 +547,7 @@ class NodeIntelligenceAdapterEffect:
                 await self.event_publisher.close()
                 logger.info("Event publisher closed")
             except Exception as e:
+                # Intentionally broad: cleanup must never raise, any error is logged only
                 logger.warning(f"Error closing event publisher: {e}")
 
         # Step 5: Clean up node resources
@@ -522,7 +574,11 @@ class NodeIntelligenceAdapterEffect:
             try:
                 await self._client.close()
                 logger.info("Intelligence service client closed")
+            except (ConnectionError, TimeoutError) as e:
+                # Network errors during client close are expected and non-fatal
+                logger.warning(f"Network error closing intelligence service client: {e}")
             except Exception as e:
+                # Intentionally broad: cleanup must never raise, any error is logged only
                 logger.warning(f"Error closing intelligence service client: {e}")
             finally:
                 self._client = None
@@ -580,7 +636,20 @@ class NodeIntelligenceAdapterEffect:
                     if not self.consumer_config.enable_auto_commit:
                         self.kafka_consumer.commit(asynchronous=True)
 
+                except ValueError as e:
+                    # Deserialization or validation errors
+                    self.metrics["events_failed"] += 1
+                    logger.error(
+                        f"Failed to process event (validation error) | error={e} | "
+                        f"topic={msg.topic()} | partition={msg.partition()} | "
+                        f"offset={msg.offset()}",
+                        exc_info=True,
+                    )
+                    await self._route_to_dlq(msg, str(e))
+
                 except Exception as e:
+                    # Intentionally broad: any processing error should route to DLQ
+                    # rather than crash the consumer loop
                     self.metrics["events_failed"] += 1
                     logger.error(
                         f"Failed to process event | error={e} | "
@@ -599,7 +668,16 @@ class NodeIntelligenceAdapterEffect:
                 # Continue after Kafka errors
                 await asyncio.sleep(1.0)
 
+            except (ConnectionError, TimeoutError) as e:
+                # Network-related errors in the consumption loop
+                logger.error(
+                    f"Network error in consumption loop: {e}", exc_info=True
+                )
+                await asyncio.sleep(1.0)
+
             except Exception as e:
+                # Intentionally broad: event loop must never crash, any unexpected
+                # error is logged and the loop continues
                 logger.error(
                     f"Unexpected error in consumption loop: {e}", exc_info=True
                 )
@@ -633,9 +711,16 @@ class NodeIntelligenceAdapterEffect:
         try:
             message_value = message.value().decode("utf-8")
             event_dict = json.loads(message_value)
-        except Exception as e:
-            logger.error(f"Failed to deserialize message: {e}")
-            raise ValueError(f"Message deserialization failed: {e}")
+        except UnicodeDecodeError as e:
+            logger.error(f"Failed to decode message bytes: {e}")
+            raise ValueError(f"Message decoding failed (invalid UTF-8): {e}") from e
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse message JSON: {e}")
+            raise ValueError(f"Message parsing failed (invalid JSON): {e}") from e
+        except (AttributeError, TypeError) as e:
+            # message.value() returned None or unexpected type
+            logger.error(f"Invalid message format: {e}")
+            raise ValueError(f"Message deserialization failed (invalid format): {e}") from e
 
         # Step 2: Extract event metadata
         event_type = event_dict.get("event_type", "")
@@ -659,9 +744,19 @@ class NodeIntelligenceAdapterEffect:
             event_type_enum, payload = (
                 IntelligenceAdapterEventHelpers.deserialize_event(event_dict)
             )
+        except KeyError as e:
+            # Missing required fields in event payload
+            logger.error(f"Missing field in event payload: {e}")
+            raise ValueError(f"Payload deserialization failed (missing field): {e}") from e
+        except (TypeError, ValueError) as e:
+            # Type conversion or validation errors
+            logger.error(f"Invalid event payload: {e}")
+            raise ValueError(f"Payload deserialization failed (validation error): {e}") from e
         except Exception as e:
+            # Intentionally broad: catch any deserialization error from external helper
+            # and convert to ValueError for consistent handling
             logger.error(f"Failed to deserialize event payload: {e}")
-            raise ValueError(f"Payload deserialization failed: {e}")
+            raise ValueError(f"Payload deserialization failed: {e}") from e
 
         # Step 4: Route based on event type
         if event_type_enum == EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value:
@@ -683,7 +778,7 @@ class NodeIntelligenceAdapterEffect:
         self,
         payload: ModelCodeAnalysisRequestPayload,
         correlation_id: UUID,
-        causation_id: Optional[UUID],
+        causation_id: UUID | None,
         start_time: float,
     ) -> None:
         """
@@ -753,7 +848,28 @@ class NodeIntelligenceAdapterEffect:
                     self.metrics["total_processing_time_ms"] / processed_count
                 )
 
+        except (ConnectionError, TimeoutError) as e:
+            # Network-related errors during analysis
+            logger.error(
+                f"Network error handling CODE_ANALYSIS_REQUESTED | "
+                f"correlation_id={correlation_id} | error={e}",
+                exc_info=True,
+            )
+            processing_time_ms = (time.perf_counter() - start_time) * 1000
+            await self._publish_analysis_failed_event(
+                input_data=input_data if "input_data" in locals() else None,
+                error_message=str(e),
+                error_code="SERVICE_UNAVAILABLE",
+                correlation_id=correlation_id,
+                causation_id=causation_id,
+                processing_time_ms=processing_time_ms,
+            )
+            self.metrics["analysis_failed"] += 1
+            raise
+
         except Exception as e:
+            # Intentionally broad: any error during analysis must publish a failure event
+            # to maintain event-driven consistency (every request gets a response)
             logger.error(
                 f"Error handling CODE_ANALYSIS_REQUESTED | "
                 f"correlation_id={correlation_id} | error={e}",
@@ -778,7 +894,7 @@ class NodeIntelligenceAdapterEffect:
         self,
         output: ModelIntelligenceOutput,
         correlation_id: UUID,
-        causation_id: Optional[UUID],
+        causation_id: UUID | None,
         processing_time_ms: float,
     ) -> None:
         """
@@ -840,7 +956,16 @@ class NodeIntelligenceAdapterEffect:
                 f"processing_time={processing_time_ms:.2f}ms"
             )
 
+        except (KafkaException, ConnectionError, TimeoutError) as e:
+            # Kafka or network errors during event publishing
+            logger.error(
+                f"Failed to publish CODE_ANALYSIS_COMPLETED (publish error) | "
+                f"correlation_id={correlation_id} | error={e}",
+                exc_info=True,
+            )
         except Exception as e:
+            # Intentionally broad: event publishing failures should not propagate
+            # up the call stack; analysis was successful, just notification failed
             logger.error(
                 f"Failed to publish CODE_ANALYSIS_COMPLETED | "
                 f"correlation_id={correlation_id} | error={e}",
@@ -849,11 +974,11 @@ class NodeIntelligenceAdapterEffect:
 
     async def _publish_analysis_failed_event(
         self,
-        input_data: Optional[ModelIntelligenceInput],
+        input_data: ModelIntelligenceInput | None,
         error_message: str,
         error_code: str,
         correlation_id: UUID,
-        causation_id: Optional[UUID],
+        causation_id: UUID | None,
         processing_time_ms: float,
     ) -> None:
         """
@@ -925,7 +1050,16 @@ class NodeIntelligenceAdapterEffect:
                 f"processing_time={processing_time_ms:.2f}ms"
             )
 
+        except (KafkaException, ConnectionError, TimeoutError) as e:
+            # Kafka or network errors during event publishing
+            logger.error(
+                f"Failed to publish CODE_ANALYSIS_FAILED (publish error) | "
+                f"correlation_id={correlation_id} | error={e}",
+                exc_info=True,
+            )
         except Exception as e:
+            # Intentionally broad: event publishing failures should not propagate;
+            # the analysis already failed, we just can't notify about it
             logger.error(
                 f"Failed to publish CODE_ANALYSIS_FAILED | "
                 f"correlation_id={correlation_id} | error={e}",
@@ -971,9 +1105,16 @@ class NodeIntelligenceAdapterEffect:
                     original_payload = json.loads(original_content)
                 except json.JSONDecodeError:
                     original_payload = {"raw_content": original_content}
-            except Exception as decode_error:
+            except UnicodeDecodeError as decode_error:
+                # Message content is not valid UTF-8, store as hex
                 original_payload = {
                     "raw_bytes": message.value().hex() if message.value() else None,
+                    "decode_error": str(decode_error),
+                }
+            except (AttributeError, TypeError) as decode_error:
+                # message.value() returned None or unexpected type
+                original_payload = {
+                    "raw_bytes": None,
                     "decode_error": str(decode_error),
                 }
 
@@ -1053,8 +1194,21 @@ class NodeIntelligenceAdapterEffect:
                 f"error={error}"
             )
 
+        except (KafkaException, ConnectionError, TimeoutError) as e:
+            # Kafka or network errors during DLQ routing
+            self.metrics["dlq_routed"] += 1  # Still count the attempt
+            logger.error(
+                f"Failed to route message to DLQ (network/Kafka error) | "
+                f"dlq_topic={dlq_topic} | "
+                f"original_topic={original_topic} | "
+                f"partition={message.partition()} | "
+                f"offset={message.offset()} | "
+                f"routing_error={e}",
+                exc_info=True,
+            )
         except Exception as e:
-            # Log failure but don't raise - DLQ routing should not block processing
+            # Intentionally broad: DLQ routing must never raise and must never
+            # block the main processing loop. Any error is logged but swallowed.
             self.metrics["dlq_routed"] += 1  # Still count the attempt
             logger.error(
                 f"Failed to route message to DLQ | "
@@ -1242,12 +1396,41 @@ class NodeIntelligenceAdapterEffect:
                 last_error = None
                 break
 
-            except Exception as process_error:
+            except (ConnectionError, TimeoutError, OSError) as process_error:
+                # Transient network errors - these are retryable
                 last_error = process_error
                 retry_count += 1
 
                 if retry_count <= max_retries:
-                    # Will retry
+                    retry_delay = (
+                        self._config.retry_delay_ms / 1000 if self._config else 1.0
+                    )
+                    logger.warning(
+                        f"Process failed with transient error (attempt {retry_count}/{max_retries + 1}), "
+                        f"retrying in {retry_delay}s: {process_error}"
+                    )
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(
+                        f"Process failed after {retry_count} attempts (network error): {process_error}"
+                    )
+                    break
+
+            except ValueError as process_error:
+                # Validation errors - not retryable, fail immediately
+                last_error = process_error
+                logger.error(
+                    f"Process failed with validation error (not retrying): {process_error}"
+                )
+                break
+
+            except Exception as process_error:
+                # Intentionally broad: catch any unexpected error for the retry loop.
+                # Unknown errors are treated as potentially transient and retried.
+                last_error = process_error
+                retry_count += 1
+
+                if retry_count <= max_retries:
                     retry_delay = (
                         self._config.retry_delay_ms / 1000 if self._config else 1.0
                     )
@@ -1257,7 +1440,6 @@ class NodeIntelligenceAdapterEffect:
                     )
                     await asyncio.sleep(retry_delay)
                 else:
-                    # No more retries - will be handled below
                     logger.error(
                         f"Process failed after {retry_count} attempts: {process_error}"
                     )

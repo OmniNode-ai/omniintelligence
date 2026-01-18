@@ -304,25 +304,33 @@ state_machine:
   terminal_states: []
 # Intent Emission Configuration
 # ============================
-intent_emission:
-  enabled: true
-  intents:
-    - intent_type: "workflow.trigger"
-      target_pattern: "orchestrator://intelligence/{operation_type}"
-      payload_model: "ModelWorkflowTriggerPayload"
-      payload_module: "omniintelligence.nodes.intelligence_reducer.models"
-      description: "Trigger workflow execution in orchestrator"
-    - intent_type: "event.publish"
-      target_pattern: "kafka://{topic}"
-      payload_model: "ModelEventPublishPayload"
-      payload_module: "omniintelligence.nodes.intelligence_reducer.models"
-      description: "Publish event to Kafka"
+# TODO: Intent emission models not yet implemented. Create these models when
+# implementing intent-based workflow triggering:
+# - ModelWorkflowTriggerPayload: Payload for triggering orchestrator workflows
+# - ModelEventPublishPayload: Payload for publishing Kafka events
+#
+# intent_emission:
+#   enabled: true
+#   intents:
+#     - intent_type: "workflow.trigger"
+#       target_pattern: "orchestrator://intelligence/{operation_type}"
+#       payload_model: "ModelWorkflowTriggerPayload"
+#       payload_module: "omniintelligence.nodes.intelligence_reducer.models"
+#       description: "Trigger workflow execution in orchestrator"
+#     - intent_type: "event.publish"
+#       target_pattern: "kafka://{topic}"
+#       payload_model: "ModelEventPublishPayload"
+#       payload_module: "omniintelligence.nodes.intelligence_reducer.models"
+#       description: "Publish event to Kafka"
 # State Model Configuration
 # =========================
-state_model:
-  name: "ModelIntelligenceState"
-  module: "omniintelligence.nodes.intelligence_reducer.models"
-  description: "Immutable state model for pure reducer pattern"
+# TODO: State model not yet implemented. Create ModelIntelligenceState when
+# implementing pure reducer pattern with immutable state.
+#
+# state_model:
+#   name: "ModelIntelligenceState"
+#   module: "omniintelligence.nodes.intelligence_reducer.models"
+#   description: "Immutable state model for pure reducer pattern"
 # Validation Configuration
 # ========================
 validation:

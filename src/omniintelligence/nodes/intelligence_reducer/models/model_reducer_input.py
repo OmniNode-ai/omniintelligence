@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from omniintelligence.enums import EnumFSMType
+
 
 class ModelReducerInput(BaseModel):
     """Input model for intelligence reducer operations.
@@ -15,7 +17,7 @@ class ModelReducerInput(BaseModel):
     and any associated payload data.
     """
 
-    fsm_type: str = Field(
+    fsm_type: EnumFSMType = Field(
         ...,
         description="Type of FSM (INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT)",
     )

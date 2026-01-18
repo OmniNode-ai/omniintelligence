@@ -1,7 +1,7 @@
 """Input model for Memgraph Graph Effect."""
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ class ModelMemgraphGraphInput(BaseModel):
         default_factory=list,
         description="Relationships to create between nodes",
     )
-    cypher_query: Optional[str] = Field(
+    cypher_query: str | None = Field(
         default=None,
         description="Cypher query to execute (for execute_query operation)",
     )
@@ -32,7 +32,7 @@ class ModelMemgraphGraphInput(BaseModel):
         default_factory=dict,
         description="Parameters for the Cypher query",
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",

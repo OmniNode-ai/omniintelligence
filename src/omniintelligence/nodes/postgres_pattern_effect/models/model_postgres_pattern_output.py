@@ -1,7 +1,7 @@
 """Output model for PostgreSQL Pattern Effect."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ class ModelPostgresPatternOutput(BaseModel):
         ...,
         description="Whether the pattern operation succeeded",
     )
-    pattern_id: Optional[str] = Field(
+    pattern_id: str | None = Field(
         default=None,
         description="ID of the stored/updated pattern",
     )
@@ -28,7 +28,7 @@ class ModelPostgresPatternOutput(BaseModel):
         default=0,
         description="Number of rows affected by the operation",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the operation",
     )

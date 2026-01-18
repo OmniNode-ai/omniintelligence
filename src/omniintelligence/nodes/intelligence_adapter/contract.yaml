@@ -30,6 +30,10 @@ node_type: "EFFECT_GENERIC"
 description: >-
   Effect node that adapts between Kafka events and Archon intelligence services. Consumes code analysis
   requests and publishes completion/failure events with DLQ routing support.
+# Note: Input/output models use top-level module "omniintelligence.models" rather than
+# node-specific "omniintelligence.nodes.intelligence_adapter.models" because these are
+# shared models used across multiple intelligence nodes (adapter, orchestrator, etc.).
+# See omniintelligence/models/__init__.py for migration documentation.
 input_model:
   name: "ModelIntelligenceInput"
   module: "omniintelligence.models"
@@ -40,10 +44,14 @@ output_model:
   description: "Output containing analysis results, scores, and recommendations."
 # Consumed Events
 # ===============
+# NOTE: Event payload models currently reside in omniintelligence._legacy.models.
+# TODO: Migrate these models to canonical location (omniintelligence.events.models)
+# when completing the _legacy migration. Implementation imports from _legacy.
 consumed_events:
   - topic: "{env}.archon-intelligence.intelligence.code-analysis-requested.v1"
     event_type: "CodeAnalysisRequested"
     payload_model: "ModelCodeAnalysisRequestPayload"
+    payload_module: "omniintelligence._legacy.models"
     description: "Code analysis request from external services"
 # Published Events
 # ================
@@ -51,10 +59,12 @@ published_events:
   - topic: "{env}.archon-intelligence.intelligence.code-analysis-completed.v1"
     event_type: "CodeAnalysisCompleted"
     payload_model: "ModelCodeAnalysisCompletedPayload"
+    payload_module: "omniintelligence._legacy.models"
     description: "Code analysis completed successfully"
   - topic: "{env}.archon-intelligence.intelligence.code-analysis-failed.v1"
     event_type: "CodeAnalysisFailed"
     payload_model: "ModelCodeAnalysisFailedPayload"
+    payload_module: "omniintelligence._legacy.models"
     description: "Code analysis failed"
 # Handler Routing Configuration
 # =============================

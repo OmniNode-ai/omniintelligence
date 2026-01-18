@@ -21,9 +21,9 @@ from omniintelligence.audit.io_audit import (
 )
 
 __all__ = [
-    "IO_AUDIT_TARGETS",
     "EnumIOAuditRule",
     "IOAuditVisitor",
+    "IO_AUDIT_TARGETS",
     "ModelAuditResult",
     "ModelIOAuditViolation",
     "ModelInlinePragma",

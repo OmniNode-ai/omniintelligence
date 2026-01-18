@@ -1,8 +1,6 @@
 """Input model for Quality Scoring Compute."""
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -24,7 +22,7 @@ class ModelQualityScoringInput(BaseModel):
         default="python",
         description="Programming language of the content",
     )
-    project_name: Optional[str] = Field(
+    project_name: str | None = Field(
         default=None,
         description="Name of the project for context",
     )

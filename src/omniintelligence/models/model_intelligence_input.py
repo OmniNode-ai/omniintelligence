@@ -17,9 +17,11 @@ Migration Note:
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
+
+from omniintelligence.enums import EnumIntelligenceOperationType
 
 
 class ModelIntelligenceInput(BaseModel):
@@ -66,7 +68,7 @@ class ModelIntelligenceInput(BaseModel):
             ... )
     """
 
-    operation_type: str = Field(
+    operation_type: EnumIntelligenceOperationType = Field(
         ...,
         description="Type of intelligence operation (analyze_code, assess_quality, detect_patterns, etc.)",
     )
@@ -74,7 +76,7 @@ class ModelIntelligenceInput(BaseModel):
         ...,
         description="Content to analyze (source code, document, etc.)",
     )
-    source_path: Optional[str] = Field(
+    source_path: str | None = Field(
         default=None,
         description="Path to the source file being analyzed",
     )
@@ -82,7 +84,7 @@ class ModelIntelligenceInput(BaseModel):
         default="python",
         description="Programming language of the content",
     )
-    project_name: Optional[str] = Field(
+    project_name: str | None = Field(
         default=None,
         description="Name of the project for context",
     )
@@ -90,7 +92,7 @@ class ModelIntelligenceInput(BaseModel):
         default_factory=dict,
         description="Operation-specific options and parameters for analysis",
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for distributed tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",

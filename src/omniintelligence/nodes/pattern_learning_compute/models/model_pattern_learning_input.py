@@ -1,7 +1,7 @@
 """Input model for Pattern Learning Compute (STUB)."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +21,7 @@ class ModelPatternLearningInput(BaseModel):
         default_factory=dict,
         description="Parameters for the learning algorithm",
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",

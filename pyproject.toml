@@ -33,9 +33,26 @@ isort = "^5.13.0"
 [tool.poetry.group.core.dependencies]
 omnibase-core = "^0.7.0"
 omnibase-spi = "^0.5.0"
-# NOTE: omnibase-infra is a local development dependency (not published to PyPI).
-# To use locally with Poetry, uncomment and adjust the path:
+# =============================================================================
+# omnibase-infra: LOCAL DEVELOPMENT DEPENDENCY (Not Published to PyPI)
+# =============================================================================
+# omnibase-infra provides infrastructure handlers (Kafka, Qdrant, PostgreSQL)
+# that are injected at runtime for effect nodes.
+#
+# IMPORTANT: This dependency is intentionally COMMENTED OUT because:
+#   1. It's not published to PyPI - resolution would fail in CI/CD
+#   2. Path varies by developer environment
+#   3. Most development (unit tests, compute nodes) doesn't require it
+#
+# TO ENABLE (for full local development with real I/O handlers):
+#   Option A: Install separately (RECOMMENDED):
+#     pip install -e /path/to/your/omnibase_infra
+#
+#   Option B: Uncomment below and adjust path:
 # omnibase-infra = {path = "../omnibase_infra3", develop = true}
+#
+# See README.md section "Local Development with omnibase-infra" for details.
+# =============================================================================
 
 [project]
 name = "omniintelligence"
@@ -73,14 +90,17 @@ dev = [
 ]
 
 # Core node system dependencies
-# NOTE: omnibase-infra is required for local development but is not published to PyPI.
-# Install it separately with: uv pip install -e /path/to/your/omnibase_infra
-# or add a local path dependency manually after cloning.
+# =============================================================================
+# omnibase-infra: LOCAL DEVELOPMENT DEPENDENCY (Not Published to PyPI)
+# =============================================================================
+# See [tool.poetry.group.core.dependencies] above for full documentation.
+# For local development with real I/O handlers:
+#   uv pip install -e /path/to/your/omnibase_infra
+# =============================================================================
 core = [
-    # ONEX ecosystem dependencies
+    # ONEX ecosystem dependencies (omnibase-infra installed separately - see above)
     "omnibase-core>=0.7.0",
     "omnibase-spi>=0.5.0",
-    # omnibase-infra is a path dependency in Poetry (not published yet)
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -113,17 +133,15 @@ core = [
     "structlog>=23.1.0",
     "prometheus-client>=0.19.0",
     "psutil>=5.9.0",
-    # NOTE: omnibase-infra is a local development dependency.
-    # Uncomment for local development with path to your omnibase_infra checkout.
-    # "omnibase-infra @ file:///workspace/omnibase_infra3",
+    # NOTE: omnibase-infra (local dev dependency) - install separately, see header comment above
 ]
 
 # All dependencies for development and testing
+# NOTE: omnibase-infra (local dev dependency) - install separately, see core section header
 all = [
-    # Include all core dependencies
+    # Include all core dependencies (omnibase-infra installed separately)
     "omnibase-core>=0.7.0",
     "omnibase-spi>=0.5.0",
-    # omnibase-infra is a path dependency in Poetry (not published yet)
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.20",

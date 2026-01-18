@@ -222,9 +222,15 @@ VALID_NODE_TYPE_BASES: frozenset[str] = frozenset(
 VALID_NODE_TYPES: frozenset[str] = frozenset(
     {
         # Base types
-        "compute", "effect", "reducer", "orchestrator",
+        "compute",
+        "effect",
+        "reducer",
+        "orchestrator",
         # Extended generic types
-        "compute_generic", "effect_generic", "reducer_generic", "orchestrator_generic",
+        "compute_generic",
+        "effect_generic",
+        "reducer_generic",
+        "orchestrator_generic",
     }
 )
 
@@ -778,8 +784,27 @@ class ContractLinter:
                 validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
+        except TypeError as e:
+            # Type errors during model construction (e.g., wrong argument types)
+            validation_errors = [
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"Type error during validation: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
+                )
+            ]
+            return ModelContractValidationResult(
+                file_path=path,
+                is_valid=False,
+                validation_errors=validation_errors,
+                contract_type=contract_type_name,
+            )
         except Exception as e:
-            # Catch any unexpected errors during Pydantic model validation
+            # Intentionally broad: catch any unexpected errors during Pydantic model
+            # validation. ValidationError and ModelOnexError are caught above; this
+            # catches truly unexpected errors that may occur during model construction.
             validation_errors = [
                 ModelContractValidationError(
                     field_path="contract",
@@ -897,8 +922,45 @@ class ContractLinter:
                 path,
                 contract_type=node_type_lower,
             )
+        except (FileNotFoundError, PermissionError) as e:
+            # File system errors during validation
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"File access error during validation: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.FILE_NOT_FOUND
+                    if isinstance(e, FileNotFoundError)
+                    else EnumContractErrorType.UNEXPECTED_ERROR,
+                )
+            )
+            return ModelContractValidationResult(
+                file_path=path,
+                is_valid=False,
+                validation_errors=validation_errors,
+                contract_type=node_type_lower,
+            )
+        except ValueError as e:
+            # Configuration or value errors from validator
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"Invalid contract configuration: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
+                )
+            )
+            return ModelContractValidationResult(
+                file_path=path,
+                is_valid=False,
+                validation_errors=validation_errors,
+                contract_type=node_type_lower,
+            )
         except Exception as e:
-            # Catch unexpected errors from ProtocolContractValidator
+            # Intentionally broad: catch unexpected errors from external
+            # ProtocolContractValidator. Specific exceptions are caught above.
             validation_errors.append(
                 ModelContractValidationError(
                     field_path="contract",
@@ -1629,8 +1691,42 @@ def main(args: list[str] | None = None) -> int:
         print(error_output, file=sys.stderr)
         return 2
 
+    except (FileNotFoundError, PermissionError) as e:
+        # File system errors (file not found, permission denied)
+        cli_error_type = (
+            "file_not_found" if isinstance(e, FileNotFoundError) else "permission_denied"
+        )
+        if parsed_args.json:
+            error_output = json.dumps(
+                {
+                    "error": redact_sensitive_values(str(e)),
+                    "cli_error_type": cli_error_type,
+                },
+                indent=JSON_INDENT_SPACES,
+            )
+        else:
+            error_output = f"Error: {redact_sensitive_values(str(e))}"
+        print(error_output, file=sys.stderr)
+        return 2
+
+    except KeyboardInterrupt:
+        # User interrupted execution
+        if parsed_args.json:
+            error_output = json.dumps(
+                {
+                    "error": "Operation cancelled by user",
+                    "cli_error_type": "interrupted",
+                },
+                indent=JSON_INDENT_SPACES,
+            )
+        else:
+            error_output = "Operation cancelled by user"
+        print(error_output, file=sys.stderr)
+        return 130  # Standard exit code for SIGINT
+
     except Exception as e:
-        # Catch any unexpected errors and provide a clean error message
+        # Intentionally broad: CLI top-level exception handler to catch any unexpected
+        # errors and provide a clean error message. Specific exceptions are caught above.
         if parsed_args.json:
             error_output = json.dumps(
                 {

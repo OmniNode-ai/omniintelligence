@@ -20,9 +20,11 @@ Migration Note:
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
+
+from omniintelligence.enums import EnumIntelligenceOperationType
 
 
 class ModelIntelligenceOutput(BaseModel):
@@ -92,11 +94,11 @@ class ModelIntelligenceOutput(BaseModel):
         ...,
         description="Whether the intelligence operation succeeded",
     )
-    operation_type: str = Field(
+    operation_type: EnumIntelligenceOperationType = Field(
         ...,
         description="Type of intelligence operation performed",
     )
-    quality_score: Optional[float] = Field(
+    quality_score: float | None = Field(
         default=None,
         description="Overall quality score (0.0 to 1.0) if applicable",
     )
@@ -112,16 +114,16 @@ class ModelIntelligenceOutput(BaseModel):
         default_factory=list,
         description="List of recommendations",
     )
-    onex_compliant: Optional[bool] = Field(
+    onex_compliant: bool | None = Field(
         default=None,
         description="Whether the analyzed code is ONEX compliant",
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for distributed tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
-    error_message: Optional[str] = Field(
+    error_message: str | None = Field(
         default=None,
         description="Error message if the operation failed",
     )

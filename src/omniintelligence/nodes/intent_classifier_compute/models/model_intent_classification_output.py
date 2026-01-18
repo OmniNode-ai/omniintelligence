@@ -1,9 +1,33 @@
 """Output model for Intent Classifier Compute."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, Field
+
+
+class SecondaryIntentDict(TypedDict, total=False):
+    """Typed structure for secondary intent entries.
+
+    Provides stronger typing for intent classification results.
+    """
+
+    intent_category: str
+    confidence: float
+    description: str
+    keywords: list[str]
+    parent_intent: str | None
+
+
+class IntentMetadataDict(TypedDict, total=False):
+    """Typed structure for intent classification metadata."""
+
+    classifier_version: str
+    classification_time_ms: float
+    model_name: str
+    token_count: int
+    threshold_used: float
+    raw_scores: dict[str, float]
 
 
 class ModelIntentClassificationOutput(BaseModel):
@@ -24,11 +48,11 @@ class ModelIntentClassificationOutput(BaseModel):
         default=0.0,
         description="Confidence score for the primary intent (0.0 to 1.0)",
     )
-    secondary_intents: list[dict[str, Any]] = Field(
+    secondary_intents: list[SecondaryIntentDict | dict[str, Any]] = Field(
         default_factory=list,
         description="List of secondary intents with confidence scores",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: IntentMetadataDict | dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the classification",
     )
@@ -36,4 +60,8 @@ class ModelIntentClassificationOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelIntentClassificationOutput"]
+__all__ = [
+    "ModelIntentClassificationOutput",
+    "SecondaryIntentDict",
+    "IntentMetadataDict",
+]

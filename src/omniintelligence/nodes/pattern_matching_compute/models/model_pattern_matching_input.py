@@ -1,7 +1,7 @@
 """Input model for Pattern Matching Compute."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -14,9 +14,10 @@ class ModelPatternMatchingInput(BaseModel):
 
     code_snippet: str = Field(
         ...,
+        min_length=1,
         description="Code snippet to match patterns against",
     )
-    project_name: Optional[str] = Field(
+    project_name: str | None = Field(
         default=None,
         description="Name of the project for context",
     )

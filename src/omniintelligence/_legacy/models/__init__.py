@@ -195,72 +195,56 @@ from omniintelligence._legacy.models.model_workflow import (
 )
 
 __all__ = [
-    # API contract models - Quality Assessment
     "ArchitecturalCompliance",
     "ArchitecturalComplianceDetails",
-    # API contract enums
     "ArchitecturalEra",
     "BaselineMetrics",
     "DetectedPattern",
-    # Event enums
     "EnumAnalysisErrorCode",
     "EnumAnalysisOperationType",
     "EnumCodeAnalysisEventType",
-    # Event helpers
     "IntelligenceAdapterEventHelpers",
     "MaintainabilityMetrics",
-    # Code analysis event payloads
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
     "ModelDiscoveryPayload",
-    # Entity models
     "ModelEntity",
     "ModelErrorResponse",
-    # Event envelope models
     "ModelEventEnvelope",
     "ModelEventMetadata",
     "ModelEventSource",
-    # FSM models
     "ModelFSMState",
     "ModelHealthCheckResponse",
     "ModelInfrastructureScanPayload",
-    # Intelligence adapter models
     "ModelIntelligenceConfig",
     "ModelIntelligenceInput",
     "ModelIntelligenceMetrics",
     "ModelIntelligenceOutput",
-    # Intent models
     "ModelIntent",
-    # Orchestrator models
     "ModelOrchestratorConfig",
     "ModelOrchestratorInput",
     "ModelOrchestratorOutput",
     "ModelPatternDetection",
     "ModelPatternDetectionRequest",
     "ModelPatternDetectionResponse",
-    # Intelligence result payloads
     "ModelPatternExtractionPayload",
     "ModelPerformanceAnalysisRequest",
     "ModelPerformanceAnalysisResponse",
     "ModelQualityAssessmentRequest",
     "ModelQualityAssessmentResponse",
-    # Quality models
     "ModelQualityScore",
-    # Reducer models
     "ModelReducerConfig",
     "ModelReducerInput",
     "ModelReducerOutput",
     "ModelRelationship",
     "ModelSchemaDiscoveryPayload",
-    # Workflow models
     "ModelWorkflowExecution",
     "ModelWorkflowStep",
     "OnexComplianceDetails",
     "OptimizationOpportunity",
     "PatternCategory",
     "ValidationStatus",
-    # Convenience functions
     "create_completed_event",
     "create_failed_event",
     "create_request_event",

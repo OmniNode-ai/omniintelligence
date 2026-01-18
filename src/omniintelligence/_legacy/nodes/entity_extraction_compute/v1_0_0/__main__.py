@@ -43,7 +43,12 @@ async def main() -> None:
         logger.info("Entity Extraction Compute Node ready - waiting for shutdown signal")
         # Keep the node running until shutdown signal
         await shutdown_event.wait()
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt, shutting down")
+    except asyncio.CancelledError:
+        logger.info("Event loop cancelled, shutting down")
     except Exception as e:
+        # Intentionally broad: top-level entry point catch-all for unexpected errors
         logger.error(f"Node error: {e}", exc_info=True)
         sys.exit(1)
     finally:

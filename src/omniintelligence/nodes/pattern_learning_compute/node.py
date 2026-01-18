@@ -1,8 +1,11 @@
+# STUB: This node is a stub implementation. Full functionality is not yet available.
+# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/2
+# Status: Interface defined, implementation pending
 """Pattern Learning Compute - STUB compute node for pattern learning."""
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
@@ -16,6 +19,9 @@ _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/2"
 class NodePatternLearningCompute(NodeCompute):
     """STUB: Compute node for pattern learning operations.
 
+    Attributes:
+        is_stub: Class attribute indicating this is a stub implementation.
+
     WARNING: This is a stub implementation that does not provide full functionality.
     The node is included for forward compatibility and interface definition.
 
@@ -25,6 +31,8 @@ class NodePatternLearningCompute(NodeCompute):
         - Support the 4-phase pattern learning workflow
         - Integrate with NodePatternMatchingCompute
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         warnings.warn(

@@ -144,7 +144,9 @@ class ProtocolContractValidator:
             )
 
         # Validate common required fields
-        violations.extend(self._validate_required_fields(data, self.COMMON_REQUIRED_FIELDS))
+        violations.extend(
+            self._validate_required_fields(data, self.COMMON_REQUIRED_FIELDS)
+        )
 
         # Validate that at least one version field is present
         violations.extend(self._validate_version_fields(data))

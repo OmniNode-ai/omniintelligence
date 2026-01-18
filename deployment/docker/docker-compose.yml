@@ -139,7 +139,8 @@ services:
       - omni-network
     healthcheck:
       # Uses REDISCLI_AUTH env var for authentication - password not visible in process listing
-      test: ["CMD", "valkey-cli", "ping"]
+      # Verifies PONG response to ensure service is fully operational
+      test: ["CMD", "sh", "-c", "valkey-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -215,7 +216,14 @@ services:
     networks:
       - omni-network
     depends_on:
-      - redpanda
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
 volumes:

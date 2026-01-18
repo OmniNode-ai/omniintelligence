@@ -1,7 +1,7 @@
 """Output model for Quality Scoring Compute."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -32,7 +32,7 @@ class ModelQualityScoringOutput(BaseModel):
         default_factory=list,
         description="List of quality improvement recommendations",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the scoring",
     )

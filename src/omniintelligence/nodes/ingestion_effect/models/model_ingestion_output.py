@@ -1,7 +1,7 @@
 """Output model for Ingestion Effect (STUB)."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +17,7 @@ class ModelIngestionOutput(BaseModel):
         ...,
         description="Whether ingestion succeeded",
     )
-    ingested_content: Optional[str] = Field(
+    ingested_content: str | None = Field(
         default=None,
         description="Ingested and processed content",
     )
@@ -25,7 +25,7 @@ class ModelIngestionOutput(BaseModel):
         default_factory=dict,
         description="Metadata about the ingested content",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the ingestion",
     )

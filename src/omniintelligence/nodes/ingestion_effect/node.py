@@ -1,8 +1,11 @@
+# STUB: This node is a stub implementation. Full functionality is not yet available.
+# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/1
+# Status: Interface defined, implementation pending
 """Ingestion Effect - STUB effect node for document ingestion."""
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
@@ -16,6 +19,9 @@ _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/1"
 class NodeIngestionEffect(NodeEffect):
     """STUB: Effect node for document ingestion operations.
 
+    Attributes:
+        is_stub: Class attribute indicating this is a stub implementation.
+
     WARNING: This is a stub implementation that does not provide full functionality.
     The node is included for forward compatibility and interface definition.
 
@@ -25,6 +31,8 @@ class NodeIngestionEffect(NodeEffect):
         - Store ingested content in Qdrant/Memgraph
         - Publish ingestion events to Kafka
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         warnings.warn(

@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 RUN pip install --no-cache-dir uv==0.5.0
 
-# Copy project files
-COPY pyproject.toml .
+# Copy project files (include lock file for reproducible builds)
+COPY pyproject.toml uv.lock* ./
 COPY src/ src/
 
 # Install dependencies

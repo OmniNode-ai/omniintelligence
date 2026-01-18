@@ -12,8 +12,8 @@ from omniintelligence.nodes.relationship_detection_compute.v1_0_0.compute import
 )
 
 __all__ = [
-    "RelationshipDetectionCompute",
+    "ModelRelationshipDetectionConfig",
     "ModelRelationshipDetectionInput",
     "ModelRelationshipDetectionOutput",
-    "ModelRelationshipDetectionConfig",
+    "RelationshipDetectionCompute",
 ]

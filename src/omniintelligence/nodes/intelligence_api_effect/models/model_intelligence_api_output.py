@@ -1,7 +1,7 @@
 """Output model for Intelligence API Effect."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +28,7 @@ class ModelIntelligenceApiOutput(BaseModel):
         default=0.0,
         description="Request latency in milliseconds",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the API call",
     )

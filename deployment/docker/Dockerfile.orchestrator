@@ -11,14 +11,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 RUN pip install --no-cache-dir uv==0.5.0
 
-# Copy project files
-COPY pyproject.toml .
+# Copy project files (include lock file for reproducible builds)
+COPY pyproject.toml uv.lock* ./
 COPY src/ src/
 
 # Install dependencies
 RUN uv pip install --system --no-cache -e .
 
 ENV PYTHONPATH=/app/src
+# Allow default Kafka config for container startup
+# Production should override KAFKA_BOOTSTRAP_SERVERS via docker-compose/k8s
+ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 
 # Expose health check port
 EXPOSE 8000

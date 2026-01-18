@@ -1,7 +1,7 @@
 """Output model for Pattern Assembler Orchestrator."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ class ModelPatternAssemblyOutput(BaseModel):
         default_factory=dict,
         description="Results from each component (trace, keywords, intent, criteria)",
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the assembly",
     )

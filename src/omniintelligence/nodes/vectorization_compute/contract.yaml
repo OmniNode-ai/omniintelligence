@@ -28,29 +28,23 @@ output_model:
   description: "Output containing generated embeddings and model information."
 # Operations
 # ==========
+# Note: Both single and batch operations use the same model fields.
+# Batch mode is controlled by the `batch_mode` boolean flag in input.
+# When batch_mode=true, content should contain newline-separated items
+# and embeddings output will be a flattened list of all embedding values.
 operations:
   - name: "vectorize"
-    description: "Generate embeddings for content"
+    description: "Generate embeddings for content (single or batch based on batch_mode flag)"
     input_fields:
       - content
       - metadata
       - model_name
+      - batch_mode
     output_fields:
       - success
       - embeddings
       - model_used
       - metadata
-  - name: "batch_vectorize"
-    description: "Generate embeddings for multiple contents"
-    input_fields:
-      - contents
-      - metadata_list
-      - model_name
-    output_fields:
-      - success
-      - embeddings_list
-      - model_used
-      - metadata_list
 # Dependencies
 # ============
 # TODO: Create omniintelligence.protocols module with embedding model protocol
