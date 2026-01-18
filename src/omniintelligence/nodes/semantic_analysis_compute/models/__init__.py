@@ -1,4 +1,5 @@
 """Models for Semantic Analysis Compute Node."""
+
 from omniintelligence.nodes.semantic_analysis_compute.models.model_semantic_analysis_input import (
     ModelSemanticAnalysisInput,
 )

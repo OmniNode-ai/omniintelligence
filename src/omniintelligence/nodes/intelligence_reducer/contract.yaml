@@ -350,16 +350,20 @@ validation:
       error_message: "fsm_type must be INGESTION, PATTERN_LEARNING, or QUALITY_ASSESSMENT"
 # Idempotency Configuration
 # =========================
+# NOTE: hash_fields must only include fields guaranteed by validation rules above.
+# "timestamp" was removed as it's not validated and may not be present in all inputs.
+# "correlation_id" is used instead as it's typically provided for traceability.
 idempotency:
   enabled: true
   strategy: "event_id_tracking"
   derivation: "deterministic_hash"
   hash_fields:
-    - "entity_id"
-    - "fsm_type"
-    - "action"
-    - "timestamp"
-  description: "Skip duplicate actions based on event_id or derived hash"
+    - "entity_id"      # Required - validated above
+    - "fsm_type"       # Required - validated above
+    - "action"         # Required - part of input model
+  # Optional: If event_id is provided in input, use it directly instead of hash
+  fallback_to_event_id: true
+  description: "Skip duplicate actions based on event_id or derived hash from validated fields"
 # Dependencies
 # ============
 dependencies:
@@ -371,6 +375,26 @@ dependencies:
     type: "protocol"
     module: "omnibase_core.protocols"
     description: "PostgreSQL database for FSM state storage"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "ReducerValidationError"
+      description: "Input validation failed (e.g., missing entity_id or invalid fsm_type)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "InvalidTransitionError"
+      description: "Invalid FSM state transition attempted"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "StatePersistenceError"
+      description: "Error persisting FSM state to database"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "DuplicateActionError"
+      description: "Duplicate action detected via idempotency check"
+      recoverable: false
+      retry_strategy: "none"
 # Health Check
 # ============
 health_check:

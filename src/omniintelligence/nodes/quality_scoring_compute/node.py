@@ -38,7 +38,7 @@ class NodeQualityScoringCompute(NodeCompute):
             f"NodeQualityScoringCompute is a stub implementation and does not provide "
             f"full functionality. The node accepts inputs but performs no actual "
             f"quality scoring. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodeQualityScoringCompute(NodeCompute):
             f"NodeQualityScoringCompute.compute() is a stub that returns empty "
             f"results. No actual quality scoring is performed. "
             f"See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

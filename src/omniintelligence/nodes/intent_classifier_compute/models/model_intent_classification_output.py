@@ -1,4 +1,5 @@
 """Output model for Intent Classifier Compute."""
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -63,7 +64,7 @@ class ModelIntentClassificationOutput(BaseModel):
 
 
 __all__ = [
+    "IntentMetadataDict",
     "ModelIntentClassificationOutput",
     "SecondaryIntentDict",
-    "IntentMetadataDict",
 ]

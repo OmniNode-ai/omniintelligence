@@ -1,4 +1,5 @@
 """Output model for Execution Trace Parser Compute."""
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -84,9 +85,9 @@ class ModelTraceParsingOutput(BaseModel):
 
 
 __all__ = [
+    "ErrorEventDict",
     "ModelTraceParsingOutput",
     "ParsedEventDict",
-    "ErrorEventDict",
     "TimingDataDict",
     "TraceMetadataDict",
 ]

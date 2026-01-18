@@ -1,4 +1,5 @@
 """Models for Qdrant Vector Effect Node."""
+
 from omniintelligence.nodes.qdrant_vector_effect.models.model_qdrant_vector_input import (
     ModelQdrantVectorInput,
 )

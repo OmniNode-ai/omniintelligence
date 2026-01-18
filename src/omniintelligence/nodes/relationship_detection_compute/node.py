@@ -38,7 +38,7 @@ class NodeRelationshipDetectionCompute(NodeCompute):
             f"NodeRelationshipDetectionCompute is a stub implementation and does not "
             f"provide full functionality. The node accepts inputs but performs no actual "
             f"relationship detection. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodeRelationshipDetectionCompute(NodeCompute):
             f"NodeRelationshipDetectionCompute.compute() is a stub that returns empty "
             f"results. No actual relationship detection is performed. "
             f"See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

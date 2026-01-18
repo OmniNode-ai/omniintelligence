@@ -645,7 +645,8 @@ class NodeIntelligenceAdapterEffect:
                         f"offset={msg.offset()}",
                         exc_info=True,
                     )
-                    await self._route_to_dlq(msg, str(e))
+                    # Pass exception directly for proper error type extraction
+                    await self._route_to_dlq(msg, e)
 
                 except Exception as e:
                     # Intentionally broad: any processing error should route to DLQ
@@ -658,8 +659,8 @@ class NodeIntelligenceAdapterEffect:
                         exc_info=True,
                     )
 
-                    # Route to DLQ for manual inspection
-                    await self._route_to_dlq(msg, str(e))
+                    # Route to DLQ for manual inspection - pass exception for type extraction
+                    await self._route_to_dlq(msg, e)
 
             except KafkaException as ke:
                 logger.error(
@@ -1066,7 +1067,9 @@ class NodeIntelligenceAdapterEffect:
                 exc_info=True,
             )
 
-    async def _route_to_dlq(self, message: Any, error: str) -> None:
+    async def _route_to_dlq(
+        self, message: Any, error: str | Exception, error_type: str | None = None
+    ) -> None:
         """
         Route failed message to Dead Letter Queue.
 
@@ -1082,7 +1085,9 @@ class NodeIntelligenceAdapterEffect:
 
         Args:
             message: Original Kafka message that failed processing
-            error: Error description explaining why processing failed
+            error: Error description or exception explaining why processing failed
+            error_type: Optional explicit error type name. If not provided, will be
+                        extracted from exception type or default to "ProcessingError".
 
         Note:
             If event_publisher is not initialized, the method logs a warning
@@ -1127,13 +1132,21 @@ class NodeIntelligenceAdapterEffect:
                         ts_value / 1000, tz=UTC
                     ).isoformat()
 
+            # Determine error type using simplified extraction pattern
+            resolved_error_type = (
+                error_type  # Use explicit type if provided
+                or (type(error).__name__ if isinstance(error, Exception) else None)
+                or "ProcessingError"  # Default fallback
+            )
+            error_message = str(error)
+
             # Build DLQ payload with full context
             dlq_payload = {
                 "original_message": original_payload,
                 "error": {
-                    "message": error,
+                    "message": error_message,
                     "traceback": traceback.format_exc(),
-                    "error_type": type(error).__name__ if not isinstance(error, str) else "ProcessingError",
+                    "error_type": resolved_error_type,
                 },
                 "original_metadata": {
                     "topic": original_topic,

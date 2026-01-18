@@ -250,25 +250,43 @@ class EventPublisher:
                 )
                 return False
 
-        except (ValueError, TypeError) as e:
-            # Serialization or envelope creation errors - not retryable
+        except (ValueError, TypeError, json.JSONDecodeError) as e:
+            # =================================================================
+            # NON-TRANSIENT ERRORS - DO NOT TRIP CIRCUIT BREAKER
+            # =================================================================
+            # These are programming/data errors that won't be fixed by backing off:
+            # - ValueError: Invalid data format, schema validation failures
+            # - TypeError: Type mismatches during serialization
+            # - JSONDecodeError: Malformed JSON in payload
+            #
+            # Circuit breaker should ONLY trip on transient infrastructure failures
+            # (network issues, broker unavailable, timeouts) - not on code/data bugs.
             self.metrics["events_failed"] += 1
-            self._record_circuit_breaker_failure()
 
             logger.error(
-                f"Event serialization error | event_type={event_type} | error={e}",
+                f"Event serialization/validation error (not tripping circuit breaker) | "
+                f"event_type={event_type} | error_type={type(e).__name__} | error={e}",
                 exc_info=True,
             )
             return False
 
         except Exception as e:
-            # Intentionally broad: catch-all for any unexpected error during publishing
-            # to ensure consistent metrics tracking and circuit breaker updates.
+            # =================================================================
+            # TRANSIENT/INFRASTRUCTURE ERRORS - TRIP CIRCUIT BREAKER
+            # =================================================================
+            # These are likely transient infrastructure failures that may recover:
+            # - Network errors (connection refused, timeout)
+            # - Broker unavailable (Kafka broker down)
+            # - Resource exhaustion (memory, file descriptors)
+            #
+            # Note: In Python 3.8+, asyncio.CancelledError inherits from BaseException,
+            # so it won't be caught here and will propagate correctly.
             self.metrics["events_failed"] += 1
             self._record_circuit_breaker_failure()
 
             logger.error(
-                f"Unexpected event publish error | event_type={event_type} | error={e}",
+                f"Infrastructure error during event publish (tripping circuit breaker) | "
+                f"event_type={event_type} | error_type={type(e).__name__} | error={e}",
                 exc_info=True,
             )
             return False

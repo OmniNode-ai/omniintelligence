@@ -41,6 +41,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Criteria matching engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "CriteriaMatchingValidationError"
+      description: "Input validation failed (e.g., empty criteria set)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "CriteriaMatchingComputeError"
+      description: "Error during criteria matching"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

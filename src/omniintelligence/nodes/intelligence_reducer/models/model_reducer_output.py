@@ -1,9 +1,40 @@
 """Output model for Intelligence Reducer."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, Field
+
+
+class ReducerIntentDict(TypedDict, total=False):
+    """Typed structure for intents emitted by the reducer.
+
+    Provides stronger typing for intent fields while allowing
+    additional fields via dict[str, Any] union.
+    """
+
+    intent_type: str
+    target: str
+    payload: dict[str, Any]
+    correlation_id: str
+    timestamp: str
+    metadata: dict[str, Any] | None
+
+
+class ReducerMetadataDict(TypedDict, total=False):
+    """Typed structure for reducer output metadata.
+
+    Provides stronger typing for common metadata fields.
+    """
+
+    transition_timestamp: str
+    processing_time_ms: float
+    lease_id: str | None
+    epoch: int | None
+    fsm_type: str
+    entity_id: str
+    action: str
 
 
 class ModelReducerOutput(BaseModel):
@@ -25,11 +56,11 @@ class ModelReducerOutput(BaseModel):
         ...,
         description="Current FSM state after transition",
     )
-    intents: list[dict[str, Any]] = Field(
+    intents: list[ReducerIntentDict | dict[str, Any]] = Field(
         default_factory=list,
         description="Intents emitted to orchestrator",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: ReducerMetadataDict | dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata about the transition",
     )
@@ -41,4 +72,8 @@ class ModelReducerOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelReducerOutput"]
+__all__ = [
+    "ModelReducerOutput",
+    "ReducerIntentDict",
+    "ReducerMetadataDict",
+]

@@ -39,7 +39,7 @@ class NodeIngestionEffect(NodeEffect):
             f"NodeIngestionEffect is a stub implementation and does not provide "
             f"full functionality. The node accepts inputs but performs no actual "
             f"ingestion operations. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodeIngestionEffect(NodeEffect):
         warnings.warn(
             f"NodeIngestionEffect.process() is a stub that returns empty results. "
             f"No actual ingestion is performed. See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

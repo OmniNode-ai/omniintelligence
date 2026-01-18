@@ -1,10 +1,40 @@
 """Output model for Intelligence Orchestrator."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+
+class OrchestratorIntentDict(TypedDict, total=False):
+    """Typed structure for intents emitted by the orchestrator.
+
+    Provides stronger typing for intent fields while allowing
+    additional fields via dict[str, Any] union.
+    """
+
+    intent_type: str
+    target: str
+    payload: dict[str, Any]
+    correlation_id: str
+    timestamp: str
+    metadata: dict[str, Any] | None
+
+
+class OrchestratorResultsDict(TypedDict, total=False):
+    """Typed structure for orchestrator workflow results.
+
+    Provides stronger typing for common result fields.
+    """
+
+    workflow_type: str
+    entity_id: str
+    processing_time_ms: float
+    steps_completed: int
+    steps_total: int
+    output_data: dict[str, Any]
 
 
 class ModelOrchestratorOutput(BaseModel):
@@ -23,11 +53,11 @@ class ModelOrchestratorOutput(BaseModel):
         ...,
         description="Unique identifier for this workflow execution",
     )
-    results: dict[str, Any] = Field(
+    results: OrchestratorResultsDict | dict[str, Any] = Field(
         default_factory=dict,
         description="Results from the workflow execution",
     )
-    intents: list[dict[str, Any]] = Field(
+    intents: list[OrchestratorIntentDict | dict[str, Any]] = Field(
         default_factory=list,
         description="Intents emitted during workflow execution",
     )
@@ -39,4 +69,8 @@ class ModelOrchestratorOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelOrchestratorOutput"]
+__all__ = [
+    "ModelOrchestratorOutput",
+    "OrchestratorIntentDict",
+    "OrchestratorResultsDict",
+]

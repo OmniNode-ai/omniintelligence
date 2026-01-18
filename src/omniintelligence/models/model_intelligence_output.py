@@ -18,6 +18,7 @@ Migration Note:
 
     See MIGRATION.md for complete migration guidance.
 """
+
 from __future__ import annotations
 
 from typing import Any

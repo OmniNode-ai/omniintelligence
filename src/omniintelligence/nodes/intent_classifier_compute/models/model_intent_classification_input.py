@@ -1,4 +1,5 @@
 """Input model for Intent Classifier Compute."""
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -31,6 +32,7 @@ class ModelIntentClassificationInput(BaseModel):
 
     content: str = Field(
         ...,
+        min_length=1,
         description="Content to classify intent from",
     )
     correlation_id: str | None = Field(
@@ -46,4 +48,7 @@ class ModelIntentClassificationInput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelIntentClassificationInput", "IntentContextDict"]
+__all__ = [
+    "IntentContextDict",
+    "ModelIntentClassificationInput",
+]

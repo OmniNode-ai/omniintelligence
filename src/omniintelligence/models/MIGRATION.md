@@ -201,6 +201,30 @@ The following fields were intentionally removed from the canonical output model:
 | `retry_allowed` | Retry eligibility flag | DLQ routing configuration / event envelope |
 | `timestamp` | Operation completion time | Event envelope metadata |
 
+#### Retry Configuration Scope
+
+The `retry_allowed` field was removed because retry behavior is now handled at the infrastructure level:
+
+- **Effect Nodes**: Retry logic is configured in the Effect node's `contract.yaml` under the `error_handling` section. This applies to all operations processed by that Effect node.
+- **Dead Letter Queue (DLQ)**: Failed messages are automatically routed to DLQ topics (e.g., `*.dlq`) based on the Effect node's configuration. DLQ routing criteria include:
+  - Number of retry attempts exceeded
+  - Non-retryable error codes (e.g., validation errors, malformed payloads)
+  - Timeout thresholds
+- **Event Envelope**: For individual event-level retry overrides, use the event envelope's `metadata.retry_policy` field (optional).
+
+Example Effect node retry configuration in `contract.yaml`:
+```yaml
+error_handling:
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_multiplier: 2.0
+    initial_delay_ms: 1000
+  dlq:
+    enabled: true
+    topic_suffix: ".dlq"
+```
+
 ### 5. Renamed Fields
 
 | Legacy Name | Canonical Name | Rationale |

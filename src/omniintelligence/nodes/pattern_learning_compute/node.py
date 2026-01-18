@@ -39,7 +39,7 @@ class NodePatternLearningCompute(NodeCompute):
             f"NodePatternLearningCompute is a stub implementation and does not provide "
             f"full functionality. The node accepts inputs but performs no actual "
             f"pattern learning. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodePatternLearningCompute(NodeCompute):
         warnings.warn(
             f"NodePatternLearningCompute.compute() is a stub that returns empty results. "
             f"No actual pattern learning is performed. See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

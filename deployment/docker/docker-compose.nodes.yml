@@ -5,6 +5,15 @@
 # Purpose: ONEX 4.0 node deployments (orchestrator, reducer, compute, effect)
 # Dependencies: Requires docker-compose.yml (base infrastructure) running
 # Usage: docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
+#
+# Health Checks:
+# - All nodes expose HTTP /health endpoint on port 8000
+# - Node Dockerfiles install curl for healthcheck support
+# - Nodes start in "stub mode" with health checks until ONEX container injection
+#
+# Network:
+# - Uses external network 'omniintelligence_omni-network' from base compose
+# - Nodes communicate with infrastructure via container names (postgres, qdrant, etc.)
 # ============================================================================
 
 name: omniintelligence
@@ -38,6 +47,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
+      # Node Dockerfiles install curl - safe to use for healthcheck
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s

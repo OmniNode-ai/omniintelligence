@@ -1,4 +1,5 @@
 """Input model for Success Criteria Matcher Compute."""
+
 from __future__ import annotations
 
 from typing import Any

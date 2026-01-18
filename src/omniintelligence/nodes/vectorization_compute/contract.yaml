@@ -44,6 +44,8 @@ operations:
       - success
       - embeddings
       - model_used
+      - batch_count
+      - embedding_dimension
       - metadata
 # Dependencies
 # ============
@@ -55,6 +57,22 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Embedding model for vector generation"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "VectorizationValidationError"
+      description: "Input validation failed (e.g., empty content)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "VectorizationComputeError"
+      description: "Error during embedding generation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+    - name: "ModelNotFoundError"
+      description: "Requested embedding model not available"
+      recoverable: false
+      retry_strategy: "none"
 # Health Check
 # ============
 health_check:

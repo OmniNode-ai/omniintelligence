@@ -15,7 +15,7 @@ API Categories:
 - Architectural Compliance (POST /compliance/check)
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -595,7 +595,8 @@ class ModelPatternDetectionResponse(BaseModel):
         default_factory=list, description="Pattern-based improvement recommendations"
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Analysis timestamp (ISO 8601)"
+        default_factory=lambda: datetime.now(UTC),
+        description="Analysis timestamp (ISO 8601)",
     )
     error: str | None = Field(
         default=None, description="Error message if success=False"
@@ -684,5 +685,6 @@ class ModelErrorResponse(BaseModel):
         default=None, description="Additional error details"
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Error timestamp"
+        default_factory=lambda: datetime.now(UTC),
+        description="Error timestamp",
     )

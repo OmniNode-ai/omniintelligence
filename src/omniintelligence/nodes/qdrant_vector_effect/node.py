@@ -38,7 +38,7 @@ class NodeQdrantVectorEffect(NodeEffect):
             f"NodeQdrantVectorEffect is a stub implementation and does not provide "
             f"full functionality. The node accepts inputs but performs no actual "
             f"vector operations. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,15 +56,20 @@ class NodeQdrantVectorEffect(NodeEffect):
             f"NodeQdrantVectorEffect.process() is a stub that returns empty "
             f"results. No actual vector operations are performed. "
             f"See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
+        # Return payload matching ModelQdrantVectorOutput schema
         return {
-            "status": "stub",
-            "message": "NodeQdrantVectorEffect is not yet implemented",
-            "vectors_stored": 0,
+            "success": True,  # Stub completed without error
+            "vectors_processed": 0,
             "search_results": [],
-            "tracking_url": _STUB_TRACKING_URL,
+            "deleted_count": 0,
+            "metadata": {
+                "status": "stub",
+                "message": "NodeQdrantVectorEffect is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
+            },
         }
 
 

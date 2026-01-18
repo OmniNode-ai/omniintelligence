@@ -43,6 +43,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Trace parsing engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "TraceParsingValidationError"
+      description: "Input validation failed (e.g., invalid trace format)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "TraceParsingComputeError"
+      description: "Error during trace parsing"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

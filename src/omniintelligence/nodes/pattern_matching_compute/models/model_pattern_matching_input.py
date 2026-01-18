@@ -1,4 +1,5 @@
 """Input model for Pattern Matching Compute."""
+
 from __future__ import annotations
 
 from typing import Any

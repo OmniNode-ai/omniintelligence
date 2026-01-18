@@ -41,6 +41,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Intent classification engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "IntentClassificationValidationError"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "IntentClassificationComputeError"
+      description: "Error during intent classification"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

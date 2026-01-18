@@ -38,7 +38,7 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
             f"NodePatternAssemblerOrchestrator is a stub implementation and does not "
             f"provide full functionality. The node accepts inputs but performs no actual "
             f"pattern assembly. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
             f"NodePatternAssemblerOrchestrator.orchestrate() is a stub that returns "
             f"empty results. No actual pattern assembly is performed. "
             f"See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

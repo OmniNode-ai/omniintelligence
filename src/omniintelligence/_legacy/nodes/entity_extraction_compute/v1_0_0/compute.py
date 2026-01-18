@@ -408,9 +408,11 @@ class EntityExtractionCompute(NodeCompute):
                 )
 
                 # Try to get value representation
+                # ast.unparse can fail for complex expressions, recursive structures, or
+                # invalid AST nodes. ValueError and RecursionError are the common cases.
                 try:
                     value_repr = ast.unparse(node.value)
-                except Exception:
+                except (ValueError, RecursionError):
                     value_repr = None
 
                 metadata = {

@@ -1,11 +1,14 @@
-"""
-Intelligence Models Package.
+"""Intelligence Models Package.
+
+.. deprecated:: 0.1.0
+    This module is deprecated and will be removed in v2.0.0.
+    Use :mod:`omniintelligence.models` for canonical model implementations.
 
 Consolidated models for the omniintelligence system.
 
 This module provides a unified import path for all intelligence models:
 
-    # Preferred import
+    # DEPRECATED - legacy import:
     from omniintelligence._legacy.models import (
         ModelIntent,
         ModelOrchestratorInput,
@@ -14,6 +17,14 @@ This module provides a unified import path for all intelligence models:
         ModelQualityAssessmentRequest,
         ModelPatternDetectionRequest,
     )
+
+    # RECOMMENDED - canonical import:
+    from omniintelligence.models import (
+        ModelIntelligenceInput,
+        ModelIntelligenceOutput,
+    )
+
+See _legacy/DEPRECATION.md for complete migration guidance and timeline.
 
 Exports:
     Intelligence Adapter Models:
@@ -85,6 +96,16 @@ Exports:
         - ModelCodeAnalysis*Payload: Code analysis event payloads
         - ModelPattern*Payload: Intelligence result payloads
 """
+
+import warnings
+
+warnings.warn(
+    "The omniintelligence._legacy.models module is deprecated as of v0.1.0 and "
+    "will be removed in v2.0.0. Use omniintelligence.models instead. "
+    "See _legacy/DEPRECATION.md for migration guidance.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Intelligence adapter configuration
 # Entity models

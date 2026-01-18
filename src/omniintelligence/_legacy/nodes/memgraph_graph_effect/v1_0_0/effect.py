@@ -37,6 +37,8 @@ Created: 2025-12-01
 Reference: Memgraph Documentation, Neo4j Bolt Protocol
 """
 
+import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -767,8 +769,14 @@ class NodeMemgraphGraphEffect:
                         correlation_id=input_data.correlation_id,
                     )
 
+                except asyncio.CancelledError:
+                    # CancelledError MUST be re-raised to preserve cancellation semantics.
+                    # Attempt rollback but don't swallow the cancellation.
+                    with contextlib.suppress(Exception):
+                        await tx.rollback()
+                    raise
                 except Exception:
-                    # Rollback on error
+                    # Rollback on error - all other exceptions
                     await tx.rollback()
                     raise
 

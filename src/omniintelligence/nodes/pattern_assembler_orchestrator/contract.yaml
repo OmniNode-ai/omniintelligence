@@ -59,8 +59,10 @@ workflow_coordination:
             compute_node: "success_criteria_matcher_compute"
         - node_id: "assemble_pattern"
           node_type: COMPUTE_GENERIC
-          description: "Assemble final pattern"
+          description: "Assemble final pattern from parsed traces, keywords, and matched criteria"
           depends_on: ["extract_keywords", "match_criteria"]
+          step_config:
+            compute_node: "pattern_assembler_compute"
     coordination_rules:
       execution_mode: parallel
       parallel_execution_allowed: true
@@ -85,6 +87,43 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.success_criteria_matcher_compute"
     description: "Success criteria matching compute node"
+  - name: "pattern_assembler_compute"
+    type: "node"
+    module: "omniintelligence.nodes.pattern_assembler_compute"
+    description: "Pattern assembly compute node - assembles final pattern from components"
+# Error Handling Configuration
+# ============================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 1000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      - "ComputeExecutionError"
+      - "ConnectionError"
+      - "TimeoutError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+  error_types:
+    - name: "TraceParsingError"
+      description: "Error during execution trace parsing"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "KeywordExtractionError"
+      description: "Error during keyword extraction"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "PatternAssemblyError"
+      description: "Error during pattern assembly"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "WorkflowTimeoutError"
+      description: "Workflow execution exceeded timeout"
+      recoverable: false
+      retry_strategy: "none"
 health_check:
   enabled: true
   endpoint: "/health"

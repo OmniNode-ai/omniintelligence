@@ -1,4 +1,5 @@
 """Input model for Intelligence Reducer."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,10 +24,12 @@ class ModelReducerInput(BaseModel):
     )
     entity_id: str = Field(
         ...,
+        min_length=1,
         description="Unique identifier for the entity",
     )
     action: str = Field(
         ...,
+        min_length=1,
         description="FSM action to execute",
     )
     payload: dict[str, Any] = Field(

@@ -1,4 +1,5 @@
 """Output model for Context Keyword Extractor Compute."""
+
 from __future__ import annotations
 
 from typing import Any

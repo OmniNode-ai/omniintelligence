@@ -38,7 +38,7 @@ class NodeExecutionTraceParserCompute(NodeCompute):
             f"NodeExecutionTraceParserCompute is a stub implementation and does not "
             f"provide full functionality. The node accepts inputs but performs no actual "
             f"trace parsing. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodeExecutionTraceParserCompute(NodeCompute):
             f"NodeExecutionTraceParserCompute.compute() is a stub that returns empty "
             f"results. No actual trace parsing is performed. "
             f"See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

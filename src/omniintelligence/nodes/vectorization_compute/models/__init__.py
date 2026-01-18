@@ -1,4 +1,5 @@
 """Models for Vectorization Compute Node."""
+
 from omniintelligence.nodes.vectorization_compute.models.model_vectorization_input import (
     ModelVectorizationInput,
 )

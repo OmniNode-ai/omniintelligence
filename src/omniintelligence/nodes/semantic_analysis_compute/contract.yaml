@@ -38,6 +38,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Semantic analysis model"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "SemanticAnalysisValidationError"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "SemanticAnalysisComputeError"
+      description: "Error during semantic analysis computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

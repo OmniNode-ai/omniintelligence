@@ -27,6 +27,18 @@ output_model:
   description: "STUB: Output containing learned patterns and metrics."
 # Minimal sections for stub
 dependencies: []
+# Error Handling Configuration (stub - minimal)
+# =============================================
+error_handling:
+  error_types:
+    - name: "PatternLearningValidationError"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternLearningComputeError"
+      description: "Error during pattern learning computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: false
   endpoint: "/health"

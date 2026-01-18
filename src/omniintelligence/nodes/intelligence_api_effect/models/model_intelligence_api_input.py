@@ -1,4 +1,5 @@
 """Input model for Intelligence API Effect."""
+
 from __future__ import annotations
 
 from typing import Any, Literal

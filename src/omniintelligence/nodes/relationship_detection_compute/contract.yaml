@@ -37,6 +37,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Relationship analysis engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "RelationshipDetectionValidationError"
+      description: "Input validation failed (e.g., empty entities)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "RelationshipDetectionComputeError"
+      description: "Error during relationship detection computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

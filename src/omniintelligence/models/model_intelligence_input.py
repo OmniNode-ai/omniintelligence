@@ -7,14 +7,15 @@ Migration Note:
     This unified input model replaces multiple operation-specific request
     models from the legacy omniarchon system:
     - ModelQualityAssessmentRequest -> operation_type="assess_code_quality"
-    - ModelPerformanceAnalysisRequest -> operation_type="analyze_performance"
-    - ModelPatternDetectionRequest -> operation_type="detect_patterns"
+    - ModelPerformanceAnalysisRequest -> operation_type="establish_performance_baseline"
+    - ModelPatternDetectionRequest -> operation_type="pattern_match"
 
     Operation-specific parameters that were individual fields in legacy models
     should now be passed in the `options` dictionary.
 
     See MIGRATION.md for complete migration guidance.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -61,7 +62,7 @@ class ModelIntelligenceInput(BaseModel):
             ... )
             >>> # Canonical equivalent
             >>> ModelIntelligenceInput(
-            ...     operation_type="detect_patterns",
+            ...     operation_type="pattern_match",
             ...     content="class Foo: pass",
             ...     source_path="src/foo.py",
             ...     options={"pattern_categories": ["best_practices"], "min_confidence": 0.7}
@@ -74,11 +75,22 @@ class ModelIntelligenceInput(BaseModel):
     )
     content: str = Field(
         ...,
-        description="Content to analyze (source code, document, etc.)",
+        min_length=1,
+        description=(
+            "Content to analyze (source code, document, etc.). "
+            "When both content and source_path are provided, content takes precedence "
+            "and is used for analysis. The source_path is then used only for metadata "
+            "(e.g., language detection, file context in reports)."
+        ),
     )
     source_path: str | None = Field(
         default=None,
-        description="Path to the source file being analyzed",
+        min_length=1,
+        description=(
+            "Path to the source file being analyzed. Used for metadata and context "
+            "when content is provided inline. Note: This field does NOT load content "
+            "from the path - content must be provided explicitly in the content field."
+        ),
     )
     language: str = Field(
         default="python",

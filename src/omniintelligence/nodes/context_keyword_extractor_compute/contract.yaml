@@ -41,6 +41,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Keyword extraction engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "KeywordExtractionValidationError"
+      description: "Input validation failed (e.g., empty content)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "KeywordExtractionComputeError"
+      description: "Error during keyword extraction"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

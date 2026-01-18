@@ -113,7 +113,22 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 - Document each script in `docs/migrations/README.md` (create if missing).
 
 ## 9. Validation Checklist
-- [ ] All node directories include `contract.yaml`, `contracts/`, `models/`, `node.py`, `introspection.py`, and scenario/tests.
+
+### Required Node Artifacts
+- [ ] All node directories include the following required artifacts:
+  - `contract.yaml` - Main node contract definition
+  - `contracts/` - Additional subcontracts directory
+  - `models/` - Pydantic input/output models
+  - `node.py` - Main node implementation
+  - `introspection.py` - Introspection support module
+  - `scenarios/` - Integration test scenarios (YAML-based)
+  - `node_tests/` - Node-specific unit tests
+- [ ] Linked document contracts are present where applicable:
+  - `node_config.yaml` - Node-specific configuration schema
+  - `deployment_config.yaml` - Deployment and infrastructure configuration
+- [ ] Architecture decisions documented in `ARCHITECTURE_DECISIONS.md` (for complex nodes)
+
+### Code Quality
 - [ ] Enumerations replace string literals for tool names, topics, and status codes.
 - [ ] Contract validator passes with zero warnings.
 - [ ] Event replay integration test validates ingestion → intelligence → response.
@@ -133,3 +148,23 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 - Review active prep work:
   - Branch `feature/file-tree-graph-implementation` (currently ahead of `main` by two commits) contains file graph ingestion updates that may inform reducer scope.
   - Coordinate with open PRs (#27 `feature/file-tree-graph-implementation`, #26 Redpanda migration, #25 Haystack demo) to avoid rework or duplicate migration steps.
+
+## 12. Pending Implementation TODOs
+
+The following items are marked as TODO in contract files and require implementation:
+
+### Intent/State Model TODOs
+
+| Location | TODO | Priority | Notes |
+|----------|------|----------|-------|
+| `nodes/intelligence_reducer/contract.yaml:307` | Intent emission models not implemented | Medium | Create `ModelWorkflowTriggerPayload` and `ModelEventPublishPayload` when implementing intent-based workflow triggering |
+| `nodes/intelligence_reducer/contract.yaml:327` | State model not implemented | Medium | Create `ModelIntelligenceState` for pure reducer pattern with immutable state |
+| `nodes/intent_classifier_compute/contract.yaml:38` | Protocol module not created | Low | Create `omniintelligence.protocols` module with intent classifier protocol definition |
+
+### Resolution Plan
+
+1. **Phase 1 (v0.2.0)**: Implement `ModelIntelligenceState` for pure reducer pattern
+2. **Phase 2 (v0.3.0)**: Add intent emission infrastructure with `ModelWorkflowTriggerPayload`
+3. **Phase 3 (v0.4.0)**: Create protocols module and formalize intent classifier interface
+
+These TODOs are tracked in the contract files themselves with inline comments explaining the intended implementation.

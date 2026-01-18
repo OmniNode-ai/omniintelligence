@@ -38,7 +38,7 @@ class NodeMemgraphGraphEffect(NodeEffect):
             f"NodeMemgraphGraphEffect is a stub implementation and does not provide "
             f"full functionality. The node accepts inputs but performs no actual "
             f"graph operations. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         super().__init__(container)
@@ -56,7 +56,7 @@ class NodeMemgraphGraphEffect(NodeEffect):
             f"NodeMemgraphGraphEffect.process() is a stub that returns empty "
             f"results. No actual graph operations are performed. "
             f"See {_STUB_TRACKING_URL} for progress.",
-            category=UserWarning,
+            category=RuntimeWarning,
             stacklevel=2,
         )
         return {

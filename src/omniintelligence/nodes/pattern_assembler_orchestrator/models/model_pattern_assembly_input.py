@@ -1,4 +1,5 @@
 """Input model for Pattern Assembler Orchestrator."""
+
 from __future__ import annotations
 
 from typing import Any

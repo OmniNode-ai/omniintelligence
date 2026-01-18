@@ -13,6 +13,23 @@
 
 name: omniintelligence
 
+# ============================================================================
+# Network Configuration
+# ============================================================================
+# Architecture:
+# - omni-network: Internal bridge network for all OmniIntelligence services
+# - Services communicate via container names (e.g., postgres, qdrant, redpanda)
+# - External access via published ports on the host
+#
+# Port Strategy:
+# - Internal ports: Used for service-to-service communication within Docker
+# - External ports: Published to host for development access and monitoring
+#
+# For production deployments connecting to external infrastructure:
+# - See CLAUDE.md for remote server configuration (192.168.86.200)
+# - External Kafka/PostgreSQL can be used by setting environment variables
+# ============================================================================
+
 networks:
   omni-network:
     driver: bridge
@@ -73,7 +90,8 @@ services:
     networks:
       - omni-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      # NOTE: qdrant/qdrant image does NOT include curl - use wget instead
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -161,11 +179,15 @@ services:
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
     container_name: omni-redpanda
+    # Port Configuration:
+    # - 9092: Internal Kafka (container-to-container via Docker network)
+    # - 29092: External Kafka (host access for development scripts)
+    # This follows the standard dual-listener pattern used by Confluent/Redpanda
     command:
       - redpanda
       - start
-      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
-      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:29092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:29092
       - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
       - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
       - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
@@ -178,7 +200,8 @@ services:
       - --node-id 0
       - --check=false
     ports:
-      - "${REDPANDA_KAFKA_PORT:-19092}:19092"
+      # External Kafka port: 29092 (standard for external access)
+      - "${REDPANDA_KAFKA_PORT:-29092}:29092"
       - "${REDPANDA_ADMIN_PORT:-9644}:9644"
       - "${REDPANDA_PROXY_PORT:-18082}:18082"
       - "${REDPANDA_SCHEMA_PORT:-18081}:18081"
@@ -219,7 +242,8 @@ services:
       redpanda:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      # Use wget for healthcheck - curl may not be available in all console image versions
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 15s
       timeout: 5s
       retries: 5

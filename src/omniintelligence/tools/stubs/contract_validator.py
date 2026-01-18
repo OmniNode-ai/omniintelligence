@@ -148,8 +148,14 @@ class ProtocolContractValidator:
             self._validate_required_fields(data, self.COMMON_REQUIRED_FIELDS)
         )
 
-        # Validate that at least one version field is present
-        violations.extend(self._validate_version_fields(data))
+        # Determine if this is a node contract (has node_type field)
+        node_type = data.get("node_type")
+        is_node_contract = node_type is not None and isinstance(node_type, str)
+
+        # Validate version fields - node contracts require both contract_version and node_version
+        violations.extend(
+            self._validate_version_fields(data, is_node_contract=is_node_contract)
+        )
 
         # Get or validate node_type
         node_type = data.get("node_type")
@@ -199,11 +205,17 @@ class ProtocolContractValidator:
                 violations.append(f"{field_name}: Field cannot be null")
         return violations
 
-    def _validate_version_fields(self, data: dict[str, Any]) -> list[str]:
-        """Validate that at least one version field is present.
+    def _validate_version_fields(
+        self, data: dict[str, Any], is_node_contract: bool = True
+    ) -> list[str]:
+        """Validate version fields are present and valid.
 
-        ONEX contracts can use 'version', 'contract_version', or 'node_version'.
-        At least one must be present. If present, validates the structure.
+        For node contracts, BOTH contract_version AND node_version are required.
+        For other contracts, at least one version field must be present.
+
+        Args:
+            data: The contract data to validate.
+            is_node_contract: If True, enforces both contract_version and node_version.
         """
         violations: list[str] = []
 
@@ -212,15 +224,34 @@ class ProtocolContractValidator:
             field for field in self.VERSION_FIELDS if field in data
         ]
 
-        if not version_fields_present:
-            violations.append(
-                f"version: Missing required version field. "
-                f"Expected one of: {', '.join(self.VERSION_FIELDS)}"
-            )
-        else:
-            # Validate each present version field
+        if is_node_contract:
+            # Node contracts MUST have both contract_version AND node_version
+            if "contract_version" not in data:
+                violations.append(
+                    "contract_version: Missing required field for node contract. "
+                    "Node contracts must specify the contract schema version."
+                )
+            if "node_version" not in data:
+                violations.append(
+                    "node_version: Missing required field for node contract. "
+                    "Node contracts must specify the node implementation version."
+                )
+            # Validate structure of present version fields
             for field in version_fields_present:
                 violations.extend(self._validate_version_structure(data[field], field))
+        else:
+            # Non-node contracts need at least one version field
+            if not version_fields_present:
+                violations.append(
+                    f"version: Missing required version field. "
+                    f"Expected one of: {', '.join(self.VERSION_FIELDS)}"
+                )
+            else:
+                # Validate each present version field
+                for field in version_fields_present:
+                    violations.extend(
+                        self._validate_version_structure(data[field], field)
+                    )
 
         return violations
 

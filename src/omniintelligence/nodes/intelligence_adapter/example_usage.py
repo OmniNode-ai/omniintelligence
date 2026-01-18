@@ -31,8 +31,7 @@ from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Import models from the canonical location
-from omniintelligence._legacy.models import ModelIntelligenceInput
-from omniintelligence._legacy.models.model_intelligence_output import ModelIntelligenceOutput
+from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
 
 
 # Configure logging
@@ -98,19 +97,25 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
         logger.info("=" * 60)
         logger.info(f"Operation: {result.operation_type}")
         logger.info(f"Success: {result.success}")
-        logger.info(f"Processing Time: {result.processing_time_ms}ms")
+        # Processing time is now in metadata for canonical model
+        processing_time = result.metadata.get("processing_time_ms", "N/A")
+        logger.info(f"Processing Time: {processing_time}ms")
 
         if result.quality_score is not None:
             logger.info(f"\nQuality Score: {result.quality_score:.2f}")
-        if result.onex_compliance is not None:
-            logger.info(f"ONEX Compliance: {result.onex_compliance:.2f}")
-        if result.complexity_score is not None:
-            logger.info(f"Complexity Score: {result.complexity_score:.2f}")
+        # ONEX compliance is now a boolean in canonical model
+        if result.onex_compliant is not None:
+            logger.info(f"ONEX Compliant: {result.onex_compliant}")
+        # Complexity score moved to analysis_results in canonical model
+        complexity_score = result.analysis_results.get("complexity_score")
+        if complexity_score is not None:
+            logger.info(f"Complexity Score: {complexity_score:.2f}")
 
-        if result.issues:
-            logger.info(f"\nIssues Detected ({len(result.issues)}):")
-            for issue in result.issues:
-                logger.info(f"  - {issue}")
+        # Patterns detected (canonical model uses patterns_detected list[str])
+        if result.patterns_detected:
+            logger.info(f"\nPatterns Detected ({len(result.patterns_detected)}):")
+            for pattern in result.patterns_detected:
+                logger.info(f"  - {pattern}")
 
         if result.recommendations:
             logger.info(f"\nRecommendations ({len(result.recommendations)}):")

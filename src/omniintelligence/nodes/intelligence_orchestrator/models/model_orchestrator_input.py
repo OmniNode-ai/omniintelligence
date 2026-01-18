@@ -1,4 +1,5 @@
 """Input model for Intelligence Orchestrator."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,6 +24,7 @@ class ModelOrchestratorInput(BaseModel):
     )
     entity_id: str = Field(
         ...,
+        min_length=1,
         description="Unique identifier for the entity being processed",
     )
     payload: dict[str, Any] = Field(

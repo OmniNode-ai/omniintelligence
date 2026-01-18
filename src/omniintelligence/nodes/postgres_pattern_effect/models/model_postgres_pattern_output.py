@@ -1,4 +1,5 @@
 """Output model for PostgreSQL Pattern Effect."""
+
 from __future__ import annotations
 
 from typing import Any

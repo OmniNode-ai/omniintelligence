@@ -28,6 +28,22 @@ output_model:
   description: "STUB: Output containing ingested content and metadata."
 # Minimal sections for stub
 dependencies: []
+# Error Handling Configuration (stub - minimal)
+# =============================================
+error_handling:
+  error_types:
+    - name: "IngestionValidationError"
+      description: "Input validation failed (e.g., invalid source path)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "IngestionEffectError"
+      description: "Error during file ingestion"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "FileNotFoundError"
+      description: "Source file not found"
+      recoverable: false
+      retry_strategy: "none"
 health_check:
   enabled: false
   endpoint: "/health"

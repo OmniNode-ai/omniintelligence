@@ -38,6 +38,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Code parser for entity extraction"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "EntityExtractionValidationError"
+      description: "Input validation failed (e.g., unsupported language)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "EntityExtractionComputeError"
+      description: "Error during entity extraction computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

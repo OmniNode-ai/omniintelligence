@@ -1,4 +1,5 @@
 """Output model for Ingestion Effect (STUB)."""
+
 from __future__ import annotations
 
 from typing import Any

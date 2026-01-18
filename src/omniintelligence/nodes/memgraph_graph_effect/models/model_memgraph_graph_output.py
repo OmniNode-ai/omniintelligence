@@ -1,4 +1,5 @@
 """Output model for Memgraph Graph Effect."""
+
 from __future__ import annotations
 
 from typing import Any

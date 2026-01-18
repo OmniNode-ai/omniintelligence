@@ -38,6 +38,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Pattern library for matching"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "PatternMatchingValidationError"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternMatchingComputeError"
+      description: "Error during pattern matching computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

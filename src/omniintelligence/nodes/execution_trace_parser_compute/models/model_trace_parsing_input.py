@@ -1,4 +1,5 @@
 """Input model for Execution Trace Parser Compute."""
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -57,4 +58,7 @@ class ModelTraceParsingInput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelTraceParsingInput", "TraceDataDict"]
+__all__ = [
+    "ModelTraceParsingInput",
+    "TraceDataDict",
+]

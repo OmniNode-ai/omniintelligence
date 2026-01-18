@@ -42,12 +42,16 @@ FROM base as reducer
 
 ENV PYTHONPATH=/app/src
 ENV NODE_TYPE=reducer
+# Allow default Kafka config for container startup
+ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 
 # Expose health check port
 EXPOSE 8000
 
-# Run reducer
-CMD ["python", "-m", "omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer"]
+# Run reducer (canonical module path - no v1_0_0 versioning)
+# Note: Runs in stub mode with health checks; full functionality requires
+# ONEX container injection via RuntimeHostProcess
+CMD ["python", "-m", "omniintelligence.nodes.intelligence_reducer"]
 
 # ============================================================================
 # Stage 3: Orchestrator
@@ -57,12 +61,16 @@ FROM base as orchestrator
 
 ENV PYTHONPATH=/app/src
 ENV NODE_TYPE=orchestrator
+# Allow default Kafka config for container startup
+ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 
 # Expose health check port
 EXPOSE 8000
 
-# Run orchestrator
-CMD ["python", "-m", "omniintelligence.nodes.intelligence_orchestrator.v1_0_0.orchestrator"]
+# Run orchestrator (canonical module path - no v1_0_0 versioning)
+# Note: Runs in stub mode with health checks; full functionality requires
+# ONEX container injection via RuntimeHostProcess
+CMD ["python", "-m", "omniintelligence.nodes.intelligence_orchestrator"]
 
 # ============================================================================
 # Stage 4: Compute Node (generic)
@@ -74,12 +82,16 @@ ARG NODE_NAME
 ENV PYTHONPATH=/app/src
 ENV NODE_TYPE=compute
 ENV NODE_NAME=${NODE_NAME}
+# Allow default Kafka config for container startup
+ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 
 # Expose health check port
 EXPOSE 8000
 
-# Run compute node (use shell form for variable expansion)
-CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.compute"]
+# Run compute node (canonical module path - no v1_0_0 versioning)
+# Note: Runs in stub mode with health checks; full functionality requires
+# ONEX container injection via RuntimeHostProcess
+CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}"]
 
 # ============================================================================
 # Stage 5: Effect Node (generic)
@@ -91,12 +103,16 @@ ARG NODE_NAME
 ENV PYTHONPATH=/app/src
 ENV NODE_TYPE=effect
 ENV NODE_NAME=${NODE_NAME}
+# Allow default Kafka config for container startup
+ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 
 # Expose health check port
 EXPOSE 8000
 
-# Run effect node (use shell form for variable expansion)
-CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0.effect"]
+# Run effect node (canonical module path - no v1_0_0 versioning)
+# Note: Runs in stub mode with health checks; full functionality requires
+# ONEX container injection via RuntimeHostProcess
+CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}"]
 
 # ============================================================================
 # Stage 6: Development/Testing

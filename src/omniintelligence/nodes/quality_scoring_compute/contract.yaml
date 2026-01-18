@@ -41,6 +41,18 @@ dependencies: []
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
 #   description: "Quality analysis engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "QualityScoringValidationError"
+      description: "Input validation failed (e.g., unsupported language)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "QualityScoringComputeError"
+      description: "Error during quality scoring computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
 health_check:
   enabled: true
   endpoint: "/health"

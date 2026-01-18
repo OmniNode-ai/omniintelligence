@@ -1,9 +1,10 @@
 """Output model for Entity Extraction Compute."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelEntityExtractionOutput(BaseModel):
@@ -30,16 +31,20 @@ class ModelEntityExtractionOutput(BaseModel):
         description="Additional metadata about the extraction",
     )
 
-    @field_validator("entity_count")
-    @classmethod
-    def validate_entity_count(cls, v: int, info: Any) -> int:
-        """Validate that entity_count matches the length of entities list."""
-        entities = info.data.get("entities", [])
-        if entities and v != len(entities):
+    @model_validator(mode="after")
+    def validate_entity_count_matches_list(self) -> Self:
+        """Validate that entity_count matches the length of entities list.
+
+        This validator runs after all fields are populated, ensuring
+        proper validation even when entities list is empty.
+        """
+        actual_count = len(self.entities)
+        if self.entity_count != actual_count:
             raise ValueError(
-                f"entity_count ({v}) must match len(entities) ({len(entities)})"
+                f"entity_count ({self.entity_count}) must match "
+                f"len(entities) ({actual_count})"
             )
-        return v
+        return self
 
     model_config = {"frozen": True, "extra": "forbid"}
 
