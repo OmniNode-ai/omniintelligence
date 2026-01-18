@@ -153,30 +153,41 @@ nodes/
 
 - [ ] `__init__.py` - Module initialization with exports
 - [ ] `__main__.py` - CLI entry point (for executable nodes)
-- [ ] `contract.yaml` - Main node contract with:
-  - `contract_version` (semver)
-  - `node_version` (semver)
-  - `name`, `node_type`, `description`
-  - `input_model` and `output_model` references
-  - `operations` list with input/output field mappings
-  - `error_handling` configuration
-  - `health_check` settings
-  - `metadata` (author, dates, tags)
-- [ ] `models/` directory containing:
-  - `__init__.py` with model exports
-  - `model_<name>_input.py` - Input Pydantic model
-  - `model_<name>_output.py` - Output Pydantic model
-  - `enum_*.py` - Enumeration types (operation types, states, etc.)
-- [ ] `node.py` - Main implementation with:
-  - Node class following naming convention (`Node<Name><Type>`)
-  - Async execution method (`execute_compute`, `execute_effect`, etc.)
-  - Proper error handling and logging
-
-**Optional Artifacts** (required for production nodes):
-
-- [ ] `introspection.py` - Introspection support for runtime inspection
-- [ ] `scenarios/` - YAML-based integration test scenarios
+- [ ] `contract.yaml` - Main node contract (see below for required fields)
+- [ ] `contracts/` - Subcontracts directory containing:
+  - `fsm_contract.yaml` - FSM definitions (for reducers)
+  - `event_type_contract.yaml` - Event schemas (for effect nodes)
+  - `contract_models.yaml` - Shared model definitions
+  - `contract_cli.yaml` - CLI parameter definitions
+- [ ] `node.py` - Main node implementation
+- [ ] `models/` - Pydantic models directory (see below)
+- [ ] `introspection.py` - Runtime introspection support
+- [ ] `scenarios/` - YAML integration test scenarios
 - [ ] `node_tests/` - Node-specific unit tests
+
+**Contract.yaml Required Fields**:
+- `contract_version` (semver)
+- `node_version` (semver)
+- `name`, `node_type`, `description`
+- `input_model` and `output_model` references
+- `operations` list with input/output field mappings
+- `error_handling` configuration
+- `health_check` settings
+- `metadata` (author, dates, tags)
+
+**Models Directory Contents**:
+- `__init__.py` with model exports
+- `model_<name>_input.py` - Input Pydantic model
+- `model_<name>_output.py` - Output Pydantic model
+- `enum_*.py` - Enumeration types (operation types, states, etc.)
+
+**Node.py Requirements**:
+- Node class following naming convention (`Node<Name><Type>`)
+- Async execution method (`execute_compute`, `execute_effect`, etc.)
+- Proper error handling and logging
+
+**Optional Artifacts** (recommended for production nodes):
+
 - [ ] `infrastructure/` - Supporting infrastructure code (for effect nodes)
 - [ ] `ARCHITECTURE_DECISIONS.md` - Design rationale for complex nodes
 

@@ -46,7 +46,8 @@ class ProtocolContractValidator:
     """
 
     # Required fields for all node contracts
-    # Note: version can be either 'version', 'contract_version', or 'node_version'
+    # Note: For node contracts, BOTH contract_version AND node_version are required.
+    # For non-node contracts, at least one version field must be present.
     COMMON_REQUIRED_FIELDS: tuple[str, ...] = (
         "name",
         "node_type",
@@ -307,9 +308,7 @@ class ProtocolContractValidator:
 
         return violations
 
-    def _validate_version_component(
-        self, value: Any, component_path: str
-    ) -> list[str]:
+    def _validate_version_component(self, value: Any, component_path: str) -> list[str]:
         """Validate a single version component (major, minor, or patch).
 
         Args:

@@ -2,56 +2,94 @@
 
 from __future__ import annotations
 
-from typing import Any, Self, TypedDict
+from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
 
 
-class ParsedEventDict(TypedDict, total=False):
-    """Typed structure for parsed trace events."""
+class ModelParsedEvent(BaseModel):
+    """Typed model for parsed trace events.
 
-    event_id: str
-    event_type: str
-    timestamp: str
-    span_id: str
-    trace_id: str
-    operation_name: str
-    service_name: str
-    attributes: dict[str, Any]
+    Provides strong typing for trace events extracted during parsing.
+    """
 
+    event_id: str | None = Field(default=None, description="Unique event identifier")
+    event_type: str | None = Field(default=None, description="Type of event")
+    timestamp: str | None = Field(default=None, description="Event timestamp")
+    span_id: str | None = Field(default=None, description="Associated span ID")
+    trace_id: str | None = Field(default=None, description="Associated trace ID")
+    operation_name: str | None = Field(default=None, description="Operation name")
+    service_name: str | None = Field(default=None, description="Service name")
+    attributes: dict[str, str] = Field(
+        default_factory=dict, description="Event attributes"
+    )
 
-class ErrorEventDict(TypedDict, total=False):
-    """Typed structure for error events extracted from traces."""
-
-    error_id: str
-    error_type: str
-    error_message: str
-    timestamp: str
-    span_id: str
-    stack_trace: str | None
-    attributes: dict[str, Any]
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
-class TimingDataDict(TypedDict, total=False):
-    """Typed structure for timing information."""
+class ModelErrorEvent(BaseModel):
+    """Typed model for error events extracted from traces.
 
-    total_duration_ms: float
-    start_time: str
-    end_time: str
-    span_count: int
-    critical_path_ms: float
-    latency_breakdown: dict[str, float]
+    Provides strong typing for error information found during trace parsing.
+    """
+
+    error_id: str | None = Field(default=None, description="Unique error identifier")
+    error_type: str | None = Field(default=None, description="Type of error")
+    error_message: str | None = Field(default=None, description="Error message")
+    timestamp: str | None = Field(default=None, description="Error timestamp")
+    span_id: str | None = Field(default=None, description="Associated span ID")
+    stack_trace: str | None = Field(default=None, description="Stack trace if available")
+    attributes: dict[str, str] = Field(
+        default_factory=dict, description="Error attributes"
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
-class TraceMetadataDict(TypedDict, total=False):
-    """Typed structure for trace parsing metadata."""
+class ModelTimingData(BaseModel):
+    """Typed model for timing information.
 
-    parser_version: str
-    parse_time_ms: float
-    source_format: str
-    event_count: int
-    error_count: int
-    warnings: list[str]
+    Provides strong typing for timing metrics extracted from traces.
+    """
+
+    total_duration_ms: float | None = Field(
+        default=None, description="Total duration in milliseconds"
+    )
+    start_time: str | None = Field(default=None, description="Start timestamp")
+    end_time: str | None = Field(default=None, description="End timestamp")
+    span_count: int | None = Field(default=None, description="Number of spans")
+    critical_path_ms: float | None = Field(
+        default=None, description="Critical path duration in ms"
+    )
+    latency_breakdown: dict[str, float] = Field(
+        default_factory=dict, description="Latency breakdown by operation"
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
+class ModelTraceMetadata(BaseModel):
+    """Typed model for trace parsing metadata.
+
+    Provides strong typing for metadata about the parsing process.
+    """
+
+    parser_version: str | None = Field(default=None, description="Parser version used")
+    parse_time_ms: float | None = Field(
+        default=None, description="Time taken to parse in ms"
+    )
+    source_format: str | None = Field(
+        default=None, description="Source format of the trace"
+    )
+    event_count: int | None = Field(default=None, description="Number of events parsed")
+    error_count: int | None = Field(
+        default=None, description="Number of errors extracted"
+    )
+    warnings: list[str] = Field(
+        default_factory=list, description="Parsing warnings"
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
 class ModelTraceParsingOutput(BaseModel):
@@ -64,19 +102,19 @@ class ModelTraceParsingOutput(BaseModel):
         ...,
         description="Whether trace parsing succeeded",
     )
-    parsed_events: list[ParsedEventDict | dict[str, Any]] = Field(
+    parsed_events: list[ModelParsedEvent] = Field(
         default_factory=list,
         description="List of parsed trace events",
     )
-    error_events: list[ErrorEventDict | dict[str, Any]] = Field(
+    error_events: list[ModelErrorEvent] = Field(
         default_factory=list,
         description="List of error events extracted from trace",
     )
-    timing_data: TimingDataDict | dict[str, Any] = Field(
-        default_factory=dict,
+    timing_data: ModelTimingData = Field(
+        default_factory=ModelTimingData,
         description="Timing information extracted from trace",
     )
-    metadata: TraceMetadataDict | dict[str, Any] | None = Field(
+    metadata: ModelTraceMetadata | None = Field(
         default=None,
         description="Additional metadata about the parsing",
     )
@@ -101,22 +139,20 @@ class ModelTraceParsingOutput(BaseModel):
         error_parts = []
 
         # Validate event_count if present in metadata
-        if "event_count" in self.metadata:
-            metadata_event_count = self.metadata["event_count"]
+        if self.metadata.event_count is not None:
             actual_event_count = len(self.parsed_events)
-            if metadata_event_count != actual_event_count:
+            if self.metadata.event_count != actual_event_count:
                 error_parts.append(
-                    f"metadata.event_count ({metadata_event_count}) "
+                    f"metadata.event_count ({self.metadata.event_count}) "
                     f"!= len(parsed_events) ({actual_event_count})"
                 )
 
         # Validate error_count if present in metadata
-        if "error_count" in self.metadata:
-            metadata_error_count = self.metadata["error_count"]
+        if self.metadata.error_count is not None:
             actual_error_count = len(self.error_events)
-            if metadata_error_count != actual_error_count:
+            if self.metadata.error_count != actual_error_count:
                 error_parts.append(
-                    f"metadata.error_count ({metadata_error_count}) "
+                    f"metadata.error_count ({self.metadata.error_count}) "
                     f"!= len(error_events) ({actual_error_count})"
                 )
 
@@ -131,9 +167,9 @@ class ModelTraceParsingOutput(BaseModel):
 
 
 __all__ = [
-    "ErrorEventDict",
+    "ModelErrorEvent",
+    "ModelParsedEvent",
+    "ModelTimingData",
+    "ModelTraceMetadata",
     "ModelTraceParsingOutput",
-    "ParsedEventDict",
-    "TimingDataDict",
-    "TraceMetadataDict",
 ]

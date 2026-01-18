@@ -98,8 +98,8 @@ services:
     image: qdrant/qdrant:v1.7.4
     container_name: omni-qdrant
     ports:
-      - "${QDRANT_PORT:-6333}:6333"     # REST API
-      - "${QDRANT_GRPC_PORT:-6334}:6334" # gRPC API
+      - "${QDRANT_PORT:-6333}:6333"  # REST API
+      - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC API
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
@@ -135,7 +135,7 @@ services:
     image: memgraph/memgraph-platform:latest
     container_name: omni-memgraph
     ports:
-      - "${MEMGRAPH_PORT:-7687}:7687"      # Bolt protocol (Cypher queries)
+      - "${MEMGRAPH_PORT:-7687}:7687"  # Bolt protocol (Cypher queries)
       - "${MEMGRAPH_HTTP_PORT:-3000}:3000"  # Lab UI (web interface)
     volumes:
       - memgraph_data:/var/lib/memgraph

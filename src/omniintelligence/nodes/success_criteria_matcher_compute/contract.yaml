@@ -35,8 +35,13 @@ operations:
       - matched_criteria
       - match_score
       - unmatched_criteria
-# TODO: Create omniintelligence.protocols module with criteria matcher protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a criteria matcher protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "criteria_matcher"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -46,10 +51,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "CriteriaMatchingValidationError"
+      error_code: "CRITERIA_001"
       description: "Input validation failed (e.g., empty criteria set)"
       recoverable: false
       retry_strategy: "none"
     - name: "CriteriaMatchingComputeError"
+      error_code: "CRITERIA_002"
       description: "Error during criteria matching"
       recoverable: true
       retry_strategy: "immediate_retry"

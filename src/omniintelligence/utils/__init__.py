@@ -7,7 +7,7 @@ from omniintelligence.utils.log_sanitizer import (
 )
 
 __all__ = [
-    "get_log_sanitizer",
     "LogSanitizer",
+    "get_log_sanitizer",
     "sanitize_logs",
 ]

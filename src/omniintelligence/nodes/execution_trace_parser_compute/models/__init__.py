@@ -1,23 +1,28 @@
-"""Models for Execution Trace Parser Compute Node."""
+"""Models for Execution Trace Parser Compute Node.
+
+All models use strong typing with Pydantic BaseModel for type safety.
+"""
 
 from omniintelligence.nodes.execution_trace_parser_compute.models.model_trace_parsing_input import (
+    ModelTraceData,
+    ModelTraceLog,
     ModelTraceParsingInput,
-    TraceDataDict,
 )
 from omniintelligence.nodes.execution_trace_parser_compute.models.model_trace_parsing_output import (
-    ErrorEventDict,
+    ModelErrorEvent,
+    ModelParsedEvent,
+    ModelTimingData,
+    ModelTraceMetadata,
     ModelTraceParsingOutput,
-    ParsedEventDict,
-    TimingDataDict,
-    TraceMetadataDict,
 )
 
 __all__ = [
-    "ErrorEventDict",
+    "ModelErrorEvent",
+    "ModelParsedEvent",
+    "ModelTimingData",
+    "ModelTraceData",
+    "ModelTraceLog",
+    "ModelTraceMetadata",
     "ModelTraceParsingInput",
     "ModelTraceParsingOutput",
-    "ParsedEventDict",
-    "TimingDataDict",
-    "TraceDataDict",
-    "TraceMetadataDict",
 ]

@@ -4,11 +4,18 @@ Unit tests for Contract Linter core validation functionality.
 
 Tests for single contract validation, file handling edge cases, and batch
 validation using the ContractLinter class.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 from pathlib import Path
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     MAX_YAML_SIZE_BYTES,

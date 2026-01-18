@@ -79,7 +79,7 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
         # Create intelligence input for code quality assessment
         input_data = ModelIntelligenceInput(
             operation_type="assess_code_quality",
-            correlation_id=uuid4(),
+            correlation_id=str(uuid4()),
             content=code_content,
             source_path="src/services/user_service.py",
             language="python",
@@ -191,7 +191,7 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]
 
         input_data = ModelIntelligenceInput(
             operation_type="identify_optimization_opportunities",
-            correlation_id=uuid4(),
+            correlation_id=str(uuid4()),
             content=code_content,
             language="python",
             options={

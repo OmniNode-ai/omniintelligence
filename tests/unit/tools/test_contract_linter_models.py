@@ -4,11 +4,18 @@ Unit tests for Contract Linter model/dataclass structures.
 
 Tests for ModelContractValidationResult and ModelContractValidationError data structures
 used by the Contract Linter CLI.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 from pathlib import Path
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     EnumContractErrorType,

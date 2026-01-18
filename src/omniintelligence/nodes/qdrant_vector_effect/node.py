@@ -14,6 +14,8 @@ from omnibase_core.models.effect.model_effect_input import ModelEffectInput
 from omnibase_core.models.effect.model_effect_output import ModelEffectOutput
 from omnibase_core.nodes.node_effect import NodeEffect
 
+from omniintelligence.nodes.qdrant_vector_effect.models import ModelQdrantVectorOutput
+
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
@@ -64,18 +66,20 @@ class NodeQdrantVectorEffect(NodeEffect):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return ModelEffectOutput(
-            result={
-                "success": True,
-                "vectors_processed": 0,
-                "search_results": [],
-                "deleted_count": 0,
-                "metadata": {
-                    "status": "stub",
-                    "message": "NodeQdrantVectorEffect is not yet implemented",
-                    "tracking_url": _STUB_TRACKING_URL,
-                },
+        # Use typed output model for consistent contract compliance
+        typed_output = ModelQdrantVectorOutput(
+            success=True,
+            vectors_processed=0,
+            search_results=[],
+            deleted_count=0,
+            metadata={
+                "status": "stub",
+                "message": "NodeQdrantVectorEffect is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
             },
+        )
+        return ModelEffectOutput(
+            result=typed_output.model_dump(),
             operation_id=input_data.operation_id or uuid4(),
             effect_type=input_data.effect_type,
             transaction_state=EnumTransactionState.COMMITTED,

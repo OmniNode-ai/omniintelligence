@@ -42,12 +42,16 @@ warnings.warn(
 # Re-export everything from the canonical module
 from omniintelligence.utils.log_sanitizer import (  # noqa: E402
     LogSanitizer,
+    LogSanitizerSettings,
     get_log_sanitizer,
+    get_sanitizer_settings,
     sanitize_logs,
 )
 
 __all__ = [
-    "get_log_sanitizer",
     "LogSanitizer",
+    "LogSanitizerSettings",
+    "get_log_sanitizer",
+    "get_sanitizer_settings",
     "sanitize_logs",
 ]

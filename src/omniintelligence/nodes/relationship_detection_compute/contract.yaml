@@ -31,8 +31,13 @@ operations:
       - success
       - relationships
       - relationship_count
-# TODO: Create omniintelligence.protocols module with relationship analyzer protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a relationship analyzer protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "relationship_analyzer"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -42,10 +47,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "RelationshipDetectionValidationError"
+      error_code: "RELDET_001"
       description: "Input validation failed (e.g., empty entities)"
       recoverable: false
       retry_strategy: "none"
     - name: "RelationshipDetectionComputeError"
+      error_code: "RELDET_002"
       description: "Error during relationship detection computation"
       recoverable: true
       retry_strategy: "immediate_retry"

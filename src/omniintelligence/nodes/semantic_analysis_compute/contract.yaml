@@ -32,8 +32,13 @@ operations:
       - semantic_features
       - embeddings
       - similarity_scores
-# TODO: Create omniintelligence.protocols module with semantic model protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a semantic model protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "semantic_model"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -43,10 +48,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "SemanticAnalysisValidationError"
+      error_code: "SEMANTIC_001"
       description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
     - name: "SemanticAnalysisComputeError"
+      error_code: "SEMANTIC_002"
       description: "Error during semantic analysis computation"
       recoverable: true
       retry_strategy: "immediate_retry"

@@ -14,6 +14,8 @@ from omnibase_core.models.effect.model_effect_input import ModelEffectInput
 from omnibase_core.models.effect.model_effect_output import ModelEffectOutput
 from omnibase_core.nodes.node_effect import NodeEffect
 
+from omniintelligence.nodes.ingestion_effect.models import ModelIngestionOutput
+
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
@@ -64,17 +66,19 @@ class NodeIngestionEffect(NodeEffect):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return ModelEffectOutput(
-            result={
-                "success": True,
-                "ingested_content": None,
-                "content_metadata": {},
-                "metadata": {
-                    "status": "stub",
-                    "message": "NodeIngestionEffect is not yet implemented",
-                    "tracking_url": _STUB_TRACKING_URL,
-                },
+        # Use typed output model for consistent contract compliance
+        typed_output = ModelIngestionOutput(
+            success=True,
+            ingested_content=None,
+            content_metadata={},
+            metadata={
+                "status": "stub",
+                "message": "NodeIngestionEffect is not yet implemented",
+                "tracking_url": _STUB_TRACKING_URL,
             },
+        )
+        return ModelEffectOutput(
+            result=typed_output.model_dump(),
             operation_id=input_data.operation_id or uuid4(),
             effect_type=input_data.effect_type,
             transaction_state=EnumTransactionState.COMMITTED,

@@ -7,14 +7,17 @@ ONEX Compliance:
     - Strong typing for all fields
     - Frozen immutable models
     - No dict[str, Any] usage
+    - Enum-based FSM type for type safety
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from omniintelligence.enums import EnumFSMType
 
 
 class ModelReducerIntentPayload(BaseModel):
@@ -32,7 +35,7 @@ class ModelReducerIntentPayload(BaseModel):
         default=None,
         description="Entity ID for the workflow",
     )
-    fsm_type: str | None = Field(
+    fsm_type: EnumFSMType | None = Field(
         default=None,
         description="FSM type for context",
     )
@@ -92,7 +95,7 @@ class ModelReducerIntent(BaseModel):
         description="Correlation ID for tracing",
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when intent was created",
     )
 
@@ -107,7 +110,7 @@ class ModelReducerMetadata(BaseModel):
     """
 
     transition_timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp of the state transition",
     )
     processing_time_ms: float = Field(
@@ -123,7 +126,7 @@ class ModelReducerMetadata(BaseModel):
         default=None,
         description="Epoch for action lease management",
     )
-    fsm_type: str = Field(
+    fsm_type: EnumFSMType = Field(
         ...,
         description="FSM type that was processed",
     )

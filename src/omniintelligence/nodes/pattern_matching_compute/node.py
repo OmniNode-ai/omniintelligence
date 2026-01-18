@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
@@ -13,9 +13,6 @@ from omniintelligence.nodes.pattern_matching_compute.models import (
     ModelPatternMatchingInput,
     ModelPatternMatchingOutput,
 )
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/10"
@@ -37,16 +34,6 @@ class NodePatternMatchingCompute(NodeCompute):
     """
 
     is_stub: ClassVar[bool] = True
-
-    def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodePatternMatchingCompute is a stub implementation and does not provide "
-            f"full functionality. The node accepts inputs but performs no actual "
-            f"pattern matching. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
 
     async def compute(
         self, input_data: ModelPatternMatchingInput

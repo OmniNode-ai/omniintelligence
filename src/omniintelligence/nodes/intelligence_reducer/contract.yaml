@@ -29,9 +29,8 @@ input_model:
   name: "ModelReducerInput"
   module: "omniintelligence.nodes.intelligence_reducer.models"
   description: >-
-    Discriminated union of FSM-specific input models (ModelReducerInputIngestion,
-    ModelReducerInputPatternLearning, ModelReducerInputQualityAssessment).
-    Each variant has a typed payload model specific to its FSM type.
+    Discriminated union of FSM-specific input models (ModelReducerInputIngestion, ModelReducerInputPatternLearning,
+    ModelReducerInputQualityAssessment). Each variant has a typed payload model specific to its FSM type.
   variants:
     - name: "ModelReducerInputIngestion"
       discriminator_value: "INGESTION"
@@ -46,9 +45,8 @@ output_model:
   name: "ModelReducerOutput"
   module: "omniintelligence.nodes.intelligence_reducer.models"
   description: >-
-    Reducer output containing success status, state transition details,
-    typed intents (ModelReducerIntent), and typed metadata (ModelReducerMetadata).
-    All fields use strong typing without dict[str, Any].
+    Reducer output containing success status, state transition details, typed intents (ModelReducerIntent),
+    and typed metadata (ModelReducerMetadata). All fields use strong typing without dict[str, Any].
 # FSM State Machine Definition
 # ============================
 # The intelligence reducer manages three FSM types, each with its own state machine.

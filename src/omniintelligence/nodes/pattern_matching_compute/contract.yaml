@@ -32,8 +32,13 @@ operations:
       - success
       - patterns_matched
       - pattern_scores
-# TODO: Create omniintelligence.protocols module with pattern library protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a pattern library protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "pattern_library"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -43,10 +48,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "PatternMatchingValidationError"
+      error_code: "PATMATCH_001"
       description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
     - name: "PatternMatchingComputeError"
+      error_code: "PATMATCH_002"
       description: "Error during pattern matching computation"
       recoverable: true
       retry_strategy: "immediate_retry"

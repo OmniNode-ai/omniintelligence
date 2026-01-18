@@ -186,14 +186,17 @@ error_handling:
     reset_timeout_ms: 60000
   error_types:
     - name: "ComputeExecutionError"
+      error_code: "ORCH_001"
       description: "Error during compute node execution"
       recoverable: true
       retry_strategy: "exponential_backoff"
     - name: "EffectExecutionError"
+      error_code: "ORCH_002"
       description: "Error during effect node execution"
       recoverable: true
       retry_strategy: "exponential_backoff"
     - name: "WorkflowTimeoutError"
+      error_code: "ORCH_003"
       description: "Workflow execution exceeded timeout"
       recoverable: false
       retry_strategy: "none"

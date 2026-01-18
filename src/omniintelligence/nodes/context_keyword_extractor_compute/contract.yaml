@@ -35,8 +35,13 @@ operations:
       - success
       - keywords
       - keyword_contexts
-# TODO: Create omniintelligence.protocols module with keyword extractor protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a keyword extractor protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "keyword_extractor"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -46,10 +51,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "KeywordExtractionValidationError"
+      error_code: "KEYWORD_001"
       description: "Input validation failed (e.g., empty content)"
       recoverable: false
       retry_strategy: "none"
     - name: "KeywordExtractionComputeError"
+      error_code: "KEYWORD_002"
       description: "Error during keyword extraction"
       recoverable: true
       retry_strategy: "immediate_retry"

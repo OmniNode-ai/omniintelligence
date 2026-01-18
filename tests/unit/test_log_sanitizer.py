@@ -573,6 +573,7 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         env_vars = {
             "ENABLE_LOG_SANITIZATION": "true",
@@ -582,6 +583,7 @@ class TestGlobalSanitizer:
 
         with patch.dict(os.environ, env_vars, clear=False):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
             assert sanitizer.sanitize_emails is True
             assert sanitizer.sanitize_ips is True
@@ -591,9 +593,11 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         with patch.dict(os.environ, {"ENABLE_LOG_SANITIZATION": "false"}, clear=False):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
             assert sanitizer.enable is False
 
@@ -602,6 +606,7 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         custom_patterns_str = "CUSTOM_[0-9]+|[CUSTOM]|Custom pattern"
 
@@ -611,6 +616,7 @@ class TestGlobalSanitizer:
             clear=False,
         ):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
 
             # Test the custom pattern works
@@ -623,6 +629,7 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         # Multiple patterns separated by semicolon
         custom_patterns_str = "PATTERN_A_[0-9]+|[PATTERN_A]|Pattern A;PATTERN_B_[A-Z]+|[PATTERN_B]|Pattern B"
@@ -633,6 +640,7 @@ class TestGlobalSanitizer:
             clear=False,
         ):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
 
             patterns_info = sanitizer.get_patterns_info()
@@ -645,6 +653,7 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         # Invalid format (only 2 parts instead of 3)
         custom_patterns_str = "INVALID_PATTERN|[INVALID]"
@@ -655,6 +664,7 @@ class TestGlobalSanitizer:
             clear=False,
         ):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             # Should not raise, just skip invalid pattern
             sanitizer = get_log_sanitizer()
             assert isinstance(sanitizer, LogSanitizer)
@@ -664,9 +674,11 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         with patch.dict(os.environ, {"CUSTOM_SANITIZATION_PATTERNS": ""}, clear=False):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
             assert isinstance(sanitizer, LogSanitizer)
 

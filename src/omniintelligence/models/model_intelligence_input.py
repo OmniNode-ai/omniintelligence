@@ -6,9 +6,9 @@ for processing code analysis requests from Kafka events.
 Migration Note:
     This unified input model replaces multiple operation-specific request
     models from the legacy omniarchon system:
-    - ModelQualityAssessmentRequest -> operation_type="assess_code_quality"
-    - ModelPerformanceAnalysisRequest -> operation_type="establish_performance_baseline"
-    - ModelPatternDetectionRequest -> operation_type="pattern_match"
+    - ModelQualityAssessmentRequest -> EnumIntelligenceOperationType.ASSESS_CODE_QUALITY
+    - ModelPerformanceAnalysisRequest -> EnumIntelligenceOperationType.ESTABLISH_PERFORMANCE_BASELINE
+    - ModelPatternDetectionRequest -> EnumIntelligenceOperationType.PATTERN_MATCH
 
     Operation-specific parameters that were individual fields in legacy models
     should now be passed in the `options` dictionary.
@@ -43,9 +43,10 @@ class ModelIntelligenceInput(BaseModel):
             ...     include_recommendations=True,
             ...     min_quality_threshold=0.7
             ... )
-            >>> # Canonical equivalent
+            >>> # Canonical equivalent (using enum)
+            >>> from omniintelligence.enums import EnumIntelligenceOperationType
             >>> ModelIntelligenceInput(
-            ...     operation_type="assess_code_quality",
+            ...     operation_type=EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
             ...     content="def foo(): pass",
             ...     source_path="src/main.py",
             ...     language="python",
@@ -60,9 +61,10 @@ class ModelIntelligenceInput(BaseModel):
             ...     pattern_categories=["best_practices"],
             ...     min_confidence=0.7
             ... )
-            >>> # Canonical equivalent
+            >>> # Canonical equivalent (using enum)
+            >>> from omniintelligence.enums import EnumIntelligenceOperationType
             >>> ModelIntelligenceInput(
-            ...     operation_type="pattern_match",
+            ...     operation_type=EnumIntelligenceOperationType.PATTERN_MATCH,
             ...     content="class Foo: pass",
             ...     source_path="src/foo.py",
             ...     options={"pattern_categories": ["best_practices"], "min_confidence": 0.7}

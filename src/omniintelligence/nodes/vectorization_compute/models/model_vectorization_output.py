@@ -2,9 +2,33 @@
 
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Self, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
+
+
+class VectorizationMetadataDict(TypedDict, total=False):
+    """Typed structure for vectorization operation metadata.
+
+    Provides stronger typing for metadata fields.
+    With total=False, all fields are optional.
+    """
+
+    # Error tracking
+    error: str
+
+    # Processing metadata
+    processing_time_ms: float
+    token_count: int
+    truncated: bool
+
+    # Source metadata
+    source: str
+    source_language: str
+    content_length: int
+
+    # Model metadata
+    normalization_applied: bool
 
 
 class ModelVectorizationOutput(BaseModel):
@@ -94,9 +118,10 @@ class ModelVectorizationOutput(BaseModel):
             "0 if operation failed or no embeddings generated."
         ),
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the embedding",
+    metadata: VectorizationMetadataDict = Field(
+        default_factory=lambda: VectorizationMetadataDict(),
+        description="Additional metadata about the embedding. Uses VectorizationMetadataDict "
+        "with total=False, allowing any subset of typed fields.",
     )
 
     @model_validator(mode="after")
@@ -167,4 +192,4 @@ class ModelVectorizationOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelVectorizationOutput"]
+__all__ = ["ModelVectorizationOutput", "VectorizationMetadataDict"]

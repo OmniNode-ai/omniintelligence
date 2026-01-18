@@ -2,29 +2,51 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
-
 from pydantic import BaseModel, Field
 
 
-class TraceDataDict(TypedDict, total=False):
-    """Typed structure for trace data.
+class ModelTraceLog(BaseModel):
+    """Typed model for trace log entries.
 
-    Provides stronger typing for common trace fields while allowing
-    additional fields via dict[str, Any] union.
+    Provides strong typing for log entries within trace spans.
     """
 
-    span_id: str
-    trace_id: str
-    parent_span_id: str | None
-    operation_name: str
-    service_name: str
-    start_time: str
-    end_time: str
-    duration_ms: float
-    status: str
-    tags: dict[str, str]
-    logs: list[dict[str, Any]]
+    timestamp: str | None = Field(default=None, description="Log entry timestamp")
+    level: str | None = Field(default=None, description="Log level (INFO, WARN, ERROR)")
+    message: str | None = Field(default=None, description="Log message content")
+    fields: dict[str, str] = Field(
+        default_factory=dict, description="Additional log fields"
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
+class ModelTraceData(BaseModel):
+    """Typed model for trace data.
+
+    Provides strong typing for trace span data used in trace parsing.
+    All common trace fields are explicitly typed for type safety.
+    """
+
+    span_id: str | None = Field(default=None, description="Unique span identifier")
+    trace_id: str | None = Field(default=None, description="Trace identifier")
+    parent_span_id: str | None = Field(
+        default=None, description="Parent span identifier"
+    )
+    operation_name: str | None = Field(
+        default=None, description="Name of the operation"
+    )
+    service_name: str | None = Field(default=None, description="Service name")
+    start_time: str | None = Field(default=None, description="Span start timestamp")
+    end_time: str | None = Field(default=None, description="Span end timestamp")
+    duration_ms: float | None = Field(default=None, description="Duration in ms")
+    status: str | None = Field(default=None, description="Span status")
+    tags: dict[str, str] = Field(default_factory=dict, description="Span tags")
+    logs: list[ModelTraceLog] = Field(
+        default_factory=list, description="Log entries within the span"
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
 class ModelTraceParsingInput(BaseModel):
@@ -33,7 +55,7 @@ class ModelTraceParsingInput(BaseModel):
     This model represents the input for parsing execution traces.
     """
 
-    trace_data: TraceDataDict | dict[str, Any] = Field(
+    trace_data: ModelTraceData = Field(
         ...,
         description="Raw trace data to parse (typed for common trace fields)",
     )
@@ -59,6 +81,7 @@ class ModelTraceParsingInput(BaseModel):
 
 
 __all__ = [
+    "ModelTraceData",
+    "ModelTraceLog",
     "ModelTraceParsingInput",
-    "TraceDataDict",
 ]

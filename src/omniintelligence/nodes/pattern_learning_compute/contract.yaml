@@ -32,10 +32,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "PatternLearningValidationError"
+      error_code: "PATLEARN_001"
       description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
     - name: "PatternLearningComputeError"
+      error_code: "PATLEARN_002"
       description: "Error during pattern learning computation"
       recoverable: true
       retry_strategy: "immediate_retry"

@@ -1,8 +1,8 @@
 # ONEX Migration Plan: Omniarchon → OmniIntelligence
 
-**Version**: 1.0
-**Date**: 2025-11-14
-**Status**: Planning
+**Version**: 1.1
+**Date**: 2026-01-18
+**Status**: In Progress
 **Target Architecture**: ONEX 4.0 with Llama Index Workflows
 
 ---
@@ -35,34 +35,44 @@
 ### Node Type Distribution
 
 ```
-NodeOmniAgentOrchestrator (1 unified node)
-├─ Handles ALL workflows via operation_type enum
-├─ document_ingestion_workflow
-├─ pattern_learning_workflow
-├─ quality_assessment_workflow
-└─ semantic_enrichment_workflow
+Orchestrator Nodes (2 nodes)
+├─ intelligence_orchestrator
+│  ├─ Handles ALL workflows via operation_type enum
+│  ├─ document_ingestion_workflow
+│  ├─ pattern_learning_workflow
+│  ├─ quality_assessment_workflow
+│  └─ semantic_enrichment_workflow
+└─ pattern_assembler_orchestrator
+   └─ Coordinates pattern assembly workflows
 
-NodeOmniAgentReducer (1 unified node)
-├─ Handles ALL FSMs via fsm_type enum
-├─ Ingestion FSM (document → indexed)
-├─ Pattern Learning FSM (foundation → validated)
-├─ Quality Assessment FSM (raw → scored)
-└─ State persistence for all FSMs in single database
+Reducer Nodes (1 unified node)
+├─ intelligence_reducer
+│  ├─ Handles ALL FSMs via fsm_type enum
+│  ├─ Ingestion FSM (document → indexed)
+│  ├─ Pattern Learning FSM (foundation → validated)
+│  ├─ Quality Assessment FSM (raw → scored)
+│  └─ State persistence for all FSMs in single database
 
-Compute Nodes (6 nodes)
-├─ Vectorization
-├─ Entity Extraction
-├─ Pattern Matching
-├─ Quality Scoring
-├─ Semantic Analysis
-└─ Relationship Detection
+Compute Nodes (12 nodes)
+├─ vectorization_compute - Text → embeddings
+├─ entity_extraction_compute - Code → entities
+├─ pattern_matching_compute - Code + patterns → matches
+├─ pattern_learning_compute - Pattern discovery and learning
+├─ quality_scoring_compute - Metrics → quality score
+├─ semantic_analysis_compute - Code → semantic features
+├─ relationship_detection_compute - Entities → relationships
+├─ intent_classifier_compute - Request → intent classification
+├─ context_keyword_extractor_compute - Content → keywords
+├─ success_criteria_matcher_compute - Execution → success criteria
+├─ execution_trace_parser_compute - Trace → structured execution data
+└─ pattern_assembler_compute - Components → assembled patterns
 
 Effect Nodes (5 nodes)
-├─ Kafka Event Bus
-├─ Qdrant Vector Store
-├─ Memgraph Knowledge Graph
-├─ PostgreSQL Pattern Store
-└─ Intelligence API Gateway
+├─ ingestion_effect - Kafka event ingestion and DLQ handling
+├─ qdrant_vector_effect - Vector store operations
+├─ memgraph_graph_effect - Knowledge graph operations
+├─ postgres_pattern_effect - Pattern persistence
+└─ intelligence_api_effect - HTTP API facade
 ```
 
 ---
@@ -1062,7 +1072,7 @@ class EnumIntentType(str, Enum):
 ```python
 from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 class ModelIntent(BaseModel):
@@ -1075,7 +1085,7 @@ class ModelIntent(BaseModel):
     intent_type: EnumIntentType
     target: str  # Target node or service
     payload: Dict[str, Any]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     correlation_id: Optional[str] = None
     priority: int = Field(default=5, ge=1, le=10)
     ttl_seconds: Optional[int] = None
@@ -1237,7 +1247,7 @@ Intent Router (in orchestrator or intent bus)
 
 ## References
 
-- [Omniarchon Inventory](../../../OMNIARCHON_MIGRATION_INVENTORY.md)
+- [Omniarchon Inventory](../../OMNIARCHON_MIGRATION_INVENTORY.md)
 - [ONEX Orchestrator Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/ORCHESTRATOR_NODE_TEMPLATE.md)
 - [ONEX Reducer Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/REDUCER_NODE_TEMPLATE.md)
 - [Llama Index Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/)

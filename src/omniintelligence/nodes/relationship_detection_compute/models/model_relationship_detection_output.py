@@ -2,22 +2,50 @@
 
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Self, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
+
+from omniintelligence.models.model_entity import ModelRelationship
+
+
+class DetectionMetadataDict(TypedDict, total=False):
+    """Typed structure for relationship detection metadata.
+
+    Contains information about the detection process.
+    """
+
+    # Processing info
+    detection_duration_ms: int
+    algorithm_version: str
+    model_name: str
+
+    # Input statistics
+    input_entity_count: int
+    entity_types_analyzed: list[str]
+
+    # Output statistics
+    relationships_found: int
+    relationships_filtered: int
+    confidence_threshold: float
+
+    # Request context
+    correlation_id: str
+    timestamp_utc: str
 
 
 class ModelRelationshipDetectionOutput(BaseModel):
     """Output model for relationship detection operations.
 
     This model represents the result of detecting relationships.
+    Uses typed ModelRelationship instances for proper validation and type safety.
     """
 
     success: bool = Field(
         ...,
         description="Whether relationship detection succeeded",
     )
-    relationships: list[dict[str, Any]] = Field(
+    relationships: list[ModelRelationship] = Field(
         default_factory=list,
         description="List of detected relationships with their metadata",
     )
@@ -26,9 +54,9 @@ class ModelRelationshipDetectionOutput(BaseModel):
         ge=0,
         description="Total number of detected relationships",
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: DetectionMetadataDict | None = Field(
         default=None,
-        description="Additional metadata about the detection",
+        description="Additional typed metadata about the detection",
     )
 
     @model_validator(mode="after")
@@ -49,4 +77,4 @@ class ModelRelationshipDetectionOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelRelationshipDetectionOutput"]
+__all__ = ["DetectionMetadataDict", "ModelRelationshipDetectionOutput"]

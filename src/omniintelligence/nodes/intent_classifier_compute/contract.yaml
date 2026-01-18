@@ -54,10 +54,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "IntentClassificationValidationError"
+      error_code: "INTENT_001"
       description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
     - name: "IntentClassificationComputeError"
+      error_code: "INTENT_002"
       description: "Error during intent classification"
       recoverable: true
       retry_strategy: "immediate_retry"

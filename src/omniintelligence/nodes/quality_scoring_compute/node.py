@@ -5,18 +5,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.quality_scoring_compute.models import (
+    ModelQualityScoringInput,
     ModelQualityScoringOutput,
 )
-
-if TYPE_CHECKING:
-    from typing import Any
-
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/13"
@@ -39,26 +35,16 @@ class NodeQualityScoringCompute(NodeCompute):
 
     is_stub: ClassVar[bool] = True
 
-    def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodeQualityScoringCompute is a stub implementation and does not provide "
-            f"full functionality. The node accepts inputs but performs no actual "
-            f"quality scoring. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
-
     async def compute(
-        self, _input_data: dict[str, Any]
+        self, input_data: ModelQualityScoringInput
     ) -> ModelQualityScoringOutput:
         """Compute quality score (STUB - returns empty result).
 
         Args:
-            _input_data: Input data for quality scoring (unused in stub).
+            input_data: Typed input model for quality scoring (unused in stub).
 
         Returns:
-            Stub result with success=True but default quality values.
+            Typed ModelQualityScoringOutput with success=True but default values.
         """
         warnings.warn(
             f"NodeQualityScoringCompute.compute() is a stub that returns empty "

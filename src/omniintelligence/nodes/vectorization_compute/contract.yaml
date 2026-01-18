@@ -70,14 +70,14 @@ operations:
 #
 # Future Enhancement (ONEX-EMBED-001):
 # ------------------------------------
-# Status: Planned - Not yet implemented
+# Status: Backlog - Phase 3 (v0.4.0)
 # Priority: Low (current implementation functional without protocol abstraction)
 # Description: Create omniintelligence.protocols module with EmbeddingModelProtocol
 # Requirements:
 #   - Create protocols/ directory with EmbeddingModelProtocol
 #   - Define interface for embedding generation (encode, batch_encode, get_dimension)
 #   - Currently no protocols directory exists
-# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues (to be created)
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 # Reference: See MIGRATION_SUMMARY.md for protocol migration patterns
 #
 dependencies: []
@@ -91,14 +91,17 @@ dependencies: []
 error_handling:
   error_types:
     - name: "VectorizationValidationError"
+      error_code: "VECTOR_001"
       description: "Input validation failed (e.g., empty content)"
       recoverable: false
       retry_strategy: "none"
     - name: "VectorizationComputeError"
+      error_code: "VECTOR_002"
       description: "Error during embedding generation"
       recoverable: true
       retry_strategy: "immediate_retry"
     - name: "ModelNotFoundError"
+      error_code: "VECTOR_003"
       description: "Requested embedding model not available"
       recoverable: false
       retry_strategy: "none"

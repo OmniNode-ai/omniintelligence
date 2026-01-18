@@ -4,12 +4,19 @@ Unit tests for Contract Linter helper functions and utilities.
 
 Tests for structured error output, linter configuration, and field identifier
 pattern validation.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 import json
 from pathlib import Path
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     FIELD_IDENTIFIER_PATTERN,

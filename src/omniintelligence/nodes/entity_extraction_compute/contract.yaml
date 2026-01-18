@@ -32,8 +32,13 @@ operations:
       - success
       - entities
       - entity_count
-# TODO: Create omniintelligence.protocols module with parser protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a parser protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "parser"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -43,10 +48,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "EntityExtractionValidationError"
+      error_code: "ENTITY_001"
       description: "Input validation failed (e.g., unsupported language)"
       recoverable: false
       retry_strategy: "none"
     - name: "EntityExtractionComputeError"
+      error_code: "ENTITY_002"
       description: "Error during entity extraction computation"
       recoverable: true
       retry_strategy: "immediate_retry"

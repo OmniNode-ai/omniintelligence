@@ -52,10 +52,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "PatternAssemblyValidationError"
+      error_code: "PATASM_001"
       description: "Input data validation failed"
       recoverable: false
       retry_strategy: "none"
     - name: "PatternAssemblyComputeError"
+      error_code: "PATASM_002"
       description: "Error during pattern assembly computation"
       recoverable: true
       retry_strategy: "immediate_retry"

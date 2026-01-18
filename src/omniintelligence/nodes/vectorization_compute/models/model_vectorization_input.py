@@ -2,9 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
+
+
+class VectorizationInputMetadataDict(TypedDict, total=False):
+    """Typed structure for vectorization input metadata.
+
+    Provides stronger typing for input metadata fields.
+    With total=False, all fields are optional.
+    """
+
+    # Source tracking
+    source: str
+    source_path: str
+    document_id: str
+
+    # Content metadata
+    language: str
+    content_type: str
+    content_length: int
+
+    # Chunking metadata
+    chunk_index: int
+    chunk_total: int
 
 
 class ModelVectorizationInput(BaseModel):
@@ -18,9 +40,10 @@ class ModelVectorizationInput(BaseModel):
         min_length=1,
         description="Text content to vectorize",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata (language, source_path, etc.)",
+    metadata: VectorizationInputMetadataDict = Field(
+        default_factory=lambda: VectorizationInputMetadataDict(),
+        description="Additional metadata (language, source_path, etc.). Uses VectorizationInputMetadataDict "
+        "with total=False, allowing any subset of typed fields.",
     )
     model_name: str = Field(
         default="text-embedding-3-small",
@@ -34,4 +57,4 @@ class ModelVectorizationInput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelVectorizationInput"]
+__all__ = ["ModelVectorizationInput", "VectorizationInputMetadataDict"]

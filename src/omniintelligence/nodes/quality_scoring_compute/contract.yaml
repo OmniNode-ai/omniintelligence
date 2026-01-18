@@ -52,10 +52,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "QualityScoringValidationError"
+      error_code: "QUALITY_001"
       description: "Input validation failed (e.g., unsupported language)"
       recoverable: false
       retry_strategy: "none"
     - name: "QualityScoringComputeError"
+      error_code: "QUALITY_002"
       description: "Error during quality scoring computation"
       recoverable: true
       retry_strategy: "immediate_retry"

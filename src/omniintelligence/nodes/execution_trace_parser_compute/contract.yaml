@@ -37,8 +37,13 @@ operations:
       - parsed_events
       - error_events
       - timing_data
-# TODO: Create omniintelligence.protocols module with trace parser protocol
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a trace parser protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
 # - name: "trace_parser"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"
@@ -48,10 +53,12 @@ dependencies: []
 error_handling:
   error_types:
     - name: "TraceParsingValidationError"
+      error_code: "TRACE_001"
       description: "Input validation failed (e.g., invalid trace format)"
       recoverable: false
       retry_strategy: "none"
     - name: "TraceParsingComputeError"
+      error_code: "TRACE_002"
       description: "Error during trace parsing"
       recoverable: true
       retry_strategy: "immediate_retry"

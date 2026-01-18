@@ -8,7 +8,7 @@ Features:
 - Configurable sanitization patterns
 - Performance-optimized compiled regex
 - Comprehensive sensitive data detection
-- Environment variable configuration
+- Environment variable configuration via Pydantic Settings
 - Safe fallback on errors
 - LRU caching for repeated content
 
@@ -39,11 +39,98 @@ Pattern Optimization:
 """
 
 import logging
-import os
 import re
 from functools import lru_cache
+from typing import ClassVar
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+
+class LogSanitizerSettings(BaseSettings):  # type: ignore[misc]
+    """
+    Pydantic Settings for LogSanitizer configuration.
+
+    Configuration via environment variables with sensible defaults.
+    All settings are validated at initialization.
+
+    Environment Variables:
+        ENABLE_LOG_SANITIZATION: Enable/disable sanitization (default: true)
+        SANITIZE_EMAIL_ADDRESSES: Include email address sanitization (default: false)
+        SANITIZE_IP_ADDRESSES: Include IP address sanitization (default: false)
+        CUSTOM_SANITIZATION_PATTERNS: Custom patterns (format: pattern1|replacement1|desc1;...)
+    """
+
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_prefix="",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    enable_log_sanitization: bool = Field(
+        default=True,
+        description="Enable log sanitization (set to false to disable for development)",
+        alias="ENABLE_LOG_SANITIZATION",
+    )
+
+    sanitize_email_addresses: bool = Field(
+        default=False,
+        description="Enable email address sanitization (disabled by default to avoid false positives)",
+        alias="SANITIZE_EMAIL_ADDRESSES",
+    )
+
+    sanitize_ip_addresses: bool = Field(
+        default=False,
+        description="Enable IP address sanitization (disabled by default)",
+        alias="SANITIZE_IP_ADDRESSES",
+    )
+
+    custom_sanitization_patterns: str = Field(
+        default="",
+        description="Custom patterns in format: pattern1|replacement1|desc1;pattern2|...",
+        alias="CUSTOM_SANITIZATION_PATTERNS",
+    )
+
+    def parse_custom_patterns(self) -> list[tuple[str, str, str]]:
+        """
+        Parse custom patterns from environment string.
+
+        Returns:
+            List of (pattern, replacement, description) tuples
+        """
+        if not self.custom_sanitization_patterns:
+            return []
+
+        patterns: list[tuple[str, str, str]] = []
+        try:
+            for pattern_def in self.custom_sanitization_patterns.split(";"):
+                if pattern_def.strip():
+                    parts = pattern_def.split("|")
+                    if len(parts) == 3:
+                        patterns.append((parts[0], parts[1], parts[2]))
+        except (ValueError, IndexError, TypeError) as e:
+            logger.warning(f"Failed to parse custom sanitization patterns: {e}")
+
+        return patterns
+
+
+# Cached settings instance
+_settings: LogSanitizerSettings | None = None
+
+
+def get_sanitizer_settings() -> LogSanitizerSettings:
+    """
+    Get or create cached LogSanitizerSettings instance.
+
+    Returns:
+        LogSanitizerSettings instance with validated configuration
+    """
+    global _settings
+    if _settings is None:
+        _settings = LogSanitizerSettings()
+    return _settings
 
 
 class LogSanitizer:
@@ -358,7 +445,7 @@ def get_log_sanitizer() -> LogSanitizer:
     """
     Get or create global log sanitizer instance.
 
-    Configuration from environment variables:
+    Configuration via Pydantic Settings (environment variables):
     - ENABLE_LOG_SANITIZATION: Enable/disable sanitization (default: true)
     - SANITIZE_EMAIL_ADDRESSES: Include email address sanitization (default: false)
     - SANITIZE_IP_ADDRESSES: Include IP address sanitization (default: false)
@@ -369,30 +456,16 @@ def get_log_sanitizer() -> LogSanitizer:
     """
     global _sanitizer
     if _sanitizer is None:
-        enable = os.getenv("ENABLE_LOG_SANITIZATION", "true").lower() == "true"
-        sanitize_emails = (
-            os.getenv("SANITIZE_EMAIL_ADDRESSES", "false").lower() == "true"
-        )
-        sanitize_ips = os.getenv("SANITIZE_IP_ADDRESSES", "false").lower() == "true"
+        # Use Pydantic Settings for validated configuration
+        settings = get_sanitizer_settings()
 
-        # Parse custom patterns from env (format: pattern1|replacement1|desc1;pattern2|replacement2|desc2)
-        custom_patterns: list[tuple[str, str, str]] = []
-        custom_patterns_str = os.getenv("CUSTOM_SANITIZATION_PATTERNS", "")
-        if custom_patterns_str:
-            try:
-                for pattern_def in custom_patterns_str.split(";"):
-                    if pattern_def.strip():
-                        parts = pattern_def.split("|")
-                        if len(parts) == 3:
-                            custom_patterns.append((parts[0], parts[1], parts[2]))
-            except (ValueError, IndexError, TypeError) as e:
-                # Pattern parsing may fail due to malformed env var format
-                logger.warning(f"Failed to parse custom sanitization patterns: {e}")
+        # Parse custom patterns from settings
+        custom_patterns = settings.parse_custom_patterns()
 
         _sanitizer = LogSanitizer(
-            enable=enable,
-            sanitize_emails=sanitize_emails,
-            sanitize_ips=sanitize_ips,
+            enable=settings.enable_log_sanitization,
+            sanitize_emails=settings.sanitize_email_addresses,
+            sanitize_ips=settings.sanitize_ip_addresses,
             custom_patterns=custom_patterns if custom_patterns else None,
         )
 

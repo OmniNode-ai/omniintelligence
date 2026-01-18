@@ -4,7 +4,14 @@ from omniintelligence.nodes.ingestion_effect.models.model_ingestion_input import
     ModelIngestionInput,
 )
 from omniintelligence.nodes.ingestion_effect.models.model_ingestion_output import (
+    ContentMetadataDict,
+    IngestionOperationMetadataDict,
     ModelIngestionOutput,
 )
 
-__all__ = ["ModelIngestionInput", "ModelIngestionOutput"]
+__all__ = [
+    "ContentMetadataDict",
+    "IngestionOperationMetadataDict",
+    "ModelIngestionInput",
+    "ModelIngestionOutput",
+]

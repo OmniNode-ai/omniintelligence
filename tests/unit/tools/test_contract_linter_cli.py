@@ -4,6 +4,8 @@ Unit tests for Contract Linter CLI entry point and exit codes.
 
 Tests for CLI behavior including argument parsing, exit codes, JSON output,
 verbose output, and subprocess invocation.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 import json
@@ -14,6 +16,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     ContractLinter,

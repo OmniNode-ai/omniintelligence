@@ -3,7 +3,8 @@ Legacy module compatibility layer.
 
 .. deprecated::
     This module is deprecated and will be removed in a future version.
-    Use the canonical imports from ``omniintelligence.utils`` instead.
+    Use the canonical imports from ``omniintelligence.utils``,
+    ``omniintelligence.models``, or ``omniintelligence.enums`` instead.
 
 This module provides backwards-compatible imports for code that references
 the old ``_legacy`` module paths. All implementations are re-exported from

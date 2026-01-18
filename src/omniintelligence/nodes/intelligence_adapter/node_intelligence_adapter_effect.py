@@ -1214,6 +1214,16 @@ class NodeIntelligenceAdapterEffect:
         original_topic = message.topic()
         dlq_topic = f"{original_topic}.dlq"
 
+        # Check if event_publisher is available before doing extraction work
+        if self.event_publisher is None:
+            logger.warning(
+                f"Event publisher not initialized, cannot route to DLQ | "
+                f"topic={original_topic} | partition={message.partition()} | "
+                f"offset={message.offset()} | error={error}"
+            )
+            self.metrics["dlq_routed"] += 1
+            return
+
         try:
             # Decode original message content
             try:
@@ -1245,7 +1255,7 @@ class NodeIntelligenceAdapterEffect:
                         ts_value / 1000, tz=UTC
                     ).isoformat()
 
-            # Determine error type: use explicit type, extract from exception, or default
+            # Determine error type from exception class name or use default
             resolved_error_type = error_type or (
                 type(error).__name__ if isinstance(error, Exception) else "ProcessingError"
             )
@@ -1273,16 +1283,6 @@ class NodeIntelligenceAdapterEffect:
                     "service_url": self.service_url,
                 },
             }
-
-            # Check if event_publisher is available
-            if self.event_publisher is None:
-                logger.warning(
-                    f"Event publisher not initialized, cannot route to DLQ | "
-                    f"topic={original_topic} | partition={message.partition()} | "
-                    f"offset={message.offset()} | error={error}"
-                )
-                self.metrics["dlq_routed"] += 1
-                return
 
             # Publish to DLQ topic
             # Extract correlation_id from original message if available
