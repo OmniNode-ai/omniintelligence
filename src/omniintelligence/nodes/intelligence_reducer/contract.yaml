@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Intelligence Reducer Node
 #
 # This reducer follows the pure function pattern for intelligence workflows:
@@ -15,10 +16,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "intelligence_reducer"
 node_type: "REDUCER_GENERIC"
-description: "Unified reducer for all intelligence FSMs. Pure reducer with all state stored in PostgreSQL fsm_state table. Handles INGESTION, PATTERN_LEARNING, and QUALITY_ASSESSMENT FSM types via enum routing."
+description: >-
+  Unified reducer for all intelligence FSMs. Pure reducer with all state stored in PostgreSQL fsm_state
+  table. Handles INGESTION, PATTERN_LEARNING, and QUALITY_ASSESSMENT FSM types via enum routing.
 input_model:
   name: "ModelReducerInput"
   module: "omniintelligence.nodes.intelligence_reducer.models"

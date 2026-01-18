@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Pattern Assembler Orchestrator Node
 #
 # Part of pattern_extraction split (Track 2 Intelligence Hook System)
@@ -5,10 +6,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "pattern_assembler_orchestrator"
 node_type: "ORCHESTRATOR_GENERIC"
-description: "Orchestrator node for assembling patterns from extracted components. Coordinates trace parsing, keyword extraction, intent classification, and success criteria matching."
+description: >-
+  Orchestrator node for assembling patterns from extracted components. Coordinates trace parsing, keyword
+  extraction, intent classification, and success criteria matching.
 input_model:
   name: "ModelPatternAssemblyInput"
   module: "omniintelligence.nodes.pattern_assembler_orchestrator.models"

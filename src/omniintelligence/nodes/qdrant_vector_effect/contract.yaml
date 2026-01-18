@@ -1,12 +1,18 @@
+---
 # ONEX Node Contract - Qdrant Vector Effect Node
 contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "qdrant_vector_effect"
 node_type: "EFFECT_GENERIC"
-description: "Effect node for storing and querying vectors in Qdrant. Handles vector upsert, search, and collection management operations."
+description: >-
+  Effect node for storing and querying vectors in Qdrant. Handles vector upsert, search, and collection
+  management operations.
 input_model:
   name: "ModelQdrantVectorInput"
   module: "omniintelligence.nodes.qdrant_vector_effect.models"

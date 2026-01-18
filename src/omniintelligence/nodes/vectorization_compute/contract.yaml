@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Vectorization Compute Node
 #
 # This compute node generates embeddings from code and documents.
@@ -8,10 +9,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "vectorization_compute"
 node_type: "COMPUTE_GENERIC"
-description: "Compute node for generating embeddings from code and documents. Supports multiple embedding models and batch processing with result caching."
+description: >-
+  Compute node for generating embeddings from code and documents. Supports multiple embedding models and
+  batch processing with result caching.
 input_model:
   name: "ModelVectorizationInput"
   module: "omniintelligence.nodes.vectorization_compute.models"
@@ -44,13 +50,17 @@ operations:
       - success
       - embeddings_list
       - model_used
+      - metadata_list
 # Dependencies
 # ============
-dependencies:
-  - name: "embedding_model"
-    type: "protocol"
-    module: "omniintelligence.protocols"
-    description: "Embedding model for vector generation"
+# TODO: Create omniintelligence.protocols module with embedding model protocol
+# Currently no protocols directory exists - this is a placeholder for future implementation
+#
+dependencies: []
+# - name: "embedding_model"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Embedding model for vector generation"
 # Health Check
 # ============
 health_check:

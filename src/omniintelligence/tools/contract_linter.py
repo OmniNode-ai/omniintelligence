@@ -37,7 +37,7 @@ from omnibase_core.models.contracts.subcontracts import (
     ModelWorkflowCoordinationSubcontract,
 )
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
-from omnibase_core.validation.contract_validator import ProtocolContractValidator
+from omniintelligence.tools.stubs.contract_validator import ProtocolContractValidator
 from pydantic import BaseModel, ValidationError
 
 # Module-level logger for contract linter operations
@@ -213,8 +213,19 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
 
 
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
-VALID_NODE_TYPES: frozenset[str] = frozenset(
+# Base types are the fundamental categories; extended types (e.g., COMPUTE_GENERIC) are also valid
+VALID_NODE_TYPE_BASES: frozenset[str] = frozenset(
     {"compute", "effect", "reducer", "orchestrator"}
+)
+
+# Extended node types include the base type with optional suffixes (e.g., COMPUTE_GENERIC)
+VALID_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        # Base types
+        "compute", "effect", "reducer", "orchestrator",
+        # Extended generic types
+        "compute_generic", "effect_generic", "reducer_generic", "orchestrator_generic",
+    }
 )
 
 # Default number of worker threads when os.cpu_count() returns None

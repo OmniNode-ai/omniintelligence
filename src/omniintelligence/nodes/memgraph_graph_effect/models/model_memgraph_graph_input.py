@@ -1,7 +1,7 @@
 """Input model for Memgraph Graph Effect."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,9 +12,9 @@ class ModelMemgraphGraphInput(BaseModel):
     This model represents the input for graph storage operations.
     """
 
-    operation: str = Field(
+    operation: Literal["create_nodes", "create_relationships", "execute_query"] = Field(
         default="create_nodes",
-        description="Type of graph operation (create_nodes, create_relationships, execute_query)",
+        description="Type of graph operation",
     )
     entities: list[dict[str, Any]] = Field(
         default_factory=list,
@@ -35,6 +35,7 @@ class ModelMemgraphGraphInput(BaseModel):
     correlation_id: Optional[str] = Field(
         default=None,
         description="Correlation ID for tracing",
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}

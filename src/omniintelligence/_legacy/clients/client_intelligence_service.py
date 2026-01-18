@@ -26,7 +26,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -65,7 +65,7 @@ class OnexError(Exception):
         self,
         message: str,
         error_code: CoreErrorCode,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         status_code: int = 500,
     ):
         self.message = message
@@ -87,7 +87,7 @@ class IntelligenceServiceError(OnexError):
         self,
         message: str,
         error_code: CoreErrorCode = CoreErrorCode.INTERNAL_ERROR,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         status_code: int = 500,
     ):
         super().__init__(message, error_code, details, status_code)
@@ -96,7 +96,7 @@ class IntelligenceServiceError(OnexError):
 class IntelligenceServiceUnavailable(IntelligenceServiceError):
     """Raised when Intelligence Service is unavailable."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
         super().__init__(
             message,
             error_code=CoreErrorCode.SERVICE_UNAVAILABLE,
@@ -112,7 +112,7 @@ class IntelligenceServiceTimeout(IntelligenceServiceError):
         self,
         message: str,
         timeout_seconds: float,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         details = details or {}
         details["timeout_seconds"] = timeout_seconds
@@ -131,7 +131,7 @@ class IntelligenceServiceValidation(IntelligenceServiceError):
         self,
         message: str,
         validation_errors: Optional[list[Any]] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         details = details or {}
         details["validation_errors"] = validation_errors or []
@@ -150,7 +150,7 @@ class IntelligenceServiceRateLimit(IntelligenceServiceError):
         self,
         message: str,
         retry_after: Optional[int] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         details = details or {}
         if retry_after:
@@ -876,7 +876,7 @@ class IntelligenceServiceClient:
     # Metrics and Monitoring
     # ========================================================================
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get comprehensive client metrics.
 

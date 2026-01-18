@@ -1,12 +1,18 @@
+---
 # ONEX Node Contract - Entity Extraction Compute Node
 contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "entity_extraction_compute"
 node_type: "COMPUTE_GENERIC"
-description: "Compute node for extracting entities from code and documents. Identifies classes, functions, variables, and other code constructs."
+description: >-
+  Compute node for extracting entities from code and documents. Identifies classes, functions, variables,
+  and other code constructs.
 input_model:
   name: "ModelEntityExtractionInput"
   module: "omniintelligence.nodes.entity_extraction_compute.models"
@@ -26,11 +32,12 @@ operations:
       - success
       - entities
       - entity_count
-dependencies:
-  - name: "parser"
-    type: "protocol"
-    module: "omniintelligence.protocols"
-    description: "Code parser for entity extraction"
+# TODO: Create omniintelligence.protocols module with parser protocol
+dependencies: []
+# - name: "parser"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Code parser for entity extraction"
 health_check:
   enabled: true
   endpoint: "/health"

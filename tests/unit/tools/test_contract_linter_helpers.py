@@ -141,7 +141,7 @@ node_type: compute
 class TestLinterConfiguration:
     """Tests for linter configuration options."""
 
-    def test_linter_strict_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
+    def test_linter_strict_mode(self):
         """Test that strict mode raises NotImplementedError (not yet implemented)."""
         # Strict mode is reserved for future implementation
         with pytest.raises(NotImplementedError) as exc_info:

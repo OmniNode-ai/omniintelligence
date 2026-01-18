@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Intelligence Orchestrator Node
 #
 # This orchestrator coordinates intelligence workflows using Llama Index.
@@ -12,10 +13,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "intelligence_orchestrator"
 node_type: "ORCHESTRATOR_GENERIC"
-description: "Unified orchestrator for all intelligence operations using Llama Index workflows. Handles document ingestion, pattern learning, quality assessment, semantic analysis, and relationship detection workflows."
+description: >-
+  Unified orchestrator for all intelligence operations using Llama Index workflows. Handles document ingestion,
+  pattern learning, quality assessment, semantic analysis, and relationship detection workflows.
 input_model:
   name: "ModelOrchestratorInput"
   module: "omniintelligence.nodes.intelligence_orchestrator.models"

@@ -1,12 +1,18 @@
+---
 # ONEX Node Contract - Intelligence API Effect Node
 contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "intelligence_api_effect"
 node_type: "EFFECT_GENERIC"
-description: "Effect node for making calls to external intelligence APIs. Handles LLM calls, embedding generation, and other AI service integrations."
+description: >-
+  Effect node for making calls to external intelligence APIs. Handles LLM calls, embedding generation,
+  and other AI service integrations.
 input_model:
   name: "ModelIntelligenceApiInput"
   module: "omniintelligence.nodes.intelligence_api_effect.models"

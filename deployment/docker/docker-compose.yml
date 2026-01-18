@@ -1,3 +1,4 @@
+---
 # ============================================================================
 # OmniIntelligence - Base Infrastructure
 # ============================================================================
@@ -127,18 +128,18 @@ services:
     container_name: omni-valkey
     ports:
       - "${VALKEY_PORT:-6379}:6379"
-    command: >
-      valkey-server
-      --requirepass ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set}
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --save 60 1000
+    command: valkey-server --requirepass ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set} --maxmemory 512mb
+      --maxmemory-policy allkeys-lru --save 60 1000
     volumes:
       - valkey_data:/data
+    environment:
+      # Used by valkey-cli for authentication without exposing password in process listing
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set}
     networks:
       - omni-network
     healthcheck:
-      test: ["CMD", "valkey-cli", "--pass", "${VALKEY_PASSWORD}", "ping"]
+      # Uses REDISCLI_AUTH env var for authentication - password not visible in process listing
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

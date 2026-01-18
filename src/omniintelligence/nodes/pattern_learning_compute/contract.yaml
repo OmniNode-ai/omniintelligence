@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Pattern Learning Compute Node (STUB)
 #
 # STATUS: STUB - Minimal contract for forward compatibility
@@ -7,11 +8,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "pattern_learning_compute"
 node_type: "COMPUTE_GENERIC"
 status: "stub"
-description: "STUB: Compute node for pattern learning operations. Will handle pattern extraction, learning, and refinement."
+description: >-
+  STUB: Compute node for pattern learning operations. Will handle pattern extraction, learning, and refinement.
 input_model:
   name: "ModelPatternLearningInput"
   module: "omniintelligence.nodes.pattern_learning_compute.models"

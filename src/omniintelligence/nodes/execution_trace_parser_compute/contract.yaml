@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Execution Trace Parser Compute Node
 #
 # Part of pattern_extraction split (Track 2 Intelligence Hook System)
@@ -5,10 +6,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "execution_trace_parser_compute"
 node_type: "COMPUTE_GENERIC"
-description: "Compute node for parsing execution traces from PostgreSQL intelligence tracking system. Extracts trace events, timing, and error information from structured trace data."
+description: >-
+  Compute node for parsing execution traces from PostgreSQL intelligence tracking system. Extracts trace
+  events, timing, and error information from structured trace data.
 input_model:
   name: "ModelTraceParsingInput"
   module: "omniintelligence.nodes.execution_trace_parser_compute.models"
@@ -31,11 +37,12 @@ operations:
       - parsed_events
       - error_events
       - timing_data
-dependencies:
-  - name: "trace_parser"
-    type: "protocol"
-    module: "omniintelligence.protocols"
-    description: "Trace parsing engine"
+# TODO: Create omniintelligence.protocols module with trace parser protocol
+dependencies: []
+# - name: "trace_parser"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Trace parsing engine"
 health_check:
   enabled: true
   endpoint: "/health"

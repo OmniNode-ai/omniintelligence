@@ -21,7 +21,7 @@ from omniintelligence._legacy.models import (
     ModelReducerOutput,
 )
 from omniintelligence._legacy.models.model_fsm_state import ModelFSMState
-from src.omniintelligence.nodes.intelligence_reducer.v1_0_0.reducer import (
+from omniintelligence._legacy.nodes.intelligence_reducer.v1_0_0.reducer import (
     IntelligenceReducer,
 )
 

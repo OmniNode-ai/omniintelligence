@@ -93,6 +93,7 @@ class ModelIntelligenceInput(BaseModel):
     correlation_id: Optional[str] = Field(
         default=None,
         description="Correlation ID for distributed tracing",
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,

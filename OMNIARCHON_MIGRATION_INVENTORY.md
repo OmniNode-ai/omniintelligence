@@ -875,7 +875,7 @@ class EntityType(str, Enum):
     DOCUMENT = "document"
     PAGE = "page"
     CODE_EXAMPLE = "code_example"
-    
+
     # Code Structure
     FUNCTION = "function"
     CLASS = "class"
@@ -883,12 +883,12 @@ class EntityType(str, Enum):
     MODULE = "module"
     INTERFACE = "interface"
     COMPONENT = "component"
-    
+
     # System
     API_ENDPOINT = "api_endpoint"
     SERVICE = "service"
     CONFIG_SETTING = "config_setting"
-    
+
     # Knowledge
     CONCEPT = "concept"
     PATTERN = "pattern"
@@ -984,17 +984,17 @@ class Pattern(BaseModel):
     description: str
     pattern_type: str  # code, execution, document
     intent: str        # what problem it solves
-    
+
     # Structure
     keywords: List[str]
     tags: List[str]
     frameworks: List[str]
-    
+
     # Quality metrics
     confidence_score: float
     success_rate: float
     usage_count: int
-    
+
     # Metadata
     discovered_at: datetime
     last_used_at: datetime
@@ -1049,7 +1049,7 @@ class ONEXCompliance(BaseModel):
     violations: List[str]
     recommendations: List[str]
     patterns_detected: List[str]
-    
+
     # Metadata
     checked_at: datetime
     checker_version: str
@@ -1212,11 +1212,11 @@ CACHE_TTL=300
 try:
     result = await process_event(event)
     await publish_completion_event(result)
-    
+
 except ErrorClassifier.NonRetryable as e:
     # Route to DLQ immediately
     await publish_to_dlq(event, e, retry_count=0)
-    
+
 except Exception as e:
     # Retry with exponential backoff
     if retry_count < MAX_RETRIES:
@@ -1231,10 +1231,10 @@ except Exception as e:
 async def process_batch(items: List[Item]):
     tasks = [process_single_item(item) for item in items]
     results = await asyncio.gather(*tasks, return_exceptions=False)
-    
+
     successes = [r for r in results if r.success]
     failures = [r for r in results if not r.success]
-    
+
     log_metrics(len(successes), len(failures))
     return BatchResult(successes, failures)
 ```
@@ -1247,13 +1247,13 @@ async def get_entity(entity_id: str):
     cached = await cache.get(f"entity:{entity_id}")
     if cached:
         return cached
-    
+
     # 2. Load from database
     entity = await db.get_entity(entity_id)
-    
+
     # 3. Update cache
     await cache.set(f"entity:{entity_id}", entity, ttl=300)
-    
+
     return entity
 ```
 
@@ -1293,4 +1293,3 @@ The Omniarchon system is a sophisticated, event-driven microservices architectur
 3. Integrate event bus (Kafka/Redpanda)
 4. Migrate pattern learning system (phases 1-4)
 5. Integrate with ONEX node infrastructure
-

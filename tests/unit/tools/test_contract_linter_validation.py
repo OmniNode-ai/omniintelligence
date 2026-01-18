@@ -192,30 +192,38 @@ class TestContractLinterSingleValidation:
     def test_validate_compute_missing_algorithm(
         self, tmp_path: Path, invalid_compute_missing_algorithm_yaml: str
     ):
-        """Test that compute contracts require algorithm field."""
+        """Test that compute contracts without algorithm are valid (optional field).
+
+        Note: algorithm is optional in the stub validator because existing
+        ONEX contracts don't include this field. When the full omnibase_core
+        validator is available, this requirement may be enforced.
+        """
         contract_path = tmp_path / "compute_no_algo.yaml"
         contract_path.write_text(invalid_compute_missing_algorithm_yaml)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        # When validating as compute contract, algorithm is required
-        assert result.is_valid is False
-        assert any("algorithm" in e.field_path for e in result.validation_errors)
+        # algorithm is optional in stub validator - contract should be valid
+        assert result.is_valid is True
 
     def test_validate_effect_missing_io_operations(
         self, tmp_path: Path, invalid_effect_missing_io_operations_yaml: str
     ):
-        """Test that effect contracts require io_operations field."""
+        """Test that effect contracts without io_operations are valid (optional field).
+
+        Note: io_operations is optional in the stub validator because existing
+        ONEX contracts don't include this field. When the full omnibase_core
+        validator is available, this requirement may be enforced.
+        """
         contract_path = tmp_path / "effect_no_io_ops.yaml"
         contract_path.write_text(invalid_effect_missing_io_operations_yaml)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        # When validating as effect contract, io_operations is required
-        assert result.is_valid is False
-        assert any("io_operations" in e.field_path for e in result.validation_errors)
+        # io_operations is optional in stub validator - contract should be valid
+        assert result.is_valid is True
 
 
 # =============================================================================

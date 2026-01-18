@@ -119,6 +119,7 @@ class ModelIntelligenceOutput(BaseModel):
     correlation_id: Optional[str] = Field(
         default=None,
         description="Correlation ID for distributed tracing",
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
     error_message: Optional[str] = Field(
         default=None,

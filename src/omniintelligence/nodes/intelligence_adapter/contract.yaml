@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Intelligence Adapter Effect Node
 #
 # This effect node adapts between Kafka events and Archon intelligence services.
@@ -20,17 +21,22 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "intelligence_adapter"
 node_type: "EFFECT_GENERIC"
-description: "Effect node that adapts between Kafka events and Archon intelligence services. Consumes code analysis requests and publishes completion/failure events with DLQ routing support."
+description: >-
+  Effect node that adapts between Kafka events and Archon intelligence services. Consumes code analysis
+  requests and publishes completion/failure events with DLQ routing support.
 input_model:
   name: "ModelIntelligenceInput"
   module: "omniintelligence.models"
   description: "Input containing operation type, content, and analysis parameters."
 output_model:
   name: "ModelIntelligenceOutput"
-  module: "omniintelligence.models.model_intelligence_output"
+  module: "omniintelligence.models"
   description: "Output containing analysis results, scores, and recommendations."
 # Consumed Events
 # ===============
@@ -105,19 +111,26 @@ error_handling:
     include_error_context: true
 # Dependencies
 # ============
+# NOTE: External library dependencies (confluent_kafka) are valid.
+# Internal module dependencies are commented out until migrated from _legacy.
+#
+# TODO: Migrate these modules from _legacy to canonical structure:
+# - omniintelligence.clients.client_intelligence_service (currently in _legacy/clients/)
+# - omniintelligence.events.publisher.event_publisher (currently in _legacy/events/publisher/)
+#
 dependencies:
-  - name: "intelligence_client"
-    type: "protocol"
-    module: "omniintelligence.clients.client_intelligence_service"
-    description: "Client for Archon intelligence service"
+  # - name: "intelligence_client"
+  #   type: "protocol"
+  #   module: "omniintelligence.clients.client_intelligence_service"
+  #   description: "Client for Archon intelligence service"
   - name: "kafka_consumer"
     type: "protocol"
     module: "confluent_kafka"
     description: "Kafka consumer for event subscription"
-  - name: "event_publisher"
-    type: "protocol"
-    module: "omniintelligence.events.publisher.event_publisher"
-    description: "Event publisher for result events"
+    # - name: "event_publisher"
+    #   type: "protocol"
+    #   module: "omniintelligence.events.publisher.event_publisher"
+    #   description: "Event publisher for result events"
 # Health Check
 # ============
 health_check:

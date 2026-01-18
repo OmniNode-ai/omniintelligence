@@ -937,7 +937,7 @@ class TestWatchAndValidateFunction:
 
         linter = ContractLinter()
 
-        def mock_sleep(seconds):
+        def mock_sleep(_seconds):
             """Immediately raise KeyboardInterrupt to simulate Ctrl+C."""
             raise KeyboardInterrupt
 

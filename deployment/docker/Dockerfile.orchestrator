@@ -24,4 +24,7 @@ ENV PYTHONPATH=/app/src
 EXPOSE 8000
 
 # Run orchestrator
-CMD ["python", "-m", "omniintelligence.nodes.intelligence_orchestrator.v1_0_0.orchestrator"]
+# Note: This runs the canonical orchestrator node (not the legacy v1_0_0 version)
+# The node runs in stub mode with health checks; full functionality requires
+# ONEX container injection via RuntimeHostProcess
+CMD ["python", "-m", "omniintelligence.nodes.intelligence_orchestrator"]

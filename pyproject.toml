@@ -33,7 +33,9 @@ isort = "^5.13.0"
 [tool.poetry.group.core.dependencies]
 omnibase-core = "^0.7.0"
 omnibase-spi = "^0.5.0"
-omnibase-infra = {develop = true}
+# NOTE: omnibase-infra is a local development dependency (not published to PyPI).
+# To use locally with Poetry, uncomment and adjust the path:
+# omnibase-infra = {path = "../omnibase_infra3", develop = true}
 
 [project]
 name = "omniintelligence"
@@ -55,6 +57,7 @@ dependencies = [
 # Development dependencies for linting and testing
 dev = [
     "mypy>=1.17.0",
+    "types-PyYAML>=6.0.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-mock>=3.12.0",

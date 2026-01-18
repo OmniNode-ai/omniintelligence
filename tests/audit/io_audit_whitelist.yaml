@@ -53,6 +53,19 @@ files:
       - "env-access"
       - "file-io"
 
+  # Effect nodes - these legitimately need I/O for their purpose
+  - path: "src/omniintelligence/nodes/intelligence_adapter/node_intelligence_adapter_effect.py"
+    reason: "Effect node consuming Kafka events and routing to intelligence operations"
+    allowed_rules:
+      - "net-client"
+      - "env-access"
+
+  # Orchestrator entry points - these are CLI runners, not pure nodes
+  - path: "src/omniintelligence/nodes/intelligence_orchestrator/__main__.py"
+    reason: "Entry point script for running the orchestrator, not a pure node"
+    allowed_rules:
+      - "env-access"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"

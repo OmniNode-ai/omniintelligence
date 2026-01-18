@@ -19,6 +19,7 @@ class ModelTraceParsingInput(BaseModel):
     correlation_id: Optional[str] = Field(
         default=None,
         description="Correlation ID for tracing",
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
     trace_format: str = Field(
         default="json",

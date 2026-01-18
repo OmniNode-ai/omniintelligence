@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Success Criteria Matcher Compute Node
 #
 # Part of pattern_extraction split (Track 2 Intelligence Hook System)
@@ -5,10 +6,15 @@ contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "success_criteria_matcher_compute"
 node_type: "COMPUTE_GENERIC"
-description: "Compute node for matching execution outcomes against success criteria. Determines if observed behavior matches expected patterns."
+description: >-
+  Compute node for matching execution outcomes against success criteria. Determines if observed behavior
+  matches expected patterns.
 input_model:
   name: "ModelSuccessCriteriaInput"
   module: "omniintelligence.nodes.success_criteria_matcher_compute.models"
@@ -29,11 +35,12 @@ operations:
       - matched_criteria
       - match_score
       - unmatched_criteria
-dependencies:
-  - name: "criteria_matcher"
-    type: "protocol"
-    module: "omniintelligence.protocols"
-    description: "Criteria matching engine"
+# TODO: Create omniintelligence.protocols module with criteria matcher protocol
+dependencies: []
+# - name: "criteria_matcher"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Criteria matching engine"
 health_check:
   enabled: true
   endpoint: "/health"

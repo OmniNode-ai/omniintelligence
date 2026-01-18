@@ -284,9 +284,10 @@ class LogSanitizer:
         try:
             return self._sanitize_cached(text)
 
-        except Exception as e:
+        except Exception as e:  # Intentionally broad: sanitizer must never crash
             logger.error(f"Error sanitizing logs: {e}")
-            # Return original text if sanitization fails (safe fallback)
+            # Return original text if sanitization fails - safe fallback ensures
+            # log messages are never lost due to sanitization errors
             return text
 
     def sanitize_lines(self, lines: list[str]) -> list[str]:
@@ -384,7 +385,8 @@ def get_log_sanitizer() -> LogSanitizer:
                         parts = pattern_def.split("|")
                         if len(parts) == 3:
                             custom_patterns.append((parts[0], parts[1], parts[2]))
-            except Exception as e:
+            except (ValueError, IndexError, TypeError) as e:
+                # Pattern parsing may fail due to malformed env var format
                 logger.warning(f"Failed to parse custom sanitization patterns: {e}")
 
         _sanitizer = LogSanitizer(

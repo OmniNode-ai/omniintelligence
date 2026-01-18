@@ -1,12 +1,18 @@
+---
 # ONEX Node Contract - Quality Scoring Compute Node
 contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "quality_scoring_compute"
 node_type: "COMPUTE_GENERIC"
-description: "Compute node for scoring code quality across multiple dimensions. Calculates maintainability, complexity, documentation, and ONEX compliance scores."
+description: >-
+  Compute node for scoring code quality across multiple dimensions. Calculates maintainability, complexity,
+  documentation, and ONEX compliance scores.
 input_model:
   name: "ModelQualityScoringInput"
   module: "omniintelligence.nodes.quality_scoring_compute.models"
@@ -29,11 +35,12 @@ operations:
       - dimensions
       - onex_compliant
       - recommendations
-dependencies:
-  - name: "quality_analyzer"
-    type: "protocol"
-    module: "omniintelligence.protocols"
-    description: "Quality analysis engine"
+# TODO: Create omniintelligence.protocols module with quality analyzer protocol
+dependencies: []
+# - name: "quality_analyzer"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Quality analysis engine"
 health_check:
   enabled: true
   endpoint: "/health"

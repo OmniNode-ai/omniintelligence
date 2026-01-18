@@ -400,6 +400,7 @@ states:
     state_type: snapshot
     description: Processing complete
     is_terminal: true
+    is_recoverable: false
 
 initial_state: RECEIVED
 
@@ -596,7 +597,7 @@ def create_mock_sleep_function(iteration_counter: list[int]):
         A mock sleep function that raises KeyboardInterrupt after N iterations.
     """
 
-    def mock_sleep(seconds):
+    def mock_sleep(_seconds):
         """Mock sleep that exits watch loop after enough iterations."""
         iteration_counter[0] += 1
         if iteration_counter[0] >= WATCH_ITERATIONS_BEFORE_EXIT:

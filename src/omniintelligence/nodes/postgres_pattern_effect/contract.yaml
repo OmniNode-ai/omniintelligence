@@ -1,12 +1,18 @@
+---
 # ONEX Node Contract - PostgreSQL Pattern Effect Node
 contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "postgres_pattern_effect"
 node_type: "EFFECT_GENERIC"
-description: "Effect node for storing and querying patterns in PostgreSQL. Handles pattern persistence, retrieval, and analytics queries."
+description: >-
+  Effect node for storing and querying patterns in PostgreSQL. Handles pattern persistence, retrieval,
+  and analytics queries.
 input_model:
   name: "ModelPostgresPatternInput"
   module: "omniintelligence.nodes.postgres_pattern_effect.models"

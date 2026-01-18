@@ -1,7 +1,7 @@
 """Input model for Qdrant Vector Effect."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,9 +12,9 @@ class ModelQdrantVectorInput(BaseModel):
     This model represents the input for vector storage operations.
     """
 
-    operation: str = Field(
+    operation: Literal["upsert_vectors", "search_vectors", "delete_vectors"] = Field(
         default="upsert_vectors",
-        description="Type of operation (upsert_vectors, search_vectors, delete_vectors)",
+        description="Type of vector operation",
     )
     collection_name: str = Field(
         default="default",
@@ -47,6 +47,7 @@ class ModelQdrantVectorInput(BaseModel):
     correlation_id: Optional[str] = Field(
         default=None,
         description="Correlation ID for tracing",
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}

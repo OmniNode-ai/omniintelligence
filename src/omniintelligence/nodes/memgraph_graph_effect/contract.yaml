@@ -1,12 +1,18 @@
+---
 # ONEX Node Contract - Memgraph Graph Effect Node
 contract_version:
   major: 1
   minor: 0
   patch: 0
-node_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 name: "memgraph_graph_effect"
 node_type: "EFFECT_GENERIC"
-description: "Effect node for storing entities and relationships in Memgraph. Handles graph node creation, relationship linking, and Cypher query execution."
+description: >-
+  Effect node for storing entities and relationships in Memgraph. Handles graph node creation, relationship
+  linking, and Cypher query execution.
 input_model:
   name: "ModelMemgraphGraphInput"
   module: "omniintelligence.nodes.memgraph_graph_effect.models"
