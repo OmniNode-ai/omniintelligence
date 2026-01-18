@@ -7,13 +7,6 @@ build-backend = "poetry.core.masonry.api"
 # =============================================================================
 # This project supports both Poetry and uv/PEP 621 dependency management.
 #
-# IMPORTANT - omnibase-infra:
-#   omnibase-infra is a LOCAL DEVELOPMENT dependency (not published to PyPI).
-#   It is intentionally NOT listed in dependencies to prevent resolution failures.
-#   For local development with real I/O handlers, install separately:
-#     pip install -e /path/to/your/omnibase_infra
-#     OR: uv pip install -e /path/to/your/omnibase_infra
-#
 # EDITABLE INSTALLS & uv.lock:
 #   Editable installs (pip install -e .) bypass uv.lock resolution.
 #   To verify reproducibility after editable install changes:
@@ -58,26 +51,7 @@ pre-commit = ">=4.5.0"
 [tool.poetry.group.core.dependencies]
 omnibase-core = "^0.7.0"
 omnibase-spi = "^0.5.0"
-# =============================================================================
-# omnibase-infra: LOCAL DEVELOPMENT DEPENDENCY (Not Published to PyPI)
-# =============================================================================
-# omnibase-infra provides infrastructure handlers (Kafka, Qdrant, PostgreSQL)
-# that are injected at runtime for effect nodes.
-#
-# IMPORTANT: This dependency is intentionally COMMENTED OUT because:
-#   1. It's not published to PyPI - resolution would fail in CI/CD
-#   2. Path varies by developer environment
-#   3. Most development (unit tests, compute nodes) doesn't require it
-#
-# TO ENABLE (for full local development with real I/O handlers):
-#   Option A: Install separately (RECOMMENDED):
-#     pip install -e /path/to/your/omnibase_infra
-#
-#   Option B: Uncomment below and adjust path:
-# omnibase-infra = {path = "../omnibase_infra3", develop = true}
-#
-# See README.md section "Local Development with omnibase-infra" for details.
-# =============================================================================
+omnibase-infra = "^0.2.1"
 
 [project]
 name = "omniintelligence"
@@ -118,17 +92,11 @@ dev = [
 ]
 
 # Core node system dependencies
-# =============================================================================
-# omnibase-infra: LOCAL DEVELOPMENT DEPENDENCY (Not Published to PyPI)
-# =============================================================================
-# See [tool.poetry.group.core.dependencies] above for full documentation.
-# For local development with real I/O handlers:
-#   uv pip install -e /path/to/your/omnibase_infra
-# =============================================================================
 core = [
-    # ONEX ecosystem dependencies (omnibase-infra installed separately - see above)
+    # ONEX ecosystem dependencies
     "omnibase-core>=0.7.0",
     "omnibase-spi>=0.5.0",
+    "omnibase-infra>=0.2.1",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -161,15 +129,14 @@ core = [
     "structlog>=23.1.0",
     "prometheus-client>=0.19.0",
     "psutil>=5.9.0",
-    # NOTE: omnibase-infra (local dev dependency) - install separately, see header comment above
 ]
 
 # All dependencies for development and testing
-# NOTE: omnibase-infra (local dev dependency) - install separately, see core section header
 all = [
-    # Include all core dependencies (omnibase-infra installed separately)
+    # Include all core dependencies
     "omnibase-core>=0.7.0",
     "omnibase-spi>=0.5.0",
+    "omnibase-infra>=0.2.1",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.20",
@@ -228,17 +195,30 @@ select = [
 ignore = [
     "S101",   # Allow assert statements in tests
     "E501",   # Allow line length violations (handled by Black)
+    "E402",   # Allow imports not at top (tests need sys.path setup, legacy emits warnings)
     "B904",   # Allow raise without from in exception handlers
+    "B019",   # Allow lru_cache on methods (used carefully for singleton patterns)
+    "B007",   # Allow unused loop control variables
     "N812",   # Allow lowercase imported as non-lowercase
     "N815",   # Allow mixedCase variables
     "N806",   # Allow non-lowercase variable in function
     "N805",   # Allow cls as first argument
     "UP007",  # Allow Union syntax
     "SIM117", # Allow nested with statements
+    "SIM102", # Allow nested if statements (sometimes clearer than combining)
+    "SIM103", # Allow explicit if/else returns (sometimes clearer)
     "B008",   # Allow function call defaults
     "F841",   # Allow unused variables
     "RUF012", # Allow mutable class attributes
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# AST visitor methods must use PascalCase (visit_Import, visit_Call, etc.)
+"src/omniintelligence/audit/io_audit.py" = ["N802"]
+# __init__.py files re-export for public API
+"src/omniintelligence/tools/__init__.py" = ["F401"]
+# Test mock callbacks don't use all arguments
+"tests/nodes/test_vectorization_compute.py" = ["ARG001"]
 
 [tool.ruff.format]
 quote-style = "double"

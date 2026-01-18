@@ -78,12 +78,19 @@ published_events:
     description: "Code analysis failed"
 # Handler Routing Configuration
 # =============================
-# TODO: Handler routing - modules not yet implemented
-# When implementing, create handlers/ directory with the following modules:
-# - handler_analyze_code.py (HandlerAnalyzeCode)
-# - handler_assess_quality.py (HandlerAssessQuality)
-# - handler_detect_patterns.py (HandlerDetectPatterns)
-# - handler_analyze_performance.py (HandlerAnalyzePerformance)
+# STATUS: NOT IMPLEMENTED - Handler modules do not exist yet.
+# The handler_routing section below is intentionally commented out to prevent
+# import failures. When implementing handler-based routing, uncomment and
+# create the handlers/ directory with these modules:
+#
+# TODO(handler-routing): Create handler modules when needed
+#   - handler_analyze_code.py (HandlerAnalyzeCode)
+#   - handler_assess_quality.py (HandlerAssessQuality)
+#   - handler_detect_patterns.py (HandlerDetectPatterns)
+#   - handler_analyze_performance.py (HandlerAnalyzePerformance)
+#
+# Currently, all operations are routed through the main node implementation
+# (node_intelligence_adapter_effect.py) using internal method dispatch.
 #
 # handler_routing:
 #   routing_strategy: "payload_type_match"
@@ -164,10 +171,12 @@ metadata:
   created: "2025-10-21"
   updated: "2026-01-18"
   notes: |
+    - 2026-01-18: Clarified handler routing status - section is intentionally commented
+      out because handler modules do not exist. Added STATUS documentation explaining
+      that operations are routed through main node implementation.
     - 2026-01-18: Fixed payload_module references to point to actual node implementation
       where inline stub models are defined. Marked for future migration to canonical
       omniintelligence.events.models module.
-    - Handler routing remains commented out pending implementation.
   tags:
     - "ONEX"
     - "effect"

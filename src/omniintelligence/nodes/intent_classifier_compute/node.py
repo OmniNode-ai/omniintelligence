@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import ClassVar
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omniintelligence.nodes.intent_classifier_compute.models import (
+    ModelIntentClassificationInput,
+    ModelIntentClassificationOutput,
+)
 
 # Issue tracking URL for this stub implementation
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/6"
@@ -33,24 +35,16 @@ class NodeIntentClassifierCompute(NodeCompute):
 
     is_stub: ClassVar[bool] = True
 
-    def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodeIntentClassifierCompute is a stub implementation and does not provide "
-            f"full functionality. The node accepts inputs but performs no actual "
-            f"intent classification. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
-
-    async def compute(self, _input_data: dict[str, Any]) -> dict[str, Any]:
+    async def compute(
+        self, _input_data: ModelIntentClassificationInput
+    ) -> ModelIntentClassificationOutput:
         """Compute intent classification (STUB - returns empty result).
 
         Args:
-            _input_data: Input data for intent classification (unused in stub).
+            _input_data: Typed input model for intent classification (unused in stub).
 
         Returns:
-            Empty result dictionary indicating stub status.
+            Typed ModelIntentClassificationOutput with success=True but default values.
         """
         warnings.warn(
             f"NodeIntentClassifierCompute.compute() is a stub that returns empty "
@@ -59,13 +53,15 @@ class NodeIntentClassifierCompute(NodeCompute):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        return {
-            "status": "stub",
-            "message": "NodeIntentClassifierCompute is not yet implemented",
-            "intents": [],
-            "confidence": 0.0,
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+        # Note: metadata is None because stub status info doesn't match IntentMetadataDict
+        # schema. Stub status is communicated via the warning above.
+        return ModelIntentClassificationOutput(
+            success=True,
+            intent_category="unknown",
+            confidence=0.0,
+            secondary_intents=[],
+            metadata=None,
+        )
 
 
 __all__ = ["NodeIntentClassifierCompute"]

@@ -14,7 +14,10 @@ from omnibase_core.models.effect.model_effect_input import ModelEffectInput
 from omnibase_core.models.effect.model_effect_output import ModelEffectOutput
 from omnibase_core.nodes.node_effect import NodeEffect
 
-from omniintelligence.nodes.qdrant_vector_effect.models import ModelQdrantVectorOutput
+from omniintelligence.nodes.qdrant_vector_effect.models import (
+    ModelQdrantVectorOutput,
+    QdrantOperationMetadataDict,
+)
 
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
@@ -67,16 +70,18 @@ class NodeQdrantVectorEffect(NodeEffect):
             stacklevel=2,
         )
         # Use typed output model for consistent contract compliance
+        # Explicitly type metadata for type safety and contract compliance
+        stub_metadata: QdrantOperationMetadataDict = {
+            "status": "stub",
+            "message": "NodeQdrantVectorEffect is not yet implemented",
+            "tracking_url": _STUB_TRACKING_URL,
+        }
         typed_output = ModelQdrantVectorOutput(
             success=True,
             vectors_processed=0,
             search_results=[],
             deleted_count=0,
-            metadata={
-                "status": "stub",
-                "message": "NodeQdrantVectorEffect is not yet implemented",
-                "tracking_url": _STUB_TRACKING_URL,
-            },
+            metadata=stub_metadata,
         )
         return ModelEffectOutput(
             result=typed_output.model_dump(),

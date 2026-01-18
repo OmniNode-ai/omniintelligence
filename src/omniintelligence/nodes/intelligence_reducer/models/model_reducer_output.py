@@ -12,7 +12,7 @@ ONEX Compliance:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -95,7 +95,7 @@ class ModelReducerIntent(BaseModel):
         description="Correlation ID for tracing",
     )
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Timestamp when intent was created",
     )
 
@@ -110,7 +110,7 @@ class ModelReducerMetadata(BaseModel):
     """
 
     transition_timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Timestamp of the state transition",
     )
     processing_time_ms: float = Field(

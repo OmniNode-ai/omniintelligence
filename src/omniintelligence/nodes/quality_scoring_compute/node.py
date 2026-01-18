@@ -36,12 +36,12 @@ class NodeQualityScoringCompute(NodeCompute):
     is_stub: ClassVar[bool] = True
 
     async def compute(
-        self, input_data: ModelQualityScoringInput
+        self, _input_data: ModelQualityScoringInput
     ) -> ModelQualityScoringOutput:
         """Compute quality score (STUB - returns empty result).
 
         Args:
-            input_data: Typed input model for quality scoring (unused in stub).
+            _input_data: Typed input model for quality scoring (unused in stub).
 
         Returns:
             Typed ModelQualityScoringOutput with success=True but default values.

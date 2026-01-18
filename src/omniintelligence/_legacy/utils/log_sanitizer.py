@@ -40,7 +40,7 @@ warnings.warn(
 )
 
 # Re-export everything from the canonical module
-from omniintelligence.utils.log_sanitizer import (  # noqa: E402
+from omniintelligence.utils.log_sanitizer import (
     LogSanitizer,
     LogSanitizerSettings,
     get_log_sanitizer,

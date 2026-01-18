@@ -37,6 +37,8 @@ import asyncio
 import logging
 import os
 import time
+from datetime import UTC
+from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -106,10 +108,10 @@ class IntelligenceServiceClient:
 class EventPublisher:
     """Stub event publisher - logs instead of publishing."""
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *_args: Any, **_kwargs: Any):
         self._logger = logging.getLogger(__name__)
 
-    async def publish(self, topic: str, payload: Any, **kwargs: Any) -> None:
+    async def publish(self, topic: str, payload: Any, **_kwargs: Any) -> None:
         self._logger.info(f"[STUB] Would publish to {topic}: {type(payload).__name__}")
 
     async def close(self) -> None:
@@ -142,7 +144,6 @@ class ModelPerformanceAnalysisRequest(BaseModel):
 
 
 # Stub enums and event models
-from enum import Enum
 
 
 class EnumAnalysisErrorCode(str, Enum):
@@ -210,7 +211,7 @@ class IntelligenceAdapterEventHelpers:
             "error_code": error_code,
             "error_message": error_message,
         }
-from datetime import UTC
+
 
 logger = logging.getLogger(__name__)
 

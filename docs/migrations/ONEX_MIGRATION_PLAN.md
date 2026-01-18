@@ -36,43 +36,43 @@
 
 ```
 Orchestrator Nodes (2 nodes)
-├─ intelligence_orchestrator
+├─ NodeIntelligenceOrchestrator
 │  ├─ Handles ALL workflows via operation_type enum
 │  ├─ document_ingestion_workflow
 │  ├─ pattern_learning_workflow
 │  ├─ quality_assessment_workflow
 │  └─ semantic_enrichment_workflow
-└─ pattern_assembler_orchestrator
+└─ NodePatternAssemblerOrchestrator
    └─ Coordinates pattern assembly workflows
 
 Reducer Nodes (1 unified node)
-├─ intelligence_reducer
+├─ NodeIntelligenceReducer
 │  ├─ Handles ALL FSMs via fsm_type enum
 │  ├─ Ingestion FSM (document → indexed)
 │  ├─ Pattern Learning FSM (foundation → validated)
 │  ├─ Quality Assessment FSM (raw → scored)
 │  └─ State persistence for all FSMs in single database
 
-Compute Nodes (12 nodes)
-├─ vectorization_compute - Text → embeddings
-├─ entity_extraction_compute - Code → entities
-├─ pattern_matching_compute - Code + patterns → matches
-├─ pattern_learning_compute - Pattern discovery and learning
-├─ quality_scoring_compute - Metrics → quality score
-├─ semantic_analysis_compute - Code → semantic features
-├─ relationship_detection_compute - Entities → relationships
-├─ intent_classifier_compute - Request → intent classification
-├─ context_keyword_extractor_compute - Content → keywords
-├─ success_criteria_matcher_compute - Execution → success criteria
-├─ execution_trace_parser_compute - Trace → structured execution data
-└─ pattern_assembler_compute - Components → assembled patterns
+Compute Nodes (11 nodes)
+├─ NodeVectorizationCompute - Text → embeddings
+├─ NodeEntityExtractionCompute - Code → entities
+├─ NodePatternMatchingCompute - Code + patterns → matches
+├─ NodePatternLearningCompute - Pattern discovery and learning
+├─ NodeQualityScoringCompute - Metrics → quality score
+├─ NodeSemanticAnalysisCompute - Code → semantic features
+├─ NodeRelationshipDetectionCompute - Entities → relationships
+├─ NodeIntentClassifierCompute - Request → intent classification
+├─ NodeContextKeywordExtractorCompute - Content → keywords
+├─ NodeSuccessCriteriaMatcherCompute - Execution → success criteria
+└─ NodeExecutionTraceParserCompute - Trace → structured execution data
 
-Effect Nodes (5 nodes)
-├─ ingestion_effect - Kafka event ingestion and DLQ handling
-├─ qdrant_vector_effect - Vector store operations
-├─ memgraph_graph_effect - Knowledge graph operations
-├─ postgres_pattern_effect - Pattern persistence
-└─ intelligence_api_effect - HTTP API facade
+Effect Nodes (6 nodes)
+├─ NodeIngestionEffect - Kafka event ingestion and DLQ handling
+├─ NodeQdrantVectorEffect - Vector store operations
+├─ NodeMemgraphGraphEffect - Knowledge graph operations
+├─ NodePostgresPatternEffect - Pattern persistence
+├─ NodeIntelligenceApiEffect - HTTP API facade
+└─ NodeIntelligenceAdapterEffect - Kafka consumer for code analysis events
 ```
 
 ---
@@ -103,7 +103,7 @@ Effect Nodes (5 nodes)
 
 ## Orchestrator Design
 
-### Single Unified NodeOmniAgentOrchestrator
+### Single Unified NodeIntelligenceOrchestrator
 
 **Location**: `src/omniintelligence/nodes/intelligence_orchestrator/v1_0_0/`
 
@@ -193,10 +193,10 @@ workflows:
 #### Implementation Structure
 
 ```python
-from omnibase_spi import NodeOmniAgentOrchestrator
+from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
 from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 
-class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
+class NodeIntelligenceOrchestrator(NodeOrchestrator[
     ModelIntelligenceInput,
     ModelIntelligenceOutput,
     ModelIntelligenceConfig
@@ -306,7 +306,7 @@ class IntelligenceOrchestrator(NodeOmniAgentOrchestrator[
 
 ## Reducer Design
 
-### Single Unified NodeOmniAgentReducer
+### Single Unified NodeIntelligenceReducer
 
 **Location**: `src/omniintelligence/nodes/intelligence_reducer/v1_0_0/`
 
@@ -342,9 +342,10 @@ RECEIVED → PARSED → VECTORIZED → INDEXED → COMPLETED
 
 **Implementation**:
 ```python
-from omnibase_spi import NodeOmniAgentReducer, ModelIntent, EnumIntentType
+from omnibase_core.nodes.node_reducer import NodeReducer
+from omnibase_core.models import ModelIntent, EnumIntentType
 
-class IntelligenceReducer(NodeOmniAgentReducer[
+class NodeIntelligenceReducer(NodeReducer[
     ModelReducerInput,
     ModelReducerOutput,
     ModelReducerConfig
@@ -649,9 +650,9 @@ RAW → ANALYZED → SCORED → STORED → COMPLETED
 **Pure Function**: `text → embeddings`
 
 ```python
-from omnibase_spi import NodeCompute
+from omnibase_core.nodes.node_compute import NodeCompute
 
-class VectorizationCompute(NodeCompute[
+class NodeVectorizationCompute(NodeCompute[
     ModelVectorizationInput,
     ModelVectorizationOutput,
     ModelVectorizationConfig
@@ -743,9 +744,9 @@ class VectorizationCompute(NodeCompute[
 - PUBLISH_DLQ: Send to dead-letter queue
 
 ```python
-from omnibase_spi import NodeEffectService
+from omnibase_core.nodes.node_effect import NodeEffect
 
-class KafkaEventEffect(NodeEffectService[
+class NodeKafkaEventEffect(NodeEffect[
     ModelKafkaInput,
     ModelKafkaOutput,
     ModelKafkaConfig

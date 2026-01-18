@@ -12,7 +12,7 @@ __all__: list[str] = []
 
 # Contract linter requires omnibase_core - make import optional
 try:
-    from omniintelligence.tools.contract_linter import (  # noqa: F401
+    from omniintelligence.tools.contract_linter import (
         ContractLinter,
         ModelContractValidationError,
         ModelContractValidationResult,

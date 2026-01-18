@@ -323,7 +323,7 @@ class LogSanitizer:
             f"sanitize_emails={sanitize_emails}, sanitize_ips={sanitize_ips}"
         )
 
-    @lru_cache(maxsize=MAX_CACHE_SIZE)  # noqa: B019 - Intentional: LogSanitizer is a long-lived singleton
+    @lru_cache(maxsize=MAX_CACHE_SIZE)
     def _sanitize_cached(self, text: str) -> str:
         """
         Cached sanitization for repeated content.

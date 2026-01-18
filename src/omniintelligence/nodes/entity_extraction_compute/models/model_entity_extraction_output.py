@@ -2,11 +2,41 @@
 
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Self, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
 
 from omniintelligence.models.model_entity import ModelEntity
+
+
+class EntityExtractionMetadataDict(TypedDict, total=False):
+    """Typed structure for entity extraction metadata.
+
+    Contains information about the extraction process itself.
+    """
+
+    # Processing info
+    extraction_duration_ms: int
+    algorithm_version: str
+    model_name: str
+
+    # Input statistics
+    input_length: int
+    input_line_count: int
+    source_file: str
+    source_language: str
+
+    # Output statistics
+    total_entities_found: int
+    entities_filtered: int
+    confidence_threshold: float
+
+    # Entity type breakdown
+    entity_type_counts: dict[str, int]
+
+    # Request context
+    correlation_id: str
+    timestamp_utc: str
 
 
 class ModelEntityExtractionOutput(BaseModel):
@@ -48,9 +78,9 @@ class ModelEntityExtractionOutput(BaseModel):
         ge=-1,
         description="Total number of extracted entities (auto-computed if not set)",
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: EntityExtractionMetadataDict | None = Field(
         default=None,
-        description="Additional metadata about the extraction",
+        description="Additional typed metadata about the extraction process",
     )
 
     @model_validator(mode="after")
@@ -86,4 +116,4 @@ class ModelEntityExtractionOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelEntityExtractionOutput"]
+__all__ = ["EntityExtractionMetadataDict", "ModelEntityExtractionOutput"]

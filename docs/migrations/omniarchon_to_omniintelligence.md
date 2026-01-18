@@ -288,6 +288,12 @@ linked_contracts:
 ```
 
 ### Code Quality
+- [ ] All required node artifacts present (see "Required Artifacts Checklist" above):
+  - `__init__.py`, `__main__.py`, `contract.yaml`, `contracts/`, `models/`, `node.py`
+  - `introspection.py`, `scenarios/`, `node_tests/`
+- [ ] Linked-doc contracts properly configured (see "Linked Document Contracts" above):
+  - `node_config.yaml`, `deployment_config.yaml`
+  - Subcontracts: `fsm_contract.yaml`, `event_type_contract.yaml`, `contract_models.yaml`, etc.
 - [ ] Enumerations replace string literals for tool names, topics, and status codes.
 - [ ] Contract validator passes with zero warnings.
 - [ ] Event replay integration test validates ingestion → intelligence → response.

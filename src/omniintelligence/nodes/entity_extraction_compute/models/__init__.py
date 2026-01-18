@@ -4,7 +4,12 @@ from omniintelligence.nodes.entity_extraction_compute.models.model_entity_extrac
     ModelEntityExtractionInput,
 )
 from omniintelligence.nodes.entity_extraction_compute.models.model_entity_extraction_output import (
+    EntityExtractionMetadataDict,
     ModelEntityExtractionOutput,
 )
 
-__all__ = ["ModelEntityExtractionInput", "ModelEntityExtractionOutput"]
+__all__ = [
+    "EntityExtractionMetadataDict",
+    "ModelEntityExtractionInput",
+    "ModelEntityExtractionOutput",
+]

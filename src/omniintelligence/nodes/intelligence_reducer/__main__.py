@@ -57,7 +57,7 @@ def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
     import threading
 
     class HealthHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802 - Required by BaseHTTPRequestHandler API
+        def do_GET(self) -> None:  # noqa: N802
             if self.path == "/health" or self.path == "/":
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")

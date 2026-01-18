@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the utils module.
+r"""Unit tests for the utils module.
 
 This package contains unit tests for src/omniintelligence/utils/.
 

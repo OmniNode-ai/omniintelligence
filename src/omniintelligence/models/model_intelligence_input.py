@@ -73,7 +73,16 @@ class ModelIntelligenceInput(BaseModel):
 
     operation_type: EnumIntelligenceOperationType = Field(
         ...,
-        description="Type of intelligence operation. See EnumIntelligenceOperationType for all valid values.",
+        description=(
+            "Type of intelligence operation. Valid operation types include:\n"
+            "- Quality: ASSESS_CODE_QUALITY, ANALYZE_DOCUMENT_QUALITY, CHECK_ARCHITECTURAL_COMPLIANCE\n"
+            "- Performance: ESTABLISH_PERFORMANCE_BASELINE, IDENTIFY_OPTIMIZATION_OPPORTUNITIES\n"
+            "- Patterns: PATTERN_MATCH, HYBRID_SCORE, SEMANTIC_ANALYZE, GET_PATTERN_METRICS\n"
+            "- Vectors: ADVANCED_VECTOR_SEARCH, BATCH_INDEX_DOCUMENTS\n"
+            "- Freshness: ANALYZE_DOCUMENT_FRESHNESS, GET_STALE_DOCUMENTS\n"
+            "- Autonomous: INGEST_PATTERNS, PREDICT_AGENT, CALCULATE_SAFETY_SCORE\n"
+            "See EnumIntelligenceOperationType for the complete list."
+        ),
     )
     content: str = Field(
         ...,
