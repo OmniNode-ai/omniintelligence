@@ -46,6 +46,8 @@ class ModelIntentClassificationOutput(BaseModel):
     )
     confidence: float = Field(
         default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Confidence score for the primary intent (0.0 to 1.0)",
     )
     secondary_intents: list[SecondaryIntentDict | dict[str, Any]] = Field(

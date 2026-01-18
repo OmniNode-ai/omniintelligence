@@ -100,6 +100,8 @@ class ModelIntelligenceOutput(BaseModel):
     )
     quality_score: float | None = Field(
         default=None,
+        ge=0.0,
+        le=1.0,
         description="Overall quality score (0.0 to 1.0) if applicable",
     )
     analysis_results: dict[str, Any] = Field(

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModelSemanticAnalysisOutput(BaseModel):
@@ -26,12 +26,24 @@ class ModelSemanticAnalysisOutput(BaseModel):
     )
     similarity_scores: dict[str, float] = Field(
         default_factory=dict,
-        description="Similarity scores to known patterns",
+        description="Similarity scores to known patterns (0.0 to 1.0)",
     )
     metadata: dict[str, Any] | None = Field(
         default=None,
         description="Additional metadata about the analysis",
     )
+
+    @field_validator("similarity_scores")
+    @classmethod
+    def validate_similarity_scores(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate that all similarity scores are within 0.0 to 1.0 range."""
+        for pattern_name, score in v.items():
+            if not 0.0 <= score <= 1.0:
+                raise ValueError(
+                    f"Similarity score for '{pattern_name}' must be between 0.0 and 1.0, "
+                    f"got {score}"
+                )
+        return v
 
     model_config = {"frozen": True, "extra": "forbid"}
 

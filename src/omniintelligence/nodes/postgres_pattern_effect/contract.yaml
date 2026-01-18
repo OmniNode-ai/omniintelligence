@@ -79,6 +79,7 @@ metadata:
   created: "2025-11-14"
   updated: "2026-01-18"
   tags:
+    - "ONEX"
     - "effect"
     - "postgresql"
     - "patterns"

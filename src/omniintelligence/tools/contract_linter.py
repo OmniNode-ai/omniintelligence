@@ -1694,7 +1694,9 @@ def main(args: list[str] | None = None) -> int:
     except (FileNotFoundError, PermissionError) as e:
         # File system errors (file not found, permission denied)
         cli_error_type = (
-            "file_not_found" if isinstance(e, FileNotFoundError) else "permission_denied"
+            "file_not_found"
+            if isinstance(e, FileNotFoundError)
+            else "permission_denied"
         )
         if parsed_args.json:
             error_output = json.dumps(
