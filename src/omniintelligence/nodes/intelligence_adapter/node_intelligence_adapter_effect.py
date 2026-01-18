@@ -29,6 +29,7 @@ Reference: EVENT_BUS_ARCHITECTURE.md, intelligence_adapter_events.py
 
 import asyncio
 import logging
+import os
 import time
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -51,7 +52,15 @@ try:
 
     _DEFAULT_KAFKA_SERVERS = parent_settings.kafka_bootstrap_servers
 except ImportError:
-    _DEFAULT_KAFKA_SERVERS = "omninode-bridge-redpanda:9092"
+    # Allow fallback ONLY if explicitly enabled via environment variable
+    if os.getenv("OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA", "").lower() == "true":
+        _DEFAULT_KAFKA_SERVERS = "omninode-bridge-redpanda:9092"
+    else:
+        raise RuntimeError(
+            "Failed to import Kafka configuration. "
+            "Set KAFKA_BOOTSTRAP_SERVERS environment variable or "
+            "set OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true to use defaults."
+        )
 
 # Import at module level for test patching
 from omniintelligence._legacy.models.model_intelligence_config import (
