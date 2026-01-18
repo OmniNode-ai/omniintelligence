@@ -21,7 +21,7 @@ class TestToolsModuleImport:
         omnibase_core is not available.
         """
         # This import should always succeed, even without omnibase_core
-        import omniintelligence.tools  # noqa: F401
+        import omniintelligence.tools
 
         # Verify the module exists
         assert omniintelligence.tools is not None
