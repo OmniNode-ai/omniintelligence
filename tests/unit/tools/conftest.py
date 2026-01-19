@@ -333,7 +333,13 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_compute_missing_algorithm_yaml() -> str:
-    """Compute contract without 'algorithm' field (currently optional in stub validator)."""
+    """Compute contract without 'algorithm' field.
+
+    Note: The 'algorithm' field is currently optional in the stub validator,
+    so this contract may pass basic validation. This fixture is used for
+    testing that the linter detects missing recommended fields for compute
+    nodes when strict mode is enabled.
+    """
     return """
 name: test_compute
 version:
@@ -357,7 +363,13 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_effect_missing_io_operations_yaml() -> str:
-    """Effect contract without 'io_operations' field (currently optional in stub validator)."""
+    """Effect contract without 'io_operations' field.
+
+    Note: The 'io_operations' field is currently optional in the stub validator,
+    so this contract may pass basic validation. This fixture is used for
+    testing that the linter detects missing recommended fields for effect
+    nodes when strict mode is enabled.
+    """
     return """
 name: test_effect
 version:

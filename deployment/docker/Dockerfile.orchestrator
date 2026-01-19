@@ -11,7 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 RUN pip install --no-cache-dir uv==0.5.0
 
-# Copy project files (include lock file for reproducible builds)
+# Copy project files
+# Note: uv.lock* uses wildcard to make lock file optional. When present, it ensures
+# reproducible builds with exact dependency versions. When absent (e.g., during
+# development or CI without lock file), uv resolves dependencies from pyproject.toml.
 COPY pyproject.toml uv.lock* ./
 COPY src/ src/
 

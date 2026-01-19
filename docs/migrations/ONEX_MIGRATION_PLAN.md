@@ -1283,10 +1283,13 @@ Intent Router (in orchestrator or intent bus)
 
 ## References
 
-- [Omniarchon Inventory](../../OMNIARCHON_MIGRATION_INVENTORY.md)
+- [Migration Guide](./omniarchon_to_omniintelligence.md)
+- [Node Mapping Reference](./NODE_MAPPING_REFERENCE.md)
+- [Contract Corrections](./CONTRACT_CORRECTIONS.md)
 - [ONEX Orchestrator Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/ORCHESTRATOR_NODE_TEMPLATE.md)
 - [ONEX Reducer Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/REDUCER_NODE_TEMPLATE.md)
 - [Llama Index Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/)
+- Legacy Source Reference: `migration_sources/omniarchon/` (preserved for migration diffing)
 
 ---
 

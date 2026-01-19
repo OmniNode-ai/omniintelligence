@@ -57,13 +57,11 @@ class ProtocolContractValidator:
     )
 
     # Version field names recognized by the validator.
-    # - "version": Legacy field for backwards compatibility with non-node contracts
     # - "contract_version": Required for node contracts (contract schema version)
     # - "node_version": Required for node contracts (implementation version)
     # Note: Node contracts MUST have both contract_version AND node_version.
     #       Non-node contracts require at least one of these fields.
     VERSION_FIELDS: tuple[str, ...] = (
-        "version",  # Legacy/non-node contracts only
         "contract_version",
         "node_version",
     )
@@ -174,10 +172,10 @@ class ProtocolContractValidator:
         )
 
         # Validate node_type matches expected contract_type (if provided)
+        # Note: is_node_contract already verified node_type is a non-None string
         if (
             contract_type
-            and node_type
-            and isinstance(node_type, str)
+            and is_node_contract
             and node_type.lower() != contract_type.lower()
         ):
             violations.append(
@@ -185,8 +183,9 @@ class ProtocolContractValidator:
             )
 
         # Validate node-type-specific fields
+        # Use is_node_contract to avoid redundant isinstance check
         effective_type = contract_type or (
-            node_type.lower() if isinstance(node_type, str) else None
+            node_type.lower() if is_node_contract else None
         )
         if effective_type and effective_type in self.NODE_TYPE_REQUIRED_FIELDS:
             violations.extend(

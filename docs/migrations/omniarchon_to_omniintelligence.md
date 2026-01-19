@@ -162,8 +162,9 @@ nodes/
     │   ├── __init__.py          # Model exports
     │   ├── model_<name>_input.py   # Input Pydantic model
     │   ├── model_<name>_output.py  # Output Pydantic model
-    │   └── enum_*.py            # Enumeration definitions (optional)
-    └── node.py                  # Main node implementation (REQUIRED)
+    │   └── enum_*.py            # Enumeration definitions (operation types, states, error codes)
+    ├── node.py                  # Main node implementation (REQUIRED)
+    └── ARCHITECTURE.md          # Design rationale (RECOMMENDED for complex nodes)
 ```
 
 **Pattern B: Versioned Structure** (canonical reference for future expansion)
@@ -190,19 +191,19 @@ nodes/
 *Core Node Files* (REQUIRED for all nodes):
 - [ ] `__init__.py` - Module initialization with exports
 - [ ] `contract.yaml` - Main node contract (see below for required fields)
-- [ ] `node.py` - Main node implementation following `Node<Name><Type>` naming
+- [ ] `node.py` - Main node implementation following `Node<Name><Type>` naming (e.g., `NodeVectorizationCompute`, `NodeIngestionEffect`)
 - [ ] `models/` - Pydantic models directory containing:
   - `__init__.py` - Model exports
   - `model_<name>_input.py` - Input Pydantic model
   - `model_<name>_output.py` - Output Pydantic model
+  - `enum_*.py` - Enumeration types (operation types, states, error codes) - RECOMMENDED
 
 *Optional Node Files*:
 - [ ] `__main__.py` - CLI entry point (REQUIRED for executable/standalone nodes)
-- [ ] `models/enum_*.py` - Enumeration types (operation types, states, error codes)
-- [ ] `ARCHITECTURE.md` - Design rationale (recommended for complex nodes)
+- [ ] `ARCHITECTURE.md` - Design rationale documenting architectural decisions (RECOMMENDED for complex nodes)
 
 *Tests* (in central `tests/` directory, NOT in node directory):
-- [ ] `tests/nodes/test_<node_name>.py` - Node-specific tests
+- [ ] `tests/nodes/test_<node_name>.py` - Node-specific unit tests
 - [ ] `tests/nodes/test_<node_name>_models.py` - Model tests (optional)
 
 **Contract.yaml Required Fields**:

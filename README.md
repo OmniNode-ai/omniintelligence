@@ -75,25 +75,13 @@ uv sync --group dev
 uv sync --group all
 ```
 
-### Local Development with omnibase-infra
+### ONEX Ecosystem Dependencies
 
-**Note**: `omnibase-infra` is a local development dependency that is **not published to PyPI**. It provides infrastructure handlers (Kafka, Qdrant, PostgreSQL) that are injected at runtime.
+The `omnibase-*` packages are **published to PyPI** and will be installed automatically:
 
-**For CI/CD and basic development**: omnibase-infra is not required. The dependency is commented out in `pyproject.toml` and will not fail resolution.
-
-**For full local development** (if you need runtime infrastructure handlers):
-
-```bash
-# Option 1: Install from local checkout (recommended)
-uv pip install -e /path/to/your/omnibase_infra
-
-# Option 2: Update pyproject.toml (uncomment the path dependency)
-# In pyproject.toml [dependency-groups] core section, uncomment:
-# "omnibase-infra @ file:///workspace/omnibase_infra3",
-
-# Option 3: For Poetry users, uncomment in [tool.poetry.group.core.dependencies]:
-# omnibase-infra = {path = "../omnibase_infra3", develop = true}
-```
+- **omnibase-core** (>=0.8.0) - ONEX node base classes, error handling, validation
+- **omnibase-spi** (>=0.5.0) - Service Provider Interface protocols
+- **omnibase-infra** (>=0.2.1) - Infrastructure handlers (Kafka, Qdrant, PostgreSQL)
 
 **What omnibase-infra provides**:
 - `QdrantVectorHandler` - Vector database operations
@@ -101,7 +89,15 @@ uv pip install -e /path/to/your/omnibase_infra
 - `BaseRuntimeHostProcess` - Process lifecycle management
 - Handler implementations for PostgreSQL, Memgraph, etc.
 
-**Without omnibase-infra**: You can still run unit tests and develop compute/reducer nodes. Only effect nodes that require real I/O handlers will need the infrastructure dependency.
+**For local development with unpublished versions** (optional):
+
+```bash
+# Install a local checkout for development
+uv pip install -e /path/to/your/omnibase_infra
+
+# Or for Poetry users, update pyproject.toml:
+# omnibase-infra = {path = "../omnibase_infra", develop = true}
+```
 
 ### Running Tests
 

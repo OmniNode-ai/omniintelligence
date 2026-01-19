@@ -45,9 +45,8 @@ class ModelEntityExtractionOutput(BaseModel):
     This model represents the result of extracting entities from code.
     Uses typed ModelEntity instances for proper validation and type safety.
 
-    The entity_count field is auto-computed from the entities list if not
-    explicitly provided, ensuring consistency between the count and actual
-    entities.
+    The entity_count field is always computed from the entities list,
+    ensuring consistency between the count and actual entities.
 
     Example:
         >>> from omniintelligence.enums import EnumEntityType
@@ -61,7 +60,7 @@ class ModelEntityExtractionOutput(BaseModel):
         ...         )
         ...     ],
         ... )
-        >>> output.entity_count  # Auto-computed
+        >>> output.entity_count  # Always computed from list
         1
     """
 
@@ -74,9 +73,9 @@ class ModelEntityExtractionOutput(BaseModel):
         description="List of extracted entities with their metadata",
     )
     entity_count: int = Field(
-        default=-1,
-        ge=-1,
-        description="Total number of extracted entities (auto-computed if not set)",
+        default=0,
+        ge=0,
+        description="Total number of extracted entities (computed from entities list)",
     )
     metadata: EntityExtractionMetadataDict | None = Field(
         default=None,
@@ -84,33 +83,20 @@ class ModelEntityExtractionOutput(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_and_compute_entity_count(self) -> Self:
-        """Validate and auto-compute entity_count from entities list.
+    def compute_entity_count(self) -> Self:
+        """Compute entity_count from entities list unconditionally.
 
         This validator runs after all fields are populated (mode="after"),
         ensuring it fires even when the entities list is empty.
 
-        Behavior:
-            - If entity_count is -1 (default), auto-compute from len(entities)
-            - If entity_count is explicitly set, validate it matches len(entities)
+        The count is always derived from the actual list length, ensuring
+        consistency without requiring sentinel values or conditional logic.
 
         Returns:
-            Self with validated/computed entity_count.
-
-        Raises:
-            ValueError: If explicitly provided entity_count doesn't match.
+            Self with computed entity_count.
         """
-        actual_count = len(self.entities)
-
-        # Auto-compute if using default sentinel value (-1)
-        if self.entity_count == -1:
-            # Use object.__setattr__ since model is frozen
-            object.__setattr__(self, "entity_count", actual_count)
-        elif self.entity_count != actual_count:
-            raise ValueError(
-                f"entity_count ({self.entity_count}) must match "
-                f"len(entities) ({actual_count})"
-            )
+        # Unconditionally compute count from list - use object.__setattr__ since model is frozen
+        object.__setattr__(self, "entity_count", len(self.entities))
         return self
 
     model_config = {"frozen": True, "extra": "forbid"}

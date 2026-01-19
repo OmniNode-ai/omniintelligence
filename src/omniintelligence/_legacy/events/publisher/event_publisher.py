@@ -344,8 +344,10 @@ class EventPublisher:
         try:
             # Serialize event
             event_bytes = self._serialize_event(envelope)
-        except (json.JSONDecodeError, TypeError, ValueError) as e:
+        except (TypeError, ValueError) as e:
             # Serialization failed (JSON encoding error, bad data types)
+            # Note: json.dumps() raises TypeError/ValueError, not JSONDecodeError
+            # (JSONDecodeError is for decoding/parsing, not encoding)
             # This is a programming/data error - do NOT trip circuit breaker
             self.metrics["events_failed"] += 1
             self.metrics["serialization_errors"] += 1
@@ -555,7 +557,7 @@ class EventPublisher:
             raise RuntimeError("Producer not initialized")
 
         # Create future for delivery callback
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
 
         def delivery_callback(err: Any, _msg: Any) -> None:

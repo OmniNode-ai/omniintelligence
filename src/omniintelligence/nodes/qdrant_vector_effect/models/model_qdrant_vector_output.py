@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
+
+# Literal type for Qdrant operation types
+QdrantOperationType = Literal[
+    "upsert",
+    "search",
+    "delete",
+    "scroll",
+    "count",
+    "get",
+    "recommend",
+    "batch_upsert",
+    "batch_delete",
+]
 
 
 class VectorSearchResultDict(TypedDict, total=False):
@@ -27,7 +40,7 @@ class QdrantOperationMetadataDict(TypedDict, total=False):
     message: str
     tracking_url: str
     collection_name: str
-    operation_type: str
+    operation_type: QdrantOperationType  # Literal type for valid Qdrant operations
     duration_ms: float
 
 
@@ -68,5 +81,6 @@ class ModelQdrantVectorOutput(BaseModel):
 __all__ = [
     "ModelQdrantVectorOutput",
     "QdrantOperationMetadataDict",
+    "QdrantOperationType",
     "VectorSearchResultDict",
 ]

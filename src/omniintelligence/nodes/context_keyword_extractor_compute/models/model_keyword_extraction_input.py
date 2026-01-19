@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+# Literal type for extraction strategies
+ExtractionStrategy = Literal["tfidf", "rake", "textrank", "yake", "keybert"]
 
 
 class ModelKeywordExtractionInput(BaseModel):
@@ -21,9 +26,9 @@ class ModelKeywordExtractionInput(BaseModel):
         description="Correlation ID for tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
-    extraction_strategy: str = Field(
+    extraction_strategy: ExtractionStrategy = Field(
         default="tfidf",
-        description="Strategy for keyword extraction (tfidf, rake, textrank)",
+        description="Strategy for keyword extraction",
     )
     max_keywords: int = Field(
         default=20,
@@ -34,4 +39,4 @@ class ModelKeywordExtractionInput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelKeywordExtractionInput"]
+__all__ = ["ExtractionStrategy", "ModelKeywordExtractionInput"]

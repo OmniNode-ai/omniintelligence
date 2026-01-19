@@ -40,7 +40,7 @@ The system decomposes intelligence operations into specialized ONEX nodes follow
 | Type | Purpose | Examples |
 |------|---------|----------|
 | **Orchestrator** | Coordinate workflows, route operations | `intelligence_orchestrator` |
-| **Reducer** | Manage state, FSM transitions | `intelligence_reducer`, `ingestion_reducer` |
+| **Reducer** | Manage state, FSM transitions | `intelligence_reducer` (unified, handles all FSMs via fsm_type) |
 | **Compute** | Pure data processing, no side effects | `vectorization_compute`, `pattern_learning_compute`, `quality_scoring_compute` |
 | **Effect** | External I/O (Kafka, DB, HTTP) | `ingestion_effect`, `intelligence_api_effect`, `intelligence_adapter` |
 
@@ -157,18 +157,21 @@ pytest -m performance   # Performance benchmarks
 
 Operation types are defined in `EnumIntelligenceOperationType`:
 
-- **Quality Assessment**: `assess_code_quality`, `assess_document`, `compliance/check`
-- **Pattern Learning**: `pattern/match`, `hybrid/score`, `semantic/analyze`
-- **Performance**: `baseline`, `opportunities`, `optimize`, `trends`
-- **Vectorization**: Semantic search, indexing, batch operations
-- **Traceability**: Lineage tracking, execution logs, analytics
+- **Quality Assessment**: `assess_code_quality`, `analyze_document_quality`, `get_quality_patterns`, `check_architectural_compliance`
+- **Pattern Learning**: `pattern_match`, `hybrid_score`, `semantic_analyze`, `get_pattern_metrics`, `get_cache_stats`, `clear_pattern_cache`, `get_pattern_health`
+- **Performance**: `establish_performance_baseline`, `identify_optimization_opportunities`, `apply_performance_optimization`, `get_optimization_report`, `monitor_performance_trends`
+- **Document Freshness**: `analyze_document_freshness`, `get_stale_documents`, `refresh_documents`, `get_freshness_stats`, `get_document_freshness`, `cleanup_freshness_data`
+- **Vector Operations**: `advanced_vector_search`, `quality_weighted_search`, `batch_index_documents`, `get_vector_stats`, `optimize_vector_index`
+- **Pattern Traceability**: `track_pattern_lineage`, `get_pattern_lineage`, `get_execution_logs`, `get_execution_summary`
+- **Autonomous Learning**: `ingest_patterns`, `record_success_pattern`, `predict_agent`, `predict_execution_time`, `calculate_safety_score`, `get_autonomous_stats`, `get_autonomous_health`
 
 ## Migration Context
 
 Legacy source code is preserved in `migration_sources/omniarchon/` for reference. See:
-- `MIGRATION_SUMMARY.md` - Migration overview
-- `OMNIARCHON_MIGRATION_INVENTORY.md` - Detailed component inventory
-- `QUICK_REFERENCE.md` - Legacy API reference
+- `docs/migrations/omniarchon_to_omniintelligence.md` - Migration guide
+- `docs/migrations/NODE_MAPPING_REFERENCE.md` - Node mapping reference
+- `docs/migrations/CONTRACT_CORRECTIONS.md` - Contract corrections
+- `docs/migrations/ONEX_MIGRATION_PLAN.md` - Detailed migration plan
 
 ## Configuration
 

@@ -278,10 +278,38 @@ state_machine:
       actions:
         - action_name: "record_failure"
           action_type: "state_update"
+    - from_state: "validation"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Validation phase failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "traceability"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Traceability phase failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "raw"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Raw input processing failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
     - from_state: "assessing"
       to_state: "failed"
       trigger: "fail"
       description: "Quality assessment failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "scored"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Quality scoring storage failed"
       actions:
         - action_name: "record_failure"
           action_type: "state_update"

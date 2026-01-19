@@ -16,12 +16,20 @@ Usage:
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from omniintelligence.enums import EnumEntityType, EnumRelationshipType
+
+# Entity ID format pattern:
+# - Must start with a letter or underscore
+# - Can contain letters, numbers, underscores, and hyphens
+# - Optional prefix followed by underscore (e.g., "ent_", "cls_", "fn_")
+# - Examples: "ent_abc123", "cls_MyClass", "fn_process_data", "node_1234"
+ENTITY_ID_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
 
 
 class EntityMetadataDict(TypedDict, total=False):
@@ -56,7 +64,9 @@ class EntityMetadataDict(TypedDict, total=False):
     # Additional metadata
     language: str
     version: str
-    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    correlation_id: (
+        str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    )
     source: str
 
 
@@ -89,7 +99,9 @@ class RelationshipMetadataDict(TypedDict, total=False):
     # Context
     context: str
     description: str
-    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    correlation_id: (
+        str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    )
 
     # Temporal
     discovered_at: str
@@ -132,8 +144,40 @@ class ModelEntity(BaseModel):
     entity_id: str = Field(
         ...,
         min_length=1,
-        description="Unique entity identifier",
+        description=(
+            "Unique entity identifier. Must start with a letter or underscore, "
+            "and contain only letters, numbers, underscores, and hyphens. "
+            "Examples: 'ent_abc123', 'cls_MyClass', 'fn_process_data'"
+        ),
     )
+
+    @field_validator("entity_id")
+    @classmethod
+    def validate_entity_id_format(cls, v: str) -> str:
+        """Validate entity_id follows the expected format.
+
+        Valid formats:
+            - Must start with a letter or underscore
+            - Can contain letters, numbers, underscores, and hyphens
+            - Common prefixes: ent_, cls_, fn_, mod_, var_, node_
+
+        Args:
+            v: The entity_id value to validate.
+
+        Returns:
+            The validated entity_id.
+
+        Raises:
+            ValueError: If entity_id doesn't match the expected format.
+        """
+        if not ENTITY_ID_PATTERN.match(v):
+            raise ValueError(
+                f"entity_id '{v}' must start with a letter or underscore, "
+                "and contain only letters, numbers, underscores, and hyphens. "
+                "Examples: 'ent_abc123', 'cls_MyClass', 'fn_process_data'"
+            )
+        return v
+
     entity_type: EnumEntityType = Field(
         ...,
         description="Type of the entity (CLASS, FUNCTION, MODULE, etc.)",
@@ -182,13 +226,41 @@ class ModelRelationship(BaseModel):
     source_id: str = Field(
         ...,
         min_length=1,
-        description="Source entity ID",
+        description=(
+            "Source entity ID. Must follow entity_id format: start with a letter "
+            "or underscore, contain only letters, numbers, underscores, and hyphens."
+        ),
     )
     target_id: str = Field(
         ...,
         min_length=1,
-        description="Target entity ID",
+        description=(
+            "Target entity ID. Must follow entity_id format: start with a letter "
+            "or underscore, contain only letters, numbers, underscores, and hyphens."
+        ),
     )
+
+    @field_validator("source_id", "target_id")
+    @classmethod
+    def validate_relationship_entity_ids(cls, v: str) -> str:
+        """Validate source_id and target_id follow entity_id format.
+
+        Args:
+            v: The entity ID value to validate.
+
+        Returns:
+            The validated entity ID.
+
+        Raises:
+            ValueError: If the ID doesn't match the expected format.
+        """
+        if not ENTITY_ID_PATTERN.match(v):
+            raise ValueError(
+                f"Entity ID '{v}' must start with a letter or underscore, "
+                "and contain only letters, numbers, underscores, and hyphens."
+            )
+        return v
+
     relationship_type: EnumRelationshipType = Field(
         ...,
         description="Type of relationship (CONTAINS, CALLS, DEPENDS_ON, etc.)",

@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from omniintelligence.enums import EnumFSMType
+from omniintelligence.enums import EnumFSMType, EnumOrchestratorWorkflowType
 
 
 class ModelReducerIntentPayload(BaseModel):
@@ -27,7 +27,7 @@ class ModelReducerIntentPayload(BaseModel):
     """
 
     # Workflow trigger fields
-    operation_type: str | None = Field(
+    operation_type: EnumOrchestratorWorkflowType | None = Field(
         default=None,
         description="Operation type for workflow triggers",
     )

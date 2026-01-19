@@ -55,14 +55,18 @@ class NodePatternMatchingCompute(NodeCompute):
             stacklevel=2,
         )
         # Return typed output model - minimal stub logic following declarative-node standard
+        # Note: operation field is omitted because input operation types (match, similarity,
+        # classify, validate) are different from output metadata operation types (exact_match,
+        # fuzzy_match, etc.). The metadata.operation describes the algorithm used, not the
+        # requested operation. For stubs, we leave it as None since no algorithm was executed.
         return ModelPatternMatchingOutput(
             success=True,
             patterns_matched=[],
             pattern_scores={},
             metadata=ModelPatternMatchingMetadata(
                 status="stub",
-                operation=input_data.operation,
-                message="NodePatternMatchingCompute is not yet implemented",
+                message=f"NodePatternMatchingCompute is not yet implemented. "
+                f"Requested operation: {input_data.operation}",
                 tracking_url=_STUB_TRACKING_URL,
             ),
         )

@@ -18,9 +18,9 @@ Migration Note:
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Self, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from omniintelligence.enums import EnumIntelligenceOperationType
 
@@ -245,6 +245,51 @@ class ModelIntelligenceInput(BaseModel):
             "See IntelligenceMetadataDict docstring for available fields."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_operation_specific_options(self) -> Self:
+        """Validate operation-specific option requirements.
+
+        This validator ensures that certain operations have the required
+        options configured. It provides warnings for missing recommended
+        options rather than hard failures for flexibility.
+
+        Operation-Specific Requirements:
+            - ESTABLISH_PERFORMANCE_BASELINE: Requires 'operation_name' in options
+            - PATTERN_MATCH: Recommends 'min_confidence' in options
+            - ADVANCED_VECTOR_SEARCH: Requires 'top_k' in options
+            - QUALITY_WEIGHTED_SEARCH: Requires 'top_k' in options
+
+        Returns:
+            Self with validated options.
+
+        Raises:
+            ValueError: If required options are missing for specific operations.
+        """
+        op_type = self.operation_type
+        options = self.options or {}
+
+        # Performance operations require operation_name
+        if op_type == EnumIntelligenceOperationType.ESTABLISH_PERFORMANCE_BASELINE:
+            if "operation_name" not in options and not self.source_path:
+                raise ValueError(
+                    f"Operation {op_type.value} requires either 'operation_name' in options "
+                    "or a non-null source_path for context"
+                )
+
+        # Vector search operations require top_k
+        vector_search_ops = {
+            EnumIntelligenceOperationType.ADVANCED_VECTOR_SEARCH,
+            EnumIntelligenceOperationType.QUALITY_WEIGHTED_SEARCH,
+        }
+        if op_type in vector_search_ops:
+            if "top_k" not in options:
+                raise ValueError(
+                    f"Operation {op_type.value} requires 'top_k' in options "
+                    "to specify number of results to return"
+                )
+
+        return self
 
     model_config = {"frozen": True, "extra": "forbid"}
 

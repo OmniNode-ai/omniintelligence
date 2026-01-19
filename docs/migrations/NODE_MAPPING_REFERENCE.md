@@ -764,8 +764,8 @@ python -m omnibase_core.scripts.generate_node \
   --domain intelligence \
   --output src/omniintelligence/nodes
 
-# Run tests for specific node
-pytest src/omniintelligence/nodes/intelligence_reducer/ -v
+# Run tests for specific node (tests are in central tests/ directory)
+pytest tests/nodes/test_intelligence_reducer.py -v
 
 # Validate contracts
 python -m omnibase_core.validators.contract_validator \
@@ -785,4 +785,4 @@ python -c "from omniintelligence.nodes import __all__; print('\n'.join(sorted(__
 
 **Document Version**: 2.0
 **Last Updated**: 2026-01-19
-**Related**: [ONEX Migration Plan](./ONEX_MIGRATION_PLAN.md), [Contract Corrections](./CONTRACT_CORRECTIONS.md), [Omniarchon Inventory](../../OMNIARCHON_MIGRATION_INVENTORY.md)
+**Related**: [ONEX Migration Plan](./ONEX_MIGRATION_PLAN.md), [Contract Corrections](./CONTRACT_CORRECTIONS.md), [Migration Guide](./omniarchon_to_omniintelligence.md)

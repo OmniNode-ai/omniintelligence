@@ -165,9 +165,10 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
 
     Checks for:
     1. Basic identifier pattern (lowercase snake_case)
-    2. Python reserved keywords
-    3. Dunder names (double underscore start AND end)
-    4. Invalid trailing underscores
+    2. Underscore-only names (e.g., "_", "__", "___")
+    3. Python reserved keywords
+    4. Dunder names (double underscore start AND end)
+    5. Invalid trailing underscores
 
     Args:
         name: The field identifier to validate
@@ -178,6 +179,8 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
     Examples:
         >>> validate_field_identifier("field_name")
         (True, None)
+        >>> validate_field_identifier("_")
+        (False, "Field name '_' contains only underscores ...")
         >>> validate_field_identifier("class")
         (False, "Field name 'class' is a Python reserved keyword")
         >>> validate_field_identifier("__init__")
@@ -188,6 +191,15 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
     # Check basic pattern first
     if not FIELD_IDENTIFIER_PATTERN.match(name):
         return (False, f"Field name '{name}' does not match snake_case pattern")
+
+    # Reject underscore-only names (e.g., "_", "__", "___")
+    # These match the pattern but are not meaningful identifiers
+    if name.strip("_") == "":
+        return (
+            False,
+            f"Field name '{name}' contains only underscores "
+            "(must include at least one alphanumeric character)",
+        )
 
     # Check for Python reserved keywords
     if is_python_keyword(name):

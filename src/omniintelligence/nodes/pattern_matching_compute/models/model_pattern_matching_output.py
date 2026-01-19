@@ -206,8 +206,8 @@ class ModelPatternMatchingOutput(BaseModel):
 
 
 __all__ = [
+    "UUID_PATTERN",
     "ModelPatternMatchingMetadata",
     "ModelPatternMatchingOutput",
     "PatternMatchingOperation",
-    "UUID_PATTERN",
 ]

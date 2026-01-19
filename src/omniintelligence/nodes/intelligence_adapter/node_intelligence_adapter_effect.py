@@ -34,6 +34,7 @@ Reference: EVENT_BUS_ARCHITECTURE.md, intelligence_adapter_events.py, ARCHITECTU
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -185,7 +186,10 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
     )
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
-    operation_type: str = Field(default="", min_length=0)
+    operation_type: EnumAnalysisOperationType | None = Field(
+        default=None,
+        description="Type of analysis operation to perform",
+    )
 
 
 class ModelCodeAnalysisCompletedPayload(BaseModel):
@@ -658,6 +662,9 @@ class NodeIntelligenceAdapterEffect:
             except TimeoutError:
                 logger.warning("Event consumption task did not finish in 30s")
                 self._event_consumption_task.cancel()
+                # Await the cancelled task to suppress CancelledError
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._event_consumption_task
 
         # Step 3: Commit offsets and close consumer
         if self.kafka_consumer:
@@ -1206,7 +1213,7 @@ class NodeIntelligenceAdapterEffect:
                 exc_info=True,
             )
 
-    async def _route_to_dlq(self, message: Any, error: str | Exception) -> None:
+    async def _route_to_dlq(self, message: Any, error: Exception) -> None:
         """
         Route failed message to Dead Letter Queue.
 
@@ -1222,7 +1229,7 @@ class NodeIntelligenceAdapterEffect:
 
         Args:
             message: Original Kafka message that failed processing
-            error: Error description or exception explaining why processing failed
+            error: Exception explaining why processing failed
 
         Note:
             If event_publisher is not initialized, the method logs a warning
@@ -1277,10 +1284,8 @@ class NodeIntelligenceAdapterEffect:
                         ts_value / 1000, tz=UTC
                     ).isoformat()
 
-            # Extract error type from exception class name or use default for string errors
-            error_type_name = (
-                type(error).__name__ if isinstance(error, Exception) else "ProcessingError"
-            )
+            # Extract error type from exception class name
+            error_type_name = type(error).__name__
             error_message = str(error)
 
             # Build DLQ payload with full context
@@ -1949,16 +1954,20 @@ class NodeIntelligenceAdapterEffect:
     # Utility Methods
     # =========================================================================
 
-    def _map_operation_type(self, event_op_type: EnumAnalysisOperationType) -> str:
+    def _map_operation_type(
+        self, event_op_type: EnumAnalysisOperationType | None
+    ) -> str:
         """
         Map event operation type to intelligence operation type.
 
         Args:
-            event_op_type: Event operation type enum
+            event_op_type: Event operation type enum (or None for default)
 
         Returns:
             Intelligence operation type string
         """
+        if event_op_type is None:
+            return "assess_code_quality"
         mapping = {
             EnumAnalysisOperationType.QUALITY_ASSESSMENT: "assess_code_quality",
             EnumAnalysisOperationType.ONEX_COMPLIANCE: "check_architectural_compliance",
