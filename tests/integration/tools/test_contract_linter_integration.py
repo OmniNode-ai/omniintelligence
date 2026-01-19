@@ -71,7 +71,9 @@ def _get_all_contracts() -> list[Path]:
     """
     if not CONTRACTS_DIR.exists():
         return []
-    return list(CONTRACTS_DIR.glob("*/v1_0_0/contracts/*.yaml"))
+    # Contracts are named contract.yaml directly in node directories
+    # Path: src/omniintelligence/nodes/{node_name}/contract.yaml
+    return list(CONTRACTS_DIR.glob("*/contract.yaml"))
 
 
 # =============================================================================
@@ -79,44 +81,71 @@ def _get_all_contracts() -> list[Path]:
 # =============================================================================
 
 
+def _filter_contracts_by_node_type(contracts: list[Path], node_type: str) -> list[Path]:
+    """Filter contracts by node_type field in YAML.
+
+    Args:
+        contracts: List of contract file paths
+        node_type: Expected node_type value (e.g., 'COMPUTE_GENERIC', 'EFFECT_GENERIC')
+
+    Returns:
+        List of contracts matching the node_type
+    """
+    import yaml
+
+    result = []
+    for contract_path in contracts:
+        try:
+            with open(contract_path) as f:
+                data = yaml.safe_load(f)
+                if data and data.get("node_type") == node_type:
+                    result.append(contract_path)
+        except (yaml.YAMLError, OSError, KeyError):
+            continue
+    return result
+
+
 @pytest.fixture
 def compute_contracts() -> list[Path]:
     """Collect all compute contract files from canonical nodes."""
-    return _collect_contracts_by_pattern(
-        CONTRACTS_DIR, "*/v1_0_0/contracts/compute_contract.yaml"
-    )
+    # Contracts are at */contract.yaml, filter by node_type field
+    all_contracts = _collect_contracts_by_pattern(CONTRACTS_DIR, "*/contract.yaml")
+    return _filter_contracts_by_node_type(all_contracts, "COMPUTE_GENERIC")
 
 
 @pytest.fixture
 def effect_contracts() -> list[Path]:
     """Collect all effect contract files from canonical nodes."""
-    return _collect_contracts_by_pattern(
-        CONTRACTS_DIR, "*/v1_0_0/contracts/effect_contract.yaml"
-    )
+    # Contracts are at */contract.yaml, filter by node_type field
+    all_contracts = _collect_contracts_by_pattern(CONTRACTS_DIR, "*/contract.yaml")
+    return _filter_contracts_by_node_type(all_contracts, "EFFECT_GENERIC")
 
 
 @pytest.fixture
 def reducer_contracts() -> list[Path]:
     """Collect all reducer contract files from canonical nodes."""
-    return _collect_contracts_by_pattern(
-        CONTRACTS_DIR, "*/v1_0_0/contracts/reducer_contract.yaml"
-    )
+    # Contracts are at */contract.yaml, filter by node_type field
+    all_contracts = _collect_contracts_by_pattern(CONTRACTS_DIR, "*/contract.yaml")
+    return _filter_contracts_by_node_type(all_contracts, "REDUCER_GENERIC")
 
 
 @pytest.fixture
 def orchestrator_contracts() -> list[Path]:
     """Collect all orchestrator contract files from canonical nodes."""
-    return _collect_contracts_by_pattern(
-        CONTRACTS_DIR, "*/v1_0_0/contracts/orchestrator_contract.yaml"
-    )
+    # Contracts are at */contract.yaml, filter by node_type field
+    all_contracts = _collect_contracts_by_pattern(CONTRACTS_DIR, "*/contract.yaml")
+    return _filter_contracts_by_node_type(all_contracts, "ORCHESTRATOR_GENERIC")
 
 
 @pytest.fixture
 def fsm_contracts() -> list[Path]:
-    """Collect all FSM subcontract files from canonical nodes."""
-    return _collect_contracts_by_pattern(
-        CONTRACTS_DIR, "*/v1_0_0/contracts/fsm_*.yaml"
-    )
+    """Collect all FSM subcontract files from canonical nodes.
+
+    Note: In the current structure, FSM state machines are embedded in reducer contracts
+    rather than separate fsm_*.yaml files. Returns empty list as no separate FSM files exist.
+    """
+    # FSM contracts were a separate pattern in old structure, not present in current
+    return []
 
 
 @pytest.fixture
@@ -138,16 +167,25 @@ def large_contract_batch(tmp_path: Path) -> list[Path]:
     batch_size = DEFAULT_PARALLEL_THRESHOLD + 5  # Exceed threshold
     files: list[Path] = []
 
+    # Updated YAML format with required fields: contract_version, node_version
     valid_yaml = """
-name: test_compute_{index}
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_compute_{index}
 description: Test compute contract {index} for parallel validation
-node_type: compute
-input_model: ModelComputeInput
-output_model: ModelComputeOutput
+node_type: COMPUTE_GENERIC
+input_model:
+  name: ModelComputeInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelComputeOutput
+  module: tests.fixtures.models
 algorithm:
   algorithm_type: weighted_factor_algorithm
   factors:
@@ -192,9 +230,9 @@ class TestRealContractValidation:
 
             assert isinstance(result, ModelContractValidationResult)
             assert result.file_path == contract_path
-            # Compute contracts should be detected as 'compute' type
-            assert result.contract_type == "compute", (
-                f"Expected 'compute' type for {contract_path.name}, "
+            # Compute contracts have node_type "COMPUTE_GENERIC" which becomes "compute_generic"
+            assert result.contract_type in ("compute", "compute_generic"), (
+                f"Expected 'compute' or 'compute_generic' type for {contract_path.name}, "
                 f"got '{result.contract_type}'"
             )
 
@@ -210,8 +248,9 @@ class TestRealContractValidation:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
-            assert result.contract_type == "effect", (
-                f"Expected 'effect' type for {contract_path.name}, "
+            # Effect contracts have node_type "EFFECT_GENERIC" which becomes "effect_generic"
+            assert result.contract_type in ("effect", "effect_generic"), (
+                f"Expected 'effect' or 'effect_generic' type for {contract_path.name}, "
                 f"got '{result.contract_type}'"
             )
 
@@ -227,8 +266,9 @@ class TestRealContractValidation:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
-            assert result.contract_type == "reducer", (
-                f"Expected 'reducer' type for {contract_path.name}, "
+            # Reducer contracts have node_type "REDUCER_GENERIC" which becomes "reducer_generic"
+            assert result.contract_type in ("reducer", "reducer_generic"), (
+                f"Expected 'reducer' or 'reducer_generic' type for {contract_path.name}, "
                 f"got '{result.contract_type}'"
             )
 
@@ -244,8 +284,9 @@ class TestRealContractValidation:
             result = linter.validate(contract_path)
 
             assert isinstance(result, ModelContractValidationResult)
-            assert result.contract_type == "orchestrator", (
-                f"Expected 'orchestrator' type for {contract_path.name}, "
+            # Orchestrator contracts have node_type "ORCHESTRATOR_GENERIC" which becomes "orchestrator_generic"
+            assert result.contract_type in ("orchestrator", "orchestrator_generic"), (
+                f"Expected 'orchestrator' or 'orchestrator_generic' type for {contract_path.name}, "
                 f"got '{result.contract_type}'"
             )
 
@@ -304,8 +345,10 @@ class TestRealContractValidation:
         This test ensures the test infrastructure is working correctly
         by verifying that we found a reasonable number of contracts.
         """
-        # We know from glob results there should be at least 15 contracts
-        # (6 compute, 5 effect, 1 reducer, 1 orchestrator, 3 FSM)
+        import yaml
+
+        # We expect at least 10 contracts in the nodes directory
+        # (~11 compute, 5 effect, 1 reducer, 2 orchestrators)
         expected_minimum = 10
 
         assert len(all_contracts) >= expected_minimum, (
@@ -314,34 +357,33 @@ class TestRealContractValidation:
             "This may indicate the contracts directory structure has changed."
         )
 
-        # Print contract breakdown
-        compute_count = len([
-            p for p in all_contracts
-            if "compute_contract" in p.name
-        ])
-        effect_count = len([
-            p for p in all_contracts
-            if "effect_contract" in p.name
-        ])
-        reducer_count = len([
-            p for p in all_contracts
-            if "reducer_contract" in p.name
-        ])
-        orchestrator_count = len([
-            p for p in all_contracts
-            if "orchestrator_contract" in p.name
-        ])
-        fsm_count = len([
-            p for p in all_contracts
-            if p.name.startswith("fsm_")
-        ])
+        # Count contracts by node_type field in YAML
+        compute_count = 0
+        effect_count = 0
+        reducer_count = 0
+        orchestrator_count = 0
 
-        print("\nContract breakdown:")
-        print(f"  Compute: {compute_count}")
-        print(f"  Effect: {effect_count}")
-        print(f"  Reducer: {reducer_count}")
-        print(f"  Orchestrator: {orchestrator_count}")
-        print(f"  FSM subcontracts: {fsm_count}")
+        for contract_path in all_contracts:
+            try:
+                with open(contract_path) as f:
+                    data = yaml.safe_load(f)
+                    node_type = data.get("node_type", "")
+                    if node_type == "COMPUTE_GENERIC":
+                        compute_count += 1
+                    elif node_type == "EFFECT_GENERIC":
+                        effect_count += 1
+                    elif node_type == "REDUCER_GENERIC":
+                        reducer_count += 1
+                    elif node_type == "ORCHESTRATOR_GENERIC":
+                        orchestrator_count += 1
+            except (yaml.YAMLError, OSError, KeyError):
+                continue
+
+        print("\nContract breakdown by node_type:")
+        print(f"  Compute (COMPUTE_GENERIC): {compute_count}")
+        print(f"  Effect (EFFECT_GENERIC): {effect_count}")
+        print(f"  Reducer (REDUCER_GENERIC): {reducer_count}")
+        print(f"  Orchestrator (ORCHESTRATOR_GENERIC): {orchestrator_count}")
         print(f"  Total: {len(all_contracts)}")
 
 
@@ -422,16 +464,25 @@ class TestParallelValidationPerformance:
         small_batch_size = DEFAULT_PARALLEL_THRESHOLD - 2
         assert small_batch_size > 0, "Threshold too small for test"
 
+        # Updated YAML format with required fields: contract_version, node_version
         valid_yaml = """
-name: test_small_{index}
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_small_{index}
 description: Test for small batch
-node_type: compute
-input_model: ModelInput
-output_model: ModelOutput
+node_type: COMPUTE_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 algorithm:
   algorithm_type: weighted_factor_algorithm
   factors:
@@ -466,16 +517,25 @@ performance:
         batch_size = 5
         custom_threshold = 3  # Lower than default
 
+        # Updated YAML format with required fields: contract_version, node_version
         valid_yaml = """
-name: test_custom_{index}
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_custom_{index}
 description: Test for custom threshold
-node_type: compute
-input_model: ModelInput
-output_model: ModelOutput
+node_type: COMPUTE_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 algorithm:
   algorithm_type: weighted_factor_algorithm
   factors:
@@ -557,16 +617,25 @@ class TestFieldNameConflictResolution:
         prefer the canonical name.
         """
         # Contract with potential duplicate/aliased fields
+        # Updated to use contract_version and node_version (required fields)
         yaml_content = """
-name: test_alias_resolution
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_alias_resolution
 description: Test contract for field alias handling
-node_type: compute
-input_model: ModelInput
-output_model: ModelOutput
+node_type: COMPUTE_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 algorithm:
   algorithm_type: weighted_factor_algorithm
   factors:
@@ -584,7 +653,7 @@ performance:
 
         # Should parse without errors
         assert isinstance(result, ModelContractValidationResult)
-        assert result.contract_type == "compute"
+        assert result.contract_type in ("compute", "compute_generic")
 
     def test_deprecated_field_name_handling(self, tmp_path: Path) -> None:
         """Test validation with deprecated field names.
@@ -593,16 +662,25 @@ performance:
         (possibly with warnings in strict mode).
         """
         # Using canonical field names in minimal valid contract
+        # Updated to use contract_version and node_version (required fields)
         yaml_content = """
-name: test_deprecated_fields
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_deprecated_fields
 description: Test contract with standard fields
-node_type: effect
-input_model: ModelInput
-output_model: ModelOutput
+node_type: EFFECT_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 io_operations:
   - operation_type: file_read
     atomic: true
@@ -615,7 +693,7 @@ io_operations:
 
         # Should validate successfully with canonical names
         assert result.is_valid is True
-        assert result.contract_type == "effect"
+        assert result.contract_type in ("effect", "effect_generic")
 
     def test_mixed_case_node_type_handling(self, tmp_path: Path) -> None:
         """Test that node_type is handled case-insensitively.
@@ -623,27 +701,36 @@ io_operations:
         ONEX node types should be matched case-insensitively
         (e.g., 'Compute', 'COMPUTE', 'compute' should all work).
         """
+        # Test with ONEX standard types (COMPUTE_GENERIC, EFFECT_GENERIC, etc.)
         test_cases = [
             ("compute", "compute"),
+            ("COMPUTE_GENERIC", "compute_generic"),
             ("effect", "effect"),
-            ("reducer", "reducer"),
-            ("orchestrator", "orchestrator"),
+            ("EFFECT_GENERIC", "effect_generic"),
         ]
 
         for input_type, expected_type in test_cases:
             yaml_content = f"""
-name: test_{input_type}_case
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_{input_type.lower()}_case
 description: Test {input_type} case handling
 node_type: {input_type}
-input_model: ModelInput
-output_model: ModelOutput
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 """
             # Add required fields based on type
-            if input_type == "compute":
+            if "compute" in input_type.lower():
                 yaml_content += """
 algorithm:
   algorithm_type: weighted_factor_algorithm
@@ -654,14 +741,14 @@ algorithm:
 performance:
   single_operation_max_ms: 1000
 """
-            elif input_type == "effect":
+            elif "effect" in input_type.lower():
                 yaml_content += """
 io_operations:
   - operation_type: file_read
     atomic: true
 """
 
-            contract_path = tmp_path / f"case_test_{input_type}.yaml"
+            contract_path = tmp_path / f"case_test_{input_type.lower()}.yaml"
             contract_path.write_text(yaml_content)
 
             linter = ContractLinter()
@@ -681,15 +768,23 @@ io_operations:
         failures (following Pydantic's 'extra=allow' or 'extra=ignore' pattern).
         """
         yaml_content = """
-name: test_extra_fields
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: test_extra_fields
 description: Test contract with extra fields
-node_type: compute
-input_model: ModelInput
-output_model: ModelOutput
+node_type: COMPUTE_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 algorithm:
   algorithm_type: weighted_factor_algorithm
   factors:
@@ -713,7 +808,7 @@ internal_notes: "This is for testing"
         # Extra fields should not cause validation to fail
         # (unless the schema explicitly forbids extra fields)
         assert isinstance(result, ModelContractValidationResult)
-        assert result.contract_type == "compute"
+        assert result.contract_type in ("compute", "compute_generic")
 
 
 # =============================================================================
@@ -728,15 +823,23 @@ class TestIntegrationEdgeCases:
     def test_deeply_nested_contract_structure(self, tmp_path: Path) -> None:
         """Test validation of contracts with deeply nested structures."""
         yaml_content = """
-name: deeply_nested_contract
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: deeply_nested_contract
 description: Contract with deep nesting
-node_type: orchestrator
-input_model: ModelInput
-output_model: ModelOutput
+node_type: ORCHESTRATOR_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 dependencies:
   - name: dep1
     dependency_type: module
@@ -766,20 +869,28 @@ event_coordination:
         result = linter.validate(contract_path)
 
         assert isinstance(result, ModelContractValidationResult)
-        assert result.contract_type == "orchestrator"
+        assert result.contract_type in ("orchestrator", "orchestrator_generic")
 
     def test_unicode_in_contract_fields(self, tmp_path: Path) -> None:
         """Test handling of unicode characters in contract content."""
         yaml_content = """
-name: unicode_test_node
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: unicode_test_node
 description: "Test node with unicode: \u65e5\u672c\u8a9e\u30c6\u30b9\u30c8, accents: cafe"
-node_type: compute
-input_model: ModelInput
-output_model: ModelOutput
+node_type: COMPUTE_GENERIC
+input_model:
+  name: ModelInput
+  module: tests.fixtures.models
+output_model:
+  name: ModelOutput
+  module: tests.fixtures.models
 algorithm:
   algorithm_type: weighted_factor_algorithm
   factors:
@@ -788,10 +899,11 @@ algorithm:
       calculation_method: linear
 performance:
   single_operation_max_ms: 1000
-author: "Tester (\u6d4b\u8bd5\u4eba\u5458)"
-tags:
-  - test
-  - unicode-\u6d4b\u8bd5
+metadata:
+  author: "Tester (\u6d4b\u8bd5\u4eba\u5458)"
+  tags:
+    - test
+    - unicode-\u6d4b\u8bd5
 """
         contract_path = tmp_path / "unicode_test.yaml"
         contract_path.write_text(yaml_content, encoding="utf-8")

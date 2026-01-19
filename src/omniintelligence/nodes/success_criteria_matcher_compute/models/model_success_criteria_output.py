@@ -2,15 +2,41 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
+
+
+class CriteriaMatchMetadataDict(TypedDict, total=False):
+    """Typed structure for criteria matching metadata.
+
+    Provides type-safe fields for matching result metadata.
+    """
+
+    # Processing info
+    processing_time_ms: int
+    timestamp: str
+
+    # Match details
+    total_criteria: int
+    matched_count: int
+    unmatched_count: int
+    skipped_count: int
+
+    # Scoring details
+    weighted_score: float
+    required_criteria_met: bool
+
+    # Debug info
+    match_details: list[str]
 
 
 class ModelSuccessCriteriaOutput(BaseModel):
     """Output model for success criteria matching operations.
 
     This model represents the result of matching against success criteria.
+
+    All fields use strong typing without dict[str, Any].
     """
 
     success: bool = Field(
@@ -31,12 +57,15 @@ class ModelSuccessCriteriaOutput(BaseModel):
         default_factory=list,
         description="List of unmatched criteria identifiers",
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: CriteriaMatchMetadataDict | None = Field(
         default=None,
-        description="Additional metadata about the matching",
+        description="Additional metadata about the matching with typed fields",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelSuccessCriteriaOutput"]
+__all__ = [
+    "CriteriaMatchMetadataDict",
+    "ModelSuccessCriteriaOutput",
+]

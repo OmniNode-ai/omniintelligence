@@ -326,7 +326,8 @@ ModelIntent(
 ### Orchestrator Contract
 
 ```yaml
-# src/omniintelligence/nodes/intelligence_orchestrator/contracts/orchestrator_contract.yaml
+# src/omniintelligence/nodes/intelligence_orchestrator/contract.yaml
+# Note: Current implementation uses Pattern A (flat structure)
 
 node_type: orchestrator
 node_name: intelligence_orchestrator
@@ -373,7 +374,8 @@ onex_version:
 ### Unified Reducer Contract
 
 ```yaml
-# src/omniintelligence/nodes/intelligence_reducer/contracts/reducer_contract.yaml
+# src/omniintelligence/nodes/intelligence_reducer/contract.yaml
+# Note: Current implementation uses Pattern A (flat structure)
 
 node_type: reducer
 node_name: intelligence_reducer
@@ -484,7 +486,8 @@ onex_version:
 ### Compute Contract
 
 ```yaml
-# src/omniintelligence/nodes/vectorization_compute/contracts/compute_contract.yaml
+# src/omniintelligence/nodes/vectorization_compute/contract.yaml
+# Note: Current implementation uses Pattern A (flat structure)
 
 node_type: compute
 node_name: vectorization_compute
@@ -530,7 +533,8 @@ onex_version:
 ### Effect Contract
 
 ```yaml
-# src/omniintelligence/nodes/ingestion_effect/contracts/effect_contract.yaml
+# src/omniintelligence/nodes/ingestion_effect/contract.yaml
+# Note: Current implementation uses Pattern A (flat structure)
 
 node_type: effect
 node_name: ingestion_effect
@@ -586,28 +590,30 @@ src/omniintelligence/nodes/
 |
 |-- # ORCHESTRATORS (2)
 |-- intelligence_orchestrator/
+|   |-- __init__.py
+|   |-- __main__.py                       # CLI entry point
+|   |-- contract.yaml                     # Main node contract (Pattern A - flat)
 |   |-- node.py                           # NodeIntelligenceOrchestrator
-|   |-- models/
-|   |   |-- model_orchestrator_input.py
-|   |   |-- model_orchestrator_output.py
-|   |   `-- __init__.py
-|   |-- contracts/
-|   `-- __init__.py
+|   `-- models/
+|       |-- __init__.py
+|       |-- model_orchestrator_input.py
+|       `-- model_orchestrator_output.py
 |
 |-- pattern_assembler_orchestrator/
+|   |-- __init__.py
+|   |-- contract.yaml                     # Main node contract (Pattern A - flat)
 |   |-- node.py                           # NodePatternAssemblerOrchestrator
-|   |-- models/
-|   `-- __init__.py
+|   `-- models/
 |
 |-- # REDUCERS (1 unified)
 |-- intelligence_reducer/
+|   |-- __init__.py
+|   |-- contract.yaml                     # Main node contract (Pattern A - flat)
 |   |-- node.py                           # NodeIntelligenceReducer (handles ALL FSMs)
-|   |-- models/
-|   |   |-- model_reducer_input.py
-|   |   |-- model_reducer_output.py
-|   |   `-- __init__.py
-|   |-- contracts/
-|   `-- __init__.py
+|   `-- models/
+|       |-- __init__.py
+|       |-- model_reducer_input.py
+|       `-- model_reducer_output.py
 |
 |-- # COMPUTE NODES (11)
 |-- vectorization_compute/
@@ -767,9 +773,9 @@ python -m omnibase_core.scripts.generate_node \
 # Run tests for specific node (tests are in central tests/ directory)
 pytest tests/nodes/test_intelligence_reducer.py -v
 
-# Validate contracts
+# Validate contracts (Pattern A - flat structure)
 python -m omnibase_core.validators.contract_validator \
-  --contract src/omniintelligence/nodes/intelligence_orchestrator/contracts/orchestrator_contract.yaml
+  --contract src/omniintelligence/nodes/intelligence_orchestrator/contract.yaml
 
 # Run integration tests
 pytest tests/integration/test_document_ingestion_workflow.py

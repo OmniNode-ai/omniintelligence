@@ -154,7 +154,8 @@ workflows:
     steps:
       - step_id: "foundation_patterns"
         action_type: "EXECUTE_REDUCTION"
-        target_node: "pattern_learning_reducer"
+        target_node: "intelligence_reducer"
+        fsm_type: "PATTERN_LEARNING"
         reducer_transition: "INIT_FOUNDATION"
 
       - step_id: "match_patterns"
@@ -164,7 +165,8 @@ workflows:
 
       - step_id: "validate_patterns"
         action_type: "EXECUTE_REDUCTION"
-        target_node: "pattern_learning_reducer"
+        target_node: "intelligence_reducer"
+        fsm_type: "PATTERN_LEARNING"
         reducer_transition: "FOUNDATION_TO_VALIDATION"
         dependencies: ["match_patterns"]
 
@@ -182,7 +184,8 @@ workflows:
 
       - step_id: "assess_quality"
         action_type: "EXECUTE_REDUCTION"
-        target_node: "quality_assessment_reducer"
+        target_node: "intelligence_reducer"
+        fsm_type: "QUALITY_ASSESSMENT"
         reducer_transition: "METRICS_TO_SCORED"
         dependencies: ["extract_metrics"]
 
@@ -901,8 +904,9 @@ steps:
 
   - id: "update_ingestion_state"
     type: "reducer"
-    node: "ingestion_reducer"
+    node: "intelligence_reducer"
     input_mapping:
+      fsm_type: "INGESTION"
       current_state: "PARSED"
       event: "VECTORIZATION_COMPLETED"
       vectors: "${steps.generate_embeddings.output.embeddings}"
@@ -1286,6 +1290,7 @@ Intent Router (in orchestrator or intent bus)
 - [Migration Guide](./omniarchon_to_omniintelligence.md)
 - [Node Mapping Reference](./NODE_MAPPING_REFERENCE.md)
 - [Contract Corrections](./CONTRACT_CORRECTIONS.md)
+- [Migration Inventory](./OMNIARCHON_MIGRATION_INVENTORY.md) - Complete API inventory from omniarchon
 - [ONEX Orchestrator Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/ORCHESTRATOR_NODE_TEMPLATE.md)
 - [ONEX Reducer Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/REDUCER_NODE_TEMPLATE.md)
 - [Llama Index Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/)

@@ -21,11 +21,66 @@ Migration Note:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
 from omniintelligence.enums import EnumIntelligenceOperationType
+
+
+class AnalysisResultsDict(TypedDict, total=False):
+    """Typed structure for analysis results.
+
+    Provides type-safe fields for common analysis results.
+    All fields are optional (total=False) for flexibility.
+    """
+
+    # Quality metrics
+    onex_compliance_score: float
+    complexity_score: float
+    maintainability_score: float
+    documentation_score: float
+
+    # Pattern analysis
+    pattern_count: int
+    anti_pattern_count: int
+    pattern_categories: list[str]
+
+    # Code metrics
+    lines_of_code: int
+    cyclomatic_complexity: int
+    cognitive_complexity: int
+
+    # Semantic analysis
+    embedding_generated: bool
+    similarity_scores: list[float]
+
+    # Error details (if any)
+    error_code: str
+    error_details: str
+
+
+class OutputMetadataDict(TypedDict, total=False):
+    """Typed structure for output metadata.
+
+    Provides type-safe fields for common metadata.
+    All fields are optional (total=False) for flexibility.
+    """
+
+    # Processing info
+    processing_time_ms: int
+    timestamp: str
+    source_file: str
+    language: str
+
+    # Tracking
+    request_id: str
+    workflow_id: str
+
+    # Retry info
+    retry_allowed: bool
+    retry_count: int
+    max_retries: int
 
 
 class ModelIntelligenceOutput(BaseModel):
@@ -33,6 +88,8 @@ class ModelIntelligenceOutput(BaseModel):
 
     This model represents the output of code analysis and intelligence operations
     that are published as Kafka events.
+
+    All fields use strong typing without dict[str, Any].
 
     Migration from Legacy:
         This canonical model is intentionally simplified from the legacy
@@ -105,9 +162,9 @@ class ModelIntelligenceOutput(BaseModel):
         le=1.0,
         description="Overall quality score (0.0 to 1.0) if applicable",
     )
-    analysis_results: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Results of the analysis",
+    analysis_results: AnalysisResultsDict = Field(
+        default_factory=lambda: AnalysisResultsDict(),
+        description="Results of the analysis with typed fields",
     )
     patterns_detected: list[str] = Field(
         default_factory=list,
@@ -130,12 +187,16 @@ class ModelIntelligenceOutput(BaseModel):
         default=None,
         description="Error message if the operation failed",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the result",
+    metadata: OutputMetadataDict = Field(
+        default_factory=lambda: OutputMetadataDict(),
+        description="Additional metadata about the result with typed fields",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelIntelligenceOutput"]
+__all__ = [
+    "AnalysisResultsDict",
+    "ModelIntelligenceOutput",
+    "OutputMetadataDict",
+]

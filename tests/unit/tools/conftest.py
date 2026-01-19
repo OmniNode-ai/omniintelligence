@@ -312,19 +312,24 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_version_format_yaml() -> str:
-    """Contract with malformed version structure."""
+    """Contract with malformed version structure.
+
+    The contract_version field is a string instead of an object with
+    major/minor/patch fields. The validator checks contract_version
+    and node_version for proper structure.
+    """
     return """
 name: test_node
-version: "1.0.0"
-contract_version:
+version:
   major: 1
   minor: 0
   patch: 0
+contract_version: "1.0.0"
 node_version:
   major: 1
   minor: 0
   patch: 0
-description: Invalid version format (should be object)
+description: Invalid version format (contract_version should be object)
 node_type: compute
 input_model: ModelInput
 output_model: ModelOutput

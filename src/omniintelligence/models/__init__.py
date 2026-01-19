@@ -32,13 +32,20 @@ from omniintelligence.models.model_intelligence_input import (
     ModelIntelligenceInput,
     PerformanceContextDict,
 )
-from omniintelligence.models.model_intelligence_output import ModelIntelligenceOutput
+from omniintelligence.models.model_intelligence_output import (
+    AnalysisResultsDict,
+    ModelIntelligenceOutput,
+    OutputMetadataDict,
+)
 from omniintelligence.models.model_search_result import (
     ModelPatternMatch,
     ModelSearchResult,
+    PatternMatchMetadataDict,
+    SearchResultMetadataDict,
 )
 
 __all__ = [
+    "AnalysisResultsDict",
     "IntelligenceMetadataDict",
     "IntelligenceOptionsDict",
     "ModelEntity",
@@ -47,5 +54,8 @@ __all__ = [
     "ModelPatternMatch",
     "ModelRelationship",
     "ModelSearchResult",
+    "OutputMetadataDict",
+    "PatternMatchMetadataDict",
     "PerformanceContextDict",
+    "SearchResultMetadataDict",
 ]

@@ -16,9 +16,59 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class SearchResultMetadataDict(TypedDict, total=False):
+    """Typed structure for search result metadata.
+
+    Provides type-safe fields for search result metadata.
+    """
+
+    # Source information
+    file_path: str
+    source_type: str
+    language: str
+
+    # Entity classification
+    entity_type: str
+    entity_id: str
+    category: str
+
+    # Quality metrics
+    quality_score: float
+    confidence: float
+
+    # Timestamps
+    created_at: str
+    indexed_at: str
+
+
+class PatternMatchMetadataDict(TypedDict, total=False):
+    """Typed structure for pattern match metadata.
+
+    Provides type-safe fields for pattern match metadata.
+    """
+
+    # Pattern classification
+    pattern_category: str
+    pattern_subcategory: str
+    is_anti_pattern: bool
+
+    # Match context
+    function_name: str
+    class_name: str
+    module_name: str
+
+    # Quality info
+    severity: str  # "info", "warning", "error"
+    recommendation: str
+
+    # Detection info
+    detection_method: str
+    confidence: float
 
 
 class ModelSearchResult(BaseModel):
@@ -26,6 +76,8 @@ class ModelSearchResult(BaseModel):
 
     This model provides type-safe search result representation for use
     with Qdrant vector search, semantic code search, and pattern matching.
+
+    All fields use strong typing without dict[str, Any].
 
     Example:
         >>> result = ModelSearchResult(
@@ -64,9 +116,9 @@ class ModelSearchResult(BaseModel):
         default=None,
         description="Content snippet or full content of the matched document",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the search result",
+    metadata: SearchResultMetadataDict = Field(
+        default_factory=lambda: SearchResultMetadataDict(),
+        description="Additional metadata about the search result with typed fields",
     )
     vector_id: str | None = Field(
         default=None,
@@ -84,6 +136,8 @@ class ModelPatternMatch(BaseModel):
 
     This model provides type-safe representation of detected patterns
     in code analysis and pattern learning operations.
+
+    All fields use strong typing without dict[str, Any].
 
     Example:
         >>> match = ModelPatternMatch(
@@ -137,13 +191,15 @@ class ModelPatternMatch(BaseModel):
         ge=1,
         description="Ending line number of the match",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the pattern match",
+    metadata: PatternMatchMetadataDict = Field(
+        default_factory=lambda: PatternMatchMetadataDict(),
+        description="Additional metadata about the pattern match with typed fields",
     )
 
 
 __all__ = [
     "ModelPatternMatch",
     "ModelSearchResult",
+    "PatternMatchMetadataDict",
+    "SearchResultMetadataDict",
 ]

@@ -49,8 +49,12 @@ class TestStructuredErrorOutput:
         # Each error should have field_path, error_message, and validation_error_type
         # These attributes enable structured error reporting for CI/CD integration
         for error in result.validation_errors:
-            assert hasattr(error, "field_path"), "Error object missing 'field_path' attribute"
-            assert hasattr(error, "error_message"), "Error object missing 'error_message' attribute"
+            assert hasattr(error, "field_path"), (
+                "Error object missing 'field_path' attribute"
+            )
+            assert hasattr(error, "error_message"), (
+                "Error object missing 'error_message' attribute"
+            )
             assert hasattr(error, "validation_error_type"), (
                 "Error object missing 'validation_error_type' attribute"
             )

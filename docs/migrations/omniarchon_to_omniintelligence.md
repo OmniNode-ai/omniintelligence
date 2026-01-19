@@ -32,7 +32,7 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 | Legacy Area (`omniarchon`) | Target Node(s) (`omniintelligence`) | Notes |
 |----------------------------|--------------------------------------|-------|
 | `services/intelligence_request_service.py` orchestrating ingestion & intelligence routing | `nodes/intelligence_orchestrator` | Drive ingestion, analysis, and response workflows; integrate with event bus topics from `docs/architecture/INTELLIGENCE_SYSTEM_INTEGRATION.md`. |
-| `services/ingestion_pipeline/` (Kafka consumers, retry logic) | `nodes/ingestion_reducer` + `nodes/ingestion_effect` | Reducer manages FSM, Effect handles Kafka/Qdrant/PostgreSQL side effects. |
+| `services/ingestion_pipeline/` (Kafka consumers, retry logic) | `nodes/intelligence_reducer` (fsm_type: INGESTION) + `nodes/ingestion_effect` | Unified reducer manages FSM via fsm_type, Effect handles Kafka/Qdrant/PostgreSQL side effects. |
 | `services/vectorization/`, `test_vectorization_integration.py` | `nodes/vectorization_compute` | Encapsulate embedding generation, scoring, fallback models. |
 | `services/pattern_learning/`, `docs/pattern_learning_engine/*` | `nodes/pattern_learning_compute` + optional orchestrator workflow steps | Align with ONEX compute patterns; maintain contract for pattern enrichment. |
 | `services/search/api.py`, `docs/api/PATTERN_LEARNING_API_FOR_OMNICLAUDE.md` | `nodes/intelligence_api_effect` | Provide HTTP or Kafka façade; ensure contracts align with shared schemas. |
@@ -42,8 +42,9 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 1. **Orchestrator** (`intelligence_orchestrator`)
    - Coordinates ingestion, enrichment, vectorization, persistence pipelines.
    - Incorporates dependency resolver logic described in `docs/architecture/CORE_MIGRATION_ARCHITECTURE.md`.
-2. **Reducer** (`ingestion_reducer`, `pattern_state_reducer`)
+2. **Reducer** (`intelligence_reducer` - unified, handles all FSMs via `fsm_type` enum)
    - Converts manual state machines (`PIPELINE_TRACEABILITY.md`) to canonical reducer transitions with lease management.
+   - **FSM Types**: INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT
 3. **Compute** (`vectorization_compute`, `scoring_compute`, `pattern_quality_compute`)
    - Pure operations: embed text, compute hybrid scores, evaluate QoS metrics.
 4. **Effect** (`ingestion_effect`, `search_gateway_effect`)
@@ -164,7 +165,8 @@ nodes/
     │   ├── model_<name>_output.py  # Output Pydantic model
     │   └── enum_*.py            # Enumeration definitions (operation types, states, error codes)
     ├── node.py                  # Main node implementation (REQUIRED)
-    └── ARCHITECTURE.md          # Design rationale (RECOMMENDED for complex nodes)
+    ├── ARCHITECTURE.md          # Design rationale (RECOMMENDED for complex nodes)
+    └── ARCHITECTURE_DECISIONS.md # Architectural decision records (RECOMMENDED)
 ```
 
 **Pattern B: Versioned Structure** (canonical reference for future expansion)
@@ -201,6 +203,7 @@ nodes/
 *Optional Node Files*:
 - [ ] `__main__.py` - CLI entry point (REQUIRED for executable/standalone nodes)
 - [ ] `ARCHITECTURE.md` - Design rationale documenting architectural decisions (RECOMMENDED for complex nodes)
+- [ ] `ARCHITECTURE_DECISIONS.md` - Architectural decision records (ADRs) documenting key design choices (RECOMMENDED)
 
 *Tests* (in central `tests/` directory, NOT in node directory):
 - [ ] `tests/nodes/test_<node_name>.py` - Node-specific unit tests
@@ -352,6 +355,7 @@ linked_contracts:
 - [ ] `models/enum_*.py` - Enumeration types (operation types, states, error codes)
 - [ ] `models/error_codes.py` - Error code definitions
 - [ ] `ARCHITECTURE.md` - Design rationale (recommended for complex nodes like `intelligence_adapter`)
+- [ ] `ARCHITECTURE_DECISIONS.md` - Architectural decision records (ADRs) for key design choices
 
 *Configuration Contracts* (for production nodes):
 - [ ] `node_config.yaml` - Node-specific configuration schema (optional)
@@ -366,6 +370,7 @@ linked_contracts:
 
 *Documentation*:
 - [ ] `ARCHITECTURE.md` in node directory (for complex nodes)
+- [ ] `ARCHITECTURE_DECISIONS.md` - ADRs documenting key design choices (recommended)
 
 *Code Quality Standards*:
 - [ ] Enumerations replace string literals for tool names, topics, and status codes

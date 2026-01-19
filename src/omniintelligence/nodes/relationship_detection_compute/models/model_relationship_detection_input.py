@@ -18,6 +18,7 @@ class ModelRelationshipDetectionContext(BaseModel):
     # Source context
     source_path: str | None = Field(
         default=None,
+        min_length=1,
         description="Path to the source file being analyzed",
     )
     repository_name: str | None = Field(

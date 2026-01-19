@@ -305,21 +305,21 @@ services:
 # Mode 1: Combined Deployment (RECOMMENDED)
 #   docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
 #   - Files are merged, network definition comes from base docker-compose.yml
-#   - The external: true is overridden by the bridge definition in base file
+#   - Empty network definition here allows proper merging with base file
 #   - Services communicate via container names (postgres, qdrant, etc.)
 #
 # Mode 2: Standalone Node Deployment (requires base infra running first)
 #   Step 1: docker compose -f docker-compose.yml up -d  # Start infrastructure
-#   Step 2: docker compose -f docker-compose.nodes.yml up -d  # Start nodes
-#   - Network already exists from Step 1 (omniintelligence_omni-network)
-#   - external: true tells Compose to use the existing network
+#   Step 2: docker compose -f docker-compose.nodes.yml --project-name omniintelligence up -d
+#   - IMPORTANT: Use --project-name to match base compose project name
+#   - This ensures nodes join the existing omniintelligence_omni-network
+#   - Network already exists from Step 1
 #
-# HOW THIS WORKS:
-#   - Mode 1: When merging compose files, Docker Compose takes the more
-#     specific network definition (bridge with subnet) from docker-compose.yml
-#     and ignores the external reference here.
-#   - Mode 2: When running standalone, external: true finds the existing
-#     network created by the base infrastructure compose file.
+# WHY NOT external: true?
+#   Using external: true here would break combined deployment (Mode 1) because
+#   Docker Compose would look for an existing network instead of creating it.
+#   The empty definition {} allows proper merging with the base file's full
+#   network definition (driver, ipam, subnet).
 #
 # Network Architecture:
 #   - omni-network: Internal bridge network (172.28.0.0/16)
@@ -334,9 +334,7 @@ services:
 # =============================================================================
 
 networks:
-  # Network reference for node services
-  # - Mode 1 (merged): Base compose bridge definition takes precedence
-  # - Mode 2 (standalone): Uses external network from base infrastructure
-  omni-network:
-    name: omniintelligence_omni-network
-    external: true
+  # Empty definition merges cleanly with base compose bridge network
+  # Combined mode: Uses bridge definition from docker-compose.yml
+  # Standalone mode: Requires --project-name omniintelligence to join existing network
+  omni-network: {}

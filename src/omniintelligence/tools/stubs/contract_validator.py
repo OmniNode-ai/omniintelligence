@@ -173,9 +173,11 @@ class ProtocolContractValidator:
 
         # Validate node_type matches expected contract_type (if provided)
         # Note: is_node_contract already verified node_type is a non-None string
+        # Use isinstance check to satisfy mypy's type narrowing
         if (
             contract_type
             and is_node_contract
+            and isinstance(node_type, str)
             and node_type.lower() != contract_type.lower()
         ):
             violations.append(
@@ -183,9 +185,11 @@ class ProtocolContractValidator:
             )
 
         # Validate node-type-specific fields
-        # Use is_node_contract to avoid redundant isinstance check
+        # Use isinstance check to satisfy mypy's type narrowing
         effective_type = contract_type or (
-            node_type.lower() if is_node_contract else None
+            node_type.lower()
+            if is_node_contract and isinstance(node_type, str)
+            else None
         )
         if effective_type and effective_type in self.NODE_TYPE_REQUIRED_FIELDS:
             violations.extend(

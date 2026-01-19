@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,39 @@ QdrantOperationType = Literal[
 ]
 
 
+class VectorPayloadDict(TypedDict, total=False):
+    """Typed structure for vector payload data.
+
+    Provides type-safe fields for vector payloads stored in Qdrant.
+    All fields are optional (total=False) for flexibility.
+    """
+
+    # Document identification
+    document_id: str
+    document_hash: str
+    file_path: str
+    source_type: str
+
+    # Content metadata
+    content_type: str
+    language: str
+    title: str
+    description: str
+
+    # Classification
+    entity_type: str
+    category: str
+    tags: list[str]
+
+    # Quality metrics
+    quality_score: float
+    confidence: float
+
+    # Timestamps
+    created_at: str
+    updated_at: str
+
+
 class VectorSearchResultDict(TypedDict, total=False):
     """Typed structure for vector search results.
 
@@ -29,7 +62,7 @@ class VectorSearchResultDict(TypedDict, total=False):
 
     id: str | int
     score: float
-    payload: dict[str, Any]
+    payload: VectorPayloadDict
     vector: list[float]
 
 
@@ -82,5 +115,6 @@ __all__ = [
     "ModelQdrantVectorOutput",
     "QdrantOperationMetadataDict",
     "QdrantOperationType",
+    "VectorPayloadDict",
     "VectorSearchResultDict",
 ]
