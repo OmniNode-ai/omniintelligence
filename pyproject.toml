@@ -55,13 +55,21 @@ pre-commit = ">=4.5.0"
 omnibase-core = "^0.8.0"
 omnibase-spi = "^0.5.0"
 omnibase-infra = "^0.2.1"
+# Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
+# Included here for self-contained --only core installs
+pydantic = ">=2.9.0"
+pydantic-settings = ">=2.6.0"
+httpx = ">=0.28.1"
+pyyaml = ">=6.0"
+python-dotenv = ">=1.0.0"
+tenacity = ">=8.2.0"
+confluent-kafka = ">=2.6.0"
 # Web framework for API endpoints
 fastapi = ">=0.104.0"
 uvicorn = ">=0.24.0"
 python-multipart = ">=0.0.20"
 # Event bus (Kafka/Redpanda)
 aiokafka = ">=0.10.0"
-confluent-kafka = ">=2.6.0"
 # Vector database
 qdrant-client = ">=1.15.1"
 # Graph database
@@ -80,7 +88,6 @@ sentence-transformers = ">=4.1.0"
 torch = ">=2.0.0"
 transformers = ">=4.30.0"
 # Utilities
-tenacity = ">=8.2.0"
 cachetools = ">=5.3.0"
 redis = {extras = ["hiredis"], version = ">=5.0.0"}
 # Logging and monitoring

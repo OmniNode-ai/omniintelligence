@@ -50,18 +50,24 @@ workflow_coordination:
           description: "Receive intelligence operation request"
           step_config:
             event_pattern: ["intelligence.*"]
+        # Note: route_operation is an internal orchestration step, not a compute delegator.
+        # It routes based on operation_type to determine which compute/effect nodes to invoke.
         - node_id: "route_operation"
-          node_type: COMPUTE_GENERIC
+          node_type: ORCHESTRATOR_INTERNAL
           description: "Route operation based on EnumIntelligenceOperationType"
           depends_on: ["receive_request"]
           step_config:
             routing_field: "operation_type"
+            routing_strategy: "operation_type_match"
+        # Note: execute_compute is a dynamic dispatcher that invokes the appropriate
+        # compute node based on the routing decision from route_operation.
         - node_id: "execute_compute"
-          node_type: COMPUTE_GENERIC
-          description: "Execute compute node for operation"
+          node_type: ORCHESTRATOR_INTERNAL
+          description: "Dispatch to appropriate compute node based on operation routing"
           depends_on: ["route_operation"]
           step_config:
-            compute_nodes:
+            dispatch_strategy: "dynamic_compute_selection"
+            available_compute_nodes:
               - vectorization_compute
               - entity_extraction_compute
               - pattern_matching_compute

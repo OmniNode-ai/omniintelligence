@@ -2,35 +2,49 @@
 Legacy module compatibility layer.
 
 .. deprecated::
-    This module is deprecated and will be removed in a future version.
-    Import from ``omniintelligence.utils`` or ``omniintelligence.events``
-    instead.
+    This module is deprecated and will be removed in v2.0.0.
+    Migrate to canonical module paths before the next major release.
 
 This module provides backwards-compatible imports for code that references
 the old ``_legacy`` module paths. All implementations are re-exported from
 their canonical locations.
 
-Available Submodules:
-    - ``_legacy.utils`` -> Use ``omniintelligence.utils`` instead
-    - ``_legacy.events`` -> Use ``omniintelligence.events`` instead (when available)
+Migration Status:
+    - ``_legacy.utils`` -> Use ``omniintelligence.utils`` (AVAILABLE NOW)
+    - ``_legacy.events`` -> Events module migration is in progress.
+      The ``_legacy.events`` module remains the canonical location until
+      ``omniintelligence.events`` is released.
 
 Migration Guide:
-    Instead of::
+    **Utils (migrate now)**::
 
+        # OLD (deprecated):
         from omniintelligence._legacy.utils.log_sanitizer import LogSanitizer
 
-    Use::
-
+        # NEW (use this):
         from omniintelligence.utils.log_sanitizer import LogSanitizer
         # Or via the utils package:
         from omniintelligence.utils import LogSanitizer
+
+    **Events (migrate when available)**::
+
+        # CURRENT (continue using until omniintelligence.events is available):
+        from omniintelligence._legacy.events.publisher import EventPublisher
+
+        # FUTURE (when omniintelligence.events is released):
+        # from omniintelligence.events.publisher import EventPublisher
+
+Timeline:
+    - v1.x: _legacy module available with deprecation warnings
+    - v2.0.0: _legacy module will be removed
 """
 
 import warnings
 
 warnings.warn(
-    "The omniintelligence._legacy module is deprecated. "
-    "Import from omniintelligence.utils or omniintelligence.events instead.",
+    "The omniintelligence._legacy module is deprecated and will be removed in v2.0.0. "
+    "For utils: use omniintelligence.utils instead. "
+    "For events: continue using _legacy.events until omniintelligence.events is released.",
     DeprecationWarning,
     stacklevel=2,
 )

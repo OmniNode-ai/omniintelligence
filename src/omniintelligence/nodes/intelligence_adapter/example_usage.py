@@ -30,11 +30,12 @@ from uuid import uuid4
 from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
-# Import models from the shared models module (omniintelligence.models).
+# Import models from the canonical shared models module (omniintelligence.models).
 # Note: These models are intentionally shared across multiple intelligence nodes
 # (adapter, orchestrator, etc.) rather than being node-specific. This allows
 # consistent data structures for events and operations across the intelligence
-# subsystem. See contract.yaml lines 33-36 for design rationale.
+# subsystem. See contract.yaml lines 36-39 and input_model/output_model sections
+# for design rationale (module: "omniintelligence.models").
 from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
 
 
@@ -102,8 +103,12 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
         logger.info(f"Operation: {result.operation_type}")
         logger.info(f"Success: {result.success}")
         # Processing time is now in metadata for canonical model
-        processing_time = result.metadata.get("processing_time_ms", "N/A")
-        logger.info(f"Processing Time: {processing_time}ms")
+        # Access with proper type handling - processing_time_ms is int or absent
+        processing_time_ms = result.metadata.get("processing_time_ms")
+        if processing_time_ms is not None:
+            logger.info(f"Processing Time: {processing_time_ms}ms")
+        else:
+            logger.info("Processing Time: N/A")
 
         if result.quality_score is not None:
             logger.info(f"\nQuality Score: {result.quality_score:.2f}")
@@ -226,8 +231,12 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]
         logger.info("=" * 60)
         logger.info(f"Success: {result.success}")
         # Processing time is now in metadata for canonical model
-        processing_time = result.metadata.get("processing_time_ms", "N/A")
-        logger.info(f"Processing Time: {processing_time}ms")
+        # Access with proper type handling - processing_time_ms is int or absent
+        processing_time_ms = result.metadata.get("processing_time_ms")
+        if processing_time_ms is not None:
+            logger.info(f"Processing Time: {processing_time_ms}ms")
+        else:
+            logger.info("Processing Time: N/A")
 
         if result.recommendations:
             logger.info(

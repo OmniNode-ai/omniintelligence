@@ -1,7 +1,7 @@
 # ONEX Migration Plan: Omniarchon → OmniIntelligence
 
-**Version**: 1.1
-**Date**: 2026-01-18
+**Version**: 1.2
+**Date**: 2026-01-19
 **Status**: In Progress
 **Target Architecture**: ONEX 4.0 with Llama Index Workflows
 
@@ -53,19 +53,19 @@ Reducer Nodes (1 unified node)
 │  ├─ Quality Assessment FSM (raw → scored)
 │  └─ State persistence for all FSMs in single database
 
-Compute Nodes (11 implemented + 1 stub)
-├─ NodeVectorizationCompute - Text → embeddings
-├─ NodeEntityExtractionCompute - Code → entities
-├─ NodePatternMatchingCompute - Code + patterns → matches
-├─ NodePatternLearningCompute - Pattern discovery and learning
+Compute Nodes (12 nodes - all STUB implementations)
+├─ NodeVectorizationCompute - Text → embeddings (STUB)
+├─ NodeEntityExtractionCompute - Code → entities (STUB)
+├─ NodePatternMatchingCompute - Code + patterns → matches (STUB)
+├─ NodePatternLearningCompute - Pattern discovery and learning (STUB)
 ├─ NodePatternAssemblerCompute - Pattern assembly and composition (STUB - contract only)
-├─ NodeQualityScoringCompute - Metrics → quality score
-├─ NodeSemanticAnalysisCompute - Code → semantic features
-├─ NodeRelationshipDetectionCompute - Entities → relationships
-├─ NodeIntentClassifierCompute - Request → intent classification
-├─ NodeContextKeywordExtractorCompute - Content → keywords
-├─ NodeSuccessCriteriaMatcherCompute - Execution → success criteria
-└─ NodeExecutionTraceParserCompute - Trace → structured execution data
+├─ NodeQualityScoringCompute - Metrics → quality score (STUB)
+├─ NodeSemanticAnalysisCompute - Code → semantic features (STUB)
+├─ NodeRelationshipDetectionCompute - Entities → relationships (STUB)
+├─ NodeIntentClassifierCompute - Request → intent classification (STUB)
+├─ NodeContextKeywordExtractorCompute - Content → keywords (STUB)
+├─ NodeSuccessCriteriaMatcherCompute - Execution → success criteria (STUB)
+└─ NodeExecutionTraceParserCompute - Trace → structured execution data (STUB)
 
 Effect Nodes (6 nodes)
 ├─ NodeIngestionEffect - Kafka event ingestion and DLQ handling
@@ -1143,9 +1143,9 @@ Intent Router (in orchestrator or intent bus)
     ├→ EnumIntentType.STATE_UPDATE → postgres_pattern_effect
     ├→ EnumIntentType.WORKFLOW_TRIGGER → intelligence_orchestrator
     ├→ EnumIntentType.EVENT_PUBLISH → ingestion_effect
-    ├→ EnumIntentType.CACHE_WRITE → valkey_cache_effect
-    ├→ EnumIntentType.LOG → logger_effect
-    └→ EnumIntentType.METRIC → metrics_effect
+    ├→ EnumIntentType.CACHE_WRITE → cache_handler (routed by orchestrator)
+    ├→ EnumIntentType.LOG → logger
+    └→ EnumIntentType.METRIC → metrics
 ```
 
 ---
@@ -1290,7 +1290,7 @@ Intent Router (in orchestrator or intent bus)
 - [Migration Guide](./omniarchon_to_omniintelligence.md)
 - [Node Mapping Reference](./NODE_MAPPING_REFERENCE.md)
 - [Contract Corrections](./CONTRACT_CORRECTIONS.md)
-- [Migration Inventory](./OMNIARCHON_MIGRATION_INVENTORY.md) - Complete API inventory from omniarchon
+- Migration Inventory - Complete API inventory from omniarchon (see `migration_sources/omniarchon/` for preserved source code)
 - [ONEX Orchestrator Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/ORCHESTRATOR_NODE_TEMPLATE.md)
 - [ONEX Reducer Template](https://github.com/OmniNode-ai/omnibase_core/tree/main/docs/guides/templates/REDUCER_NODE_TEMPLATE.md)
 - [Llama Index Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/)
@@ -1300,4 +1300,4 @@ Intent Router (in orchestrator or intent bus)
 
 **Document Status**: Planning Complete
 **Next Action**: Begin Phase 1 implementation
-**Review Date**: 2026-01-18
+**Review Date**: 2026-01-19

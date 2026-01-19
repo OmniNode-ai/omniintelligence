@@ -24,12 +24,17 @@ from typing import Any
 def _get_log_level() -> int:
     """Get log level from environment with safe fallback.
 
-    Returns logging.INFO if LOG_LEVEL is invalid or not set.
+    Valid LOG_LEVEL values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    (case-insensitive). Invalid values fall back to INFO.
+
+    Returns:
+        int: logging level constant (e.g., logging.INFO = 20)
     """
     level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    # Use getattr to safely look up the level - returns None for invalid names
     level = getattr(logging, level_name, None)
     if not isinstance(level, int):
-        # Invalid level name, fall back to INFO
+        # Invalid level name (e.g., "INVALID", "TRACE", etc.) - fall back to INFO
         return logging.INFO
     return level
 

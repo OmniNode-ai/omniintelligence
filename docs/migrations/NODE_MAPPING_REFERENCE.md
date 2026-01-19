@@ -26,7 +26,7 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
    │     REDUCER     │ │     COMPUTE     │ │     EFFECTS     │
    │    (Unified)    │ │     (Pure)      │ │      (I/O)      │
    ├─────────────────┤ ├─────────────────┤ ├─────────────────┤
-   │ NodeIntelligence│ │ 11 Compute      │ │ 6 Effect        │
+   │ NodeIntelligence│ │ 12 Compute      │ │ 6 Effect        │
    │ Reducer         │ │ Nodes           │ │ Nodes           │
    │                 │ │                 │ │                 │
    │ Handles ALL     │ │ - Vectorization │ │ - Kafka         │
@@ -42,7 +42,7 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 ---
 
-## Complete Node Inventory (20 Nodes)
+## Complete Node Inventory (21 Nodes)
 
 ### 2 Orchestrator Nodes
 
@@ -57,21 +57,22 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 |----------------|------------|--------------|----------------|--------|
 | `intelligence_reducer` | `NodeIntelligenceReducer` | **ALL FSMs via fsm_type enum:** INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT | `fsm_state` (unified) | Active |
 
-### 11 Compute Nodes
+### 12 Compute Nodes
 
 | Node Directory | Class Name | Input Type | Output Type | Status |
 |----------------|------------|------------|-------------|--------|
-| `vectorization_compute` | `NodeVectorizationCompute` | ModelVectorizationInput | ModelVectorizationOutput | Active |
-| `entity_extraction_compute` | `NodeEntityExtractionCompute` | ModelEntityExtractionInput | ModelEntityExtractionOutput | Active |
-| `pattern_matching_compute` | `NodePatternMatchingCompute` | ModelPatternMatchingInput | ModelPatternMatchingOutput | Active |
-| `quality_scoring_compute` | `NodeQualityScoringCompute` | ModelQualityScoringInput | ModelQualityScoringOutput | Active |
-| `semantic_analysis_compute` | `NodeSemanticAnalysisCompute` | ModelSemanticAnalysisInput | ModelSemanticAnalysisOutput | Active |
-| `relationship_detection_compute` | `NodeRelationshipDetectionCompute` | ModelRelationshipDetectionInput | ModelRelationshipDetectionOutput | Active |
-| `context_keyword_extractor_compute` | `NodeContextKeywordExtractorCompute` | ModelContextKeywordInput | ModelContextKeywordOutput | Active |
-| `execution_trace_parser_compute` | `NodeExecutionTraceParserCompute` | ModelExecutionTraceInput | ModelExecutionTraceOutput | Active |
-| `success_criteria_matcher_compute` | `NodeSuccessCriteriaMatcherCompute` | ModelSuccessCriteriaInput | ModelSuccessCriteriaOutput | Active |
-| `intent_classifier_compute` | `NodeIntentClassifierCompute` | ModelIntentClassifierInput | ModelIntentClassifierOutput | Active |
+| `vectorization_compute` | `NodeVectorizationCompute` | ModelVectorizationInput | ModelVectorizationOutput | **Stub** |
+| `entity_extraction_compute` | `NodeEntityExtractionCompute` | ModelEntityExtractionInput | ModelEntityExtractionOutput | **Stub** |
+| `pattern_matching_compute` | `NodePatternMatchingCompute` | ModelPatternMatchingInput | ModelPatternMatchingOutput | **Stub** |
 | `pattern_learning_compute` | `NodePatternLearningCompute` | ModelPatternLearningInput | ModelPatternLearningOutput | **Stub** |
+| `pattern_assembler_compute` | `NodePatternAssemblerCompute` | ModelPatternAssemblyInput | ModelPatternAssemblyOutput | **Stub** |
+| `quality_scoring_compute` | `NodeQualityScoringCompute` | ModelQualityScoringInput | ModelQualityScoringOutput | **Stub** |
+| `semantic_analysis_compute` | `NodeSemanticAnalysisCompute` | ModelSemanticAnalysisInput | ModelSemanticAnalysisOutput | **Stub** |
+| `relationship_detection_compute` | `NodeRelationshipDetectionCompute` | ModelRelationshipDetectionInput | ModelRelationshipDetectionOutput | **Stub** |
+| `context_keyword_extractor_compute` | `NodeContextKeywordExtractorCompute` | ModelKeywordExtractionInput | ModelKeywordExtractionOutput | **Stub** |
+| `execution_trace_parser_compute` | `NodeExecutionTraceParserCompute` | ModelTraceParsingInput | ModelTraceParsingOutput | **Stub** |
+| `success_criteria_matcher_compute` | `NodeSuccessCriteriaMatcherCompute` | ModelSuccessCriteriaInput | ModelSuccessCriteriaOutput | **Stub** |
+| `intent_classifier_compute` | `NodeIntentClassifierCompute` | ModelIntentClassificationInput | ModelIntentClassificationOutput | **Stub** |
 
 ### 6 Effect Nodes
 
@@ -615,59 +616,63 @@ src/omniintelligence/nodes/
 |       |-- model_reducer_input.py
 |       `-- model_reducer_output.py
 |
-|-- # COMPUTE NODES (11)
+|-- # COMPUTE NODES (12)
 |-- vectorization_compute/
-|   |-- node.py                           # NodeVectorizationCompute
+|   |-- node.py                           # NodeVectorizationCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- entity_extraction_compute/
-|   |-- node.py                           # NodeEntityExtractionCompute
+|   |-- node.py                           # NodeEntityExtractionCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- pattern_matching_compute/
-|   |-- node.py                           # NodePatternMatchingCompute
+|   |-- node.py                           # NodePatternMatchingCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
-|-- pattern_learning_compute/             # STUB - not yet implemented
-|   |-- node.py                           # NodePatternLearningCompute
+|-- pattern_learning_compute/
+|   |-- node.py                           # NodePatternLearningCompute (STUB)
 |   |-- models/
+|   `-- __init__.py
+|
+|-- pattern_assembler_compute/
+|   |-- models.py                         # NodePatternAssemblerCompute (STUB - contract only)
 |   `-- __init__.py
 |
 |-- quality_scoring_compute/
-|   |-- node.py                           # NodeQualityScoringCompute
+|   |-- node.py                           # NodeQualityScoringCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- semantic_analysis_compute/
-|   |-- node.py                           # NodeSemanticAnalysisCompute
+|   |-- node.py                           # NodeSemanticAnalysisCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- relationship_detection_compute/
-|   |-- node.py                           # NodeRelationshipDetectionCompute
+|   |-- node.py                           # NodeRelationshipDetectionCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- context_keyword_extractor_compute/
-|   |-- node.py                           # NodeContextKeywordExtractorCompute
+|   |-- node.py                           # NodeContextKeywordExtractorCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- execution_trace_parser_compute/
-|   |-- node.py                           # NodeExecutionTraceParserCompute
+|   |-- node.py                           # NodeExecutionTraceParserCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- success_criteria_matcher_compute/
-|   |-- node.py                           # NodeSuccessCriteriaMatcherCompute
+|   |-- node.py                           # NodeSuccessCriteriaMatcherCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
 |-- intent_classifier_compute/
-|   |-- node.py                           # NodeIntentClassifierCompute
+|   |-- node.py                           # NodeIntentClassifierCompute (STUB)
 |   |-- models/
 |   `-- __init__.py
 |
@@ -715,26 +720,27 @@ src/omniintelligence/nodes/
 - [ ] All contract YAML files defined
 - [ ] Database schemas created
 
-### Phase 2: Compute Nodes (10/11 Active)
-- [x] `vectorization_compute` - NodeVectorizationCompute
-- [x] `entity_extraction_compute` - NodeEntityExtractionCompute
-- [x] `pattern_matching_compute` - NodePatternMatchingCompute
-- [x] `quality_scoring_compute` - NodeQualityScoringCompute
-- [x] `semantic_analysis_compute` - NodeSemanticAnalysisCompute
-- [x] `relationship_detection_compute` - NodeRelationshipDetectionCompute
-- [x] `context_keyword_extractor_compute` - NodeContextKeywordExtractorCompute
-- [x] `execution_trace_parser_compute` - NodeExecutionTraceParserCompute
-- [x] `success_criteria_matcher_compute` - NodeSuccessCriteriaMatcherCompute
-- [x] `intent_classifier_compute` - NodeIntentClassifierCompute
-- [ ] `pattern_learning_compute` - NodePatternLearningCompute (STUB)
+### Phase 2: Compute Nodes (12 nodes - all STUB implementations)
+- [x] `vectorization_compute` - NodeVectorizationCompute (STUB)
+- [x] `entity_extraction_compute` - NodeEntityExtractionCompute (STUB)
+- [x] `pattern_matching_compute` - NodePatternMatchingCompute (STUB)
+- [x] `pattern_learning_compute` - NodePatternLearningCompute (STUB)
+- [x] `pattern_assembler_compute` - NodePatternAssemblerCompute (STUB - contract only)
+- [x] `quality_scoring_compute` - NodeQualityScoringCompute (STUB)
+- [x] `semantic_analysis_compute` - NodeSemanticAnalysisCompute (STUB)
+- [x] `relationship_detection_compute` - NodeRelationshipDetectionCompute (STUB)
+- [x] `context_keyword_extractor_compute` - NodeContextKeywordExtractorCompute (STUB)
+- [x] `execution_trace_parser_compute` - NodeExecutionTraceParserCompute (STUB)
+- [x] `success_criteria_matcher_compute` - NodeSuccessCriteriaMatcherCompute (STUB)
+- [x] `intent_classifier_compute` - NodeIntentClassifierCompute (STUB)
 
-### Phase 3: Effect Nodes (5/6 Active)
-- [x] `qdrant_vector_effect` - NodeQdrantVectorEffect
-- [x] `memgraph_graph_effect` - NodeMemgraphGraphEffect
-- [x] `postgres_pattern_effect` - NodePostgresPatternEffect
-- [x] `intelligence_api_effect` - NodeIntelligenceApiEffect
-- [x] `intelligence_adapter` - NodeIntelligenceAdapterEffect
-- [ ] `ingestion_effect` - NodeIngestionEffect (STUB)
+### Phase 3: Effect Nodes (6 nodes - most are STUB implementations)
+- [x] `ingestion_effect` - NodeIngestionEffect (STUB)
+- [x] `qdrant_vector_effect` - NodeQdrantVectorEffect (STUB)
+- [x] `memgraph_graph_effect` - NodeMemgraphGraphEffect (STUB)
+- [x] `postgres_pattern_effect` - NodePostgresPatternEffect (STUB)
+- [x] `intelligence_api_effect` - NodeIntelligenceApiEffect (STUB)
+- [x] `intelligence_adapter` - NodeIntelligenceAdapterEffect (Active - full implementation)
 
 ### Phase 4: Unified Reducer (Complete)
 - [x] `intelligence_reducer` - NodeIntelligenceReducer (unified, pure FSM)

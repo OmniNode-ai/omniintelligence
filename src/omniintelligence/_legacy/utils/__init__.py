@@ -23,7 +23,7 @@ Migration Guide:
 import warnings
 
 warnings.warn(
-    "The omniintelligence._legacy.utils module is deprecated. "
+    "The omniintelligence._legacy.utils module will be removed in v2.0.0. "
     "Use omniintelligence.utils instead.",
     DeprecationWarning,
     stacklevel=2,

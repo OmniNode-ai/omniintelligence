@@ -82,25 +82,75 @@ from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOut
 class ModelIntelligenceConfig(BaseModel):
     """Stub config - use environment variables directly."""
 
-    service_url: str = Field(default="http://localhost:8080")
-    timeout: int = Field(default=30)
+    base_url: str = Field(default="http://localhost:8080")
+    timeout_seconds: int = Field(default=30)
+    max_retries: int = Field(default=3)
+    circuit_breaker_enabled: bool = Field(default=True)
+    retry_delay_ms: int = Field(default=1000)
 
     @classmethod
     def from_environment_variable(cls) -> "ModelIntelligenceConfig":
         return cls(
-            service_url=os.getenv("INTELLIGENCE_SERVICE_URL", "http://localhost:8080"),
-            timeout=int(os.getenv("INTELLIGENCE_TIMEOUT", "30")),
+            base_url=os.getenv("INTELLIGENCE_SERVICE_URL", "http://localhost:8080"),
+            timeout_seconds=int(os.getenv("INTELLIGENCE_TIMEOUT", "30")),
+            max_retries=int(os.getenv("INTELLIGENCE_MAX_RETRIES", "3")),
+            circuit_breaker_enabled=os.getenv(
+                "INTELLIGENCE_CIRCUIT_BREAKER_ENABLED", "true"
+            ).lower()
+            == "true",
+            retry_delay_ms=int(os.getenv("INTELLIGENCE_RETRY_DELAY_MS", "1000")),
         )
+
+
+class HealthResponse(BaseModel):
+    """Stub health response model."""
+
+    status: str = Field(default="ok")
+    service_version: str = Field(default="stub")
 
 
 class IntelligenceServiceClient:
     """Stub client - raises NotImplementedError for actual calls."""
 
-    def __init__(self, config: ModelIntelligenceConfig):
-        self.config = config
+    def __init__(
+        self,
+        config: ModelIntelligenceConfig | None = None,
+        *,
+        base_url: str | None = None,
+        timeout_seconds: int = 30,
+        max_retries: int = 3,
+        circuit_breaker_enabled: bool = True,
+    ):
+        """Initialize with config or kwargs for compatibility."""
+        if config is not None:
+            self.config = config
+        else:
+            self.config = ModelIntelligenceConfig(
+                base_url=base_url or "http://localhost:8080",
+                timeout_seconds=timeout_seconds,
+                max_retries=max_retries,
+                circuit_breaker_enabled=circuit_breaker_enabled,
+            )
+
+    async def connect(self) -> None:
+        """Connect to the intelligence service (stub - does nothing)."""
+        pass
+
+    async def check_health(self) -> HealthResponse:
+        """Check health (stub - returns healthy)."""
+        return HealthResponse(status="ok", service_version="stub")
 
     async def analyze_code(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
         raise NotImplementedError("IntelligenceServiceClient requires implementation")
+
+    async def assess_code_quality(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
+        raise NotImplementedError("IntelligenceServiceClient.assess_code_quality requires implementation")
+
+    async def analyze_performance(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
+        raise NotImplementedError("IntelligenceServiceClient.analyze_performance requires implementation")
+
+    async def detect_patterns(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
+        raise NotImplementedError("IntelligenceServiceClient.detect_patterns requires implementation")
 
     async def close(self) -> None:
         pass
@@ -130,6 +180,9 @@ class ModelQualityAssessmentRequest(BaseModel):
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
     options: dict[str, Any] = Field(default_factory=dict)
+    language: str = Field(default="python")
+    include_recommendations: bool = Field(default=True)
+    min_quality_threshold: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class ModelPatternDetectionRequest(BaseModel):
@@ -138,6 +191,9 @@ class ModelPatternDetectionRequest(BaseModel):
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
     patterns: list[str] = Field(default_factory=list)
+    pattern_categories: list[str] = Field(default_factory=list)
+    min_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    include_recommendations: bool = Field(default=True)
 
 
 class ModelPerformanceAnalysisRequest(BaseModel):
@@ -145,7 +201,12 @@ class ModelPerformanceAnalysisRequest(BaseModel):
 
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
+    code_content: str = Field(default="", min_length=0)
     metrics: list[str] = Field(default_factory=list)
+    operation_name: str = Field(default="")
+    context: dict[str, Any] = Field(default_factory=dict)
+    include_opportunities: bool = Field(default=True)
+    target_percentile: int = Field(default=95, ge=1, le=100)
 
 
 # Stub enums and event models
@@ -158,6 +219,8 @@ class EnumAnalysisErrorCode(str, Enum):
     TIMEOUT = "timeout"
     INVALID_INPUT = "invalid_input"
     SERVICE_ERROR = "service_error"
+    INTERNAL_ERROR = "internal_error"
+    SERVICE_UNAVAILABLE = "service_unavailable"
 
 
 class EnumAnalysisOperationType(str, Enum):
@@ -166,6 +229,10 @@ class EnumAnalysisOperationType(str, Enum):
     QUALITY_ASSESSMENT = "quality_assessment"
     PATTERN_DETECTION = "pattern_detection"
     PERFORMANCE_ANALYSIS = "performance_analysis"
+    COMPREHENSIVE_ANALYSIS = "comprehensive_analysis"
+    ONEX_COMPLIANCE = "onex_compliance"
+    PATTERN_EXTRACTION = "pattern_extraction"
+    ARCHITECTURAL_COMPLIANCE = "architectural_compliance"
 
 
 class EnumCodeAnalysisEventType(str, Enum):
@@ -174,6 +241,10 @@ class EnumCodeAnalysisEventType(str, Enum):
     REQUESTED = "requested"
     COMPLETED = "completed"
     FAILED = "failed"
+    # Aliases for compatibility with code using CODE_ANALYSIS_* prefixed names
+    CODE_ANALYSIS_REQUESTED = "code_analysis_requested"
+    CODE_ANALYSIS_COMPLETED = "code_analysis_completed"
+    CODE_ANALYSIS_FAILED = "code_analysis_failed"
 
 
 class ModelCodeAnalysisRequestPayload(BaseModel):
@@ -190,6 +261,10 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
         default=None,
         description="Type of analysis operation to perform",
     )
+    language: str = Field(default="python", description="Programming language of the content")
+    options: dict[str, Any] = Field(default_factory=dict, description="Operation options")
+    project_id: str | None = Field(default=None, description="Project identifier")
+    user_id: str | None = Field(default=None, description="User identifier")
 
 
 class ModelCodeAnalysisCompletedPayload(BaseModel):
@@ -201,6 +276,27 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
         pattern=UUID_PATTERN,
     )
     result: dict[str, Any] = Field(default_factory=dict)
+    source_path: str = Field(default="", description="Path to the analyzed source")
+    quality_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Quality score")
+    onex_compliance: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="ONEX compliance score"
+    )
+    issues_count: int = Field(default=0, ge=0, description="Number of issues found")
+    recommendations_count: int = Field(
+        default=0, ge=0, description="Number of recommendations"
+    )
+    processing_time_ms: float = Field(default=0.0, ge=0.0, description="Processing time in ms")
+    operation_type: EnumAnalysisOperationType | None = Field(
+        default=None, description="Type of analysis performed"
+    )
+    complexity_score: float | None = Field(default=None, description="Complexity score")
+    maintainability_score: float | None = Field(
+        default=None, description="Maintainability score"
+    )
+    results_summary: dict[str, Any] = Field(
+        default_factory=dict, description="Summary of results"
+    )
+    cache_hit: bool = Field(default=False, description="Whether result was cached")
 
 
 class ModelCodeAnalysisFailedPayload(BaseModel):
@@ -213,14 +309,65 @@ class ModelCodeAnalysisFailedPayload(BaseModel):
     )
     error_code: str = Field(default="", min_length=0)
     error_message: str = Field(default="", min_length=0)
+    operation_type: EnumAnalysisOperationType | None = Field(
+        default=None, description="Type of analysis that failed"
+    )
+    source_path: str = Field(default="", description="Path to the source that was analyzed")
+    retry_allowed: bool = Field(default=True, description="Whether retry is allowed")
+    processing_time_ms: float = Field(default=0.0, ge=0.0, description="Processing time in ms")
+    error_details: str | None = Field(default=None, description="Detailed error information")
+    suggested_action: str | None = Field(default=None, description="Suggested action to resolve")
 
 
 class IntelligenceAdapterEventHelpers:
     """Stub helpers for event creation."""
 
+    # Kafka topic mapping
+    _TOPIC_MAP: dict[EnumCodeAnalysisEventType, str] = {
+        EnumCodeAnalysisEventType.REQUESTED: "dev.archon-intelligence.intelligence.code-analysis-requested.v1",
+        EnumCodeAnalysisEventType.COMPLETED: "dev.archon-intelligence.intelligence.code-analysis-completed.v1",
+        EnumCodeAnalysisEventType.FAILED: "dev.archon-intelligence.intelligence.code-analysis-failed.v1",
+        EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED: "dev.archon-intelligence.intelligence.code-analysis-requested.v1",
+        EnumCodeAnalysisEventType.CODE_ANALYSIS_COMPLETED: "dev.archon-intelligence.intelligence.code-analysis-completed.v1",
+        EnumCodeAnalysisEventType.CODE_ANALYSIS_FAILED: "dev.archon-intelligence.intelligence.code-analysis-failed.v1",
+    }
+
+    @staticmethod
+    def deserialize_event(raw_event: bytes | str) -> dict[str, Any]:
+        """Deserialize a Kafka event from bytes or string."""
+        import json
+
+        if isinstance(raw_event, bytes):
+            raw_event = raw_event.decode("utf-8")
+        return json.loads(raw_event)
+
+    @staticmethod
+    def get_kafka_topic(event_type: EnumCodeAnalysisEventType) -> str:
+        """Get the Kafka topic for an event type."""
+        return IntelligenceAdapterEventHelpers._TOPIC_MAP.get(
+            event_type, f"unknown-topic-{event_type.value}"
+        )
+
     @staticmethod
     def create_completed_event(correlation_id: str, result: Any) -> dict[str, Any]:
         return {"correlation_id": correlation_id, "result": result}
+
+    @staticmethod
+    def create_analysis_completed_event(
+        payload: ModelCodeAnalysisCompletedPayload,
+        correlation_id: UUID,
+        causation_id: UUID | None = None,
+    ) -> dict[str, Any]:
+        """Create a completion event envelope."""
+        from datetime import datetime
+
+        return {
+            "event_type": EnumCodeAnalysisEventType.CODE_ANALYSIS_COMPLETED.value,
+            "correlation_id": str(correlation_id),
+            "causation_id": str(causation_id) if causation_id else None,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "payload": payload.model_dump(),
+        }
 
     @staticmethod
     def create_failed_event(
@@ -230,6 +377,23 @@ class IntelligenceAdapterEventHelpers:
             "correlation_id": correlation_id,
             "error_code": error_code,
             "error_message": error_message,
+        }
+
+    @staticmethod
+    def create_analysis_failed_event(
+        payload: ModelCodeAnalysisFailedPayload,
+        correlation_id: UUID,
+        causation_id: UUID | None = None,
+    ) -> dict[str, Any]:
+        """Create a failure event envelope."""
+        from datetime import datetime
+
+        return {
+            "event_type": EnumCodeAnalysisEventType.CODE_ANALYSIS_FAILED.value,
+            "correlation_id": str(correlation_id),
+            "causation_id": str(causation_id) if causation_id else None,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "payload": payload.model_dump(),
         }
 
 
@@ -1284,17 +1448,14 @@ class NodeIntelligenceAdapterEffect:
                         ts_value / 1000, tz=UTC
                     ).isoformat()
 
-            # Extract error type from exception class name
-            error_type_name = type(error).__name__
-            error_message = str(error)
-
             # Build DLQ payload with full context
+            # Error details extracted directly - no intermediate variables needed
             dlq_payload = {
                 "original_message": original_payload,
                 "error": {
-                    "message": error_message,
+                    "message": str(error),
                     "traceback": traceback.format_exc(),
-                    "error_type": error_type_name,
+                    "error_type": type(error).__name__,
                 },
                 "original_metadata": {
                     "topic": original_topic,

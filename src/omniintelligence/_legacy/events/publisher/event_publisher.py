@@ -57,8 +57,8 @@ except ImportError:
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 warnings.warn(
-    "Importing from omniintelligence._legacy.events.publisher is deprecated. "
-    "This module will be removed in a future version.",
+    "Importing from omniintelligence._legacy.events.publisher will be removed in v2.0.0. "
+    "Continue using _legacy.events.publisher until omniintelligence.events is released.",
     DeprecationWarning,
     stacklevel=2,
 )

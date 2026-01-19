@@ -32,6 +32,16 @@ operations:
       - success
       - patterns_matched
       - pattern_scores
+      - metadata
+# Metadata Model (for typed metadata in output)
+# =============================================
+# The output model uses ModelPatternMatchingMetadata for type-safe metadata
+# instead of dict[str, Any]. This provides structured status, message, and
+# tracking information for the matching operation.
+metadata_model:
+  name: "ModelPatternMatchingMetadata"
+  module: "omniintelligence.nodes.pattern_matching_compute.models"
+  description: "Typed metadata for pattern matching output (status, message, tracking_url, operation, etc.)"
 # Protocol Dependencies (Future)
 # ==============================
 # Status: Backlog - Phase 3 (v0.4.0)
