@@ -45,7 +45,7 @@ class NodeQualityScoringCompute(NodeCompute):
             _input_data: Typed input model for quality scoring (unused in stub).
 
         Returns:
-            Typed ModelQualityScoringOutput with success=True but default values.
+            Typed ModelQualityScoringOutput with success=False (stub) and default values.
             All contract-required fields are present: success, quality_score,
             dimensions, onex_compliant, recommendations, metadata.
         """
@@ -57,7 +57,7 @@ class NodeQualityScoringCompute(NodeCompute):
             stacklevel=2,
         )
         return ModelQualityScoringOutput(
-            success=True,
+            success=False,  # Stub: no actual computation performed
             quality_score=0.0,
             dimensions={},
             onex_compliant=False,

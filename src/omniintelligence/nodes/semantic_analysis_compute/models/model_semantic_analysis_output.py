@@ -63,7 +63,7 @@ class SemanticAnalysisMetadataDict(TypedDict, total=False):
     embedding_dimension: int
 
     # Request context
-    correlation_id: str
+    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
     timestamp_utc: str
 
 

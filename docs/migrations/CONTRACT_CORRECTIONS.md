@@ -11,7 +11,7 @@ version: "1.0.0"
 
 **CORRECT** (ModelSemVer):
 ```python
-from omnibase_core.models.versioning import ModelSemVer
+from omnibase_core.models.primitives.model_semver import ModelSemVer
 
 version = ModelSemVer(major=1, minor=0, patch=0)
 ```
@@ -815,48 +815,95 @@ operations:
 ### Using Correct Classes
 
 ```python
-from omnibase_core.models.versioning import ModelSemVer
-from omnibase_core.models.contracts import (
-    ModelNodeContract,
-    ModelSubcontract,
-    ModelOperationSpec,
-)
-from omnibase_core.models.metadata import (
-    ModelNodeMetadata,
-    ModelPerformanceTarget,
-)
+# Version management
+from omnibase_core.models.primitives.model_semver import ModelSemVer
+
+# Contract data
+from omnibase_core.models.core.model_node_contract_data import ModelNodeContractData
+
+# Node-type-specific subcontracts (use the appropriate one for your node type)
+from omnibase_core.models.contracts.subcontracts.model_compute_subcontract import ModelComputeSubcontract
+from omnibase_core.models.contracts.subcontracts.model_effect_subcontract import ModelEffectSubcontract
+from omnibase_core.models.contracts.subcontracts.model_fsm_subcontract import ModelFSMSubcontract
+
+# Operations (use the appropriate one for your node type)
+from omnibase_core.models.common.model_operation_data import ModelOperationData
+from omnibase_core.models.contracts.subcontracts.model_effect_operation import ModelEffectOperation
+
+# Node metadata
+from omnibase_core.models.node_metadata.model_node_metadata_info import ModelNodeMetadataInfo
+
+# Performance specifications
+from omnibase_core.models.contracts.model_performance_requirements import ModelPerformanceRequirements
+
+# Enums
 from omnibase_core.enums import (
-    EnumNodeType,
-    EnumCapability,
+    EnumNodeType,               # Specific node types (e.g., COMPUTE_GENERIC, EFFECT_GENERIC)
+    EnumNodeKind,               # High-level node classification (COMPUTE, EFFECT, REDUCER, ORCHESTRATOR)
+    # Node-type-specific capabilities (use the appropriate one for your node type)
+    EnumComputeCapability,      # For compute nodes
+    EnumEffectCapability,       # For effect nodes
+    EnumOrchestratorCapability, # For orchestrator nodes
+    EnumReducerCapability,      # For reducer nodes
 )
 
 # Version specification
 version = ModelSemVer(major=1, minor=0, patch=0)
 
-# Operation spec
-operation_spec = ModelOperationSpec(
-    operation_id="GENERATE_EMBEDDINGS",
-    description="Generate embeddings for text",
-    input_schema={...},
-    output_schema={...},
-    performance=ModelPerformanceTarget(
-        timeout_ms=10000,
-        target_p95_ms=1000,
-        target_p99_ms=2000
-    ),
-    pure=True
+# Contract data
+contract_data = ModelNodeContractData(
+    version=version,
+    # Additional contract fields as needed
 )
 
-# Node metadata
-metadata = ModelNodeMetadata(
-    node_name="vectorization_compute",
-    node_type=EnumNodeType.COMPUTE,
-    version=version,
-    capabilities=[
-        EnumCapability.PURE_COMPUTATION,
-        EnumCapability.BATCH_PROCESSING
-    ]
+# Performance requirements
+performance = ModelPerformanceRequirements(
+    single_operation_max_ms=10000,
+    batch_operation_max_s=60,
+    memory_limit_mb=512,
+    cpu_limit_percent=80,
 )
+
+# Node type classification examples
+# Use EnumNodeKind for high-level classification
+node_kind = EnumNodeKind.COMPUTE  # or EFFECT, REDUCER, ORCHESTRATOR
+
+# Use EnumNodeType for specific node types
+node_type = EnumNodeType.COMPUTE_GENERIC  # or EFFECT_GENERIC, REDUCER_GENERIC, etc.
+```
+
+### Node-Type-Specific Capabilities
+
+Use the appropriate capability enum for your node type:
+
+```python
+# For compute nodes
+from omnibase_core.enums import EnumComputeCapability
+capabilities = [
+    EnumComputeCapability.PURE_COMPUTATION,
+    EnumComputeCapability.BATCH_PROCESSING,
+]
+
+# For effect nodes
+from omnibase_core.enums import EnumEffectCapability
+capabilities = [
+    EnumEffectCapability.EXTERNAL_IO,
+    EnumEffectCapability.RETRY_SUPPORT,
+]
+
+# For orchestrator nodes
+from omnibase_core.enums import EnumOrchestratorCapability
+capabilities = [
+    EnumOrchestratorCapability.WORKFLOW_COORDINATION,
+    EnumOrchestratorCapability.COMPENSATION_LOGIC,
+]
+
+# For reducer nodes
+from omnibase_core.enums import EnumReducerCapability
+capabilities = [
+    EnumReducerCapability.FSM_MANAGEMENT,
+    EnumReducerCapability.INTENT_EMISSION,
+]
 ```
 
 ---
@@ -864,18 +911,29 @@ metadata = ModelNodeMetadata(
 ## Summary of Corrections
 
 ### ✅ Version Management
-- Use `ModelSemVer` with major/minor/patch fields
-- Never use version strings
+- Use `ModelSemVer` from `omnibase_core.models.primitives.model_semver`
+- Never use version strings - always use major/minor/patch fields
 
 ### ✅ Contract Structure
 - Main contract references subcontracts
 - Subcontracts: processing, management, monitoring
 - All version fields use ModelSemVer format
 
-### ✅ Model Classes
-- Use omnibase_core.models classes
-- Use omnibase_core.enums for type-safe enumerations
-- Use convenience classes for common patterns
+### ✅ Model Classes (Correct Import Paths)
+- **Version**: `omnibase_core.models.primitives.model_semver.ModelSemVer`
+- **Contract Data**: `omnibase_core.models.core.model_node_contract_data.ModelNodeContractData`
+- **Node Metadata**: `omnibase_core.models.node_metadata.model_node_metadata_info.ModelNodeMetadataInfo`
+- **Performance**: `omnibase_core.models.contracts.model_performance_requirements.ModelPerformanceRequirements`
+- **Subcontracts**: Use node-type-specific subcontracts from `omnibase_core.models.contracts.subcontracts.*`
+
+### ✅ Enum Classes (Correct Import Paths)
+- `EnumNodeType` from `omnibase_core.enums` - specific types (COMPUTE_GENERIC, EFFECT_GENERIC, etc.)
+- `EnumNodeKind` from `omnibase_core.enums` - high-level classification (COMPUTE, EFFECT, REDUCER, ORCHESTRATOR)
+- Node-type-specific capabilities (not a generic `EnumCapability` - that does not exist):
+  - `EnumComputeCapability` - for compute nodes
+  - `EnumEffectCapability` - for effect nodes
+  - `EnumOrchestratorCapability` - for orchestrator nodes
+  - `EnumReducerCapability` - for reducer nodes
 
 ### ✅ YAML Structure
 - Proper subcontract references

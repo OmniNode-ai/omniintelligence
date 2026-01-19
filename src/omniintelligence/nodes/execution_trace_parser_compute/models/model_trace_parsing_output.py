@@ -57,7 +57,7 @@ class ModelTimingData(BaseModel):
     )
     start_time: str | None = Field(default=None, description="Start timestamp")
     end_time: str | None = Field(default=None, description="End timestamp")
-    span_count: int | None = Field(default=None, description="Number of spans")
+    span_count: int | None = Field(default=None, ge=0, description="Number of spans")
     critical_path_ms: float | None = Field(
         default=None, description="Critical path duration in ms"
     )
@@ -81,9 +81,9 @@ class ModelTraceMetadata(BaseModel):
     source_format: str | None = Field(
         default=None, description="Source format of the trace"
     )
-    event_count: int | None = Field(default=None, description="Number of events parsed")
+    event_count: int | None = Field(default=None, ge=0, description="Number of events parsed")
     error_count: int | None = Field(
-        default=None, description="Number of errors extracted"
+        default=None, ge=0, description="Number of errors extracted"
     )
     warnings: list[str] = Field(
         default_factory=list, description="Parsing warnings"

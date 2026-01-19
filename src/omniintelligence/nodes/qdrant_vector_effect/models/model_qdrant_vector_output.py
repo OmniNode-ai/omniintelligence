@@ -43,6 +43,7 @@ class ModelQdrantVectorOutput(BaseModel):
     )
     vectors_processed: int = Field(
         default=0,
+        ge=0,
         description="Number of vectors processed",
     )
     search_results: list[VectorSearchResultDict] = Field(
@@ -52,6 +53,7 @@ class ModelQdrantVectorOutput(BaseModel):
     )
     deleted_count: int = Field(
         default=0,
+        ge=0,
         description="Number of vectors deleted",
     )
     metadata: QdrantOperationMetadataDict | None = Field(

@@ -7,74 +7,107 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 ## Node Architecture Summary
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│              INTELLIGENCE ORCHESTRATOR (Unified)                 │
-│               (NodeOmniAgentOrchestrator)                        │
-│                                                                   │
-│  Handles ALL Workflows via operation_type enum:                  │
-│  • DOCUMENT_INGESTION → document_ingestion_workflow             │
-│  • PATTERN_LEARNING → pattern_learning_workflow                 │
-│  • QUALITY_ASSESSMENT → quality_assessment_workflow             │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-         ▼               ▼               ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│  REDUCER    │  │   COMPUTE   │  │   EFFECTS   │
-│  (Unified)  │  │   (Pure)    │  │  (I/O)      │
-├─────────────┤  ├─────────────┤  ├─────────────┤
-│ Handles     │  │ Vectorize   │  │ Kafka       │
-│ ALL FSMs:   │  │ Extract     │  │ Qdrant      │
-│ • Ingest    │  │ Match       │  │ Memgraph    │
-│ • Pattern   │  │ Score       │  │ PostgreSQL  │
-│ • Quality   │  │ Analyze     │  │ API Gateway │
-│ via enum    │  │ Detect      │  │             │
-└─────────────┘  └─────────────┘  └─────────────┘
-       │                                  ▲
-       └──────────(intents)──────────────┘
+                           ORCHESTRATORS
+         ┌───────────────────────────────────────────────┐
+         │      NodeIntelligenceOrchestrator             │
+         │      NodePatternAssemblerOrchestrator         │
+         │                                               │
+         │  Handles ALL Workflows via operation_type:    │
+         │  - DOCUMENT_INGESTION                         │
+         │  - PATTERN_LEARNING                           │
+         │  - QUALITY_ASSESSMENT                         │
+         │  - PATTERN_ASSEMBLY                           │
+         └──────────────────────┬────────────────────────┘
+                                │
+            ┌───────────────────┼───────────────────┐
+            │                   │                   │
+            ▼                   ▼                   ▼
+   ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+   │     REDUCER     │ │     COMPUTE     │ │     EFFECTS     │
+   │    (Unified)    │ │     (Pure)      │ │      (I/O)      │
+   ├─────────────────┤ ├─────────────────┤ ├─────────────────┤
+   │ NodeIntelligence│ │ 11 Compute      │ │ 6 Effect        │
+   │ Reducer         │ │ Nodes           │ │ Nodes           │
+   │                 │ │                 │ │                 │
+   │ Handles ALL     │ │ - Vectorization │ │ - Kafka         │
+   │ FSMs via        │ │ - Entity Extr.  │ │ - Qdrant        │
+   │ fsm_type enum:  │ │ - Pattern Match │ │ - Memgraph      │
+   │ - INGESTION     │ │ - Quality Score │ │ - PostgreSQL    │
+   │ - PATTERN       │ │ - Semantic      │ │ - API Gateway   │
+   │ - QUALITY       │ │ - Intent Class. │ │ - Adapter       │
+   └─────────────────┘ └─────────────────┘ └─────────────────┘
+           │                                        ▲
+           └────────────(intents)───────────────────┘
 ```
 
 ---
 
-## Complete Node Inventory
+## Complete Node Inventory (20 Nodes)
 
-### 1 Unified Orchestrator Node
+### 2 Orchestrator Nodes
 
-| Node Name | Class | Purpose | Workflows Handled |
-|-----------|-------|---------|-------------------|
-| `intelligence_orchestrator` | NodeOmniAgentOrchestrator | **Coordinates ALL intelligence workflows via operation_type enum** | document_ingestion, pattern_learning, quality_assessment, semantic_enrichment |
+| Node Directory | Class Name | Purpose | Status |
+|----------------|------------|---------|--------|
+| `intelligence_orchestrator` | `NodeIntelligenceOrchestrator` | Coordinates ALL intelligence workflows via operation_type enum | Active |
+| `pattern_assembler_orchestrator` | `NodePatternAssemblerOrchestrator` | Coordinates pattern assembly workflows | Active |
 
 ### 1 Unified Reducer Node
 
-| Node Name | Class | FSMs Handled | Database Table |
-|-----------|-------|--------------|----------------|
-| `intelligence_reducer` | NodeOmniAgentReducer | **ALL FSMs via fsm_type enum:** INGESTION (RECEIVED → INDEXED), PATTERN_LEARNING (FOUNDATION → TRACEABILITY), QUALITY_ASSESSMENT (RAW → STORED) | `fsm_state` (unified) |
+| Node Directory | Class Name | FSMs Handled | Database Table | Status |
+|----------------|------------|--------------|----------------|--------|
+| `intelligence_reducer` | `NodeIntelligenceReducer` | **ALL FSMs via fsm_type enum:** INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT | `fsm_state` (unified) | Active |
 
-### 6 Compute Nodes
+### 11 Compute Nodes
 
-| Node Name | Class | Input Type | Output Type | Pure Function |
-|-----------|-------|------------|-------------|---------------|
-| `vectorization_compute` | NodeCompute | ModelVectorizationInput | ModelVectorizationOutput | text → embeddings |
-| `entity_extraction_compute` | NodeCompute | ModelEntityExtractionInput | ModelEntityExtractionOutput | code → entities |
-| `pattern_matching_compute` | NodeCompute | ModelPatternMatchingInput | ModelPatternMatchingOutput | code + patterns → matches |
-| `quality_scoring_compute` | NodeCompute | ModelQualityScoringInput | ModelQualityScoringOutput | metrics → score |
-| `semantic_analysis_compute` | NodeCompute | ModelSemanticAnalysisInput | ModelSemanticAnalysisOutput | code → semantic_features |
-| `relationship_detection_compute` | NodeCompute | ModelRelationshipDetectionInput | ModelRelationshipDetectionOutput | entities → relationships |
+| Node Directory | Class Name | Input Type | Output Type | Status |
+|----------------|------------|------------|-------------|--------|
+| `vectorization_compute` | `NodeVectorizationCompute` | ModelVectorizationInput | ModelVectorizationOutput | Active |
+| `entity_extraction_compute` | `NodeEntityExtractionCompute` | ModelEntityExtractionInput | ModelEntityExtractionOutput | Active |
+| `pattern_matching_compute` | `NodePatternMatchingCompute` | ModelPatternMatchingInput | ModelPatternMatchingOutput | Active |
+| `quality_scoring_compute` | `NodeQualityScoringCompute` | ModelQualityScoringInput | ModelQualityScoringOutput | Active |
+| `semantic_analysis_compute` | `NodeSemanticAnalysisCompute` | ModelSemanticAnalysisInput | ModelSemanticAnalysisOutput | Active |
+| `relationship_detection_compute` | `NodeRelationshipDetectionCompute` | ModelRelationshipDetectionInput | ModelRelationshipDetectionOutput | Active |
+| `context_keyword_extractor_compute` | `NodeContextKeywordExtractorCompute` | ModelContextKeywordInput | ModelContextKeywordOutput | Active |
+| `execution_trace_parser_compute` | `NodeExecutionTraceParserCompute` | ModelExecutionTraceInput | ModelExecutionTraceOutput | Active |
+| `success_criteria_matcher_compute` | `NodeSuccessCriteriaMatcherCompute` | ModelSuccessCriteriaInput | ModelSuccessCriteriaOutput | Active |
+| `intent_classifier_compute` | `NodeIntentClassifierCompute` | ModelIntentClassifierInput | ModelIntentClassifierOutput | Active |
+| `pattern_learning_compute` | `NodePatternLearningCompute` | ModelPatternLearningInput | ModelPatternLearningOutput | **Stub** |
 
-### 5 Effect Nodes
+### 6 Effect Nodes
 
-| Node Name | Class | Operations | External System |
-|-----------|-------|------------|-----------------|
-| `ingestion_effect` | NodeEffectService | PUBLISH_EVENT, CONSUME_EVENTS, PUBLISH_DLQ | Kafka/Redpanda |
-| `qdrant_vector_effect` | NodeEffectService | INDEX_VECTORS, SEARCH_VECTORS, DELETE_VECTORS | Qdrant |
-| `memgraph_graph_effect` | NodeEffectService | CREATE_NODES, CREATE_RELATIONSHIPS, QUERY_GRAPH | Memgraph |
-| `postgres_pattern_effect` | NodeEffectService | STORE_PATTERN, QUERY_PATTERNS, TRACK_LINEAGE, UPDATE_STATE | PostgreSQL |
-| `intelligence_api_effect` | NodeEffectService | HANDLE_REQUEST, STREAM_RESPONSE, BATCH_REQUEST | HTTP API |
+| Node Directory | Class Name | Operations | External System | Status |
+|----------------|------------|------------|-----------------|--------|
+| `ingestion_effect` | `NodeIngestionEffect` | PUBLISH_EVENT, CONSUME_EVENTS, PUBLISH_DLQ | Kafka/Redpanda | **Stub** |
+| `qdrant_vector_effect` | `NodeQdrantVectorEffect` | INDEX_VECTORS, SEARCH_VECTORS, DELETE_VECTORS | Qdrant | Active |
+| `memgraph_graph_effect` | `NodeMemgraphGraphEffect` | CREATE_NODES, CREATE_RELATIONSHIPS, QUERY_GRAPH | Memgraph | Active |
+| `postgres_pattern_effect` | `NodePostgresPatternEffect` | STORE_PATTERN, QUERY_PATTERNS, TRACK_LINEAGE, UPDATE_STATE | PostgreSQL | Active |
+| `intelligence_api_effect` | `NodeIntelligenceApiEffect` | HANDLE_REQUEST, STREAM_RESPONSE, BATCH_REQUEST | HTTP API | Active |
+| `intelligence_adapter` | `NodeIntelligenceAdapterEffect` | Adapter for external intelligence services | Multiple | Active |
+
+### Caching Strategy
+
+> **Note**: There is **no dedicated `valkey_cache` effect node**. Caching is handled through the **intent system**:
+>
+> - Reducers emit `CACHE_WRITE` and `CACHE_READ` intents
+> - The orchestrator routes these intents to the appropriate effect node
+> - This decouples caching logic from business logic and maintains reducer purity
+
+Example intent for caching:
+```python
+ModelIntent(
+    intent_type=EnumIntentType.CACHE_WRITE,
+    target="cache_handler",  # Resolved by orchestrator
+    payload={
+        "key": "quality:file:/src/main.py",
+        "value": {"score": 8.5, "dimensions": {...}},
+        "ttl_seconds": 300
+    }
+)
+```
 
 ---
 
-## Omniarchon → ONEX Mapping
+## Omniarchon to ONEX Mapping
 
 ### Intelligence Service APIs (78 endpoints)
 
@@ -83,9 +116,9 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 | **Bridge Intelligence** | 3 | `intelligence_api_effect` | Effect | HTTP endpoints |
 | **Code Intelligence** | 4 | `entity_extraction_compute` | Compute | Pure extraction |
 | **Pattern Learning (Phase 2)** | 7 | `pattern_matching_compute` | Compute | Pure matching |
-| **Pattern Traceability (Phase 4)** | 11 | `pattern_learning_reducer` | Reducer | FSM with lineage |
+| **Pattern Traceability (Phase 4)** | 11 | `intelligence_reducer` | Reducer | FSM with lineage (via fsm_type) |
 | **Quality Scoring** | 6 | `quality_scoring_compute` | Compute | Pure scoring |
-| **Performance Optimization** | 5 | `quality_assessment_reducer` | Reducer | FSM with analysis |
+| **Performance Optimization** | 5 | `intelligence_reducer` | Reducer | FSM with analysis (via fsm_type) |
 | **Document Freshness** | 9 | `intelligence_orchestrator` | Orchestrator | Workflow coordination |
 | **Pattern Analytics** | 5 | `intelligence_api_effect` | Effect | Analytics API |
 | **Custom Quality Rules** | 8 | `quality_scoring_compute` | Compute | Rule evaluation |
@@ -95,17 +128,19 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 ### Event Handlers (20 handlers)
 
-| Omniarchon Handler | ONEX Node | Processing Pattern |
-|--------------------|-----------|-------------------|
-| `QualityAssessmentHandler` | `intelligence_reducer` | FSM_TYPE.QUALITY_ASSESSMENT: RAW → SCORED |
-| `PatternLearningHandler` | `intelligence_reducer` | FSM_TYPE.PATTERN_LEARNING: FOUNDATION → TRACEABILITY |
-| `DocumentProcessingHandler` | `intelligence_reducer` | FSM_TYPE.INGESTION: RECEIVED → INDEXED |
-| `PerformanceHandler` | `intelligence_reducer` | FSM_TYPE.QUALITY_ASSESSMENT with metrics |
-| `FreshnessHandler` | `intelligence_reducer` | FSM_TYPE.INGESTION state update |
-| `PatternTraceabilityHandler` | `intelligence_reducer` | FSM_TYPE.PATTERN_LEARNING lineage tracking |
-| `CodegenValidationHandler` | `quality_scoring_compute` | Pure validation |
-| `AutonomousLearningHandler` | `pattern_matching_compute` | Pure learning |
-| All other handlers | `intelligence_orchestrator` | Workflow steps |
+All event handlers route through the **unified reducer** (`NodeIntelligenceReducer`) using the `fsm_type` enum:
+
+| Omniarchon Handler | FSM Type | Processing Pattern |
+|--------------------|----------|-------------------|
+| `QualityAssessmentHandler` | `FSM_TYPE.QUALITY_ASSESSMENT` | RAW -> ANALYZED -> SCORED -> STORED -> COMPLETED |
+| `PatternLearningHandler` | `FSM_TYPE.PATTERN_LEARNING` | FOUNDATION -> MATCHING -> VALIDATION -> TRACEABILITY -> COMPLETED |
+| `DocumentProcessingHandler` | `FSM_TYPE.INGESTION` | RECEIVED -> PARSED -> VECTORIZED -> INDEXED -> COMPLETED |
+| `PerformanceHandler` | `FSM_TYPE.QUALITY_ASSESSMENT` | With metrics enrichment |
+| `FreshnessHandler` | `FSM_TYPE.INGESTION` | State update for freshness |
+| `PatternTraceabilityHandler` | `FSM_TYPE.PATTERN_LEARNING` | Lineage tracking |
+| `CodegenValidationHandler` | N/A (Compute) | Routes to `quality_scoring_compute` |
+| `AutonomousLearningHandler` | N/A (Compute) | Routes to `pattern_matching_compute` |
+| All other handlers | Workflow | Routes to `intelligence_orchestrator` |
 
 ### Kafka Topics (8 topics)
 
@@ -113,10 +148,10 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 |-------|---------------|---------------|---------|
 | `enrichment.requested.v1` | `ingestion_effect` | `intelligence_orchestrator` | Trigger ingestion workflow |
 | `code-analysis.requested.v1` | `ingestion_effect` | `intelligence_orchestrator` | Trigger analysis workflow |
-| `quality.assessed.v1` | `quality_assessment_reducer` | `intelligence_api_effect` | Quality results |
-| `pattern.matched.v1` | `pattern_learning_reducer` | `postgres_pattern_effect` | Pattern results |
+| `quality.assessed.v1` | `intelligence_reducer` | `intelligence_api_effect` | Quality results |
+| `pattern.matched.v1` | `intelligence_reducer` | `postgres_pattern_effect` | Pattern results |
 | `tree.discover.v1` | External | `intelligence_orchestrator` | Tree discovery trigger |
-| `tree.index.v1` | External | `ingestion_reducer` | Tree indexing trigger |
+| `tree.index.v1` | External | `intelligence_reducer` | Tree indexing trigger |
 | `stamping.generate.v1` | External | `intelligence_orchestrator` | ONEX stamping trigger |
 | `*.failed.v1` | Any reducer | `ingestion_effect` | DLQ for failures |
 
@@ -127,7 +162,7 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 | **Qdrant** | Vector search, 2+ collections | `qdrant_vector_effect` | INDEX_VECTORS, SEARCH_VECTORS, DELETE_VECTORS, CREATE_COLLECTION |
 | **Memgraph** | Knowledge graph, 7+ node types | `memgraph_graph_effect` | CREATE_NODES, CREATE_RELATIONSHIPS, QUERY_GRAPH, TRAVERSE_PATH |
 | **PostgreSQL** | Pattern traceability, lineage | `postgres_pattern_effect` | STORE_PATTERN, QUERY_PATTERNS, TRACK_LINEAGE, UPDATE_STATE |
-| **Valkey** | Cache (512MB LRU, 300s TTL) | Intent: CACHE_WRITE/READ | Via intents from reducers |
+| **Valkey/Redis** | Cache (512MB LRU, 300s TTL) | **Via Intents** | CACHE_WRITE, CACHE_READ (emitted by reducers, handled by effect system) |
 
 ---
 
@@ -138,25 +173,25 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 **Omniarchon Flow**:
 ```
 Kafka enrichment.requested.v1
-  → IntelligenceConsumer._process_enrichment_event()
-    → DocumentProcessingHandler
-      → Entity extraction
-      → Vectorization
-      → Qdrant indexing
-      → Memgraph storage
-        → Publish completion event
+  -> IntelligenceConsumer._process_enrichment_event()
+    -> DocumentProcessingHandler
+      -> Entity extraction
+      -> Vectorization
+      -> Qdrant indexing
+      -> Memgraph storage
+        -> Publish completion event
 ```
 
 **ONEX Flow**:
 ```
 Kafka enrichment.requested.v1
-  → intelligence_orchestrator (operation_type: DOCUMENT_INGESTION)
-    Step 1: entity_extraction_compute (code → entities)
-    Step 2: vectorization_compute (text → embeddings)
-    Step 3: intelligence_reducer (fsm_type: INGESTION, RECEIVED → PARSED)
-    Step 4: qdrant_vector_effect (INDEX_VECTORS)
-    Step 5: memgraph_graph_effect (CREATE_NODES)
-    Step 6: intelligence_reducer (fsm_type: INGESTION, PARSED → INDEXED)
+  -> NodeIntelligenceOrchestrator (operation_type: DOCUMENT_INGESTION)
+    Step 1: NodeEntityExtractionCompute (code -> entities)
+    Step 2: NodeVectorizationCompute (text -> embeddings)
+    Step 3: NodeIntelligenceReducer (fsm_type: INGESTION, RECEIVED -> PARSED)
+    Step 4: NodeQdrantVectorEffect (INDEX_VECTORS)
+    Step 5: NodeMemgraphGraphEffect (CREATE_NODES)
+    Step 6: NodeIntelligenceReducer (fsm_type: INGESTION, PARSED -> INDEXED)
     Step 7: ingestion_effect (PUBLISH_EVENT: completion)
 ```
 
@@ -172,17 +207,17 @@ Phase 4: PatternTraceabilityHandler tracks lineage
 
 **ONEX Flow**:
 ```
-intelligence_orchestrator (operation_type: PATTERN_LEARNING)
-  Step 1: intelligence_reducer (fsm_type: PATTERN_LEARNING, INIT → FOUNDATION)
-    → Intent: DATA_FETCH (load foundation patterns)
-  Step 2: pattern_matching_compute (code + patterns → matches)
-  Step 3: intelligence_reducer (fsm_type: PATTERN_LEARNING, FOUNDATION → MATCHING)
-    → Intent: STATE_UPDATE (store matches)
-  Step 4: quality_scoring_compute (validate pattern quality)
-  Step 5: intelligence_reducer (fsm_type: PATTERN_LEARNING, MATCHING → VALIDATION)
-  Step 6: postgres_pattern_effect (TRACK_LINEAGE)
-  Step 7: intelligence_reducer (fsm_type: PATTERN_LEARNING, VALIDATION → TRACEABILITY)
-    → Intent: EVENT_PUBLISH (pattern.completed.v1)
+NodeIntelligenceOrchestrator (operation_type: PATTERN_LEARNING)
+  Step 1: NodeIntelligenceReducer (fsm_type: PATTERN_LEARNING, INIT -> FOUNDATION)
+    -> Intent: DATA_FETCH (load foundation patterns)
+  Step 2: NodePatternMatchingCompute (code + patterns -> matches)
+  Step 3: NodeIntelligenceReducer (fsm_type: PATTERN_LEARNING, FOUNDATION -> MATCHING)
+    -> Intent: STATE_UPDATE (store matches)
+  Step 4: NodeQualityScoringCompute (validate pattern quality)
+  Step 5: NodeIntelligenceReducer (fsm_type: PATTERN_LEARNING, MATCHING -> VALIDATION)
+  Step 6: NodePostgresPatternEffect (TRACK_LINEAGE)
+  Step 7: NodeIntelligenceReducer (fsm_type: PATTERN_LEARNING, VALIDATION -> TRACEABILITY)
+    -> Intent: EVENT_PUBLISH (pattern.completed.v1)
 ```
 
 ### 3. Quality Assessment Workflow
@@ -190,25 +225,25 @@ intelligence_orchestrator (operation_type: PATTERN_LEARNING)
 **Omniarchon Flow**:
 ```
 POST /assess/code
-  → QualityAssessmentHandler
-    → Quality scoring
-    → ONEX compliance check
-    → Store trends
-      → Return quality report
+  -> QualityAssessmentHandler
+    -> Quality scoring
+    -> ONEX compliance check
+    -> Store trends
+      -> Return quality report
 ```
 
 **ONEX Flow**:
 ```
-intelligence_orchestrator (operation_type: QUALITY_ASSESSMENT)
-  Step 1: quality_scoring_compute (metrics → score)
-  Step 2: intelligence_reducer (fsm_type: QUALITY_ASSESSMENT, RAW → ANALYZED)
-    → Intent: STATE_UPDATE (store metrics)
-  Step 3: semantic_analysis_compute (code → features)
-  Step 4: intelligence_reducer (fsm_type: QUALITY_ASSESSMENT, ANALYZED → SCORED)
-    → Intent: CACHE_WRITE (cache score, TTL 300s)
-  Step 5: postgres_pattern_effect (UPDATE_STATE: store trends)
-  Step 6: intelligence_reducer (fsm_type: QUALITY_ASSESSMENT, SCORED → COMPLETED)
-    → Intent: EVENT_PUBLISH (quality.assessed.v1)
+NodeIntelligenceOrchestrator (operation_type: QUALITY_ASSESSMENT)
+  Step 1: NodeQualityScoringCompute (metrics -> score)
+  Step 2: NodeIntelligenceReducer (fsm_type: QUALITY_ASSESSMENT, RAW -> ANALYZED)
+    -> Intent: STATE_UPDATE (store metrics)
+  Step 3: NodeSemanticAnalysisCompute (code -> features)
+  Step 4: NodeIntelligenceReducer (fsm_type: QUALITY_ASSESSMENT, ANALYZED -> SCORED)
+    -> Intent: CACHE_WRITE (cache score, TTL 300s)
+  Step 5: NodePostgresPatternEffect (UPDATE_STATE: store trends)
+  Step 6: NodeIntelligenceReducer (fsm_type: QUALITY_ASSESSMENT, SCORED -> COMPLETED)
+    -> Intent: EVENT_PUBLISH (quality.assessed.v1)
 ```
 
 ---
@@ -267,13 +302,13 @@ await self.resume_workflow(
 )
 ```
 
-### Example 3: Quality Reducer Cache Write
+### Example 3: Quality Reducer Cache Write (via Intent)
 
 **Reducer emits**:
 ```python
 ModelIntent(
     intent_type=EnumIntentType.CACHE_WRITE,
-    target="valkey_cache",
+    target="cache_handler",  # Resolved by orchestrator to appropriate effect
     payload={
         "key": "quality:file:/src/main.py",
         "value": {"score": 8.5, "dimensions": {...}},
@@ -282,14 +317,7 @@ ModelIntent(
 )
 ```
 
-**Cache effect executes**:
-```python
-await redis.setex(
-    "quality:file:/src/main.py",
-    300,
-    json.dumps({"score": 8.5, "dimensions": {...}})
-)
-```
+**Note**: The cache intent is routed by the orchestrator to the appropriate cache handler. There is no dedicated `valkey_cache` effect node - caching is managed through the intent system to maintain separation of concerns.
 
 ---
 
@@ -298,11 +326,14 @@ await redis.setex(
 ### Orchestrator Contract
 
 ```yaml
-# src/omniintelligence/nodes/intelligence_orchestrator/v1_0_0/contracts/orchestrator_contract.yaml
+# src/omniintelligence/nodes/intelligence_orchestrator/contracts/orchestrator_contract.yaml
 
 node_type: orchestrator
 node_name: intelligence_orchestrator
-version: 1.0.0
+version:
+  major: 1
+  minor: 0
+  patch: 0
 
 workflows:
   - workflow_id: document_ingestion_workflow
@@ -322,16 +353,34 @@ capabilities:
   - MULTI_STEP_ORCHESTRATION
   - LEASE_MANAGEMENT
   - COMPENSATION_LOGIC
+
+python_version:
+  min:
+    major: 3
+    minor: 12
+    patch: 0
+  max:
+    major: 3
+    minor: 13
+    patch: 0
+
+onex_version:
+  major: 4
+  minor: 0
+  patch: 0
 ```
 
 ### Unified Reducer Contract
 
 ```yaml
-# src/omniintelligence/nodes/intelligence_reducer/v1_0_0/contracts/reducer_contract.yaml
+# src/omniintelligence/nodes/intelligence_reducer/contracts/reducer_contract.yaml
 
 node_type: reducer
 node_name: intelligence_reducer
-version: 1.0.0
+version:
+  major: 1
+  minor: 0
+  patch: 0
 
 fsm_types:
   - INGESTION
@@ -415,16 +464,34 @@ intents_emitted:
 purity_guarantee: true
 state_persistence: database
 unified_table: fsm_state
+
+python_version:
+  min:
+    major: 3
+    minor: 12
+    patch: 0
+  max:
+    major: 3
+    minor: 13
+    patch: 0
+
+onex_version:
+  major: 4
+  minor: 0
+  patch: 0
 ```
 
 ### Compute Contract
 
 ```yaml
-# src/omniintelligence/nodes/vectorization_compute/v1_0_0/contracts/compute_contract.yaml
+# src/omniintelligence/nodes/vectorization_compute/contracts/compute_contract.yaml
 
 node_type: compute
 node_name: vectorization_compute
-version: 1.0.0
+version:
+  major: 1
+  minor: 0
+  patch: 0
 
 operations:
   - operation_id: GENERATE_EMBEDDINGS
@@ -447,16 +514,30 @@ performance_targets:
   - operation: BATCH_VECTORIZE
     p95_ms: 5000
     p99_ms: 10000
+
+python_version:
+  min:
+    major: 3
+    minor: 12
+    patch: 0
+
+onex_version:
+  major: 4
+  minor: 0
+  patch: 0
 ```
 
 ### Effect Contract
 
 ```yaml
-# src/omniintelligence/nodes/ingestion_effect/v1_0_0/contracts/effect_contract.yaml
+# src/omniintelligence/nodes/ingestion_effect/contracts/effect_contract.yaml
 
 node_type: effect
 node_name: ingestion_effect
-version: 1.0.0
+version:
+  major: 1
+  minor: 0
+  patch: 0
 
 operations:
   - operation_id: PUBLISH_EVENT
@@ -482,6 +563,17 @@ external_dependencies:
     endpoints:
       - omninode-bridge-redpanda:9092
     health_check: /health
+
+python_version:
+  min:
+    major: 3
+    minor: 12
+    patch: 0
+
+onex_version:
+  major: 4
+  minor: 0
+  patch: 0
 ```
 
 ---
@@ -490,106 +582,166 @@ external_dependencies:
 
 ```
 src/omniintelligence/nodes/
-├── intelligence_orchestrator/
-│   └── v1_0_0/
-│       ├── node.py                          # NodeOmniAgentOrchestrator (unified)
-│       ├── models/
-│       │   ├── input.py                     # ModelOrchestratorInput
-│       │   ├── output.py                    # ModelOrchestratorOutput
-│       │   └── config.py                    # ModelOrchestratorConfig
-│       ├── enums/
-│       │   └── operation_type.py            # EnumOperationType (routing enum)
-│       ├── contracts/
-│       │   ├── orchestrator_contract.yaml
-│       │   └── workflows/
-│       │       ├── document_ingestion.yaml
-│       │       ├── pattern_learning.yaml
-│       │       └── quality_assessment.yaml
-│       ├── workflows/
-│       │   ├── base_workflow.py
-│       │   ├── document_ingestion.py
-│       │   ├── pattern_learning.py
-│       │   └── quality_assessment.py
-│       └── utils/
-│           ├── workflow_loader.py
-│           └── lease_manager.py
-│
-├── intelligence_reducer/
-│   └── v1_0_0/
-│       ├── node.py                          # NodeOmniAgentReducer (unified)
-│       ├── models/
-│       │   ├── input.py                     # ModelReducerInput
-│       │   ├── output.py                    # ModelReducerOutput
-│       │   └── config.py                    # ModelReducerConfig
-│       ├── enums/
-│       │   ├── fsm_type.py                  # EnumFSMType (routing enum)
-│       │   ├── ingestion_state.py           # EnumIngestionState
-│       │   ├── pattern_state.py             # EnumPatternLearningState
-│       │   └── quality_state.py             # EnumQualityState
-│       ├── contracts/
-│       │   └── reducer_contract.yaml
-│       └── utils/
-│           ├── ingestion_fsm.py             # Pure ingestion logic
-│           ├── pattern_fsm.py               # Pure pattern logic
-│           └── quality_fsm.py               # Pure quality logic
-│
-├── vectorization_compute/
-│   └── v1_0_0/
-│       ├── node.py                          # NodeCompute
-│       ├── models/
-│       ├── enums/
-│       ├── contracts/
-│       └── utils/
-│           └── embedding_generator.py       # Pure function
-│
-└── ingestion_effect/
-    └── v1_0_0/
-        ├── node.py                          # NodeEffectService
-        ├── models/
-        ├── enums/
-        ├── contracts/
-        └── utils/
-            ├── producer.py
-            └── consumer.py
+|-- __init__.py                           # Exports all 20 nodes
+|
+|-- # ORCHESTRATORS (2)
+|-- intelligence_orchestrator/
+|   |-- node.py                           # NodeIntelligenceOrchestrator
+|   |-- models/
+|   |   |-- model_orchestrator_input.py
+|   |   |-- model_orchestrator_output.py
+|   |   `-- __init__.py
+|   |-- contracts/
+|   `-- __init__.py
+|
+|-- pattern_assembler_orchestrator/
+|   |-- node.py                           # NodePatternAssemblerOrchestrator
+|   |-- models/
+|   `-- __init__.py
+|
+|-- # REDUCERS (1 unified)
+|-- intelligence_reducer/
+|   |-- node.py                           # NodeIntelligenceReducer (handles ALL FSMs)
+|   |-- models/
+|   |   |-- model_reducer_input.py
+|   |   |-- model_reducer_output.py
+|   |   `-- __init__.py
+|   |-- contracts/
+|   `-- __init__.py
+|
+|-- # COMPUTE NODES (11)
+|-- vectorization_compute/
+|   |-- node.py                           # NodeVectorizationCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- entity_extraction_compute/
+|   |-- node.py                           # NodeEntityExtractionCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- pattern_matching_compute/
+|   |-- node.py                           # NodePatternMatchingCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- pattern_learning_compute/             # STUB - not yet implemented
+|   |-- node.py                           # NodePatternLearningCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- quality_scoring_compute/
+|   |-- node.py                           # NodeQualityScoringCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- semantic_analysis_compute/
+|   |-- node.py                           # NodeSemanticAnalysisCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- relationship_detection_compute/
+|   |-- node.py                           # NodeRelationshipDetectionCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- context_keyword_extractor_compute/
+|   |-- node.py                           # NodeContextKeywordExtractorCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- execution_trace_parser_compute/
+|   |-- node.py                           # NodeExecutionTraceParserCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- success_criteria_matcher_compute/
+|   |-- node.py                           # NodeSuccessCriteriaMatcherCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- intent_classifier_compute/
+|   |-- node.py                           # NodeIntentClassifierCompute
+|   |-- models/
+|   `-- __init__.py
+|
+|-- # EFFECT NODES (6)
+|-- ingestion_effect/                     # STUB - not yet implemented
+|   |-- node.py                           # NodeIngestionEffect
+|   |-- models/
+|   `-- __init__.py
+|
+|-- qdrant_vector_effect/
+|   |-- node.py                           # NodeQdrantVectorEffect
+|   |-- models/
+|   `-- __init__.py
+|
+|-- memgraph_graph_effect/
+|   |-- node.py                           # NodeMemgraphGraphEffect
+|   |-- models/
+|   `-- __init__.py
+|
+|-- postgres_pattern_effect/
+|   |-- node.py                           # NodePostgresPatternEffect
+|   |-- models/
+|   `-- __init__.py
+|
+|-- intelligence_api_effect/
+|   |-- node.py                           # NodeIntelligenceApiEffect
+|   |-- models/
+|   `-- __init__.py
+|
+`-- intelligence_adapter/
+    |-- node_intelligence_adapter_effect.py  # NodeIntelligenceAdapterEffect
+    |-- contract.yaml
+    `-- __init__.py
 ```
 
 ---
 
 ## Migration Checklist
 
-### Phase 1: Foundation
-- [ ] All node directories created
+### Phase 1: Foundation (Complete)
+- [x] All node directories created
+- [x] Node base classes implemented
+- [x] Shared models and enums implemented
+- [x] Intent routing system implemented
 - [ ] All contract YAML files defined
-- [ ] Shared models and enums implemented
 - [ ] Database schemas created
-- [ ] Intent routing system implemented
 
-### Phase 2: Compute Nodes
-- [ ] Vectorization compute
-- [ ] Entity extraction compute
-- [ ] Pattern matching compute
-- [ ] Quality scoring compute
-- [ ] Semantic analysis compute
-- [ ] Relationship detection compute
+### Phase 2: Compute Nodes (10/11 Active)
+- [x] `vectorization_compute` - NodeVectorizationCompute
+- [x] `entity_extraction_compute` - NodeEntityExtractionCompute
+- [x] `pattern_matching_compute` - NodePatternMatchingCompute
+- [x] `quality_scoring_compute` - NodeQualityScoringCompute
+- [x] `semantic_analysis_compute` - NodeSemanticAnalysisCompute
+- [x] `relationship_detection_compute` - NodeRelationshipDetectionCompute
+- [x] `context_keyword_extractor_compute` - NodeContextKeywordExtractorCompute
+- [x] `execution_trace_parser_compute` - NodeExecutionTraceParserCompute
+- [x] `success_criteria_matcher_compute` - NodeSuccessCriteriaMatcherCompute
+- [x] `intent_classifier_compute` - NodeIntentClassifierCompute
+- [ ] `pattern_learning_compute` - NodePatternLearningCompute (STUB)
 
-### Phase 3: Effect Nodes
-- [ ] Kafka event effect
-- [ ] Qdrant vector effect
-- [ ] Memgraph graph effect
-- [ ] PostgreSQL pattern effect
-- [ ] Intelligence API effect
+### Phase 3: Effect Nodes (5/6 Active)
+- [x] `qdrant_vector_effect` - NodeQdrantVectorEffect
+- [x] `memgraph_graph_effect` - NodeMemgraphGraphEffect
+- [x] `postgres_pattern_effect` - NodePostgresPatternEffect
+- [x] `intelligence_api_effect` - NodeIntelligenceApiEffect
+- [x] `intelligence_adapter` - NodeIntelligenceAdapterEffect
+- [ ] `ingestion_effect` - NodeIngestionEffect (STUB)
 
-### Phase 4: Unified Reducer
-- [ ] Intelligence reducer (unified, pure FSM)
-- [ ] Ingestion FSM (within unified reducer)
-- [ ] Pattern learning FSM (within unified reducer)
-- [ ] Quality assessment FSM (within unified reducer)
-- [ ] FSM routing via fsm_type enum
+### Phase 4: Unified Reducer (Complete)
+- [x] `intelligence_reducer` - NodeIntelligenceReducer (unified, pure FSM)
+- [x] INGESTION FSM (within unified reducer)
+- [x] PATTERN_LEARNING FSM (within unified reducer)
+- [x] QUALITY_ASSESSMENT FSM (within unified reducer)
+- [x] FSM routing via fsm_type enum
 
-### Phase 5: Unified Orchestrator
-- [ ] Intelligence orchestrator
+### Phase 5: Orchestrators (Complete)
+- [x] `intelligence_orchestrator` - NodeIntelligenceOrchestrator
+- [x] `pattern_assembler_orchestrator` - NodePatternAssemblerOrchestrator
 - [ ] Llama Index workflow integration
-- [ ] All 3 workflows implemented
+- [ ] All workflows implemented
 - [ ] Lease management
 - [ ] Compensation logic
 
@@ -613,21 +765,24 @@ python -m omnibase_core.scripts.generate_node \
   --output src/omniintelligence/nodes
 
 # Run tests for specific node
-pytest src/omniintelligence/nodes/ingestion_reducer/v1_0_0/node_tests/
+pytest src/omniintelligence/nodes/intelligence_reducer/ -v
 
 # Validate contracts
 python -m omnibase_core.validators.contract_validator \
-  --contract src/omniintelligence/nodes/intelligence_orchestrator/v1_0_0/contracts/orchestrator_contract.yaml
+  --contract src/omniintelligence/nodes/intelligence_orchestrator/contracts/orchestrator_contract.yaml
 
 # Run integration tests
 pytest tests/integration/test_document_ingestion_workflow.py
 
 # Performance benchmarks
 pytest -m performance tests/performance/
+
+# List all nodes
+python -c "from omniintelligence.nodes import __all__; print('\n'.join(sorted(__all__)))"
 ```
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-14
-**Related**: [ONEX Migration Plan](./ONEX_MIGRATION_PLAN.md), [Omniarchon Inventory](../../OMNIARCHON_MIGRATION_INVENTORY.md)
+**Document Version**: 2.0
+**Last Updated**: 2026-01-19
+**Related**: [ONEX Migration Plan](./ONEX_MIGRATION_PLAN.md), [Contract Corrections](./CONTRACT_CORRECTIONS.md), [Omniarchon Inventory](../../OMNIARCHON_MIGRATION_INVENTORY.md)

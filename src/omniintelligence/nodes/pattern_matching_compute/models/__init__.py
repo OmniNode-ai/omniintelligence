@@ -6,12 +6,14 @@ from omniintelligence.nodes.pattern_matching_compute.models.model_pattern_matchi
     PatternMatchingOperation,
 )
 from omniintelligence.nodes.pattern_matching_compute.models.model_pattern_matching_output import (
+    ModelPatternMatchingMetadata,
     ModelPatternMatchingOutput,
 )
 
 __all__ = [
     "ModelPatternContext",
     "ModelPatternMatchingInput",
+    "ModelPatternMatchingMetadata",
     "ModelPatternMatchingOutput",
     "PatternMatchingOperation",
 ]

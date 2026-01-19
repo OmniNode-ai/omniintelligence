@@ -53,11 +53,12 @@ operations:
 # =============================================================================
 # TODO(#13): Protocol Integration - QualityAnalyzerProtocol
 # =============================================================================
-# Status: PENDING - Phase 3 (v0.4.0)
+# Status: Backlog - Phase 3 (v0.4.0)
 # Issue: https://github.com/OmniNode-ai/omniintelligence/issues/13
+# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 #
-# When implementing full functionality, a quality analyzer protocol will be
-# needed. The protocol will define the interface for quality analysis engines.
+# Priority: Low (current stub implementation functional for interface validation)
+# Description: Create omniintelligence.protocols module with QualityAnalyzerProtocol
 #
 # When implemented:
 #   - Create omniintelligence.protocols.QualityAnalyzerProtocol

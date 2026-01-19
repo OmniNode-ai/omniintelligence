@@ -56,7 +56,7 @@ class EntityMetadataDict(TypedDict, total=False):
     # Additional metadata
     language: str
     version: str
-    correlation_id: str
+    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
     source: str
 
 
@@ -89,7 +89,7 @@ class RelationshipMetadataDict(TypedDict, total=False):
     # Context
     context: str
     description: str
-    correlation_id: str
+    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
 
     # Temporal
     discovered_at: str

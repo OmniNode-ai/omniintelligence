@@ -631,11 +631,14 @@ class TestWhitelistFunctionality:
 
         # The whitelisted violations (env-access, file-io) should be removed
         # Only un-whitelisted violations should remain
+        # Verify that whitelisted rules are not in the remaining violations
         whitelisted_rules = {EnumIOAuditRule.ENV_ACCESS, EnumIOAuditRule.FILE_IO}
-        for v in remaining:
+        for violation in remaining:
             # The get_unwhitelisted_env function has a violation that's not inline-whitelisted
             # but env-access IS whitelisted in YAML, so it should be filtered
-            pass
+            assert violation.rule not in whitelisted_rules, (
+                f"Whitelisted rule {violation.rule} should have been filtered"
+            )
 
     def test_inline_pragma_whitelists_next_line(self, tmp_path: Path) -> None:
         """Inline pragma should whitelist the next line only (when file is in YAML)."""

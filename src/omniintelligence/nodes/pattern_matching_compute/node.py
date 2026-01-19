@@ -11,6 +11,7 @@ from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.pattern_matching_compute.models import (
     ModelPatternMatchingInput,
+    ModelPatternMatchingMetadata,
     ModelPatternMatchingOutput,
 )
 
@@ -58,12 +59,12 @@ class NodePatternMatchingCompute(NodeCompute):
             success=True,
             patterns_matched=[],
             pattern_scores={},
-            metadata={
-                "status": "stub",
-                "operation": input_data.operation,
-                "message": "NodePatternMatchingCompute is not yet implemented",
-                "tracking_url": _STUB_TRACKING_URL,
-            },
+            metadata=ModelPatternMatchingMetadata(
+                status="stub",
+                operation=input_data.operation,
+                message="NodePatternMatchingCompute is not yet implemented",
+                tracking_url=_STUB_TRACKING_URL,
+            ),
         )
 
 

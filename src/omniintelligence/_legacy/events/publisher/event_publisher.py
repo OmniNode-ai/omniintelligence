@@ -228,8 +228,10 @@ class EventPublisher:
             "batch.size": 32768,  # 32KB batch size
             "compression.type": "lz4",  # Fast compression
             "acks": "all",  # Wait for all replicas (reliability)
-            # Error handling
-            "retries": 0,  # We handle retries manually
+            # Idempotent delivery (requires retries > 0, using default)
+            # Note: We also implement application-level retries in _publish_with_retry
+            # for catching exceptions. Producer-level retries handle transient network
+            # issues internally, while app-level retries handle higher-level failures.
             "enable.idempotence": True,  # Prevent duplicate messages
             # Timeout configuration
             "request.timeout.ms": 30000,  # 30 seconds
@@ -414,6 +416,13 @@ class EventPublisher:
                 )
                 return False
 
+        except asyncio.CancelledError:
+            # Task cancellation during publish - must re-raise to preserve cancellation semantics
+            logger.info(
+                f"Event publish cancelled | event_type={event_type} | "
+                f"correlation_id={envelope.correlation_id}"
+            )
+            raise
         except (ConnectionError, TimeoutError, OSError) as e:
             # Infrastructure error during publish (connection, timeout, broker error)
             # This IS a transient error - trip the circuit breaker
@@ -498,6 +507,13 @@ class EventPublisher:
                         f"correlation_id={envelope.correlation_id} | error={e}"
                     )
                     return False
+            except asyncio.CancelledError:
+                # Task cancellation during retry - must re-raise to preserve cancellation semantics
+                logger.info(
+                    f"Event publish retry cancelled | attempt={attempt + 1}/{self.max_retries + 1} | "
+                    f"correlation_id={envelope.correlation_id}"
+                )
+                raise
             except Exception as e:
                 # Intentionally broad: treat any unexpected error as retryable
                 if attempt < self.max_retries:

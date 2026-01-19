@@ -84,16 +84,41 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
    - Create work tickets for follow-up tasks (archival of legacy code, rollout plan).
 
 ## 7. Testing & Validation
+
+### Test Location Standard
+
+**IMPORTANT**: All tests are located in the central `tests/` directory, NOT in versioned subdirectories or node-specific `node_tests/` folders.
+
+```
+tests/
+├── conftest.py              # Shared fixtures
+├── unit/                    # Unit tests (general utilities, tools)
+│   ├── test_contract_validation.py
+│   ├── tools/               # Tool-specific unit tests
+│   └── utils/               # Utility unit tests
+├── nodes/                   # Node-specific tests
+│   ├── test_vectorization_compute.py
+│   ├── test_vectorization_models.py
+│   └── test_pattern_extraction_integration.py
+├── integration/             # Integration tests
+│   └── tools/               # Tool integration tests
+└── audit/                   # Audit tests (I/O violations, etc.)
+    └── fixtures/            # Audit test fixtures
+```
+
 - **Unit tests**
-  - **Note**: Current implementation uses flat structure (no `v1_0_0` subdirectories)
-  - Tests are located directly under node directories (e.g., `src/omniintelligence/nodes/*/node_tests/`) or in the central `tests/` directory
-  - Update fixtures from `tests/fixtures/` to canonical structure (`tests/fixtures/intelligence`).
-  - Ensure each node has state, contract, and tool coverage.
+  - General utilities: `tests/unit/` directory (tools, utils, contract validation)
+  - Node-specific tests: `tests/nodes/` directory (NOT in `src/omniintelligence/nodes/*/node_tests/`)
+  - Ensure each node has state, contract, and model coverage.
 - **Integration tests**
   - Recreate ingestion pipeline integration: spin up local Kafka/Qdrant using docker-compose file from `deployment/TREE_STAMPING_ADAPTER.md`.
   - Provide `tests/integration/intelligence/test_ingestion_pipeline.py` verifying event flow orchestrator→effect→compute→reducer.
 - **Contract validation**
-  - Add `tests/contracts/test_intelligence_contracts.py` running `omnibase_core` validator.
+  - Existing: `tests/unit/test_contract_validation.py` running contract validator.
+  - Tool linter tests: `tests/unit/tools/test_contract_linter_*.py`
+- **Audit tests**
+  - I/O violation detection: `tests/audit/test_io_violations.py`
+  - Uses fixtures in `tests/audit/fixtures/`
 - **Performance baseline**
   - Use data from `performance_test_results_1762181933.json` to define thresholds; add pytest markers `@pytest.mark.performance`.
 - **CI integration**
@@ -106,11 +131,16 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
-  # Note: Current implementation uses flat structure (no v1_0_0 subdirectories)
-  # Tests are located directly under node directories or in tests/
-  poetry run pytest src/omniintelligence/nodes/intelligence_orchestrator/
-  poetry run pytest src/omniintelligence/nodes/intelligence_reducer/
-  poetry run pytest tests/integration/intelligence
+  # All tests are in the central tests/ directory
+  # Node-specific tests
+  poetry run pytest tests/nodes/
+  # Unit tests (utilities, tools, validation)
+  poetry run pytest tests/unit/
+  # Integration tests
+  poetry run pytest tests/integration/
+  # Audit tests (I/O violation detection)
+  poetry run pytest tests/audit/
+  # Performance tests
   poetry run pytest -m performance --maxfail=1
   ```
 - Document each script in `docs/migrations/README.md` (create if missing).
@@ -121,7 +151,7 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 
 All ONEX nodes must follow the canonical directory structure. Two patterns are supported:
 
-**Pattern A: Flat Structure** (current implementation)
+**Pattern A: Flat Structure** (CURRENT IMPLEMENTATION - used by all omniintelligence nodes)
 ```
 nodes/
 └── node_name/
@@ -130,12 +160,13 @@ nodes/
     ├── contract.yaml            # Main node contract definition (REQUIRED)
     ├── models/                  # Pydantic models directory (REQUIRED)
     │   ├── __init__.py          # Model exports
-    │   ├── model_*.py           # Input/output model classes
-    │   └── enum_*.py            # Enumeration definitions
+    │   ├── model_<name>_input.py   # Input Pydantic model
+    │   ├── model_<name>_output.py  # Output Pydantic model
+    │   └── enum_*.py            # Enumeration definitions (optional)
     └── node.py                  # Main node implementation (REQUIRED)
 ```
 
-**Pattern B: Versioned Structure** (canonical reference)
+**Pattern B: Versioned Structure** (canonical reference for future expansion)
 ```
 nodes/
 └── node_name/
@@ -152,21 +183,27 @@ nodes/
         └── node_tests/
 ```
 
-**Required Artifacts Checklist**:
+> **Note**: OmniIntelligence uses **Pattern A (Flat Structure)** for all nodes. Pattern B is documented for reference and potential future versioning needs.
 
+**Required Artifacts Checklist** (Pattern A - Flat Structure):
+
+*Core Node Files* (REQUIRED for all nodes):
 - [ ] `__init__.py` - Module initialization with exports
-- [ ] `__main__.py` - CLI entry point (for executable nodes)
 - [ ] `contract.yaml` - Main node contract (see below for required fields)
-- [ ] `contracts/` - Subcontracts directory containing:
-  - `fsm_contract.yaml` - FSM definitions (for reducers)
-  - `event_type_contract.yaml` - Event schemas (for effect nodes)
-  - `contract_models.yaml` - Shared model definitions
-  - `contract_cli.yaml` - CLI parameter definitions
-- [ ] `node.py` - Main node implementation
-- [ ] `models/` - Pydantic models directory (see below)
-- [ ] `introspection.py` - Runtime introspection support
-- [ ] `scenarios/` - YAML integration test scenarios
-- [ ] `node_tests/` - Node-specific unit tests
+- [ ] `node.py` - Main node implementation following `Node<Name><Type>` naming
+- [ ] `models/` - Pydantic models directory containing:
+  - `__init__.py` - Model exports
+  - `model_<name>_input.py` - Input Pydantic model
+  - `model_<name>_output.py` - Output Pydantic model
+
+*Optional Node Files*:
+- [ ] `__main__.py` - CLI entry point (REQUIRED for executable/standalone nodes)
+- [ ] `models/enum_*.py` - Enumeration types (operation types, states, error codes)
+- [ ] `ARCHITECTURE.md` - Design rationale (recommended for complex nodes)
+
+*Tests* (in central `tests/` directory, NOT in node directory):
+- [ ] `tests/nodes/test_<node_name>.py` - Node-specific tests
+- [ ] `tests/nodes/test_<node_name>_models.py` - Model tests (optional)
 
 **Contract.yaml Required Fields**:
 - `contract_version` (semver)
@@ -188,17 +225,18 @@ nodes/
 - Node class following naming convention (`Node<Name><Type>`)
 - Async execution method (`execute_compute`, `execute_effect`, etc.)
 - Proper error handling and logging
-- ARCHITECTURE_DECISIONS.md - Design rationale documenting architectural choices
 
 **Optional Artifacts** (recommended for production nodes):
-
+- [ ] `ARCHITECTURE.md` - Design rationale documenting architectural choices (see `intelligence_adapter/ARCHITECTURE.md` for example)
 - [ ] `infrastructure/` - Supporting infrastructure code (for effect nodes)
 
 ### Linked Document Contracts
 
+> **Note**: The linked-doc architecture below is part of the canonical ONEX reference (Pattern B - Versioned Structure). The current OmniIntelligence implementation (Pattern A - Flat Structure) embeds contract definitions directly in `contract.yaml` files. Consider migrating to linked contracts as nodes mature.
+
 ONEX uses a linked-doc architecture where contracts reference external configuration files.
 
-**Configuration Contracts**:
+**Configuration Contracts** (optional - for production-ready nodes):
 
 - [ ] `node_config.yaml` - Node-specific configuration schema:
   - Performance settings (timeouts, memory limits, concurrency)
@@ -215,7 +253,7 @@ ONEX uses a linked-doc architecture where contracts reference external configura
   - Network configuration
   - Scaling policies
 
-**Subcontract Types** (6 canonical types):
+**Subcontract Types** (6 canonical types - Pattern B, future consideration):
 
 - [ ] `contracts/fsm_contract.yaml` - Finite State Machine definition:
   - State enumeration
@@ -292,53 +330,48 @@ linked_contracts:
 
 ### Code Quality
 
-**Required Node Artifacts** (all nodes must have):
+> **Note**: For the complete list of required node artifacts and their specifications, see the [Required Node Artifacts](#required-node-artifacts) section above.
+
+**Quick Reference Checklist** (Pattern A - Flat Structure):
+
+*Core Node Artifacts* (REQUIRED for all nodes):
 - [ ] `__init__.py` - Module initialization with exports
-- [ ] `__main__.py` - CLI entry point (for executable nodes)
-- [ ] `contract.yaml` - Main node contract definition
-- [ ] `contracts/` - Subcontracts directory (fsm, event_type, models, cli, etc.)
-- [ ] `models/` - Pydantic models directory
+- [ ] `contract.yaml` - Main node contract with required fields:
+  - `contract_version`, `node_version`, `name`, `node_type`, `description`
+  - `input_model`, `output_model` references
+  - `operations`, `error_handling`, `health_check`, `metadata`
 - [ ] `node.py` - Main node implementation following `Node<Name><Type>` naming
-- [ ] `introspection.py` - Runtime introspection support
-- [ ] `scenarios/` - YAML integration test scenarios
-- [ ] `node_tests/` - Node-specific unit tests
-- [ ] `ARCHITECTURE_DECISIONS.md` - Design rationale and architectural choices
+- [ ] `models/` - Pydantic models directory:
+  - `__init__.py` with model exports
+  - `model_<name>_input.py` - Input Pydantic model
+  - `model_<name>_output.py` - Output Pydantic model
 
-**Linked-Doc Contracts** (properly configured):
-- [ ] `node_config.yaml` - Node-specific configuration schema
-- [ ] `deployment_config.yaml` - Deployment and infrastructure configuration
-- [ ] Subcontracts using `$ref` pattern:
-  - `contracts/fsm_contract.yaml` - FSM definitions (for reducers)
-  - `contracts/event_type_contract.yaml` - Event schemas (for effect nodes)
-  - `contracts/contract_models.yaml` - Shared model definitions
-  - `contracts/contract_cli.yaml` - CLI parameter definitions
-  - `contracts/aggregation_contract.yaml` - Aggregation patterns (if applicable)
-  - `contracts/state_management_contract.yaml` - State persistence (for reducers)
-  - `contracts/routing_contract.yaml` - Message routing (if applicable)
-  - `contracts/caching_contract.yaml` - Cache configuration (if applicable)
+*Optional Node Artifacts*:
+- [ ] `__main__.py` - CLI entry point (required for executable/standalone nodes)
+- [ ] `models/enum_*.py` - Enumeration types (operation types, states, error codes)
+- [ ] `models/error_codes.py` - Error code definitions
+- [ ] `ARCHITECTURE.md` - Design rationale (recommended for complex nodes like `intelligence_adapter`)
 
-**Validation Checks**:
+*Configuration Contracts* (for production nodes):
+- [ ] `node_config.yaml` - Node-specific configuration schema (optional)
+- [ ] `deployment_config.yaml` - Deployment and infrastructure configuration (optional)
+- [ ] Subcontracts using `$ref` pattern for external references (Pattern B - future)
 
-*Node Artifact Verification* (required for all nodes):
-- [ ] Each node has `__init__.py` with proper exports
-- [ ] Each node has `contract.yaml` with required fields (contract_version, node_version, name, node_type, description, input_model, output_model)
-- [ ] Each node has `node.py` with class following `Node<Name><Type>` naming convention
-- [ ] Each node has `models/` directory with input/output Pydantic models
-- [ ] Each node has `introspection.py` for runtime introspection support
+*Test Coverage* (all tests in central `tests/` directory):
+- [ ] Node tests in `tests/nodes/test_<node_name>.py`
+- [ ] Model tests in `tests/nodes/test_<node_name>_models.py` (optional)
+- [ ] Integration tests in `tests/integration/` as needed
+- [ ] Audit tests in `tests/audit/` for I/O compliance
 
-*Production Readiness Checks* (recommended for production nodes):
-- [ ] `contracts/` subdirectory for subcontracts (FSM, event types, etc.)
-- [ ] `scenarios/` for YAML integration test scenarios
-- [ ] `node_tests/` or tests in `tests/` for node-specific tests
-- [ ] `ARCHITECTURE_DECISIONS.md` documenting design rationale
-- [ ] Linked-doc contracts (`node_config.yaml`, `deployment_config.yaml`) properly configured
+*Documentation*:
+- [ ] `ARCHITECTURE.md` in node directory (for complex nodes)
 
-*Code Quality*:
-- [ ] Enumerations replace string literals for tool names, topics, and status codes.
-- [ ] Contract validator passes with zero warnings.
-- [ ] Event replay integration test validates ingestion → intelligence → response.
-- [ ] Observability hooks emit logs/metrics consistent with `STRUCTURED_LOGGING_IMPLEMENTATION.md`.
-- [ ] Deployment manifests updated for new node entrypoints and containers.
+*Code Quality Standards*:
+- [ ] Enumerations replace string literals for tool names, topics, and status codes
+- [ ] Contract validator passes with zero warnings
+- [ ] Event replay integration test validates ingestion -> intelligence -> response
+- [ ] Observability hooks emit logs/metrics consistent with `STRUCTURED_LOGGING_IMPLEMENTATION.md`
+- [ ] Deployment manifests updated for new node entrypoints and containers
 
 ## 10. Risks & Mitigation
 - **Kafka Topic Drift**: Document topic mappings; add regression test verifying expected topics exist.

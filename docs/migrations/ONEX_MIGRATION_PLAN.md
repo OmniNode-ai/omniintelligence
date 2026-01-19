@@ -53,12 +53,12 @@ Reducer Nodes (1 unified node)
 │  ├─ Quality Assessment FSM (raw → scored)
 │  └─ State persistence for all FSMs in single database
 
-Compute Nodes (12 nodes)
+Compute Nodes (11 implemented + 1 stub)
 ├─ NodeVectorizationCompute - Text → embeddings
 ├─ NodeEntityExtractionCompute - Code → entities
 ├─ NodePatternMatchingCompute - Code + patterns → matches
 ├─ NodePatternLearningCompute - Pattern discovery and learning
-├─ NodePatternAssemblerCompute - Pattern assembly and composition
+├─ NodePatternAssemblerCompute - Pattern assembly and composition (STUB - contract only)
 ├─ NodeQualityScoringCompute - Metrics → quality score
 ├─ NodeSemanticAnalysisCompute - Code → semantic features
 ├─ NodeRelationshipDetectionCompute - Entities → relationships
@@ -195,7 +195,7 @@ workflows:
 #### Implementation Structure
 
 **Note**: All orchestrator implementations follow the ONEX 4-node architecture with:
-- Node class naming: `Node<Name>Orchestrator` (e.g., `NodeIntelligenceOrchestrator`)
+- Node class naming: `Node{Name}Orchestrator` (e.g., `NodeIntelligenceOrchestrator`)
 - Contract-driven workflow definitions in `contracts/orchestrator_workflows.yaml`
 - Linked document references using `$ref` pattern for subcontracts
 
@@ -339,9 +339,10 @@ class EnumFSMType(str, Enum):
 ### FSM Definitions
 
 **Note**: All reducer implementations follow the ONEX 4-node architecture with:
-- Node class naming: `Node<Name>Reducer` (e.g., `NodeIntelligenceReducer`)
+- Node class naming: `Node{Name}Reducer` (e.g., `NodeIntelligenceReducer`)
 - FSM definitions in `contracts/fsm_contract.yaml`
 - State management via `contracts/state_management_contract.yaml`
+- Linked document references using `$ref` pattern for subcontracts
 
 #### 1. Ingestion FSM (FSM_TYPE.INGESTION)
 
@@ -656,9 +657,10 @@ RAW → ANALYZED → SCORED → STORED → COMPLETED
 ## Compute Nodes
 
 **Note**: All compute node implementations follow the ONEX 4-node architecture with:
-- Node class naming: `Node<Name>Compute` (e.g., `NodeVectorizationCompute`)
+- Node class naming: `Node{Name}Compute` (e.g., `NodeVectorizationCompute`)
 - Pure functions with no side effects
 - Contract-driven input/output models in `contracts/contract_models.yaml`
+- Linked document references using `$ref` pattern for subcontracts
 
 ### 1. Vectorization Compute
 
@@ -752,9 +754,10 @@ class NodeVectorizationCompute(NodeCompute[
 ## Effect Nodes
 
 **Note**: All effect node implementations follow the ONEX 4-node architecture with:
-- Node class naming: `Node<Name>Effect` (e.g., `NodeIngestionEffect`)
+- Node class naming: `Node{Name}Effect` (e.g., `NodeIngestionEffect`)
 - Event type definitions in `contracts/event_type_contract.yaml`
 - Infrastructure interactions (Kafka, databases, APIs)
+- Linked document references using `$ref` pattern for subcontracts
 
 ### 1. Ingestion Effect (Kafka Event Handler)
 

@@ -30,7 +30,7 @@ class DetectionMetadataDict(TypedDict, total=False):
     confidence_threshold: float
 
     # Request context
-    correlation_id: str
+    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
     timestamp_utc: str
 
 
@@ -40,9 +40,8 @@ class ModelRelationshipDetectionOutput(BaseModel):
     This model represents the result of detecting relationships.
     Uses typed ModelRelationship instances for proper validation and type safety.
 
-    The relationship_count field is auto-computed from the relationships list if not
-    explicitly provided, ensuring consistency between the count and actual
-    relationships.
+    The relationship_count field is always computed from the relationships list,
+    ensuring consistency between the count and actual relationships.
 
     Example:
         >>> from omniintelligence.enums import EnumRelationshipType
@@ -56,7 +55,7 @@ class ModelRelationshipDetectionOutput(BaseModel):
         ...         )
         ...     ],
         ... )
-        >>> output.relationship_count  # Auto-computed
+        >>> output.relationship_count  # Always computed from list
         1
     """
 
@@ -69,9 +68,9 @@ class ModelRelationshipDetectionOutput(BaseModel):
         description="List of detected relationships with their metadata",
     )
     relationship_count: int = Field(
-        default=-1,
-        ge=-1,
-        description="Total number of detected relationships (auto-computed if not set)",
+        default=0,
+        ge=0,
+        description="Total number of detected relationships (computed from relationships list)",
     )
     metadata: DetectionMetadataDict | None = Field(
         default=None,
@@ -79,33 +78,20 @@ class ModelRelationshipDetectionOutput(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_and_compute_relationship_count(self) -> Self:
-        """Validate and auto-compute relationship_count from relationships list.
+    def compute_relationship_count(self) -> Self:
+        """Compute relationship_count from relationships list unconditionally.
 
         This validator runs after all fields are populated (mode="after"),
         ensuring it fires even when the relationships list is empty.
 
-        Behavior:
-            - If relationship_count is -1 (default), auto-compute from len(relationships)
-            - If relationship_count is explicitly set, validate it matches len(relationships)
+        The count is always derived from the actual list length, ensuring
+        consistency without requiring sentinel values or conditional logic.
 
         Returns:
-            Self with validated/computed relationship_count.
-
-        Raises:
-            ValueError: If explicitly provided relationship_count doesn't match.
+            Self with computed relationship_count.
         """
-        actual_count = len(self.relationships)
-
-        # Auto-compute if using default sentinel value (-1)
-        if self.relationship_count == -1:
-            # Use object.__setattr__ since model is frozen
-            object.__setattr__(self, "relationship_count", actual_count)
-        elif self.relationship_count != actual_count:
-            raise ValueError(
-                f"relationship_count ({self.relationship_count}) must match "
-                f"len(relationships) ({actual_count})"
-            )
+        # Unconditionally compute count from list - use object.__setattr__ since model is frozen
+        object.__setattr__(self, "relationship_count", len(self.relationships))
         return self
 
     model_config = {"frozen": True, "extra": "forbid"}

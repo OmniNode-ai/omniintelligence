@@ -76,7 +76,7 @@ class NodeIngestionEffect(NodeEffect):
             "tracking_url": _STUB_TRACKING_URL,
         }
         typed_output = ModelIngestionOutput(
-            success=True,
+            success=False,  # Stub: no actual operation performed
             ingested_content=None,
             content_metadata=stub_content_metadata,
             metadata=stub_metadata,

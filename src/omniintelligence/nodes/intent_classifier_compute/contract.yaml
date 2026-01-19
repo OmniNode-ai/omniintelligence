@@ -42,6 +42,9 @@ operations:
 # Issue: https://github.com/OmniNode-ai/omniintelligence/issues/15
 # See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 #
+# Priority: Low (current implementation functional without protocol abstraction)
+# Description: Create omniintelligence.protocols module with IntentClassifierProtocol
+#
 # When implemented:
 #   - Create omniintelligence.protocols.IntentClassifierProtocol
 #   - Define classify(), get_categories(), get_confidence() interface

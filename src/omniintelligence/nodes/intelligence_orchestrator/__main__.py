@@ -82,6 +82,22 @@ def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
     return server
 
 
+def _shutdown_health_server(health_server: HTTPServer, timeout: float = 5.0) -> None:
+    """Shut down health server with timeout.
+
+    Args:
+        health_server: The HTTPServer instance to shut down.
+        timeout: Maximum time to wait for shutdown in seconds.
+    """
+    import threading
+
+    shutdown_thread = threading.Thread(target=health_server.shutdown)
+    shutdown_thread.start()
+    shutdown_thread.join(timeout=timeout)
+    if shutdown_thread.is_alive():
+        logger.warning(f"Health server shutdown timed out after {timeout}s")
+
+
 async def main() -> None:
     """Run the intelligence orchestrator node."""
     logger.info("=" * 60)
@@ -94,28 +110,36 @@ async def main() -> None:
         "This node will respond to health checks but not process requests."
     )
 
-    # Start health check server (synchronous - no await needed)
-    health_port = int(os.getenv("HEALTH_PORT", "8000"))
-    health_server = run_health_server(port=health_port)
-
-    # Setup signal handlers for graceful shutdown
+    # Setup signal handlers for graceful shutdown using asyncio-native approach
     shutdown_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
 
-    def signal_handler(sig: int, _frame: object) -> None:
-        logger.info(f"Received signal {sig}, initiating shutdown")
+    def handle_signal(sig_name: str) -> None:
+        logger.info(f"Received {sig_name}, initiating shutdown")
         shutdown_event.set()
 
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
+    # Register signal handlers with the event loop (Unix-style, more robust for asyncio)
+    try:
+        loop.add_signal_handler(signal.SIGTERM, handle_signal, "SIGTERM")
+        loop.add_signal_handler(signal.SIGINT, handle_signal, "SIGINT")
+    except NotImplementedError:
+        # Windows doesn't support add_signal_handler, fall back to signal.signal
+        def signal_handler(sig: int, _frame: object) -> None:
+            logger.info(f"Received signal {sig}, initiating shutdown")
+            shutdown_event.set()
+
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+
+    # Start health check server (synchronous - runs in daemon thread)
+    health_port = int(os.getenv("HEALTH_PORT", "8000"))
+    health_server = run_health_server(port=health_port)
 
     try:
         logger.info("Intelligence Orchestrator Node ready - waiting for shutdown signal")
         logger.info("Health endpoint available at /health")
         # Keep the node running until shutdown signal
         await shutdown_event.wait()
-    except KeyboardInterrupt:
-        # User-initiated shutdown via Ctrl+C
-        logger.info("Received keyboard interrupt, shutting down")
     except asyncio.CancelledError:
         # Task cancellation during shutdown - must re-raise to preserve semantics
         logger.info("Event loop cancelled, shutting down")
@@ -127,9 +151,17 @@ async def main() -> None:
         logger.error(f"Node error: {e}", exc_info=True)
         sys.exit(1)
     finally:
-        # Shut down the health server cleanly
+        # Remove signal handlers to prevent issues during cleanup
+        try:
+            loop.remove_signal_handler(signal.SIGTERM)
+            loop.remove_signal_handler(signal.SIGINT)
+        except (NotImplementedError, ValueError):
+            # Windows or handlers already removed
+            pass
+
+        # Shut down the health server cleanly with timeout
         logger.info("Shutting down health server...")
-        health_server.shutdown()
+        _shutdown_health_server(health_server)
         logger.info("Intelligence Orchestrator Node shutdown complete")
 
 

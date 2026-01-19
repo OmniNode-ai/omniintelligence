@@ -118,28 +118,32 @@ class EventPublisher:
         pass
 
 
+# UUID pattern for correlation_id validation
+UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
+
 # Stub request models
 class ModelQualityAssessmentRequest(BaseModel):
     """Stub for quality assessment requests."""
 
-    source_path: str = ""
-    content: str = ""
+    source_path: str = Field(default="", min_length=0)
+    content: str = Field(default="", min_length=0)
     options: dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelPatternDetectionRequest(BaseModel):
     """Stub for pattern detection requests."""
 
-    source_path: str = ""
-    content: str = ""
+    source_path: str = Field(default="", min_length=0)
+    content: str = Field(default="", min_length=0)
     patterns: list[str] = Field(default_factory=list)
 
 
 class ModelPerformanceAnalysisRequest(BaseModel):
     """Stub for performance analysis requests."""
 
-    source_path: str = ""
-    content: str = ""
+    source_path: str = Field(default="", min_length=0)
+    content: str = Field(default="", min_length=0)
     metrics: list[str] = Field(default_factory=list)
 
 
@@ -174,25 +178,37 @@ class EnumCodeAnalysisEventType(str, Enum):
 class ModelCodeAnalysisRequestPayload(BaseModel):
     """Event payload for code analysis requests."""
 
-    correlation_id: str = ""
-    source_path: str = ""
-    content: str = ""
-    operation_type: str = ""
+    correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for distributed tracing (UUID format)",
+        pattern=UUID_PATTERN,
+    )
+    source_path: str = Field(default="", min_length=0)
+    content: str = Field(default="", min_length=0)
+    operation_type: str = Field(default="", min_length=0)
 
 
 class ModelCodeAnalysisCompletedPayload(BaseModel):
     """Event payload for completed analysis."""
 
-    correlation_id: str = ""
+    correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for distributed tracing (UUID format)",
+        pattern=UUID_PATTERN,
+    )
     result: dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelCodeAnalysisFailedPayload(BaseModel):
     """Event payload for failed analysis."""
 
-    correlation_id: str = ""
-    error_code: str = ""
-    error_message: str = ""
+    correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for distributed tracing (UUID format)",
+        pattern=UUID_PATTERN,
+    )
+    error_code: str = Field(default="", min_length=0)
+    error_message: str = Field(default="", min_length=0)
 
 
 class IntelligenceAdapterEventHelpers:
@@ -511,6 +527,10 @@ class NodeIntelligenceAdapterEffect:
                 error_code=EnumCoreErrorCode.INITIALIZATION_FAILED,
                 message=f"Failed to initialize Intelligence Adapter (network error): {e!s}",
             ) from e
+        except asyncio.CancelledError:
+            # Task cancellation during initialization - must re-raise to preserve cancellation semantics
+            logger.info("Intelligence Adapter initialization cancelled")
+            raise
         except ValueError as e:
             # Configuration or validation errors
             logger.error(
@@ -779,6 +799,11 @@ class NodeIntelligenceAdapterEffect:
                 )
                 # Continue after Kafka errors
                 await asyncio.sleep(1.0)
+
+            except asyncio.CancelledError:
+                # Task cancellation - must re-raise to stop the loop cleanly
+                logger.info("Event consumption loop cancelled")
+                raise
 
             except (ConnectionError, TimeoutError) as e:
                 # Network-related errors in the consumption loop
@@ -1542,6 +1567,14 @@ class NodeIntelligenceAdapterEffect:
                     f"Process failed with validation error (not retrying): {process_error}"
                 )
                 break
+
+            except asyncio.CancelledError:
+                # Task cancellation during analysis - must re-raise to preserve cancellation semantics
+                logger.info(
+                    f"Code analysis cancelled | operation={input_data.operation_type} | "
+                    f"correlation_id={input_data.correlation_id}"
+                )
+                raise
 
             except Exception as process_error:
                 # Intentionally broad: catch any unexpected error for the retry loop.

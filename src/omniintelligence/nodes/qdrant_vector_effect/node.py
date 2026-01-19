@@ -74,7 +74,7 @@ class NodeQdrantVectorEffect(NodeEffect):
             "tracking_url": _STUB_TRACKING_URL,
         }
         typed_output = ModelQdrantVectorOutput(
-            success=True,
+            success=False,  # Stub: no actual operation performed
             vectors_processed=0,
             search_results=[],
             deleted_count=0,
