@@ -85,7 +85,8 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
 
 ## 7. Testing & Validation
 - **Unit tests**
-  - Relocate tests under `src/omniintelligence/nodes/*/v1_0_0/node_tests/`.
+  - **Note**: Current implementation uses flat structure (no `v1_0_0` subdirectories)
+  - Tests are located directly under node directories (e.g., `src/omniintelligence/nodes/*/node_tests/`) or in the central `tests/` directory
   - Update fixtures from `tests/fixtures/` to canonical structure (`tests/fixtures/intelligence`).
   - Ensure each node has state, contract, and tool coverage.
 - **Integration tests**
@@ -318,16 +319,19 @@ linked_contracts:
 
 **Validation Checks**:
 
-*Node Artifact Verification*:
+*Node Artifact Verification* (required for all nodes):
 - [ ] Each node has `__init__.py` with proper exports
 - [ ] Each node has `contract.yaml` with required fields (contract_version, node_version, name, node_type, description, input_model, output_model)
 - [ ] Each node has `node.py` with class following `Node<Name><Type>` naming convention
 - [ ] Each node has `models/` directory with input/output Pydantic models
-- [ ] Optional: `contracts/` subdirectory for subcontracts (FSM, event types, etc.)
-- [ ] Optional: `introspection.py` for runtime introspection support
-- [ ] Optional: `scenarios/` for YAML integration test scenarios
-- [ ] Optional: `node_tests/` or tests in `tests/` for node-specific tests
-- [ ] Optional: `ARCHITECTURE_DECISIONS.md` documenting design rationale
+- [ ] Each node has `introspection.py` for runtime introspection support
+
+*Production Readiness Checks* (recommended for production nodes):
+- [ ] `contracts/` subdirectory for subcontracts (FSM, event types, etc.)
+- [ ] `scenarios/` for YAML integration test scenarios
+- [ ] `node_tests/` or tests in `tests/` for node-specific tests
+- [ ] `ARCHITECTURE_DECISIONS.md` documenting design rationale
+- [ ] Linked-doc contracts (`node_config.yaml`, `deployment_config.yaml`) properly configured
 
 *Code Quality*:
 - [ ] Enumerations replace string literals for tool names, topics, and status codes.

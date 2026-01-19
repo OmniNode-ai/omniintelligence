@@ -305,23 +305,25 @@ services:
 # Mode 1: Combined Deployment (RECOMMENDED)
 #   docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
 #   - Files are merged, network definition comes from base docker-compose.yml
+#   - The external: true is overridden by the bridge definition in base file
 #   - Services communicate via container names (postgres, qdrant, etc.)
 #
 # Mode 2: Standalone Node Deployment (requires base infra running first)
 #   Step 1: docker compose -f docker-compose.yml up -d  # Start infrastructure
 #   Step 2: docker compose -f docker-compose.nodes.yml up -d  # Start nodes
 #   - Network already exists from Step 1 (omniintelligence_omni-network)
+#   - external: true tells Compose to use the existing network
 #
-# IMPORTANT: This file intentionally does NOT define the network to avoid
-# Docker Compose merge conflicts. When multiple compose files are used with
-# -f flags, network definitions are merged and external: true would override
-# the bridge network definition from docker-compose.yml, causing deployment
-# failure. The network reference below uses external: true which works when
-# the base infrastructure is already running.
+# HOW THIS WORKS:
+#   - Mode 1: When merging compose files, Docker Compose takes the more
+#     specific network definition (bridge with subnet) from docker-compose.yml
+#     and ignores the external reference here.
+#   - Mode 2: When running standalone, external: true finds the existing
+#     network created by the base infrastructure compose file.
 #
 # Network Architecture:
 #   - omni-network: Internal bridge network (172.28.0.0/16)
-#   - Defined in docker-compose.yml, referenced here as external
+#   - Defined in docker-compose.yml as bridge with custom subnet
 #   - All nodes and infrastructure share this network
 #   - Container DNS resolution for service discovery
 #
@@ -332,8 +334,9 @@ services:
 # =============================================================================
 
 networks:
-  # Network is defined in docker-compose.yml as a bridge network (172.28.0.0/16)
-  # When running Mode 1 (merged files), the base definition takes precedence
-  # When running Mode 2 (standalone), this external reference is used
+  # Network reference for node services
+  # - Mode 1 (merged): Base compose bridge definition takes precedence
+  # - Mode 2 (standalone): Uses external network from base infrastructure
   omni-network:
     name: omniintelligence_omni-network
+    external: true

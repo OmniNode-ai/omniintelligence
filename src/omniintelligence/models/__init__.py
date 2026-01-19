@@ -26,7 +26,12 @@ Migration from Legacy (omniarchon):
 """
 
 from omniintelligence.models.model_entity import ModelEntity, ModelRelationship
-from omniintelligence.models.model_intelligence_input import ModelIntelligenceInput
+from omniintelligence.models.model_intelligence_input import (
+    IntelligenceMetadataDict,
+    IntelligenceOptionsDict,
+    ModelIntelligenceInput,
+    PerformanceContextDict,
+)
 from omniintelligence.models.model_intelligence_output import ModelIntelligenceOutput
 from omniintelligence.models.model_search_result import (
     ModelPatternMatch,
@@ -34,10 +39,13 @@ from omniintelligence.models.model_search_result import (
 )
 
 __all__ = [
+    "IntelligenceMetadataDict",
+    "IntelligenceOptionsDict",
     "ModelEntity",
     "ModelIntelligenceInput",
     "ModelIntelligenceOutput",
     "ModelPatternMatch",
     "ModelRelationship",
     "ModelSearchResult",
+    "PerformanceContextDict",
 ]

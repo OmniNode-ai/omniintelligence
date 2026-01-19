@@ -95,7 +95,7 @@ Effect Nodes (6 nodes)
 | **Semantic Analysis** | Compute | `semantic_analysis_compute` | Pure: code → analysis |
 | **Relationship Detection** | Compute | `relationship_detection_compute` | Pure: entities → relationships |
 | **Pattern Assembly** | Compute | `pattern_assembler_compute` | Pure: patterns → assembled patterns |
-| **Kafka Handlers (20+)** | Effect | `kafka_event_effect` | Kafka produce/consume |
+| **Kafka Handlers (20+)** | Effect | `ingestion_effect` | Kafka produce/consume |
 | **Qdrant Operations** | Effect | `qdrant_vector_effect` | Vector CRUD operations |
 | **Memgraph Operations** | Effect | `memgraph_graph_effect` | Graph CRUD operations |
 | **PostgreSQL Operations** | Effect | `postgres_pattern_effect` | Pattern persistence |
@@ -145,7 +145,7 @@ workflows:
 
       - step_id: "publish_completion"
         action_type: "EMIT_EVENT"
-        target_node: "kafka_event_effect"
+        target_node: "ingestion_effect"
         dependencies: ["store_vectors", "update_graph"]
         timeout_ms: 1000
 
@@ -465,7 +465,7 @@ class NodeIntelligenceReducer(NodeReducer[
             # Emit event intent for downstream services
             intents.append(ModelIntent(
                 intent_type=EnumIntentType.EVENT_PUBLISH,
-                target="kafka_event_effect",
+                target="ingestion_effect",
                 payload={
                     "topic": "dev.intelligence.ingestion.completed.v1",
                     "event": {
@@ -583,7 +583,7 @@ FOUNDATION → MATCHING → VALIDATION → TRACEABILITY → COMPLETED
             # Intent: Publish completion event
             intents.append(ModelIntent(
                 intent_type=EnumIntentType.EVENT_PUBLISH,
-                target="kafka_event_effect",
+                target="ingestion_effect",
                 payload={
                     "topic": "dev.intelligence.pattern.completed.v1",
                     "event": {
@@ -752,13 +752,13 @@ class NodeVectorizationCompute(NodeCompute[
 ## Effect Nodes
 
 **Note**: All effect node implementations follow the ONEX 4-node architecture with:
-- Node class naming: `Node<Name>Effect` (e.g., `NodeKafkaEventEffect`)
+- Node class naming: `Node<Name>Effect` (e.g., `NodeIngestionEffect`)
 - Event type definitions in `contracts/event_type_contract.yaml`
 - Infrastructure interactions (Kafka, databases, APIs)
 
-### 1. Kafka Event Effect
+### 1. Ingestion Effect (Kafka Event Handler)
 
-**Location**: `src/omniintelligence/nodes/ingestion_effect/` (formerly kafka_event_effect)
+**Location**: `src/omniintelligence/nodes/ingestion_effect/`
 
 **Operations**:
 - PUBLISH_EVENT: Produce to topic
@@ -768,13 +768,13 @@ class NodeVectorizationCompute(NodeCompute[
 ```python
 from omnibase_core.nodes.node_effect import NodeEffect
 
-class NodeKafkaEventEffect(NodeEffect[
-    ModelKafkaInput,
-    ModelKafkaOutput,
-    ModelKafkaConfig
+class NodeIngestionEffect(NodeEffect[
+    ModelIngestionInput,
+    ModelIngestionOutput,
+    ModelIngestionConfig
 ]):
     """
-    Kafka operations effect node.
+    Ingestion effect node for Kafka operations.
 
     Handles all Kafka interactions:
     - Event publishing
@@ -784,18 +784,18 @@ class NodeKafkaEventEffect(NodeEffect[
 
     async def process(
         self,
-        input_data: ModelKafkaInput
-    ) -> ModelKafkaOutput:
+        input_data: ModelIngestionInput
+    ) -> ModelIngestionOutput:
         """Execute Kafka operation."""
 
-        if input_data.operation_type == EnumKafkaOp.PUBLISH_EVENT:
+        if input_data.operation_type == EnumIngestionOp.PUBLISH_EVENT:
             await self._publish_to_kafka(
                 topic=input_data.topic,
                 event=input_data.event,
                 correlation_id=input_data.correlation_id
             )
 
-        elif input_data.operation_type == EnumKafkaOp.PUBLISH_DLQ:
+        elif input_data.operation_type == EnumIngestionOp.PUBLISH_DLQ:
             await self._publish_to_dlq(
                 original_topic=input_data.original_topic,
                 event=input_data.event,
@@ -803,7 +803,7 @@ class NodeKafkaEventEffect(NodeEffect[
                 retry_count=input_data.retry_count
             )
 
-        return ModelKafkaOutput(success=True)
+        return ModelIngestionOutput(success=True)
 
     async def _publish_to_kafka(
         self,
@@ -873,7 +873,7 @@ description: "Complete document ingestion pipeline"
 
 trigger:
   event_type: "document.received"
-  source: "kafka_event_effect"
+  source: "ingestion_effect"
 
 steps:
   - id: "parse_document"
@@ -930,7 +930,7 @@ steps:
 
   - id: "publish_completion"
     type: "effect"
-    node: "kafka_event_effect"
+    node: "ingestion_effect"
     input_mapping:
       operation: "PUBLISH_EVENT"
       topic: "dev.intelligence.ingestion.completed.v1"
@@ -1135,7 +1135,7 @@ Intent Router (in orchestrator or intent bus)
     ↓
     ├→ EnumIntentType.STATE_UPDATE → postgres_pattern_effect
     ├→ EnumIntentType.WORKFLOW_TRIGGER → intelligence_orchestrator
-    ├→ EnumIntentType.EVENT_PUBLISH → kafka_event_effect
+    ├→ EnumIntentType.EVENT_PUBLISH → ingestion_effect
     ├→ EnumIntentType.CACHE_WRITE → valkey_cache_effect
     ├→ EnumIntentType.LOG → logger_effect
     └→ EnumIntentType.METRIC → metrics_effect

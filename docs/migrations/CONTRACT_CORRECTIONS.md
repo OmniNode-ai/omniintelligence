@@ -166,7 +166,7 @@ version:
 lifecycle:
   initialization:
     required_dependencies:
-      - kafka_event_effect
+      - ingestion_effect
       - postgres_pattern_effect
       - intelligence_reducer
 
@@ -227,7 +227,7 @@ health_indicators:
     severity: high
     targets:
       - intelligence_reducer
-      - kafka_event_effect
+      - ingestion_effect
       - postgres_pattern_effect
 ```
 
@@ -663,9 +663,9 @@ operations:
 ### Kafka Event Effect Contract
 
 ```yaml
-# nodes/kafka_event_effect/v1_0_0/contracts/effect_contract.yaml
+# nodes/ingestion_effect/v1_0_0/contracts/effect_contract.yaml
 node_type: effect
-node_name: kafka_event_effect
+node_name: ingestion_effect
 version:
   major: 1
   minor: 0

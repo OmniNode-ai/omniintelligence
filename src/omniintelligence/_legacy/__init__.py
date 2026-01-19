@@ -32,8 +32,8 @@ warnings.warn(
     stacklevel=2,
 )
 
-# Re-export utilities for backwards compatibility
+# Re-export submodules for backwards compatibility
 # These imports trigger their own deprecation warnings
-from omniintelligence._legacy import utils
+from omniintelligence._legacy import events, utils
 
-__all__ = ["utils"]
+__all__ = ["events", "utils"]

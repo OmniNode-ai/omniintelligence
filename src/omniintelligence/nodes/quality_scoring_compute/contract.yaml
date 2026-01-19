@@ -51,23 +51,25 @@ operations:
       - recommendations
       - metadata
 # =============================================================================
-# PENDING IMPLEMENTATION - Protocol Dependencies
+# TODO(#13): Protocol Integration - QualityAnalyzerProtocol
 # =============================================================================
-# Status: PENDING - Tracked in issue #13
-# When: Phase 3 (v0.4.0) - Quality Analyzer Protocol Implementation
-# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/13
+# Status: PENDING - Phase 3 (v0.4.0)
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/13
 #
 # When implementing full functionality, a quality analyzer protocol will be
 # needed. The protocol will define the interface for quality analysis engines.
 #
-# Future protocol dependency (uncomment when protocols module exists):
-# dependencies:
-#   - name: "quality_analyzer"
-#     type: "protocol"
-#     module: "omniintelligence.protocols"
-#     description: "Quality analysis engine"
+# When implemented:
+#   - Create omniintelligence.protocols.QualityAnalyzerProtocol
+#   - Define analyze(), get_metrics(), get_recommendations() interface
+#   - Uncomment dependency below
 # =============================================================================
 dependencies: []
+# Future dependency (when #13 is implemented):
+# - name: "quality_analyzer"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Quality analysis engine"
 # Error Handling Configuration
 # ============================
 error_handling:

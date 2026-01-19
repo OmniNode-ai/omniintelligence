@@ -36,10 +36,10 @@ operations:
       - confidence
       - secondary_intents
 # =============================================================================
-# Future Enhancement: Protocol Integration (ONEX-PROTO-002)
+# TODO(#15): Protocol Integration - IntentClassifierProtocol
 # =============================================================================
 # Status: Backlog - Phase 3 (v0.4.0)
-# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/15
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/15
 # See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 #
 # When implemented:
@@ -48,6 +48,7 @@ operations:
 #   - Uncomment dependency below
 # =============================================================================
 dependencies: []
+# Future dependency (when #15 is implemented):
 # - name: "intent_classifier"
 #   type: "protocol"
 #   module: "omniintelligence.protocols"

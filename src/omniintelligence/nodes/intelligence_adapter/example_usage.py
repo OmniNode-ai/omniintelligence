@@ -136,7 +136,9 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
         logger.info(f"Failed: {stats['failed_analyses']}")
         logger.info(f"Success Rate: {stats['success_rate']:.2%}")
         logger.info(f"Avg Quality Score: {stats['avg_quality_score']:.2f}")
-        logger.info(f"Circuit Breaker State: {stats['circuit_breaker_state']}")
+        # Note: circuit_breaker_state is not in current stats implementation
+        if "circuit_breaker_state" in stats:
+            logger.info(f"Circuit Breaker State: {stats['circuit_breaker_state']}")
 
         return result
 

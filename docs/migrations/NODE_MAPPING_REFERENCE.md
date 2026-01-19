@@ -66,7 +66,7 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 | Node Name | Class | Operations | External System |
 |-----------|-------|------------|-----------------|
-| `kafka_event_effect` | NodeEffectService | PUBLISH_EVENT, CONSUME_EVENTS, PUBLISH_DLQ | Kafka/Redpanda |
+| `ingestion_effect` | NodeEffectService | PUBLISH_EVENT, CONSUME_EVENTS, PUBLISH_DLQ | Kafka/Redpanda |
 | `qdrant_vector_effect` | NodeEffectService | INDEX_VECTORS, SEARCH_VECTORS, DELETE_VECTORS | Qdrant |
 | `memgraph_graph_effect` | NodeEffectService | CREATE_NODES, CREATE_RELATIONSHIPS, QUERY_GRAPH | Memgraph |
 | `postgres_pattern_effect` | NodeEffectService | STORE_PATTERN, QUERY_PATTERNS, TRACK_LINEAGE, UPDATE_STATE | PostgreSQL |
@@ -111,14 +111,14 @@ Quick reference for mapping Omniarchon components to ONEX nodes.
 
 | Topic | Producer Node | Consumer Node | Purpose |
 |-------|---------------|---------------|---------|
-| `enrichment.requested.v1` | `kafka_event_effect` | `intelligence_orchestrator` | Trigger ingestion workflow |
-| `code-analysis.requested.v1` | `kafka_event_effect` | `intelligence_orchestrator` | Trigger analysis workflow |
+| `enrichment.requested.v1` | `ingestion_effect` | `intelligence_orchestrator` | Trigger ingestion workflow |
+| `code-analysis.requested.v1` | `ingestion_effect` | `intelligence_orchestrator` | Trigger analysis workflow |
 | `quality.assessed.v1` | `quality_assessment_reducer` | `intelligence_api_effect` | Quality results |
 | `pattern.matched.v1` | `pattern_learning_reducer` | `postgres_pattern_effect` | Pattern results |
 | `tree.discover.v1` | External | `intelligence_orchestrator` | Tree discovery trigger |
 | `tree.index.v1` | External | `ingestion_reducer` | Tree indexing trigger |
 | `stamping.generate.v1` | External | `intelligence_orchestrator` | ONEX stamping trigger |
-| `*.failed.v1` | Any reducer | `kafka_event_effect` | DLQ for failures |
+| `*.failed.v1` | Any reducer | `ingestion_effect` | DLQ for failures |
 
 ### Database Operations
 
@@ -157,7 +157,7 @@ Kafka enrichment.requested.v1
     Step 4: qdrant_vector_effect (INDEX_VECTORS)
     Step 5: memgraph_graph_effect (CREATE_NODES)
     Step 6: intelligence_reducer (fsm_type: INGESTION, PARSED → INDEXED)
-    Step 7: kafka_event_effect (PUBLISH_EVENT: completion)
+    Step 7: ingestion_effect (PUBLISH_EVENT: completion)
 ```
 
 ### 2. Pattern Learning Workflow (4 Phases)
@@ -452,10 +452,10 @@ performance_targets:
 ### Effect Contract
 
 ```yaml
-# src/omniintelligence/nodes/kafka_event_effect/v1_0_0/contracts/effect_contract.yaml
+# src/omniintelligence/nodes/ingestion_effect/v1_0_0/contracts/effect_contract.yaml
 
 node_type: effect
-node_name: kafka_event_effect
+node_name: ingestion_effect
 version: 1.0.0
 
 operations:
@@ -542,7 +542,7 @@ src/omniintelligence/nodes/
 │       └── utils/
 │           └── embedding_generator.py       # Pure function
 │
-└── kafka_event_effect/
+└── ingestion_effect/
     └── v1_0_0/
         ├── node.py                          # NodeEffectService
         ├── models/

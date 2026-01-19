@@ -11,18 +11,125 @@ Migration Note:
     - ModelPatternDetectionRequest -> EnumIntelligenceOperationType.PATTERN_MATCH
 
     Operation-specific parameters that were individual fields in legacy models
-    should now be passed in the `options` dictionary.
+    should now be passed in the `options` TypedDict.
 
     See MIGRATION.md for complete migration guidance.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
 from omniintelligence.enums import EnumIntelligenceOperationType
+
+
+class PerformanceContextDict(TypedDict, total=False):
+    """Typed structure for performance analysis context.
+
+    Used within IntelligenceOptionsDict for performance-related operations.
+    """
+
+    execution_type: str  # e.g., "async", "sync"
+    io_type: str  # e.g., "database", "network", "file"
+    expected_frequency: str  # e.g., "high", "medium", "low"
+    current_latency_p95: int  # Current P95 latency in ms
+    current_latency_p99: int  # Current P99 latency in ms
+    target_latency_ms: int  # Target latency in ms
+
+
+class IntelligenceOptionsDict(TypedDict, total=False):
+    """Typed structure for operation-specific options.
+
+    Contains known option fields for various intelligence operations.
+    With total=False, all fields are optional, allowing operation-specific
+    subsets to be provided.
+
+    Quality Assessment Options:
+        include_recommendations: bool - Include improvement recommendations
+        min_quality_threshold: float - Minimum quality score threshold (0.0-1.0)
+
+    Performance Analysis Options:
+        operation_name: str - Name of the operation being analyzed
+        target_percentile: int - Target percentile (e.g., 95, 99)
+        include_opportunities: bool - Include optimization opportunities
+        context: PerformanceContextDict - Performance context information
+
+    Pattern Detection Options:
+        pattern_categories: list[str] - Filter patterns by categories
+        min_confidence: float - Minimum confidence threshold (0.0-1.0)
+        max_patterns: int - Maximum patterns to return
+
+    Vector Operations Options:
+        top_k: int - Number of top results to return
+        similarity_threshold: float - Minimum similarity score (0.0-1.0)
+        include_metadata: bool - Include metadata in results
+
+    Document Freshness Options:
+        max_age_days: int - Maximum document age in days
+        include_stale: bool - Include stale documents in results
+    """
+
+    # Quality Assessment options
+    include_recommendations: bool
+    min_quality_threshold: float
+
+    # Performance Analysis options
+    operation_name: str
+    target_percentile: int
+    include_opportunities: bool
+    context: PerformanceContextDict
+
+    # Pattern Detection options
+    pattern_categories: list[str]
+    min_confidence: float
+    max_patterns: int
+
+    # Vector Operations options
+    top_k: int
+    similarity_threshold: float
+    include_metadata: bool
+
+    # Document Freshness options
+    max_age_days: int
+    include_stale: bool
+
+    # Autonomous Learning options
+    safety_threshold: float
+    prediction_confidence: float
+
+
+class IntelligenceMetadataDict(TypedDict, total=False):
+    """Typed structure for request metadata.
+
+    Contains common metadata fields for intelligence operations.
+    With total=False, all fields are optional.
+    """
+
+    # Request tracking
+    request_id: str
+    session_id: str
+    user_id: str
+    agent_id: str
+
+    # Source context
+    repository: str
+    branch: str
+    commit_hash: str
+
+    # Timing information
+    timestamp_utc: str
+    request_deadline_ms: int
+
+    # Processing hints
+    priority: str  # e.g., "high", "normal", "low"
+    retry_count: int
+    max_retries: int
+
+    # Feature flags
+    enable_caching: bool
+    enable_tracing: bool
 
 
 class ModelIntelligenceInput(BaseModel):
@@ -119,21 +226,32 @@ class ModelIntelligenceInput(BaseModel):
         default=None,
         description="Name of the project for context",
     )
-    options: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Operation-specific options and parameters for analysis",
+    options: IntelligenceOptionsDict = Field(
+        default_factory=lambda: IntelligenceOptionsDict(),
+        description=(
+            "Operation-specific options using typed IntelligenceOptionsDict. "
+            "See IntelligenceOptionsDict docstring for available fields by operation type."
+        ),
     )
     correlation_id: str | None = Field(
         default=None,
         description="Correlation ID for distributed tracing",
         pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the request",
+    metadata: IntelligenceMetadataDict = Field(
+        default_factory=lambda: IntelligenceMetadataDict(),
+        description=(
+            "Request metadata using typed IntelligenceMetadataDict. "
+            "See IntelligenceMetadataDict docstring for available fields."
+        ),
     )
 
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelIntelligenceInput"]
+__all__ = [
+    "IntelligenceMetadataDict",
+    "IntelligenceOptionsDict",
+    "ModelIntelligenceInput",
+    "PerformanceContextDict",
+]

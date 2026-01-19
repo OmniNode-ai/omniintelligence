@@ -1591,21 +1591,59 @@ class NodeIntelligenceAdapterEffect:
                 message=f"Intelligence analysis failed: {last_error!s}",
             ) from last_error
 
-        # Build output from process result
+        # Build output from process result using canonical ModelIntelligenceOutput fields
+        # Field mapping from internal result_data to canonical model:
+        # - processing_time_ms -> metadata (removed from direct fields)
+        # - onex_compliance (float) -> onex_compliant (bool, threshold > 0.8)
+        # - complexity_score -> analysis_results
+        # - issues -> merged into recommendations
+        # - patterns (objects) -> patterns_detected (list[str])
+        # - result_data -> analysis_results
+        onex_compliance_score = result_data.get("onex_compliance", 0.0)
+        onex_compliant = onex_compliance_score >= 0.8 if onex_compliance_score else None
+
+        # Merge issues into recommendations (canonical model only has recommendations)
+        issues = result_data.get("issues", [])
+        recommendations = result_data.get("recommendations", [])
+        all_recommendations = list(recommendations) + [
+            f"[Issue] {issue}" for issue in issues
+        ]
+
+        # Convert patterns (objects or dicts) to pattern names (list[str])
+        raw_patterns = result_data.get("patterns", [])
+        patterns_detected: list[str] = []
+        if raw_patterns:
+            for pattern in raw_patterns:
+                if isinstance(pattern, str):
+                    patterns_detected.append(pattern)
+                elif isinstance(pattern, dict):
+                    # Extract pattern name from dict
+                    name = pattern.get("pattern_name") or pattern.get("name", "unknown")
+                    patterns_detected.append(str(name))
+                elif hasattr(pattern, "pattern_name"):
+                    patterns_detected.append(str(pattern.pattern_name))
+                elif hasattr(pattern, "name"):
+                    patterns_detected.append(str(pattern.name))
+
+        # Build analysis_results from complexity_score and result_data
+        analysis_results: dict[str, Any] = result_data.get("result_data") or {}
+        if result_data.get("complexity_score") is not None:
+            analysis_results["complexity_score"] = result_data.get("complexity_score")
+        if onex_compliance_score:
+            analysis_results["onex_compliance_score"] = onex_compliance_score
+
         output = ModelIntelligenceOutput(
             success=result_data.get("success", True),
             operation_type=input_data.operation_type,
             correlation_id=input_data.correlation_id,
-            processing_time_ms=processing_time_ms,
             quality_score=result_data.get("quality_score", 0.0),
-            onex_compliance=result_data.get("onex_compliance", 0.0),
-            complexity_score=result_data.get("complexity_score"),
-            issues=result_data.get("issues", []),
-            recommendations=result_data.get("recommendations", []),
-            patterns=result_data.get("patterns"),
-            result_data=result_data.get("result_data"),
+            onex_compliant=onex_compliant,
+            recommendations=all_recommendations,
+            patterns_detected=patterns_detected,
+            analysis_results=analysis_results,
             metadata={
                 "source_path": input_data.source_path,
+                "processing_time_ms": processing_time_ms,
             },
         )
 
