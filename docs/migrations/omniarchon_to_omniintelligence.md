@@ -105,8 +105,10 @@ git -C "${SOURCE_ROOT}/omniarchon" rev-parse HEAD > "${MIGRATION_ROOT}/REVISION.
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
-  poetry run pytest src/omniintelligence/nodes/intelligence_orchestrator/v1_0_0/node_tests
-  poetry run pytest src/omniintelligence/nodes/ingestion_reducer/v1_0_0/node_tests
+  # Note: Current implementation uses flat structure (no v1_0_0 subdirectories)
+  # Tests are located directly under node directories or in tests/
+  poetry run pytest src/omniintelligence/nodes/intelligence_orchestrator/
+  poetry run pytest src/omniintelligence/nodes/intelligence_reducer/
   poetry run pytest tests/integration/intelligence
   poetry run pytest -m performance --maxfail=1
   ```
@@ -315,6 +317,19 @@ linked_contracts:
   - `contracts/caching_contract.yaml` - Cache configuration (if applicable)
 
 **Validation Checks**:
+
+*Node Artifact Verification*:
+- [ ] Each node has `__init__.py` with proper exports
+- [ ] Each node has `contract.yaml` with required fields (contract_version, node_version, name, node_type, description, input_model, output_model)
+- [ ] Each node has `node.py` with class following `Node<Name><Type>` naming convention
+- [ ] Each node has `models/` directory with input/output Pydantic models
+- [ ] Optional: `contracts/` subdirectory for subcontracts (FSM, event types, etc.)
+- [ ] Optional: `introspection.py` for runtime introspection support
+- [ ] Optional: `scenarios/` for YAML integration test scenarios
+- [ ] Optional: `node_tests/` or tests in `tests/` for node-specific tests
+- [ ] Optional: `ARCHITECTURE_DECISIONS.md` documenting design rationale
+
+*Code Quality*:
 - [ ] Enumerations replace string literals for tool names, topics, and status codes.
 - [ ] Contract validator passes with zero warnings.
 - [ ] Event replay integration test validates ingestion → intelligence → response.

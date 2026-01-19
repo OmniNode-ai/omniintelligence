@@ -1,0 +1,33 @@
+# Valkey/Redis Configuration Template
+# ============================================================================
+# This file is processed at container startup to inject the password from
+# environment variables, avoiding password exposure in process listing.
+#
+# Security Note:
+#   The password is stored in this config file inside the container.
+#   This is more secure than command-line arguments because:
+#   - Not visible in `ps aux` or `docker top`
+#   - Config file permissions can be restricted
+#   - Container isolation protects the file
+# ============================================================================
+
+# Authentication
+# The __VALKEY_PASSWORD__ placeholder is replaced by entrypoint script
+requirepass __VALKEY_PASSWORD__
+
+# Memory Management
+maxmemory 512mb
+maxmemory-policy allkeys-lru
+
+# Persistence
+# Save snapshot every 60 seconds if at least 1000 keys changed
+save 60 1000
+
+# Directory for data files
+dir /data
+
+# Append-only file (optional, disabled by default)
+appendonly no
+
+# Logging
+loglevel notice

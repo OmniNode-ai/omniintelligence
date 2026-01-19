@@ -35,15 +35,18 @@ operations:
       - intent_category
       - confidence
       - secondary_intents
+# =============================================================================
 # Future Enhancement: Protocol Integration (ONEX-PROTO-002)
-# ---------------------------------------------------------
-# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
-# Status: Backlog - Protocols directory not yet implemented
+# =============================================================================
+# Status: Backlog - Phase 3 (v0.4.0)
+# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/15
+# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+#
 # When implemented:
 #   - Create omniintelligence.protocols.IntentClassifierProtocol
 #   - Define classify(), get_categories(), get_confidence() interface
 #   - Uncomment dependency below
-#
+# =============================================================================
 dependencies: []
 # - name: "intent_classifier"
 #   type: "protocol"

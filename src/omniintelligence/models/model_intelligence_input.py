@@ -74,14 +74,22 @@ class ModelIntelligenceInput(BaseModel):
     operation_type: EnumIntelligenceOperationType = Field(
         ...,
         description=(
-            "Type of intelligence operation. Valid operation types include:\n"
-            "- Quality: ASSESS_CODE_QUALITY, ANALYZE_DOCUMENT_QUALITY, CHECK_ARCHITECTURAL_COMPLIANCE\n"
-            "- Performance: ESTABLISH_PERFORMANCE_BASELINE, IDENTIFY_OPTIMIZATION_OPPORTUNITIES\n"
-            "- Patterns: PATTERN_MATCH, HYBRID_SCORE, SEMANTIC_ANALYZE, GET_PATTERN_METRICS\n"
-            "- Vectors: ADVANCED_VECTOR_SEARCH, BATCH_INDEX_DOCUMENTS\n"
-            "- Freshness: ANALYZE_DOCUMENT_FRESHNESS, GET_STALE_DOCUMENTS\n"
-            "- Autonomous: INGEST_PATTERNS, PREDICT_AGENT, CALCULATE_SAFETY_SCORE\n"
-            "See EnumIntelligenceOperationType for the complete list."
+            "Type of intelligence operation. Valid operation types are defined in "
+            "EnumIntelligenceOperationType and include:\n"
+            "- Quality Assessment: ASSESS_CODE_QUALITY, ANALYZE_DOCUMENT_QUALITY, "
+            "GET_QUALITY_PATTERNS, CHECK_ARCHITECTURAL_COMPLIANCE\n"
+            "- Performance: ESTABLISH_PERFORMANCE_BASELINE, IDENTIFY_OPTIMIZATION_OPPORTUNITIES, "
+            "APPLY_PERFORMANCE_OPTIMIZATION, GET_OPTIMIZATION_REPORT, MONITOR_PERFORMANCE_TRENDS\n"
+            "- Document Freshness: ANALYZE_DOCUMENT_FRESHNESS, GET_STALE_DOCUMENTS, "
+            "REFRESH_DOCUMENTS, GET_FRESHNESS_STATS, GET_DOCUMENT_FRESHNESS, CLEANUP_FRESHNESS_DATA\n"
+            "- Pattern Learning: PATTERN_MATCH, HYBRID_SCORE, SEMANTIC_ANALYZE, GET_PATTERN_METRICS, "
+            "GET_CACHE_STATS, CLEAR_PATTERN_CACHE, GET_PATTERN_HEALTH\n"
+            "- Vector Operations: ADVANCED_VECTOR_SEARCH, QUALITY_WEIGHTED_SEARCH, "
+            "BATCH_INDEX_DOCUMENTS, GET_VECTOR_STATS, OPTIMIZE_VECTOR_INDEX\n"
+            "- Pattern Traceability: TRACK_PATTERN_LINEAGE, GET_PATTERN_LINEAGE, "
+            "GET_EXECUTION_LOGS, GET_EXECUTION_SUMMARY\n"
+            "- Autonomous Learning: INGEST_PATTERNS, RECORD_SUCCESS_PATTERN, PREDICT_AGENT, "
+            "PREDICT_EXECUTION_TIME, CALCULATE_SAFETY_SCORE, GET_AUTONOMOUS_STATS, GET_AUTONOMOUS_HEALTH"
         ),
     )
     content: str = Field(

@@ -2,9 +2,43 @@
 
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Self, TypedDict
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class PatternMatchingMetadataDict(TypedDict, total=False):
+    """Typed structure for pattern matching metadata.
+
+    Contains information about the pattern matching operation.
+    With total=False, all fields are optional.
+    """
+
+    # Operation status (used by stubs and real implementations)
+    status: str
+    message: str
+    tracking_url: str
+    operation: str
+
+    # Processing info
+    processing_time_ms: float
+    algorithm_version: str
+    model_name: str
+
+    # Input statistics
+    input_length: int
+    input_line_count: int
+    source_language: str
+    source_file: str
+
+    # Matching statistics
+    patterns_analyzed: int
+    patterns_filtered: int
+    threshold_used: float
+
+    # Request context
+    correlation_id: str
+    timestamp_utc: str
 
 
 class ModelPatternMatchingOutput(BaseModel):
@@ -25,9 +59,9 @@ class ModelPatternMatchingOutput(BaseModel):
         default_factory=dict,
         description="Confidence scores for each matched pattern (0.0 to 1.0)",
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: PatternMatchingMetadataDict | None = Field(
         default=None,
-        description="Additional metadata about the matching",
+        description="Typed metadata about the matching operation",
     )
 
     @field_validator("pattern_scores")
@@ -74,4 +108,4 @@ class ModelPatternMatchingOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelPatternMatchingOutput"]
+__all__ = ["ModelPatternMatchingOutput", "PatternMatchingMetadataDict"]

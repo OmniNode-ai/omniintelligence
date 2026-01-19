@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TypedDict
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -55,10 +56,9 @@ class ModelIntentClassificationInput(BaseModel):
         min_length=1,
         description="Content to classify intent from",
     )
-    correlation_id: str | None = Field(
+    correlation_id: UUID | None = Field(
         default=None,
-        description="Correlation ID for tracing",
-        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        description="Correlation ID for tracing (UUID format enforced)",
     )
     context: IntentContextDict = Field(
         default_factory=lambda: IntentContextDict(),

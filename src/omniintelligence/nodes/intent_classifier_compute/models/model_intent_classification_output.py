@@ -23,6 +23,12 @@ class SecondaryIntentDict(TypedDict, total=False):
 class IntentMetadataDict(TypedDict, total=False):
     """Typed structure for intent classification metadata."""
 
+    # Operation status (used by stubs and real implementations)
+    status: str
+    message: str
+    tracking_url: str
+
+    # Classification details
     classifier_version: str
     classification_time_ms: float
     model_name: str

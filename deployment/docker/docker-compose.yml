@@ -16,18 +16,34 @@ name: omniintelligence
 # ============================================================================
 # Network Configuration
 # ============================================================================
-# Architecture:
-# - omni-network: Internal bridge network for all OmniIntelligence services
-# - Services communicate via container names (e.g., postgres, qdrant, redpanda)
-# - External access via published ports on the host
+# ARCHITECTURE: Hybrid LOCAL + REMOTE Infrastructure
+#
+# This docker-compose provides LOCAL services for development/testing.
+# Production deployments may use REMOTE infrastructure (192.168.86.200).
+#
+# LOCAL Services (this compose file):
+#   - postgres (omni-postgres)     : FSM state, pattern lineage
+#   - qdrant (omni-qdrant)         : Vector embeddings
+#   - memgraph (omni-memgraph)     : Knowledge graph
+#   - valkey (omni-valkey)         : Distributed cache
+#   - redpanda (omni-redpanda)     : Kafka-compatible event streaming
+#
+# REMOTE Services (see ~/.claude/CLAUDE.md for details):
+#   - PostgreSQL: 192.168.86.200:5436 (omninode-bridge-postgres)
+#   - Kafka:      192.168.86.200:29092 (omninode-bridge-redpanda)
+#
+# Network: omni-network (bridge, 172.28.0.0/16)
+#   - Services communicate via container names (e.g., postgres, qdrant)
+#   - External access via published ports on the host
 #
 # Port Strategy:
-# - Internal ports: Used for service-to-service communication within Docker
-# - External ports: Published to host for development access and monitoring
+#   - Internal ports: Container-to-container (Docker network)
+#   - External ports: Published to host for development/monitoring
 #
-# For production deployments connecting to external infrastructure:
-# - See CLAUDE.md for remote server configuration (192.168.86.200)
-# - External Kafka/PostgreSQL can be used by setting environment variables
+# To use REMOTE infrastructure instead of LOCAL:
+#   - Set DATABASE_URL to remote PostgreSQL connection string
+#   - Set KAFKA_BOOTSTRAP_SERVERS to 192.168.86.200:29092
+#   - Disable local services or run only the node services
 # ============================================================================
 
 networks:

@@ -1,12 +1,17 @@
 # STUB: This node is a stub implementation. Full functionality is not yet available.
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/12
 # Status: Interface defined, implementation pending
-"""Qdrant Vector Effect - STUB effect node for vector storage."""
+"""Qdrant Vector Effect - STUB effect node for vector storage.
+
+WARNING: This is a STUB implementation. The node interface is defined but actual
+vector operations are not yet implemented. All method calls return stub responses.
+See tracking issue for implementation progress.
+"""
 from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 from uuid import uuid4
 
 from omnibase_core.enums.enum_effect_types import EnumTransactionState
@@ -18,9 +23,6 @@ from omniintelligence.nodes.qdrant_vector_effect.models import (
     ModelQdrantVectorOutput,
     QdrantOperationMetadataDict,
 )
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 # Issue tracking URL for this stub implementation
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/12"
@@ -39,19 +41,14 @@ class NodeQdrantVectorEffect(NodeEffect):
         - Store and query vectors in Qdrant
         - Support similarity search operations
         - Handle collection management
+
+    Note:
+        This node follows the declarative node pattern - no custom __init__ is needed.
+        The base NodeEffect class handles initialization. Stub warnings are emitted
+        only when the process() method is called, not on instantiation.
     """
 
     is_stub: ClassVar[bool] = True
-
-    def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodeQdrantVectorEffect is a stub implementation and does not provide "
-            f"full functionality. The node accepts inputs but performs no actual "
-            f"vector operations. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
 
     async def process(self, input_data: ModelEffectInput) -> ModelEffectOutput:
         """Process vector operation (STUB - returns empty result).

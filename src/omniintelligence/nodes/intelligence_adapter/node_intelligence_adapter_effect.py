@@ -1181,9 +1181,7 @@ class NodeIntelligenceAdapterEffect:
                 exc_info=True,
             )
 
-    async def _route_to_dlq(
-        self, message: Any, error: str | Exception, error_type: str | None = None
-    ) -> None:
+    async def _route_to_dlq(self, message: Any, error: str | Exception) -> None:
         """
         Route failed message to Dead Letter Queue.
 
@@ -1200,8 +1198,6 @@ class NodeIntelligenceAdapterEffect:
         Args:
             message: Original Kafka message that failed processing
             error: Error description or exception explaining why processing failed
-            error_type: Optional explicit error type name. If not provided, will be
-                        extracted from exception type or default to "ProcessingError".
 
         Note:
             If event_publisher is not initialized, the method logs a warning
@@ -1250,14 +1246,14 @@ class NodeIntelligenceAdapterEffect:
             # Extract message timestamp if available
             message_timestamp = None
             if hasattr(message, "timestamp") and message.timestamp():
-                ts_type, ts_value = message.timestamp()
+                _ts_type, ts_value = message.timestamp()
                 if ts_value:
                     message_timestamp = datetime.fromtimestamp(
                         ts_value / 1000, tz=UTC
                     ).isoformat()
 
-            # Determine error type from exception class name or use default
-            resolved_error_type = error_type or (
+            # Extract error type from exception class name or use default for string errors
+            error_type_name = (
                 type(error).__name__ if isinstance(error, Exception) else "ProcessingError"
             )
             error_message = str(error)
@@ -1268,7 +1264,7 @@ class NodeIntelligenceAdapterEffect:
                 "error": {
                     "message": error_message,
                     "traceback": traceback.format_exc(),
-                    "error_type": resolved_error_type,
+                    "error_type": error_type_name,
                 },
                 "original_metadata": {
                     "topic": original_topic,

@@ -2,9 +2,69 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class SemanticFeaturesDict(TypedDict, total=False):
+    """Typed structure for extracted semantic features.
+
+    Contains the semantic features extracted from code analysis.
+    With total=False, all fields are optional.
+    """
+
+    # Code structure features
+    function_count: int
+    class_count: int
+    import_count: int
+    line_count: int
+    complexity_score: float
+
+    # Semantic features
+    primary_language: str
+    detected_frameworks: list[str]
+    detected_patterns: list[str]
+    code_purpose: str
+
+    # Entity features
+    entity_names: list[str]
+    relationship_count: int
+
+    # Quality indicators
+    documentation_ratio: float
+    test_coverage_indicator: float
+
+
+class SemanticAnalysisMetadataDict(TypedDict, total=False):
+    """Typed structure for semantic analysis metadata.
+
+    Contains information about the analysis operation.
+    With total=False, all fields are optional.
+    """
+
+    # Operation status (used by stubs and real implementations)
+    status: str
+    message: str
+    tracking_url: str
+
+    # Processing info
+    processing_time_ms: float
+    algorithm_version: str
+    model_name: str
+
+    # Input statistics
+    input_length: int
+    input_line_count: int
+    input_token_count: int
+
+    # Output statistics
+    features_extracted: int
+    embedding_dimension: int
+
+    # Request context
+    correlation_id: str
+    timestamp_utc: str
 
 
 class ModelSemanticAnalysisOutput(BaseModel):
@@ -17,9 +77,10 @@ class ModelSemanticAnalysisOutput(BaseModel):
         ...,
         description="Whether semantic analysis succeeded",
     )
-    semantic_features: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Extracted semantic features",
+    semantic_features: SemanticFeaturesDict = Field(
+        default_factory=lambda: SemanticFeaturesDict(),
+        description="Typed semantic features extracted from code. Uses SemanticFeaturesDict "
+        "with total=False, allowing any subset of typed fields.",
     )
     embeddings: list[float] = Field(
         default_factory=list,
@@ -29,9 +90,10 @@ class ModelSemanticAnalysisOutput(BaseModel):
         default_factory=dict,
         description="Similarity scores to known patterns (0.0 to 1.0)",
     )
-    metadata: dict[str, Any] | None = Field(
+    metadata: SemanticAnalysisMetadataDict | None = Field(
         default=None,
-        description="Additional metadata about the analysis",
+        description="Typed metadata about the analysis. Uses SemanticAnalysisMetadataDict "
+        "with total=False, allowing any subset of typed fields.",
     )
 
     @field_validator("similarity_scores")
@@ -49,4 +111,8 @@ class ModelSemanticAnalysisOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelSemanticAnalysisOutput"]
+__all__ = [
+    "ModelSemanticAnalysisOutput",
+    "SemanticAnalysisMetadataDict",
+    "SemanticFeaturesDict",
+]

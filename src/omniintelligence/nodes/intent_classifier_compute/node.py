@@ -10,6 +10,7 @@ from typing import ClassVar
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.intent_classifier_compute.models import (
+    IntentMetadataDict,
     ModelIntentClassificationInput,
     ModelIntentClassificationOutput,
 )
@@ -31,6 +32,11 @@ class NodeIntentClassifierCompute(NodeCompute):
         - Classify user intents from natural language
         - Support multi-label classification
         - Confidence scoring for classifications
+
+    Note:
+        This node follows the declarative node pattern - no custom __init__ is needed.
+        The base NodeCompute class handles initialization. Stub warnings are emitted
+        only when the compute() method is called, not on instantiation.
     """
 
     is_stub: ClassVar[bool] = True
@@ -53,14 +59,18 @@ class NodeIntentClassifierCompute(NodeCompute):
             category=RuntimeWarning,
             stacklevel=2,
         )
-        # Note: metadata is None because stub status info doesn't match IntentMetadataDict
-        # schema. Stub status is communicated via the warning above.
+        # Explicitly type metadata for type safety and contract compliance
+        stub_metadata: IntentMetadataDict = {
+            "status": "stub",
+            "message": "NodeIntentClassifierCompute is not yet implemented",
+            "tracking_url": _STUB_TRACKING_URL,
+        }
         return ModelIntentClassificationOutput(
             success=True,
             intent_category="unknown",
             confidence=0.0,
             secondary_intents=[],
-            metadata=None,
+            metadata=stub_metadata,
         )
 
 

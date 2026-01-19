@@ -300,26 +300,40 @@ services:
 # =============================================================================
 # Network Configuration
 # =============================================================================
-# This compose file is designed to be used with the base docker-compose.yml:
+# DEPLOYMENT MODES:
+#
+# Mode 1: Combined Deployment (RECOMMENDED)
 #   docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
+#   - Files are merged, network definition comes from base docker-compose.yml
+#   - Services communicate via container names (postgres, qdrant, etc.)
 #
-# IMPORTANT: This file does NOT define networks - it inherits from the base file.
-# The 'omni-network' is defined in docker-compose.yml with:
-#   - driver: bridge
-#   - subnet: 172.28.0.0/16
+# Mode 2: Standalone Node Deployment (requires base infra running first)
+#   Step 1: docker compose -f docker-compose.yml up -d  # Start infrastructure
+#   Step 2: docker compose -f docker-compose.nodes.yml up -d  # Start nodes
+#   - Network already exists from Step 1 (omniintelligence_omni-network)
 #
-# When compose files are merged:
-#   1. docker-compose.yml defines the network and infrastructure services
-#   2. docker-compose.nodes.yml adds node services that use the same network
-#   3. Services in both files can communicate via container names
+# IMPORTANT: This file intentionally does NOT define the network to avoid
+# Docker Compose merge conflicts. When multiple compose files are used with
+# -f flags, network definitions are merged and external: true would override
+# the bridge network definition from docker-compose.yml, causing deployment
+# failure. The network reference below uses external: true which works when
+# the base infrastructure is already running.
 #
-# For standalone deployment (not recommended):
-#   - The base infrastructure must be running first
-#   - Use 'external: true' network reference (see commented example below)
+# Network Architecture:
+#   - omni-network: Internal bridge network (172.28.0.0/16)
+#   - Defined in docker-compose.yml, referenced here as external
+#   - All nodes and infrastructure share this network
+#   - Container DNS resolution for service discovery
+#
+# For production with external infrastructure (see ~/.claude/CLAUDE.md):
+#   - Override service URLs via environment variables
+#   - Connect to remote PostgreSQL (192.168.86.200:5436)
+#   - Connect to remote Kafka (192.168.86.200:29092)
 # =============================================================================
 
-# Uncomment below ONLY if running nodes separately from infrastructure:
-# networks:
-#   omni-network:
-#     external: true
-#     name: omniintelligence_omni-network
+networks:
+  # Network is defined in docker-compose.yml as a bridge network (172.28.0.0/16)
+  # When running Mode 1 (merged files), the base definition takes precedence
+  # When running Mode 2 (standalone), this external reference is used
+  omni-network:
+    name: omniintelligence_omni-network

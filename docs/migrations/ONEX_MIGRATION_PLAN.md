@@ -53,11 +53,12 @@ Reducer Nodes (1 unified node)
 │  ├─ Quality Assessment FSM (raw → scored)
 │  └─ State persistence for all FSMs in single database
 
-Compute Nodes (11 nodes)
+Compute Nodes (12 nodes)
 ├─ NodeVectorizationCompute - Text → embeddings
 ├─ NodeEntityExtractionCompute - Code → entities
 ├─ NodePatternMatchingCompute - Code + patterns → matches
 ├─ NodePatternLearningCompute - Pattern discovery and learning
+├─ NodePatternAssemblerCompute - Pattern assembly and composition
 ├─ NodeQualityScoringCompute - Metrics → quality score
 ├─ NodeSemanticAnalysisCompute - Code → semantic features
 ├─ NodeRelationshipDetectionCompute - Entities → relationships
@@ -93,6 +94,7 @@ Effect Nodes (6 nodes)
 | **Quality Scoring** | Compute | `quality_scoring_compute` | Pure: metrics → score |
 | **Semantic Analysis** | Compute | `semantic_analysis_compute` | Pure: code → analysis |
 | **Relationship Detection** | Compute | `relationship_detection_compute` | Pure: entities → relationships |
+| **Pattern Assembly** | Compute | `pattern_assembler_compute` | Pure: patterns → assembled patterns |
 | **Kafka Handlers (20+)** | Effect | `kafka_event_effect` | Kafka produce/consume |
 | **Qdrant Operations** | Effect | `qdrant_vector_effect` | Vector CRUD operations |
 | **Memgraph Operations** | Effect | `memgraph_graph_effect` | Graph CRUD operations |
@@ -105,7 +107,7 @@ Effect Nodes (6 nodes)
 
 ### Single Unified NodeIntelligenceOrchestrator
 
-**Location**: `src/omniintelligence/nodes/intelligence_orchestrator/v1_0_0/`
+**Location**: `src/omniintelligence/nodes/intelligence_orchestrator/`
 
 **Key Principle**: One orchestrator handles ALL workflows, routing based on `operation_type` enum.
 
@@ -313,7 +315,7 @@ class NodeIntelligenceOrchestrator(NodeOrchestrator[
 
 ### Single Unified NodeIntelligenceReducer
 
-**Location**: `src/omniintelligence/nodes/intelligence_reducer/v1_0_0/`
+**Location**: `src/omniintelligence/nodes/intelligence_reducer/`
 
 **Key Principle**: One reducer handles ALL FSMs, routing based on `fsm_type` enum.
 
@@ -660,7 +662,7 @@ RAW → ANALYZED → SCORED → STORED → COMPLETED
 
 ### 1. Vectorization Compute
 
-**Location**: `src/omniintelligence/nodes/vectorization_compute/v1_0_0/`
+**Location**: `src/omniintelligence/nodes/vectorization_compute/`
 
 **Pure Function**: `text → embeddings`
 
@@ -756,7 +758,7 @@ class NodeVectorizationCompute(NodeCompute[
 
 ### 1. Kafka Event Effect
 
-**Location**: `src/omniintelligence/nodes/kafka_event_effect/v1_0_0/`
+**Location**: `src/omniintelligence/nodes/ingestion_effect/` (formerly kafka_event_effect)
 
 **Operations**:
 - PUBLISH_EVENT: Produce to topic
@@ -1155,7 +1157,7 @@ Intent Router (in orchestrator or intent bus)
 - [ ] Implement base node classes
 
 **Deliverables**:
-- All node directories with v1_0_0 structure
+- All node directories with flat structure (versioning tracked via contract.yaml)
 - Complete contract definitions
 - Database migration scripts
 - Intent router implementation

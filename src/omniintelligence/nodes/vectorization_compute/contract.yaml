@@ -68,18 +68,21 @@ operations:
 # ============
 # Current: No external protocol dependencies (uses internal embedding implementation)
 #
-# Future Enhancement (ONEX-EMBED-001):
-# ------------------------------------
+# =============================================================================
+# Future Enhancement: Protocol Integration (ONEX-EMBED-001)
+# =============================================================================
 # Status: Backlog - Phase 3 (v0.4.0)
+# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/14
+# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+#
 # Priority: Low (current implementation functional without protocol abstraction)
 # Description: Create omniintelligence.protocols module with EmbeddingModelProtocol
-# Requirements:
+#
+# When implemented:
 #   - Create protocols/ directory with EmbeddingModelProtocol
 #   - Define interface for embedding generation (encode, batch_encode, get_dimension)
-#   - Currently no protocols directory exists
-# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
-# Reference: See MIGRATION_SUMMARY.md for protocol migration patterns
-#
+#   - Uncomment dependency below
+# =============================================================================
 dependencies: []
 # Future dependency (when ONEX-EMBED-001 is implemented):
 # - name: "embedding_model"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -88,10 +89,9 @@ class ModelPatternContext(BaseModel):
     )
 
     # Request metadata
-    correlation_id: str | None = Field(
+    correlation_id: UUID | None = Field(
         default=None,
-        description="Correlation ID for distributed tracing",
-        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        description="Correlation ID for distributed tracing (UUID format enforced)",
     )
     request_id: str | None = Field(
         default=None,
