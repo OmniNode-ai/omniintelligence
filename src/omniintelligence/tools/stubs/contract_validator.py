@@ -56,9 +56,14 @@ class ProtocolContractValidator:
         "output_model",
     )
 
-    # Alternative version field names (at least one must be present)
+    # Version field names recognized by the validator.
+    # - "version": Legacy field for backwards compatibility with non-node contracts
+    # - "contract_version": Required for node contracts (contract schema version)
+    # - "node_version": Required for node contracts (implementation version)
+    # Note: Node contracts MUST have both contract_version AND node_version.
+    #       Non-node contracts require at least one of these fields.
     VERSION_FIELDS: tuple[str, ...] = (
-        "version",
+        "version",  # Legacy/non-node contracts only
         "contract_version",
         "node_version",
     )

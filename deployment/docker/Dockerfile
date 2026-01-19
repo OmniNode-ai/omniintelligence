@@ -48,10 +48,19 @@ ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 # Expose health check port
 EXPOSE 8000
 
+# Copy and setup entrypoint script for proper signal handling
+COPY deployment/docker/entrypoint-node.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Health check - verifies the node's HTTP health endpoint is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 # Run reducer (canonical module path - no v1_0_0 versioning)
 # Note: Runs in stub mode with health checks; full functionality requires
 # ONEX container injection via RuntimeHostProcess
-CMD ["python", "-m", "omniintelligence.nodes.intelligence_reducer"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["reducer"]
 
 # ============================================================================
 # Stage 3: Orchestrator
@@ -67,10 +76,19 @@ ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 # Expose health check port
 EXPOSE 8000
 
+# Copy and setup entrypoint script for proper signal handling
+COPY deployment/docker/entrypoint-node.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Health check - verifies the node's HTTP health endpoint is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 # Run orchestrator (canonical module path - no v1_0_0 versioning)
 # Note: Runs in stub mode with health checks; full functionality requires
 # ONEX container injection via RuntimeHostProcess
-CMD ["python", "-m", "omniintelligence.nodes.intelligence_orchestrator"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["orchestrator"]
 
 # ============================================================================
 # Stage 4: Compute Node (generic)
@@ -88,10 +106,19 @@ ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 # Expose health check port
 EXPOSE 8000
 
+# Copy and setup entrypoint script for proper signal handling
+COPY deployment/docker/entrypoint-node.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Health check - verifies the node's HTTP health endpoint is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 # Run compute node (canonical module path - no v1_0_0 versioning)
 # Note: Runs in stub mode with health checks; full functionality requires
 # ONEX container injection via RuntimeHostProcess
-CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["compute"]
 
 # ============================================================================
 # Stage 5: Effect Node (generic)
@@ -109,10 +136,19 @@ ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 # Expose health check port
 EXPOSE 8000
 
+# Copy and setup entrypoint script for proper signal handling
+COPY deployment/docker/entrypoint-node.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Health check - verifies the node's HTTP health endpoint is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 # Run effect node (canonical module path - no v1_0_0 versioning)
 # Note: Runs in stub mode with health checks; full functionality requires
 # ONEX container injection via RuntimeHostProcess
-CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["effect"]
 
 # ============================================================================
 # Stage 6: Development/Testing

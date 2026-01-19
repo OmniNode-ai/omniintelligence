@@ -14,7 +14,11 @@ from omnibase_core.models.effect.model_effect_input import ModelEffectInput
 from omnibase_core.models.effect.model_effect_output import ModelEffectOutput
 from omnibase_core.nodes.node_effect import NodeEffect
 
-from omniintelligence.nodes.ingestion_effect.models import ModelIngestionOutput
+from omniintelligence.nodes.ingestion_effect.models import (
+    ContentMetadataDict,
+    IngestionOperationMetadataDict,
+    ModelIngestionOutput,
+)
 
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
@@ -67,15 +71,18 @@ class NodeIngestionEffect(NodeEffect):
             stacklevel=2,
         )
         # Use typed output model for consistent contract compliance
+        # Explicitly type metadata for type safety and contract compliance
+        stub_content_metadata: ContentMetadataDict = {}
+        stub_metadata: IngestionOperationMetadataDict = {
+            "status": "stub",
+            "message": "NodeIngestionEffect is not yet implemented",
+            "tracking_url": _STUB_TRACKING_URL,
+        }
         typed_output = ModelIngestionOutput(
             success=True,
             ingested_content=None,
-            content_metadata={},
-            metadata={
-                "status": "stub",
-                "message": "NodeIngestionEffect is not yet implemented",
-                "tracking_url": _STUB_TRACKING_URL,
-            },
+            content_metadata=stub_content_metadata,
+            metadata=stub_metadata,
         )
         return ModelEffectOutput(
             result=typed_output.model_dump(),

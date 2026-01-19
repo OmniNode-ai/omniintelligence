@@ -185,11 +185,11 @@ nodes/
 - Node class following naming convention (`Node<Name><Type>`)
 - Async execution method (`execute_compute`, `execute_effect`, etc.)
 - Proper error handling and logging
+- ARCHITECTURE_DECISIONS.md - Design rationale documenting architectural choices
 
 **Optional Artifacts** (recommended for production nodes):
 
 - [ ] `infrastructure/` - Supporting infrastructure code (for effect nodes)
-- [ ] `ARCHITECTURE_DECISIONS.md` - Design rationale for complex nodes
 
 ### Linked Document Contracts
 
@@ -288,12 +288,33 @@ linked_contracts:
 ```
 
 ### Code Quality
-- [ ] All required node artifacts present (see "Required Artifacts Checklist" above):
-  - `__init__.py`, `__main__.py`, `contract.yaml`, `contracts/`, `models/`, `node.py`
-  - `introspection.py`, `scenarios/`, `node_tests/`
-- [ ] Linked-doc contracts properly configured (see "Linked Document Contracts" above):
-  - `node_config.yaml`, `deployment_config.yaml`
-  - Subcontracts: `fsm_contract.yaml`, `event_type_contract.yaml`, `contract_models.yaml`, etc.
+
+**Required Node Artifacts** (all nodes must have):
+- [ ] `__init__.py` - Module initialization with exports
+- [ ] `__main__.py` - CLI entry point (for executable nodes)
+- [ ] `contract.yaml` - Main node contract definition
+- [ ] `contracts/` - Subcontracts directory (fsm, event_type, models, cli, etc.)
+- [ ] `models/` - Pydantic models directory
+- [ ] `node.py` - Main node implementation following `Node<Name><Type>` naming
+- [ ] `introspection.py` - Runtime introspection support
+- [ ] `scenarios/` - YAML integration test scenarios
+- [ ] `node_tests/` - Node-specific unit tests
+- [ ] `ARCHITECTURE_DECISIONS.md` - Design rationale and architectural choices
+
+**Linked-Doc Contracts** (properly configured):
+- [ ] `node_config.yaml` - Node-specific configuration schema
+- [ ] `deployment_config.yaml` - Deployment and infrastructure configuration
+- [ ] Subcontracts using `$ref` pattern:
+  - `contracts/fsm_contract.yaml` - FSM definitions (for reducers)
+  - `contracts/event_type_contract.yaml` - Event schemas (for effect nodes)
+  - `contracts/contract_models.yaml` - Shared model definitions
+  - `contracts/contract_cli.yaml` - CLI parameter definitions
+  - `contracts/aggregation_contract.yaml` - Aggregation patterns (if applicable)
+  - `contracts/state_management_contract.yaml` - State persistence (for reducers)
+  - `contracts/routing_contract.yaml` - Message routing (if applicable)
+  - `contracts/caching_contract.yaml` - Cache configuration (if applicable)
+
+**Validation Checks**:
 - [ ] Enumerations replace string literals for tool names, topics, and status codes.
 - [ ] Contract validator passes with zero warnings.
 - [ ] Event replay integration test validates ingestion → intelligence → response.

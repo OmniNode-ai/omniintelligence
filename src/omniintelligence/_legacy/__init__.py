@@ -3,8 +3,8 @@ Legacy module compatibility layer.
 
 .. deprecated::
     This module is deprecated and will be removed in a future version.
-    Use the canonical imports from ``omniintelligence.utils``,
-    ``omniintelligence.models``, or ``omniintelligence.enums`` instead.
+    Import from ``omniintelligence.utils``, ``omniintelligence.models``,
+    or ``omniintelligence.enums`` instead.
 
 This module provides backwards-compatible imports for code that references
 the old ``_legacy`` module paths. All implementations are re-exported from
@@ -26,7 +26,14 @@ import warnings
 
 warnings.warn(
     "The omniintelligence._legacy module is deprecated. "
-    "Use omniintelligence.utils, omniintelligence.models, or omniintelligence.enums instead.",
+    "Import from omniintelligence.utils, omniintelligence.models, "
+    "or omniintelligence.enums instead.",
     DeprecationWarning,
     stacklevel=2,
 )
+
+# Re-export utilities for backwards compatibility
+# These imports trigger their own deprecation warnings
+from omniintelligence._legacy import utils
+
+__all__ = ["utils"]

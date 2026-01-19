@@ -17,11 +17,83 @@ Usage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.enums import EnumEntityType, EnumRelationshipType
+
+
+class EntityMetadataDict(TypedDict, total=False):
+    """Typed structure for entity metadata.
+
+    All fields are optional (total=False) to allow flexible metadata
+    while maintaining type safety. Common fields for code entities:
+    - Location info: file_path, line_start, line_end, column_start, column_end
+    - Scope info: scope, visibility, namespace
+    - Documentation: docstring, description, annotations
+    """
+
+    # Location information
+    file_path: str
+    line_start: int
+    line_end: int
+    column_start: int
+    column_end: int
+
+    # Scope and visibility
+    scope: str
+    visibility: str  # e.g., "public", "private", "protected"
+    namespace: str
+    module: str
+    package: str
+
+    # Documentation
+    docstring: str
+    description: str
+    annotations: list[str]
+
+    # Additional metadata
+    language: str
+    version: str
+    correlation_id: str
+    source: str
+
+
+class RelationshipMetadataDict(TypedDict, total=False):
+    """Typed structure for relationship metadata.
+
+    All fields are optional (total=False) to allow flexible metadata
+    while maintaining type safety. Common fields for code relationships:
+    - Location: file_path, line_number
+    - Strength: weight, strength
+    - Classification: direction, category
+    """
+
+    # Location information
+    file_path: str
+    line_number: int
+    source_line: int
+    target_line: int
+
+    # Relationship strength
+    weight: float
+    strength: float
+    importance: float
+
+    # Classification
+    direction: str  # e.g., "unidirectional", "bidirectional"
+    category: str
+    semantic_type: str
+
+    # Context
+    context: str
+    description: str
+    correlation_id: str
+
+    # Temporal
+    discovered_at: str
+    version: str
 
 
 def _utc_now() -> datetime:
@@ -71,9 +143,9 @@ class ModelEntity(BaseModel):
         min_length=1,
         description="Human-readable entity name",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional entity metadata (file_path, line numbers, etc.)",
+    metadata: EntityMetadataDict = Field(
+        default_factory=lambda: EntityMetadataDict(),
+        description="Additional entity metadata with typed fields (file_path, line numbers, etc.)",
     )
     created_at: datetime = Field(
         default_factory=_utc_now,
@@ -121,9 +193,9 @@ class ModelRelationship(BaseModel):
         ...,
         description="Type of relationship (CONTAINS, CALLS, DEPENDS_ON, etc.)",
     )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional relationship metadata",
+    metadata: RelationshipMetadataDict = Field(
+        default_factory=lambda: RelationshipMetadataDict(),
+        description="Additional relationship metadata with typed fields",
     )
     confidence: float = Field(
         default=1.0,
@@ -134,6 +206,8 @@ class ModelRelationship(BaseModel):
 
 
 __all__ = [
+    "EntityMetadataDict",
     "ModelEntity",
     "ModelRelationship",
+    "RelationshipMetadataDict",
 ]

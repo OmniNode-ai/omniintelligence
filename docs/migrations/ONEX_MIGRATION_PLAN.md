@@ -72,7 +72,7 @@ Effect Nodes (6 nodes)
 ├─ NodeMemgraphGraphEffect - Knowledge graph operations
 ├─ NodePostgresPatternEffect - Pattern persistence
 ├─ NodeIntelligenceApiEffect - HTTP API facade
-└─ NodeIntelligenceAdapterEffect - Kafka consumer for code analysis events
+└─ NodeIntelligenceAdapterEffect - Kafka consumer for code analysis events (dir: intelligence_adapter)
 ```
 
 ---
@@ -191,6 +191,11 @@ workflows:
 ```
 
 #### Implementation Structure
+
+**Note**: All orchestrator implementations follow the ONEX 4-node architecture with:
+- Node class naming: `Node<Name>Orchestrator` (e.g., `NodeIntelligenceOrchestrator`)
+- Contract-driven workflow definitions in `contracts/orchestrator_workflows.yaml`
+- Linked document references using `$ref` pattern for subcontracts
 
 ```python
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
@@ -330,6 +335,11 @@ class EnumFSMType(str, Enum):
 ```
 
 ### FSM Definitions
+
+**Note**: All reducer implementations follow the ONEX 4-node architecture with:
+- Node class naming: `Node<Name>Reducer` (e.g., `NodeIntelligenceReducer`)
+- FSM definitions in `contracts/fsm_contract.yaml`
+- State management via `contracts/state_management_contract.yaml`
 
 #### 1. Ingestion FSM (FSM_TYPE.INGESTION)
 
@@ -643,6 +653,11 @@ RAW → ANALYZED → SCORED → STORED → COMPLETED
 
 ## Compute Nodes
 
+**Note**: All compute node implementations follow the ONEX 4-node architecture with:
+- Node class naming: `Node<Name>Compute` (e.g., `NodeVectorizationCompute`)
+- Pure functions with no side effects
+- Contract-driven input/output models in `contracts/contract_models.yaml`
+
 ### 1. Vectorization Compute
 
 **Location**: `src/omniintelligence/nodes/vectorization_compute/v1_0_0/`
@@ -733,6 +748,11 @@ class NodeVectorizationCompute(NodeCompute[
 ---
 
 ## Effect Nodes
+
+**Note**: All effect node implementations follow the ONEX 4-node architecture with:
+- Node class naming: `Node<Name>Effect` (e.g., `NodeKafkaEventEffect`)
+- Event type definitions in `contracts/event_type_contract.yaml`
+- Infrastructure interactions (Kafka, databases, APIs)
 
 ### 1. Kafka Event Effect
 
@@ -831,7 +851,17 @@ class NodeKafkaEventEffect(NodeEffect[
 
 ### Contract Structure
 
-All workflows defined in `contracts/workflows/`:
+All workflows defined in `contracts/workflows/` following the ONEX subcontract architecture:
+
+**Subcontract References** (in main `contract.yaml`):
+```yaml
+subcontracts:
+  workflows: {$ref: "contracts/orchestrator_workflows.yaml"}
+  models: {$ref: "contracts/contract_models.yaml"}
+  cli: {$ref: "contracts/contract_cli.yaml"}
+```
+
+**Workflow Contract Example**:
 
 ```yaml
 # contracts/workflows/document_ingestion.yaml
@@ -1257,4 +1287,4 @@ Intent Router (in orchestrator or intent bus)
 
 **Document Status**: Planning Complete
 **Next Action**: Begin Phase 1 implementation
-**Review Date**: 2025-11-21
+**Review Date**: 2026-01-18

@@ -11,6 +11,7 @@ from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.quality_scoring_compute.models import (
     ModelQualityScoringInput,
+    ModelQualityScoringMetadata,
     ModelQualityScoringOutput,
 )
 
@@ -45,6 +46,8 @@ class NodeQualityScoringCompute(NodeCompute):
 
         Returns:
             Typed ModelQualityScoringOutput with success=True but default values.
+            All contract-required fields are present: success, quality_score,
+            dimensions, onex_compliant, recommendations, metadata.
         """
         warnings.warn(
             f"NodeQualityScoringCompute.compute() is a stub that returns empty "
@@ -59,11 +62,11 @@ class NodeQualityScoringCompute(NodeCompute):
             dimensions={},
             onex_compliant=False,
             recommendations=[],
-            metadata={
-                "status": "stub",
-                "message": "NodeQualityScoringCompute is not yet implemented",
-                "tracking_url": _STUB_TRACKING_URL,
-            },
+            metadata=ModelQualityScoringMetadata(
+                status="stub",
+                message="NodeQualityScoringCompute is not yet implemented",
+                tracking_url=_STUB_TRACKING_URL,
+            ),
         )
 
 

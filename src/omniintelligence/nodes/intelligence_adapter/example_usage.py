@@ -30,7 +30,11 @@ from uuid import uuid4
 from omniintelligence.nodes import NodeIntelligenceAdapterEffect
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
-# Import models from the canonical location
+# Import models from the shared models module (omniintelligence.models).
+# Note: These models are intentionally shared across multiple intelligence nodes
+# (adapter, orchestrator, etc.) rather than being node-specific. This allows
+# consistent data structures for events and operations across the intelligence
+# subsystem. See contract.yaml lines 33-36 for design rationale.
 from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
 
 

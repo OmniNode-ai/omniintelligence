@@ -315,6 +315,25 @@ state_machine:
         - action_name: "clear_state"
           action_type: "state_update"
   persistence_enabled: true
+  # =============================================================================
+  # TERMINAL STATE SEMANTICS
+  # =============================================================================
+  # In this FSM design, states marked with `is_terminal: false` are NOT truly
+  # terminal - they allow reset transitions back to "idle" for workflow restart.
+  #
+  # The terminal_states list is intentionally empty because:
+  #   1. All "completed" states (indexed, completed, stored) support reset → idle
+  #   2. Failed states also support reset → idle for recovery
+  #   3. This enables workflow restarts without creating new FSM instances
+  #
+  # States with is_terminal: false that act as "logical endpoints":
+  #   - indexed: Document successfully indexed (can reindex or reset)
+  #   - completed: Pattern learning completed (can reset)
+  #   - stored: Quality results stored (can reassess or reset)
+  #   - failed: Error occurred (can reset for recovery)
+  #
+  # True terminal states would require creating a new FSM instance to restart.
+  # =============================================================================
   terminal_states: []
 # =============================================================================
 # IMPLEMENTATION STATUS AND TODO TRACKING
@@ -362,6 +381,8 @@ state_machine:
 #   description: "Immutable state model for pure reducer pattern"
 # Validation Configuration
 # ========================
+# Note: fsm_type validation values correspond to EnumFSMType enum values.
+# See: omniintelligence.enums.enum_fsm.EnumFSMType
 validation:
   enabled: true
   rules:
@@ -371,10 +392,12 @@ validation:
       error_message: "entity_id is required for state tracking"
     - field: "fsm_type"
       required: true
+      # These values correspond to EnumFSMType enum (omniintelligence.enums.EnumFSMType)
+      # The enum provides type safety in Python code, while valid_values enforces at contract level.
       valid_values:
-        - "INGESTION"
-        - "PATTERN_LEARNING"
-        - "QUALITY_ASSESSMENT"
+        - "INGESTION"  # EnumFSMType.INGESTION
+        - "PATTERN_LEARNING"  # EnumFSMType.PATTERN_LEARNING
+        - "QUALITY_ASSESSMENT"  # EnumFSMType.QUALITY_ASSESSMENT
       error_code: "invalid_fsm_type"
       error_message: "fsm_type must be INGESTION, PATTERN_LEARNING, or QUALITY_ASSESSMENT"
     - field: "action"

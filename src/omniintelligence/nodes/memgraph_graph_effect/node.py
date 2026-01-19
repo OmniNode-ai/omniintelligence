@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 # Issue tracking URL for this stub implementation
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/8"
 
+# Module-level flag to track if stub warning has been issued
+_stub_warning_issued = False
+
 
 class NodeMemgraphGraphEffect(NodeEffect):
     """STUB: Declarative effect node for Memgraph graph operations.
@@ -34,13 +37,16 @@ class NodeMemgraphGraphEffect(NodeEffect):
     is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodeMemgraphGraphEffect is a stub implementation and does not provide "
-            f"full functionality. The node accepts inputs but performs no actual "
-            f"graph operations. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
+        global _stub_warning_issued
+        if not _stub_warning_issued:
+            warnings.warn(
+                f"NodeMemgraphGraphEffect is a stub implementation and does not provide "
+                f"full functionality. The node accepts inputs but performs no actual "
+                f"graph operations. See {_STUB_TRACKING_URL} for implementation progress.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+            _stub_warning_issued = True
         super().__init__(container)
 
     async def process(self, _input_data: dict[str, Any]) -> dict[str, Any]:
@@ -52,13 +58,7 @@ class NodeMemgraphGraphEffect(NodeEffect):
         Returns:
             Empty result dictionary indicating stub status.
         """
-        warnings.warn(
-            f"NodeMemgraphGraphEffect.process() is a stub that returns empty "
-            f"results. No actual graph operations are performed. "
-            f"See {_STUB_TRACKING_URL} for progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
+        # Warning already issued in __init__, no need to repeat on every call
         return {
             "success": True,
             "nodes_created": 0,

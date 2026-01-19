@@ -536,7 +536,7 @@ def _detect_contract_type(data: YamlData) -> str:
     if "node_type" in data:
         logger.debug(
             "Detected contract type: node_contract (node_type=%s)",
-            data.get("node_type"),
+            data["node_type"],  # Key existence already verified above
         )
         return "node_contract"
 

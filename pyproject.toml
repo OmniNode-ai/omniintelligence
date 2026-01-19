@@ -49,7 +49,8 @@ factory-boy = ">=3.3.0"
 pre-commit = ">=4.5.0"
 
 [tool.poetry.group.core.dependencies]
-omnibase-core = "^0.7.0"
+# omnibase-infra 0.2.1 requires omnibase-core>=0.8.0, so we pin to ^0.8.0
+omnibase-core = "^0.8.0"
 omnibase-spi = "^0.5.0"
 omnibase-infra = "^0.2.1"
 
@@ -92,11 +93,16 @@ dev = [
 ]
 
 # Core node system dependencies
+# Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
+#   ^0.8.0 = >=0.8.0,<0.9.0  (compatible releases within 0.8.x)
+#   ^0.5.0 = >=0.5.0,<0.6.0  (compatible releases within 0.5.x)
+#   ^0.2.1 = >=0.2.1,<0.3.0  (compatible releases within 0.2.x)
+# Note: omnibase-infra 0.2.1 requires omnibase-core>=0.8.0
 core = [
-    # ONEX ecosystem dependencies
-    "omnibase-core>=0.7.0",
-    "omnibase-spi>=0.5.0",
-    "omnibase-infra>=0.2.1",
+    # ONEX ecosystem dependencies (version bounds match Poetry caret syntax)
+    "omnibase-core>=0.8.0,<0.9.0",
+    "omnibase-spi>=0.5.0,<0.6.0",
+    "omnibase-infra>=0.2.1,<0.3.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -132,11 +138,13 @@ core = [
 ]
 
 # All dependencies for development and testing
+# Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax
+# Note: omnibase-infra 0.2.1 requires omnibase-core>=0.8.0
 all = [
-    # Include all core dependencies
-    "omnibase-core>=0.7.0",
-    "omnibase-spi>=0.5.0",
-    "omnibase-infra>=0.2.1",
+    # Include all core dependencies (version bounds match Poetry caret syntax)
+    "omnibase-core>=0.8.0,<0.9.0",
+    "omnibase-spi>=0.5.0,<0.6.0",
+    "omnibase-infra>=0.2.1,<0.3.0",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.20",
@@ -160,8 +168,9 @@ all = [
     "structlog>=23.1.0",
     "prometheus-client>=0.19.0",
     "psutil>=5.9.0",
-    # Test dependencies (versions aligned with [dependency-groups].dev)
+    # Dev/test dependencies (versions aligned with [dependency-groups].dev)
     "mypy>=1.17.0",
+    "types-PyYAML>=6.0.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.12.0",
@@ -173,6 +182,7 @@ all = [
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
+    "pre-commit>=4.5.0",
 ]
 
 [tool.ruff]

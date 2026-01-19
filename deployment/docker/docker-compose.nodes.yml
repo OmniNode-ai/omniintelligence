@@ -300,16 +300,26 @@ services:
 # =============================================================================
 # Network Configuration
 # =============================================================================
-# This compose file inherits the 'omni-network' definition from docker-compose.yml
-# when used together: docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
+# This compose file is designed to be used with the base docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
 #
-# The network is defined in the base compose file with:
+# IMPORTANT: This file does NOT define networks - it inherits from the base file.
+# The 'omni-network' is defined in docker-compose.yml with:
 #   - driver: bridge
 #   - subnet: 172.28.0.0/16
 #
-# Services in this file reference 'omni-network' by name and Docker Compose
-# automatically merges the network definition from the base file.
+# When compose files are merged:
+#   1. docker-compose.yml defines the network and infrastructure services
+#   2. docker-compose.nodes.yml adds node services that use the same network
+#   3. Services in both files can communicate via container names
+#
+# For standalone deployment (not recommended):
+#   - The base infrastructure must be running first
+#   - Use 'external: true' network reference (see commented example below)
 # =============================================================================
-# NOTE: No 'networks:' section needed here - it would conflict with the base file's
-# network definition. The services' 'networks: [omni-network]' references are
-# resolved from the base compose file during merge.
+
+# Uncomment below ONLY if running nodes separately from infrastructure:
+# networks:
+#   omni-network:
+#     external: true
+#     name: omniintelligence_omni-network

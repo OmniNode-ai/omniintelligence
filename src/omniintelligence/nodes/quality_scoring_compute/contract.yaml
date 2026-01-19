@@ -1,5 +1,10 @@
 ---
 # ONEX Node Contract - Quality Scoring Compute Node
+# =============================================================================
+# IMPLEMENTATION STATUS: STUB (Interface defined, implementation pending)
+# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/13
+# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
+# =============================================================================
 contract_version:
   major: 1
   minor: 0
@@ -21,6 +26,15 @@ output_model:
   name: "ModelQualityScoringOutput"
   module: "omniintelligence.nodes.quality_scoring_compute.models"
   description: "Output containing quality scores and recommendations."
+# Metadata Model (for typed metadata in output)
+# =============================================
+# The output model uses ModelQualityScoringMetadata for type-safe metadata
+# instead of dict[str, Any]. This provides structured status, message, and
+# tracking information for the scoring operation.
+metadata_model:
+  name: "ModelQualityScoringMetadata"
+  module: "omniintelligence.nodes.quality_scoring_compute.models"
+  description: "Typed metadata for quality scoring output (status, message, tracking_url, etc.)"
 operations:
   - name: "score_quality"
     description: "Score code quality"
@@ -36,17 +50,24 @@ operations:
       - onex_compliant
       - recommendations
       - metadata
-# Protocol Dependencies (Future)
-# ==============================
-# When implementing full functionality, a quality analyzer protocol will be needed.
-# Tracked in: https://github.com/OmniNode-ai/omniintelligence/issues/13
-# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
-dependencies: []
+# =============================================================================
+# PENDING IMPLEMENTATION - Protocol Dependencies
+# =============================================================================
+# Status: PENDING - Tracked in issue #13
+# When: Phase 3 (v0.4.0) - Quality Analyzer Protocol Implementation
+# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/13
+#
+# When implementing full functionality, a quality analyzer protocol will be
+# needed. The protocol will define the interface for quality analysis engines.
+#
 # Future protocol dependency (uncomment when protocols module exists):
-# - name: "quality_analyzer"
-#   type: "protocol"
-#   module: "omniintelligence.protocols"
-#   description: "Quality analysis engine"
+# dependencies:
+#   - name: "quality_analyzer"
+#     type: "protocol"
+#     module: "omniintelligence.protocols"
+#     description: "Quality analysis engine"
+# =============================================================================
+dependencies: []
 # Error Handling Configuration
 # ============================
 error_handling:
