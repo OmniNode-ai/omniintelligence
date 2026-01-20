@@ -745,8 +745,8 @@ class TestTransformPatternResponse:
     def test_recommendations_single_string(self) -> None:
         """Test when recommendations is a string (which is iterable but not a list).
 
-        Strings are iterable, so a single string becomes a list of characters
-        unless handled specially. The handler should convert to list properly.
+        Strings are iterable, so without special handling list() would break them
+        into characters. The handler detects single strings and wraps them in a list.
         """
 
         class MockResponse:
@@ -757,10 +757,9 @@ class TestTransformPatternResponse:
 
         result = transform_pattern_response(MockResponse())
         assert result["success"] is True, "success should be True"
-        # String is iterable, so list() breaks it into characters
-        # This documents current behavior (may want to change this)
-        assert len(result["recommendations"]) == len("single recommendation"), (
-            "string recommendations are split into characters by list()"
+        # Handler detects single string and wraps it in a list (not split into chars)
+        assert result["recommendations"] == ["single recommendation"], (
+            "single string recommendation should be wrapped in a list"
         )
 
     def test_mixed_patterns_good_and_bad(self) -> None:
@@ -1251,5 +1250,3 @@ class TestTransformPerformanceResponse:
         assert result["complexity_score"] == 0.0, (
             "complexity_score should default to 0.0 when complexity_estimate is None"
         )
-
-

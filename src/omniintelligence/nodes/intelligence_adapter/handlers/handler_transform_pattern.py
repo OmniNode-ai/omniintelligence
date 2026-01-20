@@ -173,7 +173,12 @@ def transform_pattern_response(response: Any | None) -> PatternHandlerResponse:
     raw_recommendations = getattr(response, "recommendations", None)
     if raw_recommendations is not None:
         try:
-            recommendations = list(raw_recommendations)[:MAX_ISSUES]
+            # Check if string/bytes to avoid splitting into characters
+            # list("hello") produces ['h', 'e', 'l', 'l', 'o'] which is wrong
+            if isinstance(raw_recommendations, (str, bytes)):
+                recommendations = [raw_recommendations]
+            else:
+                recommendations = list(raw_recommendations)[:MAX_ISSUES]
         except TypeError:
             # Not iterable - wrap single value or convert to string
             if raw_recommendations:

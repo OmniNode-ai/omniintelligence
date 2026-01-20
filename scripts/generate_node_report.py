@@ -29,7 +29,7 @@ import ast
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -115,7 +115,7 @@ def check_is_stub(file_path: Path) -> bool:
 def count_lines(file_path: Path) -> int:
     """Count non-empty lines in a file."""
     try:
-        return len(file_path.read_text().splitlines())
+        return sum(1 for line in file_path.read_text().splitlines() if line.strip())
     except Exception:
         return 0
 
@@ -212,7 +212,7 @@ def generate_report(nodes: list[NodeInfo]) -> str:
     # Generate report
     lines = [
         "# Node Status Report",
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC",
         "",
         "## Summary",
         "",
