@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OmniIntelligence is a migration/rebuild of the legacy `omniarchon` intelligence platform into canonical ONEX nodes following the Omninode architecture patterns. The system provides code quality analysis, pattern learning, vectorization, and intelligence APIs as first-class nodes.
+OmniIntelligence is a migration/rebuild of the legacy `omniarchon` intelligence platform into canonical ONEX nodes following the Omninode architecture patterns. The system provides code quality analysis, pattern learning, semantic analysis, and intelligence APIs as first-class nodes. (Vector storage operations are handled by the `omnimemory` repository.)
 
 ## Development Commands
 
@@ -41,8 +41,8 @@ The system decomposes intelligence operations into specialized ONEX nodes follow
 |------|---------|----------|
 | **Orchestrator** | Coordinate workflows, route operations | `intelligence_orchestrator` |
 | **Reducer** | Manage state, FSM transitions | `intelligence_reducer` (unified, handles all FSMs via fsm_type) |
-| **Compute** | Pure data processing, no side effects | `vectorization_compute`, `pattern_learning_compute`, `quality_scoring_compute` |
-| **Effect** | External I/O (Kafka, DB, HTTP) | `ingestion_effect`, `intelligence_api_effect`, `intelligence_adapter` |
+| **Compute** | Pure data processing, no side effects | `pattern_learning_compute`, `quality_scoring_compute`, `semantic_analysis_compute` |
+| **Effect** | External I/O (Kafka, DB, HTTP) | `intelligence_adapter` |
 
 ### Operation Flow
 
@@ -51,20 +51,21 @@ Client Request
     ↓
 Orchestrator (routes to workflows)
     ↓
-├── Compute Nodes (vectorization, pattern learning, quality scoring)
+├── Compute Nodes (pattern learning, quality scoring, semantic analysis)
 ├── Reducer Nodes (state management, FSM)
-└── Effect Nodes (Kafka publish, Qdrant/Memgraph storage)
+└── Effect Nodes (Kafka publish, external service calls)
 ```
 
 ### Key Orchestrator Workflows
 
 The `IntelligenceOrchestrator` uses Llama Index workflows to coordinate:
 
-- **DOCUMENT_INGESTION**: Vectorize → Extract entities → Store in Qdrant/Memgraph
 - **PATTERN_LEARNING**: 4-phase (Foundation → Matching → Validation → Traceability)
 - **QUALITY_ASSESSMENT**: Score code quality → Check ONEX compliance → Generate recommendations
-- **SEMANTIC_ANALYSIS**: Generate embeddings → Compute similarity → Store vectors
-- **RELATIONSHIP_DETECTION**: Detect relationships → Classify → Store in graph
+- **SEMANTIC_ANALYSIS**: Generate embeddings → Compute similarity → Return results
+- **PATTERN_ASSEMBLY**: Assemble patterns from execution traces and success criteria
+
+> **Note**: Vector storage and graph operations (Qdrant, Memgraph) are handled by the `omnimemory` repository.
 
 ## Node Development Pattern
 
