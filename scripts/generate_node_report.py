@@ -18,6 +18,7 @@ Reference: OMN-1140
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -60,8 +61,15 @@ def check_is_stub(file_path: Path) -> bool:
     """Check if node file contains is_stub: ClassVar[bool] = True."""
     try:
         content = file_path.read_text()
-        # Check for the stub marker pattern
-        return bool(re.search(r"is_stub.*ClassVar.*=.*True", content))
+        tree = ast.parse(content)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                for item in node.body:
+                    if isinstance(item, ast.AnnAssign):
+                        if isinstance(item.target, ast.Name) and item.target.id == "is_stub":
+                            if isinstance(item.value, ast.Constant) and item.value.value is True:
+                                return True
+        return False
     except Exception:
         return False
 
@@ -99,7 +107,10 @@ def scan_node(node_dir: Path) -> NodeInfo:
     if node_file:
         line_count = count_lines(node_file)
         is_stub = check_is_stub(node_file)
-        node_file_path = str(node_file.relative_to(node_dir.parent.parent.parent.parent))
+        try:
+            node_file_path = str(node_file.relative_to(node_dir.parent.parent.parent.parent))
+        except ValueError:
+            node_file_path = str(node_file)
     else:
         line_count = 0
         is_stub = False

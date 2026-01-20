@@ -75,7 +75,11 @@ def transform_quality_response(response: Any) -> dict[str, Any]:
 
     return {
         "success": True,
-        "quality_score": response.quality_score,
+        "quality_score": (
+            response.quality_score
+            if hasattr(response, "quality_score")
+            else 0.0
+        ),
         "onex_compliance": (
             response.onex_compliance.score
             if hasattr(response, "onex_compliance") and response.onex_compliance

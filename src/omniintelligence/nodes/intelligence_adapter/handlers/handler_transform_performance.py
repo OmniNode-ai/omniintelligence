@@ -78,21 +78,20 @@ def transform_performance_response(response: Any) -> dict[str, Any]:
     recommendations: list[str] = []
 
     # Extract optimization opportunities as recommendation strings
-    if hasattr(response, "optimization_opportunities"):
-        for opportunity in response.optimization_opportunities:
-            if hasattr(opportunity, "title") and hasattr(opportunity, "description"):
-                recommendations.append(
-                    f"{opportunity.title}: {opportunity.description}"
-                )
+    opportunities = getattr(response, "optimization_opportunities", None) or []
+    for opportunity in opportunities:
+        if hasattr(opportunity, "title") and hasattr(opportunity, "description"):
+            recommendations.append(
+                f"{opportunity.title}: {opportunity.description}"
+            )
 
     # Extract complexity score from baseline metrics
-    complexity_score = 0.0
-    if (
-        hasattr(response, "baseline_metrics")
-        and response.baseline_metrics
-        and hasattr(response.baseline_metrics, "complexity_estimate")
-    ):
-        complexity_score = response.baseline_metrics.complexity_estimate
+    baseline_metrics = getattr(response, "baseline_metrics", None)
+    complexity_score = (
+        baseline_metrics.complexity_estimate
+        if baseline_metrics and hasattr(baseline_metrics, "complexity_estimate")
+        else 0.0
+    )
 
     return {
         "success": True,
@@ -100,18 +99,15 @@ def transform_performance_response(response: Any) -> dict[str, Any]:
         "recommendations": recommendations,
         "result_data": {
             "baseline_metrics": (
-                response.baseline_metrics.model_dump()
-                if hasattr(response, "baseline_metrics") and response.baseline_metrics
+                baseline_metrics.model_dump()
+                if baseline_metrics and hasattr(baseline_metrics, "model_dump")
                 else {}
             ),
-            "optimization_opportunities": (
-                [
-                    opportunity.model_dump()
-                    for opportunity in response.optimization_opportunities
-                ]
-                if hasattr(response, "optimization_opportunities")
-                else []
-            ),
+            "optimization_opportunities": [
+                opportunity.model_dump()
+                for opportunity in opportunities
+                if hasattr(opportunity, "model_dump")
+            ],
             "total_opportunities": (
                 response.total_opportunities
                 if hasattr(response, "total_opportunities")

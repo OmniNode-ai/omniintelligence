@@ -1034,7 +1034,10 @@ class TestPuritySummaryReport:
             icon = {"STUB": "[S]", "PURE": "[P]", "IMPURE": "[!]"}[status]
 
             # Short path for display
-            short_path = Path(path).relative_to(nodes_directory.parent.parent.parent)
+            try:
+                short_path = Path(path).relative_to(nodes_directory.parent.parent.parent)
+            except ValueError:
+                short_path = Path(path)
             print(f"{icon} {short_path}")
 
             if result.is_stub:

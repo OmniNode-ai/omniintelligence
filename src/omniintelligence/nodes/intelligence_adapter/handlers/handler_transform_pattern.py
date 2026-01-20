@@ -76,22 +76,21 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
     recommendations: list[Any] = []
 
     # Extract detected patterns
-    if hasattr(response, "detected_patterns"):
-        patterns = [pattern.model_dump() for pattern in response.detected_patterns]
+    detected_patterns = getattr(response, "detected_patterns", None) or []
+    patterns = [pattern.model_dump() for pattern in detected_patterns]
 
     # Extract anti-patterns as issues
-    if hasattr(response, "anti_patterns"):
-        for anti_pattern in response.anti_patterns:
-            if hasattr(anti_pattern, "pattern_type") and hasattr(
-                anti_pattern, "description"
-            ):
-                issues.append(
-                    f"{anti_pattern.pattern_type}: {anti_pattern.description}"
-                )
+    anti_patterns = getattr(response, "anti_patterns", None) or []
+    for anti_pattern in anti_patterns:
+        if hasattr(anti_pattern, "pattern_type") and hasattr(
+            anti_pattern, "description"
+        ):
+            issues.append(
+                f"{anti_pattern.pattern_type}: {anti_pattern.description}"
+            )
 
     # Extract recommendations
-    if hasattr(response, "recommendations"):
-        recommendations = list(response.recommendations)
+    recommendations = list(getattr(response, "recommendations", None) or [])
 
     # Extract ONEX compliance
     onex_compliance = 0.0

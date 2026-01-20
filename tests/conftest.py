@@ -4,6 +4,12 @@ Pytest configuration and fixtures for omniintelligence tests.
 Shared test fixtures for all tests including intelligence nodes and pattern extraction.
 """
 
+# Set environment variables BEFORE any module imports that might trigger
+# the nodes package import chain (which requires Kafka configuration)
+import os
+
+os.environ.setdefault("OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA", "true")
+
 import asyncio
 import json
 from typing import Any

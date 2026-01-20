@@ -10,7 +10,7 @@ See tracking issue for implementation progress.
 from __future__ import annotations
 
 import warnings
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import ClassVar
 from uuid import uuid4
 
@@ -89,7 +89,7 @@ class NodeQdrantVectorEffect(NodeEffect):
             retry_count=0,
             side_effects_applied=[],
             rollback_operations=[],
-            timestamp=datetime.now(),
+            timestamp=datetime.now(UTC),
         )
 
 
