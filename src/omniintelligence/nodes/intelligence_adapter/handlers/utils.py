@@ -31,6 +31,21 @@ from __future__ import annotations
 
 from typing import Any
 
+
+class HandlerValidationError(Exception):
+    """Raised when handler input validation fails.
+
+    This exception indicates a contract violation between the intelligence
+    service and the handler - the API returned data that doesn't match
+    the expected schema.
+
+    Fail-fast behavior: We throw loudly rather than silently degrading
+    with default values, which would hide bugs and API contract violations.
+    """
+
+    pass
+
+
 # Score range constants - used for quality scores, compliance scores, etc.
 SCORE_MIN: float = 0.0
 SCORE_MAX: float = 1.0
@@ -177,10 +192,153 @@ def _safe_dict(value: Any) -> dict[str, Any]:
     return {}
 
 
+def _require_float(
+    value: Any,
+    field_name: str,
+    min_val: float = SCORE_MIN,
+    max_val: float = SCORE_MAX,
+) -> float:
+    """Require value to be a valid float, raising if not.
+
+    Fail-fast validation: Raises HandlerValidationError if value is None,
+    missing, or cannot be converted to float. This catches API contract
+    violations immediately rather than silently using defaults.
+
+    Args:
+        value: Value to convert to float.
+        field_name: Name of field for error messages.
+        min_val: Minimum allowed value (clamps below this).
+        max_val: Maximum allowed value (clamps above this).
+
+    Returns:
+        Float value clamped to [min_val, max_val].
+
+    Raises:
+        HandlerValidationError: If value is None or cannot be converted to float.
+
+    Example:
+        >>> _require_float(0.85, "quality_score")
+        0.85
+        >>> _require_float(None, "quality_score")
+        HandlerValidationError: Field 'quality_score' is required but got None
+        >>> _require_float("invalid", "quality_score")
+        HandlerValidationError: Field 'quality_score' must be numeric, got str: 'invalid'
+    """
+    if value is None:
+        raise HandlerValidationError(
+            f"Field '{field_name}' is required but got None"
+        )
+
+    try:
+        float_val = float(value)
+        # Clamp to valid range
+        return max(min_val, min(max_val, float_val))
+    except (TypeError, ValueError) as e:
+        raise HandlerValidationError(
+            f"Field '{field_name}' must be numeric, got {type(value).__name__}: {value!r}"
+        ) from e
+
+
+def _require_field(
+    obj: Any,
+    field_name: str,
+    parent_name: str = "response",
+) -> Any:
+    """Require a field to exist and not be None.
+
+    Fail-fast validation: Raises HandlerValidationError if the field
+    is missing or None.
+
+    Args:
+        obj: Object or dict to extract field from.
+        field_name: Name of field to extract.
+        parent_name: Name of parent object for error messages.
+
+    Returns:
+        The field value.
+
+    Raises:
+        HandlerValidationError: If obj is None, field is missing, or field is None.
+
+    Example:
+        >>> _require_field({"score": 0.85}, "score")
+        0.85
+        >>> _require_field({"score": None}, "score")
+        HandlerValidationError: Field 'response.score' is required but got None
+        >>> _require_field({}, "score")
+        HandlerValidationError: Field 'response.score' is missing
+    """
+    if obj is None:
+        raise HandlerValidationError(
+            f"Cannot access '{field_name}' - parent '{parent_name}' is None"
+        )
+
+    # Dict access
+    if isinstance(obj, dict):
+        if field_name not in obj:
+            raise HandlerValidationError(
+                f"Field '{parent_name}.{field_name}' is missing"
+            )
+        value = obj[field_name]
+        if value is None:
+            raise HandlerValidationError(
+                f"Field '{parent_name}.{field_name}' is required but got None"
+            )
+        return value
+
+    # Attribute access
+    if not hasattr(obj, field_name):
+        raise HandlerValidationError(
+            f"Field '{parent_name}.{field_name}' is missing"
+        )
+    value = getattr(obj, field_name)
+    if value is None:
+        raise HandlerValidationError(
+            f"Field '{parent_name}.{field_name}' is required but got None"
+        )
+    return value
+
+
+def _get_optional_field(
+    obj: Any,
+    field_name: str,
+    default: Any = None,
+) -> Any:
+    """Get an optional field, returning default if missing.
+
+    Unlike _require_field, this does NOT raise on missing fields.
+    Use this only for truly optional fields.
+
+    Args:
+        obj: Object or dict to extract field from.
+        field_name: Name of field to extract.
+        default: Default value if field is missing or None.
+
+    Returns:
+        The field value, or default if missing/None.
+    """
+    if obj is None:
+        return default
+
+    if isinstance(obj, dict):
+        value = obj.get(field_name)
+        return value if value is not None else default
+
+    if hasattr(obj, field_name):
+        value = getattr(obj, field_name, None)
+        return value if value is not None else default
+
+    return default
+
+
 __all__ = [
     "MAX_ISSUES",
     "SCORE_MAX",
     "SCORE_MIN",
+    "HandlerValidationError",
+    "_get_optional_field",
+    "_require_field",
+    "_require_float",
     "_safe_bool",
     "_safe_dict",
     "_safe_float",

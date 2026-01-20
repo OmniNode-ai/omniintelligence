@@ -28,143 +28,101 @@ from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
     QualityHandlerResponse,
 )
 from omniintelligence.nodes.intelligence_adapter.handlers.utils import (
+    HandlerValidationError,
     MAX_ISSUES,
     SCORE_MAX,
     SCORE_MIN,
-    _safe_float,
+    _get_optional_field,
+    _require_field,
+    _require_float,
     _safe_list,
 )
-
-
-def _get_attr_or_key(obj: Any, name: str, default: Any = None) -> Any:
-    """Get attribute or key from object or dict with default.
-
-    Supports both object-based responses (with attribute access) and
-    dict-based responses (with key access).
-
-    Args:
-        obj: Object or dict to extract value from.
-        name: Attribute name or dict key to access.
-        default: Default value if not found or None.
-
-    Returns:
-        The value if found and not None, otherwise the default.
-    """
-    if obj is None:
-        return default
-
-    # Try dict-style access first (more common in API responses)
-    if isinstance(obj, dict):
-        value = obj.get(name)
-        return value if value is not None else default
-
-    # Fall back to attribute access
-    if hasattr(obj, name):
-        value = getattr(obj, name, None)
-        return value if value is not None else default
-
-    return default
 
 
 def transform_quality_response(response: Any) -> QualityHandlerResponse:
     """Transform quality assessment response to standard format.
 
-    This function transforms a quality assessment response from the intelligence
-    service into a standardized dictionary format. It handles both object-based
-    responses (with attribute access) and dict-based responses (with key access),
-    gracefully handling missing or malformed data.
+    Fail-fast validation: This function raises HandlerValidationError if
+    required fields are missing or have invalid types. We don't silently
+    degrade with defaults - API contract violations should be caught immediately.
 
     Args:
         response: Quality assessment response from intelligence service.
-            Can be an object or dict. Expected to have:
-            - quality_score: float (0.0-1.0)
-            - onex_compliance: Optional object/dict with score, violations, recommendations
-            - maintainability: Optional object/dict with complexity_score
+            Can be an object or dict. Required fields:
+            - quality_score: float (0.0-1.0) - REQUIRED
+            - onex_compliance: object/dict - REQUIRED, with:
+                - score: float (0.0-1.0) - REQUIRED
+                - violations: list - REQUIRED (can be empty)
+                - recommendations: list - REQUIRED (can be empty)
+            - maintainability: object/dict - REQUIRED, with:
+                - complexity_score: float (0.0-1.0) - REQUIRED
+            Optional fields:
             - architectural_era: Optional string
             - temporal_relevance: Optional float
 
     Returns:
-        Dictionary with standardized quality data:
-        - success: Operation success status (False if response is None/invalid)
-        - quality_score: Overall quality score (0.0-1.0, default 0.0)
-        - onex_compliance: ONEX compliance score (0.0-1.0, default 0.0)
-        - complexity_score: Complexity score from maintainability (0.0-1.0, default 0.0)
-        - issues: List of identified issues from violations
-        - recommendations: List of recommendations
-        - patterns: Empty list (reserved for pattern data)
-        - result_data: Additional metadata (architectural_era, temporal_relevance)
-        - error: Error message if response was invalid (only present on failure)
+        Dictionary with standardized quality data.
+
+    Raises:
+        HandlerValidationError: If response is None or required fields are
+            missing/invalid. Fail-fast behavior to catch API issues early.
 
     Example:
         >>> class MockResponse:
         ...     quality_score = 0.85
-        ...     onex_compliance = None
-        ...     maintainability = None
+        ...     onex_compliance = {"score": 0.9, "violations": [], "recommendations": []}
+        ...     maintainability = {"complexity_score": 0.7}
         >>> result = transform_quality_response(MockResponse())
         >>> result["quality_score"]
         0.85
-        >>> result["success"]
-        True
 
-        >>> # Handles None response gracefully
-        >>> result = transform_quality_response(None)
-        >>> result["success"]
-        False
-        >>> "error" in result
-        True
+        >>> # None response raises - fail fast!
+        >>> transform_quality_response(None)
+        HandlerValidationError: Response is None - cannot transform quality assessment
     """
-    # Defensive check: Handle None or completely invalid response
+    # Fail fast: None response is an API contract violation
     if response is None:
-        return {
-            "success": False,
-            "quality_score": 0.0,
-            "onex_compliance": 0.0,
-            "complexity_score": 0.0,
-            "issues": [],
-            "recommendations": [],
-            "patterns": [],
-            "result_data": {},
-            "error": "Response is None - cannot transform quality assessment",
-        }
+        raise HandlerValidationError(
+            "Response is None - cannot transform quality assessment"
+        )
 
-    issues: list[Any] = []
-    recommendations: list[Any] = []
+    # REQUIRED: quality_score must exist and be numeric
+    raw_quality_score = _require_field(response, "quality_score", "response")
+    quality_score = _require_float(raw_quality_score, "quality_score", SCORE_MIN, SCORE_MAX)
 
-    # Extract onex_compliance object/dict (supports both object and dict responses)
-    onex_compliance_obj = _get_attr_or_key(response, "onex_compliance")
+    # REQUIRED: onex_compliance must exist
+    onex_compliance_obj = _require_field(response, "onex_compliance", "response")
 
-    # Extract issues from violations with comprehensive defensive checks
-    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion
-    if onex_compliance_obj is not None:
-        violations = _safe_list(_get_attr_or_key(onex_compliance_obj, "violations"))
-        remaining_issues = MAX_ISSUES - len(issues)
-        if remaining_issues > 0:
-            issues.extend(violations[:remaining_issues])
+    # REQUIRED: onex_compliance.score must exist and be numeric
+    raw_compliance_score = _require_field(onex_compliance_obj, "score", "onex_compliance")
+    onex_compliance_score = _require_float(raw_compliance_score, "onex_compliance.score", SCORE_MIN, SCORE_MAX)
 
-        recs = _safe_list(_get_attr_or_key(onex_compliance_obj, "recommendations"))
-        remaining_recs = MAX_ISSUES - len(recommendations)
-        if remaining_recs > 0:
-            recommendations.extend(recs[:remaining_recs])
+    # REQUIRED: violations and recommendations must exist (can be empty lists)
+    raw_violations = _require_field(onex_compliance_obj, "violations", "onex_compliance")
+    raw_recommendations = _require_field(onex_compliance_obj, "recommendations", "onex_compliance")
 
-    # Extract quality_score with type safety and range validation
-    # _safe_float handles: None, missing, non-numeric types, out-of-range values
-    raw_quality_score = _get_attr_or_key(response, "quality_score")
-    quality_score = _safe_float(raw_quality_score, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX)
+    # Convert to lists and apply security limits
+    violations = _safe_list(raw_violations)
+    recommendations_list = _safe_list(raw_recommendations)
 
-    # Extract onex_compliance.score with defensive checks
-    raw_compliance_score = _get_attr_or_key(onex_compliance_obj, "score") if onex_compliance_obj else None
-    onex_compliance_score = _safe_float(raw_compliance_score, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX)
+    issues: list[Any] = violations[:MAX_ISSUES]
+    recommendations: list[Any] = recommendations_list[:MAX_ISSUES]
 
-    # Extract complexity_score from maintainability with defensive checks
-    maintainability_obj = _get_attr_or_key(response, "maintainability")
-    raw_complexity_score = _get_attr_or_key(maintainability_obj, "complexity_score") if maintainability_obj else None
-    complexity_score = _safe_float(raw_complexity_score, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX)
+    # REQUIRED: maintainability must exist
+    maintainability_obj = _require_field(response, "maintainability", "response")
 
-    # Extract optional metadata fields (no type conversion needed)
-    architectural_era = _get_attr_or_key(response, "architectural_era")
-    temporal_relevance_raw = _get_attr_or_key(response, "temporal_relevance")
-    # temporal_relevance should be a float if present
-    temporal_relevance = _safe_float(temporal_relevance_raw, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX) if temporal_relevance_raw is not None else None
+    # REQUIRED: complexity_score must exist and be numeric
+    raw_complexity_score = _require_field(maintainability_obj, "complexity_score", "maintainability")
+    complexity_score = _require_float(raw_complexity_score, "maintainability.complexity_score", SCORE_MIN, SCORE_MAX)
+
+    # OPTIONAL: architectural_era and temporal_relevance
+    architectural_era = _get_optional_field(response, "architectural_era")
+    temporal_relevance_raw = _get_optional_field(response, "temporal_relevance")
+    temporal_relevance = (
+        _require_float(temporal_relevance_raw, "temporal_relevance", SCORE_MIN, SCORE_MAX)
+        if temporal_relevance_raw is not None
+        else None
+    )
 
     return {
         "success": True,
