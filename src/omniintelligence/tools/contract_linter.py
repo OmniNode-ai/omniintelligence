@@ -37,6 +37,7 @@ from omnibase_core.models.contracts.subcontracts import (
     ModelWorkflowCoordinationSubcontract,
 )
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from omniintelligence.constants import PERCENTAGE_MULTIPLIER
 from omniintelligence.tools.stubs.contract_validator import ProtocolContractValidator
 from pydantic import BaseModel, ValidationError
 
@@ -1342,7 +1343,11 @@ class ContractLinter:
         valid_count = sum(1 for r in results if r.is_valid)
         invalid_count = total_count - valid_count
 
-        pass_rate = (valid_count / total_count * 100) if total_count > 0 else 0.0
+        pass_rate = (
+            (valid_count / total_count * PERCENTAGE_MULTIPLIER)
+            if total_count > 0
+            else 0.0
+        )
 
         return {
             "total_count": total_count,

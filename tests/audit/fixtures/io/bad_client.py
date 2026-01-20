@@ -11,7 +11,7 @@ This fixture demonstrates forbidden patterns:
 NOTE: This file intentionally contains violations for testing.
 """
 
-# ruff: noqa: F401, I001
+# ruff: noqa: F401
 
 # VIOLATION: confluent_kafka import
 from confluent_kafka import Consumer, Producer
