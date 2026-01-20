@@ -870,20 +870,6 @@ class TestRealNodeFiles:
         node_names = [f.name for f in node_files]
         assert any("node" in name.lower() for name in node_names)
 
-    def test_vectorization_compute_is_pure(self, nodes_directory: Path) -> None:
-        """vectorization_compute/node.py should be a pure shell."""
-        node_path = nodes_directory / "vectorization_compute" / "node.py"
-        if not node_path.exists():
-            pytest.skip(f"Node file not found: {node_path}")
-
-        result = check_node_purity(node_path)
-        assert not result.is_stub, "vectorization_compute should not be a stub"
-        assert (
-            result.is_pure
-        ), f"vectorization_compute should be pure, violations: {result.violations}"
-        assert result.node_class_name == "NodeVectorizationCompute"
-        assert result.base_class == "NodeCompute"
-
     def test_intelligence_orchestrator_is_pure(self, nodes_directory: Path) -> None:
         """intelligence_orchestrator/node.py should be a pure shell."""
         node_path = nodes_directory / "intelligence_orchestrator" / "node.py"
@@ -938,11 +924,9 @@ class TestRealNodeFiles:
         """Stub nodes should be detected and skipped from purity checks."""
         # Known stub nodes
         stub_nodes = [
-            "ingestion_effect",
             "quality_scoring_compute",
             "intent_classifier_compute",
             "semantic_analysis_compute",
-            "entity_extraction_compute",
         ]
 
         for node_name in stub_nodes:

@@ -228,12 +228,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # AST visitor methods must use PascalCase (visit_Import, visit_Call, etc.)
 "src/omniintelligence/audit/io_audit.py" = ["N802"]
-# HTTP handler methods use PascalCase per BaseHTTPRequestHandler interface (do_GET)
-"src/omniintelligence/nodes/qdrant_vector_effect/__main__.py" = ["N802"]
 # __init__.py files re-export for public API
 "src/omniintelligence/tools/__init__.py" = ["F401"]
-# Test mock callbacks don't use all arguments
-"tests/nodes/test_vectorization_compute.py" = ["ARG001"]
 
 [tool.ruff.format]
 quote-style = "double"

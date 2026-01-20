@@ -39,12 +39,6 @@ workflow_coordination:
           description: "Parse execution traces"
           step_config:
             compute_node: "execution_trace_parser_compute"
-        - node_id: "extract_keywords"
-          node_type: COMPUTE_GENERIC
-          description: "Extract contextual keywords"
-          depends_on: ["parse_traces"]
-          step_config:
-            compute_node: "context_keyword_extractor_compute"
         - node_id: "classify_intent"
           node_type: COMPUTE_GENERIC
           description: "Classify user intent"
@@ -59,8 +53,8 @@ workflow_coordination:
             compute_node: "success_criteria_matcher_compute"
         - node_id: "assemble_pattern"
           node_type: COMPUTE_GENERIC
-          description: "Assemble final pattern from parsed traces, keywords, and matched criteria"
-          depends_on: ["extract_keywords", "match_criteria"]
+          description: "Assemble final pattern from parsed traces and matched criteria"
+          depends_on: ["match_criteria"]
           step_config:
             compute_node: "pattern_assembler_compute"
     coordination_rules:
@@ -75,10 +69,6 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.execution_trace_parser_compute"
     description: "Trace parsing compute node"
-  - name: "context_keyword_extractor_compute"
-    type: "node"
-    module: "omniintelligence.nodes.context_keyword_extractor_compute"
-    description: "Keyword extraction compute node"
   - name: "intent_classifier_compute"
     type: "node"
     module: "omniintelligence.nodes.intent_classifier_compute"

@@ -46,14 +46,14 @@ class TestGetNodeType:
 
     def test_compute_type(self):
         """Test detection of compute node type."""
-        assert get_node_type("vectorization_compute") == "compute"
         assert get_node_type("quality_scoring_compute") == "compute"
         assert get_node_type("pattern_learning_compute") == "compute"
+        assert get_node_type("intent_classifier_compute") == "compute"
 
     def test_effect_type(self):
         """Test detection of effect node type."""
-        assert get_node_type("ingestion_effect") == "effect"
-        assert get_node_type("intelligence_api_effect") == "effect"
+        assert get_node_type("intelligence_adapter") == "effect"
+        assert get_node_type("kafka_effect") == "effect"
 
     def test_orchestrator_type(self):
         """Test detection of orchestrator node type."""
@@ -1021,7 +1021,7 @@ class TestIntegrationStyle:
         for node_name, content, has_contract, has_handlers in [
             ("quality_scoring_compute", "# small\nclass Node: pass\n", True, False),
             (
-                "ingestion_effect",
+                "test_effect",
                 "from typing import ClassVar\nclass Node:\n    is_stub: ClassVar[bool] = True\n",
                 True,
                 False,
@@ -1050,7 +1050,7 @@ class TestIntegrationStyle:
         # Verify report content
         assert len(results) == 4
         assert "quality_scoring_compute" in report
-        assert "ingestion_effect" in report
+        assert "test_effect" in report
         assert "intelligence_orchestrator" in report
         assert "state_reducer" in report
 

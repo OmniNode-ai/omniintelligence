@@ -3,11 +3,11 @@
 #
 # This orchestrator coordinates intelligence workflows using Llama Index.
 # Routes operations via EnumIntelligenceOperationType to appropriate workflows:
-#   - DOCUMENT_INGESTION: Vectorize, extract entities, store in Qdrant/Memgraph
+#   - DOCUMENT_INGESTION: Vectorize, extract entities, delegate storage to omnimemory
 #   - PATTERN_LEARNING: 4-phase (Foundation -> Matching -> Validation -> Traceability)
 #   - QUALITY_ASSESSMENT: Score code quality, check ONEX compliance
 #   - SEMANTIC_ANALYSIS: Generate embeddings, compute similarity
-#   - RELATIONSHIP_DETECTION: Detect and classify relationships, store in graph
+#   - RELATIONSHIP_DETECTION: Detect and classify relationships, delegate storage to omnimemory
 # =============================================================================
 contract_version:
   major: 1
@@ -68,22 +68,16 @@ workflow_coordination:
           step_config:
             dispatch_strategy: "dynamic_compute_selection"
             available_compute_nodes:
-              - vectorization_compute
-              - entity_extraction_compute
               - pattern_matching_compute
               - quality_scoring_compute
               - semantic_analysis_compute
-              - relationship_detection_compute
         - node_id: "execute_effects"
           node_type: EFFECT_GENERIC
           description: "Execute effect nodes for persistence"
           depends_on: ["execute_compute"]
           step_config:
-            effect_nodes:
-              - qdrant_vector_effect
-              - memgraph_graph_effect
-              - postgres_pattern_effect
-              - intelligence_api_effect
+            # Effect nodes are handled via intelligence_adapter_effect
+            effect_nodes: []
         - node_id: "publish_outcome"
           node_type: EFFECT_GENERIC
           description: "Publish workflow outcome event"
@@ -129,14 +123,6 @@ published_events:
 # Dependencies
 # ============
 dependencies:
-  - name: "vectorization_compute"
-    type: "node"
-    module: "omniintelligence.nodes.vectorization_compute"
-    description: "Compute node for generating embeddings."
-  - name: "entity_extraction_compute"
-    type: "node"
-    module: "omniintelligence.nodes.entity_extraction_compute"
-    description: "Compute node for extracting entities."
   - name: "pattern_matching_compute"
     type: "node"
     module: "omniintelligence.nodes.pattern_matching_compute"
@@ -149,30 +135,14 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.semantic_analysis_compute"
     description: "Compute node for semantic analysis."
-  - name: "relationship_detection_compute"
-    type: "node"
-    module: "omniintelligence.nodes.relationship_detection_compute"
-    description: "Compute node for relationship detection."
   - name: "intelligence_reducer"
     type: "node"
     module: "omniintelligence.nodes.intelligence_reducer"
     description: "Reducer for FSM state management."
-  - name: "qdrant_vector_effect"
+  - name: "intelligence_adapter_effect"
     type: "node"
-    module: "omniintelligence.nodes.qdrant_vector_effect"
-    description: "Effect node for Qdrant vector storage."
-  - name: "memgraph_graph_effect"
-    type: "node"
-    module: "omniintelligence.nodes.memgraph_graph_effect"
-    description: "Effect node for Memgraph graph storage."
-  - name: "postgres_pattern_effect"
-    type: "node"
-    module: "omniintelligence.nodes.postgres_pattern_effect"
-    description: "Effect node for PostgreSQL pattern storage."
-  - name: "intelligence_api_effect"
-    type: "node"
-    module: "omniintelligence.nodes.intelligence_api_effect"
-    description: "Effect node for intelligence API calls."
+    module: "omniintelligence.nodes.intelligence_adapter"
+    description: "Effect node for intelligence API operations via adapter pattern."
 # Error Handling Configuration
 # ============================
 error_handling:
@@ -217,7 +187,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-18"
+  updated: "2026-01-20"
   tags:
     - "ONEX"
     - "orchestrator"
