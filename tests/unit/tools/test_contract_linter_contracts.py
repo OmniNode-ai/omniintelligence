@@ -30,6 +30,7 @@ def _safe_relative_path(path: Path, base: Path) -> Union[Path, str]:
         # Path is not relative to base, return absolute path
         return str(path)
 
+
 # Skip entire module if omnibase_core is not available
 pytest.importorskip(
     "omnibase_core", reason="omnibase_core required for contract linter tests"

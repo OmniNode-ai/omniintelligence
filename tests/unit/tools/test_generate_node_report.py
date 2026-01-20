@@ -135,10 +135,10 @@ class NodeTestCompute:
     def test_malformed_python_returns_false(self, tmp_path: Path):
         """Test that malformed Python returns False instead of raising."""
         node_file = tmp_path / "node.py"
-        node_file.write_text('''
+        node_file.write_text("""
 this is not valid python
 def broken(:
-''')
+""")
         assert check_is_stub(node_file) is False
 
     def test_nonexistent_file_returns_false(self, tmp_path: Path):
@@ -160,7 +160,9 @@ class TestCountLines:
         """Test basic line counting."""
         file_path = tmp_path / "test.py"
         file_path.write_text("line1\nline2\nline3\n")
-        assert count_lines(file_path) == 3  # splitlines() doesn't count trailing newline
+        assert (
+            count_lines(file_path) == 3
+        )  # splitlines() doesn't count trailing newline
 
     def test_count_lines_empty_file(self, tmp_path: Path):
         """Test counting lines in empty file."""
@@ -287,12 +289,12 @@ class TestScanNode:
         node_dir.mkdir()
 
         node_file = node_dir / "node.py"
-        node_file.write_text('''
+        node_file.write_text("""
 from typing import ClassVar
 
 class NodeTestEffect:
     is_stub: ClassVar[bool] = True
-''')
+""")
 
         result = scan_node(node_dir)
 
@@ -687,11 +689,21 @@ class TestMain:
             mock_path_class.side_effect = Path
             mock_path_class.return_value = Path()
 
-            with patch("sys.argv", ["generate_node_report.py",
-                                    "--nodes-dir", str(nodes_dir),
-                                    "--output", str(docs_dir / "report.md")]):
+            with patch(
+                "sys.argv",
+                [
+                    "generate_node_report.py",
+                    "--nodes-dir",
+                    str(nodes_dir),
+                    "--output",
+                    str(docs_dir / "report.md"),
+                ],
+            ):
                 # Patch __file__ in the module
-                with patch("generate_node_report.__file__", str(script_dir / "generate_node_report.py")):
+                with patch(
+                    "generate_node_report.__file__",
+                    str(script_dir / "generate_node_report.py"),
+                ):
                     exit_code = main()
 
         assert exit_code == 0
@@ -703,9 +715,13 @@ class TestMain:
 
         nonexistent = tmp_path / "nonexistent" / "nodes"
 
-        with patch("sys.argv", ["generate_node_report.py",
-                                "--nodes-dir", str(nonexistent)]):
-            with patch("generate_node_report.__file__", str(script_dir / "generate_node_report.py")):
+        with patch(
+            "sys.argv", ["generate_node_report.py", "--nodes-dir", str(nonexistent)]
+        ):
+            with patch(
+                "generate_node_report.__file__",
+                str(script_dir / "generate_node_report.py"),
+            ):
                 exit_code = main()
 
         assert exit_code == 1
@@ -727,17 +743,27 @@ class TestMain:
         # Output directory doesn't exist
         output_file = tmp_path / "new_docs" / "report.md"
 
-        with patch("sys.argv", ["generate_node_report.py",
-                                "--nodes-dir", str(nodes_dir),
-                                "--output", str(output_file)]):
-            with patch("generate_node_report.__file__", str(script_dir / "generate_node_report.py")):
+        with patch(
+            "sys.argv",
+            [
+                "generate_node_report.py",
+                "--nodes-dir",
+                str(nodes_dir),
+                "--output",
+                str(output_file),
+            ],
+        ):
+            with patch(
+                "generate_node_report.__file__",
+                str(script_dir / "generate_node_report.py"),
+            ):
                 exit_code = main()
 
         assert exit_code == 0
         assert output_file.exists()
         assert output_file.parent.exists()
 
-    def test_main_default_arguments(self, tmp_path: Path):
+    def test_main_default_arguments(self):
         """Test main function with default arguments structure."""
         # This tests that argparse is set up correctly
         with patch("sys.argv", ["generate_node_report.py", "--help"]):
@@ -834,7 +860,9 @@ class TestEdgeCases:
         node_dir.mkdir()
 
         node_file = node_dir / "node.py"
-        node_file.write_text('# Unicode: \u4e2d\u6587 \u0440\u0443\u0441\u0441\u043a\u0438\u0439\nclass Node:\n    pass\n')
+        node_file.write_text(
+            "# Unicode: \u4e2d\u6587 \u0440\u0443\u0441\u0441\u043a\u0438\u0439\nclass Node:\n    pass\n"
+        )
 
         result = scan_node(node_dir)
 
@@ -992,7 +1020,12 @@ class TestIntegrationStyle:
         # Create various node types
         for node_name, content, has_contract, has_handlers in [
             ("quality_scoring_compute", "# small\nclass Node: pass\n", True, False),
-            ("ingestion_effect", "from typing import ClassVar\nclass Node:\n    is_stub: ClassVar[bool] = True\n", True, False),
+            (
+                "ingestion_effect",
+                "from typing import ClassVar\nclass Node:\n    is_stub: ClassVar[bool] = True\n",
+                True,
+                False,
+            ),
             ("intelligence_orchestrator", "\n".join(["# line"] * 150), False, True),
             ("state_reducer", "", True, True),  # Empty = missing node file scenario
         ]:
@@ -1041,10 +1074,20 @@ class TestIntegrationStyle:
         script_dir = tmp_path / "scripts"
         script_dir.mkdir()
 
-        with patch("sys.argv", ["generate_node_report.py",
-                                "--nodes-dir", str(nodes_dir),
-                                "--output", str(output_file)]):
-            with patch("generate_node_report.__file__", str(script_dir / "generate_node_report.py")):
+        with patch(
+            "sys.argv",
+            [
+                "generate_node_report.py",
+                "--nodes-dir",
+                str(nodes_dir),
+                "--output",
+                str(output_file),
+            ],
+        ):
+            with patch(
+                "generate_node_report.__file__",
+                str(script_dir / "generate_node_report.py"),
+            ):
                 exit_code = main()
 
         assert exit_code == 0
