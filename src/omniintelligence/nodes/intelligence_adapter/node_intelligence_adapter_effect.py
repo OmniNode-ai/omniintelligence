@@ -76,6 +76,8 @@ from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOut
 
 # Handlers for operation-specific transformations
 from omniintelligence.nodes.intelligence_adapter.handlers import (
+    transform_pattern_response,
+    transform_performance_response,
     transform_quality_response,
 )
 
@@ -1943,74 +1945,26 @@ class NodeIntelligenceAdapterEffect:
         return transform_quality_response(response)
 
     def _transform_performance_response(self, response: Any) -> dict[str, Any]:
-        """
-        Transform performance analysis response to standard format.
+        """Transform performance analysis response to standard format.
+
+        Delegates to the extracted handler for the actual transformation logic.
+        This method is kept for backward compatibility and to maintain the
+        instance method interface expected by callers.
 
         Args:
             response: Performance analysis response from intelligence service
 
         Returns:
-            Dictionary with standardized performance data:
-            - success: Operation success status
-            - complexity_score: Complexity estimate
-            - recommendations: Performance improvement recommendations
-            - result_data: Additional performance metrics
+            Dictionary with standardized performance data.
+            See handlers.handler_transform_performance.transform_performance_response
+            for full documentation of the return format.
         """
-        recommendations = []
-
-        # Extract optimization opportunities
-        if hasattr(response, "optimization_opportunities"):
-            for opportunity in response.optimization_opportunities:
-                if hasattr(opportunity, "title") and hasattr(
-                    opportunity, "description"
-                ):
-                    recommendations.append(
-                        f"{opportunity.title}: {opportunity.description}"
-                    )
-
-        complexity_score = 0.0
-        if (
-            hasattr(response, "baseline_metrics")
-            and response.baseline_metrics
-            and hasattr(response.baseline_metrics, "complexity_estimate")
-        ):
-            complexity_score = response.baseline_metrics.complexity_estimate
-
-        return {
-            "success": True,
-            "complexity_score": complexity_score,
-            "recommendations": recommendations,
-            "result_data": {
-                "baseline_metrics": (
-                    response.baseline_metrics.model_dump()
-                    if hasattr(response, "baseline_metrics")
-                    and response.baseline_metrics
-                    else {}
-                ),
-                "optimization_opportunities": (
-                    [
-                        opportunity.model_dump()
-                        for opportunity in response.optimization_opportunities
-                    ]
-                    if hasattr(response, "optimization_opportunities")
-                    else []
-                ),
-                "total_opportunities": (
-                    response.total_opportunities
-                    if hasattr(response, "total_opportunities")
-                    else 0
-                ),
-                "estimated_improvement": (
-                    response.estimated_total_improvement
-                    if hasattr(response, "estimated_total_improvement")
-                    else 0.0
-                ),
-            },
-        }
+        return transform_performance_response(response)
 
     def _transform_pattern_response(self, response: Any) -> dict[str, Any]:
-        """
-        Transform pattern detection response to standard format.
+        """Transform pattern detection response to standard format.
+
+        Delegates to the pure handler function for transformation logic.
 
         Args:
             response: Pattern detection response from intelligence service
@@ -2024,56 +1978,7 @@ class NodeIntelligenceAdapterEffect:
             - recommendations: Pattern-based recommendations
             - result_data: Additional pattern metadata
         """
-        patterns = []
-        issues = []
-        recommendations = []
-
-        # Extract detected patterns
-        if hasattr(response, "detected_patterns"):
-            patterns = [pattern.model_dump() for pattern in response.detected_patterns]
-
-        # Extract anti-patterns as issues
-        if hasattr(response, "anti_patterns"):
-            for anti_pattern in response.anti_patterns:
-                if hasattr(anti_pattern, "pattern_type") and hasattr(
-                    anti_pattern, "description"
-                ):
-                    issues.append(
-                        f"{anti_pattern.pattern_type}: {anti_pattern.description}"
-                    )
-
-        # Extract recommendations
-        if hasattr(response, "recommendations"):
-            recommendations = list(response.recommendations)
-
-        # Extract ONEX compliance
-        onex_compliance = 0.0
-        if (
-            hasattr(response, "architectural_compliance")
-            and response.architectural_compliance
-            and hasattr(response.architectural_compliance, "onex_compliance")
-        ):
-            onex_compliance = response.architectural_compliance.onex_compliance
-
-        return {
-            "success": True,
-            "onex_compliance": onex_compliance,
-            "patterns": patterns,
-            "issues": issues,
-            "recommendations": recommendations,
-            "result_data": {
-                "analysis_summary": (
-                    response.analysis_summary
-                    if hasattr(response, "analysis_summary")
-                    else ""
-                ),
-                "confidence_scores": (
-                    response.confidence_scores
-                    if hasattr(response, "confidence_scores")
-                    else {}
-                ),
-            },
-        }
+        return transform_pattern_response(response)
 
     # =========================================================================
     # Utility Methods
