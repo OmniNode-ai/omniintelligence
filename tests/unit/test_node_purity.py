@@ -159,7 +159,7 @@ class PurityVisitor(ast.NodeVisitor):
             )
         )
 
-    def visit_Module(self, node: ast.Module) -> None:  # noqa: N802
+    def visit_Module(self, node: ast.Module) -> None:
         """Check module-level statements.
 
         First pass: find node classes and determine if any are stubs.
@@ -223,7 +223,7 @@ class PurityVisitor(ast.NodeVisitor):
                         self.is_stub = True
                         return
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """Check class definition for purity."""
         self._in_class = True
         self._current_class_name = node.name

@@ -8,6 +8,13 @@ a markdown report with:
 - Purity violations (nodes with >100 lines that aren't stubs)
 - Recommendations
 
+Stub Detection:
+    Nodes are identified as "stubs" using AST-based parsing (not regex) to
+    avoid false positives from commented code, docstrings, or strings.
+    A node is a stub only if it has: is_stub: ClassVar[bool] = True
+
+    See check_is_stub() for detailed detection rules.
+
 Usage:
     python scripts/generate_node_report.py
     python scripts/generate_node_report.py --output docs/NODE_STATUS_REPORT.md
@@ -20,6 +27,7 @@ from __future__ import annotations
 import argparse
 import ast
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -58,7 +66,37 @@ def get_node_type(name: str) -> Literal["compute", "effect", "orchestrator", "re
 
 
 def check_is_stub(file_path: Path) -> bool:
-    """Check if node file contains is_stub: ClassVar[bool] = True."""
+    """Check if node file contains is_stub: ClassVar[bool] = True.
+
+    Uses AST parsing for accurate detection, avoiding false positives that
+    regex would produce (e.g., matching commented code, docstrings, or strings).
+
+    Stub Detection Rules:
+        A node is considered a "stub" if and only if:
+        1. It contains a class definition
+        2. That class has an annotated assignment: is_stub: ClassVar[bool] = True
+        3. The assignment is a direct ClassVar[bool] annotation with value True
+
+    NOT considered stubs (false positive prevention):
+        - Commented out is_stub declarations
+        - is_stub mentioned in docstrings or strings
+        - is_stub = True without ClassVar annotation (non-standard pattern)
+        - is_stub: ClassVar[bool] = False (explicitly not a stub)
+        - Abstract methods that raise NotImplementedError (legitimate pattern)
+        - Empty methods with pass (may be intentional)
+        - Type stubs using ellipsis ... (separate from is_stub ClassVar)
+
+    Args:
+        file_path: Path to the Python file to check.
+
+    Returns:
+        True if the file contains a class with is_stub: ClassVar[bool] = True,
+        False otherwise (including for nonexistent files or syntax errors).
+
+    Reference:
+        OMN-1140 PR #11 review identified the need for AST-based detection
+        instead of regex to prevent false positives.
+    """
     try:
         content = file_path.read_text()
         tree = ast.parse(content)
@@ -390,4 +428,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

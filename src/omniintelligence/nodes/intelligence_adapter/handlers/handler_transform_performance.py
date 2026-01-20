@@ -25,6 +25,10 @@ import contextlib
 from collections.abc import Iterable
 from typing import Any
 
+from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
+    PerformanceHandlerResponse,
+)
+
 
 def _ensure_list(value: Any) -> list[Any]:
     """Convert a value to a list safely.
@@ -50,7 +54,7 @@ def _ensure_list(value: Any) -> list[Any]:
     return [value]
 
 
-def transform_performance_response(response: Any) -> dict[str, Any]:
+def transform_performance_response(response: Any) -> PerformanceHandlerResponse:
     """Transform performance analysis response to standard format.
 
     This function transforms a performance analysis response from the intelligence
@@ -133,6 +137,7 @@ def transform_performance_response(response: Any) -> dict[str, Any]:
     )
 
     # Build opportunity dicts with safe model_dump access
+    # Guard: Ensure each model_dump() result is actually a dict before appending
     opportunity_dicts: list[dict[str, Any]] = []
     for opportunity in opportunities:
         if opportunity is None:
@@ -141,16 +146,23 @@ def transform_performance_response(response: Any) -> dict[str, Any]:
             getattr(opportunity, "model_dump", None)
         ):
             with contextlib.suppress(TypeError, AttributeError):
-                opportunity_dicts.append(opportunity.model_dump())
+                dumped = opportunity.model_dump()
+                # Guard: Only append if model_dump returned a dict
+                if isinstance(dumped, dict):
+                    opportunity_dicts.append(dumped)
 
     # Build baseline_metrics dict with safe model_dump access
+    # Guard: Ensure model_dump() result is actually a dict before assignment
     baseline_metrics_dict: dict[str, Any] = {}
     if baseline_metrics is not None:
         if hasattr(baseline_metrics, "model_dump") and callable(
             getattr(baseline_metrics, "model_dump", None)
         ):
             with contextlib.suppress(TypeError, AttributeError):
-                baseline_metrics_dict = baseline_metrics.model_dump()
+                dumped = baseline_metrics.model_dump()
+                # Guard: Only assign if model_dump returned a dict
+                if isinstance(dumped, dict):
+                    baseline_metrics_dict = dumped
 
     # Extract total_opportunities with type guard
     raw_total = getattr(response, "total_opportunities", None)

@@ -46,6 +46,8 @@ from typing import ClassVar
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from omniintelligence.constants import PERCENTAGE_MULTIPLIER
+
 logger = logging.getLogger(__name__)
 
 
@@ -417,7 +419,11 @@ class LogSanitizer:
         """
         cache_info = self._sanitize_cached.cache_info()
         total_calls = cache_info.hits + cache_info.misses
-        hit_rate = (cache_info.hits / total_calls * 100) if total_calls > 0 else 0.0
+        hit_rate = (
+            (cache_info.hits / total_calls * PERCENTAGE_MULTIPLIER)
+            if total_calls > 0
+            else 0.0
+        )
 
         return {
             "hits": cache_info.hits,

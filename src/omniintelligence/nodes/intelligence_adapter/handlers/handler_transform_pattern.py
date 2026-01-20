@@ -25,17 +25,24 @@ from __future__ import annotations
 
 from typing import Any
 
+from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
+    PatternHandlerResponse,
+)
 
-def transform_pattern_response(response: Any) -> dict[str, Any]:
+
+def transform_pattern_response(response: Any | None) -> PatternHandlerResponse:
     """Transform pattern detection response to standard format.
 
     This function transforms a pattern detection response from the intelligence
     service into a standardized dictionary format. It handles both object-based
     responses (with attribute access) and gracefully handles missing attributes.
 
+    All optional fields are accessed defensively with sensible defaults to prevent
+    AttributeError or KeyError at runtime.
+
     Args:
-        response: Pattern detection response from intelligence service.
-            Expected to have attributes:
+        response: Pattern detection response from intelligence service, or None.
+            Expected to have optional attributes:
             - detected_patterns: Optional list of pattern objects with model_dump()
             - anti_patterns: Optional list with pattern_type and description
             - recommendations: Optional iterable of recommendation strings
@@ -45,11 +52,11 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
 
     Returns:
         Dictionary with standardized pattern data:
-        - success: Operation success status (always True if we got here)
-        - onex_compliance: ONEX compliance score (0.0-1.0)
-        - patterns: List of detected patterns (serialized dicts)
-        - issues: List of anti-pattern issues as formatted strings
-        - recommendations: List of pattern-based recommendations
+        - success: Operation success status (True if response exists)
+        - onex_compliance: ONEX compliance score (0.0-1.0, defaults to 0.0)
+        - patterns: List of detected patterns (serialized dicts, empty if none)
+        - issues: List of anti-pattern issues as formatted strings (empty if none)
+        - recommendations: List of pattern-based recommendations (empty if none)
         - result_data: Additional metadata (analysis_summary, confidence_scores)
 
     Example:
@@ -70,7 +77,27 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
         1
         >>> result["recommendations"]
         ['Use dependency injection']
+        >>> # Also handles None response gracefully
+        >>> result = transform_pattern_response(None)
+        >>> result["success"]
+        False
+        >>> result["patterns"]
+        []
     """
+    # Handle None response gracefully - return empty result structure
+    if response is None:
+        return {
+            "success": False,
+            "onex_compliance": 0.0,
+            "patterns": [],
+            "issues": [],
+            "recommendations": [],
+            "result_data": {
+                "analysis_summary": "",
+                "confidence_scores": {},
+            },
+        }
+
     patterns: list[Any] = []
     issues: list[str] = []
     recommendations: list[Any] = []
@@ -78,6 +105,9 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
     # Extract detected patterns with defensive model_dump handling
     detected_patterns = getattr(response, "detected_patterns", None) or []
     for pattern in detected_patterns:
+        # Skip None items in the list
+        if pattern is None:
+            continue
         try:
             if hasattr(pattern, "model_dump") and callable(pattern.model_dump):
                 patterns.append(pattern.model_dump())
@@ -90,16 +120,36 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
             else:
                 # Last resort: convert to dict if possible, or wrap in dict
                 patterns.append({"raw_pattern": str(pattern)})
+        except (AttributeError, TypeError) as e:
+            # AttributeError: method doesn't exist; TypeError: method not callable
+            # or wrong arguments - these are structural issues with the pattern object
+            patterns.append({"error": f"Pattern serialization error (type/attribute): {e}"})
+        except ValueError as e:
+            # ValueError from model_dump() or dict() due to invalid field values
+            patterns.append({"error": f"Pattern serialization error (value): {e}"})
         except Exception as e:
-            # Catch all exceptions from serialization to avoid failing the entire
-            # transformation due to one malformed pattern
-            patterns.append({"error": f"Failed to serialize pattern: {e}"})
+            # Intentionally broad: catch any other serialization error to avoid
+            # failing the entire transformation due to one malformed pattern.
+            # Logs the full error type for debugging.
+            patterns.append({
+                "error": f"Failed to serialize pattern ({type(e).__name__}): {e}"
+            })
 
-    # Extract anti-patterns as issues with defensive attribute access
+    # Extract anti-patterns as issues with defensive attribute/dict access
     anti_patterns = getattr(response, "anti_patterns", None) or []
     for anti_pattern in anti_patterns:
-        pattern_type = getattr(anti_pattern, "pattern_type", None)
-        description = getattr(anti_pattern, "description", None)
+        # Skip None items in the list
+        if anti_pattern is None:
+            continue
+
+        # Handle both object-style (getattr) and dict-style (.get) access
+        if isinstance(anti_pattern, dict):
+            pattern_type = anti_pattern.get("pattern_type")
+            description = anti_pattern.get("description")
+        else:
+            pattern_type = getattr(anti_pattern, "pattern_type", None)
+            description = getattr(anti_pattern, "description", None)
+
         if pattern_type and description:
             issues.append(f"{pattern_type}: {description}")
         elif pattern_type:
@@ -118,14 +168,38 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
             if raw_recommendations:
                 recommendations = [str(raw_recommendations)]
 
-    # Extract ONEX compliance
+    # Extract ONEX compliance with safe access and type coercion
     onex_compliance = 0.0
-    if (
-        hasattr(response, "architectural_compliance")
-        and response.architectural_compliance
-        and hasattr(response.architectural_compliance, "onex_compliance")
-    ):
-        onex_compliance = response.architectural_compliance.onex_compliance
+    arch_compliance = getattr(response, "architectural_compliance", None)
+    if arch_compliance is not None:
+        # Handle both object-style and dict-style access
+        if isinstance(arch_compliance, dict):
+            raw_compliance = arch_compliance.get("onex_compliance")
+        else:
+            raw_compliance = getattr(arch_compliance, "onex_compliance", None)
+
+        # Safely convert to float, defaulting to 0.0 on any error
+        if raw_compliance is not None:
+            try:
+                onex_compliance = float(raw_compliance)
+            except (TypeError, ValueError):
+                # Non-numeric value, keep default of 0.0
+                onex_compliance = 0.0
+
+    # Extract analysis metadata with safe defaults for None values
+    analysis_summary = getattr(response, "analysis_summary", None)
+    if analysis_summary is None:
+        analysis_summary = ""
+    elif not isinstance(analysis_summary, str):
+        # Coerce non-string values to string
+        analysis_summary = str(analysis_summary)
+
+    confidence_scores = getattr(response, "confidence_scores", None)
+    if confidence_scores is None:
+        confidence_scores = {}
+    elif not isinstance(confidence_scores, dict):
+        # Wrap non-dict values in a dict
+        confidence_scores = {"raw_value": confidence_scores}
 
     return {
         "success": True,
@@ -134,15 +208,7 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
         "issues": issues,
         "recommendations": recommendations,
         "result_data": {
-            "analysis_summary": (
-                response.analysis_summary
-                if hasattr(response, "analysis_summary")
-                else ""
-            ),
-            "confidence_scores": (
-                response.confidence_scores
-                if hasattr(response, "confidence_scores")
-                else {}
-            ),
+            "analysis_summary": analysis_summary,
+            "confidence_scores": confidence_scores,
         },
     }

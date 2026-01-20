@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from omniintelligence.constants import MAX_PATTERN_MATCH_RESULTS
+
 
 class ModelPatternContext(BaseModel):
     """Structured context for pattern matching operations.
@@ -44,7 +46,7 @@ class ModelPatternContext(BaseModel):
     max_results: int = Field(
         default=10,
         ge=1,
-        le=100,
+        le=MAX_PATTERN_MATCH_RESULTS,
         description="Maximum number of pattern matches to return",
     )
     include_similar: bool = Field(

@@ -9,8 +9,26 @@ Note: These tests require omnibase_core to be installed.
 """
 
 from pathlib import Path
+from typing import Union
 
 import pytest
+
+
+def _safe_relative_path(path: Path, base: Path) -> Union[Path, str]:
+    """Safely compute relative path, falling back to absolute path if not possible.
+
+    Args:
+        path: The path to make relative.
+        base: The base path to make it relative to.
+
+    Returns:
+        The relative path if possible, otherwise the absolute path as a string.
+    """
+    try:
+        return path.relative_to(base)
+    except ValueError:
+        # Path is not relative to base, return absolute path
+        return str(path)
 
 # Skip entire module if omnibase_core is not available
 pytest.importorskip(
@@ -289,7 +307,7 @@ class TestRealContractIntegration:
         # Report all failures at once for better debugging
         if failed_contracts:
             failure_msg = "\n".join(
-                f"  - {path.relative_to(contracts_base_dir)}: {errors}"
+                f"  - {_safe_relative_path(path, contracts_base_dir)}: {errors}"
                 for path, errors in failed_contracts
             )
             pytest.fail(
@@ -321,7 +339,7 @@ class TestRealContractIntegration:
 
         if failed_contracts:
             failure_msg = "\n".join(
-                f"  - {path.relative_to(contracts_base_dir)}: {errors}"
+                f"  - {_safe_relative_path(path, contracts_base_dir)}: {errors}"
                 for path, errors in failed_contracts
             )
             pytest.fail(
@@ -353,7 +371,7 @@ class TestRealContractIntegration:
 
         if failed_contracts:
             failure_msg = "\n".join(
-                f"  - {path.relative_to(contracts_base_dir)}: {errors}"
+                f"  - {_safe_relative_path(path, contracts_base_dir)}: {errors}"
                 for path, errors in failed_contracts
             )
             pytest.fail(
@@ -385,7 +403,7 @@ class TestRealContractIntegration:
 
         if failed_contracts:
             failure_msg = "\n".join(
-                f"  - {path.relative_to(contracts_base_dir)}: {errors}"
+                f"  - {_safe_relative_path(path, contracts_base_dir)}: {errors}"
                 for path, errors in failed_contracts
             )
             pytest.fail(
@@ -415,7 +433,7 @@ class TestRealContractIntegration:
 
         if failed_contracts:
             failure_msg = "\n".join(
-                f"  - {path.relative_to(contracts_base_dir)}: {errors}"
+                f"  - {_safe_relative_path(path, contracts_base_dir)}: {errors}"
                 for path, errors in failed_contracts
             )
             pytest.fail(
@@ -445,7 +463,7 @@ class TestRealContractIntegration:
         if failed_results:
             failure_details = []
             for result in failed_results:
-                rel_path = result.file_path.relative_to(contracts_base_dir)
+                rel_path = _safe_relative_path(result.file_path, contracts_base_dir)
                 errors = [
                     f"{e.field_path}: {e.error_message}"
                     for e in result.validation_errors
@@ -492,3 +510,71 @@ class TestRealContractIntegration:
             f"Expected at least 5 contracts, found {total_contracts}. "
             "This may indicate the contracts directory structure has changed."
         )
+
+
+# =============================================================================
+# Test Class: Safe Relative Path Helper
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestSafeRelativePath:
+    """Tests for the _safe_relative_path helper function."""
+
+    def test_relative_path_when_paths_share_base(self):
+        """Test that relative path is returned when paths share a common base."""
+        base = Path("/project/src")
+        path = Path("/project/src/module/file.py")
+
+        result = _safe_relative_path(path, base)
+
+        assert result == Path("module/file.py")
+
+    def test_absolute_path_when_paths_dont_share_base(self):
+        """Test that absolute path is returned when paths don't share a base."""
+        base = Path("/project/src")
+        path = Path("/different/location/file.py")
+
+        result = _safe_relative_path(path, base)
+
+        # Should return the absolute path as string when relative_to fails
+        assert result == "/different/location/file.py"
+
+    def test_relative_path_with_same_path(self):
+        """Test that empty path is returned when path equals base."""
+        base = Path("/project/src")
+        path = Path("/project/src")
+
+        result = _safe_relative_path(path, base)
+
+        assert result == Path(".")
+
+    def test_relative_path_with_nested_paths(self):
+        """Test relative path with deeply nested paths."""
+        base = Path("/project")
+        path = Path("/project/src/deep/nested/module/file.py")
+
+        result = _safe_relative_path(path, base)
+
+        assert result == Path("src/deep/nested/module/file.py")
+
+    def test_absolute_path_when_base_is_child_of_path(self):
+        """Test that absolute path is returned when base is a child of path."""
+        base = Path("/project/src/module")
+        path = Path("/project/src/file.py")
+
+        result = _safe_relative_path(path, base)
+
+        # Path is not under base, so absolute path should be returned
+        assert result == "/project/src/file.py"
+
+    def test_cross_drive_paths_on_windows_style(self, tmp_path: Path):
+        """Test handling of paths that simulate cross-drive scenarios."""
+        # Use tmp_path as a real base and create an unrelated path
+        base = tmp_path / "project"
+        path = Path("/completely/different/location/file.py")
+
+        result = _safe_relative_path(path, base)
+
+        # Should return absolute path when no common base
+        assert result == "/completely/different/location/file.py"

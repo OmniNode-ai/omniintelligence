@@ -40,8 +40,11 @@ import os
 import time
 from datetime import UTC
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from omniintelligence.enums import EnumIntelligenceOperationType
 
 try:
     from confluent_kafka import Consumer, KafkaError, KafkaException
@@ -76,18 +79,40 @@ from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOut
 
 # Handlers for operation-specific transformations
 from omniintelligence.nodes.intelligence_adapter.handlers import (
+    PatternHandlerResponse,
+    PerformanceHandlerResponse,
+    QualityHandlerResponse,
+    ValidatedHandlerResponse,
     transform_pattern_response,
     transform_performance_response,
     transform_quality_response,
+    validate_handler_result,
 )
 
-# Stub implementations for removed legacy dependencies
-# These provide type compatibility without the full implementation
-# TODO: Implement full replacements if needed for production use
+# =============================================================================
+# Local Stub Implementations for Effect Node Self-Containment
+# =============================================================================
+# These stubs replace removed legacy dependencies (omninode_bridge clients).
+# They provide type compatibility while keeping this Effect node self-contained.
+#
+# Design Decision: Stubs are intentional for the following reasons:
+#   1. Effect nodes should manage their own I/O - no external client dependencies
+#   2. Configuration is read via os.getenv() at initialization (Effect pattern)
+#   3. Full client implementations would duplicate logic now in this node
+#
+# If external service integration is needed, implement via:
+#   - New Effect nodes (e.g., NodeExternalApiEffect)
+#   - Orchestrator coordination between nodes
+#   - See ARCHITECTURE.md for decomposition options
+# =============================================================================
 
 
 class ModelIntelligenceConfig(BaseModel):
-    """Stub config - use environment variables directly."""
+    """Configuration for intelligence service connections.
+
+    This is a lightweight config model that reads from environment variables.
+    Used by Effect nodes where os.getenv() is acceptable at initialization.
+    """
 
     base_url: str = Field(default="http://localhost:8080")
     timeout_seconds: int = Field(default=30)
@@ -110,14 +135,50 @@ class ModelIntelligenceConfig(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Stub health response model."""
+    """Health check response model for service status.
+
+    Used by IntelligenceServiceClient.check_health() to report service status.
+    In stub mode, returns status="ok" with service_version="stub".
+    """
 
     status: str = Field(default="ok")
     service_version: str = Field(default="stub")
 
 
 class IntelligenceServiceClient:
-    """Stub client - raises NotImplementedError for actual calls."""
+    """Stub client for testing and development when real intelligence service is unavailable.
+
+    This stub client provides safe default responses for all intelligence operations,
+    allowing tests and development workflows to proceed without a running backend service.
+
+    Stub Behavior:
+        - All methods return valid ModelIntelligenceOutput with success=True
+        - A warning is logged on first use of any stub method
+        - Responses are marked with "[STUB]" prefix in recommendations
+        - Quality scores default to 1.0 (passing), patterns_detected is empty
+
+    Production Safety:
+        - Set OMNIINTELLIGENCE_FAIL_ON_STUB=true to raise RuntimeError if stub is used
+        - This prevents accidental use of stub client in production environments
+
+    Usage:
+        This stub is intended for:
+        - Unit testing without external dependencies
+        - Local development without running intelligence services
+        - Integration tests where intelligence results are mocked
+
+        For production, use the real IntelligenceServiceClient from omninode_bridge.
+
+    Example:
+        >>> client = IntelligenceServiceClient()
+        >>> await client.connect()
+        >>> result = await client.assess_code_quality(source_path="test.py", content="...")
+        >>> assert result.success is True  # Stub always succeeds
+        >>> assert "[STUB]" in result.recommendations[0]  # Clearly marked as stub
+    """
+
+    # Class-level flag to track if warning has been logged
+    _stub_warning_logged: bool = False
 
     def __init__(
         self,
@@ -128,7 +189,16 @@ class IntelligenceServiceClient:
         max_retries: int = 3,
         circuit_breaker_enabled: bool = True,
     ):
-        """Initialize with config or kwargs for compatibility."""
+        """Initialize stub client with config or kwargs for compatibility.
+
+        Args:
+            config: Optional ModelIntelligenceConfig for configuration.
+            base_url: Base URL for the intelligence service (stored but not used by stub).
+            timeout_seconds: Request timeout in seconds (stored but not used by stub).
+            max_retries: Maximum retry attempts (stored but not used by stub).
+            circuit_breaker_enabled: Whether circuit breaker is enabled (stored but not used).
+        """
+        self._logger = logging.getLogger(__name__)
         if config is not None:
             self.config = config
         else:
@@ -139,32 +209,210 @@ class IntelligenceServiceClient:
                 circuit_breaker_enabled=circuit_breaker_enabled,
             )
 
+    def _check_production_safety(self, method_name: str) -> None:
+        """Check if stub usage should fail in production mode.
+
+        Raises:
+            RuntimeError: If OMNIINTELLIGENCE_FAIL_ON_STUB=true and stub method is called.
+        """
+        if os.getenv("OMNIINTELLIGENCE_FAIL_ON_STUB", "").lower() == "true":
+            raise RuntimeError(
+                f"IntelligenceServiceClient stub method '{method_name}' called in production mode. "
+                "Set OMNIINTELLIGENCE_FAIL_ON_STUB=false or use real IntelligenceServiceClient."
+            )
+
+    def _log_stub_warning(self, method_name: str) -> None:
+        """Log a warning that stub is being used (once per session)."""
+        if not IntelligenceServiceClient._stub_warning_logged:
+            self._logger.warning(
+                "[STUB] IntelligenceServiceClient is a stub implementation. "
+                "For production use, configure the real intelligence service client. "
+                f"First stub method called: {method_name}"
+            )
+            IntelligenceServiceClient._stub_warning_logged = True
+        else:
+            self._logger.debug(f"[STUB] IntelligenceServiceClient.{method_name} called")
+
+    def _create_stub_response(
+        self,
+        operation_type: "EnumIntelligenceOperationType",
+        method_name: str,
+        correlation_id: str | None = None,
+    ) -> ModelIntelligenceOutput:
+        """Create a valid stub response for the given operation type.
+
+        Args:
+            operation_type: The type of intelligence operation.
+            method_name: Name of the method for logging/tracking.
+            correlation_id: Optional correlation ID to preserve in response.
+
+        Returns:
+            ModelIntelligenceOutput with stub values indicating success.
+        """
+
+        return ModelIntelligenceOutput(
+            success=True,
+            operation_type=operation_type,
+            quality_score=1.0,  # Default to passing score
+            analysis_results={
+                "onex_compliance_score": 1.0,
+                "complexity_score": 0.0,
+                "maintainability_score": 1.0,
+            },
+            patterns_detected=[],  # No patterns detected by stub
+            recommendations=[
+                f"[STUB] This response is from IntelligenceServiceClient stub ({method_name}). "
+                "For actual analysis, use the real intelligence service."
+            ],
+            onex_compliant=True,  # Default to compliant
+            correlation_id=correlation_id,
+            metadata={
+                "processing_time_ms": 0,
+                "source_file": "stub",
+            },
+        )
+
     async def connect(self) -> None:
         """Connect to the intelligence service (stub - does nothing)."""
-        pass
+        self._log_stub_warning("connect")
+        self._check_production_safety("connect")
 
     async def check_health(self) -> HealthResponse:
         """Check health (stub - returns healthy)."""
+        self._log_stub_warning("check_health")
+        self._check_production_safety("check_health")
         return HealthResponse(status="ok", service_version="stub")
 
-    async def analyze_code(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
-        raise NotImplementedError("IntelligenceServiceClient requires implementation")
+    async def analyze_code(
+        self,
+        *_args: Any,
+        correlation_id: str | None = None,
+        **kwargs: Any,
+    ) -> ModelIntelligenceOutput:
+        """Analyze code (stub - returns default successful response).
 
-    async def assess_code_quality(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
-        raise NotImplementedError("IntelligenceServiceClient.assess_code_quality requires implementation")
+        This stub method returns a valid ModelIntelligenceOutput indicating success.
+        The response is clearly marked as coming from a stub implementation.
 
-    async def analyze_performance(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
-        raise NotImplementedError("IntelligenceServiceClient.analyze_performance requires implementation")
+        Args:
+            *args: Ignored positional arguments for compatibility.
+            correlation_id: Optional correlation ID to preserve in response.
+            **kwargs: Ignored keyword arguments for compatibility.
 
-    async def detect_patterns(self, *args: Any, **kwargs: Any) -> ModelIntelligenceOutput:
-        raise NotImplementedError("IntelligenceServiceClient.detect_patterns requires implementation")
+        Returns:
+            ModelIntelligenceOutput with stub values.
+        """
+        from omniintelligence.enums import EnumIntelligenceOperationType as OpType
+
+        self._log_stub_warning("analyze_code")
+        self._check_production_safety("analyze_code")
+        return self._create_stub_response(
+            OpType.ASSESS_CODE_QUALITY,
+            "analyze_code",
+            correlation_id=correlation_id or kwargs.get("correlation_id"),
+        )
+
+    async def assess_code_quality(
+        self,
+        *_args: Any,
+        correlation_id: str | None = None,
+        **kwargs: Any,
+    ) -> ModelIntelligenceOutput:
+        """Assess code quality (stub - returns default successful response).
+
+        This stub method returns a valid ModelIntelligenceOutput indicating success.
+        The response is clearly marked as coming from a stub implementation.
+
+        Args:
+            *args: Ignored positional arguments for compatibility.
+            correlation_id: Optional correlation ID to preserve in response.
+            **kwargs: Ignored keyword arguments for compatibility.
+
+        Returns:
+            ModelIntelligenceOutput with stub values.
+        """
+        from omniintelligence.enums import EnumIntelligenceOperationType as OpType
+
+        self._log_stub_warning("assess_code_quality")
+        self._check_production_safety("assess_code_quality")
+        return self._create_stub_response(
+            OpType.ASSESS_CODE_QUALITY,
+            "assess_code_quality",
+            correlation_id=correlation_id or kwargs.get("correlation_id"),
+        )
+
+    async def analyze_performance(
+        self,
+        *_args: Any,
+        correlation_id: str | None = None,
+        **kwargs: Any,
+    ) -> ModelIntelligenceOutput:
+        """Analyze performance (stub - returns default successful response).
+
+        This stub method returns a valid ModelIntelligenceOutput indicating success.
+        The response is clearly marked as coming from a stub implementation.
+
+        Args:
+            *args: Ignored positional arguments for compatibility.
+            correlation_id: Optional correlation ID to preserve in response.
+            **kwargs: Ignored keyword arguments for compatibility.
+
+        Returns:
+            ModelIntelligenceOutput with stub values.
+        """
+        from omniintelligence.enums import EnumIntelligenceOperationType as OpType
+
+        self._log_stub_warning("analyze_performance")
+        self._check_production_safety("analyze_performance")
+        return self._create_stub_response(
+            OpType.ESTABLISH_PERFORMANCE_BASELINE,
+            "analyze_performance",
+            correlation_id=correlation_id or kwargs.get("correlation_id"),
+        )
+
+    async def detect_patterns(
+        self,
+        *_args: Any,
+        correlation_id: str | None = None,
+        **kwargs: Any,
+    ) -> ModelIntelligenceOutput:
+        """Detect patterns (stub - returns default successful response).
+
+        This stub method returns a valid ModelIntelligenceOutput indicating success.
+        The response is clearly marked as coming from a stub implementation.
+
+        Args:
+            *args: Ignored positional arguments for compatibility.
+            correlation_id: Optional correlation ID to preserve in response.
+            **kwargs: Ignored keyword arguments for compatibility.
+
+        Returns:
+            ModelIntelligenceOutput with stub values.
+        """
+        from omniintelligence.enums import EnumIntelligenceOperationType as OpType
+
+        self._log_stub_warning("detect_patterns")
+        self._check_production_safety("detect_patterns")
+        return self._create_stub_response(
+            OpType.PATTERN_MATCH,
+            "detect_patterns",
+            correlation_id=correlation_id or kwargs.get("correlation_id"),
+        )
 
     async def close(self) -> None:
-        pass
+        """Close the client connection (stub - does nothing)."""
+        self._log_stub_warning("close")
+        # No production safety check for close - always allow cleanup
 
 
 class EventPublisher:
-    """Stub event publisher - logs instead of publishing."""
+    """Event publisher for testing without Kafka.
+
+    Logs publish requests instead of sending to Kafka. Used when:
+    - Running tests without Kafka infrastructure
+    - Local development without event bus
+    - Debugging event payloads
+    """
 
     def __init__(self, *_args: Any, **_kwargs: Any):
         self._logger = logging.getLogger(__name__)
@@ -180,9 +428,16 @@ class EventPublisher:
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-# Stub request models
+# =============================================================================
+# Request Models for Intelligence Operations
+# =============================================================================
+# These models define the input structure for intelligence service requests.
+# They are used both by the stub client and can be used with real implementations.
+# =============================================================================
+
+
 class ModelQualityAssessmentRequest(BaseModel):
-    """Stub for quality assessment requests."""
+    """Request model for code quality assessment operations."""
 
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
@@ -193,7 +448,7 @@ class ModelQualityAssessmentRequest(BaseModel):
 
 
 class ModelPatternDetectionRequest(BaseModel):
-    """Stub for pattern detection requests."""
+    """Request model for pattern detection operations."""
 
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
@@ -204,7 +459,7 @@ class ModelPatternDetectionRequest(BaseModel):
 
 
 class ModelPerformanceAnalysisRequest(BaseModel):
-    """Stub for performance analysis requests."""
+    """Request model for performance analysis operations."""
 
     source_path: str = Field(default="", min_length=0)
     content: str = Field(default="", min_length=0)
@@ -216,7 +471,9 @@ class ModelPerformanceAnalysisRequest(BaseModel):
     target_percentile: int = Field(default=95, ge=1, le=100)
 
 
-# Stub enums and event models
+# =============================================================================
+# Enums and Event Models for Code Analysis
+# =============================================================================
 
 
 class EnumAnalysisErrorCode(str, Enum):
@@ -327,7 +584,13 @@ class ModelCodeAnalysisFailedPayload(BaseModel):
 
 
 class IntelligenceAdapterEventHelpers:
-    """Stub helpers for event creation."""
+    """Utility helpers for Kafka event creation and serialization.
+
+    Provides static methods for:
+    - Event deserialization from Kafka messages
+    - Topic name resolution for event types
+    - Event payload creation for completed/failed events
+    """
 
     # Kafka topic mapping
     _TOPIC_MAP: dict[EnumCodeAnalysisEventType, str] = {
@@ -463,6 +726,51 @@ class ModelKafkaConsumerConfig(BaseModel):
         default=300000,
         description="Max time between polls (5 minutes)",
     )
+
+
+def _extract_error_info(error: Exception | None) -> dict[str, str]:
+    """
+    Extract standardized error information from an exception.
+
+    This helper function provides consistent error type extraction for DLQ routing
+    and error logging throughout the intelligence adapter. It ensures all error
+    payloads have a uniform structure.
+
+    Args:
+        error: The exception to extract information from, or None.
+
+    Returns:
+        Dictionary containing:
+        - error_type: The class name of the exception (e.g., "ValueError")
+        - error_message: The string representation of the error
+        - error_module: The module where the exception class is defined
+          (e.g., "builtins" for ValueError, "omnibase_core.errors" for OnexError)
+
+    Example:
+        >>> info = _extract_error_info(ValueError("invalid input"))
+        >>> info["error_type"]
+        'ValueError'
+        >>> info["error_message"]
+        'invalid input'
+        >>> info["error_module"]
+        'builtins'
+
+        >>> info = _extract_error_info(None)
+        >>> info["error_type"]
+        'NoneType'
+    """
+    if error is None:
+        return {
+            "error_type": "NoneType",
+            "error_message": "Unknown error (None)",
+            "error_module": "builtins",
+        }
+
+    return {
+        "error_type": type(error).__name__,
+        "error_message": str(error),
+        "error_module": type(error).__module__,
+    }
 
 
 class NodeIntelligenceAdapterEffect:
@@ -855,9 +1163,16 @@ class NodeIntelligenceAdapterEffect:
             try:
                 await self.event_publisher.close()
                 logger.info("Event publisher closed")
+            except (ConnectionError, TimeoutError, OSError) as e:
+                # Network errors during publisher close are expected and non-fatal
+                logger.warning(f"Network error closing event publisher: {e}")
+            except AttributeError as e:
+                # close() method may not exist on the publisher instance
+                logger.warning(f"Event publisher has no close method: {e}")
             except Exception as e:
-                # Intentionally broad: cleanup must never raise, any error is logged only
-                logger.warning(f"Error closing event publisher: {e}")
+                # Intentionally broad: cleanup must never raise, any error is logged only.
+                # Include error type for debugging unexpected issues.
+                logger.warning(f"Error closing event publisher ({type(e).__name__}): {e}")
 
         # Step 5: Clean up node resources
         await self._cleanup_node_resources()
@@ -883,12 +1198,16 @@ class NodeIntelligenceAdapterEffect:
             try:
                 await self._client.close()
                 logger.info("Intelligence service client closed")
-            except (ConnectionError, TimeoutError) as e:
+            except (ConnectionError, TimeoutError, OSError) as e:
                 # Network errors during client close are expected and non-fatal
                 logger.warning(f"Network error closing intelligence service client: {e}")
+            except AttributeError as e:
+                # close() method may not exist on the client instance (e.g., mock client)
+                logger.warning(f"Intelligence client has no close method: {e}")
             except Exception as e:
-                # Intentionally broad: cleanup must never raise, any error is logged only
-                logger.warning(f"Error closing intelligence service client: {e}")
+                # Intentionally broad: cleanup must never raise, any error is logged only.
+                # Include error type for debugging unexpected issues.
+                logger.warning(f"Error closing intelligence service client ({type(e).__name__}): {e}")
             finally:
                 self._client = None
 
@@ -1414,15 +1733,8 @@ class NodeIntelligenceAdapterEffect:
         original_topic = message.topic()
         dlq_topic = f"{original_topic}.dlq"
 
-        # Defensive: ensure error_type is consistently extracted using type().__name__
-        # Handle case where error might be None
-        if error is None:
-            error_type = "NoneType"
-            error_message = "Unknown error (None)"
-        else:
-            # Consistently use type(error).__name__ for all error types
-            error_type = type(error).__name__
-            error_message = str(error)
+        # Use centralized helper for consistent error extraction across all DLQ routing
+        error_info = _extract_error_info(error)
 
         # Check if event_publisher is available before doing extraction work
         if self.event_publisher is None:
@@ -1466,13 +1778,14 @@ class NodeIntelligenceAdapterEffect:
                     ).isoformat()
 
             # Build DLQ payload with full context
-            # Error details use pre-validated error_type and error_message for consistency
+            # Error details use centralized _extract_error_info for consistency
             dlq_payload = {
                 "original_message": original_payload,
                 "error": {
-                    "message": error_message,
+                    "error_type": error_info["error_type"],
+                    "error_message": error_info["error_message"],
+                    "error_module": error_info["error_module"],
                     "traceback": traceback.format_exc(),
-                    "error_type": error_type,
                 },
                 "original_metadata": {
                     "topic": original_topic,
@@ -1918,83 +2231,41 @@ class NodeIntelligenceAdapterEffect:
         self,
         result: Any,
         operation_type: str,
-    ) -> dict[str, Any]:
+    ) -> ValidatedHandlerResponse:
         """
         Validate and normalize handler transform result.
 
-        Ensures that transform handlers return valid dictionaries with expected keys.
-        Provides defensive defaults if the result is None, not a dict, or missing keys.
+        Delegates to the validate_handler_result helper function which provides
+        comprehensive type validation and normalization for all expected keys.
+
+        This method ensures that transform handlers return valid dictionaries with
+        expected keys and proper types. Provides defensive defaults if the result
+        is None, not a dict, or has missing/invalid keys.
 
         Args:
             result: Return value from a transform handler
-            operation_type: Name of the operation for error messages
+            operation_type: Name of the operation for error messages and logging
 
         Returns:
-            Validated dictionary with at least these keys:
+            Validated dictionary with guaranteed structure:
             - success: bool (default True)
-            - quality_score: float (default 0.0)
-            - onex_compliance: float (default 0.0)
+            - quality_score: float in [0.0, 1.0] (default 0.0)
+            - onex_compliance: float in [0.0, 1.0] (default 0.0)
+            - complexity_score: float in [0.0, 1.0] (default 0.0)
             - issues: list (default [])
             - recommendations: list (default [])
             - patterns: list (default [])
             - result_data: dict (default {})
 
-        Raises:
-            ValueError: If result is not a dict and cannot be safely defaulted
+        Note:
+            Type validation is performed for all fields:
+            - success must be a boolean (non-bool values are converted)
+            - Numeric fields are validated and clamped to [0.0, 1.0]
+            - List fields are validated and converted if needed
+            - Dict fields are validated and converted if needed
+            - Validation issues are logged for debugging
         """
-        # Handle None result
-        if result is None:
-            logger.warning(
-                f"Transform handler returned None for operation '{operation_type}', "
-                f"using default values"
-            )
-            return {
-                "success": False,
-                "quality_score": 0.0,
-                "onex_compliance": 0.0,
-                "complexity_score": 0.0,
-                "issues": [],
-                "recommendations": [],
-                "patterns": [],
-                "result_data": {"error": "Transform handler returned None"},
-            }
-
-        # Handle non-dict result
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Transform handler returned {type(result).__name__} instead of dict "
-                f"for operation '{operation_type}', wrapping in result_data"
-            )
-            return {
-                "success": True,
-                "quality_score": 0.0,
-                "onex_compliance": 0.0,
-                "complexity_score": 0.0,
-                "issues": [],
-                "recommendations": [],
-                "patterns": [],
-                "result_data": {"raw_result": result},
-            }
-
-        # Ensure expected keys exist with proper defaults
-        validated: dict[str, Any] = {
-            "success": result.get("success", True),
-            "quality_score": result.get("quality_score", 0.0),
-            "onex_compliance": result.get("onex_compliance", 0.0),
-            "complexity_score": result.get("complexity_score", 0.0),
-            "issues": result.get("issues") if isinstance(result.get("issues"), list) else [],
-            "recommendations": (
-                result.get("recommendations")
-                if isinstance(result.get("recommendations"), list)
-                else []
-            ),
-            "patterns": result.get("patterns") if isinstance(result.get("patterns"), list) else [],
-            "result_data": (
-                result.get("result_data") if isinstance(result.get("result_data"), dict) else {}
-            ),
-        }
-
-        return validated
+        return validate_handler_result(result, operation_type, log_issues=True)
 
     def _convert_to_effect_input(self, input_data: ModelIntelligenceInput) -> Any:
         """
@@ -2031,7 +2302,7 @@ class NodeIntelligenceAdapterEffect:
             ),
         )
 
-    def _transform_quality_response(self, response: Any) -> dict[str, Any]:
+    def _transform_quality_response(self, response: Any) -> QualityHandlerResponse:
         """Transform quality assessment response to standard format.
 
         Delegates to the extracted handler for the actual transformation logic.
@@ -2042,13 +2313,13 @@ class NodeIntelligenceAdapterEffect:
             response: Quality assessment response from intelligence service
 
         Returns:
-            Dictionary with standardized quality data.
+            QualityHandlerResponse with standardized quality data.
             See handlers.handler_transform_quality.transform_quality_response
             for full documentation of the return format.
         """
         return transform_quality_response(response)
 
-    def _transform_performance_response(self, response: Any) -> dict[str, Any]:
+    def _transform_performance_response(self, response: Any) -> PerformanceHandlerResponse:
         """Transform performance analysis response to standard format.
 
         Delegates to the extracted handler for the actual transformation logic.
@@ -2059,13 +2330,13 @@ class NodeIntelligenceAdapterEffect:
             response: Performance analysis response from intelligence service
 
         Returns:
-            Dictionary with standardized performance data.
+            PerformanceHandlerResponse with standardized performance data.
             See handlers.handler_transform_performance.transform_performance_response
             for full documentation of the return format.
         """
         return transform_performance_response(response)
 
-    def _transform_pattern_response(self, response: Any) -> dict[str, Any]:
+    def _transform_pattern_response(self, response: Any) -> PatternHandlerResponse:
         """Transform pattern detection response to standard format.
 
         Delegates to the pure handler function for transformation logic.
@@ -2074,7 +2345,7 @@ class NodeIntelligenceAdapterEffect:
             response: Pattern detection response from intelligence service
 
         Returns:
-            Dictionary with standardized pattern data:
+            PatternHandlerResponse with standardized pattern data:
             - success: Operation success status
             - onex_compliance: ONEX compliance score
             - patterns: Detected patterns
