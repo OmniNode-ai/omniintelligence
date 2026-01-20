@@ -28,6 +28,7 @@ from typing import Any
 from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
     PerformanceHandlerResponse,
 )
+from omniintelligence.nodes.intelligence_adapter.handlers.utils import MAX_ISSUES
 
 
 def _ensure_list(value: Any) -> list[Any]:
@@ -109,10 +110,15 @@ def transform_performance_response(response: Any) -> PerformanceHandlerResponse:
 
     # Extract optimization opportunities as recommendation strings
     # Guard: Ensure we have an iterable list, never None or non-iterable
+    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion from
+    # malicious or buggy API responses returning millions of items.
     raw_opportunities = getattr(response, "optimization_opportunities", None)
     opportunities = _ensure_list(raw_opportunities)
 
     for opportunity in opportunities:
+        # Security: Stop collecting if we hit the limit
+        if len(recommendations) >= MAX_ISSUES:
+            break
         # Guard: Skip None or non-object entries
         if opportunity is None:
             continue
@@ -138,8 +144,12 @@ def transform_performance_response(response: Any) -> PerformanceHandlerResponse:
 
     # Build opportunity dicts with safe model_dump access
     # Guard: Ensure each model_dump() result is actually a dict before appending
+    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion
     opportunity_dicts: list[dict[str, Any]] = []
     for opportunity in opportunities:
+        # Security: Stop collecting if we hit the limit
+        if len(opportunity_dicts) >= MAX_ISSUES:
+            break
         if opportunity is None:
             continue
         if hasattr(opportunity, "model_dump") and callable(

@@ -28,6 +28,13 @@ from typing import Any, cast
 from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
     ValidatedHandlerResponse,
 )
+from omniintelligence.nodes.intelligence_adapter.handlers.utils import (
+    SCORE_MIN,
+    _safe_bool,
+    _safe_dict,
+    _safe_float,
+    _safe_list,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,102 +42,14 @@ logger = logging.getLogger(__name__)
 # Required keys and their expected types/defaults
 REQUIRED_KEYS: dict[str, tuple[type | tuple[type, ...], Any]] = {
     "success": (bool, True),
-    "quality_score": ((int, float), 0.0),
-    "onex_compliance": ((int, float), 0.0),
-    "complexity_score": ((int, float), 0.0),
+    "quality_score": ((int, float), SCORE_MIN),
+    "onex_compliance": ((int, float), SCORE_MIN),
+    "complexity_score": ((int, float), SCORE_MIN),
     "issues": (list, []),
     "recommendations": (list, []),
     "patterns": (list, []),
     "result_data": (dict, {}),
 }
-
-
-def _safe_bool(value: Any, default: bool = True) -> bool:
-    """Safely convert value to boolean.
-
-    Args:
-        value: Value to convert.
-        default: Default if conversion fails.
-
-    Returns:
-        Boolean value.
-    """
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    # For non-bool truthy/falsy values, convert explicitly
-    # This handles cases like success=1 or success="true"
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        return value.lower() in ("true", "1", "yes")
-    # Default to the provided default for unexpected types
-    return default
-
-
-def _safe_float(
-    value: Any,
-    default: float = 0.0,
-    min_val: float = 0.0,
-    max_val: float = 1.0,
-) -> float:
-    """Safely convert value to float with bounds clamping.
-
-    Args:
-        value: Value to convert.
-        default: Default if conversion fails.
-        min_val: Minimum allowed value.
-        max_val: Maximum allowed value.
-
-    Returns:
-        Float value clamped to [min_val, max_val].
-    """
-    if value is None:
-        return default
-
-    try:
-        float_val = float(value)
-        # Clamp to valid range
-        return max(min_val, min(max_val, float_val))
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_list(value: Any) -> list[Any]:
-    """Safely convert value to list.
-
-    Args:
-        value: Value to convert.
-
-    Returns:
-        List value. Empty list if None or not a list.
-    """
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    if isinstance(value, (tuple, set, frozenset)):
-        return list(value)
-    # Single value - wrap in list
-    return [value]
-
-
-def _safe_dict(value: Any) -> dict[str, Any]:
-    """Safely convert value to dict.
-
-    Args:
-        value: Value to convert.
-
-    Returns:
-        Dict value. Empty dict if None or not a dict.
-    """
-    if value is None:
-        return {}
-    if isinstance(value, dict):
-        return value
-    # Can't convert non-dict to dict - return empty
-    return {}
 
 
 def validate_handler_result(
@@ -309,6 +228,14 @@ def validate_handler_result(
             operation_type,
             "; ".join(issues_found),
         )
+
+    # Log successful validation at debug level for observability
+    logger.debug(
+        "Validated handler result for operation '%s': success=%s, quality=%.2f",
+        operation_type,
+        validated["success"],
+        validated["quality_score"],
+    )
 
     # Cast is safe here because we've validated all required keys are present
     # with correct types. Extra keys may be preserved but don't affect type safety.

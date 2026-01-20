@@ -16,6 +16,7 @@ Available Handlers:
     - handler_transform_performance: Performance analysis response transformation
     - validation: Handler return value validation utilities
     - protocols: TypedDict definitions for type-safe handler responses
+    - utils: Shared utility functions and constants for safe type conversions
 
 Type Safety:
     All handler functions are typed with specific TypedDict return types:
@@ -67,11 +68,23 @@ from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
     QualityResultData,
     ValidatedHandlerResponse,
 )
+from omniintelligence.nodes.intelligence_adapter.handlers.utils import (
+    MAX_ISSUES,
+    SCORE_MAX,
+    SCORE_MIN,
+    _safe_bool,
+    _safe_dict,
+    _safe_float,
+    _safe_list,
+)
 from omniintelligence.nodes.intelligence_adapter.handlers.validation import (
     validate_handler_result,
 )
 
 __all__ = [
+    "MAX_ISSUES",
+    "SCORE_MAX",
+    "SCORE_MIN",
     "AnyHandlerResponse",
     "AnyResultData",
     "BaseHandlerResponse",
@@ -84,6 +97,10 @@ __all__ = [
     "QualityHandlerResponse",
     "QualityResultData",
     "ValidatedHandlerResponse",
+    "_safe_bool",
+    "_safe_dict",
+    "_safe_float",
+    "_safe_list",
     "transform_pattern_response",
     "transform_performance_response",
     "transform_quality_response",

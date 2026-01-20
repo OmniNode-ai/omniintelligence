@@ -28,6 +28,7 @@ from typing import Any
 from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
     PatternHandlerResponse,
 )
+from omniintelligence.nodes.intelligence_adapter.handlers.utils import MAX_ISSUES
 
 
 def transform_pattern_response(response: Any | None) -> PatternHandlerResponse:
@@ -103,8 +104,13 @@ def transform_pattern_response(response: Any | None) -> PatternHandlerResponse:
     recommendations: list[Any] = []
 
     # Extract detected patterns with defensive model_dump handling
+    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion from
+    # malicious or buggy API responses returning millions of items.
     detected_patterns = getattr(response, "detected_patterns", None) or []
     for pattern in detected_patterns:
+        # Security: Stop collecting if we hit the limit
+        if len(patterns) >= MAX_ISSUES:
+            break
         # Skip None items in the list
         if pattern is None:
             continue
@@ -136,8 +142,12 @@ def transform_pattern_response(response: Any | None) -> PatternHandlerResponse:
             })
 
     # Extract anti-patterns as issues with defensive attribute/dict access
+    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion
     anti_patterns = getattr(response, "anti_patterns", None) or []
     for anti_pattern in anti_patterns:
+        # Security: Stop collecting if we hit the limit
+        if len(issues) >= MAX_ISSUES:
+            break
         # Skip None items in the list
         if anti_pattern is None:
             continue
@@ -159,10 +169,11 @@ def transform_pattern_response(response: Any | None) -> PatternHandlerResponse:
         # Skip anti-patterns with neither pattern_type nor description
 
     # Extract recommendations with safe iteration
+    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion
     raw_recommendations = getattr(response, "recommendations", None)
     if raw_recommendations is not None:
         try:
-            recommendations = list(raw_recommendations)
+            recommendations = list(raw_recommendations)[:MAX_ISSUES]
         except TypeError:
             # Not iterable - wrap single value or convert to string
             if raw_recommendations:

@@ -1278,3 +1278,341 @@ class TestTransformPerformanceResponse:
         assert result["complexity_score"] == 0.0, (
             "complexity_score should default to 0.0 when complexity_estimate is None"
         )
+
+
+class TestQualityResponseEdgeCases:
+    """Edge case tests for transform_quality_response handler.
+
+    These tests cover boundary conditions and malformed data scenarios
+    identified in PR review. They ensure defensive handling of unexpected
+    inputs and proper score clamping.
+    """
+
+    # =========================================================================
+    # Negative score clamping tests
+    # =========================================================================
+
+    def test_quality_transform_negative_score_clamps_to_zero(self) -> None:
+        """Test that negative quality scores are clamped to 0.0."""
+        response = {"quality_score": -0.5}
+        result = transform_quality_response(response)
+        assert result["quality_score"] == 0.0, (
+            "negative quality_score should be clamped to 0.0"
+        )
+
+    def test_quality_transform_negative_compliance_clamps_to_zero(self) -> None:
+        """Test that negative compliance scores are clamped to 0.0."""
+        response = {"onex_compliance": {"score": -1.0}}
+        result = transform_quality_response(response)
+        assert result["onex_compliance"] == 0.0, (
+            "negative onex_compliance score should be clamped to 0.0"
+        )
+
+    def test_quality_transform_negative_complexity_clamps_to_zero(self) -> None:
+        """Test that negative complexity scores are clamped to 0.0."""
+        response = {"maintainability": {"complexity_score": -0.25}}
+        result = transform_quality_response(response)
+        assert result["complexity_score"] == 0.0, (
+            "negative complexity_score should be clamped to 0.0"
+        )
+
+    # =========================================================================
+    # Scores > 1.0 clamping tests
+    # =========================================================================
+
+    def test_quality_transform_score_over_one_clamps_to_one(self) -> None:
+        """Test that scores over 1.0 are clamped to 1.0."""
+        response = {"quality_score": 1.5}
+        result = transform_quality_response(response)
+        assert result["quality_score"] == 1.0, (
+            "quality_score > 1.0 should be clamped to 1.0"
+        )
+
+    def test_quality_transform_compliance_over_one_clamps_to_one(self) -> None:
+        """Test that compliance scores over 1.0 are clamped to 1.0."""
+        response = {"onex_compliance": {"score": 99.0}}
+        result = transform_quality_response(response)
+        assert result["onex_compliance"] == 1.0, (
+            "onex_compliance score > 1.0 should be clamped to 1.0"
+        )
+
+    def test_quality_transform_complexity_over_one_clamps_to_one(self) -> None:
+        """Test that complexity scores over 1.0 are clamped to 1.0."""
+        response = {"maintainability": {"complexity_score": 2.5}}
+        result = transform_quality_response(response)
+        assert result["complexity_score"] == 1.0, (
+            "complexity_score > 1.0 should be clamped to 1.0"
+        )
+
+    # =========================================================================
+    # Malformed nested objects tests
+    # =========================================================================
+
+    def test_quality_transform_malformed_onex_compliance_string(self) -> None:
+        """Test handling when onex_compliance is a string instead of dict.
+
+        When onex_compliance is a non-dict/non-object value, the handler
+        should gracefully handle it by treating attribute access as missing.
+        """
+        response = {"quality_score": 0.8, "onex_compliance": "invalid"}
+        result = transform_quality_response(response)
+        assert result["success"] is True, "success should be True despite malformed data"
+        assert result["onex_compliance"] == 0.0, (
+            "malformed onex_compliance should default to 0.0"
+        )
+
+    def test_quality_transform_malformed_maintainability_list(self) -> None:
+        """Test handling when maintainability is a list instead of dict.
+
+        When maintainability is not a dict/object, complexity_score extraction
+        should fail gracefully and return the default value.
+        """
+        response = {"quality_score": 0.8, "maintainability": [1, 2, 3]}
+        result = transform_quality_response(response)
+        assert result["success"] is True, "success should be True despite malformed data"
+        assert result["complexity_score"] == 0.0, (
+            "malformed maintainability should result in default complexity_score"
+        )
+
+    def test_quality_transform_malformed_onex_compliance_number(self) -> None:
+        """Test handling when onex_compliance is a number instead of dict.
+
+        Numbers don't have dict keys or attributes, so should be handled
+        as missing compliance data.
+        """
+        response = {"quality_score": 0.9, "onex_compliance": 42}
+        result = transform_quality_response(response)
+        assert result["success"] is True, "success should be True"
+        assert result["onex_compliance"] == 0.0, (
+            "numeric onex_compliance should default to 0.0"
+        )
+
+    def test_quality_transform_malformed_maintainability_string(self) -> None:
+        """Test handling when maintainability is a string instead of dict."""
+        response = {"quality_score": 0.75, "maintainability": "high"}
+        result = transform_quality_response(response)
+        assert result["success"] is True, "success should be True"
+        assert result["complexity_score"] == 0.0, (
+            "string maintainability should default to 0.0 complexity"
+        )
+
+    # =========================================================================
+    # Empty violations list vs None tests
+    # =========================================================================
+
+    def test_quality_transform_empty_violations_list(self) -> None:
+        """Test that empty violations list returns empty issues."""
+        response = {"onex_compliance": {"violations": []}}
+        result = transform_quality_response(response)
+        assert result["issues"] == [], "empty violations list should return empty issues"
+
+    def test_quality_transform_none_violations(self) -> None:
+        """Test that None violations returns empty issues."""
+        response = {"onex_compliance": {"violations": None}}
+        result = transform_quality_response(response)
+        assert result["issues"] == [], "None violations should return empty issues"
+
+    def test_quality_transform_empty_recommendations_list(self) -> None:
+        """Test that empty recommendations list returns empty recommendations."""
+        response = {"onex_compliance": {"recommendations": []}}
+        result = transform_quality_response(response)
+        assert result["recommendations"] == [], (
+            "empty recommendations list should return empty"
+        )
+
+    def test_quality_transform_none_recommendations(self) -> None:
+        """Test that None recommendations returns empty recommendations."""
+        response = {"onex_compliance": {"recommendations": None}}
+        result = transform_quality_response(response)
+        assert result["recommendations"] == [], (
+            "None recommendations should return empty"
+        )
+
+    # =========================================================================
+    # Non-iterable violations (string) test
+    # =========================================================================
+
+    def test_quality_transform_string_violation_wrapped_in_list(self) -> None:
+        """Test that a single string violation is wrapped in a list.
+
+        The _safe_list utility wraps non-list values in a list,
+        so a single string violation becomes a one-element list.
+        """
+        response = {"onex_compliance": {"violations": "single error"}}
+        result = transform_quality_response(response)
+        assert result["issues"] == ["single error"], (
+            "single string violation should be wrapped in list"
+        )
+
+    def test_quality_transform_string_recommendation_wrapped_in_list(self) -> None:
+        """Test that a single string recommendation is wrapped in a list."""
+        response = {"onex_compliance": {"recommendations": "add tests"}}
+        result = transform_quality_response(response)
+        assert result["recommendations"] == ["add tests"], (
+            "single string recommendation should be wrapped in list"
+        )
+
+    # =========================================================================
+    # Extreme boundary values tests
+    # =========================================================================
+
+    def test_quality_transform_extreme_positive_values(self) -> None:
+        """Test handling of extremely large positive scores.
+
+        Positive infinity should be clamped to SCORE_MAX (1.0).
+        """
+        response = {"quality_score": float("inf")}
+        result = transform_quality_response(response)
+        assert result["quality_score"] == 1.0, (
+            "positive infinity should be clamped to 1.0"
+        )
+
+    def test_quality_transform_negative_infinity(self) -> None:
+        """Test handling of negative infinity scores.
+
+        Negative infinity should be clamped to SCORE_MIN (0.0).
+        """
+        response = {"quality_score": float("-inf")}
+        result = transform_quality_response(response)
+        assert result["quality_score"] == 0.0, (
+            "negative infinity should be clamped to 0.0"
+        )
+
+    def test_quality_transform_nan_values(self) -> None:
+        """Test handling of NaN scores.
+
+        NaN values present a special case because NaN comparisons always
+        return False. Due to Python's min/max behavior with NaN:
+        - min(max_val, nan) returns max_val (because nan <= max_val is False)
+        - max(min_val, max_val) returns max_val
+
+        This means NaN gets clamped to SCORE_MAX (1.0), which is a valid
+        score value rather than an invalid NaN propagating through the system.
+        While unconventional, this is acceptable defensive behavior.
+        """
+        import math
+
+        response = {"quality_score": float("nan")}
+        result = transform_quality_response(response)
+        # NaN should not crash the system
+        assert result["success"] is True, "success should be True even with NaN"
+        # Due to Python's min/max semantics, NaN gets clamped to 1.0
+        # This is acceptable - the system produces a valid score rather than NaN
+        score = result["quality_score"]
+        assert not math.isnan(score), "NaN should not propagate to output"
+        assert 0.0 <= score <= 1.0, "score should be within valid range"
+
+    def test_quality_transform_compliance_infinity(self) -> None:
+        """Test compliance score with infinity value."""
+        response = {"onex_compliance": {"score": float("inf")}}
+        result = transform_quality_response(response)
+        assert result["onex_compliance"] == 1.0, (
+            "infinite compliance score should be clamped to 1.0"
+        )
+
+    def test_quality_transform_very_small_positive_number(self) -> None:
+        """Test handling of very small positive numbers (epsilon)."""
+        response = {"quality_score": 1e-300}
+        result = transform_quality_response(response)
+        # Very small positive numbers should be preserved (within [0.0, 1.0])
+        assert result["quality_score"] >= 0.0, "tiny positive should remain positive"
+        assert result["quality_score"] <= 1.0, "tiny positive should be <= 1.0"
+
+    # =========================================================================
+    # Security limit test - MAX_ISSUES
+    # =========================================================================
+
+    def test_quality_transform_respects_max_issues_limit(self) -> None:
+        """Test that issues are limited to MAX_ISSUES for memory safety.
+
+        The handler applies MAX_ISSUES limit to prevent memory exhaustion
+        from maliciously large violation lists.
+        """
+        from omniintelligence.nodes.intelligence_adapter.handlers.utils import (
+            MAX_ISSUES,
+        )
+
+        # Create more violations than the limit
+        violations = [f"issue_{i}" for i in range(MAX_ISSUES + 500)]
+        response = {"onex_compliance": {"violations": violations}}
+        result = transform_quality_response(response)
+        assert len(result["issues"]) <= MAX_ISSUES, (
+            f"issues should be limited to MAX_ISSUES ({MAX_ISSUES})"
+        )
+
+    def test_quality_transform_respects_max_recommendations_limit(self) -> None:
+        """Test that recommendations are limited to MAX_ISSUES for memory safety."""
+        from omniintelligence.nodes.intelligence_adapter.handlers.utils import (
+            MAX_ISSUES,
+        )
+
+        # Create more recommendations than the limit
+        recommendations = [f"rec_{i}" for i in range(MAX_ISSUES + 100)]
+        response = {"onex_compliance": {"recommendations": recommendations}}
+        result = transform_quality_response(response)
+        assert len(result["recommendations"]) <= MAX_ISSUES, (
+            f"recommendations should be limited to MAX_ISSUES ({MAX_ISSUES})"
+        )
+
+    # =========================================================================
+    # Additional malformed data tests
+    # =========================================================================
+
+    def test_quality_transform_nested_dict_violations(self) -> None:
+        """Test when violations contains dicts instead of strings.
+
+        The handler should include dict items in the issues list
+        as-is, allowing downstream consumers to handle them.
+        """
+        response = {
+            "onex_compliance": {
+                "violations": [
+                    {"code": "E001", "message": "Missing docstring"},
+                    "simple violation",
+                ]
+            }
+        }
+        result = transform_quality_response(response)
+        assert len(result["issues"]) == 2, "both violations should be included"
+        assert {"code": "E001", "message": "Missing docstring"} in result["issues"], (
+            "dict violation should be preserved"
+        )
+        assert "simple violation" in result["issues"], (
+            "string violation should be preserved"
+        )
+
+    def test_quality_transform_boolean_quality_score(self) -> None:
+        """Test handling when quality_score is a boolean.
+
+        Booleans can be converted to float (True=1.0, False=0.0).
+        """
+        response_true = {"quality_score": True}
+        result_true = transform_quality_response(response_true)
+        assert result_true["quality_score"] == 1.0, "True should convert to 1.0"
+
+        response_false = {"quality_score": False}
+        result_false = transform_quality_response(response_false)
+        assert result_false["quality_score"] == 0.0, "False should convert to 0.0"
+
+    def test_quality_transform_tuple_violations(self) -> None:
+        """Test handling when violations is a tuple instead of list.
+
+        Tuples should be converted to lists by _safe_list.
+        """
+        response = {"onex_compliance": {"violations": ("error1", "error2")}}
+        result = transform_quality_response(response)
+        assert result["issues"] == ["error1", "error2"], (
+            "tuple violations should be converted to list"
+        )
+
+    def test_quality_transform_set_violations(self) -> None:
+        """Test handling when violations is a set instead of list.
+
+        Sets should be converted to lists by _safe_list.
+        """
+        response = {"onex_compliance": {"violations": {"error1", "error2"}}}
+        result = transform_quality_response(response)
+        # Sets don't preserve order, so just check membership
+        assert len(result["issues"]) == 2, "set should be converted to list"
+        assert "error1" in result["issues"], "error1 should be in issues"
+        assert "error2" in result["issues"], "error2 should be in issues"

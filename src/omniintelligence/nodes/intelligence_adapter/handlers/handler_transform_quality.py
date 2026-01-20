@@ -27,6 +27,13 @@ from typing import Any
 from omniintelligence.nodes.intelligence_adapter.handlers.protocols import (
     QualityHandlerResponse,
 )
+from omniintelligence.nodes.intelligence_adapter.handlers.utils import (
+    MAX_ISSUES,
+    SCORE_MAX,
+    SCORE_MIN,
+    _safe_float,
+    _safe_list,
+)
 
 
 def _get_attr_or_key(obj: Any, name: str, default: Any = None) -> Any:
@@ -57,29 +64,6 @@ def _get_attr_or_key(obj: Any, name: str, default: Any = None) -> Any:
         return value if value is not None else default
 
     return default
-
-
-def _safe_float(value: Any, default: float = 0.0, min_val: float = 0.0, max_val: float = 1.0) -> float:
-    """Safely convert value to float with bounds clamping.
-
-    Args:
-        value: Value to convert to float.
-        default: Default value if conversion fails.
-        min_val: Minimum allowed value (clamps below this).
-        max_val: Maximum allowed value (clamps above this).
-
-    Returns:
-        Float value clamped to [min_val, max_val], or default if conversion fails.
-    """
-    if value is None:
-        return default
-
-    try:
-        float_val = float(value)
-        # Clamp to valid range
-        return max(min_val, min(max_val, float_val))
-    except (TypeError, ValueError):
-        return default
 
 
 def transform_quality_response(response: Any) -> QualityHandlerResponse:
@@ -150,44 +134,37 @@ def transform_quality_response(response: Any) -> QualityHandlerResponse:
     onex_compliance_obj = _get_attr_or_key(response, "onex_compliance")
 
     # Extract issues from violations with comprehensive defensive checks
+    # Security: Apply MAX_ISSUES limit to prevent memory exhaustion
     if onex_compliance_obj is not None:
-        violations = _get_attr_or_key(onex_compliance_obj, "violations")
-        if violations is not None:
-            # Ensure violations is iterable before extending
-            if isinstance(violations, (list, tuple)):
-                issues.extend(violations)
-            else:
-                # Single violation - wrap in list
-                issues.append(violations)
+        violations = _safe_list(_get_attr_or_key(onex_compliance_obj, "violations"))
+        remaining_issues = MAX_ISSUES - len(issues)
+        if remaining_issues > 0:
+            issues.extend(violations[:remaining_issues])
 
-        recs = _get_attr_or_key(onex_compliance_obj, "recommendations")
-        if recs is not None:
-            # Ensure recommendations is iterable before extending
-            if isinstance(recs, (list, tuple)):
-                recommendations.extend(recs)
-            else:
-                # Single recommendation - wrap in list
-                recommendations.append(recs)
+        recs = _safe_list(_get_attr_or_key(onex_compliance_obj, "recommendations"))
+        remaining_recs = MAX_ISSUES - len(recommendations)
+        if remaining_recs > 0:
+            recommendations.extend(recs[:remaining_recs])
 
     # Extract quality_score with type safety and range validation
     # _safe_float handles: None, missing, non-numeric types, out-of-range values
     raw_quality_score = _get_attr_or_key(response, "quality_score")
-    quality_score = _safe_float(raw_quality_score, default=0.0, min_val=0.0, max_val=1.0)
+    quality_score = _safe_float(raw_quality_score, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX)
 
     # Extract onex_compliance.score with defensive checks
     raw_compliance_score = _get_attr_or_key(onex_compliance_obj, "score") if onex_compliance_obj else None
-    onex_compliance_score = _safe_float(raw_compliance_score, default=0.0, min_val=0.0, max_val=1.0)
+    onex_compliance_score = _safe_float(raw_compliance_score, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX)
 
     # Extract complexity_score from maintainability with defensive checks
     maintainability_obj = _get_attr_or_key(response, "maintainability")
     raw_complexity_score = _get_attr_or_key(maintainability_obj, "complexity_score") if maintainability_obj else None
-    complexity_score = _safe_float(raw_complexity_score, default=0.0, min_val=0.0, max_val=1.0)
+    complexity_score = _safe_float(raw_complexity_score, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX)
 
     # Extract optional metadata fields (no type conversion needed)
     architectural_era = _get_attr_or_key(response, "architectural_era")
     temporal_relevance_raw = _get_attr_or_key(response, "temporal_relevance")
     # temporal_relevance should be a float if present
-    temporal_relevance = _safe_float(temporal_relevance_raw, default=0.0, min_val=0.0, max_val=1.0) if temporal_relevance_raw is not None else None
+    temporal_relevance = _safe_float(temporal_relevance_raw, default=SCORE_MIN, min_val=SCORE_MIN, max_val=SCORE_MAX) if temporal_relevance_raw is not None else None
 
     return {
         "success": True,
