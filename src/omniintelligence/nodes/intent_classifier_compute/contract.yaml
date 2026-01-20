@@ -1,0 +1,86 @@
+---
+# ONEX Node Contract - Intent Classifier Compute Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "intent_classifier_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for classifying user intents from code patterns and execution traces. Maps observed behavior
+  to intent categories.
+input_model:
+  name: "ModelIntentClassificationInput"
+  module: "omniintelligence.nodes.intent_classifier_compute.models"
+  description: "Input containing content and classification parameters."
+output_model:
+  name: "ModelIntentClassificationOutput"
+  module: "omniintelligence.nodes.intent_classifier_compute.models"
+  description: "Output containing classified intents and confidence scores."
+operations:
+  - name: "classify_intent"
+    description: "Classify intent from content"
+    input_fields:
+      - content
+      - correlation_id
+      - context
+    output_fields:
+      - success
+      - intent_category
+      - confidence
+      - secondary_intents
+# =============================================================================
+# TODO(#15): Protocol Integration - IntentClassifierProtocol
+# =============================================================================
+# Status: Backlog - Phase 3 (v0.4.0)
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/15
+# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+#
+# Priority: Low (current implementation functional without protocol abstraction)
+# Description: Create omniintelligence.protocols module with IntentClassifierProtocol
+#
+# When implemented:
+#   - Create omniintelligence.protocols.IntentClassifierProtocol
+#   - Define classify(), get_categories(), get_confidence() interface
+#   - Uncomment dependency below
+# =============================================================================
+dependencies: []
+# Future dependency (when #15 is implemented):
+# - name: "intent_classifier"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Intent classification engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "IntentClassificationValidationError"
+      error_code: "INTENT_001"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "IntentClassificationComputeError"
+      error_code: "INTENT_002"
+      description: "Error during intent classification"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-02"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "intent"
+    - "classifier"
+    - "pattern-extraction"

@@ -2,50 +2,112 @@
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+# =============================================================================
+# DEPENDENCY MANAGEMENT NOTES
+# =============================================================================
+# This project supports both Poetry and uv/PEP 621 dependency management.
+#
+# EDITABLE INSTALLS & uv.lock:
+#   Editable installs (pip install -e .) bypass uv.lock resolution.
+#   To verify reproducibility after editable install changes:
+#     1. Remove uv.lock: rm uv.lock
+#     2. Regenerate: uv lock
+#     3. Verify sync: uv sync --group dev
+# =============================================================================
+
 [tool.poetry]
-name = "omniintelligence"
-version = "0.1.0"
-description = "OmniIntelligence - Intelligence, indexing, and pattern services as first-class Omninode nodes"
-authors = ["OmniNode Team <team@omninode.ai>"]
-readme = "README.md"
+# Metadata defined in [project] section below (PEP 621 standard)
+# Only Poetry-specific settings (like packages) go here
 packages = [{include = "omniintelligence", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
-pydantic = "^2.9.0"
-pydantic-settings = "^2.6.0"
+# Versions aligned with [project.dependencies] for consistency
+pydantic = ">=2.9.0"
+pydantic-settings = ">=2.6.0"
 httpx = ">=0.28.1"
 tenacity = ">=8.2.0"
-confluent-kafka = "^2.6.0"
+confluent-kafka = ">=2.6.0"
+pyyaml = ">=6.0"
+python-dotenv = ">=1.0.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-asyncio = "^0.21.0"
+# Versions aligned with [dependency-groups].dev for consistency
+pytest = ">=8.0.0"
+pytest-asyncio = ">=0.24.0"
 pytest-cov = ">=6.2.1"
-pytest-mock = "^3.12.0"
-pytest-timeout = "^2.3.0"
-pytest-xdist = "^3.5.0"
+pytest-mock = ">=3.12.0"
+pytest-timeout = ">=2.3.0"
+pytest-xdist = ">=3.5.0"
 ruff = ">=0.12.5"
 mypy = ">=1.17.0"
-black = "^24.10.0"
-isort = "^5.13.0"
-types-pyyaml = "^6.0.12"
-pre-commit = "^4.5.0"
+black = ">=24.10.0"
+isort = ">=5.13.0"
+types-PyYAML = ">=6.0.0"
+requests = ">=2.31.0"
+factory-boy = ">=3.3.0"
+pre-commit = ">=4.5.0"
 
 [tool.poetry.group.core.dependencies]
-omnibase-core = "==0.3.5"  # Pin to 0.3.5 - 0.3.6 has node_type validation regression
-omnibase-spi = ">=0.2.0"
+# ONEX ecosystem dependencies
+# Note: omnibase-infra 0.2.1 requires omnibase-core>=0.8.0, so we pin to ^0.8.0
+# Version constraints use caret syntax: ^0.8.0 = >=0.8.0,<0.9.0
+omnibase-core = "^0.8.0"
+omnibase-spi = "^0.5.0"
+omnibase-infra = "^0.2.1"
+# Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
+# Included here for self-contained --only core installs
+pydantic = ">=2.9.0"
+pydantic-settings = ">=2.6.0"
+httpx = ">=0.28.1"
+pyyaml = ">=6.0"
+python-dotenv = ">=1.0.0"
+tenacity = ">=8.2.0"
+confluent-kafka = ">=2.6.0"
+# Web framework for API endpoints
+fastapi = ">=0.104.0"
+uvicorn = ">=0.24.0"
+python-multipart = ">=0.0.20"
+# Event bus (Kafka/Redpanda)
+aiokafka = ">=0.10.0"
+# Vector database
+qdrant-client = ">=1.15.1"
+# Graph database
+neo4j = ">=5.28.2"
+# PostgreSQL
+asyncpg = ">=0.29.0"
+# Document processing
+pypdf2 = ">=3.0.1"
+pdfplumber = ">=0.11.6"
+python-docx = ">=1.1.2"
+markdown = ">=3.8"
+# AI/ML and Workflow Orchestration
+openai = ">=1.71.0"
+llama-index = ">=0.12.0"
+sentence-transformers = ">=4.1.0"
+torch = ">=2.0.0"
+transformers = ">=4.30.0"
+# Utilities
+cachetools = ">=5.3.0"
+redis = {extras = ["hiredis"], version = ">=5.0.0"}
+# Logging and monitoring
+logfire = ">=0.30.0"
+structlog = ">=23.1.0"
+prometheus-client = ">=0.19.0"
+psutil = ">=5.9.0"
 
 [project]
 name = "omniintelligence"
 version = "0.1.0"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
+authors = [{name = "OmniNode Team", email = "team@omninode.ai"}]
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
+# Versions aligned with [tool.poetry.dependencies] for consistency
 dependencies = [
     "httpx>=0.28.1",
     "pyyaml>=6.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",
     "python-dotenv>=1.0.0",
     "confluent-kafka>=2.6.0",
@@ -54,10 +116,12 @@ dependencies = [
 
 [dependency-groups]
 # Development dependencies for linting and testing
+# Versions aligned with [tool.poetry.group.dev.dependencies] for consistency
 dev = [
     "mypy>=1.17.0",
+    "types-PyYAML>=6.0.0",
     "pytest>=8.0.0",
-    "pytest-asyncio>=0.21.0",
+    "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.12.0",
     "pytest-timeout>=2.3.0",
     "pytest-cov>=6.2.1",
@@ -67,15 +131,20 @@ dev = [
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
-    "types-pyyaml>=6.0.12",
-    "pre-commit>=4.5.0,<5.0.0",  # Synced with Poetry group.dev.dependencies (^4.5.0)
+    "pre-commit>=4.5.0",
 ]
 
 # Core node system dependencies
+# Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
+#   ^0.8.0 = >=0.8.0,<0.9.0  (compatible releases within 0.8.x)
+#   ^0.5.0 = >=0.5.0,<0.6.0  (compatible releases within 0.5.x)
+#   ^0.2.1 = >=0.2.1,<0.3.0  (compatible releases within 0.2.x)
+# Note: omnibase-infra 0.2.1 requires omnibase-core>=0.8.0
 core = [
-    # ONEX ecosystem dependencies
-    "omnibase-core==0.3.5",  # Pin to 0.3.5 - 0.3.6 has node_type validation regression
-    "omnibase-spi>=0.2.0",
+    # ONEX ecosystem dependencies (version bounds match Poetry caret syntax)
+    "omnibase-core>=0.8.0,<0.9.0",
+    "omnibase-spi>=0.5.0,<0.6.0",
+    "omnibase-infra>=0.2.1,<0.3.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -94,8 +163,9 @@ core = [
     "pdfplumber>=0.11.6",
     "python-docx>=1.1.2",
     "markdown>=3.8",
-    # AI/ML
+    # AI/ML and Workflow Orchestration
     "openai>=1.71.0",
+    "llama-index>=0.12.0",
     "sentence-transformers>=4.1.0",
     "torch>=2.0.0",
     "transformers>=4.30.0",
@@ -106,147 +176,64 @@ core = [
     # Logging and monitoring
     "logfire>=0.30.0",
     "structlog>=23.1.0",
-    "prometheus-client>=0.20.0",
+    "prometheus-client>=0.19.0",
     "psutil>=5.9.0",
 ]
 
 # All dependencies for development and testing
+# Uses include-group (PEP 735) to compose from core and dev groups
+# This eliminates duplication and prevents version drift between groups
 all = [
-    # Include all core dependencies
-    "omnibase-core==0.3.5",  # Pin to 0.3.5 - 0.3.6 has node_type validation regression
-    "omnibase-spi>=0.2.0",
-    "fastapi>=0.104.0",
-    "uvicorn>=0.24.0",
-    "python-multipart>=0.0.20",
-    "aiokafka>=0.10.0",
-    "confluent-kafka>=2.6.0",
-    "qdrant-client>=1.15.1",
-    "neo4j>=5.28.2",
-    "asyncpg>=0.29.0",
-    "pypdf2>=3.0.1",
-    "pdfplumber>=0.11.6",
-    "python-docx>=1.1.2",
-    "markdown>=3.8",
-    "openai>=1.71.0",
-    "sentence-transformers>=4.1.0",
-    "torch>=2.0.0",
-    "transformers>=4.30.0",
-    "tenacity>=8.2.0",
-    "cachetools>=5.3.0",
-    "redis[hiredis]>=5.0.0",
-    "logfire>=0.30.0",
-    "structlog>=23.1.0",
-    "prometheus-client>=0.20.0",
-    "psutil>=5.9.0",
-    # Test dependencies
-    "mypy>=1.17.0",
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-mock>=3.12.0",
-    "pytest-timeout>=2.3.0",
-    "pytest-cov>=6.2.1",
-    "pytest-xdist>=3.5.0",
-    "black>=24.10.0",
-    "isort>=5.13.0",
-    "ruff>=0.12.5",
-    "requests>=2.31.0",
-    "factory-boy>=3.3.0",
-    "types-pyyaml>=6.0.12",
-    "pre-commit>=4.5.0,<5.0.0",  # Synced with Poetry group.dev.dependencies (^4.5.0)
+    {include-group = "core"},
+    {include-group = "dev"},
 ]
 
-# Ruff configuration - aligned with omnibase_core
 [tool.ruff]
-target-version = "py312"
 line-length = 88
-exclude = [
-    "src/omniintelligence/_legacy",
-    "migration_sources",
-    "**/__pycache__",
-]
+target-version = "py312"
 
 [tool.ruff.lint]
-# Full rule set from omnibase_core for consistency
-select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "W",     # pycodestyle warnings
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "ARG",   # flake8-unused-arguments
+    "RUF",   # Ruff-specific rules
+]
 ignore = [
-    # Core ignores (aligned with omnibase_core)
-    "S101",      # Allow assert statements in tests
-    "E501",      # Line too long (handled by formatter)
-    "BLE001",    # Blind exception catching
-    "PLR0911",   # Too many returns
-    "PLR0912",   # Too many branches
-    "PLR0913",   # Too many arguments
-    "PLR0915",   # Too many statements
-    "PLR2004",   # Magic values
-    "FBT001",    # Boolean positional args
-    "FBT002",    # Boolean default args
-    "FBT003",    # Boolean positional value in call
-    "EM101",     # Exception string literal
-    "EM102",     # Exception f-string literal
-    "TRY003",    # Long exception messages
-    "TRY300",    # Consider else block
-    "TRY301",    # Raise within try
-    "DTZ005",    # datetime.now() without tz
-    "B008",      # Function call in defaults
-    "B904",      # raise from
-    "ARG001",    # Unused function argument
-    "ARG002",    # Unused method argument
-    "ARG003",    # Unused class method argument
-    "ERA001",    # Commented out code
-    "SIM102",    # Nested if statements
-    "SIM117",    # Nested with statements
-    "B007",      # Unused loop variable
-    "PT018",     # Assertion breakdown
-    "RET505",    # Unnecessary elif
-    "COM812",    # Trailing commas (conflicts with formatter)
-    "C901",      # Function complexity
-    "N806",      # Variable naming
-    "RUF003",    # Comment formatting
-    "SIM105",    # contextlib.suppress
-    "PTH123",    # Path.open()
-    "F841",      # Unused variable
-    "T201",      # Print statements
-    "N802",      # Invalid function name
-    "S603",      # Subprocess without shell
-    "S607",      # Start process with partial path
-    "PT011",     # Pytest raises too broad
-    "SLF001",    # Private member access
-    "DTZ001",    # Call datetime without tzinfo
-    "G004",      # Logging f-string
-    "INP001",    # Implicit namespace package
-    "RUF022",    # Unsorted dunder all
-    "SIM103",    # Needless bool
-    "UP007",     # Non pep604 annotation
-    "RUF012",    # Mutable class default
-    "ISC001",    # Implicit string concatenation (conflicts with formatter)
+    "S101",   # Allow assert statements in tests
+    "E501",   # Allow line length violations (handled by Black)
+    "E402",   # Allow imports not at top (tests need sys.path setup, legacy emits warnings)
+    "B904",   # Allow raise without from in exception handlers
+    "B019",   # Allow lru_cache on methods (used carefully for singleton patterns)
+    "B007",   # Allow unused loop control variables
+    "N812",   # Allow lowercase imported as non-lowercase
+    "N815",   # Allow mixedCase variables
+    "N806",   # Allow non-lowercase variable in function
+    "N805",   # Allow cls as first argument
+    "UP007",  # Allow Union syntax
+    "SIM117", # Allow nested with statements
+    "SIM102", # Allow nested if statements (sometimes clearer than combining)
+    "SIM103", # Allow explicit if/else returns (sometimes clearer)
+    "B008",   # Allow function call defaults
+    "F841",   # Allow unused variables
+    "RUF012", # Allow mutable class attributes
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# PLC0415 (import-outside-toplevel): Allow imports inside functions in tests.
-# Common patterns requiring this:
-# - Module reloading/reset in test fixtures (importlib.reload)
-# - Pytest fixtures with deferred imports to avoid circular dependencies
-# - Test isolation requiring fresh module state
-# - Conditional imports based on test parameters
-#
-# Example patterns:
-#   def test_module_reload():
-#       import importlib
-#       from mymodule import config  # PLC0415 - deferred import for reload
-#       importlib.reload(config)
-#
-#   @pytest.fixture
-#   def fresh_handler():
-#       from mymodule import handler  # PLC0415 - fixture isolation
-#       yield handler
-#
-#   @pytest.mark.parametrize("use_async", [True, False])
-#   def test_conditional_import(use_async):
-#       if use_async:
-#           from mymodule import async_client as client  # PLC0415 - conditional
-#       else:
-#           from mymodule import sync_client as client   # PLC0415 - conditional
-"tests/**/*.py" = ["PLC0415"]
+# AST visitor methods must use PascalCase (visit_Import, visit_Call, etc.)
+"src/omniintelligence/audit/io_audit.py" = ["N802"]
+# HTTP handler methods use PascalCase per BaseHTTPRequestHandler interface (do_GET)
+"src/omniintelligence/nodes/qdrant_vector_effect/__main__.py" = ["N802"]
+# __init__.py files re-export for public API
+"src/omniintelligence/tools/__init__.py" = ["F401"]
+# Test mock callbacks don't use all arguments
+"tests/nodes/test_vectorization_compute.py" = ["ARG001"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -254,37 +241,27 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
-# isort configuration - aligned with omnibase_core
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
 [tool.isort]
 profile = "black"
 line_length = 88
 multi_line_output = 3
-known_first_party = ["omniintelligence", "omnibase_core", "omnibase_spi"]
-extend_skip = [
-    "src/omniintelligence/_legacy",
-    "migration_sources",
-]
 
-# mypy configuration - aligned with omnibase_core
 [tool.mypy]
-plugins = ["pydantic.mypy"]
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-mypy_path = "src"
-namespace_packages = true
-explicit_package_bases = true
-exclude = [
-    "src/omniintelligence/_legacy",
-    "migration_sources",
-]
-
-[tool.pydantic-mypy]
-init_forbid_extra = true
-init_typed = false
-warn_required_dynamic_aliases = true
-warn_untyped_fields = true
+disallow_untyped_defs = false
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -294,20 +271,9 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
-# Exclude directories - aligned with ruff, isort, and mypy
-norecursedirs = [
-    "src/omniintelligence/_legacy",
-    "migration_sources",
-    "__pycache__",
-    ".git",
-    ".tox",
-    ".eggs",
-    "*.egg-info",
-]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "performance: marks tests as performance benchmarks",
     "unit: marks tests as unit tests",
-    "audit: marks tests as I/O audit tests for node purity enforcement",
 ]

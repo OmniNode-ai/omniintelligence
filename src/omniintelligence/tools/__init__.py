@@ -3,22 +3,34 @@
 OmniIntelligence tools package.
 
 Provides CLI tools for ONEX node development and validation.
+
+Note: Some tools require omnibase_core to be installed. If not available,
+those tools will not be exported from this module.
 """
 
-from omniintelligence.tools.contract_linter import (
-    ContractLinter,
-    ModelContractValidationError,
-    ModelContractValidationResult,
-    main,
-    validate_contract,
-    validate_contracts_batch,
-)
+__all__: list[str] = []
 
-__all__ = [
-    "ContractLinter",
-    "ModelContractValidationError",
-    "ModelContractValidationResult",
-    "main",
-    "validate_contract",
-    "validate_contracts_batch",
-]
+# Contract linter requires omnibase_core - make import optional
+try:
+    from omniintelligence.tools.contract_linter import (
+        ContractLinter,
+        ModelContractValidationError,
+        ModelContractValidationResult,
+        main,
+        validate_contract,
+        validate_contracts_batch,
+    )
+
+    __all__.extend(
+        [
+            "ContractLinter",
+            "ModelContractValidationError",
+            "ModelContractValidationResult",
+            "main",
+            "validate_contract",
+            "validate_contracts_batch",
+        ]
+    )
+except ImportError:
+    # omnibase_core not available - contract linter tools will not be exported
+    pass

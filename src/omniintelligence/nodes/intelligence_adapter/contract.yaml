@@ -1,0 +1,192 @@
+---
+# ONEX Node Contract - Intelligence Adapter Effect Node
+#
+# This effect node adapts between Kafka events and Archon intelligence services.
+# Consumes CODE_ANALYSIS_REQUESTED events and publishes completion/failure events.
+# =============================================================================
+#
+# =============================================================================
+# TODO(#16): Consider splitting this adapter into smaller, focused adapters
+# =============================================================================
+# Status: Future consideration (v2.0) - current implementation is functional
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/16
+#
+# This adapter currently handles multiple responsibilities (quality assessment,
+# pattern detection, performance analysis). For better single-responsibility
+# adherence, consider decomposing into:
+#   - quality_adapter: Quality assessment and ONEX compliance
+#   - pattern_adapter: Pattern detection and matching
+#   - performance_adapter: Performance analysis and optimization
+#
+# See ARCHITECTURE.md in this directory for detailed analysis and tradeoffs.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "intelligence_adapter"
+node_type: "EFFECT_GENERIC"
+description: >-
+  Effect node that adapts between Kafka events and Archon intelligence services. Consumes code analysis
+  requests and publishes completion/failure events with DLQ routing support.
+# Note: Input/output models use top-level module "omniintelligence.models" rather than
+# node-specific "omniintelligence.nodes.intelligence_adapter.models" because these are
+# shared models used across multiple intelligence nodes (adapter, orchestrator, etc.).
+# See omniintelligence/models/__init__.py for migration documentation.
+input_model:
+  name: "ModelIntelligenceInput"
+  module: "omniintelligence.models"
+  description: "Input containing operation type, content, and analysis parameters."
+output_model:
+  name: "ModelIntelligenceOutput"
+  module: "omniintelligence.models"
+  description: "Output containing analysis results, scores, and recommendations."
+# Consumed Events
+# ===============
+# NOTE: Event payload models are currently defined as inline stubs in the node
+# implementation (node_intelligence_adapter_effect.py). These provide type
+# compatibility during development.
+#
+# TODO(#17): Migrate event payload models to canonical location
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/17
+#   - Target module: omniintelligence.events.models
+#   - Models to migrate: ModelCodeAnalysisRequestPayload,
+#     ModelCodeAnalysisCompletedPayload, ModelCodeAnalysisFailedPayload
+#   - Update payload_module references below when migration is complete
+#
+consumed_events:
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-requested.v1"
+    event_type: "CodeAnalysisRequested"
+    payload_model: "ModelCodeAnalysisRequestPayload"
+    # TODO(#17): Update to "omniintelligence.events.models" after migration
+    payload_module: "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect"
+    description: "Code analysis request from external services"
+# Published Events
+# ================
+published_events:
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-completed.v1"
+    event_type: "CodeAnalysisCompleted"
+    payload_model: "ModelCodeAnalysisCompletedPayload"
+    # TODO(#17): Update to "omniintelligence.events.models" after migration
+    payload_module: "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect"
+    description: "Code analysis completed successfully"
+  - topic: "{env}.archon-intelligence.intelligence.code-analysis-failed.v1"
+    event_type: "CodeAnalysisFailed"
+    payload_model: "ModelCodeAnalysisFailedPayload"
+    # TODO(#17): Update to "omniintelligence.events.models" after migration
+    payload_module: "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect"
+    description: "Code analysis failed"
+# Handler Routing Configuration
+# =============================
+# STATUS: NOT IMPLEMENTED - Handler modules do not exist yet.
+# The handler_routing section below is intentionally commented out to prevent
+# import failures. When implementing handler-based routing, uncomment and
+# create the handlers/ directory with these modules:
+#
+# TODO(#18): Create handler modules when needed
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/18
+#   - handler_analyze_code.py (HandlerAnalyzeCode)
+#   - handler_assess_quality.py (HandlerAssessQuality)
+#   - handler_detect_patterns.py (HandlerDetectPatterns)
+#   - handler_analyze_performance.py (HandlerAnalyzePerformance)
+#
+# Currently, all operations are routed through the main node implementation
+# (node_intelligence_adapter_effect.py) using internal method dispatch.
+#
+# handler_routing:
+#   routing_strategy: "payload_type_match"
+#   handlers:
+#     - operation: "analyze_code"
+#       handler:
+#         name: "HandlerAnalyzeCode"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_code"
+#       description: "Analyze code quality and patterns"
+#     - operation: "assess_quality"
+#       handler:
+#         name: "HandlerAssessQuality"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_assess_quality"
+#       description: "Assess code quality metrics"
+#     - operation: "detect_patterns"
+#       handler:
+#         name: "HandlerDetectPatterns"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_detect_patterns"
+#       description: "Detect code patterns"
+#     - operation: "analyze_performance"
+#       handler:
+#         name: "HandlerAnalyzePerformance"
+#         module: "omniintelligence.nodes.intelligence_adapter.handlers.handler_analyze_performance"
+#       description: "Analyze performance characteristics"
+#   execution_mode: "sequential"
+# Error Handling Configuration
+# ============================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 1000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "ServiceUnavailableError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+  dlq_routing:
+    enabled: true
+    topic_suffix: ".dlq"
+    include_error_context: true
+# Dependencies
+# ============
+# NOTE: External library dependencies (confluent_kafka) are valid.
+# Internal module dependencies are commented out until migrated from _legacy.
+#
+# TODO(#19): Migrate these modules from _legacy to canonical structure
+# Issue: https://github.com/OmniNode-ai/omniintelligence/issues/19
+# - omniintelligence.clients.client_intelligence_service (currently in _legacy/clients/)
+# - omniintelligence.events.publisher.event_publisher (currently in _legacy/events/publisher/)
+#
+dependencies:
+  # - name: "intelligence_client"
+  #   type: "protocol"
+  #   module: "omniintelligence.clients.client_intelligence_service"
+  #   description: "Client for Archon intelligence service"
+  - name: "kafka_consumer"
+    type: "protocol"
+    module: "confluent_kafka"
+    description: "Kafka consumer for event subscription"
+    # - name: "event_publisher"
+    #   type: "protocol"
+    #   module: "omniintelligence.events.publisher.event_publisher"
+    #   description: "Event publisher for result events"
+# Health Check
+# ============
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+# Metadata
+# ========
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-21"
+  updated: "2026-01-18"
+  notes: |
+    - 2026-01-18: Clarified handler routing status - section is intentionally commented
+      out because handler modules do not exist. Added STATUS documentation explaining
+      that operations are routed through main node implementation.
+    - 2026-01-18: Fixed payload_module references to point to actual node implementation
+      where inline stub models are defined. Marked for future migration to canonical
+      omniintelligence.events.models module.
+  tags:
+    - "ONEX"
+    - "effect"
+    - "intelligence"
+    - "adapter"
+    - "kafka"
+    - "events"

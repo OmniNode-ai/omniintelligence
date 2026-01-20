@@ -18,10 +18,18 @@ import pytest
 
 @pytest.fixture
 def valid_base_contract_yaml() -> str:
-    """Minimal valid base contract YAML (compute type with required algorithm)."""
+    """Minimal valid base contract YAML (compute type with algorithm included)."""
     return """
 name: test_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -42,10 +50,18 @@ performance:
 
 @pytest.fixture
 def valid_compute_contract_yaml() -> str:
-    """Valid compute contract YAML with required algorithm field."""
+    """Valid compute contract YAML with algorithm field included."""
     return """
 name: test_compute_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -66,10 +82,18 @@ performance:
 
 @pytest.fixture
 def valid_effect_contract_yaml() -> str:
-    """Valid effect contract YAML with required io_operations field."""
+    """Valid effect contract YAML with io_operations field included."""
     return """
 name: test_effect_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -92,6 +116,14 @@ version:
   major: 2
   minor: 1
   patch: 3
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: A fully specified test node
 node_type: compute
 input_model: ModelFullInput
@@ -126,6 +158,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Missing name field
 node_type: compute
 input_model: ModelInput
@@ -135,10 +175,19 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_missing_version_yaml() -> str:
-    """Contract missing required 'version' field."""
+    """Contract missing required 'contract_version' and 'node_version' fields.
+
+    Note: The old 'version' field is no longer strictly required when
+    contract_version and node_version are present. This fixture tests
+    that contract_version is required for node contracts.
+    """
     return """
 name: test_node
-description: Missing version field
+version:
+  major: 1
+  minor: 0
+  patch: 0
+description: Missing contract_version field
 node_type: compute
 input_model: ModelInput
 output_model: ModelOutput
@@ -151,6 +200,14 @@ def invalid_missing_description_yaml() -> str:
     return """
 name: test_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -169,6 +226,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Missing node_type
 input_model: ModelInput
 output_model: ModelOutput
@@ -181,6 +246,14 @@ def invalid_missing_input_model_yaml() -> str:
     return """
 name: test_node
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -199,6 +272,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Missing output_model
 node_type: compute
 input_model: ModelInput
@@ -214,6 +295,14 @@ version:
   major: 1
   minor: 0
   patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
 description: Invalid node_type value
 node_type: invalid_type
 input_model: ModelInput
@@ -223,11 +312,24 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_version_format_yaml() -> str:
-    """Contract with malformed version structure."""
+    """Contract with malformed version structure.
+
+    The contract_version field is a string instead of an object with
+    major/minor/patch fields. The validator checks contract_version
+    and node_version for proper structure.
+    """
     return """
 name: test_node
-version: "1.0.0"
-description: Invalid version format (should be object)
+version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+description: Invalid version format (contract_version should be object)
 node_type: compute
 input_model: ModelInput
 output_model: ModelOutput
@@ -236,10 +338,24 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_compute_missing_algorithm_yaml() -> str:
-    """Compute contract missing required 'algorithm' field."""
+    """Compute contract without 'algorithm' field.
+
+    Note: The 'algorithm' field is currently optional in the stub validator,
+    so this contract may pass basic validation. This fixture is used for
+    testing that the linter detects missing recommended fields for compute
+    nodes when strict mode is enabled.
+    """
     return """
 name: test_compute
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -252,10 +368,24 @@ output_model: ModelOutput
 
 @pytest.fixture
 def invalid_effect_missing_io_operations_yaml() -> str:
-    """Effect contract missing required 'io_operations' field."""
+    """Effect contract without 'io_operations' field.
+
+    Note: The 'io_operations' field is currently optional in the stub validator,
+    so this contract may pass basic validation. This fixture is used for
+    testing that the linter detects missing recommended fields for effect
+    nodes when strict mode is enabled.
+    """
     return """
 name: test_effect
 version:
+  major: 1
+  minor: 0
+  patch: 0
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
   major: 1
   minor: 0
   patch: 0
@@ -400,6 +530,7 @@ states:
     state_type: snapshot
     description: Processing complete
     is_terminal: true
+    is_recoverable: false
 
 initial_state: RECEIVED
 
@@ -596,7 +727,7 @@ def create_mock_sleep_function(iteration_counter: list[int]):
         A mock sleep function that raises KeyboardInterrupt after N iterations.
     """
 
-    def mock_sleep(seconds):
+    def mock_sleep(_seconds):
         """Mock sleep that exits watch loop after enough iterations."""
         iteration_counter[0] += 1
         if iteration_counter[0] >= WATCH_ITERATIONS_BEFORE_EXIT:

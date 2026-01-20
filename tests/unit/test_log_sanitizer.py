@@ -570,9 +570,10 @@ class TestGlobalSanitizer:
 
     def test_get_log_sanitizer_with_env_vars(self):
         """Test get_log_sanitizer reads environment variables."""
-        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
+        import omniintelligence.utils.log_sanitizer as module
 
-        legacy_module._sanitizer = None
+        module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         env_vars = {
             "ENABLE_LOG_SANITIZATION": "true",
@@ -581,27 +582,31 @@ class TestGlobalSanitizer:
         }
 
         with patch.dict(os.environ, env_vars, clear=False):
-            legacy_module._sanitizer = None
+            module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
             assert sanitizer.sanitize_emails is True
             assert sanitizer.sanitize_ips is True
 
     def test_get_log_sanitizer_disabled_via_env(self):
         """Test disabling sanitization via environment variable."""
-        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
+        import omniintelligence.utils.log_sanitizer as module
 
-        legacy_module._sanitizer = None
+        module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         with patch.dict(os.environ, {"ENABLE_LOG_SANITIZATION": "false"}, clear=False):
-            legacy_module._sanitizer = None
+            module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
             assert sanitizer.enable is False
 
     def test_get_log_sanitizer_custom_patterns_from_env(self):
         """Test custom patterns from environment variable (lines 381-388)."""
-        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
+        import omniintelligence.utils.log_sanitizer as module
 
-        legacy_module._sanitizer = None
+        module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         custom_patterns_str = "CUSTOM_[0-9]+|[CUSTOM]|Custom pattern"
 
@@ -610,7 +615,8 @@ class TestGlobalSanitizer:
             {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
             clear=False,
         ):
-            legacy_module._sanitizer = None
+            module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
 
             # Test the custom pattern works
@@ -620,9 +626,10 @@ class TestGlobalSanitizer:
 
     def test_get_log_sanitizer_multiple_custom_patterns_from_env(self):
         """Test multiple custom patterns from environment variable."""
-        import omniintelligence._legacy.utils.log_sanitizer as legacy_module
+        import omniintelligence.utils.log_sanitizer as module
 
-        legacy_module._sanitizer = None
+        module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         # Multiple patterns separated by semicolon
         custom_patterns_str = "PATTERN_A_[0-9]+|[PATTERN_A]|Pattern A;PATTERN_B_[A-Z]+|[PATTERN_B]|Pattern B"
@@ -632,7 +639,8 @@ class TestGlobalSanitizer:
             {"CUSTOM_SANITIZATION_PATTERNS": custom_patterns_str},
             clear=False,
         ):
-            legacy_module._sanitizer = None
+            module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
 
             patterns_info = sanitizer.get_patterns_info()
@@ -645,6 +653,7 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         # Invalid format (only 2 parts instead of 3)
         custom_patterns_str = "INVALID_PATTERN|[INVALID]"
@@ -655,6 +664,7 @@ class TestGlobalSanitizer:
             clear=False,
         ):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             # Should not raise, just skip invalid pattern
             sanitizer = get_log_sanitizer()
             assert isinstance(sanitizer, LogSanitizer)
@@ -664,9 +674,11 @@ class TestGlobalSanitizer:
         import omniintelligence.utils.log_sanitizer as module
 
         module._sanitizer = None
+        module._settings = None  # Also reset settings cache
 
         with patch.dict(os.environ, {"CUSTOM_SANITIZATION_PATTERNS": ""}, clear=False):
             module._sanitizer = None
+            module._settings = None  # Reset inside patch context
             sanitizer = get_log_sanitizer()
             assert isinstance(sanitizer, LogSanitizer)
 
@@ -762,3 +774,83 @@ class TestLogSanitizerIntegration:
         # All results should be sanitized
         for result in results:
             assert "[OPENAI_API_KEY]" in result
+
+
+class TestLogSanitizerLegacyImports:
+    """Test backwards compatibility with legacy import paths."""
+
+    def test_legacy_import_emits_deprecation_warning(self):
+        """Test that importing from _legacy emits deprecation warning."""
+        import sys
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # Clear any cached imports to force reimport
+            modules_to_clear = [
+                k for k in sys.modules if k.startswith("omniintelligence._legacy")
+            ]
+            for mod in modules_to_clear:
+                del sys.modules[mod]
+
+            # Now import and check for warnings
+            from omniintelligence._legacy.utils import log_sanitizer as legacy_module  # noqa: F401
+
+            # Should have at least one deprecation warning
+            deprecation_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+            ]
+            assert len(deprecation_warnings) >= 1
+            assert "deprecated" in str(deprecation_warnings[0].message).lower()
+
+    def test_legacy_import_provides_same_class(self):
+        """Test that legacy import provides the same LogSanitizer class."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from omniintelligence._legacy.utils.log_sanitizer import (
+                LogSanitizer as LegacyLogSanitizer,
+            )
+
+        from omniintelligence.utils.log_sanitizer import LogSanitizer
+
+        assert LogSanitizer is LegacyLogSanitizer
+
+    def test_legacy_import_provides_same_functions(self):
+        """Test that legacy import provides the same functions."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from omniintelligence._legacy.utils.log_sanitizer import (
+                get_log_sanitizer as legacy_get_log_sanitizer,
+            )
+            from omniintelligence._legacy.utils.log_sanitizer import (
+                sanitize_logs as legacy_sanitize_logs,
+            )
+
+        from omniintelligence.utils.log_sanitizer import (
+            get_log_sanitizer,
+            sanitize_logs,
+        )
+
+        assert get_log_sanitizer is legacy_get_log_sanitizer
+        assert sanitize_logs is legacy_sanitize_logs
+
+    def test_legacy_sanitizer_works_correctly(self):
+        """Test that sanitizer from legacy import works correctly."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from omniintelligence._legacy.utils.log_sanitizer import LogSanitizer
+
+        sanitizer = LogSanitizer()
+        text = "Using key: sk-1234567890abcdefghijklmnop"
+        result = sanitizer.sanitize(text)
+        assert "[OPENAI_API_KEY]" in result
+        assert "sk-1234567890" not in result

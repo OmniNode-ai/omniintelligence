@@ -1,0 +1,71 @@
+---
+# ONEX Node Contract - Relationship Detection Compute Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "relationship_detection_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for detecting relationships between code entities. Identifies dependencies, inheritance,
+  composition, and other relationships.
+input_model:
+  name: "ModelRelationshipDetectionInput"
+  module: "omniintelligence.nodes.relationship_detection_compute.models"
+  description: "Input containing entities and context for relationship detection."
+output_model:
+  name: "ModelRelationshipDetectionOutput"
+  module: "omniintelligence.nodes.relationship_detection_compute.models"
+  description: "Output containing detected relationships and their types."
+operations:
+  - name: "detect_relationships"
+    description: "Detect relationships between entities"
+    input_fields:
+      - entities
+      - context
+    output_fields:
+      - success
+      - relationships
+      - relationship_count
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a relationship analyzer protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
+# - name: "relationship_analyzer"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Relationship analysis engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "RelationshipDetectionValidationError"
+      error_code: "RELDET_001"
+      description: "Input validation failed (e.g., empty entities)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "RelationshipDetectionComputeError"
+      error_code: "RELDET_002"
+      description: "Error during relationship detection computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "relationships"
+    - "detection"

@@ -15,18 +15,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir uv==0.5.0
 
 # Copy project files
-COPY pyproject.toml uv.lock README.md ./
+# Note: uv.lock* uses wildcard to make lock file optional. When present, it ensures
+# reproducible builds with exact dependency versions. When absent (e.g., during
+# development or CI without lock file), uv resolves dependencies from pyproject.toml.
+COPY pyproject.toml uv.lock* ./
 COPY src/ src/
 
-# Install base dependencies + core group (includes omnibase_core, httpx, confluent-kafka, etc.)
-RUN uv sync --group core --frozen
+# Install dependencies
+RUN uv pip install --system --no-cache -e .
 
-# Add virtual environment to PATH and set PYTHONPATH
-ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
+# Allow default Kafka config for container startup
+ENV OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true
 
 # Expose health check port
 EXPOSE 8000
 
-# Run effect node (uses __main__.py in the v1_0_0 package)
-CMD ["sh", "-c", "python -m omniintelligence.nodes.${NODE_NAME}.v1_0_0"]
+# ============================================================================
+# Signal Handling Note
+# ============================================================================
+# Using ENTRYPOINT with exec form ensures proper signal propagation to the
+# Python process. The entrypoint script uses 'exec' to replace the shell
+# process with the Python interpreter, allowing SIGTERM/SIGINT to reach
+# the application directly for graceful shutdown.
+# ============================================================================
+
+# Copy entrypoint script
+COPY deployment/docker/entrypoint-node.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Health check - verifies the node's HTTP health endpoint is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run effect node (canonical module path - no v1_0_0 versioning)
+# Note: Runs in stub mode with health checks; full functionality requires
+# ONEX container injection via RuntimeHostProcess
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["effect"]

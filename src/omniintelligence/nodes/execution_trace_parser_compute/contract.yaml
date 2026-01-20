@@ -1,0 +1,78 @@
+---
+# ONEX Node Contract - Execution Trace Parser Compute Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "execution_trace_parser_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for parsing execution traces from PostgreSQL intelligence tracking system. Extracts trace
+  events, timing, and error information from structured trace data.
+input_model:
+  name: "ModelTraceParsingInput"
+  module: "omniintelligence.nodes.execution_trace_parser_compute.models"
+  description: "Input containing trace data, format specification, and extraction options."
+output_model:
+  name: "ModelTraceParsingOutput"
+  module: "omniintelligence.nodes.execution_trace_parser_compute.models"
+  description: "Output containing parsed trace events and metadata."
+operations:
+  - name: "parse_trace"
+    description: "Parse execution trace data"
+    input_fields:
+      - trace_data
+      - correlation_id
+      - trace_format
+      - extract_errors
+      - extract_timing
+    output_fields:
+      - success
+      - parsed_events
+      - error_events
+      - timing_data
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a trace parser protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
+# - name: "trace_parser"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Trace parsing engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "TraceParsingValidationError"
+      error_code: "TRACE_001"
+      description: "Input validation failed (e.g., invalid trace format)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "TraceParsingComputeError"
+      error_code: "TRACE_002"
+      description: "Error during trace parsing"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-02"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "trace"
+    - "parser"
+    - "pattern-extraction"

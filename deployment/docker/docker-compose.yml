@@ -2,48 +2,137 @@
 # ============================================================================
 # OmniIntelligence - Base Infrastructure
 # ============================================================================
-# Purpose: OmniIntelligence-specific data layer infrastructure
+# Purpose: Core data layer infrastructure for ONEX 4.0 architecture
 # Services:
-#   - Qdrant: Vector embeddings storage (intelligence-specific)
-#   - Memgraph: Knowledge graph (entities and relationships)
-#
-# Shared Infrastructure (from omninode-bridge):
-#   - PostgreSQL: omninode-bridge-postgres (internal network)
-#   - Redpanda: omninode-bridge-redpanda:9092 (internal), 192.168.86.200:29092 (external)
-#   - Valkey: omninode-bridge-valkey:6379
-#   - Consul: omninode-bridge-consul:28500
-#   - Vault: omninode-bridge-vault:8200
-#
-# Network: Uses external omninode-bridge-network for cross-repo connectivity
+# - PostgreSQL: FSM state, pattern lineage, workflow tracking
+# - Qdrant: Vector embeddings storage
+# - Memgraph: Knowledge graph (entities and relationships)
+# - Valkey: Distributed cache
+# - Redpanda: Kafka-compatible event streaming
 # ============================================================================
 
 name: omniintelligence
 
+# ============================================================================
+# Network Configuration
+# ============================================================================
+# ARCHITECTURE: Hybrid LOCAL + REMOTE Infrastructure
+#
+# This docker-compose provides LOCAL services for development/testing.
+# Production deployments may use REMOTE infrastructure (192.168.86.200).
+#
+# LOCAL Services (this compose file):
+#   - postgres (omni-postgres)     : FSM state, pattern lineage
+#   - qdrant (omni-qdrant)         : Vector embeddings
+#   - memgraph (omni-memgraph)     : Knowledge graph
+#   - valkey (omni-valkey)         : Distributed cache
+#   - redpanda (omni-redpanda)     : Kafka-compatible event streaming
+#
+# REMOTE Services (see ~/.claude/CLAUDE.md for details):
+#   - PostgreSQL: 192.168.86.200:5436 (omninode-bridge-postgres)
+#   - Kafka:      192.168.86.200:29092 (omninode-bridge-redpanda)
+#
+# Network: omni-network (bridge, 172.28.0.0/16)
+#   - Services communicate via container names (e.g., postgres, qdrant)
+#   - External access via published ports on the host
+#
+# Port Strategy:
+#   - Internal ports: Container-to-container (Docker network)
+#   - External ports: Published to host for development/monitoring
+#
+# To use REMOTE infrastructure instead of LOCAL:
+#   - Set DATABASE_URL to remote PostgreSQL connection string
+#   - Set KAFKA_BOOTSTRAP_SERVERS to 192.168.86.200:29092
+#   - Disable local services or run only the node services
+# ============================================================================
+
 networks:
-  omninode-bridge-network:
-    external: true
+  omni-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 services:
 
   # ============================================================================
-  # Qdrant - Vector Embeddings Storage (OmniIntelligence-specific)
+  # PostgreSQL - FSM State + Pattern Lineage + Workflow Tracking
+  # ============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: omni-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-omniintelligence}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      # Performance tuning
+      POSTGRES_SHARED_BUFFERS: ${POSTGRES_SHARED_BUFFERS:-256MB}
+      POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS:-200}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # ========================================================================
+      # PostgreSQL Migrations (Auto-executed on first run)
+      # ========================================================================
+      # docker-entrypoint-initdb.d executes *.sql files in alphabetical order:
+      #   000_extensions.sql    - Creates: pgcrypto, uuid-ossp, pg_trgm, btree_gin
+      #   001_create_fsm_state_table.sql   - FSM state tracking
+      #   002_create_fsm_state_history.sql - FSM history audit trail
+      #   003_create_workflow_executions.sql - Workflow execution tracking
+      #
+      # IMPORTANT: Files only run on first container initialization (empty volume)
+      # For existing volumes, manually run: psql -f /docker-entrypoint-initdb.d/<file>
+      # ========================================================================
+      - ../database/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - omni-network
+    healthcheck:
+      # Uses pg_isready which checks PostgreSQL is accepting connections
+      # The -d flag verifies the specific database exists and is accessible
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-omniintelligence}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ============================================================================
+  # Qdrant - Vector Embeddings Storage
   # ============================================================================
 
   qdrant:
     image: qdrant/qdrant:v1.7.4
     container_name: omni-qdrant
     ports:
-      - "${QDRANT_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
+      - "${QDRANT_PORT:-6333}:6333"  # REST API
+      - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC API
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
-      - omninode-bridge-network
+      - omni-network
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      # ========================================================================
+      # Qdrant Health Check Configuration
+      # ========================================================================
+      # IMPORTANT: qdrant/qdrant image does NOT include curl - must use wget
+      # /readiness endpoint returns 200 when service is ready to accept requests
+      # This is more reliable than /health for load balancer integration
+      # ========================================================================
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/readiness"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
     restart: unless-stopped
     deploy:
       resources:
@@ -57,25 +146,34 @@ services:
   # ============================================================================
   # Memgraph - Knowledge Graph (Entities + Relationships)
   # ============================================================================
+  # Version Note: Pinned to 2.15.1 for reproducibility. This version includes:
+  #   - Cypher 11 support
+  #   - Improved query performance
+  #   - Stable Bolt protocol implementation
+  # Update this version after testing with your data model.
+  # ============================================================================
 
   memgraph:
-    image: memgraph/memgraph-platform:latest
+    image: memgraph/memgraph-platform:2.15.1
     container_name: omni-memgraph
     ports:
-      - "${MEMGRAPH_PORT:-7687}:7687"  # Bolt protocol
-      - "${MEMGRAPH_HTTP_PORT:-3000}:3000"  # Lab UI
+      - "${MEMGRAPH_PORT:-7687}:7687"  # Bolt protocol (Cypher queries)
+      - "${MEMGRAPH_HTTP_PORT:-3000}:3000"  # Lab UI (web interface)
     volumes:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
     environment:
       MEMGRAPH_LOG_LEVEL: ${MEMGRAPH_LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
     healthcheck:
+      # Uses netcat (nc) to verify Bolt port is accepting connections
+      # The memgraph-platform image includes nc for health checks
       test: ["CMD", "nc", "-z", "localhost", "7687"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -86,7 +184,156 @@ services:
           memory: 512M
           cpus: '0.25'
 
+  # ============================================================================
+  # Valkey - Distributed Cache
+  # ============================================================================
+
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: omni-valkey
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    # ========================================================================
+    # Security Note: Password NOT passed via command line
+    # ========================================================================
+    # The entrypoint script injects the password into a config file at runtime.
+    # This prevents the password from appearing in `ps aux` or `docker inspect`.
+    # See: valkey-entrypoint.sh and valkey.conf.template
+    # ========================================================================
+    entrypoint: ["/entrypoint.sh"]
+    volumes:
+      - valkey_data:/data
+      - ./valkey-entrypoint.sh:/entrypoint.sh:ro
+      - ./valkey.conf.template:/etc/valkey/valkey.conf.template:ro
+    environment:
+      # Password passed via environment variable (not visible in command line)
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set}
+      # Used by valkey-cli for authentication in healthcheck
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set}
+    networks:
+      - omni-network
+    healthcheck:
+      # ========================================================================
+      # Valkey Health Check (Redis-compatible)
+      # ========================================================================
+      # Uses REDISCLI_AUTH env var for authentication - password not visible in ps
+      # valkey-cli PING returns "PONG" when service is operational
+      # The grep ensures we verify the response, not just command success
+      # ========================================================================
+      test: ["CMD", "sh", "-c", "valkey-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # ============================================================================
+  # Redpanda - Kafka-compatible Event Streaming
+  # ============================================================================
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    container_name: omni-redpanda
+    # Port Configuration:
+    # - 9092: Internal Kafka (container-to-container via Docker network)
+    # - 29092: External Kafka (host access for development scripts)
+    # This follows the standard dual-listener pattern used by Confluent/Redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:29092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:29092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --check=false
+    ports:
+      # ========================================================================
+      # Kafka Port Strategy (Dual-Listener Pattern)
+      # ========================================================================
+      # Internal port 9092: Used by Docker services (container-to-container)
+      #   - Services connect via: redpanda:9092
+      #   - NOT published to host
+      #
+      # External port 29092: Published to host for development access
+      #   - Host scripts connect via: localhost:29092 or 192.168.86.200:29092
+      #   - Standard dual-listener pattern used by Confluent/Redpanda
+      # ========================================================================
+      - "${REDPANDA_KAFKA_PORT:-29092}:29092"
+      - "${REDPANDA_ADMIN_PORT:-9644}:9644"
+      - "${REDPANDA_PROXY_PORT:-18082}:18082"
+      - "${REDPANDA_SCHEMA_PORT:-18081}:18081"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - omni-network
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ============================================================================
+  # Redpanda Console - Kafka UI
+  # ============================================================================
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.4.5
+    container_name: omni-redpanda-console
+    ports:
+      - "${REDPANDA_CONSOLE_PORT:-8080}:8080"
+    environment:
+      # Connect to Redpanda using internal Docker network port (9092)
+      KAFKA_BROKERS: redpanda:9092
+    networks:
+      - omni-network
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      # ========================================================================
+      # Redpanda Console Health Check
+      # ========================================================================
+      # The console image includes curl for health checks
+      # /api/health returns 200 when the UI is ready and connected to Kafka
+      # -f flag makes curl fail on HTTP errors (4xx/5xx)
+      # ========================================================================
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
 volumes:
+  postgres_data:
   qdrant_data:
   memgraph_data:
   memgraph_log:
+  valkey_data:
+  redpanda_data:

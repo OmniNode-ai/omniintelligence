@@ -1,0 +1,57 @@
+---
+# ONEX Node Contract - Pattern Learning Compute Node (STUB)
+#
+# STATUS: STUB - Minimal contract for forward compatibility
+# This node will handle pattern learning computation when implemented.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "pattern_learning_compute"
+node_type: "COMPUTE_GENERIC"
+status: "stub"
+description: >-
+  STUB: Compute node for pattern learning operations. Will handle pattern extraction, learning, and refinement.
+input_model:
+  name: "ModelPatternLearningInput"
+  module: "omniintelligence.nodes.pattern_learning_compute.models"
+  description: "STUB: Input containing training data and learning parameters."
+output_model:
+  name: "ModelPatternLearningOutput"
+  module: "omniintelligence.nodes.pattern_learning_compute.models"
+  description: "STUB: Output containing learned patterns and metrics."
+# Minimal sections for stub
+dependencies: []
+# Error Handling Configuration (stub - minimal)
+# =============================================
+error_handling:
+  error_types:
+    - name: "PatternLearningValidationError"
+      error_code: "PATLEARN_001"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternLearningComputeError"
+      error_code: "PATLEARN_002"
+      description: "Error during pattern learning computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: false
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  # NOTE: status field is at root level (line 17), not duplicated here
+  tags:
+    - "ONEX"
+    - "compute"
+    - "pattern-learning"
+    - "stub"

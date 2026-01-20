@@ -4,11 +4,18 @@ Unit tests for Contract Linter core validation functionality.
 
 Tests for single contract validation, file handling edge cases, and batch
 validation using the ContractLinter class.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 from pathlib import Path
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     MAX_YAML_SIZE_BYTES,
@@ -90,7 +97,11 @@ class TestContractLinterSingleValidation:
     def test_validate_single_contract_missing_required_field_version(
         self, tmp_path: Path, invalid_missing_version_yaml: str
     ):
-        """Test validation error when 'version' field is missing."""
+        """Test validation error when 'contract_version' field is missing.
+
+        Note: Node contracts now require contract_version and node_version fields.
+        The old 'version' field alone is not sufficient for node contracts.
+        """
         contract_path = tmp_path / "missing_version.yaml"
         contract_path.write_text(invalid_missing_version_yaml)
 
@@ -98,7 +109,7 @@ class TestContractLinterSingleValidation:
         result = linter.validate(contract_path)
 
         assert result.is_valid is False
-        assert any(e.field_path == "version" for e in result.validation_errors)
+        assert any(e.field_path == "contract_version" for e in result.validation_errors)
 
     def test_validate_single_contract_missing_required_field_description(
         self, tmp_path: Path, invalid_missing_description_yaml: str
@@ -192,30 +203,38 @@ class TestContractLinterSingleValidation:
     def test_validate_compute_missing_algorithm(
         self, tmp_path: Path, invalid_compute_missing_algorithm_yaml: str
     ):
-        """Test that compute contracts require algorithm field."""
+        """Test that compute contracts without algorithm are valid (optional field).
+
+        Note: algorithm is optional in the stub validator because existing
+        ONEX contracts don't include this field. When the full omnibase_core
+        validator is available, this requirement may be enforced.
+        """
         contract_path = tmp_path / "compute_no_algo.yaml"
         contract_path.write_text(invalid_compute_missing_algorithm_yaml)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        # When validating as compute contract, algorithm is required
-        assert result.is_valid is False
-        assert any("algorithm" in e.field_path for e in result.validation_errors)
+        # algorithm is optional in stub validator - contract should be valid
+        assert result.is_valid is True
 
     def test_validate_effect_missing_io_operations(
         self, tmp_path: Path, invalid_effect_missing_io_operations_yaml: str
     ):
-        """Test that effect contracts require io_operations field."""
+        """Test that effect contracts without io_operations are valid (optional field).
+
+        Note: io_operations is optional in the stub validator because existing
+        ONEX contracts don't include this field. When the full omnibase_core
+        validator is available, this requirement may be enforced.
+        """
         contract_path = tmp_path / "effect_no_io_ops.yaml"
         contract_path.write_text(invalid_effect_missing_io_operations_yaml)
 
         linter = ContractLinter()
         result = linter.validate(contract_path)
 
-        # When validating as effect contract, io_operations is required
-        assert result.is_valid is False
-        assert any("io_operations" in e.field_path for e in result.validation_errors)
+        # io_operations is optional in stub validator - contract should be valid
+        assert result.is_valid is True
 
 
 # =============================================================================

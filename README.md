@@ -75,6 +75,30 @@ uv sync --group dev
 uv sync --group all
 ```
 
+### ONEX Ecosystem Dependencies
+
+The `omnibase-*` packages are **published to PyPI** and will be installed automatically:
+
+- **omnibase-core** (>=0.8.0) - ONEX node base classes, error handling, validation
+- **omnibase-spi** (>=0.5.0) - Service Provider Interface protocols
+- **omnibase-infra** (>=0.2.1) - Infrastructure handlers (Kafka, Qdrant, PostgreSQL)
+
+**What omnibase-infra provides**:
+- `QdrantVectorHandler` - Vector database operations
+- `KafkaEventBus` - Event bus implementation
+- `BaseRuntimeHostProcess` - Process lifecycle management
+- Handler implementations for PostgreSQL, Memgraph, etc.
+
+**For local development with unpublished versions** (optional):
+
+```bash
+# Install a local checkout for development
+uv pip install -e /path/to/your/omnibase_infra
+
+# Or for Poetry users, update pyproject.toml:
+# omnibase-infra = {path = "../omnibase_infra", develop = true}
+```
+
 ### Running Tests
 
 ```bash
@@ -122,47 +146,6 @@ ruff check src tests
 # Type check
 mypy src
 ```
-
-### Pre-commit Hooks
-
-This project uses [pre-commit](https://pre-commit.com/) to ensure code quality before commits.
-
-#### Installation
-
-```bash
-# Install pre-commit (if not already installed)
-pip install pre-commit
-
-# Install the git hooks
-pre-commit install
-```
-
-#### Running Manually
-
-```bash
-# Run on all files
-pre-commit run --all-files
-
-# Run specific hook
-pre-commit run ruff --all-files
-
-# Run contract linter hook
-pre-commit run contract-linter --all-files
-```
-
-#### Configured Hooks
-
-| Hook | Description |
-|------|-------------|
-| **ruff** | Fast Python linter with auto-fix |
-| **ruff-format** | Python code formatter |
-| **mypy** | Static type checking (strict mode) |
-| **onex-patterns** | ONEX pattern validation |
-| **onex-union-usage** | ONEX union usage validation |
-| **contract-linter** | ONEX contract YAML validation |
-| **pytest-tools** | Unit tests for tools (runs on push only) |
-
-> **Note**: Most hooks run on `pre-commit` stage. The `pytest-tools` hook runs on `pre-push` to avoid slowing down commits.
 
 ## Migration from OmniArchon
 

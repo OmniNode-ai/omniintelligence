@@ -4,12 +4,19 @@ Unit tests for Contract Linter helper functions and utilities.
 
 Tests for structured error output, linter configuration, and field identifier
 pattern validation.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 import json
 from pathlib import Path
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     FIELD_IDENTIFIER_PATTERN,
@@ -40,12 +47,25 @@ class TestStructuredErrorOutput:
         assert len(result.validation_errors) >= 1
 
         # Each error should have field_path, error_message, and validation_error_type
+        # These attributes enable structured error reporting for CI/CD integration
         for error in result.validation_errors:
-            assert hasattr(error, "field_path")
-            assert hasattr(error, "error_message")
-            assert hasattr(error, "validation_error_type")
-            assert error.field_path is not None
-            assert error.error_message is not None
+            assert hasattr(error, "field_path"), (
+                "Error object missing 'field_path' attribute"
+            )
+            assert hasattr(error, "error_message"), (
+                "Error object missing 'error_message' attribute"
+            )
+            assert hasattr(error, "validation_error_type"), (
+                "Error object missing 'validation_error_type' attribute"
+            )
+            # field_path identifies the contract location of the error (e.g., "name", "version.major")
+            assert error.field_path is not None, (
+                f"Error has field_path=None, expected a path string. Error: {error}"
+            )
+            # error_message provides human-readable description of the validation failure
+            assert error.error_message is not None, (
+                f"Error has error_message=None, expected a description. Error: {error}"
+            )
 
     def test_nested_field_path_in_errors(self, tmp_path: Path):
         """Test that nested field paths are properly formatted.
@@ -141,7 +161,7 @@ node_type: compute
 class TestLinterConfiguration:
     """Tests for linter configuration options."""
 
-    def test_linter_strict_mode(self, tmp_path: Path, valid_base_contract_yaml: str):
+    def test_linter_strict_mode(self):
         """Test that strict mode raises NotImplementedError (not yet implemented)."""
         # Strict mode is reserved for future implementation
         with pytest.raises(NotImplementedError) as exc_info:
@@ -208,31 +228,54 @@ class TestFieldIdentifierPattern:
     """
 
     def test_valid_simple_field_names(self):
-        """Test that simple lowercase field names match."""
-        assert FIELD_IDENTIFIER_PATTERN.match("name") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("version") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("description") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("contract") is not None
+        """Test that simple lowercase field names match the pattern."""
+        # Simple lowercase names are valid ONEX contract field identifiers
+        valid_simple_names = ["name", "version", "description", "contract"]
+        for field_name in valid_simple_names:
+            match = FIELD_IDENTIFIER_PATTERN.match(field_name)
+            assert match is not None, (
+                f"Simple field name '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
+            )
 
     def test_valid_snake_case_field_names(self):
-        """Test that snake_case field names match."""
-        assert FIELD_IDENTIFIER_PATTERN.match("node_type") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("input_model") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("output_model") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("io_operations") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("state_machine_name") is not None
+        """Test that snake_case field names match the pattern."""
+        # Multi-word snake_case names are the standard for ONEX contract fields
+        valid_snake_case_names = [
+            "node_type",
+            "input_model",
+            "output_model",
+            "io_operations",
+            "state_machine_name",
+        ]
+        for field_name in valid_snake_case_names:
+            match = FIELD_IDENTIFIER_PATTERN.match(field_name)
+            assert match is not None, (
+                f"Snake_case field name '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
+            )
 
     def test_valid_underscore_prefix(self):
-        """Test that underscore-prefixed field names match."""
-        assert FIELD_IDENTIFIER_PATTERN.match("_private") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("_internal_field") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("__dunder") is not None
+        """Test that underscore-prefixed field names match the pattern.
+
+        Note: The pattern allows underscore-prefixed names, but validate_field_identifier()
+        may apply additional checks (e.g., rejecting underscore-only names like '_').
+        """
+        valid_underscore_prefixed = ["_private", "_internal_field", "__dunder"]
+        for field_name in valid_underscore_prefixed:
+            match = FIELD_IDENTIFIER_PATTERN.match(field_name)
+            assert match is not None, (
+                f"Underscore-prefixed field name '{field_name}' should match "
+                "FIELD_IDENTIFIER_PATTERN (private convention)"
+            )
 
     def test_valid_with_numbers(self):
-        """Test that field names with numbers match."""
-        assert FIELD_IDENTIFIER_PATTERN.match("field123") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("v1_0_0") is not None
-        assert FIELD_IDENTIFIER_PATTERN.match("step_1") is not None
+        """Test that field names containing numbers match the pattern."""
+        # Numbers are allowed in field names, but not as the first character
+        valid_names_with_numbers = ["field123", "v1_0_0", "step_1"]
+        for field_name in valid_names_with_numbers:
+            match = FIELD_IDENTIFIER_PATTERN.match(field_name)
+            assert match is not None, (
+                f"Field name with numbers '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
+            )
 
     def test_invalid_uppercase_start(self):
         """Test that uppercase-starting names don't match (likely error messages)."""
@@ -263,6 +306,26 @@ class TestFieldIdentifierPattern:
     def test_empty_string(self):
         """Test that empty string doesn't match."""
         assert FIELD_IDENTIFIER_PATTERN.match("") is None
+
+    def test_underscore_only_names_match_pattern(self):
+        """Test that underscore-only names match the pattern (but are rejected by validate_field_identifier).
+
+        The regex pattern `^[a-z_][a-z0-9_]*$` intentionally matches underscore-only names
+        like '_', '__', '___' because adding a negative lookahead would complicate the pattern.
+        Instead, the `validate_field_identifier()` function performs an additional check
+        to reject these names with a clear error message.
+
+        This test documents the pattern behavior; see TestValidateFieldIdentifier for
+        the full validation tests that reject these names.
+        """
+        # These match the pattern but should be rejected by validate_field_identifier()
+        underscore_only_names = ["_", "__", "___", "____"]
+        for name in underscore_only_names:
+            match = FIELD_IDENTIFIER_PATTERN.match(name)
+            assert match is not None, (
+                f"Underscore-only name '{name}' should match FIELD_IDENTIFIER_PATTERN "
+                "(rejection handled by validate_field_identifier)"
+            )
 
     def test_real_violation_message_parsing(self):
         """Test pattern against real violation message prefixes.
@@ -618,6 +681,29 @@ class TestValidateFieldIdentifier:
             assert error is not None
             assert "trailing underscore" in error
             assert name in error
+
+    def test_underscore_only_names_rejected(self):
+        """Test that underscore-only names are rejected.
+
+        Names consisting only of underscores (e.g., '_', '__', '___') match the
+        regex pattern but are not meaningful identifiers. These should be
+        rejected with a clear error message.
+        """
+        from omniintelligence.tools.contract_linter import validate_field_identifier
+
+        underscore_only_names = ["_", "__", "___", "____", "_____"]
+
+        for name in underscore_only_names:
+            is_valid, error = validate_field_identifier(name)
+            assert is_valid is False, (
+                f"Underscore-only name '{name}' should be rejected as invalid"
+            )
+            assert error is not None, (
+                f"Underscore-only name '{name}' rejection should include error message"
+            )
+            assert "only underscores" in error, (
+                f"Error for '{name}' should mention 'only underscores', got: {error}"
+            )
 
     def test_invalid_pattern_rejected(self):
         """Test that names not matching snake_case pattern are rejected."""

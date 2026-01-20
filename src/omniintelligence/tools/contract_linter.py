@@ -37,7 +37,7 @@ from omnibase_core.models.contracts.subcontracts import (
     ModelWorkflowCoordinationSubcontract,
 )
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
-from omnibase_core.validation.contract_validator import ProtocolContractValidator
+from omniintelligence.tools.stubs.contract_validator import ProtocolContractValidator
 from pydantic import BaseModel, ValidationError
 
 # Module-level logger for contract linter operations
@@ -165,9 +165,10 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
 
     Checks for:
     1. Basic identifier pattern (lowercase snake_case)
-    2. Python reserved keywords
-    3. Dunder names (double underscore start AND end)
-    4. Invalid trailing underscores
+    2. Underscore-only names (e.g., "_", "__", "___")
+    3. Python reserved keywords
+    4. Dunder names (double underscore start AND end)
+    5. Invalid trailing underscores
 
     Args:
         name: The field identifier to validate
@@ -178,6 +179,8 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
     Examples:
         >>> validate_field_identifier("field_name")
         (True, None)
+        >>> validate_field_identifier("_")
+        (False, "Field name '_' contains only underscores ...")
         >>> validate_field_identifier("class")
         (False, "Field name 'class' is a Python reserved keyword")
         >>> validate_field_identifier("__init__")
@@ -188,6 +191,15 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
     # Check basic pattern first
     if not FIELD_IDENTIFIER_PATTERN.match(name):
         return (False, f"Field name '{name}' does not match snake_case pattern")
+
+    # Reject underscore-only names (e.g., "_", "__", "___")
+    # These match the pattern but are not meaningful identifiers
+    if name.strip("_") == "":
+        return (
+            False,
+            f"Field name '{name}' contains only underscores "
+            "(must include at least one alphanumeric character)",
+        )
 
     # Check for Python reserved keywords
     if is_python_keyword(name):
@@ -213,8 +225,25 @@ def validate_field_identifier(name: str) -> tuple[bool, str | None]:
 
 
 # Map node_type values (case-insensitive) to contract_type for ProtocolContractValidator
-VALID_NODE_TYPES: frozenset[str] = frozenset(
+# Base types are the fundamental categories; extended types (e.g., COMPUTE_GENERIC) are also valid
+VALID_NODE_TYPE_BASES: frozenset[str] = frozenset(
     {"compute", "effect", "reducer", "orchestrator"}
+)
+
+# Extended node types include the base type with optional suffixes (e.g., COMPUTE_GENERIC)
+VALID_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        # Base types
+        "compute",
+        "effect",
+        "reducer",
+        "orchestrator",
+        # Extended generic types
+        "compute_generic",
+        "effect_generic",
+        "reducer_generic",
+        "orchestrator_generic",
+    }
 )
 
 # Default number of worker threads when os.cpu_count() returns None
@@ -519,7 +548,7 @@ def _detect_contract_type(data: YamlData) -> str:
     if "node_type" in data:
         logger.debug(
             "Detected contract type: node_contract (node_type=%s)",
-            data.get("node_type"),
+            data["node_type"],  # Key existence already verified above
         )
         return "node_contract"
 
@@ -767,8 +796,27 @@ class ContractLinter:
                 validation_errors=validation_errors,
                 contract_type=contract_type_name,
             )
+        except TypeError as e:
+            # Type errors during model construction (e.g., wrong argument types)
+            validation_errors = [
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"Type error during validation: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
+                )
+            ]
+            return ModelContractValidationResult(
+                file_path=path,
+                is_valid=False,
+                validation_errors=validation_errors,
+                contract_type=contract_type_name,
+            )
         except Exception as e:
-            # Catch any unexpected errors during Pydantic model validation
+            # Intentionally broad: catch any unexpected errors during Pydantic model
+            # validation. ValidationError and ModelOnexError are caught above; this
+            # catches truly unexpected errors that may occur during model construction.
             validation_errors = [
                 ModelContractValidationError(
                     field_path="contract",
@@ -886,8 +934,45 @@ class ContractLinter:
                 path,
                 contract_type=node_type_lower,
             )
+        except (FileNotFoundError, PermissionError) as e:
+            # File system errors during validation
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"File access error during validation: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.FILE_NOT_FOUND
+                    if isinstance(e, FileNotFoundError)
+                    else EnumContractErrorType.UNEXPECTED_ERROR,
+                )
+            )
+            return ModelContractValidationResult(
+                file_path=path,
+                is_valid=False,
+                validation_errors=validation_errors,
+                contract_type=node_type_lower,
+            )
+        except ValueError as e:
+            # Configuration or value errors from validator
+            validation_errors.append(
+                ModelContractValidationError(
+                    field_path="contract",
+                    error_message=redact_sensitive_values(
+                        f"Invalid contract configuration: {e}"
+                    ),
+                    validation_error_type=EnumContractErrorType.VALIDATION_ERROR,
+                )
+            )
+            return ModelContractValidationResult(
+                file_path=path,
+                is_valid=False,
+                validation_errors=validation_errors,
+                contract_type=node_type_lower,
+            )
         except Exception as e:
-            # Catch unexpected errors from ProtocolContractValidator
+            # Intentionally broad: catch unexpected errors from external
+            # ProtocolContractValidator. Specific exceptions are caught above.
             validation_errors.append(
                 ModelContractValidationError(
                     field_path="contract",
@@ -1618,8 +1703,44 @@ def main(args: list[str] | None = None) -> int:
         print(error_output, file=sys.stderr)
         return 2
 
+    except (FileNotFoundError, PermissionError) as e:
+        # File system errors (file not found, permission denied)
+        cli_error_type = (
+            "file_not_found"
+            if isinstance(e, FileNotFoundError)
+            else "permission_denied"
+        )
+        if parsed_args.json:
+            error_output = json.dumps(
+                {
+                    "error": redact_sensitive_values(str(e)),
+                    "cli_error_type": cli_error_type,
+                },
+                indent=JSON_INDENT_SPACES,
+            )
+        else:
+            error_output = f"Error: {redact_sensitive_values(str(e))}"
+        print(error_output, file=sys.stderr)
+        return 2
+
+    except KeyboardInterrupt:
+        # User interrupted execution
+        if parsed_args.json:
+            error_output = json.dumps(
+                {
+                    "error": "Operation cancelled by user",
+                    "cli_error_type": "interrupted",
+                },
+                indent=JSON_INDENT_SPACES,
+            )
+        else:
+            error_output = "Operation cancelled by user"
+        print(error_output, file=sys.stderr)
+        return 130  # Standard exit code for SIGINT
+
     except Exception as e:
-        # Catch any unexpected errors and provide a clean error message
+        # Intentionally broad: CLI top-level exception handler to catch any unexpected
+        # errors and provide a clean error message. Specific exceptions are caught above.
         if parsed_args.json:
             error_output = json.dumps(
                 {

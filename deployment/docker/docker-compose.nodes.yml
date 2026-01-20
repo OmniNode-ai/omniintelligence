@@ -3,24 +3,20 @@
 # OmniIntelligence - ONEX Nodes
 # ============================================================================
 # Purpose: ONEX 4.0 node deployments (orchestrator, reducer, compute, effect)
-#
-# Dependencies:
-#   - omninode-bridge infrastructure must be running (postgres, redpanda, valkey)
-#   - docker-compose.yml (qdrant, memgraph) should be running
-#
+# Dependencies: Requires docker-compose.yml (base infrastructure) running
 # Usage: docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
 #
-# External Services (from omninode-bridge):
-#   - PostgreSQL: omninode-bridge-postgres:5432
-#   - Redpanda: omninode-bridge-redpanda:9092
-#   - Valkey: omninode-bridge-valkey:6379
+# Health Checks:
+# - All nodes expose HTTP /health endpoint on port 8000
+# - Node Dockerfiles install curl for healthcheck support
+# - Nodes start in "stub mode" with health checks until ONEX container injection
+#
+# Network:
+# - Uses external network 'omniintelligence_omni-network' from base compose
+# - Nodes communicate with infrastructure via container names (postgres, qdrant, etc.)
 # ============================================================================
 
 name: omniintelligence
-
-networks:
-  omninode-bridge-network:
-    external: true
 
 services:
 
@@ -34,8 +30,8 @@ services:
       dockerfile: deployment/docker/Dockerfile.reducer
     container_name: omni-intelligence-reducer
     environment:
-      # Database Configuration (uses omninode-bridge postgres)
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omninode-bridge-postgres:5432/omniintelligence}
+      # Database Configuration
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/omniintelligence}
 
       # Reducer Configuration
       ENABLE_LEASE_MANAGEMENT: ${ENABLE_LEASE_MANAGEMENT:-true}
@@ -46,10 +42,13 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     networks:
-      - omninode-bridge-network
-    # Note: postgres is external - no depends_on, just ensure omninode-bridge is running
+      - omni-network
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      # Node Dockerfiles install curl - safe to use for healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -80,19 +79,22 @@ services:
       ENABLE_CACHING: ${ENABLE_CACHING:-true}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
 
-      # Dependencies (uses omninode-bridge valkey)
+      # Dependencies
       REDUCER_URL: http://intelligence-reducer:8000
-      VALKEY_URL: redis://:${VALKEY_PASSWORD}@omninode-bridge-valkey:6379/0
+      VALKEY_URL: redis://:${VALKEY_PASSWORD}@valkey:6379/0
 
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     networks:
-      - omninode-bridge-network
+      - omni-network
     depends_on:
-      - intelligence-reducer
+      intelligence-reducer:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -126,7 +128,16 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
+    depends_on:
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -153,95 +164,13 @@ services:
       GENERATE_RECOMMENDATIONS: ${GENERATE_RECOMMENDATIONS:-true}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  # ============================================================================
-  # Entity Extraction Compute Node
-  # ============================================================================
-
-  entity-extraction-compute:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.compute
-      args:
-        NODE_NAME: entity_extraction_compute
-    container_name: omni-entity-extraction-compute
-    environment:
-      MAX_CONTENT_SIZE: ${MAX_CONTENT_SIZE:-1000000}
-      SUPPORTED_LANGUAGES: ${SUPPORTED_LANGUAGES:-python}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    networks:
-      - omninode-bridge-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  # ============================================================================
-  # Relationship Detection Compute Node
-  # ============================================================================
-
-  relationship-detection-compute:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.compute
-      args:
-        NODE_NAME: relationship_detection_compute
-    container_name: omni-relationship-detection-compute
-    environment:
-      ENABLE_CALLS_DETECTION: ${ENABLE_CALLS_DETECTION:-true}
-      ENABLE_IMPORTS_DETECTION: ${ENABLE_IMPORTS_DETECTION:-true}
-      ENABLE_INHERITANCE_DETECTION: ${ENABLE_INHERITANCE_DETECTION:-true}
-      ENABLE_CONTAINMENT_DETECTION: ${ENABLE_CONTAINMENT_DETECTION:-true}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    networks:
-      - omninode-bridge-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  # ============================================================================
-  # Kafka Event Effect Node
-  # ============================================================================
-
-  kafka-event-effect:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.effect
-      args:
-        NODE_NAME: kafka_event_effect
-    container_name: omni-kafka-event-effect
-    environment:
-      # Uses omninode-bridge redpanda
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-omninode-bridge-redpanda:9092}
-      TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-dev.omni-intelligence}
-      ENABLE_IDEMPOTENCE: ${KAFKA_ENABLE_IDEMPOTENCE:-true}
-      ACKS: ${KAFKA_ACKS:-all}
-      MAX_RETRIES: ${KAFKA_MAX_RETRIES:-3}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    networks:
-      - omninode-bridge-network
-    # Note: redpanda is external - ensure omninode-bridge is running
+      - omni-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -271,10 +200,16 @@ services:
       BATCH_SIZE: ${QDRANT_BATCH_SIZE:-100}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
     depends_on:
       qdrant:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -304,10 +239,16 @@ services:
       QUERY_TIMEOUT_SECONDS: ${MEMGRAPH_QUERY_TIMEOUT:-30}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
+      - omni-network
     depends_on:
       memgraph:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -330,15 +271,22 @@ services:
         NODE_NAME: postgres_pattern_effect
     container_name: omni-postgres-pattern-effect
     environment:
-      # Uses omninode-bridge postgres
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omninode-bridge-postgres:5432/omniintelligence}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/omniintelligence}
       ENABLE_FULL_TEXT_SEARCH: ${ENABLE_FULL_TEXT_SEARCH:-true}
       ENABLE_LINEAGE_TRACKING: ${ENABLE_LINEAGE_TRACKING:-true}
       BATCH_SIZE: ${PATTERN_BATCH_SIZE:-50}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omninode-bridge-network
-    # Note: postgres is external - ensure omninode-bridge is running
+      - omni-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -348,3 +296,45 @@ services:
         reservations:
           memory: 256M
           cpus: '0.25'
+
+# =============================================================================
+# Network Configuration
+# =============================================================================
+# DEPLOYMENT MODES:
+#
+# Mode 1: Combined Deployment (RECOMMENDED)
+#   docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
+#   - Files are merged, network definition comes from base docker-compose.yml
+#   - Empty network definition here allows proper merging with base file
+#   - Services communicate via container names (postgres, qdrant, etc.)
+#
+# Mode 2: Standalone Node Deployment (requires base infra running first)
+#   Step 1: docker compose -f docker-compose.yml up -d  # Start infrastructure
+#   Step 2: docker compose -f docker-compose.nodes.yml --project-name omniintelligence up -d
+#   - IMPORTANT: Use --project-name to match base compose project name
+#   - This ensures nodes join the existing omniintelligence_omni-network
+#   - Network already exists from Step 1
+#
+# WHY NOT external: true?
+#   Using external: true here would break combined deployment (Mode 1) because
+#   Docker Compose would look for an existing network instead of creating it.
+#   The empty definition {} allows proper merging with the base file's full
+#   network definition (driver, ipam, subnet).
+#
+# Network Architecture:
+#   - omni-network: Internal bridge network (172.28.0.0/16)
+#   - Defined in docker-compose.yml as bridge with custom subnet
+#   - All nodes and infrastructure share this network
+#   - Container DNS resolution for service discovery
+#
+# For production with external infrastructure (see ~/.claude/CLAUDE.md):
+#   - Override service URLs via environment variables
+#   - Connect to remote PostgreSQL (192.168.86.200:5436)
+#   - Connect to remote Kafka (192.168.86.200:29092)
+# =============================================================================
+
+networks:
+  # Empty definition merges cleanly with base compose bridge network
+  # Combined mode: Uses bridge definition from docker-compose.yml
+  # Standalone mode: Requires --project-name omniintelligence to join existing network
+  omni-network: {}

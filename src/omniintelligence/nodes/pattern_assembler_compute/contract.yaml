@@ -1,0 +1,81 @@
+---
+# ONEX Node Contract - Pattern Assembler Compute Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+# Assembles patterns from parsed traces, keywords, intents, and success criteria.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "pattern_assembler_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for assembling patterns from extracted components. Combines parsed execution traces, contextual
+  keywords, classified intents, and matched success criteria into a cohesive pattern structure.
+input_model:
+  name: "ModelPatternAssemblyComputeInput"
+  module: "omniintelligence.nodes.pattern_assembler_compute.models"
+  description: "Input containing parsed traces, keywords, intents, and success criteria."
+output_model:
+  name: "ModelPatternAssemblyComputeOutput"
+  module: "omniintelligence.nodes.pattern_assembler_compute.models"
+  description: "Output containing assembled pattern with metadata and confidence scores."
+# Operations
+# ==========
+operations:
+  - name: "assemble_pattern"
+    description: "Assemble pattern from component data"
+    input_fields:
+      - parsed_traces
+      - keywords
+      - intent_classification
+      - matched_criteria
+      - correlation_id
+    output_fields:
+      - success
+      - assembled_pattern
+      - pattern_metadata
+      - confidence_score
+      - assembly_warnings
+# Dependencies
+# ============
+# NOTE: This is a pure compute node with no external dependencies.
+# Input data comes from upstream compute nodes in the orchestrator workflow.
+dependencies: []
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "PatternAssemblyValidationError"
+      error_code: "PATASM_001"
+      description: "Input data validation failed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternAssemblyComputeError"
+      error_code: "PATASM_002"
+      description: "Error during pattern assembly computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+# Health Check
+# ============
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+# Metadata
+# ========
+metadata:
+  author: "OmniNode Team"
+  created: "2026-01-18"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "pattern"
+    - "assembler"
+    - "pattern-extraction"

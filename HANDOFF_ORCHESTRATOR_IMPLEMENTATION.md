@@ -153,7 +153,7 @@ class QualityAssessmentWorkflow(Workflow):
         # Instead of placeholder:
         quality_compute = QualityScoringCompute(config)
         result = await quality_compute.process(ModelQualityScoringInput(
-            file_path=payload.get("file_path"),
+            source_path=payload.get("source_path"),
             content=payload.get("content"),
             language=payload.get("language", "python"),
         ))

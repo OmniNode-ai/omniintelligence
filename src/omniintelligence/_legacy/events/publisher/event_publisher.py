@@ -1,42 +1,117 @@
 """
-Event Publisher Base Class - Phase 1
+Event Publisher Base Class - Legacy Compatibility Layer.
 
 Unified event publisher for all ONEX services with:
 - Retry logic with exponential backoff
-- Circuit breaker integration
+- Circuit breaker integration (trips ONLY on transient failures)
 - Event validation against schemas
 - Correlation ID tracking
 - DLQ routing on failures
 - Metrics tracking
-- Batching support (future)
+- Log sanitization for secrets
 
-Created: 2025-10-18
+.. deprecated::
+    This module is deprecated and will be removed in a future version.
+    Import from ``omniintelligence.events.publisher`` instead when available.
+
+Circuit Breaker Behavior:
+    The circuit breaker ONLY trips on transient infrastructure errors:
+    - Network connection failures
+    - Broker unavailable
+    - Timeouts during publish
+
+    The circuit breaker does NOT trip on data/programming errors:
+    - Envelope validation errors (bad payload structure)
+    - Serialization errors (JSON encoding failures)
+    - Schema validation errors
+
+    This distinction is critical because infrastructure errors may resolve
+    with retries or after a cooldown period, while data errors require
+    code/data fixes and will never self-heal.
+
 Reference: EVENT_BUS_ARCHITECTURE.md Phase 1
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import time
-from typing import Any, Optional, TypeVar, TYPE_CHECKING
+import warnings
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
-from confluent_kafka import Producer
+from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from confluent_kafka import Message
-from pydantic import BaseModel
+try:
+    from confluent_kafka import Producer
 
-from omniintelligence._legacy.models import (
-    ModelEventEnvelope,
-    ModelEventMetadata,
-    ModelEventSource,
-)
+    KAFKA_AVAILABLE = True
+except ImportError:
+    KAFKA_AVAILABLE = False
+    Producer = None  # type: ignore[misc, assignment]
+
+# Import log sanitizer from canonical location
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+
+warnings.warn(
+    "Importing from omniintelligence._legacy.events.publisher will be removed in v2.0.0. "
+    "Continue using _legacy.events.publisher until omniintelligence.events is released.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T", bound=BaseModel)
+
+class ModelEventSource(BaseModel):
+    """Event source metadata."""
+
+    service: str = Field(..., description="Publishing service name")
+    instance_id: str = Field(..., description="Service instance ID")
+    hostname: str | None = Field(default=None, description="Optional hostname")
+
+
+class ModelEventMetadata(BaseModel):
+    """Event metadata."""
+
+    custom: dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelEventEnvelope(BaseModel):
+    """Event envelope wrapping payload with metadata."""
+
+    event_id: UUID = Field(default_factory=uuid4)
+    event_type: str = Field(..., description="Fully-qualified event type")
+    correlation_id: UUID = Field(default_factory=uuid4)
+    causation_id: UUID | None = Field(default=None)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    source: ModelEventSource
+    metadata: ModelEventMetadata | None = Field(default=None)
+    payload: Any = Field(..., description="Event payload")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert envelope to dictionary for serialization."""
+        return {
+            "event_id": str(self.event_id),
+            "event_type": self.event_type,
+            "correlation_id": str(self.correlation_id),
+            "causation_id": str(self.causation_id) if self.causation_id else None,
+            "timestamp": self.timestamp.isoformat(),
+            "source": {
+                "service": self.source.service,
+                "instance_id": self.source.instance_id,
+                "hostname": self.source.hostname,
+            },
+            "metadata": self.metadata.model_dump() if self.metadata else None,
+            "payload": (
+                self.payload.model_dump()
+                if hasattr(self.payload, "model_dump")
+                else self.payload
+            ),
+        }
 
 
 class EventPublisher:
@@ -45,16 +120,27 @@ class EventPublisher:
 
     Provides unified event publishing across all ONEX services with:
     - Automatic retries with exponential backoff
-    - Circuit breaker to prevent cascading failures
+    - Circuit breaker to prevent cascading failures (transient errors only)
     - Event validation before publishing
     - Correlation ID tracking for request/response flows
     - Dead letter queue (DLQ) routing on persistent failures
     - Metrics tracking (events published, failures, latency)
+    - Secret sanitization in event payloads
+
+    Circuit Breaker Design:
+        The circuit breaker ONLY trips on transient infrastructure errors:
+        - Network connection failures
+        - Broker unavailable
+        - Timeouts during publish
+
+        The circuit breaker does NOT trip on data/programming errors:
+        - Envelope validation errors (bad payload structure)
+        - Serialization errors (JSON encoding failures)
+        - Schema validation errors
 
     Usage:
-        from config import settings
         publisher = EventPublisher(
-            bootstrap_servers=settings.kafka_bootstrap_servers,
+            bootstrap_servers="192.168.86.200:29092",
             service_name="archon-intelligence",
             instance_id="instance-123"
         )
@@ -73,7 +159,7 @@ class EventPublisher:
         bootstrap_servers: str,
         service_name: str,
         instance_id: str,
-        hostname: Optional[str] = None,
+        hostname: str | None = None,
         max_retries: int = 3,
         retry_backoff_ms: int = 1000,
         circuit_breaker_threshold: int = 5,
@@ -108,27 +194,33 @@ class EventPublisher:
         self.enable_sanitization = enable_sanitization
 
         # Kafka producer
-        self.producer: Optional[Producer] = None
+        self.producer: Producer | None = None
 
         # Circuit breaker state
         self._circuit_breaker_failures = 0
-        self._circuit_breaker_last_failure_time: Optional[float] = None
+        self._circuit_breaker_last_failure_time: float | None = None
         self._circuit_breaker_open = False
 
         # Metrics
-        self.metrics = {
+        self.metrics: dict[str, Any] = {
             "events_published": 0,
             "events_failed": 0,
             "events_sent_to_dlq": 0,
             "total_publish_time_ms": 0.0,
             "circuit_breaker_opens": 0,
             "retries_attempted": 0,
+            "serialization_errors": 0,
+            "envelope_errors": 0,
         }
 
         self._initialize_producer()
 
     def _initialize_producer(self) -> None:
         """Initialize Kafka producer with optimized configuration."""
+        if not KAFKA_AVAILABLE:
+            logger.warning("Kafka not available, producer not initialized")
+            return
+
         producer_config = {
             "bootstrap.servers": self.bootstrap_servers,
             # Performance tuning
@@ -136,11 +228,11 @@ class EventPublisher:
             "batch.size": 32768,  # 32KB batch size
             "compression.type": "lz4",  # Fast compression
             "acks": "all",  # Wait for all replicas (reliability)
-            # Error handling - retries handled at application level via _publish_with_retry
-            # with exponential backoff, so Kafka-level idempotence is disabled to avoid
-            # configuration conflict (idempotence requires retries > 0)
-            "retries": 0,
-            "enable.idempotence": False,
+            # Idempotent delivery (requires retries > 0, using default)
+            # Note: We also implement application-level retries in _publish_with_retry
+            # for catching exceptions. Producer-level retries handle transient network
+            # issues internally, while app-level retries handle higher-level failures.
+            "enable.idempotence": True,  # Prevent duplicate messages
             # Timeout configuration
             "request.timeout.ms": 30000,  # 30 seconds
             "delivery.timeout.ms": 120000,  # 2 minutes total
@@ -158,11 +250,11 @@ class EventPublisher:
         self,
         event_type: str,
         payload: Any,
-        correlation_id: Optional[UUID] = None,
-        causation_id: Optional[UUID] = None,
-        metadata: Optional[ModelEventMetadata] = None,
-        topic: Optional[str] = None,
-        partition_key: Optional[str] = None,
+        correlation_id: UUID | None = None,
+        causation_id: UUID | None = None,
+        metadata: ModelEventMetadata | None = None,
+        topic: str | None = None,
+        partition_key: str | None = None,
     ) -> bool:
         """
         Publish event to Kafka with retry and circuit breaker.
@@ -181,6 +273,23 @@ class EventPublisher:
 
         Raises:
             RuntimeError: If circuit breaker is open
+            ValueError: If envelope creation or serialization fails (data errors).
+                These are programming/data errors that do NOT trip the circuit breaker.
+
+        Circuit Breaker Behavior:
+            The circuit breaker ONLY trips on transient infrastructure errors:
+            - Network connection failures
+            - Broker unavailable
+            - Timeouts during publish
+
+            The circuit breaker does NOT trip on data/programming errors:
+            - Envelope validation errors (bad payload structure)
+            - Serialization errors (JSON encoding failures)
+            - Schema validation errors
+
+            This distinction is important because infrastructure errors may resolve
+            with retries or after a cooldown period, while data errors require
+            code/data fixes and will never self-heal.
         """
         # Check circuit breaker
         if self._is_circuit_breaker_open():
@@ -192,6 +301,11 @@ class EventPublisher:
 
         start_time = time.perf_counter()
 
+        # =====================================================================
+        # PHASE 1: Envelope Creation & Serialization (Data Errors)
+        # These are programming/data errors that will NOT resolve by retrying.
+        # Do NOT trip the circuit breaker for these errors.
+        # =====================================================================
         try:
             # Create event envelope
             envelope = self._create_event_envelope(
@@ -201,13 +315,66 @@ class EventPublisher:
                 causation_id=causation_id,
                 metadata=metadata,
             )
+        except (ValueError, TypeError) as e:
+            # Envelope creation failed (validation error, bad data)
+            # This is a programming/data error - do NOT trip circuit breaker
+            self.metrics["events_failed"] += 1
+            self.metrics["envelope_errors"] += 1
+            logger.error(
+                f"Event envelope creation failed (data error, circuit breaker NOT tripped) | "
+                f"event_type={event_type} | error={e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Event envelope creation failed: {e}") from e
+        except Exception as e:
+            # Any other envelope creation error is also a data error
+            # Intentionally broad: catch-all for unexpected envelope creation failures
+            self.metrics["events_failed"] += 1
+            self.metrics["envelope_errors"] += 1
+            logger.error(
+                f"Event envelope creation failed (unexpected error, circuit breaker NOT tripped) | "
+                f"event_type={event_type} | error={e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Event envelope creation failed: {e}") from e
 
-            # Determine topic (default to event_type)
-            publish_topic = topic or event_type
+        # Determine topic (default to event_type)
+        publish_topic = topic or event_type
 
+        try:
             # Serialize event
             event_bytes = self._serialize_event(envelope)
+        except (TypeError, ValueError) as e:
+            # Serialization failed (JSON encoding error, bad data types)
+            # Note: json.dumps() raises TypeError/ValueError, not JSONDecodeError
+            # (JSONDecodeError is for decoding/parsing, not encoding)
+            # This is a programming/data error - do NOT trip circuit breaker
+            self.metrics["events_failed"] += 1
+            self.metrics["serialization_errors"] += 1
+            logger.error(
+                f"Event serialization failed (data error, circuit breaker NOT tripped) | "
+                f"event_type={event_type} | correlation_id={envelope.correlation_id} | error={e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Event serialization failed: {e}") from e
+        except Exception as e:
+            # Any other serialization error is also a data error
+            # Intentionally broad: catch-all for unexpected serialization failures
+            self.metrics["events_failed"] += 1
+            self.metrics["serialization_errors"] += 1
+            logger.error(
+                f"Event serialization failed (unexpected error, circuit breaker NOT tripped) | "
+                f"event_type={event_type} | correlation_id={envelope.correlation_id} | error={e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Event serialization failed: {e}") from e
 
+        # =====================================================================
+        # PHASE 2: Infrastructure Operations (Transient Errors)
+        # These are network/broker errors that MAY resolve by retrying.
+        # ONLY trip the circuit breaker for these errors.
+        # =====================================================================
+        try:
             # Publish with retry
             success = await self._publish_with_retry(
                 topic=publish_topic,
@@ -232,7 +399,8 @@ class EventPublisher:
                 )
                 return True
             else:
-                # Publish failed after retries
+                # Publish failed after retries - this IS an infrastructure failure
+                # Trip the circuit breaker
                 self.metrics["events_failed"] += 1
                 self._record_circuit_breaker_failure()
 
@@ -250,12 +418,34 @@ class EventPublisher:
                 )
                 return False
 
-        except Exception as e:
+        except asyncio.CancelledError:
+            # Task cancellation during publish - must re-raise to preserve cancellation semantics
+            logger.info(
+                f"Event publish cancelled | event_type={event_type} | "
+                f"correlation_id={envelope.correlation_id}"
+            )
+            raise
+        except (ConnectionError, TimeoutError, OSError) as e:
+            # Infrastructure error during publish (connection, timeout, broker error)
+            # This IS a transient error - trip the circuit breaker
             self.metrics["events_failed"] += 1
             self._record_circuit_breaker_failure()
 
             logger.error(
-                f"Event publish error | event_type={event_type} | error={e}",
+                f"Event publish infrastructure error (circuit breaker tripped) | "
+                f"event_type={event_type} | correlation_id={envelope.correlation_id} | error={e}",
+                exc_info=True,
+            )
+            return False
+        except Exception as e:
+            # Intentionally broad: catch any unexpected error during infrastructure operations
+            # Treat unexpected errors as potentially transient and trip the circuit breaker
+            self.metrics["events_failed"] += 1
+            self._record_circuit_breaker_failure()
+
+            logger.error(
+                f"Event publish unexpected error (circuit breaker tripped) | "
+                f"event_type={event_type} | correlation_id={envelope.correlation_id} | error={e}",
                 exc_info=True,
             )
             return False
@@ -264,8 +454,8 @@ class EventPublisher:
         self,
         topic: str,
         event_bytes: bytes,
-        partition_key: Optional[str],
-        envelope: ModelEventEnvelope[Any],
+        partition_key: str | None,
+        envelope: ModelEventEnvelope,
     ) -> bool:
         """
         Publish event with exponential backoff retry.
@@ -296,7 +486,8 @@ class EventPublisher:
                     )
                 return True
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError) as e:
+                # Network-related errors are retryable
                 if attempt < self.max_retries:
                     # Calculate backoff with exponential increase
                     backoff_ms = self.retry_backoff_ms * (2**attempt)
@@ -318,11 +509,37 @@ class EventPublisher:
                         f"correlation_id={envelope.correlation_id} | error={e}"
                     )
                     return False
+            except asyncio.CancelledError:
+                # Task cancellation during retry - must re-raise to preserve cancellation semantics
+                logger.info(
+                    f"Event publish retry cancelled | attempt={attempt + 1}/{self.max_retries + 1} | "
+                    f"correlation_id={envelope.correlation_id}"
+                )
+                raise
+            except Exception as e:
+                # Intentionally broad: treat any unexpected error as retryable
+                if attempt < self.max_retries:
+                    backoff_ms = self.retry_backoff_ms * (2**attempt)
+
+                    logger.warning(
+                        f"Event publish failed (unexpected), retrying | attempt={attempt + 1}/{self.max_retries + 1} | "
+                        f"backoff={backoff_ms}ms | correlation_id={envelope.correlation_id} | "
+                        f"error={e}"
+                    )
+
+                    self.metrics["retries_attempted"] += 1
+                    await asyncio.sleep(backoff_ms / 1000.0)
+                else:
+                    logger.error(
+                        f"Event publish failed after {self.max_retries + 1} attempts | "
+                        f"correlation_id={envelope.correlation_id} | error={e}"
+                    )
+                    return False
 
         return False
 
     async def _produce_message(
-        self, topic: str, value: bytes, key: Optional[bytes]
+        self, topic: str, value: bytes, key: bytes | None
     ) -> None:
         """
         Produce message to Kafka asynchronously.
@@ -333,22 +550,25 @@ class EventPublisher:
             key: Optional message key (bytes)
 
         Raises:
+            RuntimeError: If producer not initialized
             Exception: If produce fails
         """
         if not self.producer:
             raise RuntimeError("Producer not initialized")
 
         # Create future for delivery callback
-        future: asyncio.Future["Message"] = asyncio.get_event_loop().create_future()
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[Any] = loop.create_future()
 
-        def delivery_callback(
-            err: Optional[Exception], msg: "Message"
-        ) -> None:
+        def delivery_callback(err: Any, _msg: Any) -> None:
             """Delivery callback to set future result."""
             if err:
-                future.set_exception(Exception(f"Kafka delivery failed: {err}"))
+                loop.call_soon_threadsafe(
+                    future.set_exception,
+                    Exception(f"Kafka delivery failed: {err}"),
+                )
             else:
-                future.set_result(msg)
+                loop.call_soon_threadsafe(future.set_result, True)
 
         # Produce message (non-blocking)
         self.producer.produce(
@@ -368,10 +588,10 @@ class EventPublisher:
         self,
         event_type: str,
         payload: Any,
-        correlation_id: Optional[UUID] = None,
-        causation_id: Optional[UUID] = None,
-        metadata: Optional[ModelEventMetadata] = None,
-    ) -> ModelEventEnvelope[Any]:
+        correlation_id: UUID | None = None,
+        causation_id: UUID | None = None,
+        metadata: ModelEventMetadata | None = None,
+    ) -> ModelEventEnvelope:
         """
         Create event envelope with source metadata.
 
@@ -384,6 +604,9 @@ class EventPublisher:
 
         Returns:
             ModelEventEnvelope instance
+
+        Raises:
+            ValueError: If envelope creation fails due to invalid data
         """
         # Create source metadata
         source = ModelEventSource(
@@ -393,10 +616,9 @@ class EventPublisher:
         )
 
         # Create envelope with UUID objects directly
-        # Use provided correlation_id or generate a new one
-        envelope = ModelEventEnvelope[Any](
+        envelope = ModelEventEnvelope(
             event_type=event_type,
-            correlation_id=correlation_id if correlation_id is not None else uuid4(),
+            correlation_id=correlation_id or uuid4(),
             causation_id=causation_id,
             source=source,
             metadata=metadata,
@@ -405,7 +627,7 @@ class EventPublisher:
 
         return envelope
 
-    def _serialize_event(self, envelope: ModelEventEnvelope[Any]) -> bytes:
+    def _serialize_event(self, envelope: ModelEventEnvelope) -> bytes:
         """
         Serialize event envelope to JSON bytes with secret sanitization.
 
@@ -422,6 +644,9 @@ class EventPublisher:
 
         Returns:
             JSON bytes with secrets masked (e.g., "sk-abc123..." -> "[OPENAI_API_KEY]")
+
+        Raises:
+            ValueError: If serialization fails
         """
         # Convert to dict (handles UUIDs, datetime, Pydantic models)
         event_dict = envelope.to_dict()
@@ -453,7 +678,7 @@ class EventPublisher:
         return json_str
 
     async def _send_to_dlq(
-        self, topic: str, envelope: ModelEventEnvelope[Any], error_message: str
+        self, topic: str, envelope: ModelEventEnvelope, error_message: str
     ) -> None:
         """
         Send failed event to Dead Letter Queue with secret sanitization.
@@ -500,7 +725,14 @@ class EventPublisher:
                 f"correlation_id={envelope.correlation_id} | error={error_message}"
             )
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            # Network errors during DLQ send are logged but don't propagate
+            logger.error(
+                f"Failed to send event to DLQ (network error) | dlq_topic={dlq_topic} | error={e}",
+                exc_info=True,
+            )
         except Exception as e:
+            # Intentionally broad: DLQ send must never raise, any error is logged only
             logger.error(
                 f"Failed to send event to DLQ | dlq_topic={dlq_topic} | error={e}",
                 exc_info=True,
@@ -561,6 +793,8 @@ class EventPublisher:
             - circuit_breaker_opens: Times circuit breaker opened
             - retries_attempted: Total retry attempts
             - circuit_breaker_status: Current circuit breaker status
+            - serialization_errors: Count of serialization failures (not circuit breaker)
+            - envelope_errors: Count of envelope creation failures (not circuit breaker)
         """
         total_events = self.metrics["events_published"] + self.metrics["events_failed"]
         avg_publish_time = (
@@ -596,7 +830,11 @@ class EventPublisher:
                     )
                 else:
                     logger.info("All messages flushed successfully")
+            except (ConnectionError, TimeoutError, OSError) as e:
+                # Network errors during flush are logged but don't propagate
+                logger.error(f"Network error flushing producer: {e}")
             except Exception as e:
+                # Intentionally broad: cleanup must never raise
                 logger.error(f"Error flushing producer: {e}")
 
         logger.info(f"EventPublisher closed | metrics={self.get_metrics()}")

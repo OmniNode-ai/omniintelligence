@@ -4,12 +4,19 @@ Unit tests for sensitive environment variable redaction in Contract Linter.
 
 Tests for _is_sensitive_env_var, _get_sensitive_env_values, and redact_sensitive_values
 functions that prevent accidental exposure of secrets in error messages.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 import os
 from unittest import mock
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     REDACTED_VALUE,

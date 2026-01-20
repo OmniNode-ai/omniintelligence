@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OmniIntelligence provides code quality analysis, pattern learning, vectorization, and intelligence APIs as canonical ONEX nodes following the Omninode architecture patterns.
+OmniIntelligence is a migration/rebuild of the legacy `omniarchon` intelligence platform into canonical ONEX nodes following the Omninode architecture patterns. The system provides code quality analysis, pattern learning, vectorization, and intelligence APIs as first-class nodes.
 
 ## Development Commands
 
@@ -29,11 +29,6 @@ ruff check --fix src tests # Auto-fix
 black src tests            # Format
 isort src tests            # Sort imports
 mypy src                   # Type check
-
-# Contract validation
-python -m omniintelligence.tools.contract_linter path/to/contract.yaml           # Validate single contract
-python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml --verbose # Validate multiple contracts
-python -m omniintelligence.tools.contract_linter contract.yaml --json            # JSON output
 ```
 
 ## Architecture
@@ -45,7 +40,7 @@ The system decomposes intelligence operations into specialized ONEX nodes follow
 | Type | Purpose | Examples |
 |------|---------|----------|
 | **Orchestrator** | Coordinate workflows, route operations | `intelligence_orchestrator` |
-| **Reducer** | Manage state, FSM transitions | `intelligence_reducer`, `ingestion_reducer` |
+| **Reducer** | Manage state, FSM transitions | `intelligence_reducer` (unified, handles all FSMs via fsm_type) |
 | **Compute** | Pure data processing, no side effects | `vectorization_compute`, `pattern_learning_compute`, `quality_scoring_compute` |
 | **Effect** | External I/O (Kafka, DB, HTTP) | `ingestion_effect`, `intelligence_api_effect`, `intelligence_adapter` |
 
@@ -88,58 +83,12 @@ nodes/
         └── node_tests/          # Node-specific tests
 ```
 
-## Naming Conventions
-
-All code artifacts must follow ONEX naming standards. See [NAMING_CONVENTIONS.md](docs/conventions/NAMING_CONVENTIONS.md) for complete reference.
-
-### File Prefixes
-
-| Prefix | Usage | Example |
-|--------|-------|---------|
-| `model_*` | Pydantic models | `model_intelligence_input.py` |
-| `enum_*` | Enumerations | `enum_operation_type.py` |
-| `protocol_*` | Protocol interfaces | `protocol_intelligence.py` |
-| `service_*` | Service implementations | `service_quality_scoring.py` |
-| `node_*` | ONEX nodes | `node_intelligence_reducer.py` |
-
-### Node Class Naming
+### Naming Conventions
 
 - **Effect nodes**: `Node{Name}Effect` (e.g., `NodeIntelligenceAdapterEffect`)
-- **Compute nodes**: `Node{Name}Compute` (e.g., `NodeVectorizationCompute`)
-- **Reducer nodes**: `Node{Name}Reducer` (e.g., `NodeIntelligenceReducer`)
-- **Orchestrator nodes**: `Node{Name}Orchestrator` (e.g., `NodeIntelligenceOrchestrator`)
-
-### Field Naming Quick Reference
-
-| Pattern | Usage | Example |
-|---------|-------|---------|
-| `{entity}_id` | Identifiers | `task_id`, `correlation_id` |
-| `{entity}_type` | Type discriminators | `event_type`, `operation_type` |
-| `*_at` | Timestamps | `created_at`, `completed_at` |
-| `*_ms` | Durations (milliseconds) | `timeout_ms`, `latency_ms` |
-| `*_count` | Counts | `retry_count`, `completed_count` |
-| `*_score` | Scores (0.0-1.0) | `confidence_score`, `quality_score` |
-| `*_enabled` | Boolean feature flags | `cache_enabled`, `parallel_enabled` |
-| `is_*` | Boolean state checks | `is_success`, `is_complete` |
-| `has_*` | Boolean presence checks | `has_dependencies` |
-
-### Common Mistakes
-
-```python
-# ❌ Wrong
-timeout_seconds: int    # Use timeout_ms
-completed_tasks: int    # Use completed_count (it's a count, not a list)
-results: dict           # Use task_results (too generic)
-status: str             # Use batch_status (add entity prefix)
-timestamp: datetime     # Use created_at
-
-# ✅ Correct
-timeout_ms: int
-completed_count: int
-task_results: dict
-batch_status: str
-created_at: datetime
-```
+- **Compute nodes**: `Node{Name}Compute`
+- **Reducer nodes**: `Node{Name}Reducer`
+- **Orchestrator nodes**: `Node{Name}Orchestrator`
 
 ## Key Dependencies
 
@@ -208,116 +157,23 @@ pytest -m performance   # Performance benchmarks
 
 Operation types are defined in `EnumIntelligenceOperationType`:
 
-- **Quality Assessment**: `assess_code_quality`, `assess_document`, `compliance/check`
-- **Pattern Learning**: `pattern/match`, `hybrid/score`, `semantic/analyze`
-- **Performance**: `baseline`, `opportunities`, `optimize`, `trends`
-- **Vectorization**: Semantic search, indexing, batch operations
-- **Traceability**: Lineage tracking, execution logs, analytics
+- **Quality Assessment**: `assess_code_quality`, `analyze_document_quality`, `get_quality_patterns`, `check_architectural_compliance`
+- **Pattern Learning**: `pattern_match`, `hybrid_score`, `semantic_analyze`, `get_pattern_metrics`, `get_cache_stats`, `clear_pattern_cache`, `get_pattern_health`
+- **Performance**: `establish_performance_baseline`, `identify_optimization_opportunities`, `apply_performance_optimization`, `get_optimization_report`, `monitor_performance_trends`
+- **Document Freshness**: `analyze_document_freshness`, `get_stale_documents`, `refresh_documents`, `get_freshness_stats`, `get_document_freshness`, `cleanup_freshness_data`
+- **Vector Operations**: `advanced_vector_search`, `quality_weighted_search`, `batch_index_documents`, `get_vector_stats`, `optimize_vector_index`
+- **Pattern Traceability**: `track_pattern_lineage`, `get_pattern_lineage`, `get_execution_logs`, `get_execution_summary`
+- **Autonomous Learning**: `ingest_patterns`, `record_success_pattern`, `predict_agent`, `predict_execution_time`, `calculate_safety_score`, `get_autonomous_stats`, `get_autonomous_health`
 
-## Reference Documentation
+## Migration Context
 
-Source reference material is preserved in `reference_sources/omniarchon/` for context. See:
-- `OMNIARCHON_INVENTORY.md` - Detailed component inventory
-- `QUICK_REFERENCE.md` - API reference
-
-## Tools
-
-OmniIntelligence provides CLI tools for development and validation:
-
-### Contract Linter
-
-Validates ONEX contract YAML files against canonical Pydantic models:
-
-```bash
-# Validate single contract
-uv run python -m omniintelligence.tools.contract_linter path/to/contract.yaml
-
-# Validate multiple contracts with verbose output
-uv run python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml --verbose
-
-# JSON output for CI/CD integration
-uv run python -m omniintelligence.tools.contract_linter contract.yaml --json
-```
-
-**Features:**
-- Validates node contracts (compute, effect, reducer, orchestrator)
-- Validates FSM subcontracts and workflow coordination contracts
-- Integrated with pre-commit hooks and GitHub Actions CI
-- Structured error output with field paths
-- Exit codes: 0 (success), 1 (validation errors), 2 (file errors)
-
-See [tools/README.md](src/omniintelligence/tools/README.md) for complete documentation.
-
-### I/O Audit
-
-Enforces ONEX node purity by detecting forbidden I/O patterns in compute nodes:
-
-```bash
-# Run I/O audit on default targets
-uv run python -m omniintelligence.audit.io_audit
-
-# Run with custom whitelist
-uv run python -m omniintelligence.audit.io_audit --whitelist tests/audit/io_audit_whitelist.yaml
-```
-
-**Forbidden Patterns:**
-- `net-client`: Network/DB client imports (confluent_kafka, httpx, asyncpg, etc.)
-- `env-access`: Environment variable access (os.environ, os.getenv)
-- `file-io`: File system operations (open(), Path.read_text(), FileHandler)
-
-**Whitelist Hierarchy (CRITICAL):**
-
-The I/O audit uses a two-level whitelist with a strict hierarchy:
-
-1. **YAML Whitelist** (`tests/audit/io_audit_whitelist.yaml`) - Primary source of truth
-2. **Inline Pragmas** (`# io-audit: ignore-next-line <rule>`) - Line-level granularity
-
-**IMPORTANT**: Inline pragmas ONLY work for files already listed in the YAML whitelist. If you add a pragma to a file not in the whitelist, it will be silently ignored.
-
-**Correct Usage Pattern:**
-
-```yaml
-# Step 1: Add to io_audit_whitelist.yaml
-files:
-  - path: "src/omniintelligence/nodes/my_effect_node.py"
-    reason: "Effect node requires Kafka client"
-    allowed_rules:
-      - "net-client"
-```
-
-```python
-# Step 2: Use inline pragma in the whitelisted file
-# io-audit: ignore-next-line net-client
-from confluent_kafka import Producer  # Now correctly whitelisted
-```
-
-See the module docstring in `src/omniintelligence/audit/io_audit.py` for complete documentation.
+Legacy source code is preserved in `migration_sources/omniarchon/` for reference. See:
+- `docs/migrations/omniarchon_to_omniintelligence.md` - Migration guide
+- `docs/migrations/NODE_MAPPING_REFERENCE.md` - Node mapping reference
+- `docs/migrations/CONTRACT_CORRECTIONS.md` - Contract corrections
+- `docs/migrations/ONEX_MIGRATION_PLAN.md` - Detailed migration plan
 
 ## Configuration
-
-### Pre-commit and CI Synchronization
-
-The pre-commit hooks and GitHub Actions CI workflow must stay synchronized to ensure consistent validation between local development and CI pipelines. When path patterns diverge, hooks may run on different files locally vs in CI, causing missed issues or false failures.
-
-**Files to keep in sync:**
-- `.pre-commit-config.yaml` - Local pre-commit hook configuration
-- `.github/workflows/ci.yaml` - GitHub Actions CI workflow
-
-**Validation:**
-
-```bash
-# Validate alignment between pre-commit and CI configurations
-uv run python scripts/validate_ci_precommit_alignment.py --verbose
-```
-
-The validation script checks:
-- Path filter patterns match between configurations
-- Hook types correspond to CI job steps
-- No drift between local and CI validation
-
-This validation runs automatically in CI and as a pre-commit hook.
-
-### Environment Configuration
 
 Configuration uses Pydantic Settings with environment variables:
 

@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 
+
 # =========================================================================
 # Core Pytest Configuration
 # =========================================================================
@@ -62,7 +63,7 @@ def calculate_sum(numbers: list[int]) -> int:
 def sample_metadata() -> dict[str, str]:
     """Sample metadata for testing."""
     return {
-        "file_path": "src/utils/math.py",
+        "source_path": "src/utils/math.py",
         "language": "python",
         "project_name": "test_project",
         "author": "test_user",
@@ -73,7 +74,7 @@ def sample_metadata() -> dict[str, str]:
 def sample_pattern_context() -> dict[str, str]:
     """Provide sample context for pattern extraction tests."""
     return {
-        "file_path": "/test/example.py",
+        "source_path": "/test/example.py",
         "language": "python",
         "framework": "none",
     }
@@ -88,10 +89,7 @@ def sample_pattern_context() -> dict[str, str]:
 def mock_onex_container():
     """Create a mock ONEX container for testing."""
     try:
-        from omnibase_core.models.container.model_onex_container import (
-            ModelONEXContainer,
-        )
-
+        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
         return ModelONEXContainer()
     except ImportError:
         # Fallback to mock if omnibase_core not available
@@ -191,24 +189,22 @@ def sample_intelligence_input_dict() -> dict[str, Any]:
 @pytest.fixture
 def sample_execution_trace() -> str:
     """Provide a sample execution trace for pattern extraction tests."""
-    return json.dumps(
-        {
-            "events": [
-                {
-                    "type": "function_call",
-                    "function": "analyze_code",
-                    "duration_ms": 15.3,
-                },
-                {
-                    "type": "function_call",
-                    "function": "generate_output",
-                    "duration_ms": 25.2,
-                },
-                {
-                    "type": "status",
-                    "status": "completed",
-                    "duration_ms": 5.1,
-                },
-            ]
-        }
-    )
+    return json.dumps({
+        "events": [
+            {
+                "type": "function_call",
+                "function": "analyze_code",
+                "duration_ms": 15.3,
+            },
+            {
+                "type": "function_call",
+                "function": "generate_output",
+                "duration_ms": 25.2,
+            },
+            {
+                "type": "status",
+                "status": "completed",
+                "duration_ms": 5.1,
+            },
+        ]
+    })

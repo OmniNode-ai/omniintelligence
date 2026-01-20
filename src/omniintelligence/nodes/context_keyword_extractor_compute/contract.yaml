@@ -1,0 +1,76 @@
+---
+# ONEX Node Contract - Context Keyword Extractor Compute Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "context_keyword_extractor_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for extracting contextual keywords from code and documentation. Identifies key terms, domain
+  concepts, and technical vocabulary.
+input_model:
+  name: "ModelKeywordExtractionInput"
+  module: "omniintelligence.nodes.context_keyword_extractor_compute.models"
+  description: "Input containing content and extraction parameters."
+output_model:
+  name: "ModelKeywordExtractionOutput"
+  module: "omniintelligence.nodes.context_keyword_extractor_compute.models"
+  description: "Output containing extracted keywords and their context."
+operations:
+  - name: "extract_keywords"
+    description: "Extract contextual keywords from content"
+    input_fields:
+      - content
+      - correlation_id
+      - extraction_strategy
+      - max_keywords
+    output_fields:
+      - success
+      - keywords
+      - keyword_contexts
+# Protocol Dependencies (Future)
+# ==============================
+# Status: Backlog - Phase 3 (v0.4.0)
+# When implementing full functionality, a keyword extractor protocol will be needed.
+# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+dependencies: []
+# Future protocol dependency (uncomment when protocols module exists):
+# - name: "keyword_extractor"
+#   type: "protocol"
+#   module: "omniintelligence.protocols"
+#   description: "Keyword extraction engine"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "KeywordExtractionValidationError"
+      error_code: "KEYWORD_001"
+      description: "Input validation failed (e.g., empty content)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "KeywordExtractionComputeError"
+      error_code: "KEYWORD_002"
+      description: "Error during keyword extraction"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-02"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "keywords"
+    - "context"
+    - "pattern-extraction"

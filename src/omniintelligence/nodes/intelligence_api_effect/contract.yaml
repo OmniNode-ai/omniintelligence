@@ -1,0 +1,89 @@
+---
+# ONEX Node Contract - Intelligence API Effect Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "intelligence_api_effect"
+node_type: "EFFECT_GENERIC"
+description: >-
+  Effect node for making calls to external intelligence APIs. Handles LLM calls, embedding generation,
+  and other AI service integrations.
+input_model:
+  name: "ModelIntelligenceApiInput"
+  module: "omniintelligence.nodes.intelligence_api_effect.models"
+  description: "Input containing API endpoint, request data, and parameters."
+output_model:
+  name: "ModelIntelligenceApiOutput"
+  module: "omniintelligence.nodes.intelligence_api_effect.models"
+  description: "Output containing API response and status."
+# TODO: Handler routing - modules not yet implemented
+# When implementing, create handlers/ directory with the following modules:
+# - handler_llm_call.py (HandlerLLMCall)
+# - handler_embeddings_call.py (HandlerEmbeddingsCall)
+# - handler_code_analysis.py (HandlerCodeAnalysis)
+#
+# handler_routing:
+#   routing_strategy: "payload_type_match"
+#   handlers:
+#     - operation: "call_llm"
+#       handler:
+#         name: "HandlerLLMCall"
+#         module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_llm_call"
+#       description: "Call LLM API for text generation"
+#     - operation: "generate_embeddings"
+#       handler:
+#         name: "HandlerEmbeddingsCall"
+#         module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_embeddings_call"
+#       description: "Generate embeddings via API"
+#     - operation: "analyze_code"
+#       handler:
+#         name: "HandlerCodeAnalysis"
+#         module: "omniintelligence.nodes.intelligence_api_effect.handlers.handler_code_analysis"
+#       description: "Analyze code quality via API"
+#   execution_mode: "sequential"
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 1000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      # Standard Python transient errors
+      - "ConnectionError"
+      - "TimeoutError"
+      - "OSError"
+      # httpx-specific errors (transient)
+      - "httpx.ConnectError"
+      - "httpx.ConnectTimeout"
+      - "httpx.ReadTimeout"
+      - "httpx.WriteTimeout"
+      # HTTP 429 rate limiting (via status code check, not exception)
+      - "RateLimitError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+dependencies:
+  - name: "http_client"
+    type: "protocol"
+    module: "httpx"
+    description: "HTTP client for API calls"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "effect"
+    - "api"
+    - "intelligence"
+    - "llm"

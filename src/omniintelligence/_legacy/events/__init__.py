@@ -1,56 +1,41 @@
-"""Event Infrastructure - Publishers and event models."""
+"""
+Legacy events module compatibility layer.
 
-from omniintelligence._legacy.events.publisher.event_publisher import (
-    EventPublisher,
-    create_event_publisher,
+.. deprecated::
+    This module is deprecated and will be removed in v2.0.0.
+    Continue using ``_legacy.events`` until ``omniintelligence.events`` is released.
+
+This module provides backwards-compatible imports for code that references
+the old ``_legacy.events`` module paths.
+
+Migration Status:
+    The events module functionality is being migrated to the canonical
+    ``omniintelligence.events`` location. **Until that migration is complete,
+    this module (``_legacy.events``) remains the canonical location for
+    event publishing functionality.**
+
+Current Usage (continue using)::
+
+    from omniintelligence._legacy.events.publisher import EventPublisher
+
+Future Usage (when omniintelligence.events is available)::
+
+    from omniintelligence.events.publisher import EventPublisher
+
+Timeline:
+    - v1.x: _legacy.events is the canonical location (deprecation warning is informational)
+    - v2.0.0: omniintelligence.events will be available, _legacy.events will be removed
+"""
+
+import warnings
+
+warnings.warn(
+    "The omniintelligence._legacy.events module will be removed in v2.0.0. "
+    "Continue using _legacy.events until omniintelligence.events is released.",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
-# Event models are now re-exported from the canonical location (omniintelligence.models)
-from omniintelligence._legacy.models import (
-    ModelEventEnvelope,
-    ModelEventMetadata,
-    ModelEventSource,
-    EnumCodeAnalysisEventType,
-    EnumAnalysisOperationType,
-    EnumAnalysisErrorCode,
-    ModelCodeAnalysisRequestPayload,
-    ModelCodeAnalysisCompletedPayload,
-    ModelCodeAnalysisFailedPayload,
-    ModelPatternExtractionPayload,
-    ModelInfrastructureScanPayload,
-    ModelDiscoveryPayload,
-    ModelSchemaDiscoveryPayload,
-    IntelligenceAdapterEventHelpers,
-    create_request_event,
-    create_completed_event,
-    create_failed_event,
-)
+from omniintelligence._legacy.events import publisher
 
-__all__ = [
-    "EnumAnalysisErrorCode",
-    "EnumAnalysisOperationType",
-    # Code analysis event types
-    "EnumCodeAnalysisEventType",
-    # Publisher
-    "EventPublisher",
-    # Helpers
-    "IntelligenceAdapterEventHelpers",
-    "ModelCodeAnalysisCompletedPayload",
-    "ModelCodeAnalysisFailedPayload",
-    # Code analysis payloads
-    "ModelCodeAnalysisRequestPayload",
-    "ModelDiscoveryPayload",
-    # Event envelope models
-    "ModelEventEnvelope",
-    "ModelEventMetadata",
-    "ModelEventSource",
-    "ModelInfrastructureScanPayload",
-    # Intelligence payloads
-    "ModelPatternExtractionPayload",
-    "ModelSchemaDiscoveryPayload",
-    "create_completed_event",
-    "create_event_publisher",
-    "create_failed_event",
-    # Convenience functions
-    "create_request_event",
-]
+__all__ = ["publisher"]

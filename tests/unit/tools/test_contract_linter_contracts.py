@@ -4,11 +4,18 @@ Unit tests for Contract Linter contract type detection and validation.
 
 Tests for contract type detection, FSM subcontract validation, and integration
 tests using real contract files from the codebase.
+
+Note: These tests require omnibase_core to be installed.
 """
 
 from pathlib import Path
 
 import pytest
+
+# Skip entire module if omnibase_core is not available
+pytest.importorskip(
+    "omnibase_core", reason="omnibase_core required for contract linter tests"
+)
 
 from omniintelligence.tools.contract_linter import (
     ContractLinter,

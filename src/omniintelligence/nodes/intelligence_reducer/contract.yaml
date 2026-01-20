@@ -1,0 +1,505 @@
+---
+# ONEX Node Contract - Intelligence Reducer Node
+#
+# This reducer follows the pure function pattern for intelligence workflows:
+#   reduce(state, event) -> ModelReducerOutput[state + intents]
+#
+# The FSM defines state transitions for three workflow types:
+#   - INGESTION: Document ingestion lifecycle
+#   - PATTERN_LEARNING: 4-phase pattern learning
+#   - QUALITY_ASSESSMENT: Quality scoring lifecycle
+#
+# All state is stored in PostgreSQL fsm_state table.
+# All state transition logic is driven by this contract.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "intelligence_reducer"
+node_type: "REDUCER_GENERIC"
+description: >-
+  Unified reducer for all intelligence FSMs. Pure reducer with all state stored in PostgreSQL fsm_state
+  table. Handles INGESTION, PATTERN_LEARNING, and QUALITY_ASSESSMENT FSM types via enum routing.
+input_model:
+  name: "ModelReducerInput"
+  module: "omniintelligence.nodes.intelligence_reducer.models"
+  description: >-
+    Discriminated union of FSM-specific input models (ModelReducerInputIngestion, ModelReducerInputPatternLearning,
+    ModelReducerInputQualityAssessment). Each variant has a typed payload model specific to its FSM type.
+  variants:
+    - name: "ModelReducerInputIngestion"
+      discriminator_value: "INGESTION"
+      payload_model: "ModelIngestionPayload"
+    - name: "ModelReducerInputPatternLearning"
+      discriminator_value: "PATTERN_LEARNING"
+      payload_model: "ModelPatternLearningPayload"
+    - name: "ModelReducerInputQualityAssessment"
+      discriminator_value: "QUALITY_ASSESSMENT"
+      payload_model: "ModelQualityAssessmentPayload"
+output_model:
+  name: "ModelReducerOutput"
+  module: "omniintelligence.nodes.intelligence_reducer.models"
+  description: >-
+    Reducer output containing success status, state transition details, typed intents (ModelReducerIntent),
+    and typed metadata (ModelReducerMetadata). All fields use strong typing without dict[str, Any].
+# FSM State Machine Definition
+# ============================
+# The intelligence reducer manages three FSM types, each with its own state machine.
+# This section defines the INGESTION FSM as the primary example.
+# All FSMs follow the pattern: (state, event) -> (new_state, intents)
+state_machine:
+  state_machine_name: "intelligence_fsm"
+  initial_state: "idle"
+  states:
+    # Idle state - waiting for trigger
+    - state_name: "idle"
+      description: "Initial state - waiting for operation trigger"
+      entry_actions: []
+      exit_actions: []
+      required_data: []
+    # Processing states for INGESTION FSM
+    - state_name: "received"
+      description: "Document/entity received for processing"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "entity_id"
+        - "correlation_id"
+    - state_name: "processing"
+      description: "Processing in progress"
+      entry_actions:
+        - "emit_workflow_trigger"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+        - "correlation_id"
+    - state_name: "indexed"
+      description: "Document indexed successfully"
+      is_terminal: false
+      entry_actions:
+        - "emit_completion_event"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    # Pattern learning states
+    - state_name: "foundation"
+      description: "Foundation phase of pattern learning"
+      entry_actions:
+        - "emit_workflow_trigger"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+        - "correlation_id"
+    - state_name: "matching"
+      description: "Matching phase of pattern learning"
+      entry_actions:
+        - "emit_workflow_trigger"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    - state_name: "validation"
+      description: "Validation phase of pattern learning"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    - state_name: "traceability"
+      description: "Traceability phase of pattern learning"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    - state_name: "completed"
+      description: "Pattern learning completed successfully"
+      is_terminal: false
+      entry_actions:
+        - "emit_completion_event"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    # Quality assessment states
+    - state_name: "raw"
+      description: "Raw input received for quality assessment"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    - state_name: "assessing"
+      description: "Quality assessment in progress"
+      entry_actions:
+        - "emit_workflow_trigger"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    - state_name: "scored"
+      description: "Quality scoring completed"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "entity_id"
+        - "quality_score"
+    - state_name: "stored"
+      description: "Quality results stored"
+      is_terminal: false
+      entry_actions:
+        - "emit_completion_event"
+      exit_actions: []
+      required_data:
+        - "entity_id"
+    # Failure state
+    - state_name: "failed"
+      description: "Operation failed - recoverable via reset"
+      is_terminal: false
+      entry_actions:
+        - "emit_failure_event"
+      exit_actions: []
+      required_data:
+        - "failure_reason"
+  transitions:
+    # INGESTION transitions
+    - from_state: "idle"
+      to_state: "received"
+      trigger: "document_received"
+      description: "Document received for ingestion"
+      actions:
+        - action_name: "initialize_ingestion"
+          action_type: "state_update"
+    - from_state: "received"
+      to_state: "processing"
+      trigger: "start_processing"
+      description: "Start document processing"
+      actions:
+        - action_name: "emit_workflow_intent"
+          action_type: "intent_emission"
+    - from_state: "processing"
+      to_state: "indexed"
+      trigger: "complete_indexing"
+      description: "Document indexing completed"
+      actions:
+        - action_name: "emit_completion_intent"
+          action_type: "intent_emission"
+    - from_state: "processing"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Processing failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "indexed"
+      to_state: "processing"
+      trigger: "reindex"
+      description: "Re-index document"
+      actions:
+        - action_name: "emit_workflow_intent"
+          action_type: "intent_emission"
+    # PATTERN_LEARNING transitions
+    - from_state: "idle"
+      to_state: "foundation"
+      trigger: "start_pattern_learning"
+      description: "Start pattern learning"
+      actions:
+        - action_name: "initialize_pattern_learning"
+          action_type: "state_update"
+    - from_state: "foundation"
+      to_state: "matching"
+      trigger: "advance_to_matching"
+      description: "Advance to matching phase"
+      actions:
+        - action_name: "emit_workflow_intent"
+          action_type: "intent_emission"
+    - from_state: "matching"
+      to_state: "validation"
+      trigger: "advance_to_validation"
+      description: "Advance to validation phase"
+      actions: []
+    - from_state: "validation"
+      to_state: "traceability"
+      trigger: "advance_to_traceability"
+      description: "Advance to traceability phase"
+      actions: []
+    - from_state: "traceability"
+      to_state: "completed"
+      trigger: "complete_learning"
+      description: "Pattern learning completed"
+      actions:
+        - action_name: "emit_completion_intent"
+          action_type: "intent_emission"
+    # QUALITY_ASSESSMENT transitions
+    - from_state: "idle"
+      to_state: "raw"
+      trigger: "start_assessment"
+      description: "Start quality assessment"
+      actions:
+        - action_name: "initialize_assessment"
+          action_type: "state_update"
+    - from_state: "raw"
+      to_state: "assessing"
+      trigger: "begin_scoring"
+      description: "Begin quality scoring"
+      actions:
+        - action_name: "emit_workflow_intent"
+          action_type: "intent_emission"
+    - from_state: "assessing"
+      to_state: "scored"
+      trigger: "complete_scoring"
+      description: "Scoring completed"
+      actions: []
+    - from_state: "scored"
+      to_state: "stored"
+      trigger: "store_results"
+      description: "Store quality results"
+      actions:
+        - action_name: "emit_completion_intent"
+          action_type: "intent_emission"
+    - from_state: "stored"
+      to_state: "assessing"
+      trigger: "reassess"
+      description: "Re-assess quality"
+      actions:
+        - action_name: "emit_workflow_intent"
+          action_type: "intent_emission"
+    # Failure transitions
+    - from_state: "foundation"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Pattern learning failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "matching"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Matching phase failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "validation"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Validation phase failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "traceability"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Traceability phase failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "raw"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Raw input processing failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "assessing"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Quality assessment failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    - from_state: "scored"
+      to_state: "failed"
+      trigger: "fail"
+      description: "Quality scoring storage failed"
+      actions:
+        - action_name: "record_failure"
+          action_type: "state_update"
+    # Reset transitions
+    - from_state: "failed"
+      to_state: "idle"
+      trigger: "reset"
+      description: "Reset from failed state"
+      actions:
+        - action_name: "clear_state"
+          action_type: "state_update"
+    - from_state: "completed"
+      to_state: "idle"
+      trigger: "reset"
+      description: "Reset from completed state"
+      actions:
+        - action_name: "clear_state"
+          action_type: "state_update"
+    - from_state: "indexed"
+      to_state: "idle"
+      trigger: "reset"
+      description: "Reset from indexed state"
+      actions:
+        - action_name: "clear_state"
+          action_type: "state_update"
+    - from_state: "stored"
+      to_state: "idle"
+      trigger: "reset"
+      description: "Reset from stored state"
+      actions:
+        - action_name: "clear_state"
+          action_type: "state_update"
+  persistence_enabled: true
+  # =============================================================================
+  # TERMINAL STATE SEMANTICS
+  # =============================================================================
+  # In this FSM design, states marked with `is_terminal: false` are NOT truly
+  # terminal - they allow reset transitions back to "idle" for workflow restart.
+  #
+  # The terminal_states list is intentionally empty because:
+  #   1. All "completed" states (indexed, completed, stored) support reset → idle
+  #   2. Failed states also support reset → idle for recovery
+  #   3. This enables workflow restarts without creating new FSM instances
+  #
+  # States with is_terminal: false that act as "logical endpoints":
+  #   - indexed: Document successfully indexed (can reindex or reset)
+  #   - completed: Pattern learning completed (can reset)
+  #   - stored: Quality results stored (can reassess or reset)
+  #   - failed: Error occurred (can reset for recovery)
+  #
+  # True terminal states would require creating a new FSM instance to restart.
+  # =============================================================================
+  terminal_states: []
+# =============================================================================
+# IMPLEMENTATION STATUS AND TODO TRACKING
+# =============================================================================
+# This section tracks pending implementation work for the intelligence reducer.
+# Status: PARTIAL - Core models complete, intent emission pending.
+#
+# COMPLETED:
+#   - [x] Typed input models (ModelReducerInput discriminated union)
+#   - [x] FSM-specific payload models (Ingestion, PatternLearning, QualityAssessment)
+#   - [x] Typed output models (ModelReducerOutput, ModelReducerIntent, ModelReducerMetadata)
+#   - [x] Idempotency hash using only validated fields (entity_id, fsm_type, action)
+#   - [x] Validation rules for required fields
+#
+# PENDING:
+#   - [ ] Intent emission integration with orchestrator
+#   - [ ] State model for pure reducer pattern (ModelIntelligenceState)
+#   - [ ] Action enum to restrict valid actions per FSM type
+#
+# Intent Emission Configuration (PENDING)
+# =======================================
+# When implementing intent-based workflow triggering, enable this configuration:
+#
+# intent_emission:
+#   enabled: true
+#   intents:
+#     - intent_type: "workflow.trigger"
+#       target_pattern: "orchestrator://intelligence/{operation_type}"
+#       payload_model: "ModelReducerIntentPayload"
+#       payload_module: "omniintelligence.nodes.intelligence_reducer.models"
+#       description: "Trigger workflow execution in orchestrator"
+#     - intent_type: "event.publish"
+#       target_pattern: "kafka://{topic}"
+#       payload_model: "ModelReducerIntentPayload"
+#       payload_module: "omniintelligence.nodes.intelligence_reducer.models"
+#       description: "Publish event to Kafka"
+#
+# State Model Configuration (PENDING)
+# ===================================
+# When implementing pure reducer pattern with immutable state:
+#
+# state_model:
+#   name: "ModelIntelligenceState"
+#   module: "omniintelligence.nodes.intelligence_reducer.models"
+#   description: "Immutable state model for pure reducer pattern"
+# Validation Configuration
+# ========================
+# Note: fsm_type validation values correspond to EnumFSMType enum values.
+# See: omniintelligence.enums.enum_fsm.EnumFSMType
+validation:
+  enabled: true
+  rules:
+    - field: "entity_id"
+      required: true
+      error_code: "missing_entity_id"
+      error_message: "entity_id is required for state tracking"
+    - field: "fsm_type"
+      required: true
+      # These values correspond to EnumFSMType enum (omniintelligence.enums.EnumFSMType)
+      # The enum provides type safety in Python code, while valid_values enforces at contract level.
+      valid_values:
+        - "INGESTION"  # EnumFSMType.INGESTION
+        - "PATTERN_LEARNING"  # EnumFSMType.PATTERN_LEARNING
+        - "QUALITY_ASSESSMENT"  # EnumFSMType.QUALITY_ASSESSMENT
+      error_code: "invalid_fsm_type"
+      error_message: "fsm_type must be INGESTION, PATTERN_LEARNING, or QUALITY_ASSESSMENT"
+    - field: "action"
+      required: true
+      error_code: "missing_action"
+      error_message: "action (trigger) is required for FSM state transitions"
+# Idempotency Configuration
+# =========================
+# NOTE: hash_fields must only include fields guaranteed by validation rules above.
+# "timestamp" was removed as it's not validated and may not be present in all inputs.
+# "correlation_id" is used instead as it's typically provided for traceability.
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  derivation: "deterministic_hash"
+  hash_fields:
+    - "entity_id"  # Required - validated above
+    - "fsm_type"  # Required - validated above
+    - "action"  # Required - validated above
+  # Optional: If event_id is provided in input, use it directly instead of hash
+  fallback_to_event_id: true
+  description: "Skip duplicate actions based on event_id or derived hash from validated fields"
+# Dependencies
+# ============
+dependencies:
+  - name: "container"
+    type: "ModelONEXContainer"
+    module: "omnibase_core.models.container.model_onex_container"
+    description: "ONEX dependency injection container"
+  - name: "database"
+    type: "protocol"
+    module: "omnibase_core.protocols"
+    description: "PostgreSQL database for FSM state storage"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "ReducerValidationError"
+      error_code: "REDUCER_VALIDATION_ERROR"
+      description: "Input validation failed (e.g., missing entity_id or invalid fsm_type)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "InvalidTransitionError"
+      error_code: "REDUCER_INVALID_TRANSITION"
+      description: "Invalid FSM state transition attempted"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "StatePersistenceError"
+      error_code: "REDUCER_STATE_PERSISTENCE_ERROR"
+      description: "Error persisting FSM state to database"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "DuplicateActionError"
+      error_code: "REDUCER_DUPLICATE_ACTION"
+      description: "Duplicate action detected via idempotency check"
+      recoverable: false
+      retry_strategy: "none"
+# Health Check
+# ============
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+# Metadata
+# ========
+metadata:
+  author: "OmniNode Team"
+  created: "2025-11-14"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "reducer"
+    - "fsm"
+    - "pure-function"
+    - "intelligence"
+    - "type-safe"
+    - "discriminated-union"

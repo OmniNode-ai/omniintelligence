@@ -445,10 +445,13 @@ jobs:
 
           # Find all contract files in nodes directories
           # Searches both current and legacy node locations
-          # Pattern matches: *_contract.yaml (compute, effect, reducer, orchestrator) and fsm_*.yaml
+          # Pattern matches:
+          #   - contract.yaml (canonical ONEX format)
+          #   - *_contract.yaml (legacy: compute_contract.yaml, effect_contract.yaml, etc.)
+          #   - fsm_*.yaml (FSM subcontracts)
           # Excludes subcontracts/ and workflows/ directories which contain partial contract fragments
           CONTRACT_FILES=$(find src/omniintelligence -type d -name "nodes" -exec \
-            find {} -type f \( -name "*_contract.yaml" -o -name "fsm_*.yaml" \) \
+            find {} -type f \( -name "contract.yaml" -o -name "*_contract.yaml" -o -name "fsm_*.yaml" \) \
               ! -path "*/subcontracts/*" \
               ! -path "*/workflows/*" \; 2>/dev/null | sort)
 
@@ -456,7 +459,7 @@ jobs:
           if [ -z "$CONTRACT_FILES" ]; then
             echo "::error::No contract files found! This indicates a path or pattern mismatch."
             echo "Searched in: src/omniintelligence/**/nodes/"
-            echo "Expected patterns: *_contract.yaml, fsm_*.yaml"
+            echo "Expected patterns: contract.yaml, *_contract.yaml, fsm_*.yaml"
             exit 1
           fi
 

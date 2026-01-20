@@ -73,10 +73,10 @@ async def read_file_async(path: str) -> str:
 # =========================================================================
 
 # VIOLATION: httpx import with alias
-import httpx as http_client  # noqa: E402
+import httpx as http_client
 
 # VIOLATION: confluent_kafka with alias
-import confluent_kafka as ck  # noqa: E402
+import confluent_kafka as ck
 
 
 async def make_aliased_http_request(url: str) -> str:

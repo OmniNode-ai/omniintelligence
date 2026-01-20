@@ -2,6 +2,10 @@
 -- Description: Create the unified FSM state tracking table
 -- Author: omniintelligence
 -- Date: 2025-11-14
+--
+-- Dependencies: 000_extensions.sql (pgcrypto, uuid-ossp, pg_trgm)
+-- Note: gen_random_uuid() is native to PostgreSQL 13+ and does not require
+-- any extension. Extensions are created in 000_extensions.sql.
 
 -- ============================================================================
 -- FSM State Table
