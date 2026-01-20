@@ -1,22 +1,22 @@
 # Node Status Report
-Generated: 2026-01-20 13:56:31
+Generated: 2026-01-20 19:11:06 UTC
 
 ## Summary
 
 ### Status Breakdown
 | Category | Count | Description |
 |----------|-------|-------------|
-| Pure Shells | 3 | Nodes with <100 lines, fully delegating to base class |
-| Stubs | 16 | Nodes with `is_stub: ClassVar[bool] = True` marker |
+| Pure Shells | 2 | Nodes with <100 lines, fully delegating to base class |
+| Stubs | 8 | Nodes with `is_stub: ClassVar[bool] = True` marker |
 | Needs Handler Extraction | 1 | Nodes with >100 lines that need refactoring |
 | Missing Node File | 1 | Node directories without node.py |
-| **Total** | **21** | |
+| **Total** | **12** | |
 
 ### Node Type Distribution
 | Type | Count |
 |------|-------|
-| Compute | 12 |
-| Effect | 6 |
+| Compute | 8 |
+| Effect | 1 |
 | Orchestrator | 2 |
 | Reducer | 1 |
 
@@ -24,33 +24,24 @@ Generated: 2026-01-20 13:56:31
 
 | Node | Type | Lines | Stub | Handlers | Contract | Models | Status |
 |------|------|------:|:----:|:--------:|:--------:|:------:|--------|
-| context_keyword_extractor_compute | Compute | 70 | Yes | No | Yes | Yes | Stub |
-| entity_extraction_compute | Compute | 70 | Yes | No | Yes | Yes | Stub |
-| execution_trace_parser_compute | Compute | 70 | Yes | No | Yes | Yes | Stub |
-| ingestion_effect | Effect | 97 | Yes | No | Yes | Yes | Stub |
-| intelligence_adapter | Effect | 2164 | No | Yes | Yes | No | **NEEDS EXTRACTION** |
-| intelligence_api_effect | Effect | 70 | Yes | No | Yes | Yes | Stub |
-| intelligence_orchestrator | Orchestrator | 47 | No | No | Yes | Yes | Pure Shell |
-| intelligence_reducer | Reducer | 46 | No | No | Yes | Yes | Pure Shell |
-| intent_classifier_compute | Compute | 77 | Yes | No | Yes | Yes | Stub |
-| memgraph_graph_effect | Effect | 75 | Yes | No | Yes | Yes | Stub |
+| execution_trace_parser_compute | Compute | 54 | Yes | No | Yes | Yes | Stub |
+| intelligence_adapter | Effect | 2095 | No | Yes | Yes | No | **NEEDS EXTRACTION** |
+| intelligence_orchestrator | Orchestrator | 35 | No | No | Yes | Yes | Pure Shell |
+| intelligence_reducer | Reducer | 34 | No | No | Yes | Yes | Pure Shell |
+| intent_classifier_compute | Compute | 61 | Yes | No | Yes | Yes | Stub |
 | pattern_assembler_compute | Compute | 0 | No | No | Yes | Yes | *Missing* |
-| pattern_assembler_orchestrator | Orchestrator | 70 | Yes | No | Yes | Yes | Stub |
-| pattern_learning_compute | Compute | 70 | Yes | No | Yes | Yes | Stub |
-| pattern_matching_compute | Compute | 75 | Yes | No | Yes | Yes | Stub |
-| postgres_pattern_effect | Effect | 70 | Yes | No | Yes | Yes | Stub |
-| qdrant_vector_effect | Effect | 96 | Yes | No | Yes | Yes | Stub |
-| quality_scoring_compute | Compute | 73 | Yes | No | Yes | Yes | Stub |
-| relationship_detection_compute | Compute | 70 | Yes | No | Yes | Yes | Stub |
-| semantic_analysis_compute | Compute | 82 | Yes | No | Yes | Yes | Stub |
-| success_criteria_matcher_compute | Compute | 71 | Yes | No | Yes | Yes | Stub |
-| vectorization_compute | Compute | 31 | No | No | Yes | Yes | Pure Shell |
+| pattern_assembler_orchestrator | Orchestrator | 54 | Yes | No | Yes | Yes | Stub |
+| pattern_learning_compute | Compute | 54 | Yes | No | Yes | Yes | Stub |
+| pattern_matching_compute | Compute | 60 | Yes | No | Yes | Yes | Stub |
+| quality_scoring_compute | Compute | 58 | Yes | No | Yes | Yes | Stub |
+| semantic_analysis_compute | Compute | 65 | Yes | No | Yes | Yes | Stub |
+| success_criteria_matcher_compute | Compute | 55 | Yes | No | Yes | Yes | Stub |
 
 ## Purity Violations
 
 The following nodes exceed 100 lines and need handler extraction:
 
-- **intelligence_adapter**: 2,164 lines (file: `src/omniintelligence/nodes/intelligence_adapter/node_intelligence_adapter_effect.py`)
+- **intelligence_adapter**: 2,095 lines (file: `src/omniintelligence/nodes/intelligence_adapter/node_intelligence_adapter_effect.py`)
 
 ### Why This Matters
 
@@ -69,7 +60,7 @@ The following node directories don't have a `node.py` file:
 ## Recommendations
 
 1. **Extract handlers from large nodes**: The nodes listed in Purity Violations should have their business logic moved to `handlers/` directories. This follows the ONEX pattern of 'pure shell' nodes.
-2. **Implement stub nodes**: 16/21 nodes are stubs. Prioritize implementing nodes based on operational requirements.
+2. **Implement stub nodes**: 8/12 nodes are stubs. Prioritize implementing nodes based on operational requirements.
 
 ## Legend
 
