@@ -74,6 +74,11 @@ except ImportError:
 # Canonical models
 from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
 
+# Handlers for operation-specific transformations
+from omniintelligence.nodes.intelligence_adapter.handlers import (
+    transform_quality_response,
+)
+
 # Stub implementations for removed legacy dependencies
 # These provide type compatibility without the full implementation
 # TODO: Implement full replacements if needed for production use
@@ -1921,62 +1926,21 @@ class NodeIntelligenceAdapterEffect:
         )
 
     def _transform_quality_response(self, response: Any) -> dict[str, Any]:
-        """
-        Transform quality assessment response to standard format.
+        """Transform quality assessment response to standard format.
+
+        Delegates to the extracted handler for the actual transformation logic.
+        This method is kept for backward compatibility and to maintain the
+        instance method interface expected by callers.
 
         Args:
             response: Quality assessment response from intelligence service
 
         Returns:
-            Dictionary with standardized quality data:
-            - success: Operation success status
-            - quality_score: Overall quality score (0.0-1.0)
-            - onex_compliance: ONEX compliance score (0.0-1.0)
-            - complexity_score: Complexity score
-            - issues: List of identified issues
-            - recommendations: List of recommendations
-            - patterns: Detected patterns
-            - result_data: Additional result metadata
+            Dictionary with standardized quality data.
+            See handlers.handler_transform_quality.transform_quality_response
+            for full documentation of the return format.
         """
-        issues = []
-        recommendations = []
-
-        # Extract issues from violations
-        if hasattr(response, "onex_compliance") and response.onex_compliance:
-            if hasattr(response.onex_compliance, "violations"):
-                issues.extend(response.onex_compliance.violations)
-            if hasattr(response.onex_compliance, "recommendations"):
-                recommendations.extend(response.onex_compliance.recommendations)
-
-        return {
-            "success": True,
-            "quality_score": response.quality_score,
-            "onex_compliance": (
-                response.onex_compliance.score
-                if hasattr(response, "onex_compliance") and response.onex_compliance
-                else 0.0
-            ),
-            "complexity_score": (
-                response.maintainability.complexity_score
-                if hasattr(response, "maintainability") and response.maintainability
-                else 0.0
-            ),
-            "issues": issues,
-            "recommendations": recommendations,
-            "patterns": [],
-            "result_data": {
-                "architectural_era": (
-                    response.architectural_era
-                    if hasattr(response, "architectural_era")
-                    else None
-                ),
-                "temporal_relevance": (
-                    response.temporal_relevance
-                    if hasattr(response, "temporal_relevance")
-                    else None
-                ),
-            },
-        }
+        return transform_quality_response(response)
 
     def _transform_performance_response(self, response: Any) -> dict[str, Any]:
         """
