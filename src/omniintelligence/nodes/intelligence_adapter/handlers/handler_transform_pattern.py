@@ -75,22 +75,48 @@ def transform_pattern_response(response: Any) -> dict[str, Any]:
     issues: list[str] = []
     recommendations: list[Any] = []
 
-    # Extract detected patterns
+    # Extract detected patterns with defensive model_dump handling
     detected_patterns = getattr(response, "detected_patterns", None) or []
-    patterns = [pattern.model_dump() for pattern in detected_patterns]
+    for pattern in detected_patterns:
+        try:
+            if hasattr(pattern, "model_dump") and callable(pattern.model_dump):
+                patterns.append(pattern.model_dump())
+            elif hasattr(pattern, "dict") and callable(pattern.dict):
+                # Fallback for older Pydantic v1 models
+                patterns.append(pattern.dict())
+            elif isinstance(pattern, dict):
+                # Already a dict, use as-is
+                patterns.append(pattern)
+            else:
+                # Last resort: convert to dict if possible, or wrap in dict
+                patterns.append({"raw_pattern": str(pattern)})
+        except Exception as e:
+            # Catch all exceptions from serialization to avoid failing the entire
+            # transformation due to one malformed pattern
+            patterns.append({"error": f"Failed to serialize pattern: {e}"})
 
-    # Extract anti-patterns as issues
+    # Extract anti-patterns as issues with defensive attribute access
     anti_patterns = getattr(response, "anti_patterns", None) or []
     for anti_pattern in anti_patterns:
-        if hasattr(anti_pattern, "pattern_type") and hasattr(
-            anti_pattern, "description"
-        ):
-            issues.append(
-                f"{anti_pattern.pattern_type}: {anti_pattern.description}"
-            )
+        pattern_type = getattr(anti_pattern, "pattern_type", None)
+        description = getattr(anti_pattern, "description", None)
+        if pattern_type and description:
+            issues.append(f"{pattern_type}: {description}")
+        elif pattern_type:
+            issues.append(f"{pattern_type}: (no description)")
+        elif description:
+            issues.append(f"Unknown anti-pattern: {description}")
+        # Skip anti-patterns with neither pattern_type nor description
 
-    # Extract recommendations
-    recommendations = list(getattr(response, "recommendations", None) or [])
+    # Extract recommendations with safe iteration
+    raw_recommendations = getattr(response, "recommendations", None)
+    if raw_recommendations is not None:
+        try:
+            recommendations = list(raw_recommendations)
+        except TypeError:
+            # Not iterable - wrap single value or convert to string
+            if raw_recommendations:
+                recommendations = [str(raw_recommendations)]
 
     # Extract ONEX compliance
     onex_compliance = 0.0

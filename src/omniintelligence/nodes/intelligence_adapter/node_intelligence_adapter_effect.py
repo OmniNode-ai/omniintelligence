@@ -1384,7 +1384,7 @@ class NodeIntelligenceAdapterEffect:
                 exc_info=True,
             )
 
-    async def _route_to_dlq(self, message: Any, error: Exception) -> None:
+    async def _route_to_dlq(self, message: Any, error: Exception | None) -> None:
         """
         Route failed message to Dead Letter Queue.
 
@@ -1400,7 +1400,7 @@ class NodeIntelligenceAdapterEffect:
 
         Args:
             message: Original Kafka message that failed processing
-            error: Exception explaining why processing failed
+            error: Exception explaining why processing failed (may be None)
 
         Note:
             If event_publisher is not initialized, the method logs a warning
@@ -1413,6 +1413,16 @@ class NodeIntelligenceAdapterEffect:
 
         original_topic = message.topic()
         dlq_topic = f"{original_topic}.dlq"
+
+        # Defensive: ensure error_type is consistently extracted using type().__name__
+        # Handle case where error might be None
+        if error is None:
+            error_type = "NoneType"
+            error_message = "Unknown error (None)"
+        else:
+            # Consistently use type(error).__name__ for all error types
+            error_type = type(error).__name__
+            error_message = str(error)
 
         # Check if event_publisher is available before doing extraction work
         if self.event_publisher is None:
@@ -1456,13 +1466,13 @@ class NodeIntelligenceAdapterEffect:
                     ).isoformat()
 
             # Build DLQ payload with full context
-            # Error details extracted directly - no intermediate variables needed
+            # Error details use pre-validated error_type and error_message for consistency
             dlq_payload = {
                 "original_message": original_payload,
                 "error": {
-                    "message": str(error),
+                    "message": error_message,
                     "traceback": traceback.format_exc(),
-                    "error_type": type(error).__name__,
+                    "error_type": error_type,
                 },
                 "original_metadata": {
                     "topic": original_topic,
@@ -1650,7 +1660,10 @@ class NodeIntelligenceAdapterEffect:
                     quality_response = await self._client.assess_code_quality(
                         quality_request
                     )
-                    result_data = self._transform_quality_response(quality_response)
+                    raw_result = self._transform_quality_response(quality_response)
+                    result_data = self._validate_transform_result(
+                        raw_result, "assess_code_quality"
+                    )
 
                 elif input_data.operation_type == "analyze_performance":
                     # Performance baseline endpoint
@@ -1666,7 +1679,10 @@ class NodeIntelligenceAdapterEffect:
                         ),
                     )
                     perf_response = await self._client.analyze_performance(perf_request)
-                    result_data = self._transform_performance_response(perf_response)
+                    raw_result = self._transform_performance_response(perf_response)
+                    result_data = self._validate_transform_result(
+                        raw_result, "analyze_performance"
+                    )
 
                 elif input_data.operation_type == "get_quality_patterns":
                     # Pattern detection endpoint
@@ -1686,7 +1702,10 @@ class NodeIntelligenceAdapterEffect:
                         include_recommendations=True,
                     )
                     pattern_response = await self._client.detect_patterns(pattern_request)
-                    result_data = self._transform_pattern_response(pattern_response)
+                    raw_result = self._transform_pattern_response(pattern_response)
+                    result_data = self._validate_transform_result(
+                        raw_result, "get_quality_patterns"
+                    )
 
                 else:
                     # Default to quality assessment for unknown operation types
@@ -1704,7 +1723,10 @@ class NodeIntelligenceAdapterEffect:
                     default_response = await self._client.assess_code_quality(
                         default_request
                     )
-                    result_data = self._transform_quality_response(default_response)
+                    raw_result = self._transform_quality_response(default_response)
+                    result_data = self._validate_transform_result(
+                        raw_result, "default_quality_assessment"
+                    )
 
                 # Calculate actual processing time
                 processing_time_ms = int((time.perf_counter() - operation_start) * 1000)
@@ -1891,6 +1913,88 @@ class NodeIntelligenceAdapterEffect:
     # =========================================================================
     # Transformation Methods (ONEX-compliant)
     # =========================================================================
+
+    def _validate_transform_result(
+        self,
+        result: Any,
+        operation_type: str,
+    ) -> dict[str, Any]:
+        """
+        Validate and normalize handler transform result.
+
+        Ensures that transform handlers return valid dictionaries with expected keys.
+        Provides defensive defaults if the result is None, not a dict, or missing keys.
+
+        Args:
+            result: Return value from a transform handler
+            operation_type: Name of the operation for error messages
+
+        Returns:
+            Validated dictionary with at least these keys:
+            - success: bool (default True)
+            - quality_score: float (default 0.0)
+            - onex_compliance: float (default 0.0)
+            - issues: list (default [])
+            - recommendations: list (default [])
+            - patterns: list (default [])
+            - result_data: dict (default {})
+
+        Raises:
+            ValueError: If result is not a dict and cannot be safely defaulted
+        """
+        # Handle None result
+        if result is None:
+            logger.warning(
+                f"Transform handler returned None for operation '{operation_type}', "
+                f"using default values"
+            )
+            return {
+                "success": False,
+                "quality_score": 0.0,
+                "onex_compliance": 0.0,
+                "complexity_score": 0.0,
+                "issues": [],
+                "recommendations": [],
+                "patterns": [],
+                "result_data": {"error": "Transform handler returned None"},
+            }
+
+        # Handle non-dict result
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Transform handler returned {type(result).__name__} instead of dict "
+                f"for operation '{operation_type}', wrapping in result_data"
+            )
+            return {
+                "success": True,
+                "quality_score": 0.0,
+                "onex_compliance": 0.0,
+                "complexity_score": 0.0,
+                "issues": [],
+                "recommendations": [],
+                "patterns": [],
+                "result_data": {"raw_result": result},
+            }
+
+        # Ensure expected keys exist with proper defaults
+        validated: dict[str, Any] = {
+            "success": result.get("success", True),
+            "quality_score": result.get("quality_score", 0.0),
+            "onex_compliance": result.get("onex_compliance", 0.0),
+            "complexity_score": result.get("complexity_score", 0.0),
+            "issues": result.get("issues") if isinstance(result.get("issues"), list) else [],
+            "recommendations": (
+                result.get("recommendations")
+                if isinstance(result.get("recommendations"), list)
+                else []
+            ),
+            "patterns": result.get("patterns") if isinstance(result.get("patterns"), list) else [],
+            "result_data": (
+                result.get("result_data") if isinstance(result.get("result_data"), dict) else {}
+            ),
+        }
+
+        return validated
 
     def _convert_to_effect_input(self, input_data: ModelIntelligenceInput) -> Any:
         """

@@ -66,43 +66,61 @@ def transform_quality_response(response: Any) -> dict[str, Any]:
     issues: list[Any] = []
     recommendations: list[Any] = []
 
-    # Extract issues from violations
-    if hasattr(response, "onex_compliance") and response.onex_compliance:
-        if hasattr(response.onex_compliance, "violations"):
+    # Extract issues from violations (defensive: check for None before extending)
+    if hasattr(response, "onex_compliance") and response.onex_compliance is not None:
+        if (
+            hasattr(response.onex_compliance, "violations")
+            and response.onex_compliance.violations is not None
+        ):
             issues.extend(response.onex_compliance.violations)
-        if hasattr(response.onex_compliance, "recommendations"):
+        if (
+            hasattr(response.onex_compliance, "recommendations")
+            and response.onex_compliance.recommendations is not None
+        ):
             recommendations.extend(response.onex_compliance.recommendations)
+
+    # Extract quality_score with defensive check for None/missing
+    quality_score = 0.0
+    if hasattr(response, "quality_score") and response.quality_score is not None:
+        quality_score = response.quality_score
+
+    # Extract onex_compliance.score with defensive check for None/missing
+    onex_compliance_score = 0.0
+    if hasattr(response, "onex_compliance") and response.onex_compliance is not None:
+        if (
+            hasattr(response.onex_compliance, "score")
+            and response.onex_compliance.score is not None
+        ):
+            onex_compliance_score = response.onex_compliance.score
+
+    # Extract complexity_score with defensive check for None/missing
+    complexity_score = 0.0
+    if hasattr(response, "maintainability") and response.maintainability is not None:
+        if (
+            hasattr(response.maintainability, "complexity_score")
+            and response.maintainability.complexity_score is not None
+        ):
+            complexity_score = response.maintainability.complexity_score
+
+    # Extract optional metadata fields
+    architectural_era = None
+    if hasattr(response, "architectural_era"):
+        architectural_era = response.architectural_era
+
+    temporal_relevance = None
+    if hasattr(response, "temporal_relevance"):
+        temporal_relevance = response.temporal_relevance
 
     return {
         "success": True,
-        "quality_score": (
-            response.quality_score
-            if hasattr(response, "quality_score")
-            else 0.0
-        ),
-        "onex_compliance": (
-            response.onex_compliance.score
-            if hasattr(response, "onex_compliance") and response.onex_compliance
-            else 0.0
-        ),
-        "complexity_score": (
-            response.maintainability.complexity_score
-            if hasattr(response, "maintainability") and response.maintainability
-            else 0.0
-        ),
+        "quality_score": quality_score,
+        "onex_compliance": onex_compliance_score,
+        "complexity_score": complexity_score,
         "issues": issues,
         "recommendations": recommendations,
         "patterns": [],
         "result_data": {
-            "architectural_era": (
-                response.architectural_era
-                if hasattr(response, "architectural_era")
-                else None
-            ),
-            "temporal_relevance": (
-                response.temporal_relevance
-                if hasattr(response, "temporal_relevance")
-                else None
-            ),
+            "architectural_era": architectural_era,
+            "temporal_relevance": temporal_relevance,
         },
     }

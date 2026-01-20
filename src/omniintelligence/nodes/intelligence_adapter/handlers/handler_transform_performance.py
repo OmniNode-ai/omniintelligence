@@ -21,7 +21,33 @@ Example:
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Iterable
 from typing import Any
+
+
+def _ensure_list(value: Any) -> list[Any]:
+    """Convert a value to a list safely.
+
+    Handles None, iterables, and single objects gracefully.
+
+    Args:
+        value: Any value to convert to a list.
+
+    Returns:
+        A list containing the value(s). Empty list if None.
+    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        # Strings are iterable but should not be expanded
+        return [value]
+    if isinstance(value, Iterable):
+        return list(value)
+    # Single non-iterable object
+    return [value]
 
 
 def transform_performance_response(response: Any) -> dict[str, Any]:
@@ -78,18 +104,67 @@ def transform_performance_response(response: Any) -> dict[str, Any]:
     recommendations: list[str] = []
 
     # Extract optimization opportunities as recommendation strings
-    opportunities = getattr(response, "optimization_opportunities", None) or []
+    # Guard: Ensure we have an iterable list, never None or non-iterable
+    raw_opportunities = getattr(response, "optimization_opportunities", None)
+    opportunities = _ensure_list(raw_opportunities)
+
     for opportunity in opportunities:
-        if hasattr(opportunity, "title") and hasattr(opportunity, "description"):
-            recommendations.append(
-                f"{opportunity.title}: {opportunity.description}"
-            )
+        # Guard: Skip None or non-object entries
+        if opportunity is None:
+            continue
+        title = getattr(opportunity, "title", None)
+        description = getattr(opportunity, "description", None)
+        if title is not None and description is not None:
+            recommendations.append(f"{title}: {description}")
 
     # Extract complexity score from baseline metrics
+    # Guard: Ensure baseline_metrics exists and has the expected attribute
     baseline_metrics = getattr(response, "baseline_metrics", None)
+    raw_complexity = (
+        getattr(baseline_metrics, "complexity_estimate", None)
+        if baseline_metrics is not None
+        else None
+    )
+    # Guard: Ensure complexity_score is numeric, default to 0.0
     complexity_score = (
-        baseline_metrics.complexity_estimate
-        if baseline_metrics and hasattr(baseline_metrics, "complexity_estimate")
+        float(raw_complexity)
+        if raw_complexity is not None and isinstance(raw_complexity, int | float)
+        else 0.0
+    )
+
+    # Build opportunity dicts with safe model_dump access
+    opportunity_dicts: list[dict[str, Any]] = []
+    for opportunity in opportunities:
+        if opportunity is None:
+            continue
+        if hasattr(opportunity, "model_dump") and callable(
+            getattr(opportunity, "model_dump", None)
+        ):
+            with contextlib.suppress(TypeError, AttributeError):
+                opportunity_dicts.append(opportunity.model_dump())
+
+    # Build baseline_metrics dict with safe model_dump access
+    baseline_metrics_dict: dict[str, Any] = {}
+    if baseline_metrics is not None:
+        if hasattr(baseline_metrics, "model_dump") and callable(
+            getattr(baseline_metrics, "model_dump", None)
+        ):
+            with contextlib.suppress(TypeError, AttributeError):
+                baseline_metrics_dict = baseline_metrics.model_dump()
+
+    # Extract total_opportunities with type guard
+    raw_total = getattr(response, "total_opportunities", None)
+    total_opportunities = (
+        int(raw_total)
+        if raw_total is not None and isinstance(raw_total, int | float)
+        else 0
+    )
+
+    # Extract estimated_improvement with type guard
+    raw_improvement = getattr(response, "estimated_total_improvement", None)
+    estimated_improvement = (
+        float(raw_improvement)
+        if raw_improvement is not None and isinstance(raw_improvement, int | float)
         else 0.0
     )
 
@@ -98,25 +173,9 @@ def transform_performance_response(response: Any) -> dict[str, Any]:
         "complexity_score": complexity_score,
         "recommendations": recommendations,
         "result_data": {
-            "baseline_metrics": (
-                baseline_metrics.model_dump()
-                if baseline_metrics and hasattr(baseline_metrics, "model_dump")
-                else {}
-            ),
-            "optimization_opportunities": [
-                opportunity.model_dump()
-                for opportunity in opportunities
-                if hasattr(opportunity, "model_dump")
-            ],
-            "total_opportunities": (
-                response.total_opportunities
-                if hasattr(response, "total_opportunities")
-                else 0
-            ),
-            "estimated_improvement": (
-                response.estimated_total_improvement
-                if hasattr(response, "estimated_total_improvement")
-                else 0.0
-            ),
+            "baseline_metrics": baseline_metrics_dict,
+            "optimization_opportunities": opportunity_dicts,
+            "total_opportunities": total_opportunities,
+            "estimated_improvement": estimated_improvement,
         },
     }
