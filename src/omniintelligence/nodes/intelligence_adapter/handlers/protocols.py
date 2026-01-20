@@ -52,13 +52,7 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
-
-# Use NotRequired for Python 3.11+ (or typing_extensions for older versions)
-try:
-    from typing import NotRequired
-except ImportError:
-    from typing import NotRequired
+from typing import Any, NotRequired, TypedDict
 
 
 # =============================================================================
