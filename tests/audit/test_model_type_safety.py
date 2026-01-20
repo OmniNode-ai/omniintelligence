@@ -19,12 +19,9 @@ import pytest
 
 # Model files to audit
 MODEL_FILES = [
-    "src/omniintelligence/nodes/context_keyword_extractor_compute/models/model_keyword_extraction_output.py",
     "src/omniintelligence/nodes/intelligence_reducer/models/model_reducer_input.py",
     "src/omniintelligence/nodes/intent_classifier_compute/models/model_intent_classification_input.py",
     "src/omniintelligence/nodes/pattern_matching_compute/models/model_pattern_matching_input.py",
-    "src/omniintelligence/nodes/relationship_detection_compute/models/model_relationship_detection_output.py",
-    "src/omniintelligence/nodes/entity_extraction_compute/models/model_entity_extraction_output.py",
     "src/omniintelligence/models/model_intelligence_input.py",
     "src/omniintelligence/models/model_intelligence_output.py",
     "src/omniintelligence/models/model_search_result.py",
@@ -105,125 +102,8 @@ class TestNoAnyTypesInModels:
         )
 
 
-class TestValidatorBehavior:
-    """Verify model validators work correctly."""
-
-    def test_relationship_detection_output_empty_list_validator(self) -> None:
-        """Verify relationship_count is computed for empty list."""
-        from omniintelligence.nodes.relationship_detection_compute.models.model_relationship_detection_output import (
-            ModelRelationshipDetectionOutput,
-        )
-
-        output = ModelRelationshipDetectionOutput(
-            success=True,
-            relationships=[],
-        )
-
-        assert output.relationship_count == 0, (
-            "Validator should compute count even for empty list"
-        )
-
-    def test_relationship_detection_output_with_relationships(self) -> None:
-        """Verify relationship_count is computed correctly for non-empty list."""
-        from omniintelligence.enums import EnumRelationshipType
-        from omniintelligence.models.model_entity import ModelRelationship
-        from omniintelligence.nodes.relationship_detection_compute.models.model_relationship_detection_output import (
-            ModelRelationshipDetectionOutput,
-        )
-
-        output = ModelRelationshipDetectionOutput(
-            success=True,
-            relationships=[
-                ModelRelationship(
-                    source_id="ent_1",
-                    target_id="ent_2",
-                    relationship_type=EnumRelationshipType.CALLS,
-                ),
-                ModelRelationship(
-                    source_id="ent_2",
-                    target_id="ent_3",
-                    relationship_type=EnumRelationshipType.IMPORTS,
-                ),
-            ],
-        )
-
-        assert output.relationship_count == 2, (
-            "Validator should compute count from actual list length"
-        )
-
-    def test_entity_extraction_output_empty_list_validator(self) -> None:
-        """Verify entity_count is computed for empty list."""
-        from omniintelligence.nodes.entity_extraction_compute.models.model_entity_extraction_output import (
-            ModelEntityExtractionOutput,
-        )
-
-        output = ModelEntityExtractionOutput(
-            success=True,
-            entities=[],
-        )
-
-        assert output.entity_count == 0, (
-            "Validator should compute count even for empty list"
-        )
-
-    def test_entity_extraction_output_with_entities(self) -> None:
-        """Verify entity_count is computed correctly for non-empty list."""
-        from omniintelligence.enums import EnumEntityType
-        from omniintelligence.models.model_entity import ModelEntity
-        from omniintelligence.nodes.entity_extraction_compute.models.model_entity_extraction_output import (
-            ModelEntityExtractionOutput,
-        )
-
-        output = ModelEntityExtractionOutput(
-            success=True,
-            entities=[
-                ModelEntity(
-                    entity_id="ent_1",
-                    entity_type=EnumEntityType.CLASS,
-                    name="MyClass",
-                ),
-                ModelEntity(
-                    entity_id="ent_2",
-                    entity_type=EnumEntityType.FUNCTION,
-                    name="my_function",
-                ),
-            ],
-        )
-
-        assert output.entity_count == 2, (
-            "Validator should compute count from actual list length"
-        )
-
-
 class TestTypedDictUsage:
     """Verify models use TypedDict instead of dict[str, Any]."""
-
-    def test_keyword_extraction_uses_typeddict_for_metadata(self) -> None:
-        """Verify metadata uses typed dict structure."""
-        from omniintelligence.nodes.context_keyword_extractor_compute.models.model_keyword_extraction_output import (
-            ExtractionMetadataDict,
-            KeywordContextEntry,
-            ModelKeywordExtractionOutput,
-        )
-
-        # Verify TypedDict classes exist and are used
-        assert ExtractionMetadataDict is not None
-        assert KeywordContextEntry is not None
-
-        # Create instance with typed metadata
-        output = ModelKeywordExtractionOutput(
-            success=True,
-            keywords=["test"],
-            keyword_contexts={"test": KeywordContextEntry(frequency=1, positions=[0])},
-            metadata=ExtractionMetadataDict(
-                extraction_duration_ms=100,
-                algorithm_version="1.0.0",
-            ),
-        )
-
-        assert output.success is True
-        assert output.metadata is not None
-        assert output.metadata.get("extraction_duration_ms") == 100
 
     def test_intent_classification_uses_typeddict_for_context(self) -> None:
         """Verify context uses typed dict structure."""

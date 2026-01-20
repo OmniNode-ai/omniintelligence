@@ -378,8 +378,8 @@ class TestGetNodeType:
     @pytest.mark.parametrize(
         ("name", "expected"),
         [
-            ("vectorization_compute", "compute"),
-            ("ingestion_effect", "effect"),
+            ("quality_scoring_compute", "compute"),
+            ("pattern_learning_compute", "compute"),
             ("intelligence_orchestrator", "orchestrator"),
             ("intelligence_reducer", "reducer"),
             ("unknown_node", "unknown"),
@@ -412,23 +412,19 @@ class TestRealNodeStubDetection:
 
     def test_known_stub_nodes_detected(self, nodes_directory: Path) -> None:
         """Known stub nodes should be detected as stubs."""
+        # Note: 9 nodes were removed in PR #12 (vectorization_compute, ingestion_effect,
+        # qdrant_vector_effect, memgraph_graph_effect, postgres_pattern_effect,
+        # intelligence_api_effect, entity_extraction_compute,
+        # context_keyword_extractor_compute, relationship_detection_compute)
         known_stubs = [
-            "ingestion_effect",
             "quality_scoring_compute",
             "intent_classifier_compute",
             "semantic_analysis_compute",
-            "entity_extraction_compute",
             "pattern_learning_compute",
-            "context_keyword_extractor_compute",
             "execution_trace_parser_compute",
             "success_criteria_matcher_compute",
-            "relationship_detection_compute",
             "pattern_matching_compute",
-            "memgraph_graph_effect",
-            "postgres_pattern_effect",
-            "intelligence_api_effect",
             "pattern_assembler_orchestrator",
-            "qdrant_vector_effect",
         ]
 
         for node_name in known_stubs:
@@ -440,10 +436,10 @@ class TestRealNodeStubDetection:
 
     def test_known_non_stub_nodes_not_detected(self, nodes_directory: Path) -> None:
         """Known non-stub nodes should NOT be detected as stubs."""
+        # Note: vectorization_compute was removed in PR #12
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
-            "vectorization_compute",
         ]
 
         for node_name in known_non_stubs:
