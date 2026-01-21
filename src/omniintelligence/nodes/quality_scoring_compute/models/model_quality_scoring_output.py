@@ -80,7 +80,7 @@ class ModelQualityScoringOutput(BaseModel):
         description="Overall quality score (0.0 to 1.0)",
     )
     dimensions: DimensionScores | dict[str, float] = Field(
-        default_factory=dict,
+        default_factory=lambda: {},
         description="Quality scores by dimension using the six-dimension standard: "
         "complexity, maintainability, documentation, temporal_relevance, patterns, architectural",
     )
