@@ -66,6 +66,7 @@ DIMENSION_KEYS: Final[tuple[DimensionKey, ...]] = get_args(DimensionKey)
 # =============================================================================
 
 ANALYSIS_VERSION: Final[ModelSemVer] = ModelSemVer(major=1, minor=1, patch=0)
+ANALYSIS_VERSION_STR: Final[str] = str(ANALYSIS_VERSION)
 
 # Six-dimension standard weights
 DEFAULT_WEIGHTS: Final[dict[str, float]] = {
@@ -107,11 +108,6 @@ _COMPILED_POSITIVE_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
 
 _COMPILED_ANTI_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
     re.compile(p) for p in ONEX_ANTI_PATTERNS
-)
-
-# Pre-compiled handler pattern (private pure functions)
-_COMPILED_HANDLER_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"def\s+_[a-z_]+\s*\([^)]*\)\s*->"
 )
 
 # Pre-compiled patterns for temporal relevance scoring
@@ -174,15 +170,55 @@ CLASS_ORGANIZATION_PENALTY: Final[float] = 0.15  # Penalty for poor class organi
 # Handler pattern constants
 MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions to indicate handler pattern
 
+# Local package name for import categorization
+LOCAL_PACKAGE_NAME: Final[str] = "omniintelligence"
+
 # Import grouping detection - common stdlib modules
+# This is not exhaustive but covers the most commonly used modules
 STDLIB_MODULES: Final[frozenset[str]] = frozenset({
-    "abc", "ast", "asyncio", "base64", "collections", "concurrent", "contextlib",
-    "copy", "csv", "dataclasses", "datetime", "decimal", "enum", "functools",
-    "hashlib", "importlib", "inspect", "io", "itertools", "json", "logging",
-    "math", "os", "pathlib", "random", "re", "shutil", "signal",
-    "socket", "sqlite3", "ssl", "string", "struct", "subprocess", "sys",
-    "tempfile", "threading", "time", "traceback", "types", "typing", "unittest",
-    "urllib", "uuid", "warnings", "weakref", "xml", "zipfile",
+    # Core language and builtins
+    "abc", "ast", "atexit", "builtins",
+    # Data types and structures
+    "array", "binascii", "bisect", "calendar", "collections", "copy", "dataclasses",
+    "datetime", "decimal", "enum", "fractions", "graphlib", "heapq", "operator",
+    "pprint", "queue", "statistics", "struct", "types",
+    # String and text processing
+    "codecs", "difflib", "fnmatch", "gettext", "glob", "html", "linecache",
+    "locale", "re", "string", "textwrap", "unicodedata",
+    # File and I/O
+    "fileinput", "io", "mmap", "os", "pathlib", "shutil", "tempfile",
+    # Compression and archiving
+    "bz2", "gzip", "lzma", "tarfile", "zipfile", "zlib",
+    # Persistence and serialization
+    "configparser", "csv", "dbm", "json", "netrc", "pickle", "plistlib",
+    "shelve", "sqlite3", "xdrlib", "xml",
+    # Cryptography and hashing
+    "base64", "hashlib", "hmac", "secrets",
+    # Concurrency and parallelism
+    "asyncio", "concurrent", "contextvars", "multiprocessing",
+    "sched", "signal", "subprocess", "threading",
+    # Networking
+    "email", "ftplib", "http", "imaplib", "poplib", "smtplib", "socket",
+    "socketserver", "ssl", "urllib",
+    # Introspection and debugging
+    "dis", "faulthandler", "gc", "inspect", "pdb", "profile", "sys",
+    "trace", "traceback", "tracemalloc",
+    # Functional programming
+    "functools", "itertools",
+    # Logging and warnings
+    "logging", "warnings",
+    # Type hints and annotations
+    "typing", "typing_extensions",
+    # Testing
+    "doctest", "unittest",
+    # Import system
+    "importlib", "pkgutil",
+    # Other utilities
+    "argparse", "contextlib", "getopt", "getpass", "math", "optparse",
+    "platform", "random", "shlex", "time", "uuid", "weakref",
+    # Terminal and OS-specific (platform-dependent availability)
+    "curses", "crypt", "msvcrt", "ntpath", "posix", "posixpath",
+    "genericpath", "pty", "syslog", "termios", "tty", "winreg", "winsound",
 })
 
 # Baseline scores
@@ -296,7 +332,7 @@ def score_code_quality(
             onex_compliant=onex_compliant,
             recommendations=recommendations,
             source_language=normalized_language,
-            analysis_version=str(ANALYSIS_VERSION),
+            analysis_version=ANALYSIS_VERSION_STR,
         )
 
     except SyntaxError as e:
@@ -366,10 +402,9 @@ def _compute_patterns_score(content: str) -> float:
         matches = pattern.findall(content)
         anti_count += len(matches)
 
-    # Check for handler pattern (private pure functions)
-    handler_pattern_matches = len(_COMPILED_HANDLER_PATTERN.findall(content))
-    if handler_pattern_matches >= MIN_HANDLER_FUNCTIONS_FOR_BONUS:
-        positive_count += 1
+    # Note: Handler pattern is an architectural concern (module organization),
+    # not a patterns concern. It's properly handled in _compute_architectural_score()
+    # via _check_handler_pattern() which awards HANDLER_PATTERN_BONUS.
 
     # Score calculation:
     # - Base score from positive patterns (max 1.0 at PATTERN_SCORE_DIVISOR+ patterns)
@@ -750,12 +785,12 @@ def _categorize_import(module_name: str) -> str:
     # Get the top-level module name
     top_module = module_name.split(".")[0]
 
+    # Check against known stdlib modules first
     if top_module in STDLIB_MODULES:
         return "stdlib"
-    elif top_module.startswith("_"):
-        return "stdlib"  # Private stdlib modules
-    elif top_module == "omniintelligence":
-        return "local"  # Local package imports
+    # Check for local package imports using the constant
+    elif top_module == LOCAL_PACKAGE_NAME:
+        return "local"
     else:
         return "third_party"
 
@@ -993,7 +1028,7 @@ def _create_unsupported_language_result(
             f"Only Python is fully supported. Baseline scores applied."
         ],
         source_language=language,
-        analysis_version=str(ANALYSIS_VERSION),
+        analysis_version=ANALYSIS_VERSION_STR,
     )
 
 
@@ -1026,12 +1061,13 @@ def _create_syntax_error_result(language: str, error_msg: str) -> QualityScoring
             f"[syntax_error] Code contains syntax errors and cannot be fully analyzed: {error_msg}"
         ],
         source_language=language,
-        analysis_version=str(ANALYSIS_VERSION),
+        analysis_version=ANALYSIS_VERSION_STR,
     )
 
 
 __all__ = [
     "ANALYSIS_VERSION",
+    "ANALYSIS_VERSION_STR",
     "DEFAULT_WEIGHTS",
     "OnexStrictnessLevel",
     "get_threshold_for_preset",
