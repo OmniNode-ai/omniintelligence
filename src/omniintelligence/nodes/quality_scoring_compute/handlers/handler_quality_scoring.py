@@ -138,6 +138,9 @@ IMPORT_AFTER_CODE_PENALTY: Final[float] = 0.2
 MULTIPLE_INHERITANCE_PENALTY: Final[float] = 0.3
 DEFAULT_ARCHITECTURAL_SCORE: Final[float] = 0.7  # Default for simple modules
 
+# Handler pattern constants
+MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions to indicate handler pattern
+
 # Baseline scores
 SYNTAX_ERROR_BASELINE: Final[float] = 0.3  # Score when syntax errors present
 UNSUPPORTED_LANGUAGE_BASELINE: Final[float] = 0.5  # Score for unsupported languages
@@ -290,7 +293,7 @@ def _compute_patterns_score(content: str) -> float:
 
     # Check for handler pattern (private pure functions)
     handler_pattern_matches = len(_COMPILED_HANDLER_PATTERN.findall(content))
-    if handler_pattern_matches >= 2:
+    if handler_pattern_matches >= MIN_HANDLER_FUNCTIONS_FOR_BONUS:
         positive_count += 1
 
     # Score calculation:
@@ -433,13 +436,9 @@ def _compute_documentation_score(tree: ast.AST, content: str) -> float:
         comment_score = NO_FUNCTIONS_NEUTRAL_SCORE
     else:
         comment_ratio = comment_lines / total_lines
-        # Ideal is around 10-15%, penalize both too few and too many
-        if comment_ratio < IDEAL_DOCSTRING_RATIO:
-            comment_score = comment_ratio / IDEAL_DOCSTRING_RATIO
-        else:
-            # Too many comments can indicate code smell
-            excess = comment_ratio - IDEAL_DOCSTRING_RATIO
-            comment_score = max(NO_FUNCTIONS_NEUTRAL_SCORE, 1.0 - excess * 2)
+        # Score based on having enough comments, don't penalize excess
+        # High comment ratios in complex code are legitimate
+        comment_score = min(1.0, comment_ratio / IDEAL_DOCSTRING_RATIO)
 
     # Weight docstrings more heavily than comments
     return docstring_score * 0.7 + comment_score * 0.3
@@ -500,21 +499,12 @@ def _compute_architectural_score(tree: ast.AST) -> float:
     import_org_score = max(0.0, 1.0 - import_after_code * IMPORT_AFTER_CODE_PENALTY)
     scores.append(import_org_score)
 
-    # Check class hierarchy (look for deep inheritance via base classes)
-    class_count = 0
-    classes_with_bases = 0
+    # Check class hierarchy - only penalize multiple inheritance
+    # Single inheritance (e.g., class MyModel(BaseModel)) is encouraged in ONEX patterns
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
-            class_count += 1
-            if len(node.bases) > 1:  # Multiple inheritance
-                scores.append(1.0 - MULTIPLE_INHERITANCE_PENALTY)  # Slight penalty
-            elif len(node.bases) == 1:
-                classes_with_bases += 1
-
-    if class_count > 0:
-        # Good ratio of standalone vs inherited classes
-        inheritance_ratio = classes_with_bases / class_count
-        scores.append(max(0.5, 1.0 - inheritance_ratio * MULTIPLE_INHERITANCE_PENALTY))
+            if len(node.bases) > 1:  # Multiple inheritance - penalize
+                scores.append(1.0 - MULTIPLE_INHERITANCE_PENALTY)
 
     if not scores:
         return DEFAULT_ARCHITECTURAL_SCORE  # Default for simple modules

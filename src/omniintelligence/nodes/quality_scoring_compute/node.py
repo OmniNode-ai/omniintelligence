@@ -7,6 +7,7 @@ import time
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.quality_scoring_compute.handlers import (
+    create_error_dimensions,
     score_code_quality,
 )
 from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
@@ -101,7 +102,7 @@ class NodeQualityScoringCompute(NodeCompute):
             return ModelQualityScoringOutput(
                 success=False,
                 quality_score=0.0,
-                dimensions={},
+                dimensions=create_error_dimensions(),
                 onex_compliant=False,
                 recommendations=[],
                 metadata=ModelQualityScoringMetadata(
@@ -116,7 +117,7 @@ class NodeQualityScoringCompute(NodeCompute):
             return ModelQualityScoringOutput(
                 success=False,
                 quality_score=0.0,
-                dimensions={},
+                dimensions=create_error_dimensions(),
                 onex_compliant=False,
                 recommendations=[],
                 metadata=ModelQualityScoringMetadata(

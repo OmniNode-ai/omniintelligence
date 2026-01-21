@@ -74,6 +74,7 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.handler_quality_sco
 from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
     DimensionScores,
     QualityScoringResult,
+    create_error_dimensions,
 )
 
 __all__ = [
@@ -83,5 +84,6 @@ __all__ = [
     "QualityScoringComputeError",
     "QualityScoringResult",
     "QualityScoringValidationError",
+    "create_error_dimensions",
     "score_code_quality",
 ]

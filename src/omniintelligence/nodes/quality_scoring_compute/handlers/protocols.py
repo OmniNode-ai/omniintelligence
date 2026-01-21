@@ -95,4 +95,20 @@ class QualityScoringResult(TypedDict):
     analysis_version: str
 
 
-__all__ = ["DimensionScores", "QualityScoringResult"]
+def create_error_dimensions() -> DimensionScores:
+    """Create zero-scored dimensions for error cases.
+
+    Returns a valid DimensionScores with all dimensions set to 0.0,
+    suitable for use when scoring fails due to validation or compute errors.
+    """
+    return DimensionScores(
+        complexity=0.0,
+        maintainability=0.0,
+        documentation=0.0,
+        temporal_relevance=0.0,
+        patterns=0.0,
+        architectural=0.0,
+    )
+
+
+__all__ = ["DimensionScores", "QualityScoringResult", "create_error_dimensions"]

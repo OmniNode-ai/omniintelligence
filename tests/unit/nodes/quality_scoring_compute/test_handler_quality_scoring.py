@@ -24,6 +24,7 @@ from omniintelligence.nodes.quality_scoring_compute.handlers import (
     score_code_quality,
 )
 from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
+    QualityScoringComputeError,
     QualityScoringValidationError,
 )
 
@@ -754,3 +755,12 @@ def complex_comprehension(items: list) -> list:
 
         # Comprehensions add complexity
         assert result_simple["dimensions"]["complexity"] >= result_complex["dimensions"]["complexity"]
+
+    def test_compute_error_on_unexpected_failure(self) -> None:
+        """Test that QualityScoringComputeError is raised for unexpected failures."""
+        from unittest.mock import patch
+
+        # Mock ast.parse to raise an unexpected exception (not SyntaxError)
+        with patch("ast.parse", side_effect=MemoryError("Simulated memory exhaustion")):
+            with pytest.raises(QualityScoringComputeError, match="[Uu]nexpected"):
+                score_code_quality("valid_code = 1", "python")

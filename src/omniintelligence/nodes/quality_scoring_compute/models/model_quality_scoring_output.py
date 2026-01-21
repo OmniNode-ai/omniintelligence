@@ -87,7 +87,9 @@ class ModelQualityScoringOutput(BaseModel):
 
     @field_validator("dimensions")
     @classmethod
-    def validate_dimension_scores(cls, v: dict[str, float]) -> dict[str, float]:
+    def validate_dimension_scores(
+        cls, v: DimensionScores | dict[str, float]
+    ) -> DimensionScores | dict[str, float]:
         """Validate dimension scores are within range and contain expected keys.
 
         The six-dimension standard requires:
