@@ -227,11 +227,11 @@ def get_threshold_for_preset(preset: OnexStrictnessLevel) -> float:
 __all__ = [
     "LENIENT_THRESHOLD",
     "LENIENT_WEIGHTS",
-    "OnexStrictnessLevel",
     "STANDARD_THRESHOLD",
     "STANDARD_WEIGHTS",
     "STRICT_THRESHOLD",
     "STRICT_WEIGHTS",
+    "OnexStrictnessLevel",
     "get_threshold_for_preset",
     "get_weights_for_preset",
 ]

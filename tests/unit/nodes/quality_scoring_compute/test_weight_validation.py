@@ -37,7 +37,7 @@ class TestWeightValidation:
             "maintainability": 0.5,
             # Missing: documentation, temporal_relevance, patterns, architectural
         }
-        with pytest.raises(QualityScoringValidationError, match="[Mm]issing"):
+        with pytest.raises(QualityScoringValidationError, match=r"[Mm]issing"):
             score_code_quality("x = 1", "python", weights=invalid_weights)
 
     def test_extra_weight_keys_raise_error(self) -> None:
@@ -51,7 +51,7 @@ class TestWeightValidation:
             "architectural": 0.15,
             "extra_dimension": 0.10,  # Not a valid dimension
         }
-        with pytest.raises(QualityScoringValidationError, match="[Ee]xtra"):
+        with pytest.raises(QualityScoringValidationError, match=r"[Ee]xtra"):
             score_code_quality("x = 1", "python", weights=extra_weights)
 
     def test_weights_not_summing_to_one_raise_error(self) -> None:

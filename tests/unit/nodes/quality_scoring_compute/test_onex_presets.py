@@ -125,9 +125,9 @@ class Example:
 
         # LENIENT uses 0.5 threshold regardless of onex_threshold=0.95
         # STRICT uses 0.8 threshold regardless of onex_threshold=0.1
-        assert result_lenient["onex_compliant"] != result_strict["onex_compliant"] or (
-            result_lenient["quality_score"] >= 0.8
-        )
+        # Verify compliance is determined by preset thresholds (not manual overrides)
+        assert result_lenient["onex_compliant"] == (result_lenient["quality_score"] >= 0.5)
+        assert result_strict["onex_compliant"] == (result_strict["quality_score"] >= 0.8)
 
     def test_different_presets_produce_different_scores(self) -> None:
         """Same code should produce different scores with different presets."""

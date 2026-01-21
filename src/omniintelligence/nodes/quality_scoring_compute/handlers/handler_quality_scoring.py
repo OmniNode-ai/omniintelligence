@@ -92,13 +92,20 @@ ONEX_POSITIVE_PATTERNS: Final[list[str]] = [
     r"\bFinal\b",
 ]
 
-# Anti-patterns to detect (negative indicators)
-ONEX_ANTI_PATTERNS: Final[list[str]] = [
+# Anti-patterns to detect via regex (negative indicators)
+# Note: Mutable defaults (= [] and = {}) are detected via AST for accuracy,
+# avoiding false positives when these patterns appear in comments or docstrings.
+ONEX_ANTI_PATTERNS_REGEX: Final[list[str]] = [
     r"dict\s*\[\s*str\s*,\s*Any\s*\]",
     r"\*\*kwargs",
     r":\s*Any\s*[,\)]",
-    r"=\s*\[\s*\]",  # Mutable default: = []
-    r"=\s*\{\s*\}",  # Mutable default: = {}
+]
+
+# Legacy constant for backward compatibility (deprecated, use ONEX_ANTI_PATTERNS_REGEX)
+ONEX_ANTI_PATTERNS: Final[list[str]] = [
+    *ONEX_ANTI_PATTERNS_REGEX,
+    r"=\s*\[\s*\]",  # Mutable default: = [] (now detected via AST)
+    r"=\s*\{\s*\}",  # Mutable default: = {} (now detected via AST)
 ]
 
 # Pre-compiled patterns for performance
@@ -106,8 +113,16 @@ _COMPILED_POSITIVE_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
     re.compile(p) for p in ONEX_POSITIVE_PATTERNS
 )
 
-_COMPILED_ANTI_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
-    re.compile(p) for p in ONEX_ANTI_PATTERNS
+# Regex-based anti-patterns (excludes mutable defaults which use AST)
+_COMPILED_ANTI_PATTERNS_REGEX: Final[tuple[re.Pattern[str], ...]] = tuple(
+    re.compile(p) for p in ONEX_ANTI_PATTERNS_REGEX
+)
+
+# Pattern to strip comments and string literals for accurate regex matching
+# This prevents false positives when anti-patterns appear in comments or docstrings
+_COMMENT_PATTERN: Final[re.Pattern[str]] = re.compile(r"#[^\n]*")
+_STRING_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\''
 )
 
 # Pre-compiled patterns for temporal relevance scoring
@@ -373,34 +388,113 @@ def _compute_all_dimensions(content: str) -> DimensionScores:
         "maintainability": _compute_maintainability_score(tree),
         "documentation": _compute_documentation_score(tree, content),
         "temporal_relevance": _compute_temporal_relevance_score(content),
-        "patterns": _compute_patterns_score(content),
+        "patterns": _compute_patterns_score(tree, content),
         "architectural": _compute_architectural_score(tree),
     }
 
 
-def _compute_patterns_score(content: str) -> float:
+def _strip_comments_and_strings(content: str) -> str:
+    """Strip comments and string literals from Python source code.
+
+    This is used to prevent false positives when detecting anti-patterns
+    via regex. For example, a comment like "# Don't use = []" should not
+    be flagged as a mutable default anti-pattern.
+
+    Args:
+        content: Python source code to process.
+
+    Returns:
+        Content with comments and string literals replaced with whitespace
+        to preserve line structure for any line-based analysis.
+    """
+    # Replace strings first (they may contain # which looks like comments)
+    result = _STRING_PATTERN.sub(lambda m: " " * len(m.group(0)), content)
+    # Then replace comments
+    result = _COMMENT_PATTERN.sub(lambda m: " " * len(m.group(0)), result)
+    return result
+
+
+def _count_mutable_default_arguments(tree: ast.AST) -> int:
+    """Count mutable default arguments in function definitions using AST.
+
+    This detects the anti-pattern of using mutable defaults like [] or {}
+    in function parameter definitions, which can lead to subtle bugs.
+
+    Using AST is more accurate than regex because:
+    - It only matches actual function argument defaults
+    - It ignores patterns in comments, strings, and docstrings
+    - It correctly handles complex expressions
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        Count of mutable default arguments (empty list or empty dict literals).
+    """
+    count = 0
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            # Check regular argument defaults
+            for default in node.args.defaults:
+                if isinstance(default, ast.List) and len(default.elts) == 0:
+                    count += 1  # Empty list default: = []
+                elif isinstance(default, ast.Dict) and len(default.keys) == 0:
+                    count += 1  # Empty dict default: = {}
+
+            # Check keyword-only argument defaults
+            # kw_defaults can contain None for kw-only args without defaults
+            for kw_default in node.args.kw_defaults:
+                if kw_default is not None:
+                    if isinstance(kw_default, ast.List) and len(kw_default.elts) == 0:
+                        count += 1  # Empty list default: = []
+                    elif isinstance(kw_default, ast.Dict) and len(kw_default.keys) == 0:
+                        count += 1  # Empty dict default: = {}
+
+    return count
+
+
+def _compute_patterns_score(tree: ast.AST, content: str) -> float:
     """Compute ONEX pattern adherence score.
 
     Checks for positive ONEX patterns (frozen models, TypedDict, etc.)
-    and penalizes anti-patterns (dict[str, Any], **kwargs, etc.).
+    and penalizes anti-patterns (dict[str, Any], **kwargs, mutable defaults).
+
+    This function uses a hybrid approach to avoid false positives:
+    - Positive patterns: Regex on full content (patterns in comments are rare)
+    - Type-hint anti-patterns (dict[str, Any], **kwargs, : Any): Regex on
+      stripped content (comments and strings removed)
+    - Mutable defaults (= [] and = {}): AST analysis for accuracy
 
     Args:
+        tree: Parsed AST of the Python source code.
         content: Python source code to analyze.
 
     Returns:
         Score from 0.0 (no patterns/many anti-patterns) to 1.0 (excellent).
     """
     # Count positive pattern matches (using pre-compiled patterns)
+    # Positive patterns in comments are rare and acceptable false positives
     positive_count = 0
     for pattern in _COMPILED_POSITIVE_PATTERNS:
         if pattern.search(content):
             positive_count += 1
 
-    # Count anti-pattern matches (using pre-compiled patterns)
+    # Count anti-pattern matches using hybrid approach:
+    # 1. Strip comments and strings for regex-based detection
+    # 2. Use AST for mutable default detection
     anti_count = 0
-    for pattern in _COMPILED_ANTI_PATTERNS:
-        matches = pattern.findall(content)
+
+    # Strip comments and strings to avoid false positives in regex matching
+    stripped_content = _strip_comments_and_strings(content)
+
+    # Regex-based anti-patterns (dict[str, Any], **kwargs, : Any)
+    for pattern in _COMPILED_ANTI_PATTERNS_REGEX:
+        matches = pattern.findall(stripped_content)
         anti_count += len(matches)
+
+    # AST-based mutable default detection (more accurate than regex)
+    anti_count += _count_mutable_default_arguments(tree)
 
     # Note: Handler pattern is an architectural concern (module organization),
     # not a patterns concern. It's properly handled in _compute_architectural_score()
@@ -447,10 +541,11 @@ def _compute_maintainability_score(tree: ast.AST) -> float:
                 scores.append(length_score)
 
             # Check naming convention (snake_case for functions)
-            if re.match(r"^[a-z_][a-z0-9_]*$", node.name):
-                scores.append(1.0)
-            elif node.name.startswith("_"):  # Private is ok
+            # Check private functions FIRST (before snake_case regex which also matches _names)
+            if node.name.startswith("_"):  # Private is acceptable but slightly lower score
                 scores.append(0.9)
+            elif re.match(r"^[a-z][a-z0-9_]*$", node.name):  # Public snake_case
+                scores.append(1.0)
             else:
                 scores.append(0.5)
 

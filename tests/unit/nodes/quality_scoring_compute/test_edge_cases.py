@@ -198,5 +198,5 @@ def complex_comprehension(items: list) -> list:
         """Test that QualityScoringComputeError is raised for unexpected failures."""
         # Mock ast.parse to raise an unexpected exception (not SyntaxError)
         with patch("ast.parse", side_effect=MemoryError("Simulated memory exhaustion")):
-            with pytest.raises(QualityScoringComputeError, match="[Uu]nexpected"):
+            with pytest.raises(QualityScoringComputeError, match=r"[Uu]nexpected"):
                 score_code_quality("valid_code = 1", "python")

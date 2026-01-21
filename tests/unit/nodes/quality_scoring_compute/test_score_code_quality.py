@@ -140,9 +140,11 @@ class Example:
         # Same dimension scores for both
         assert result_low["dimensions"]["patterns"] == result_high["dimensions"]["patterns"]
 
-        # Different compliance results based on threshold
-        assert result_low["onex_compliant"] is True or result_low["quality_score"] < 0.3
-        assert result_high["onex_compliant"] is False or result_high["quality_score"] >= 0.95
+        # Compliance is determined by: score >= threshold
+        # With threshold 0.3, compliance should match score >= 0.3
+        assert result_low["onex_compliant"] == (result_low["quality_score"] >= 0.3)
+        # With threshold 0.95, compliance should match score >= 0.95
+        assert result_high["onex_compliant"] == (result_high["quality_score"] >= 0.95)
 
     def test_handles_syntax_error_gracefully(self) -> None:
         """Malformed Python should not crash, returns low baseline scores."""
