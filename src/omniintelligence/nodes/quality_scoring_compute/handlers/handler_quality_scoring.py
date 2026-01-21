@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Final
+from typing import Final, Literal, get_args
+
+from omnibase_core.models.primitives.model_semver import ModelSemVer
 
 from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
     QualityScoringComputeError,
@@ -46,11 +48,24 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
     QualityScoringResult,
 )
 
+# Type alias for valid dimension keys (matches DimensionScores TypedDict keys)
+DimensionKey = Literal[
+    "complexity",
+    "maintainability",
+    "documentation",
+    "temporal_relevance",
+    "patterns",
+    "architectural",
+]
+
+# Tuple of all dimension keys for type-safe iteration
+DIMENSION_KEYS: Final[tuple[DimensionKey, ...]] = get_args(DimensionKey)
+
 # =============================================================================
 # Constants
 # =============================================================================
 
-ANALYSIS_VERSION: Final[str] = "1.1.0"
+ANALYSIS_VERSION: Final[ModelSemVer] = ModelSemVer(major=1, minor=1, patch=0)
 
 # Six-dimension standard weights
 DEFAULT_WEIGHTS: Final[dict[str, float]] = {
@@ -269,11 +284,11 @@ def score_code_quality(
         return QualityScoringResult(
             success=True,
             quality_score=round(quality_score, 4),
-            dimensions={k: round(float(v), 4) for k, v in dimensions.items()},  # type: ignore[arg-type, typeddict-item]
+            dimensions=_round_dimension_scores(dimensions),
             onex_compliant=onex_compliant,
             recommendations=recommendations,
             source_language=normalized_language,
-            analysis_version=ANALYSIS_VERSION,
+            analysis_version=str(ANALYSIS_VERSION),
         )
 
     except SyntaxError as e:
@@ -315,7 +330,7 @@ def _compute_all_dimensions(content: str) -> DimensionScores:
         "documentation": _compute_documentation_score(tree, content),
         "temporal_relevance": _compute_temporal_relevance_score(content),
         "patterns": _compute_patterns_score(content),
-        "architectural": _compute_architectural_score(tree, content),
+        "architectural": _compute_architectural_score(tree),
     }
 
 
@@ -525,7 +540,7 @@ def _compute_temporal_relevance_score(content: str) -> float:
     return max(0.0, 1.0 - penalty)
 
 
-def _compute_architectural_score(tree: ast.AST, content: str) -> float:
+def _compute_architectural_score(tree: ast.AST) -> float:
     """Compute architectural compliance score.
 
     Evaluates module organization, class structure, and import patterns for
@@ -541,14 +556,10 @@ def _compute_architectural_score(tree: ast.AST, content: str) -> float:
 
     Args:
         tree: Parsed AST of the Python source code.
-        content: Raw source code content for pattern analysis.
 
     Returns:
         Score from 0.0 (poor architecture) to 1.0 (good architecture).
     """
-    # content parameter included for future extensibility and signature consistency
-    _ = content  # Unused but kept for API consistency
-
     scores: list[float] = []
     bonuses: list[float] = []
     penalties: list[float] = []
@@ -813,7 +824,9 @@ def _generate_recommendations(dimensions: DimensionScores) -> list[str]:
     """
     recommendations: list[str] = []
 
-    thresholds: dict[str, tuple[float, str]] = {
+    # Thresholds and recommendations for each dimension
+    # Using dict with DimensionKey type for type-safe lookup
+    thresholds: dict[DimensionKey, tuple[float, str]] = {
         "complexity": (
             0.5,
             "Reduce complexity: break down large functions, reduce nesting depth, "
@@ -846,8 +859,10 @@ def _generate_recommendations(dimensions: DimensionScores) -> list[str]:
         ),
     }
 
-    for dimension, (threshold, recommendation) in thresholds.items():
-        score = float(dimensions.get(dimension, 0.0))  # type: ignore[arg-type]
+    # Iterate over known dimension keys for type-safe access
+    for dimension in DIMENSION_KEYS:
+        threshold, recommendation = thresholds[dimension]
+        score = dimensions[dimension]
         if score < threshold:
             recommendations.append(f"[{dimension}] {recommendation}")
 
@@ -857,6 +872,30 @@ def _generate_recommendations(dimensions: DimensionScores) -> list[str]:
 # =============================================================================
 # Helper Functions (Pure)
 # =============================================================================
+
+
+def _round_dimension_scores(dimensions: DimensionScores, decimals: int = 4) -> DimensionScores:
+    """Round all dimension scores to specified decimal places.
+
+    This function explicitly constructs a DimensionScores TypedDict with rounded
+    values, maintaining proper type information that would be lost with a dict
+    comprehension.
+
+    Args:
+        dimensions: DimensionScores to round.
+        decimals: Number of decimal places (default 4).
+
+    Returns:
+        New DimensionScores with rounded values.
+    """
+    return DimensionScores(
+        complexity=round(dimensions["complexity"], decimals),
+        maintainability=round(dimensions["maintainability"], decimals),
+        documentation=round(dimensions["documentation"], decimals),
+        temporal_relevance=round(dimensions["temporal_relevance"], decimals),
+        patterns=round(dimensions["patterns"], decimals),
+        architectural=round(dimensions["architectural"], decimals),
+    )
 
 
 def _validate_weights(weights: dict[str, float]) -> None:
@@ -904,9 +943,11 @@ def _compute_weighted_score(
         Weighted aggregate score (0.0-1.0).
     """
     total = 0.0
-    for dimension, score in dimensions.items():
+    # Iterate over known dimension keys for type-safe access
+    for dimension in DIMENSION_KEYS:
+        score = dimensions[dimension]
         weight = weights.get(dimension, 0.0)
-        total += float(score) * weight  # type: ignore[arg-type]
+        total += score * weight
     return total
 
 
@@ -942,7 +983,7 @@ def _create_unsupported_language_result(
             f"Only Python is fully supported. Baseline scores applied."
         ],
         source_language=language,
-        analysis_version=ANALYSIS_VERSION,
+        analysis_version=str(ANALYSIS_VERSION),
     )
 
 
@@ -975,7 +1016,7 @@ def _create_syntax_error_result(language: str, error_msg: str) -> QualityScoring
             f"[syntax_error] Code contains syntax errors and cannot be fully analyzed: {error_msg}"
         ],
         source_language=language,
-        analysis_version=ANALYSIS_VERSION,
+        analysis_version=str(ANALYSIS_VERSION),
     )
 
 

@@ -53,25 +53,34 @@ class NodeQualityScoringCompute(NodeCompute):
         start_time = time.perf_counter()
 
         try:
-            # Prepare weights - use input weights or defaults
-            weights = None
-            if input_data.dimension_weights is not None:
-                weights = {
-                    "complexity": input_data.dimension_weights.complexity,
-                    "maintainability": input_data.dimension_weights.maintainability,
-                    "documentation": input_data.dimension_weights.documentation,
-                    "temporal_relevance": input_data.dimension_weights.temporal_relevance,
-                    "patterns": input_data.dimension_weights.patterns,
-                    "architectural": input_data.dimension_weights.architectural,
-                }
+            # Check if a preset is specified - preset takes precedence over manual config
+            if input_data.onex_preset is not None:
+                # Call pure handler function with preset (overrides weights/threshold)
+                result = score_code_quality(
+                    content=input_data.content,
+                    language=input_data.language,
+                    preset=input_data.onex_preset,
+                )
+            else:
+                # Prepare weights - use input weights or defaults
+                weights = None
+                if input_data.dimension_weights is not None:
+                    weights = {
+                        "complexity": input_data.dimension_weights.complexity,
+                        "maintainability": input_data.dimension_weights.maintainability,
+                        "documentation": input_data.dimension_weights.documentation,
+                        "temporal_relevance": input_data.dimension_weights.temporal_relevance,
+                        "patterns": input_data.dimension_weights.patterns,
+                        "architectural": input_data.dimension_weights.architectural,
+                    }
 
-            # Call pure handler function
-            result = score_code_quality(
-                content=input_data.content,
-                language=input_data.language,
-                weights=weights,
-                onex_threshold=input_data.onex_compliance_threshold,
-            )
+                # Call pure handler function with manual weights/threshold
+                result = score_code_quality(
+                    content=input_data.content,
+                    language=input_data.language,
+                    weights=weights,
+                    onex_threshold=input_data.onex_compliance_threshold,
+                )
 
             processing_time = (time.perf_counter() - start_time) * 1000
 

@@ -53,7 +53,7 @@ class ModelExample(BaseModel):
         assert "patterns" in result["dimensions"]
         assert "architectural" in result["dimensions"]
         assert result["source_language"] == "python"
-        assert result["analysis_version"] == ANALYSIS_VERSION
+        assert result["analysis_version"] == str(ANALYSIS_VERSION)
 
     def test_high_score_for_onex_compliant_code(self) -> None:
         """ONEX-compliant code should score well on patterns dimension."""
