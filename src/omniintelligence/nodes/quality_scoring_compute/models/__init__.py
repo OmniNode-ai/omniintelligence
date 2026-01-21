@@ -5,6 +5,7 @@ All models use strong typing to eliminate dict[str, Any].
 """
 
 from omniintelligence.nodes.quality_scoring_compute.models.model_quality_scoring_input import (
+    ModelDimensionWeights,
     ModelQualityScoringInput,
 )
 from omniintelligence.nodes.quality_scoring_compute.models.model_quality_scoring_output import (
@@ -13,6 +14,7 @@ from omniintelligence.nodes.quality_scoring_compute.models.model_quality_scoring
 )
 
 __all__ = [
+    "ModelDimensionWeights",
     "ModelQualityScoringInput",
     "ModelQualityScoringMetadata",
     "ModelQualityScoringOutput",
