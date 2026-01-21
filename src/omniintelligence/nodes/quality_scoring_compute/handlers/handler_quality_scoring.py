@@ -131,22 +131,28 @@ IDEAL_DOCSTRING_RATIO: Final[float] = 0.15
 SUPPORTED_LANGUAGES: Final[frozenset[str]] = frozenset({"python", "py"})
 
 # Pattern scoring constants
-PATTERN_SCORE_DIVISOR: Final[int] = 5  # Max patterns for full score
-ANTI_PATTERN_PENALTY: Final[float] = 0.1  # Penalty per anti-pattern
-MAX_ANTI_PATTERN_PENALTY: Final[float] = 0.5  # Maximum total penalty
-PATTERN_BASELINE_SCORE: Final[float] = 0.3  # Baseline added to pattern score
+# Rationale: 5 ONEX patterns indicates good adoption without requiring exhaustive use of all features
+PATTERN_SCORE_DIVISOR: Final[int] = 5
+# Rationale: 0.1 penalty allows gradual score degradation rather than cliff-edge scoring
+ANTI_PATTERN_PENALTY: Final[float] = 0.1
+# Rationale: Cap at 0.5 ensures pattern score cannot go negative (max pattern contribution is ~0.7)
+MAX_ANTI_PATTERN_PENALTY: Final[float] = 0.5
+# Rationale: 0.3 baseline ensures code without patterns gets some credit, not zero
+PATTERN_BASELINE_SCORE: Final[float] = 0.3
 
 # Neutral score constants
 NO_FUNCTIONS_NEUTRAL_SCORE: Final[float] = 0.5  # Score when no functions to analyze
 
 # Maintainability constants
-IDEAL_FUNCTION_LENGTH: Final[int] = 20  # Ideal max function length (lines)
+# Rationale: 20 lines aligns with Clean Code principles for single-responsibility functions
+IDEAL_FUNCTION_LENGTH: Final[int] = 20
 FUNCTION_LENGTH_SCORING_RANGE: Final[int] = 80  # Range for scoring (20 to 100 lines)
 NO_ITEMS_MAINTAINABILITY_SCORE: Final[float] = 0.7  # Score when no functions/classes
 
 # Complexity constants
 MAX_RAW_COMPLEXITY: Final[int] = 20  # Max raw complexity for scoring
-MAX_AVG_COMPLEXITY: Final[int] = 10  # Max average complexity per function
+# Rationale: 10 is the standard McCabe cyclomatic complexity threshold for maintainable code
+MAX_AVG_COMPLEXITY: Final[int] = 10
 
 # Temporal relevance constants
 STALENESS_PENALTY_PER_INDICATOR: Final[float] = 0.1
@@ -180,8 +186,10 @@ STDLIB_MODULES: Final[frozenset[str]] = frozenset({
 })
 
 # Baseline scores
-SYNTAX_ERROR_BASELINE: Final[float] = 0.3  # Score when syntax errors present
-UNSUPPORTED_LANGUAGE_BASELINE: Final[float] = 0.5  # Score for unsupported languages
+# Rationale: 0.3 is low but nonzero, acknowledging code has some structure despite parse failures
+SYNTAX_ERROR_BASELINE: Final[float] = 0.3
+# Rationale: 0.5 is neutral - we cannot assess quality so neither penalize nor reward
+UNSUPPORTED_LANGUAGE_BASELINE: Final[float] = 0.5
 
 
 # =============================================================================
@@ -746,8 +754,10 @@ def _categorize_import(module_name: str) -> str:
         return "stdlib"
     elif top_module.startswith("_"):
         return "stdlib"  # Private stdlib modules
+    elif top_module == "omniintelligence":
+        return "local"  # Local package imports
     else:
-        return "third_party"  # Treat all non-stdlib as third-party/local
+        return "third_party"
 
 
 def _check_handler_pattern(tree: ast.AST) -> bool:
