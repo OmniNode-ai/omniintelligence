@@ -36,6 +36,11 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
     QualityScoringComputeError,
     QualityScoringValidationError,
 )
+from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
+    OnexStrictnessLevel,
+    get_threshold_for_preset,
+    get_weights_for_preset,
+)
 from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
     DimensionScores,
     QualityScoringResult,
@@ -138,8 +143,26 @@ IMPORT_AFTER_CODE_PENALTY: Final[float] = 0.2
 MULTIPLE_INHERITANCE_PENALTY: Final[float] = 0.3
 DEFAULT_ARCHITECTURAL_SCORE: Final[float] = 0.7  # Default for simple modules
 
+# New architectural check constants
+MISSING_ALL_EXPORTS_PENALTY: Final[float] = 0.15  # Penalty for missing __all__ in modules with exports
+IMPORTS_INSIDE_FUNCTION_PENALTY: Final[float] = 0.25  # Penalty per import inside functions (circular import risk)
+IMPORT_GROUPING_BONUS: Final[float] = 0.1  # Bonus for properly grouped imports (stdlib, third-party, local)
+HANDLER_PATTERN_BONUS: Final[float] = 0.1  # Bonus for following handler pattern (private pure functions)
+CLASS_ORGANIZATION_PENALTY: Final[float] = 0.15  # Penalty for poor class organization
+
 # Handler pattern constants
 MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions to indicate handler pattern
+
+# Import grouping detection - common stdlib modules
+STDLIB_MODULES: Final[frozenset[str]] = frozenset({
+    "abc", "ast", "asyncio", "base64", "collections", "concurrent", "contextlib",
+    "copy", "csv", "dataclasses", "datetime", "decimal", "enum", "functools",
+    "hashlib", "importlib", "inspect", "io", "itertools", "json", "logging",
+    "math", "os", "pathlib", "random", "re", "shutil", "signal",
+    "socket", "sqlite3", "ssl", "string", "struct", "subprocess", "sys",
+    "tempfile", "threading", "time", "traceback", "types", "typing", "unittest",
+    "urllib", "uuid", "warnings", "weakref", "xml", "zipfile",
+})
 
 # Baseline scores
 SYNTAX_ERROR_BASELINE: Final[float] = 0.3  # Score when syntax errors present
@@ -156,11 +179,17 @@ def score_code_quality(
     language: str,
     weights: dict[str, float] | None = None,
     onex_threshold: float = 0.7,
+    preset: OnexStrictnessLevel | None = None,
 ) -> QualityScoringResult:
     """Score code quality based on multiple dimensions.
 
     This is the main entry point for quality scoring. It computes scores
     across six dimensions and aggregates them using configurable weights.
+
+    Configuration Precedence:
+        1. preset (highest priority) - When set, overrides weights and threshold.
+        2. weights / onex_threshold - Manual configuration.
+        3. Defaults (lowest priority) - Standard weights and 0.7 threshold.
 
     Args:
         content: Source code content to analyze.
@@ -168,8 +197,15 @@ def score_code_quality(
             receive baseline scores with an unsupported_language recommendation.
         weights: Optional custom weights for each dimension. Must sum to ~1.0.
             Defaults to six-dimension standard weights if None.
+            Ignored when preset is specified.
         onex_threshold: Score threshold for ONEX compliance (default 0.7).
             If quality_score >= onex_threshold, onex_compliant is True.
+            Ignored when preset is specified.
+        preset: Optional ONEX strictness preset (strict/standard/lenient).
+            When set, automatically configures weights and threshold:
+            - STRICT: Production-ready, threshold 0.8
+            - STANDARD: Balanced, threshold 0.7
+            - LENIENT: Development mode, threshold 0.5
 
     Returns:
         QualityScoringResult with all scoring data.
@@ -187,19 +223,35 @@ def score_code_quality(
         True
         >>> 0.0 <= result["quality_score"] <= 1.0
         True
+
+        >>> # Using a preset
+        >>> result = score_code_quality(
+        ...     content="class Model(BaseModel): x: int",
+        ...     language="python",
+        ...     preset=OnexStrictnessLevel.STRICT,
+        ... )
+        >>> result["onex_compliant"]  # Uses 0.8 threshold
+        False
     """
     # Validate inputs
     if not content or not content.strip():
         raise QualityScoringValidationError("Content cannot be empty")
 
-    effective_weights = weights if weights is not None else DEFAULT_WEIGHTS.copy()
+    # Apply preset configuration (highest precedence)
+    if preset is not None:
+        effective_weights = get_weights_for_preset(preset)
+        effective_threshold = get_threshold_for_preset(preset)
+    else:
+        effective_weights = weights if weights is not None else DEFAULT_WEIGHTS.copy()
+        effective_threshold = onex_threshold
+
     _validate_weights(effective_weights)
 
     normalized_language = language.lower().strip()
 
     # Check if language is supported for full analysis
     if normalized_language not in SUPPORTED_LANGUAGES:
-        return _create_unsupported_language_result(normalized_language, onex_threshold)
+        return _create_unsupported_language_result(normalized_language, effective_threshold)
 
     try:
         # Compute dimension scores
@@ -209,7 +261,7 @@ def score_code_quality(
         quality_score = _compute_weighted_score(dimensions, effective_weights)
 
         # Determine ONEX compliance
-        onex_compliant = quality_score >= onex_threshold
+        onex_compliant = quality_score >= effective_threshold
 
         # Generate recommendations based on low scores
         recommendations = _generate_recommendations(dimensions)
@@ -217,7 +269,7 @@ def score_code_quality(
         return QualityScoringResult(
             success=True,
             quality_score=round(quality_score, 4),
-            dimensions={k: round(v, 4) for k, v in dimensions.items()},  # type: ignore[typeddict-item]
+            dimensions={k: round(float(v), 4) for k, v in dimensions.items()},  # type: ignore[arg-type, typeddict-item]
             onex_compliant=onex_compliant,
             recommendations=recommendations,
             source_language=normalized_language,
@@ -263,7 +315,7 @@ def _compute_all_dimensions(content: str) -> DimensionScores:
         "documentation": _compute_documentation_score(tree, content),
         "temporal_relevance": _compute_temporal_relevance_score(content),
         "patterns": _compute_patterns_score(content),
-        "architectural": _compute_architectural_score(tree),
+        "architectural": _compute_architectural_score(tree, content),
     }
 
 
@@ -473,20 +525,37 @@ def _compute_temporal_relevance_score(content: str) -> float:
     return max(0.0, 1.0 - penalty)
 
 
-def _compute_architectural_score(tree: ast.AST) -> float:
+def _compute_architectural_score(tree: ast.AST, content: str) -> float:
     """Compute architectural compliance score.
 
-    Evaluates module organization, class hierarchy depth, and import structure.
+    Evaluates module organization, class structure, and import patterns for
+    ONEX-compliant code architecture. Performs the following checks:
+
+    1. Import placement: Imports should be at module level, at the top
+    2. Multiple inheritance: Penalizes classes with more than one base class
+    3. __all__ exports: Checks for explicit public API definition
+    4. Circular import risk: Detects imports inside functions
+    5. Import grouping: Checks if imports are organized (stdlib, third-party, local)
+    6. Handler pattern: Rewards private pure functions with type annotations
+    7. Class organization: Checks ClassVar and model_config placement
 
     Args:
         tree: Parsed AST of the Python source code.
+        content: Raw source code content for pattern analysis.
 
     Returns:
         Score from 0.0 (poor architecture) to 1.0 (good architecture).
     """
-    scores: list[float] = []
+    # content parameter included for future extensibility and signature consistency
+    _ = content  # Unused but kept for API consistency
 
-    # Check import organization (imports should be at module level, at the top)
+    scores: list[float] = []
+    bonuses: list[float] = []
+    penalties: list[float] = []
+
+    # =========================================================================
+    # Check 1: Import placement (imports should be at module level, at the top)
+    # =========================================================================
     import_after_code = 0
     seen_non_import = False
     for node in ast.iter_child_nodes(tree):
@@ -499,17 +568,233 @@ def _compute_architectural_score(tree: ast.AST) -> float:
     import_org_score = max(0.0, 1.0 - import_after_code * IMPORT_AFTER_CODE_PENALTY)
     scores.append(import_org_score)
 
-    # Check class hierarchy - only penalize multiple inheritance
+    # =========================================================================
+    # Check 2: Multiple inheritance penalty
+    # =========================================================================
     # Single inheritance (e.g., class MyModel(BaseModel)) is encouraged in ONEX patterns
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             if len(node.bases) > 1:  # Multiple inheritance - penalize
                 scores.append(1.0 - MULTIPLE_INHERITANCE_PENALTY)
 
-    if not scores:
-        return DEFAULT_ARCHITECTURAL_SCORE  # Default for simple modules
+    # =========================================================================
+    # Check 3: __all__ exports - modules with public items should define __all__
+    # =========================================================================
+    has_all_exports = _check_has_all_exports(tree)
+    has_public_items = _check_has_public_items(tree)
 
-    return max(0.0, min(1.0, sum(scores) / len(scores)))
+    if has_public_items and not has_all_exports:
+        penalties.append(MISSING_ALL_EXPORTS_PENALTY)
+
+    # =========================================================================
+    # Check 4: Circular import risk - imports inside functions
+    # =========================================================================
+    imports_inside_functions = _count_imports_inside_functions(tree)
+    if imports_inside_functions > 0:
+        # Penalize each import inside a function, capped at a maximum
+        penalty = min(imports_inside_functions * IMPORTS_INSIDE_FUNCTION_PENALTY, 0.5)
+        penalties.append(penalty)
+
+    # =========================================================================
+    # Check 5: Import grouping (stdlib, third-party, local)
+    # =========================================================================
+    if _check_import_grouping(tree):
+        bonuses.append(IMPORT_GROUPING_BONUS)
+
+    # =========================================================================
+    # Check 6: Handler pattern - private pure functions with type annotations
+    # =========================================================================
+    if _check_handler_pattern(tree):
+        bonuses.append(HANDLER_PATTERN_BONUS)
+
+    # =========================================================================
+    # Check 7: Class organization (ClassVar/model_config at top)
+    # =========================================================================
+    class_org_issues = _check_class_organization(tree)
+    if class_org_issues > 0:
+        penalties.append(min(class_org_issues * CLASS_ORGANIZATION_PENALTY, 0.3))
+
+    # Calculate final score
+    if not scores:
+        base_score = DEFAULT_ARCHITECTURAL_SCORE
+    else:
+        base_score = sum(scores) / len(scores)
+
+    # Apply bonuses and penalties
+    total_bonus = sum(bonuses)
+    total_penalty = sum(penalties)
+
+    final_score = base_score + total_bonus - total_penalty
+    return max(0.0, min(1.0, final_score))
+
+
+def _check_has_all_exports(tree: ast.AST) -> bool:
+    """Check if module defines __all__ exports.
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        True if __all__ is defined at module level, False otherwise.
+    """
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "__all__":
+                    return True
+    return False
+
+
+def _check_has_public_items(tree: ast.AST) -> bool:
+    """Check if module has public functions or classes (not starting with _).
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        True if there are public functions or classes, False otherwise.
+    """
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            if not node.name.startswith("_"):
+                return True
+    return False
+
+
+def _count_imports_inside_functions(tree: ast.AST) -> int:
+    """Count imports that occur inside function bodies (circular import risk).
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        Number of import statements found inside functions.
+    """
+    count = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            for child in ast.walk(node):
+                if isinstance(child, ast.Import | ast.ImportFrom):
+                    count += 1
+    return count
+
+
+def _check_import_grouping(tree: ast.AST) -> bool:
+    """Check if imports are grouped properly (stdlib, third-party, local).
+
+    Imports should be organized with stdlib first, then third-party,
+    then local imports, with each group being contiguous.
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        True if imports appear to be properly grouped, False otherwise.
+    """
+    imports: list[tuple[int, str, str]] = []  # (line_no, module_name, category)
+
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                category = _categorize_import(alias.name)
+                imports.append((node.lineno, alias.name, category))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                category = _categorize_import(node.module)
+                imports.append((node.lineno, node.module, category))
+
+    if len(imports) < 2:
+        return True  # Too few imports to judge grouping
+
+    # Check that imports are grouped by category (no interleaving)
+    # Categories should appear in order: stdlib -> third_party -> local
+    seen_categories: list[str] = []
+    for _, _, category in imports:
+        if not seen_categories or seen_categories[-1] != category:
+            # Check for category backtracking (e.g., local then stdlib)
+            if category in seen_categories:
+                return False  # Category appeared before, now appears again - not grouped
+            seen_categories.append(category)
+
+    return True
+
+
+def _categorize_import(module_name: str) -> str:
+    """Categorize an import as stdlib, third_party, or local.
+
+    Args:
+        module_name: The name of the module being imported.
+
+    Returns:
+        Category string: "stdlib", "third_party", or "local".
+    """
+    # Get the top-level module name
+    top_module = module_name.split(".")[0]
+
+    if top_module in STDLIB_MODULES:
+        return "stdlib"
+    elif top_module.startswith("_"):
+        return "stdlib"  # Private stdlib modules
+    else:
+        return "third_party"  # Treat all non-stdlib as third-party/local
+
+
+def _check_handler_pattern(tree: ast.AST) -> bool:
+    """Check if module follows handler pattern with private pure functions.
+
+    The handler pattern uses private functions (starting with _) that have
+    return type annotations, indicating pure functions with clear contracts.
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        True if module follows handler pattern, False otherwise.
+    """
+    private_typed_functions = 0
+
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            # Check if private function with return type annotation
+            if node.name.startswith("_") and node.returns is not None:
+                private_typed_functions += 1
+
+    return private_typed_functions >= MIN_HANDLER_FUNCTIONS_FOR_BONUS
+
+
+def _check_class_organization(tree: ast.AST) -> int:
+    """Check class organization (ClassVar and model_config placement).
+
+    Well-organized classes should have ClassVar declarations and model_config
+    at the top of the class body, before methods.
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        Number of class organization issues found.
+    """
+    issues = 0
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            seen_method = False
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+                    seen_method = True
+                elif isinstance(item, ast.AnnAssign) and seen_method:
+                    # Annotated assignment after method - could be ClassVar out of place
+                    if item.annotation:
+                        ann_str = ast.unparse(item.annotation) if hasattr(ast, "unparse") else ""
+                        if "ClassVar" in ann_str:
+                            issues += 1
+                elif isinstance(item, ast.Assign) and seen_method:
+                    # Check if this is model_config after methods
+                    for target in item.targets:
+                        if isinstance(target, ast.Name) and target.id == "model_config":
+                            issues += 1
+
+    return issues
 
 
 # =============================================================================
@@ -562,7 +847,7 @@ def _generate_recommendations(dimensions: DimensionScores) -> list[str]:
     }
 
     for dimension, (threshold, recommendation) in thresholds.items():
-        score = dimensions.get(dimension, 0.0)
+        score = float(dimensions.get(dimension, 0.0))  # type: ignore[arg-type]
         if score < threshold:
             recommendations.append(f"[{dimension}] {recommendation}")
 
@@ -621,7 +906,7 @@ def _compute_weighted_score(
     total = 0.0
     for dimension, score in dimensions.items():
         weight = weights.get(dimension, 0.0)
-        total += score * weight
+        total += float(score) * weight  # type: ignore[arg-type]
     return total
 
 
@@ -697,5 +982,8 @@ def _create_syntax_error_result(language: str, error_msg: str) -> QualityScoring
 __all__ = [
     "ANALYSIS_VERSION",
     "DEFAULT_WEIGHTS",
+    "OnexStrictnessLevel",
+    "get_threshold_for_preset",
+    "get_weights_for_preset",
     "score_code_quality",
 ]

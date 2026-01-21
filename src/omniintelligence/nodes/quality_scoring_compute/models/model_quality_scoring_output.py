@@ -126,10 +126,11 @@ class ModelQualityScoringOutput(BaseModel):
 
         # Validate score ranges
         for dimension_name, score in v.items():
-            if not 0.0 <= score <= 1.0:
+            score_val = float(score)  # type: ignore[arg-type]
+            if not 0.0 <= score_val <= 1.0:
                 raise ValueError(
                     f"Dimension score for '{dimension_name}' must be between 0.0 and 1.0, "
-                    f"got {score}"
+                    f"got {score_val}"
                 )
         return v
 

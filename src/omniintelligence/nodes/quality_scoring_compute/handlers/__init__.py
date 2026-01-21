@@ -19,19 +19,34 @@ Six-Dimension Standard:
     - patterns (0.15): ONEX pattern adherence (frozen models, TypedDict, Protocol, etc.)
     - architectural (0.15): Module organization and structure
 
+ONEX Presets:
+    Three pre-configured strictness levels are available:
+    - STRICT: Production-ready (threshold 0.8, emphasizes docs/patterns)
+    - STANDARD: Balanced (threshold 0.7, equal distribution)
+    - LENIENT: Development mode (threshold 0.5, forgiving on docs/patterns)
+
 Usage:
     from omniintelligence.nodes.quality_scoring_compute.handlers import (
         score_code_quality,
         QualityScoringResult,
         DimensionScores,
         DEFAULT_WEIGHTS,
+        OnexStrictnessLevel,
     )
 
+    # Using default configuration
     result: QualityScoringResult = score_code_quality(
         content="class MyModel(BaseModel): x: int",
         language="python",
         weights=DEFAULT_WEIGHTS,
         onex_threshold=0.7,
+    )
+
+    # Using a preset (recommended)
+    result = score_code_quality(
+        content="class MyModel(BaseModel): x: int",
+        language="python",
+        preset=OnexStrictnessLevel.STRICT,
     )
 
     if result["success"]:
@@ -45,6 +60,7 @@ Usage:
 Example:
     >>> from omniintelligence.nodes.quality_scoring_compute.handlers import (
     ...     score_code_quality,
+    ...     OnexStrictnessLevel,
     ... )
     >>> code = '''
     ... from pydantic import BaseModel, Field
@@ -60,6 +76,10 @@ Example:
     True
     >>> result["quality_score"] > 0.5
     True
+    >>> # Using strict preset for production
+    >>> result = score_code_quality(code, "python", preset=OnexStrictnessLevel.STRICT)
+    >>> result["success"]
+    True
 """
 
 from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
@@ -71,6 +91,17 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.handler_quality_sco
     DEFAULT_WEIGHTS,
     score_code_quality,
 )
+from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
+    LENIENT_THRESHOLD,
+    LENIENT_WEIGHTS,
+    OnexStrictnessLevel,
+    STANDARD_THRESHOLD,
+    STANDARD_WEIGHTS,
+    STRICT_THRESHOLD,
+    STRICT_WEIGHTS,
+    get_threshold_for_preset,
+    get_weights_for_preset,
+)
 from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
     DimensionScores,
     QualityScoringResult,
@@ -81,9 +112,18 @@ __all__ = [
     "ANALYSIS_VERSION",
     "DEFAULT_WEIGHTS",
     "DimensionScores",
+    "LENIENT_THRESHOLD",
+    "LENIENT_WEIGHTS",
+    "OnexStrictnessLevel",
     "QualityScoringComputeError",
     "QualityScoringResult",
     "QualityScoringValidationError",
+    "STANDARD_THRESHOLD",
+    "STANDARD_WEIGHTS",
+    "STRICT_THRESHOLD",
+    "STRICT_WEIGHTS",
     "create_error_dimensions",
+    "get_threshold_for_preset",
+    "get_weights_for_preset",
     "score_code_quality",
 ]

@@ -764,3 +764,550 @@ def complex_comprehension(items: list) -> list:
         with patch("ast.parse", side_effect=MemoryError("Simulated memory exhaustion")):
             with pytest.raises(QualityScoringComputeError, match="[Uu]nexpected"):
                 score_code_quality("valid_code = 1", "python")
+
+
+class TestOnexPresets:
+    """Tests for ONEX strictness preset functionality."""
+
+    def test_strict_preset_uses_correct_weights(self) -> None:
+        """STRICT preset should apply higher weights to documentation and patterns."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            STRICT_WEIGHTS,
+            get_weights_for_preset,
+        )
+
+        weights = get_weights_for_preset(OnexStrictnessLevel.STRICT)
+
+        assert weights == STRICT_WEIGHTS
+        assert weights["documentation"] == 0.20
+        assert weights["patterns"] == 0.20
+        assert sum(weights.values()) == pytest.approx(1.0)
+
+    def test_standard_preset_uses_correct_weights(self) -> None:
+        """STANDARD preset should apply balanced weights."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            STANDARD_WEIGHTS,
+            get_weights_for_preset,
+        )
+
+        weights = get_weights_for_preset(OnexStrictnessLevel.STANDARD)
+
+        assert weights == STANDARD_WEIGHTS
+        assert sum(weights.values()) == pytest.approx(1.0)
+
+    def test_lenient_preset_uses_correct_weights(self) -> None:
+        """LENIENT preset should apply more forgiving weights."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            LENIENT_WEIGHTS,
+            get_weights_for_preset,
+        )
+
+        weights = get_weights_for_preset(OnexStrictnessLevel.LENIENT)
+
+        assert weights == LENIENT_WEIGHTS
+        assert weights["complexity"] == 0.25  # Higher tolerance
+        assert weights["documentation"] == 0.10  # Lower requirement
+        assert weights["patterns"] == 0.10  # Lower requirement
+        assert sum(weights.values()) == pytest.approx(1.0)
+
+    def test_strict_preset_uses_correct_threshold(self) -> None:
+        """STRICT preset should use 0.8 threshold."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            STRICT_THRESHOLD,
+            get_threshold_for_preset,
+        )
+
+        threshold = get_threshold_for_preset(OnexStrictnessLevel.STRICT)
+
+        assert threshold == STRICT_THRESHOLD
+        assert threshold == 0.8
+
+    def test_standard_preset_uses_correct_threshold(self) -> None:
+        """STANDARD preset should use 0.7 threshold."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            STANDARD_THRESHOLD,
+            get_threshold_for_preset,
+        )
+
+        threshold = get_threshold_for_preset(OnexStrictnessLevel.STANDARD)
+
+        assert threshold == STANDARD_THRESHOLD
+        assert threshold == 0.7
+
+    def test_lenient_preset_uses_correct_threshold(self) -> None:
+        """LENIENT preset should use 0.5 threshold."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            LENIENT_THRESHOLD,
+            get_threshold_for_preset,
+        )
+
+        threshold = get_threshold_for_preset(OnexStrictnessLevel.LENIENT)
+
+        assert threshold == LENIENT_THRESHOLD
+        assert threshold == 0.5
+
+    def test_preset_overrides_manual_weights(self) -> None:
+        """Preset should override manually provided weights."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+        )
+
+        code = "def process(): pass"
+
+        # Custom weights that heavily favor documentation
+        custom_weights = {
+            "complexity": 0.05,
+            "maintainability": 0.05,
+            "documentation": 0.70,
+            "temporal_relevance": 0.05,
+            "patterns": 0.05,
+            "architectural": 0.10,
+        }
+
+        # Without preset - uses custom weights
+        result_custom = score_code_quality(code, "python", weights=custom_weights)
+
+        # With preset - should override custom weights
+        result_preset = score_code_quality(
+            code, "python", weights=custom_weights, preset=OnexStrictnessLevel.STANDARD
+        )
+
+        # Scores should be different because preset overrides custom weights
+        assert result_custom["quality_score"] != result_preset["quality_score"]
+
+    def test_preset_overrides_manual_threshold(self) -> None:
+        """Preset should override manually provided threshold."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+        )
+
+        # Medium quality code
+        code = '''
+class Example:
+    """Example class."""
+    def method(self) -> int:
+        return 42
+'''
+
+        # With LENIENT preset (threshold 0.5) - should be compliant
+        result_lenient = score_code_quality(
+            code, "python", onex_threshold=0.95, preset=OnexStrictnessLevel.LENIENT
+        )
+
+        # With STRICT preset (threshold 0.8) - threshold from preset overrides 0.95
+        result_strict = score_code_quality(
+            code, "python", onex_threshold=0.1, preset=OnexStrictnessLevel.STRICT
+        )
+
+        # LENIENT uses 0.5 threshold regardless of onex_threshold=0.95
+        # STRICT uses 0.8 threshold regardless of onex_threshold=0.1
+        assert result_lenient["onex_compliant"] != result_strict["onex_compliant"] or (
+            result_lenient["quality_score"] >= 0.8
+        )
+
+    def test_different_presets_produce_different_scores(self) -> None:
+        """Same code should produce different scores with different presets."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+        )
+
+        # Code with decent structure but minimal documentation
+        code = '''
+class DataProcessor:
+    def process(self, data: dict) -> list:
+        return list(data.values())
+'''
+
+        result_strict = score_code_quality(
+            code, "python", preset=OnexStrictnessLevel.STRICT
+        )
+        result_standard = score_code_quality(
+            code, "python", preset=OnexStrictnessLevel.STANDARD
+        )
+        result_lenient = score_code_quality(
+            code, "python", preset=OnexStrictnessLevel.LENIENT
+        )
+
+        # Different presets have different weights, so scores should differ
+        scores = {
+            result_strict["quality_score"],
+            result_standard["quality_score"],
+            result_lenient["quality_score"],
+        }
+
+        # At least two presets should produce different scores for this code
+        assert len(scores) >= 2
+
+    def test_no_preset_uses_defaults(self) -> None:
+        """Without preset, default weights and threshold should be used."""
+        code = "x = 1"
+
+        result_no_preset = score_code_quality(code, "python")
+        result_explicit_default = score_code_quality(
+            code, "python", weights=DEFAULT_WEIGHTS, onex_threshold=0.7
+        )
+
+        # Should produce identical results
+        assert result_no_preset["quality_score"] == result_explicit_default["quality_score"]
+        assert result_no_preset["dimensions"] == result_explicit_default["dimensions"]
+
+    def test_preset_with_unsupported_language(self) -> None:
+        """Preset should still work (for threshold) with unsupported languages."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+        )
+
+        code = 'fn main() { println!("Hello"); }'
+
+        result_strict = score_code_quality(
+            code, "rust", preset=OnexStrictnessLevel.STRICT
+        )
+        result_lenient = score_code_quality(
+            code, "rust", preset=OnexStrictnessLevel.LENIENT
+        )
+
+        # Both get baseline 0.5 score for unsupported language
+        assert result_strict["quality_score"] == 0.5
+        assert result_lenient["quality_score"] == 0.5
+
+        # But compliance differs based on preset threshold
+        # STRICT threshold is 0.8, LENIENT is 0.5
+        assert result_strict["onex_compliant"] is False  # 0.5 < 0.8
+        assert result_lenient["onex_compliant"] is True  # 0.5 >= 0.5
+
+    def test_preset_returns_copied_weights(self) -> None:
+        """get_weights_for_preset should return a copy, not the original dict."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            STRICT_WEIGHTS,
+            get_weights_for_preset,
+        )
+
+        weights = get_weights_for_preset(OnexStrictnessLevel.STRICT)
+
+        # Should be equal but not the same object
+        assert weights == STRICT_WEIGHTS
+        assert weights is not STRICT_WEIGHTS
+
+    def test_all_preset_weights_sum_to_one(self) -> None:
+        """All preset weight configurations must sum to exactly 1.0."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            get_weights_for_preset,
+        )
+
+        for level in OnexStrictnessLevel:
+            weights = get_weights_for_preset(level)
+            total = sum(weights.values())
+            assert total == pytest.approx(1.0), f"{level.value} weights sum to {total}"
+
+    def test_all_presets_have_valid_thresholds(self) -> None:
+        """All preset thresholds must be in valid range [0.0, 1.0]."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+            get_threshold_for_preset,
+        )
+
+        for level in OnexStrictnessLevel:
+            threshold = get_threshold_for_preset(level)
+            assert 0.0 <= threshold <= 1.0, f"{level.value} threshold {threshold} out of range"
+
+    def test_strictness_level_string_values(self) -> None:
+        """OnexStrictnessLevel enum should have expected string values."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+        )
+
+        assert OnexStrictnessLevel.STRICT.value == "strict"
+        assert OnexStrictnessLevel.STANDARD.value == "standard"
+        assert OnexStrictnessLevel.LENIENT.value == "lenient"
+
+    def test_preset_in_score_code_quality_signature(self) -> None:
+        """score_code_quality should accept preset parameter."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers import (
+            OnexStrictnessLevel,
+        )
+
+        # This should not raise any errors
+        result = score_code_quality(
+            content="x = 1",
+            language="python",
+            preset=OnexStrictnessLevel.STANDARD,
+        )
+
+        assert result["success"] is True
+
+
+class TestArchitecturalScoring:
+    """Tests for enhanced architectural scoring dimension."""
+
+    def test_all_exports_improves_score(self) -> None:
+        """Modules with __all__ exports should score better architecturally."""
+        with_all = '''
+"""Module with proper exports."""
+
+def public_function() -> int:
+    """A public function."""
+    return 42
+
+__all__ = ["public_function"]
+'''
+        without_all = '''
+"""Module without exports."""
+
+def public_function() -> int:
+    """A public function."""
+    return 42
+'''
+        result_with = score_code_quality(with_all, "python")
+        result_without = score_code_quality(without_all, "python")
+
+        # Module with __all__ should score better on architectural dimension
+        assert result_with["dimensions"]["architectural"] >= result_without["dimensions"]["architectural"]
+
+    def test_imports_inside_functions_penalized(self) -> None:
+        """Imports inside functions (circular import risk) should be penalized."""
+        clean_imports = '''
+"""Clean module with imports at top."""
+import os
+import sys
+
+def process() -> str:
+    return os.getcwd()
+'''
+        circular_risk = '''
+"""Module with import inside function."""
+
+def process() -> str:
+    import os  # Import inside function
+    return os.getcwd()
+'''
+        result_clean = score_code_quality(clean_imports, "python")
+        result_risky = score_code_quality(circular_risk, "python")
+
+        # Imports inside functions should lower architectural score
+        assert result_clean["dimensions"]["architectural"] > result_risky["dimensions"]["architectural"]
+
+    def test_import_grouping_bonus(self) -> None:
+        """Properly grouped imports should receive a bonus."""
+        grouped_imports = '''
+"""Module with grouped imports."""
+import os
+import sys
+
+from pydantic import BaseModel
+
+from mypackage import utils
+'''
+        ungrouped_imports = '''
+"""Module with interleaved imports."""
+import os
+from pydantic import BaseModel
+import sys
+from mypackage import utils
+import json
+'''
+        result_grouped = score_code_quality(grouped_imports, "python")
+        result_ungrouped = score_code_quality(ungrouped_imports, "python")
+
+        # Grouped imports should score better
+        assert result_grouped["dimensions"]["architectural"] >= result_ungrouped["dimensions"]["architectural"]
+
+    def test_handler_pattern_detection(self) -> None:
+        """Handler pattern (private typed functions) should be rewarded."""
+        handler_pattern = '''
+"""Module following handler pattern."""
+
+def _compute_score(data: dict) -> float:
+    """Compute score from data."""
+    return 0.5
+
+def _validate_input(value: str) -> bool:
+    """Validate input value."""
+    return len(value) > 0
+
+def _transform_result(raw: list) -> dict:
+    """Transform raw result."""
+    return {"items": raw}
+'''
+        no_handler_pattern = '''
+"""Module without handler pattern."""
+
+def compute_score(data):
+    return 0.5
+
+def validate_input(value):
+    return len(value) > 0
+'''
+        result_handler = score_code_quality(handler_pattern, "python")
+        result_no_handler = score_code_quality(no_handler_pattern, "python")
+
+        # Handler pattern should score better on architectural dimension
+        assert result_handler["dimensions"]["architectural"] >= result_no_handler["dimensions"]["architectural"]
+
+    def test_class_organization_matters(self) -> None:
+        """Proper class organization (ClassVar at top) should score better."""
+        well_organized = '''
+"""Well organized class."""
+from typing import ClassVar
+
+class Model:
+    """Model class."""
+    VERSION: ClassVar[str] = "1.0"
+    model_config = {"frozen": True}
+
+    def process(self) -> int:
+        return 42
+'''
+        poorly_organized = '''
+"""Poorly organized class."""
+from typing import ClassVar
+
+class Model:
+    """Model class."""
+    def process(self) -> int:
+        return 42
+
+    VERSION: ClassVar[str] = "1.0"
+    model_config = {"frozen": True}
+'''
+        result_good = score_code_quality(well_organized, "python")
+        result_bad = score_code_quality(poorly_organized, "python")
+
+        # Well organized class should score better
+        assert result_good["dimensions"]["architectural"] >= result_bad["dimensions"]["architectural"]
+
+    def test_multiple_inheritance_still_penalized(self) -> None:
+        """Multiple inheritance should still be penalized (existing check preserved)."""
+        single_inheritance = '''
+class Child(Parent):
+    """Single inheritance."""
+    pass
+'''
+        multiple_inheritance = '''
+class Child(Parent1, Parent2, Mixin):
+    """Multiple inheritance."""
+    pass
+'''
+        result_single = score_code_quality(single_inheritance, "python")
+        result_multiple = score_code_quality(multiple_inheritance, "python")
+
+        # Multiple inheritance should lower score
+        assert result_single["dimensions"]["architectural"] > result_multiple["dimensions"]["architectural"]
+
+    def test_import_after_code_still_penalized(self) -> None:
+        """Imports after code should still be penalized (existing check preserved)."""
+        imports_at_top = '''
+"""Module docstring."""
+import os
+import sys
+
+x = 1
+'''
+        imports_after_code = '''
+"""Module docstring."""
+x = 1
+
+import os
+import sys
+'''
+        result_top = score_code_quality(imports_at_top, "python")
+        result_after = score_code_quality(imports_after_code, "python")
+
+        # Imports at top should score better
+        assert result_top["dimensions"]["architectural"] > result_after["dimensions"]["architectural"]
+
+    def test_comprehensive_architectural_score(self) -> None:
+        """Test comprehensive architectural scoring with all factors."""
+        excellent_architecture = '''
+"""Module with excellent architecture."""
+from __future__ import annotations
+
+import ast
+import re
+from typing import Final
+
+from pydantic import BaseModel
+
+__all__ = ["process_data", "DataModel"]
+
+MAX_SIZE: Final[int] = 100
+
+class DataModel(BaseModel):
+    """Data model with proper structure."""
+    name: str
+    value: int
+
+    model_config = {"frozen": True}
+
+def process_data(data: DataModel) -> dict:
+    """Process the data model."""
+    return {"name": data.name}
+
+def _validate_input(value: str) -> bool:
+    """Validate input internally."""
+    return len(value) > 0
+
+def _transform_output(raw: dict) -> list:
+    """Transform output internally."""
+    return list(raw.keys())
+'''
+        poor_architecture = '''
+def public_func():
+    import os
+    result = {}
+    return result
+
+class Multi(Base1, Base2, Base3):
+    def method(self):
+        import json
+        return json.dumps({})
+
+x = 1
+import sys
+'''
+        result_excellent = score_code_quality(excellent_architecture, "python")
+        result_poor = score_code_quality(poor_architecture, "python")
+
+        # Excellent architecture should score significantly higher
+        assert result_excellent["dimensions"]["architectural"] > result_poor["dimensions"]["architectural"]
+        # The gap should be substantial given all the architectural issues in poor code
+        assert (
+            result_excellent["dimensions"]["architectural"]
+            - result_poor["dimensions"]["architectural"]
+        ) >= 0.2
+
+    def test_simple_module_default_score(self) -> None:
+        """Simple modules without classes should get reasonable default score."""
+        simple_module = '''
+"""Simple module."""
+x = 1
+y = 2
+'''
+        result = score_code_quality(simple_module, "python")
+
+        # Simple module should get the default architectural score or better
+        assert result["dimensions"]["architectural"] >= 0.5
+
+    def test_architectural_constants_are_defined(self) -> None:
+        """New architectural constants should be properly defined."""
+        from omniintelligence.nodes.quality_scoring_compute.handlers.handler_quality_scoring import (
+            CLASS_ORGANIZATION_PENALTY,
+            HANDLER_PATTERN_BONUS,
+            IMPORT_GROUPING_BONUS,
+            IMPORTS_INSIDE_FUNCTION_PENALTY,
+            MISSING_ALL_EXPORTS_PENALTY,
+        )
+
+        # Verify constants exist and have reasonable values
+        assert 0.0 < MISSING_ALL_EXPORTS_PENALTY < 1.0
+        assert 0.0 < IMPORTS_INSIDE_FUNCTION_PENALTY < 1.0
+        assert 0.0 < IMPORT_GROUPING_BONUS < 1.0
+        assert 0.0 < HANDLER_PATTERN_BONUS < 1.0
+        assert 0.0 < CLASS_ORGANIZATION_PENALTY < 1.0

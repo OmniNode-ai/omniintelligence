@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
+from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
+    OnexStrictnessLevel,
+)
+
 
 class ModelDimensionWeights(BaseModel):
     """Configurable weights for quality scoring dimensions.
@@ -90,6 +94,22 @@ class ModelQualityScoringInput(BaseModel):
     This model represents the input for scoring code quality.
     Supports configurable dimension weights and scoring thresholds
     for flexible quality assessment.
+
+    Configuration Precedence:
+        When determining weights and thresholds, the following precedence applies:
+        1. onex_preset (highest priority) - When set, overrides both dimension_weights
+           and onex_compliance_threshold with preset values.
+        2. dimension_weights / onex_compliance_threshold - Manual configuration.
+        3. Defaults (lowest priority) - Standard weights (0.20/0.20/0.15/0.15/0.15/0.15)
+           and threshold (0.7) when nothing else is specified.
+
+    Preset Levels:
+        - STRICT: Production-ready, high quality bar (threshold 0.8).
+          Emphasizes documentation and patterns.
+        - STANDARD: Default balanced requirements (threshold 0.7).
+          Equal distribution across all dimensions.
+        - LENIENT: Development/prototyping mode (threshold 0.5).
+          More forgiving on documentation and pattern requirements.
     """
 
     source_path: str = Field(
@@ -110,15 +130,30 @@ class ModelQualityScoringInput(BaseModel):
         default=None,
         description="Name of the project for context",
     )
+    onex_preset: OnexStrictnessLevel | None = Field(
+        default=None,
+        description=(
+            "ONEX strictness preset (strict/standard/lenient). "
+            "When set, overrides dimension_weights and onex_compliance_threshold. "
+            "Use 'strict' for production, 'standard' for regular development, "
+            "'lenient' for prototyping."
+        ),
+    )
     dimension_weights: ModelDimensionWeights | None = Field(
         default=None,
-        description="Custom weights for quality dimensions. Uses ONEX-focused defaults when None",
+        description=(
+            "Custom weights for quality dimensions. Uses ONEX-focused defaults when None. "
+            "Ignored when onex_preset is set."
+        ),
     )
     onex_compliance_threshold: float = Field(
         default=0.7,
         ge=0.0,
         le=1.0,
-        description="Score above this threshold sets onex_compliant=True",
+        description=(
+            "Score above this threshold sets onex_compliant=True. "
+            "Ignored when onex_preset is set (preset provides its own threshold)."
+        ),
     )
     min_quality_threshold: float = Field(
         default=0.0,
@@ -130,4 +165,4 @@ class ModelQualityScoringInput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelDimensionWeights", "ModelQualityScoringInput"]
+__all__ = ["ModelDimensionWeights", "ModelQualityScoringInput", "OnexStrictnessLevel"]
