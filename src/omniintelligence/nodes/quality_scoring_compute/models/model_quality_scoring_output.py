@@ -13,6 +13,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
+    DimensionScores,
+)
+
 
 class ModelQualityScoringMetadata(BaseModel):
     """Typed metadata for quality scoring output.
@@ -75,7 +79,7 @@ class ModelQualityScoringOutput(BaseModel):
         le=1.0,
         description="Overall quality score (0.0 to 1.0)",
     )
-    dimensions: dict[str, float] = Field(
+    dimensions: DimensionScores | dict[str, float] = Field(
         default_factory=dict,
         description="Quality scores by dimension using the six-dimension standard: "
         "complexity, maintainability, documentation, temporal_relevance, patterns, architectural",

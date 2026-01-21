@@ -24,11 +24,12 @@ class NodeQualityScoringCompute(NodeCompute):
     """Pure compute node for scoring code quality.
 
     This node analyzes source code across multiple quality dimensions:
-        - patterns: ONEX pattern adherence (frozen models, TypedDict, Protocol, etc.)
-        - type_coverage: Type annotation completeness
-        - maintainability: Code structure quality (function length, naming conventions)
         - complexity: Cyclomatic complexity approximation (inverted - lower is better)
+        - maintainability: Code structure quality (function length, naming conventions)
         - documentation: Docstring and comment coverage
+        - temporal_relevance: Code freshness indicators (TODO/FIXME, deprecated markers)
+        - patterns: ONEX pattern adherence (frozen models, TypedDict, Protocol, etc.)
+        - architectural: Module organization and structure
 
     The node follows the ONEX pure shell pattern, delegating computation
     to side-effect-free handler functions.
@@ -55,11 +56,12 @@ class NodeQualityScoringCompute(NodeCompute):
             weights = None
             if input_data.dimension_weights is not None:
                 weights = {
-                    "patterns": input_data.dimension_weights.patterns,
-                    "type_coverage": input_data.dimension_weights.type_coverage,
-                    "maintainability": input_data.dimension_weights.maintainability,
                     "complexity": input_data.dimension_weights.complexity,
+                    "maintainability": input_data.dimension_weights.maintainability,
                     "documentation": input_data.dimension_weights.documentation,
+                    "temporal_relevance": input_data.dimension_weights.temporal_relevance,
+                    "patterns": input_data.dimension_weights.patterns,
+                    "architectural": input_data.dimension_weights.architectural,
                 }
 
             # Call pure handler function
