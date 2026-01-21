@@ -77,13 +77,48 @@ class ModelQualityScoringOutput(BaseModel):
     )
     dimensions: dict[str, float] = Field(
         default_factory=dict,
-        description="Quality scores by dimension (maintainability, complexity, etc.)",
+        description="Quality scores by dimension using the six-dimension standard: "
+        "complexity, maintainability, documentation, temporal_relevance, patterns, architectural",
     )
 
     @field_validator("dimensions")
     @classmethod
     def validate_dimension_scores(cls, v: dict[str, float]) -> dict[str, float]:
-        """Validate that all dimension scores are within 0.0 to 1.0 range."""
+        """Validate dimension scores are within range and contain expected keys.
+
+        The six-dimension standard requires:
+            - complexity: Cyclomatic complexity score
+            - maintainability: Code structure and naming score
+            - documentation: Docstring and comment coverage score
+            - temporal_relevance: Code freshness score
+            - patterns: ONEX pattern adherence score
+            - architectural: Module organization score
+
+        All scores must be between 0.0 and 1.0.
+        """
+        expected_dimensions = {
+            "complexity",
+            "maintainability",
+            "documentation",
+            "temporal_relevance",
+            "patterns",
+            "architectural",
+        }
+
+        # Check for missing or extra dimensions (only if dimensions are provided)
+        if v:
+            actual_dimensions = set(v.keys())
+            missing = expected_dimensions - actual_dimensions
+            extra = actual_dimensions - expected_dimensions
+
+            if missing or extra:
+                raise ValueError(
+                    f"Invalid dimension keys. Missing: {missing or 'none'}, "
+                    f"Extra: {extra or 'none'}. "
+                    f"Expected six-dimension standard: {sorted(expected_dimensions)}"
+                )
+
+        # Validate score ranges
         for dimension_name, score in v.items():
             if not 0.0 <= score <= 1.0:
                 raise ValueError(

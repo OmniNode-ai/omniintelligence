@@ -4,14 +4,15 @@ This module provides pure functions for scoring code quality based on
 ONEX-focused dimensions. All functions are side-effect-free and suitable
 for use in compute nodes.
 
-The scoring system evaluates Python code across five dimensions:
-    - patterns: ONEX pattern adherence (frozen models, TypedDict, Protocol)
-    - type_coverage: Type annotation completeness
-    - maintainability: Code structure quality (function length, naming)
-    - complexity: Cyclomatic complexity approximation
-    - documentation: Docstring and comment coverage
+The scoring system evaluates Python code across six dimensions:
+    - complexity: Cyclomatic complexity approximation (0.20)
+    - maintainability: Code structure quality (function length, naming) (0.20)
+    - documentation: Docstring and comment coverage (0.15)
+    - temporal_relevance: Code freshness indicators (TODO/FIXME, deprecated) (0.15)
+    - patterns: ONEX pattern adherence (frozen models, TypedDict, Protocol) (0.15)
+    - architectural: Module organization and structure (0.15)
 
-Default weights are ONEX-focused, prioritizing pattern adherence and type coverage.
+Default weights follow the six-dimension standard for balanced quality assessment.
 
 Example:
     from omniintelligence.nodes.quality_scoring_compute.handlers import (
@@ -36,6 +37,7 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
     QualityScoringValidationError,
 )
 from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
+    DimensionScores,
     QualityScoringResult,
 )
 
@@ -43,14 +45,16 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
 # Constants
 # =============================================================================
 
-ANALYSIS_VERSION: Final[str] = "1.0.0"
+ANALYSIS_VERSION: Final[str] = "1.1.0"
 
+# Six-dimension standard weights
 DEFAULT_WEIGHTS: Final[dict[str, float]] = {
-    "patterns": 0.30,
-    "type_coverage": 0.25,
+    "complexity": 0.20,
     "maintainability": 0.20,
-    "complexity": 0.15,
-    "documentation": 0.10,
+    "documentation": 0.15,
+    "temporal_relevance": 0.15,
+    "patterns": 0.15,
+    "architectural": 0.15,
 }
 
 # ONEX patterns to detect (positive indicators)
@@ -90,6 +94,14 @@ _COMPILED_HANDLER_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"def\s+_[a-z_]+\s*\([^)]*\)\s*->"
 )
 
+# Pre-compiled patterns for temporal relevance scoring
+_COMPILED_TODO_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"#\s*(TODO|FIXME|XXX|HACK)", re.IGNORECASE
+)
+_COMPILED_DEPRECATED_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"@?deprecated|DeprecationWarning", re.IGNORECASE
+)
+
 # Maximum reasonable values for heuristics
 MAX_FUNCTION_LENGTH: Final[int] = 50
 MAX_NESTING_DEPTH: Final[int] = 4
@@ -104,8 +116,8 @@ ANTI_PATTERN_PENALTY: Final[float] = 0.1  # Penalty per anti-pattern
 MAX_ANTI_PATTERN_PENALTY: Final[float] = 0.5  # Maximum total penalty
 PATTERN_BASELINE_SCORE: Final[float] = 0.3  # Baseline added to pattern score
 
-# Type coverage constants
-NO_FUNCTIONS_NEUTRAL_SCORE: Final[float] = 0.5  # Score when no functions to type
+# Neutral score constants
+NO_FUNCTIONS_NEUTRAL_SCORE: Final[float] = 0.5  # Score when no functions to analyze
 
 # Maintainability constants
 IDEAL_FUNCTION_LENGTH: Final[int] = 20  # Ideal max function length (lines)
@@ -115,6 +127,16 @@ NO_ITEMS_MAINTAINABILITY_SCORE: Final[float] = 0.7  # Score when no functions/cl
 # Complexity constants
 MAX_RAW_COMPLEXITY: Final[int] = 20  # Max raw complexity for scoring
 MAX_AVG_COMPLEXITY: Final[int] = 10  # Max average complexity per function
+
+# Temporal relevance constants
+STALENESS_PENALTY_PER_INDICATOR: Final[float] = 0.1
+MAX_STALENESS_PENALTY: Final[float] = 1.0
+DEPRECATED_WEIGHT_MULTIPLIER: Final[int] = 2  # Higher weight for deprecated markers
+
+# Architectural constants
+IMPORT_AFTER_CODE_PENALTY: Final[float] = 0.2
+MULTIPLE_INHERITANCE_PENALTY: Final[float] = 0.3
+DEFAULT_ARCHITECTURAL_SCORE: Final[float] = 0.7  # Default for simple modules
 
 # Baseline scores
 SYNTAX_ERROR_BASELINE: Final[float] = 0.3  # Score when syntax errors present
@@ -135,14 +157,14 @@ def score_code_quality(
     """Score code quality based on multiple dimensions.
 
     This is the main entry point for quality scoring. It computes scores
-    across five dimensions and aggregates them using configurable weights.
+    across six dimensions and aggregates them using configurable weights.
 
     Args:
         content: Source code content to analyze.
         language: Programming language (e.g., "python"). Non-Python languages
             receive baseline scores with an unsupported_language recommendation.
         weights: Optional custom weights for each dimension. Must sum to ~1.0.
-            Defaults to ONEX-focused weights if None.
+            Defaults to six-dimension standard weights if None.
         onex_threshold: Score threshold for ONEX compliance (default 0.7).
             If quality_score >= onex_threshold, onex_compliant is True.
 
@@ -192,7 +214,7 @@ def score_code_quality(
         return QualityScoringResult(
             success=True,
             quality_score=round(quality_score, 4),
-            dimensions={k: round(v, 4) for k, v in dimensions.items()},
+            dimensions={k: round(v, 4) for k, v in dimensions.items()},  # type: ignore[typeddict-item]
             onex_compliant=onex_compliant,
             recommendations=recommendations,
             source_language=normalized_language,
@@ -214,25 +236,31 @@ def score_code_quality(
 # =============================================================================
 
 
-def _compute_all_dimensions(content: str) -> dict[str, float]:
+def _compute_all_dimensions(content: str) -> DimensionScores:
     """Compute all quality dimension scores.
 
-    Each dimension function handles syntax errors gracefully by returning
-    a baseline score of SYNTAX_ERROR_BASELINE, so this function will not
-    raise SyntaxError.
+    Parses the AST once and passes it to dimension functions that need it,
+    optimizing performance by avoiding redundant parsing.
 
     Args:
         content: Python source code to analyze.
 
     Returns:
-        Dictionary mapping dimension names to scores (0.0-1.0).
+        DimensionScores with all six dimension scores (0.0-1.0).
+
+    Raises:
+        SyntaxError: If the content cannot be parsed as valid Python.
     """
+    # Parse AST once for all dimensions that need it
+    tree = ast.parse(content)
+
     return {
+        "complexity": _compute_complexity_score(tree),
+        "maintainability": _compute_maintainability_score(tree),
+        "documentation": _compute_documentation_score(tree, content),
+        "temporal_relevance": _compute_temporal_relevance_score(content),
         "patterns": _compute_patterns_score(content),
-        "type_coverage": _compute_type_coverage_score(content),
-        "maintainability": _compute_maintainability_score(content),
-        "complexity": _compute_complexity_score(content),
-        "documentation": _compute_documentation_score(content),
+        "architectural": _compute_architectural_score(tree),
     }
 
 
@@ -274,75 +302,17 @@ def _compute_patterns_score(content: str) -> float:
     return max(0.0, min(1.0, base_score - penalty + PATTERN_BASELINE_SCORE))
 
 
-def _compute_type_coverage_score(content: str) -> float:
-    """Compute type annotation coverage score.
-
-    Analyzes AST to count typed vs untyped function parameters and returns.
-    If the content has syntax errors, returns SYNTAX_ERROR_BASELINE.
-
-    Args:
-        content: Python source code to analyze.
-
-    Returns:
-        Score from 0.0 (no type hints) to 1.0 (fully typed).
-    """
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        # Syntax errors are handled upstream, return baseline
-        return SYNTAX_ERROR_BASELINE
-
-    typed_count = 0
-    untyped_count = 0
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            # Check return annotation
-            if node.returns:
-                typed_count += 1
-            else:
-                untyped_count += 1
-
-            # Check argument annotations
-            for arg in node.args.args:
-                if arg.arg == "self" or arg.arg == "cls":
-                    continue  # Skip self/cls
-                if arg.annotation:
-                    typed_count += 1
-                else:
-                    untyped_count += 1
-
-            # Check kwonly args
-            for arg in node.args.kwonlyargs:
-                if arg.annotation:
-                    typed_count += 1
-                else:
-                    untyped_count += 1
-
-    total = typed_count + untyped_count
-    if total == 0:
-        return NO_FUNCTIONS_NEUTRAL_SCORE  # No functions to type, neutral score
-
-    return typed_count / total
-
-
-def _compute_maintainability_score(content: str) -> float:
+def _compute_maintainability_score(tree: ast.AST) -> float:
     """Compute code maintainability score.
 
     Evaluates function length, naming conventions, and overall structure.
-    If the content has syntax errors, returns SYNTAX_ERROR_BASELINE.
 
     Args:
-        content: Python source code to analyze.
+        tree: Parsed AST of the Python source code.
 
     Returns:
         Score from 0.0 (poor maintainability) to 1.0 (excellent).
     """
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        return SYNTAX_ERROR_BASELINE
-
     scores: list[float] = []
 
     # Check function lengths
@@ -386,23 +356,17 @@ def _compute_maintainability_score(content: str) -> float:
     return max(0.0, min(1.0, sum(scores) / len(scores)))
 
 
-def _compute_complexity_score(content: str) -> float:
+def _compute_complexity_score(tree: ast.AST) -> float:
     """Compute complexity score (inverted - lower complexity is better).
 
     Approximates cyclomatic complexity by counting control flow statements.
-    If the content has syntax errors, returns SYNTAX_ERROR_BASELINE.
 
     Args:
-        content: Python source code to analyze.
+        tree: Parsed AST of the Python source code.
 
     Returns:
         Score from 0.0 (high complexity) to 1.0 (low complexity).
     """
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        return SYNTAX_ERROR_BASELINE
-
     # Count complexity indicators
     complexity_count = 0
     function_count = 0
@@ -431,23 +395,18 @@ def _compute_complexity_score(content: str) -> float:
     return max(0.0, 1.0 - avg_complexity / MAX_AVG_COMPLEXITY)
 
 
-def _compute_documentation_score(content: str) -> float:
+def _compute_documentation_score(tree: ast.AST, content: str) -> float:
     """Compute documentation coverage score.
 
     Evaluates docstring presence and comment ratio.
-    If the content has syntax errors, returns SYNTAX_ERROR_BASELINE.
 
     Args:
-        content: Python source code to analyze.
+        tree: Parsed AST of the Python source code.
+        content: Raw source code content for comment analysis.
 
     Returns:
         Score from 0.0 (no documentation) to 1.0 (well documented).
     """
-    try:
-        tree = ast.parse(content)
-    except SyntaxError:
-        return SYNTAX_ERROR_BASELINE
-
     # Count items that should have docstrings
     needs_docstring = 0
     has_docstring = 0
@@ -486,16 +445,93 @@ def _compute_documentation_score(content: str) -> float:
     return docstring_score * 0.7 + comment_score * 0.3
 
 
+def _compute_temporal_relevance_score(content: str) -> float:
+    """Compute temporal relevance score based on code freshness indicators.
+
+    Checks for staleness indicators such as TODO/FIXME comments and
+    deprecated markers that suggest code may need updating.
+
+    Args:
+        content: Python source code to analyze.
+
+    Returns:
+        Score from 0.0 (stale code) to 1.0 (fresh/relevant).
+    """
+    # Count staleness indicators
+    stale_indicators = 0
+
+    # Check for TODO/FIXME/XXX/HACK (using pre-compiled pattern)
+    todo_matches = _COMPILED_TODO_PATTERN.findall(content)
+    stale_indicators += len(todo_matches)
+
+    # Check for deprecated markers (using pre-compiled pattern)
+    deprecated_matches = _COMPILED_DEPRECATED_PATTERN.findall(content)
+    stale_indicators += len(deprecated_matches) * DEPRECATED_WEIGHT_MULTIPLIER
+
+    # Score calculation: fewer indicators = higher score
+    # Max penalty at 10+ indicators
+    penalty = min(stale_indicators * STALENESS_PENALTY_PER_INDICATOR, MAX_STALENESS_PENALTY)
+    return max(0.0, 1.0 - penalty)
+
+
+def _compute_architectural_score(tree: ast.AST) -> float:
+    """Compute architectural compliance score.
+
+    Evaluates module organization, class hierarchy depth, and import structure.
+
+    Args:
+        tree: Parsed AST of the Python source code.
+
+    Returns:
+        Score from 0.0 (poor architecture) to 1.0 (good architecture).
+    """
+    scores: list[float] = []
+
+    # Check import organization (imports should be at module level, at the top)
+    import_after_code = 0
+    seen_non_import = False
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            if seen_non_import:
+                import_after_code += 1
+        elif not isinstance(node, ast.Expr):  # Skip module docstring (Expr with Constant)
+            seen_non_import = True
+
+    import_org_score = max(0.0, 1.0 - import_after_code * IMPORT_AFTER_CODE_PENALTY)
+    scores.append(import_org_score)
+
+    # Check class hierarchy (look for deep inheritance via base classes)
+    class_count = 0
+    classes_with_bases = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            class_count += 1
+            if len(node.bases) > 1:  # Multiple inheritance
+                scores.append(1.0 - MULTIPLE_INHERITANCE_PENALTY)  # Slight penalty
+            elif len(node.bases) == 1:
+                classes_with_bases += 1
+
+    if class_count > 0:
+        # Good ratio of standalone vs inherited classes
+        inheritance_ratio = classes_with_bases / class_count
+        scores.append(max(0.5, 1.0 - inheritance_ratio * MULTIPLE_INHERITANCE_PENALTY))
+
+    if not scores:
+        return DEFAULT_ARCHITECTURAL_SCORE  # Default for simple modules
+
+    return max(0.0, min(1.0, sum(scores) / len(scores)))
+
+
 # =============================================================================
 # Recommendation Generation (Pure)
 # =============================================================================
 
 
-def _generate_recommendations(dimensions: dict[str, float]) -> list[str]:
+def _generate_recommendations(dimensions: DimensionScores) -> list[str]:
     """Generate improvement recommendations based on dimension scores.
 
     Args:
-        dimensions: Dictionary of dimension scores (0.0-1.0).
+        dimensions: DimensionScores with all six dimension scores.
 
     Returns:
         List of actionable recommendation strings.
@@ -503,30 +539,35 @@ def _generate_recommendations(dimensions: dict[str, float]) -> list[str]:
     recommendations: list[str] = []
 
     thresholds: dict[str, tuple[float, str]] = {
-        "patterns": (
-            0.6,
-            "Add ONEX patterns: use frozen=True on models, TypedDict for dicts, "
-            "Protocol for interfaces, and extract pure handler functions",
-        ),
-        "type_coverage": (
-            0.7,
-            "Improve type coverage: add type hints to function parameters and "
-            "return types, avoid 'Any' type",
+        "complexity": (
+            0.5,
+            "Reduce complexity: break down large functions, reduce nesting depth, "
+            "consider extracting helper functions",
         ),
         "maintainability": (
             0.6,
             "Improve maintainability: keep functions under 50 lines, use "
             "snake_case for functions and PascalCase for classes",
         ),
-        "complexity": (
-            0.5,
-            "Reduce complexity: break down large functions, reduce nesting depth, "
-            "consider extracting helper functions",
-        ),
         "documentation": (
             0.5,
             "Add documentation: include docstrings for all public functions, "
             "classes, and modules",
+        ),
+        "temporal_relevance": (
+            0.7,
+            "Address technical debt: resolve TODO/FIXME comments, update or "
+            "remove deprecated code markers",
+        ),
+        "patterns": (
+            0.6,
+            "Add ONEX patterns: use frozen=True on models, TypedDict for dicts, "
+            "Protocol for interfaces, and extract pure handler functions",
+        ),
+        "architectural": (
+            0.6,
+            "Improve architecture: organize imports at module top, avoid deep "
+            "inheritance hierarchies, prefer composition over inheritance",
         ),
     }
 
@@ -568,14 +609,20 @@ def _validate_weights(weights: dict[str, float]) -> None:
             f"Weights must sum to 1.0, got {total:.4f}"
         )
 
+    for key, value in weights.items():
+        if not (0.0 <= value <= 1.0):
+            raise QualityScoringValidationError(
+                f"Weight '{key}' must be between 0.0 and 1.0, got {value}"
+            )
+
 
 def _compute_weighted_score(
-    dimensions: dict[str, float], weights: dict[str, float]
+    dimensions: DimensionScores, weights: dict[str, float]
 ) -> float:
     """Compute weighted aggregate score.
 
     Args:
-        dimensions: Dictionary of dimension scores.
+        dimensions: DimensionScores with all six dimension scores.
         weights: Dictionary of dimension weights.
 
     Returns:
@@ -601,12 +648,13 @@ def _create_unsupported_language_result(
         QualityScoringResult with baseline scores and recommendation.
     """
     baseline_score = UNSUPPORTED_LANGUAGE_BASELINE
-    dimensions = {
-        "patterns": baseline_score,
-        "type_coverage": baseline_score,
-        "maintainability": baseline_score,
+    dimensions: DimensionScores = {
         "complexity": baseline_score,
+        "maintainability": baseline_score,
         "documentation": baseline_score,
+        "temporal_relevance": baseline_score,
+        "patterns": baseline_score,
+        "architectural": baseline_score,
     }
 
     return QualityScoringResult(
@@ -634,12 +682,13 @@ def _create_syntax_error_result(language: str, error_msg: str) -> QualityScoring
         QualityScoringResult indicating syntax error with low scores.
     """
     low_score = SYNTAX_ERROR_BASELINE
-    dimensions = {
-        "patterns": low_score,
-        "type_coverage": low_score,
-        "maintainability": low_score,
+    dimensions: DimensionScores = {
         "complexity": low_score,
+        "maintainability": low_score,
         "documentation": low_score,
+        "temporal_relevance": low_score,
+        "patterns": low_score,
+        "architectural": low_score,
     }
 
     return QualityScoringResult(

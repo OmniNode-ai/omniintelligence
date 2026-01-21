@@ -11,17 +11,19 @@ Handler Pattern:
     - Returns a typed QualityScoringResult dictionary
     - Has no side effects (pure computation)
 
-Quality Dimensions:
-    - patterns: ONEX pattern adherence (frozen models, TypedDict, Protocol, etc.)
-    - type_coverage: Type annotation completeness
-    - maintainability: Code structure quality (function length, naming conventions)
-    - complexity: Cyclomatic complexity approximation (inverted - lower is better)
-    - documentation: Docstring and comment coverage
+Six-Dimension Standard:
+    - complexity (0.20): Cyclomatic complexity approximation (inverted - lower is better)
+    - maintainability (0.20): Code structure quality (function length, naming conventions)
+    - documentation (0.15): Docstring and comment coverage
+    - temporal_relevance (0.15): Code freshness indicators (TODO/FIXME, deprecated)
+    - patterns (0.15): ONEX pattern adherence (frozen models, TypedDict, Protocol, etc.)
+    - architectural (0.15): Module organization and structure
 
 Usage:
     from omniintelligence.nodes.quality_scoring_compute.handlers import (
         score_code_quality,
         QualityScoringResult,
+        DimensionScores,
         DEFAULT_WEIGHTS,
     )
 
@@ -35,6 +37,8 @@ Usage:
     if result["success"]:
         print(f"Quality score: {result['quality_score']}")
         print(f"ONEX compliant: {result['onex_compliant']}")
+        dimensions: DimensionScores = result["dimensions"]
+        print(f"Complexity: {dimensions['complexity']}")
         for rec in result["recommendations"]:
             print(f"  - {rec}")
 
@@ -68,12 +72,14 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.handler_quality_sco
     score_code_quality,
 )
 from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
+    DimensionScores,
     QualityScoringResult,
 )
 
 __all__ = [
     "ANALYSIS_VERSION",
     "DEFAULT_WEIGHTS",
+    "DimensionScores",
     "QualityScoringComputeError",
     "QualityScoringResult",
     "QualityScoringValidationError",

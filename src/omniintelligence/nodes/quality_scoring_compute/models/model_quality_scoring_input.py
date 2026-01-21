@@ -12,21 +12,20 @@ class ModelDimensionWeights(BaseModel):
     in the overall score calculation. All weights must sum to 1.0
     (within tolerance of 0.99-1.01).
 
-    Default weights are ONEX-focused, prioritizing pattern adherence
-    and type coverage for node development quality.
+    Default weights follow the six-dimension standard:
+        - complexity (0.20): Cyclomatic complexity scoring
+        - maintainability (0.20): Code structure and naming
+        - documentation (0.15): Docstring and comment coverage
+        - temporal_relevance (0.15): Code freshness indicators
+        - patterns (0.15): ONEX pattern adherence
+        - architectural (0.15): Module organization and structure
     """
 
-    patterns: float = Field(
-        default=0.30,
+    complexity: float = Field(
+        default=0.20,
         ge=0.0,
         le=1.0,
-        description="Weight for ONEX pattern adherence scoring",
-    )
-    type_coverage: float = Field(
-        default=0.25,
-        ge=0.0,
-        le=1.0,
-        description="Weight for typing discipline scoring",
+        description="Weight for complexity scoring (inverted - lower complexity is better)",
     )
     maintainability: float = Field(
         default=0.20,
@@ -34,17 +33,29 @@ class ModelDimensionWeights(BaseModel):
         le=1.0,
         description="Weight for code maintainability scoring",
     )
-    complexity: float = Field(
+    documentation: float = Field(
         default=0.15,
         ge=0.0,
         le=1.0,
-        description="Weight for complexity scoring (inverted - lower complexity is better)",
+        description="Weight for documentation coverage scoring",
     )
-    documentation: float = Field(
-        default=0.10,
+    temporal_relevance: float = Field(
+        default=0.15,
         ge=0.0,
         le=1.0,
-        description="Weight for documentation coverage scoring",
+        description="Weight for temporal relevance scoring - code freshness and staleness",
+    )
+    patterns: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for ONEX pattern adherence scoring",
+    )
+    architectural: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for architectural compliance scoring",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}
@@ -53,20 +64,22 @@ class ModelDimensionWeights(BaseModel):
     def validate_weights_sum_to_one(self) -> ModelDimensionWeights:
         """Ensure all dimension weights sum to 1.0 within tolerance."""
         total = (
-            self.patterns
-            + self.type_coverage
+            self.complexity
             + self.maintainability
-            + self.complexity
             + self.documentation
+            + self.temporal_relevance
+            + self.patterns
+            + self.architectural
         )
         if not (0.99 <= total <= 1.01):
             raise ValueError(
                 f"Dimension weights must sum to 1.0 (got {total:.4f}). "
-                f"Current weights: patterns={self.patterns}, "
-                f"type_coverage={self.type_coverage}, "
+                f"Current weights: complexity={self.complexity}, "
                 f"maintainability={self.maintainability}, "
-                f"complexity={self.complexity}, "
-                f"documentation={self.documentation}"
+                f"documentation={self.documentation}, "
+                f"temporal_relevance={self.temporal_relevance}, "
+                f"patterns={self.patterns}, "
+                f"architectural={self.architectural}"
             )
         return self
 

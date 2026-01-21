@@ -7,9 +7,11 @@ Design Decisions:
     - TypedDict is used because handlers return dicts, not objects with methods.
     - All scores are normalized to 0.0-1.0 range for consistency.
     - Required fields use total=True (default) for strict validation.
+    - DimensionScores provides type-safe dimension field access.
 
 Usage:
     from omniintelligence.nodes.quality_scoring_compute.handlers.protocols import (
+        DimensionScores,
         QualityScoringResult,
     )
 
@@ -26,6 +28,28 @@ from __future__ import annotations
 from typing import TypedDict
 
 
+class DimensionScores(TypedDict):
+    """Individual dimension scores for quality scoring.
+
+    All six dimensions are required and must be in the 0.0-1.0 range.
+
+    Attributes:
+        complexity: Cyclomatic complexity score (inverted - lower complexity is better).
+        maintainability: Code structure and naming convention score.
+        documentation: Docstring and comment coverage score.
+        temporal_relevance: Code freshness score based on staleness indicators.
+        patterns: ONEX pattern adherence score.
+        architectural: Module organization and structure score.
+    """
+
+    complexity: float
+    maintainability: float
+    documentation: float
+    temporal_relevance: float
+    patterns: float
+    architectural: float
+
+
 class QualityScoringResult(TypedDict):
     """Result structure for quality scoring handler.
 
@@ -35,8 +59,9 @@ class QualityScoringResult(TypedDict):
     All Attributes are Required:
         success: Whether the scoring completed without errors.
         quality_score: Overall quality score (0.0-1.0), weighted aggregate.
-        dimensions: Individual dimension scores, each 0.0-1.0.
-            Keys: patterns, type_coverage, maintainability, complexity, documentation.
+        dimensions: Individual dimension scores using the six-dimension standard.
+            Keys: complexity, maintainability, documentation, temporal_relevance,
+                  patterns, architectural.
         onex_compliant: True if quality_score >= onex_threshold.
         recommendations: List of improvement suggestions based on low scores.
         source_language: The detected or specified source language.
@@ -47,11 +72,12 @@ class QualityScoringResult(TypedDict):
         ...     "success": True,
         ...     "quality_score": 0.78,
         ...     "dimensions": {
-        ...         "patterns": 0.85,
-        ...         "type_coverage": 0.70,
-        ...         "maintainability": 0.80,
         ...         "complexity": 0.75,
+        ...         "maintainability": 0.80,
         ...         "documentation": 0.65,
+        ...         "temporal_relevance": 0.90,
+        ...         "patterns": 0.85,
+        ...         "architectural": 0.70,
         ...     },
         ...     "onex_compliant": True,
         ...     "recommendations": ["Add docstrings to functions"],
@@ -62,11 +88,11 @@ class QualityScoringResult(TypedDict):
 
     success: bool
     quality_score: float
-    dimensions: dict[str, float]
+    dimensions: DimensionScores
     onex_compliant: bool
     recommendations: list[str]
     source_language: str
     analysis_version: str
 
 
-__all__ = ["QualityScoringResult"]
+__all__ = ["DimensionScores", "QualityScoringResult"]

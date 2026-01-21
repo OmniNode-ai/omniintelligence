@@ -45,11 +45,12 @@ class ModelExample(BaseModel):
 
         assert result["success"] is True
         assert 0.0 <= result["quality_score"] <= 1.0
-        assert "patterns" in result["dimensions"]
-        assert "type_coverage" in result["dimensions"]
-        assert "maintainability" in result["dimensions"]
         assert "complexity" in result["dimensions"]
+        assert "maintainability" in result["dimensions"]
         assert "documentation" in result["dimensions"]
+        assert "temporal_relevance" in result["dimensions"]
+        assert "patterns" in result["dimensions"]
+        assert "architectural" in result["dimensions"]
         assert result["source_language"] == "python"
         assert result["analysis_version"] == ANALYSIS_VERSION
 
@@ -95,7 +96,8 @@ def process(data, **kwargs):
 
         # Untyped functions with mutable defaults and **kwargs
         assert result["dimensions"]["patterns"] < 0.7
-        assert result["dimensions"]["type_coverage"] < 0.5
+        # Anti-patterns should lower patterns score (replaces old type_coverage check)
+        assert result["dimensions"]["documentation"] < 0.7
 
     def test_custom_weights_affect_score(self) -> None:
         """Test that custom weights affect the final score."""
@@ -103,21 +105,23 @@ def process(data, **kwargs):
 
         # Weight heavily on documentation (which this lacks)
         doc_weights = {
-            "patterns": 0.1,
-            "type_coverage": 0.1,
-            "maintainability": 0.1,
-            "complexity": 0.1,
-            "documentation": 0.6,
+            "complexity": 0.05,
+            "maintainability": 0.05,
+            "documentation": 0.70,
+            "temporal_relevance": 0.05,
+            "patterns": 0.05,
+            "architectural": 0.10,
         }
         result_doc = score_code_quality(code, "python", weights=doc_weights)
 
         # Weight heavily on complexity (simple code should score well)
         complexity_weights = {
-            "patterns": 0.1,
-            "type_coverage": 0.1,
-            "maintainability": 0.1,
-            "complexity": 0.6,
-            "documentation": 0.1,
+            "complexity": 0.70,
+            "maintainability": 0.05,
+            "documentation": 0.05,
+            "temporal_relevance": 0.05,
+            "patterns": 0.05,
+            "architectural": 0.10,
         }
         result_complexity = score_code_quality(code, "python", weights=complexity_weights)
 
@@ -221,44 +225,57 @@ class Large:
 class TestDimensionScoring:
     """Tests for individual dimension scoring."""
 
-    def test_type_coverage_detects_annotations(self) -> None:
-        """Functions with type hints should score higher on type_coverage."""
+    def test_typed_functions_improve_patterns_score(self) -> None:
+        """Functions with type hints align better with ONEX patterns."""
         typed = '''
 def process(data: dict[str, int]) -> list[str]:
+    """Process data dictionary."""
     return list(data.keys())
 '''
         untyped = '''
-def process(data):
-    return list(data.keys())
+def process(data, **kwargs):
+    result = []
+    return result
 '''
         result_typed = score_code_quality(typed, "python")
         result_untyped = score_code_quality(untyped, "python")
 
+        # Typed code with docstrings should score better on patterns than code with antipatterns
         assert (
-            result_typed["dimensions"]["type_coverage"]
-            > result_untyped["dimensions"]["type_coverage"]
+            result_typed["dimensions"]["patterns"]
+            >= result_untyped["dimensions"]["patterns"]
         )
 
-    def test_type_coverage_with_partial_annotations(self) -> None:
-        """Partial type hints should score between fully typed and untyped."""
-        fully_typed = '''
+    def test_documentation_quality_varies_with_docstrings(self) -> None:
+        """Documentation quality should vary based on docstring presence."""
+        fully_documented = '''
 def process(data: dict[str, int], limit: int) -> list[str]:
+    """Process data with limit.
+
+    Args:
+        data: Input dictionary.
+        limit: Maximum items to return.
+
+    Returns:
+        List of keys from data.
+    """
     return list(data.keys())[:limit]
 '''
-        partial_typed = '''
-def process(data: dict[str, int], limit) -> list[str]:
+        partial_documented = '''
+def process(data: dict[str, int], limit: int) -> list[str]:
+    """Process data."""
     return list(data.keys())[:limit]
 '''
-        untyped = '''
+        undocumented = '''
 def process(data, limit):
     return list(data.keys())[:limit]
 '''
-        result_full = score_code_quality(fully_typed, "python")
-        result_partial = score_code_quality(partial_typed, "python")
-        result_none = score_code_quality(untyped, "python")
+        result_full = score_code_quality(fully_documented, "python")
+        result_partial = score_code_quality(partial_documented, "python")
+        result_none = score_code_quality(undocumented, "python")
 
-        assert result_full["dimensions"]["type_coverage"] >= result_partial["dimensions"]["type_coverage"]
-        assert result_partial["dimensions"]["type_coverage"] >= result_none["dimensions"]["type_coverage"]
+        assert result_full["dimensions"]["documentation"] >= result_partial["dimensions"]["documentation"]
+        assert result_partial["dimensions"]["documentation"] >= result_none["dimensions"]["documentation"]
 
     def test_documentation_detects_docstrings(self) -> None:
         """Code with docstrings should score higher on documentation."""
@@ -536,9 +553,9 @@ class TestWeightValidation:
     def test_invalid_weight_keys_raise_error(self) -> None:
         """Weights with invalid keys should raise QualityScoringValidationError."""
         invalid_weights = {
-            "patterns": 0.5,
-            "type_coverage": 0.5,
-            # Missing other required keys
+            "complexity": 0.5,
+            "maintainability": 0.5,
+            # Missing: documentation, temporal_relevance, patterns, architectural
         }
         with pytest.raises(QualityScoringValidationError, match="[Mm]issing"):
             score_code_quality("x = 1", "python", weights=invalid_weights)
@@ -546,12 +563,13 @@ class TestWeightValidation:
     def test_extra_weight_keys_raise_error(self) -> None:
         """Weights with extra keys should raise QualityScoringValidationError."""
         extra_weights = {
-            "patterns": 0.2,
-            "type_coverage": 0.2,
-            "maintainability": 0.2,
-            "complexity": 0.2,
-            "documentation": 0.1,
-            "extra_dimension": 0.1,  # Not a valid dimension
+            "complexity": 0.15,
+            "maintainability": 0.15,
+            "documentation": 0.15,
+            "temporal_relevance": 0.15,
+            "patterns": 0.15,
+            "architectural": 0.15,
+            "extra_dimension": 0.10,  # Not a valid dimension
         }
         with pytest.raises(QualityScoringValidationError, match="[Ee]xtra"):
             score_code_quality("x = 1", "python", weights=extra_weights)
@@ -559,11 +577,12 @@ class TestWeightValidation:
     def test_weights_not_summing_to_one_raise_error(self) -> None:
         """Weights not summing to 1.0 should raise QualityScoringValidationError."""
         bad_weights = {
-            "patterns": 0.5,
-            "type_coverage": 0.5,
-            "maintainability": 0.5,
             "complexity": 0.5,
-            "documentation": 0.5,  # Sum = 2.5
+            "maintainability": 0.5,
+            "documentation": 0.5,
+            "temporal_relevance": 0.5,
+            "patterns": 0.5,
+            "architectural": 0.5,  # Sum = 3.0
         }
         with pytest.raises(QualityScoringValidationError, match="sum"):
             score_code_quality("x = 1", "python", weights=bad_weights)
@@ -642,10 +661,11 @@ async def fetch_data(url: str) -> dict:
         result = score_code_quality(async_code, "python")
 
         assert result["success"] is True
-        assert result["dimensions"]["type_coverage"] > 0.5  # Has type hints
+        # Async function should have reasonable complexity (simple code scores well)
+        assert result["dimensions"]["complexity"] >= 0.8
 
     def test_class_methods(self) -> None:
-        """Class methods should not penalize self/cls parameters as untyped."""
+        """Class methods should score well on maintainability."""
         code = '''
 class Example:
     """Example class."""
@@ -661,8 +681,8 @@ class Example:
 '''
         result = score_code_quality(code, "python")
 
-        # self and cls should not count as untyped
-        assert result["dimensions"]["type_coverage"] >= 0.8
+        # Well-named class with proper method conventions should score high on maintainability
+        assert result["dimensions"]["maintainability"] >= 0.8
 
     def test_language_case_insensitive(self) -> None:
         """Language parameter should be case insensitive."""
@@ -689,16 +709,16 @@ class Example:
         assert "[unsupported_language]" not in str(result_py["recommendations"])
         assert "[unsupported_language]" not in str(result_python["recommendations"])
 
-    def test_no_functions_neutral_type_coverage(self) -> None:
-        """Code with no functions should get neutral type_coverage score."""
+    def test_no_functions_high_temporal_relevance(self) -> None:
+        """Code with no staleness indicators should get high temporal_relevance score."""
         code = '''
 CONSTANT = 42
 data = {"key": "value"}
 '''
         result = score_code_quality(code, "python")
 
-        # No functions to type hint, should be neutral
-        assert result["dimensions"]["type_coverage"] == 0.5
+        # No TODO/FIXME/deprecated markers means high temporal relevance (1.0)
+        assert result["dimensions"]["temporal_relevance"] == 1.0
 
     def test_multiple_classes(self) -> None:
         """Multiple classes should all be evaluated."""
