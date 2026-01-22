@@ -186,8 +186,8 @@ CLASS_ORGANIZATION_PENALTY: Final[float] = 0.15  # Penalty for poor class organi
 MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions for full handler pattern bonus
 PARTIAL_HANDLER_BONUS_MULTIPLIER: Final[float] = 0.5  # Partial credit for 1 typed private function
 
-# Local package name for import categorization
-LOCAL_PACKAGE_NAME: Final[str] = "omniintelligence"
+# Local package name for import categorization (derived from module's package)
+LOCAL_PACKAGE_NAME: Final[str] = __name__.split(".")[0] if __name__ != "__main__" else "omniintelligence"
 
 # Import grouping detection - common stdlib modules
 # This is not exhaustive but covers the most commonly used modules
@@ -542,8 +542,12 @@ def _compute_maintainability_score(tree: ast.AST) -> float:
                 scores.append(length_score)
 
             # Check naming convention (snake_case for functions)
-            # Check private functions FIRST (before snake_case regex which also matches _names)
-            if node.name.startswith("_"):  # Private is acceptable but slightly lower score
+            # Order matters: check dunder methods first, then private, then public snake_case
+            if node.name.startswith("__") and node.name.endswith("__"):
+                # Dunder methods (__init__, __str__, __repr__, etc.) are standard Python
+                # conventions and should receive full score
+                scores.append(1.0)
+            elif node.name.startswith("_"):  # Private is acceptable but slightly lower score
                 scores.append(0.9)
             elif re.match(r"^[a-z][a-z0-9_]*$", node.name):  # Public snake_case
                 scores.append(1.0)
