@@ -24,10 +24,12 @@ Design Decisions:
 """
 from __future__ import annotations
 
+from typing import Any
+
 from omnibase_core.nodes.node_reducer import NodeReducer
 
 
-class NodeIntelligenceReducer(NodeReducer):
+class NodeIntelligenceReducer(NodeReducer[dict[str, Any], dict[str, Any]]):
     """Intelligence reducer - FSM state transitions driven by contract.yaml.
 
     This reducer processes intelligence workflows by:

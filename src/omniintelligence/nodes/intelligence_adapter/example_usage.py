@@ -36,6 +36,7 @@ from omnibase_core.models.container.model_onex_container import ModelONEXContain
 # consistent data structures for events and operations across the intelligence
 # subsystem. See contract.yaml lines 36-39 and input_model/output_model sections
 # for design rationale (module: "omniintelligence.models").
+from omniintelligence.enums import EnumIntelligenceOperationType
 from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
 
 
@@ -83,7 +84,7 @@ async def calculate_user_score(user_id: int, db: Session) -> float:
 
         # Create intelligence input for code quality assessment
         input_data = ModelIntelligenceInput(
-            operation_type="assess_code_quality",
+            operation_type=EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
             correlation_id=str(uuid4()),
             content=code_content,
             source_path="src/services/user_service.py",
@@ -201,7 +202,7 @@ async def fetch_user_dashboard_data(user_id: int, db: Session) -> dict[str, Any]
         await adapter.initialize()
 
         input_data = ModelIntelligenceInput(
-            operation_type="identify_optimization_opportunities",
+            operation_type=EnumIntelligenceOperationType.IDENTIFY_OPTIMIZATION_OPPORTUNITIES,
             correlation_id=str(uuid4()),
             content=code_content,
             language="python",

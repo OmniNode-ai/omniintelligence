@@ -1,5 +1,5 @@
 # Node Status Report
-Generated: 2026-01-20 19:11:06 UTC
+Generated: 2026-01-21 UTC
 
 ## Summary
 
@@ -7,7 +7,8 @@ Generated: 2026-01-20 19:11:06 UTC
 | Category | Count | Description |
 |----------|-------|-------------|
 | Pure Shells | 2 | Nodes with <100 lines, fully delegating to base class |
-| Stubs | 8 | Nodes with `is_stub: ClassVar[bool] = True` marker |
+| Implemented | 1 | Nodes with full handler implementation and tests |
+| Stubs | 7 | Nodes with `is_stub: ClassVar[bool] = True` marker |
 | Needs Handler Extraction | 1 | Nodes with >100 lines that need refactoring |
 | Missing Node File | 1 | Node directories without node.py |
 | **Total** | **12** | |
@@ -33,7 +34,7 @@ Generated: 2026-01-20 19:11:06 UTC
 | pattern_assembler_orchestrator | Orchestrator | 54 | Yes | No | Yes | Yes | Stub |
 | pattern_learning_compute | Compute | 54 | Yes | No | Yes | Yes | Stub |
 | pattern_matching_compute | Compute | 60 | Yes | No | Yes | Yes | Stub |
-| quality_scoring_compute | Compute | 58 | Yes | No | Yes | Yes | Stub |
+| quality_scoring_compute | Compute | 150+ | No | Yes | Yes | Yes | **Implemented** (2026-01-21) |
 | semantic_analysis_compute | Compute | 65 | Yes | No | Yes | Yes | Stub |
 | success_criteria_matcher_compute | Compute | 55 | Yes | No | Yes | Yes | Stub |
 
@@ -60,10 +61,11 @@ The following node directories don't have a `node.py` file:
 ## Recommendations
 
 1. **Extract handlers from large nodes**: The nodes listed in Purity Violations should have their business logic moved to `handlers/` directories. This follows the ONEX pattern of 'pure shell' nodes.
-2. **Implement stub nodes**: 8/12 nodes are stubs. Prioritize implementing nodes based on operational requirements.
+2. **Implement stub nodes**: 7/12 nodes are stubs. Prioritize implementing nodes based on operational requirements.
 
 ## Legend
 
+- **Implemented**: Node with full handler implementation and unit tests
 - **Pure Shell**: Node with <100 lines that delegates to base class
 - **Stub**: Node marked with `is_stub: ClassVar[bool] = True`
 - **Needs Handler Extraction**: Node with >100 lines requiring refactoring

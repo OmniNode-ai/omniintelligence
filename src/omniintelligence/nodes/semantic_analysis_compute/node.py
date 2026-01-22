@@ -24,7 +24,7 @@ from omniintelligence.nodes.semantic_analysis_compute.models import (
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/15"
 
 
-class NodeSemanticAnalysisCompute(NodeCompute):
+class NodeSemanticAnalysisCompute(NodeCompute[ModelSemanticAnalysisInput, ModelSemanticAnalysisOutput]):
     """STUB: Pure compute node for semantic analysis of code.
 
     Attributes:

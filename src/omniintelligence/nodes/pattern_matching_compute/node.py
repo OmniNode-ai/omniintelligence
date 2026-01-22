@@ -19,7 +19,7 @@ from omniintelligence.nodes.pattern_matching_compute.models import (
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/10"
 
 
-class NodePatternMatchingCompute(NodeCompute):
+class NodePatternMatchingCompute(NodeCompute[ModelPatternMatchingInput, ModelPatternMatchingOutput]):
     """STUB: Pure compute node for matching code patterns.
 
     Attributes:
