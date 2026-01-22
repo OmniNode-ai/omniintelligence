@@ -21,7 +21,7 @@ from omniintelligence.nodes.quality_scoring_compute.models import (
 )
 
 
-class NodeQualityScoringCompute(NodeCompute):
+class NodeQualityScoringCompute(NodeCompute[ModelQualityScoringInput, ModelQualityScoringOutput]):
     """Pure compute node for scoring code quality.
 
     This node analyzes source code across multiple quality dimensions:
