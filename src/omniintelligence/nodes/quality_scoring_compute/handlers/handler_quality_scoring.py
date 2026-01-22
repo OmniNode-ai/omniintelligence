@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 from typing import Final, Literal, get_args
 
 from omnibase_core.models.primitives.model_semver import ModelSemVer
@@ -887,8 +888,6 @@ def _is_stdlib_module(name: str) -> bool:
     Returns:
         True if the module is part of the standard library, False otherwise.
     """
-    import sys
-
     if hasattr(sys, "stdlib_module_names"):
         # Python 3.10+: Use the authoritative stdlib module names
         return name in sys.stdlib_module_names
