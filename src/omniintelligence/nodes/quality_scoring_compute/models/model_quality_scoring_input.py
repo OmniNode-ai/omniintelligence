@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
-from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
+from omniintelligence.nodes.quality_scoring_compute.handlers.enum_onex_strictness_level import (
     OnexStrictnessLevel,
 )
 

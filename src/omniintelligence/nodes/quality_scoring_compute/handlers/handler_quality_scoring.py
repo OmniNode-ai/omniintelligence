@@ -39,8 +39,10 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.exceptions import (
     QualityScoringComputeError,
     QualityScoringValidationError,
 )
-from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
+from omniintelligence.nodes.quality_scoring_compute.handlers.enum_onex_strictness_level import (
     OnexStrictnessLevel,
+)
+from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
     get_threshold_for_preset,
     get_weights_for_preset,
 )

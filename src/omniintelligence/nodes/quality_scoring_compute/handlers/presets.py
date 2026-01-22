@@ -57,33 +57,11 @@ Example:
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Final
 
-
-class OnexStrictnessLevel(str, Enum):
-    """ONEX compliance strictness levels.
-
-    Each level represents a different quality bar for code assessment:
-
-    Attributes:
-        STRICT: Production-ready quality bar (threshold 0.8).
-            Higher weights on documentation (0.20) and patterns (0.20).
-            Use for production code, PR reviews, and release candidates.
-
-        STANDARD: Default balanced requirements (threshold 0.7).
-            Equal distribution across dimensions (0.15-0.20 each).
-            Use for regular development and CI/CD quality gates.
-
-        LENIENT: Development/prototyping mode (threshold 0.5).
-            Higher tolerance for complexity (0.25), lower requirements
-            for documentation (0.10) and patterns (0.10).
-            Use for rapid prototyping, exploration, or legacy assessment.
-    """
-
-    STRICT = "strict"
-    STANDARD = "standard"
-    LENIENT = "lenient"
+from omniintelligence.nodes.quality_scoring_compute.handlers.enum_onex_strictness_level import (
+    OnexStrictnessLevel,
+)
 
 
 # =============================================================================

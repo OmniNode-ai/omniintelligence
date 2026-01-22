@@ -91,10 +91,12 @@ from omniintelligence.nodes.quality_scoring_compute.handlers.handler_quality_sco
     DEFAULT_WEIGHTS,
     score_code_quality,
 )
+from omniintelligence.nodes.quality_scoring_compute.handlers.enum_onex_strictness_level import (
+    OnexStrictnessLevel,
+)
 from omniintelligence.nodes.quality_scoring_compute.handlers.presets import (
     LENIENT_THRESHOLD,
     LENIENT_WEIGHTS,
-    OnexStrictnessLevel,
     STANDARD_THRESHOLD,
     STANDARD_WEIGHTS,
     STRICT_THRESHOLD,
