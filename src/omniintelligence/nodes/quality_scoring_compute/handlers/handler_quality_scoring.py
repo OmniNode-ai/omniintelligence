@@ -183,7 +183,8 @@ HANDLER_PATTERN_BONUS: Final[float] = 0.1  # Bonus for following handler pattern
 CLASS_ORGANIZATION_PENALTY: Final[float] = 0.15  # Penalty for poor class organization
 
 # Handler pattern constants
-MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions to indicate handler pattern
+MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions for full handler pattern bonus
+PARTIAL_HANDLER_BONUS_MULTIPLIER: Final[float] = 0.5  # Partial credit for 1 typed private function
 
 # Local package name for import categorization
 LOCAL_PACKAGE_NAME: Final[str] = "omniintelligence"
@@ -753,8 +754,9 @@ def _compute_architectural_score(tree: ast.AST) -> float:
     # =========================================================================
     # Check 6: Handler pattern - private pure functions with type annotations
     # =========================================================================
-    if _check_handler_pattern(tree):
-        bonuses.append(HANDLER_PATTERN_BONUS)
+    handler_bonus = _check_handler_pattern(tree)
+    if handler_bonus > 0.0:
+        bonuses.append(handler_bonus)
 
     # =========================================================================
     # Check 7: Class organization (ClassVar/model_config at top)
@@ -868,6 +870,28 @@ def _check_import_grouping(tree: ast.AST) -> bool:
     return True
 
 
+def _is_stdlib_module(name: str) -> bool:
+    """Check if a module is part of the Python standard library.
+
+    Uses `sys.stdlib_module_names` when available (Python 3.10+) for an
+    authoritative and complete list. Falls back to the hardcoded
+    `STDLIB_MODULES` frozenset for older Python versions.
+
+    Args:
+        name: The top-level module name to check.
+
+    Returns:
+        True if the module is part of the standard library, False otherwise.
+    """
+    import sys
+
+    if hasattr(sys, "stdlib_module_names"):
+        # Python 3.10+: Use the authoritative stdlib module names
+        return name in sys.stdlib_module_names
+    # Fallback for Python < 3.10
+    return name in STDLIB_MODULES
+
+
 def _categorize_import(module_name: str) -> str:
     """Categorize an import as stdlib, third_party, or local.
 
@@ -880,8 +904,8 @@ def _categorize_import(module_name: str) -> str:
     # Get the top-level module name
     top_module = module_name.split(".")[0]
 
-    # Check against known stdlib modules first
-    if top_module in STDLIB_MODULES:
+    # Check against stdlib modules (uses sys.stdlib_module_names on Python 3.10+)
+    if _is_stdlib_module(top_module):
         return "stdlib"
     # Check for local package imports using the constant
     elif top_module == LOCAL_PACKAGE_NAME:
@@ -890,17 +914,22 @@ def _categorize_import(module_name: str) -> str:
         return "third_party"
 
 
-def _check_handler_pattern(tree: ast.AST) -> bool:
+def _check_handler_pattern(tree: ast.AST) -> float:
     """Check if module follows handler pattern with private pure functions.
 
     The handler pattern uses private functions (starting with _) that have
     return type annotations, indicating pure functions with clear contracts.
 
+    Returns a graduated bonus value:
+        - 0.0: No private typed functions (no bonus)
+        - Partial bonus: 1 private typed function (50% of full bonus)
+        - Full bonus: 2+ private typed functions (100% bonus)
+
     Args:
         tree: Parsed AST of the Python source code.
 
     Returns:
-        True if module follows handler pattern, False otherwise.
+        Bonus value: 0.0 (no pattern), partial bonus (1 function), or full bonus (2+ functions).
     """
     private_typed_functions = 0
 
@@ -910,7 +939,11 @@ def _check_handler_pattern(tree: ast.AST) -> bool:
             if node.name.startswith("_") and node.returns is not None:
                 private_typed_functions += 1
 
-    return private_typed_functions >= MIN_HANDLER_FUNCTIONS_FOR_BONUS
+    if private_typed_functions >= MIN_HANDLER_FUNCTIONS_FOR_BONUS:
+        return HANDLER_PATTERN_BONUS
+    elif private_typed_functions == 1:
+        return HANDLER_PATTERN_BONUS * PARTIAL_HANDLER_BONUS_MULTIPLIER
+    return 0.0
 
 
 def _check_class_organization(tree: ast.AST) -> int:
@@ -1164,8 +1197,5 @@ __all__ = [
     "ANALYSIS_VERSION",
     "ANALYSIS_VERSION_STR",
     "DEFAULT_WEIGHTS",
-    "OnexStrictnessLevel",
-    "get_threshold_for_preset",
-    "get_weights_for_preset",
     "score_code_quality",
 ]
