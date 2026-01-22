@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/16"
 
 
-class NodeSuccessCriteriaMatcherCompute(NodeCompute):
+class NodeSuccessCriteriaMatcherCompute(NodeCompute[dict[str, Any], dict[str, Any]]):
     """STUB: Pure compute node for matching success criteria.
 
     Attributes:

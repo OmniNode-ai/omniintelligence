@@ -19,7 +19,7 @@ from omniintelligence.nodes.intent_classifier_compute.models import (
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/6"
 
 
-class NodeIntentClassifierCompute(NodeCompute):
+class NodeIntentClassifierCompute(NodeCompute[ModelIntentClassificationInput, ModelIntentClassificationOutput]):
     """STUB: Pure compute node for classifying user intents.
 
     Attributes:
