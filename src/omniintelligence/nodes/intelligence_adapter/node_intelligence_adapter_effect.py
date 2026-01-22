@@ -40,7 +40,7 @@ import os
 import time
 from datetime import UTC
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
@@ -74,11 +74,15 @@ except ImportError:
             "set OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA=true to use defaults."
         )
 
-# Canonical models
+# Canonical models and enums
+from omniintelligence.enums import EnumIntelligenceOperationType
 from omniintelligence.models import ModelIntelligenceInput, ModelIntelligenceOutput
+from omniintelligence.models.model_intelligence_input import IntelligenceMetadataDict, IntelligenceOptionsDict
+from omniintelligence.models.model_intelligence_output import AnalysisResultsDict, OutputMetadataDict
 
 # Handlers for operation-specific transformations
 from omniintelligence.nodes.intelligence_adapter.handlers import (
+    AnyHandlerResponse,
     PatternHandlerResponse,
     PerformanceHandlerResponse,
     QualityHandlerResponse,
@@ -609,7 +613,36 @@ class IntelligenceAdapterEventHelpers:
 
         if isinstance(raw_event, bytes):
             raw_event = raw_event.decode("utf-8")
-        return json.loads(raw_event)
+        return cast(dict[str, Any], json.loads(raw_event))
+
+    @staticmethod
+    def extract_typed_payload(
+        event_dict: dict[str, Any],
+    ) -> tuple[str, ModelCodeAnalysisRequestPayload]:
+        """Extract event type and typed payload from event dict.
+
+        Args:
+            event_dict: The event envelope dictionary containing event_type and payload.
+
+        Returns:
+            Tuple of (event_type_str, typed_payload_model).
+
+        Raises:
+            KeyError: If required fields are missing from event_dict.
+            ValueError: If payload validation fails.
+        """
+        event_type = event_dict.get("event_type", "")
+        payload_dict = event_dict.get("payload", {})
+
+        # Deserialize payload into the appropriate model based on event type
+        # Currently only CODE_ANALYSIS_REQUESTED is supported
+        if event_type == EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value:
+            payload = ModelCodeAnalysisRequestPayload.model_validate(payload_dict)
+        else:
+            # Default to request payload for unknown event types
+            payload = ModelCodeAnalysisRequestPayload.model_validate(payload_dict)
+
+        return event_type, payload
 
     @staticmethod
     def get_kafka_topic(event_type: EnumCodeAnalysisEventType) -> str:
@@ -1376,7 +1409,7 @@ class NodeIntelligenceAdapterEffect:
         # Step 3: Deserialize payload using event helper
         try:
             event_type_enum, payload = (
-                IntelligenceAdapterEventHelpers.deserialize_event(event_dict)
+                IntelligenceAdapterEventHelpers.extract_typed_payload(event_dict)
             )
         except KeyError as e:
             # Missing required fields in event payload
@@ -1394,11 +1427,7 @@ class NodeIntelligenceAdapterEffect:
 
         # Step 4: Route based on event type
         if event_type_enum == EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value:
-            # Cast payload to expected type (deserialize_event returns BaseModel)
-            if not isinstance(payload, ModelCodeAnalysisRequestPayload):
-                raise ValueError(
-                    f"Expected ModelCodeAnalysisRequestPayload, got {type(payload).__name__}"
-                )
+            # payload is already typed as ModelCodeAnalysisRequestPayload
             await self._handle_code_analysis_requested(
                 payload=payload,
                 correlation_id=correlation_id,
@@ -1435,18 +1464,19 @@ class NodeIntelligenceAdapterEffect:
 
         try:
             # Step 1: Convert event payload to intelligence input
+            # Build metadata dict with only valid IntelligenceMetadataDict keys
+            metadata_dict = IntelligenceMetadataDict()
+            if payload.user_id is not None:
+                metadata_dict["user_id"] = payload.user_id
+
             input_data = ModelIntelligenceInput(
                 operation_type=self._map_operation_type(payload.operation_type),
-                correlation_id=correlation_id,
+                correlation_id=str(correlation_id),
                 source_path=payload.source_path,
                 content=payload.content,
                 language=payload.language,
-                options=payload.options,
-                metadata={
-                    "project_id": payload.project_id,
-                    "user_id": payload.user_id,
-                    "event_driven": True,
-                },
+                options=cast(IntelligenceOptionsDict, payload.options),
+                metadata=metadata_dict,
             )
 
             # Step 2: Perform analysis
@@ -1465,10 +1495,12 @@ class NodeIntelligenceAdapterEffect:
                 )
                 self.metrics["analysis_completed"] += 1
             else:
+                # error_code is in analysis_results (removed from direct fields)
+                error_code = output.analysis_results.get("error_code", "INTERNAL_ERROR")
                 await self._publish_analysis_failed_event(
                     input_data=input_data,
                     error_message=output.error_message or "Unknown error",
-                    error_code=output.error_code or "INTERNAL_ERROR",
+                    error_code=str(error_code),
                     correlation_id=correlation_id,
                     causation_id=causation_id,
                     processing_time_ms=processing_time_ms,
@@ -1545,18 +1577,34 @@ class NodeIntelligenceAdapterEffect:
         """
         try:
             # Create completion payload
+            # Note: Field mappings from canonical ModelIntelligenceOutput:
+            # - source_path: Use metadata["source_file"] (renamed from source_path)
+            # - onex_compliance: Calculate from onex_compliant bool (0.92 if True, 0.0 if False/None)
+            # - issues: Merged into recommendations (use 0 for issues_count)
+            # - complexity_score: Use analysis_results["complexity_score"]
+            # - maintainability_score: Use analysis_results["maintainability_score"]
+            # - result_data: Renamed to analysis_results
+            # - metrics: Removed (observability layer)
+            onex_compliance_score = (
+                output.analysis_results.get("onex_compliance_score", 0.92 if output.onex_compliant else 0.0)
+                if output.onex_compliant is not None
+                else 0.0
+            )
+            complexity_score = output.analysis_results.get("complexity_score")
+            maintainability_score = output.analysis_results.get("maintainability_score")
+
             payload = ModelCodeAnalysisCompletedPayload(
-                source_path=output.metadata.get("source_path", "unknown"),
+                source_path=str(output.metadata.get("source_file", "unknown")),
                 quality_score=output.quality_score or 0.0,
-                onex_compliance=output.onex_compliance or 0.0,
-                issues_count=len(output.issues),
+                onex_compliance=float(onex_compliance_score) if onex_compliance_score else 0.0,
+                issues_count=0,  # Issues merged into recommendations in canonical model
                 recommendations_count=len(output.recommendations),
                 processing_time_ms=processing_time_ms,
                 operation_type=self._map_to_event_operation_type(output.operation_type),
-                complexity_score=output.complexity_score,
-                maintainability_score=output.metadata.get("maintainability_score"),
-                results_summary=output.result_data or {},
-                cache_hit=output.metrics.cache_hit if output.metrics else False,
+                complexity_score=float(complexity_score) if complexity_score is not None else None,
+                maintainability_score=float(maintainability_score) if maintainability_score is not None else None,
+                results_summary=dict(output.analysis_results) if output.analysis_results else {},
+                cache_hit=False,  # metrics removed from canonical model
             )
 
             # Create event envelope
@@ -1649,7 +1697,7 @@ class NodeIntelligenceAdapterEffect:
                 error_code=error_code_enum,
                 retry_allowed=True,
                 processing_time_ms=processing_time_ms,
-                error_details={"error": str(error_message)},
+                error_details=str(error_message),
                 suggested_action="Review error details and retry with valid input",
             )
 
@@ -1936,7 +1984,7 @@ class NodeIntelligenceAdapterEffect:
         # Retry logic configuration
         max_retries = self._config.max_retries if self._config else 3
         retry_count = 0
-        last_error = None
+        last_error: Exception | None = None
 
         # Extract content and source_path with safe defaults
         content: str = input_data.content or ""
@@ -1954,9 +2002,11 @@ class NodeIntelligenceAdapterEffect:
                 operation_start = time.perf_counter()
 
                 # Route to appropriate backend service based on operation type
+                # Use explicit type annotation for raw_result to allow different handler response types
+                raw_result: AnyHandlerResponse
                 if input_data.operation_type in [
-                    "assess_code_quality",
-                    "check_architectural_compliance",
+                    EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
+                    EnumIntelligenceOperationType.CHECK_ARCHITECTURAL_COMPLIANCE,
                 ]:
                     # Quality assessment endpoint
                     quality_request = ModelQualityAssessmentRequest(
@@ -1978,12 +2028,12 @@ class NodeIntelligenceAdapterEffect:
                         raw_result, "assess_code_quality"
                     )
 
-                elif input_data.operation_type == "analyze_performance":
+                elif input_data.operation_type == EnumIntelligenceOperationType.ESTABLISH_PERFORMANCE_BASELINE:
                     # Performance baseline endpoint
                     perf_request = ModelPerformanceAnalysisRequest(
                         operation_name=source_path,
                         code_content=content,
-                        context=input_data.options,
+                        context=dict(input_data.options) if input_data.options else {},
                         include_opportunities=True,
                         target_percentile=(
                             input_data.options.get("target_percentile", 95)
@@ -1997,16 +2047,17 @@ class NodeIntelligenceAdapterEffect:
                         raw_result, "analyze_performance"
                     )
 
-                elif input_data.operation_type == "get_quality_patterns":
+                elif input_data.operation_type == EnumIntelligenceOperationType.GET_QUALITY_PATTERNS:
                     # Pattern detection endpoint
+                    pattern_categories = (
+                        input_data.options.get("pattern_categories")
+                        if input_data.options
+                        else None
+                    )
                     pattern_request = ModelPatternDetectionRequest(
                         content=content,
                         source_path=source_path,
-                        pattern_categories=(
-                            input_data.options.get("pattern_categories")
-                            if input_data.options
-                            else None
-                        ),
+                        pattern_categories=pattern_categories or [],
                         min_confidence=(
                             input_data.options.get("min_confidence", 0.7)
                             if input_data.options
@@ -2167,11 +2218,23 @@ class NodeIntelligenceAdapterEffect:
                     patterns_detected.append(str(pattern.name))
 
         # Build analysis_results from complexity_score and result_data
-        analysis_results: dict[str, Any] = result_data.get("result_data") or {}
+        # Use AnalysisResultsDict for type safety
+        analysis_results_dict = AnalysisResultsDict()
+        raw_result_data = result_data.get("result_data") or {}
+        if isinstance(raw_result_data, dict):
+            # Copy over known fields with proper types
+            if "complexity_score" in raw_result_data:
+                analysis_results_dict["complexity_score"] = float(raw_result_data["complexity_score"])
         if result_data.get("complexity_score") is not None:
-            analysis_results["complexity_score"] = result_data.get("complexity_score")
+            analysis_results_dict["complexity_score"] = float(result_data["complexity_score"])
         if onex_compliance_score:
-            analysis_results["onex_compliance_score"] = onex_compliance_score
+            analysis_results_dict["onex_compliance_score"] = float(onex_compliance_score)
+
+        # Build metadata with OutputMetadataDict for type safety
+        output_metadata = OutputMetadataDict()
+        if input_data.source_path:
+            output_metadata["source_file"] = input_data.source_path
+        output_metadata["processing_time_ms"] = processing_time_ms
 
         output = ModelIntelligenceOutput(
             success=result_data.get("success", True),
@@ -2181,11 +2244,8 @@ class NodeIntelligenceAdapterEffect:
             onex_compliant=onex_compliant,
             recommendations=all_recommendations,
             patterns_detected=patterns_detected,
-            analysis_results=analysis_results,
-            metadata={
-                "source_path": input_data.source_path,
-                "processing_time_ms": processing_time_ms,
-            },
+            analysis_results=analysis_results_dict,
+            metadata=output_metadata,
         )
 
         # Update statistics for successful analysis (type-safe)
@@ -2361,7 +2421,7 @@ class NodeIntelligenceAdapterEffect:
 
     def _map_operation_type(
         self, event_op_type: EnumAnalysisOperationType | None
-    ) -> str:
+    ) -> EnumIntelligenceOperationType:
         """
         Map event operation type to intelligence operation type.
 
@@ -2369,35 +2429,35 @@ class NodeIntelligenceAdapterEffect:
             event_op_type: Event operation type enum (or None for default)
 
         Returns:
-            Intelligence operation type string
+            Intelligence operation type enum
         """
         if event_op_type is None:
-            return "assess_code_quality"
-        mapping = {
-            EnumAnalysisOperationType.QUALITY_ASSESSMENT: "assess_code_quality",
-            EnumAnalysisOperationType.ONEX_COMPLIANCE: "check_architectural_compliance",
-            EnumAnalysisOperationType.PATTERN_EXTRACTION: "get_quality_patterns",
-            EnumAnalysisOperationType.ARCHITECTURAL_COMPLIANCE: "check_architectural_compliance",
-            EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS: "assess_code_quality",
+            return EnumIntelligenceOperationType.ASSESS_CODE_QUALITY
+        mapping: dict[EnumAnalysisOperationType, EnumIntelligenceOperationType] = {
+            EnumAnalysisOperationType.QUALITY_ASSESSMENT: EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
+            EnumAnalysisOperationType.ONEX_COMPLIANCE: EnumIntelligenceOperationType.CHECK_ARCHITECTURAL_COMPLIANCE,
+            EnumAnalysisOperationType.PATTERN_EXTRACTION: EnumIntelligenceOperationType.GET_QUALITY_PATTERNS,
+            EnumAnalysisOperationType.ARCHITECTURAL_COMPLIANCE: EnumIntelligenceOperationType.CHECK_ARCHITECTURAL_COMPLIANCE,
+            EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS: EnumIntelligenceOperationType.ASSESS_CODE_QUALITY,
         }
-        return mapping.get(event_op_type, "assess_code_quality")
+        return mapping.get(event_op_type, EnumIntelligenceOperationType.ASSESS_CODE_QUALITY)
 
     def _map_to_event_operation_type(
-        self, operation_type: str
+        self, operation_type: EnumIntelligenceOperationType
     ) -> EnumAnalysisOperationType:
         """
         Map intelligence operation type to event operation type.
 
         Args:
-            operation_type: Intelligence operation type string
+            operation_type: Intelligence operation type enum
 
         Returns:
             Event operation type enum
         """
-        mapping = {
-            "assess_code_quality": EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS,
-            "check_architectural_compliance": EnumAnalysisOperationType.ARCHITECTURAL_COMPLIANCE,
-            "get_quality_patterns": EnumAnalysisOperationType.PATTERN_EXTRACTION,
+        mapping: dict[EnumIntelligenceOperationType, EnumAnalysisOperationType] = {
+            EnumIntelligenceOperationType.ASSESS_CODE_QUALITY: EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS,
+            EnumIntelligenceOperationType.CHECK_ARCHITECTURAL_COMPLIANCE: EnumAnalysisOperationType.ARCHITECTURAL_COMPLIANCE,
+            EnumIntelligenceOperationType.GET_QUALITY_PATTERNS: EnumAnalysisOperationType.PATTERN_EXTRACTION,
         }
         return mapping.get(
             operation_type, EnumAnalysisOperationType.COMPREHENSIVE_ANALYSIS
