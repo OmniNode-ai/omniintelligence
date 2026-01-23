@@ -350,6 +350,42 @@ def process() -> int:
         assert greet_defined["source"] == "module"
         assert greet_defined["confidence"] == 1.0
 
+    def test_imports_excluded_from_defines_relations(self) -> None:
+        """Test that import entities do not get DEFINES relations.
+
+        Import entities already have IMPORTS relations, so DEFINES would be
+        redundant. Only functions, classes, and constants should have DEFINES.
+        """
+        result = analyze_semantics(SAMPLE_WITH_IMPORTS, "python")
+
+        assert result["success"] is True
+
+        # Get import entity names
+        import_entity_names = {
+            e["name"] for e in result["entities"] if e["entity_type"] == "import"
+        }
+        # Should have imports: os, List, Optional, Path
+        assert len(import_entity_names) >= 3
+
+        # Get DEFINES relation targets
+        defines_targets = {
+            r["target"]
+            for r in result["relations"]
+            if r["relation_type"] == "defines"
+        }
+
+        # Imports should NOT appear in DEFINES targets
+        overlap = import_entity_names & defines_targets
+        assert overlap == set(), (
+            f"Imports should not have DEFINES relations, but found: {overlap}"
+        )
+
+        # Verify imports DO have IMPORTS relations
+        imports_relations = [
+            r for r in result["relations"] if r["relation_type"] == "imports"
+        ]
+        assert len(imports_relations) >= 3, "Imports should still have IMPORTS relations"
+
 
 # =============================================================================
 # Error Handling Tests

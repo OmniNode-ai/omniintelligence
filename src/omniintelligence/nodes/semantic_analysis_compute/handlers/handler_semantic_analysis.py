@@ -572,8 +572,6 @@ def _extract_import_relations(tree: ast.Module) -> list[RelationDict]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                # Module imports module
-                local_name = alias.asname if alias.asname else alias.name
                 relations.append(
                     RelationDict(
                         source=MODULE_SCOPE,
@@ -676,6 +674,10 @@ def _extract_call_relations(tree: ast.Module) -> list[RelationDict]:
 def _extract_defines_relations(entities: list[EntityDict]) -> list[RelationDict]:
     """Extract DEFINES relationships (file defines entities).
 
+    Creates DEFINES relationships for entities that are defined by the module
+    (functions, classes, constants). Import entities are excluded because their
+    relationship to the module is already captured by IMPORTS relations.
+
     Args:
         entities: List of extracted entities.
 
@@ -685,7 +687,9 @@ def _extract_defines_relations(entities: list[EntityDict]) -> list[RelationDict]
     relations: list[RelationDict] = []
 
     for entity in entities:
-        # Create defines relations for all entities (module defines them)
+        # Skip imports - they have IMPORTS relations instead
+        if entity["entity_type"] == "import":
+            continue
         relations.append(
             RelationDict(
                 source=MODULE_SCOPE,
@@ -1018,6 +1022,9 @@ def _compute_documentation_ratio(tree: ast.Module) -> float:
 def _compute_test_indicator(entities: list[EntityDict]) -> float:
     """Compute indicator of test-related code presence.
 
+    Detects both function-based tests (test_* prefix) and
+    class-based tests (Test* prefix on classes).
+
     Args:
         entities: Extracted entities.
 
@@ -1025,7 +1032,9 @@ def _compute_test_indicator(entities: list[EntityDict]) -> float:
         Test indicator from 0.0 to 1.0.
     """
     total_functions = sum(1 for e in entities if e["entity_type"] == "function")
-    if total_functions == 0:
+    total_classes = sum(1 for e in entities if e["entity_type"] == "class")
+
+    if total_functions == 0 and total_classes == 0:
         return 0.0
 
     test_functions = sum(
@@ -1033,8 +1042,16 @@ def _compute_test_indicator(entities: list[EntityDict]) -> float:
         for e in entities
         if e["entity_type"] == "function" and e["name"].startswith("test_")
     )
+    test_classes = sum(
+        1
+        for e in entities
+        if e["entity_type"] == "class" and e["name"].startswith("Test")
+    )
 
-    return min(test_functions / total_functions, 1.0)
+    total_testable = total_functions + total_classes
+    total_tests = test_functions + test_classes
+
+    return min(total_tests / total_testable, 1.0) if total_testable > 0 else 0.0
 
 
 # =============================================================================

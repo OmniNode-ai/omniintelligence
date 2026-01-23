@@ -12,7 +12,10 @@ Key characteristics:
 """
 from __future__ import annotations
 
+import logging
 from typing import ClassVar
+
+logger = logging.getLogger(__name__)
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
@@ -139,7 +142,11 @@ def _convert_entity_dict_to_model(entity: EntityDict) -> ModelSemanticEntity:
     try:
         entity_type = EnumSemanticEntityType(entity_type_str)
     except ValueError:
-        # Default to function for unknown types
+        logger.warning(
+            "Unknown entity type '%s' for entity '%s', defaulting to FUNCTION",
+            entity_type_str,
+            entity["name"],
+        )
         entity_type = EnumSemanticEntityType.FUNCTION
 
     return ModelSemanticEntity(
@@ -167,7 +174,12 @@ def _convert_relation_dict_to_model(relation: RelationDict) -> ModelSemanticRela
     try:
         relation_type = EnumSemanticRelationType(relation_type_str)
     except ValueError:
-        # Default to references for unknown types
+        logger.warning(
+            "Unknown relation type '%s' for relation '%s' -> '%s', defaulting to REFERENCES",
+            relation_type_str,
+            relation["source"],
+            relation["target"],
+        )
         relation_type = EnumSemanticRelationType.REFERENCES
 
     return ModelSemanticRelation(
