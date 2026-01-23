@@ -39,13 +39,18 @@ def _build_error_response(
     start_time: float,
     status: str,
     message: str,
+    *,
+    error_code: str | None = None,
+    error_type: str | None = None,
 ) -> ModelIntentClassificationOutput:
-    """Build standardized error response with timing.
+    """Build standardized error response with timing and exception details.
 
     Args:
         start_time: The perf_counter timestamp when processing started.
         status: Error status type (e.g., "validation_error", "compute_error").
         message: Human-readable error message.
+        error_code: Contract-defined error code (e.g., "INTENT_001") for traceability.
+        error_type: Exception class name for debugging context.
 
     Returns:
         ModelIntentClassificationOutput configured for error state.
@@ -56,10 +61,14 @@ def _build_error_response(
         intent_category="unknown",
         confidence=0.0,
         secondary_intents=[],
+        keywords=[],  # Contract alignment: operations.classify_intent.output_fields.keywords
+        processing_time_ms=processing_time,  # Contract alignment: operations.classify_intent.output_fields.processing_time_ms
         metadata=IntentMetadataDict(
             status=status,
             message=message,
             classification_time_ms=processing_time,
+            error_code=error_code,
+            error_type=error_type,
         ),
     )
 
@@ -116,12 +125,13 @@ class NodeIntentClassifierCompute(
             if not input_data.content or not input_data.content.strip():
                 raise IntentClassificationValidationError("Content cannot be empty")
 
-            # Extract context parameters with defaults
+            # Extract context parameters - use None to fall through to config defaults
             context = input_data.context or {}
-            confidence_threshold = context.get("confidence_threshold", 0.5)
-            max_intents = context.get("max_intents", 5)
+            confidence_threshold = context.get("confidence_threshold")
+            max_intents = context.get("max_intents")
 
             # Call pure handler function for TF-IDF classification
+            # Handler applies config defaults when parameters are None
             result = classify_intent(
                 content=input_data.content,
                 config=self._classification_config,  # Pass explicit config
@@ -152,28 +162,52 @@ class NodeIntentClassifierCompute(
                     )
                 )
 
+            # Determine actual threshold used (config default if None was passed)
+            actual_threshold = (
+                confidence_threshold
+                if confidence_threshold is not None
+                else self._classification_config.default_confidence_threshold
+            )
+
             # Build metadata with classification details
             metadata: IntentMetadataDict = {
                 "status": "completed",
-                "classifier_version": "1.0.0",
+                "classifier_version": self._classification_config.classifier_version,
                 "classification_time_ms": processing_time,
-                "threshold_used": confidence_threshold,
+                "threshold_used": actual_threshold,
                 "raw_scores": result.get("all_scores", {}),
             }
+
+            # Extract primary intent keywords from handler result
+            primary_keywords: list[str] = result.get("keywords", [])
 
             return ModelIntentClassificationOutput(
                 success=True,
                 intent_category=result["intent_category"],
                 confidence=result["confidence"],
                 secondary_intents=secondary_intents,
+                keywords=primary_keywords,  # Contract alignment: operations.classify_intent.output_fields.keywords
+                processing_time_ms=processing_time,  # Contract alignment: operations.classify_intent.output_fields.processing_time_ms
                 metadata=metadata,
             )
 
         except IntentClassificationValidationError as e:
-            return _build_error_response(start_time, "validation_error", str(e))
+            return _build_error_response(
+                start_time,
+                "validation_error",
+                str(e),
+                error_code=e.code,
+                error_type=type(e).__name__,
+            )
 
         except IntentClassificationComputeError as e:
-            return _build_error_response(start_time, "compute_error", str(e))
+            return _build_error_response(
+                start_time,
+                "compute_error",
+                str(e),
+                error_code=e.code,
+                error_type=type(e).__name__,
+            )
 
         except Exception as e:
             logger.exception(
@@ -185,6 +219,8 @@ class NodeIntentClassifierCompute(
                 start_time,
                 "unexpected_error",
                 f"Unexpected error: {type(e).__name__}: {e}",
+                error_code=None,
+                error_type=type(e).__name__,
             )
 
 

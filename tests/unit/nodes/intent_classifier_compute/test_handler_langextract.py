@@ -57,6 +57,7 @@ def custom_semantic_config() -> ModelSemanticAnalysisConfig:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestCreateEmptySemanticResult:
     """Tests for create_empty_semantic_result factory function."""
 
@@ -104,6 +105,7 @@ class TestCreateEmptySemanticResult:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestAnalyzeSemantics:
     """Tests for analyze_semantics function."""
 
@@ -240,6 +242,7 @@ class TestAnalyzeSemantics:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestMapSemanticToIntentBoost:
     """Tests for map_semantic_to_intent_boost function."""
 
@@ -333,6 +336,7 @@ class TestMapSemanticToIntentBoost:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestDomainCoverage:
     """Tests for domain keyword coverage."""
 
@@ -366,6 +370,7 @@ class TestDomainCoverage:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestIntegrationWithIntentClassification:
     """Tests for integration between semantic analysis and intent classification."""
 
@@ -429,6 +434,7 @@ class TestIntegrationWithIntentClassification:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestExplicitConfigParameter:
     """Tests for explicit config parameter passing."""
 

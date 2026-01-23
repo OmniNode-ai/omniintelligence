@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TypedDict
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConversationMessageDict(TypedDict):
@@ -66,7 +66,7 @@ class ModelIntentClassificationInput(BaseModel):
         "with total=False, allowing any subset of typed fields.",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
 
 __all__ = [

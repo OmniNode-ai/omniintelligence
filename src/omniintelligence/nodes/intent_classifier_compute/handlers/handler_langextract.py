@@ -522,7 +522,8 @@ def analyze_semantics(
     try:
         # Normalize content for analysis
         content_lower = content.lower()
-        tokens = _tokenize(content_lower)
+        min_token_length = config.limits.min_token_length
+        tokens = _tokenize(content_lower, min_token_length=min_token_length)
 
         # Detect domains
         domain_scores = _detect_domains(tokens, content_lower, config)
@@ -682,18 +683,20 @@ def map_semantic_to_intent_boost(
 # =============================================================================
 
 
-def _tokenize(text: str) -> list[str]:
+def _tokenize(text: str, min_token_length: int = 2) -> list[str]:
     """Tokenize text into words.
 
     Args:
         text: Text to tokenize (should be lowercase).
+        min_token_length: Minimum length for tokens to be included.
+            Tokens shorter than this are filtered out. Defaults to 2.
 
     Returns:
-        List of word tokens.
+        List of word tokens with length >= min_token_length.
     """
     # Split on non-alphanumeric characters, keep hyphenated words
     words = re.findall(r'\b[\w-]+\b', text)
-    return [w for w in words if len(w) > 1]
+    return [w for w in words if len(w) >= min_token_length]
 
 
 def _detect_domains(

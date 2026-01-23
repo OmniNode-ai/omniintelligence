@@ -3,7 +3,7 @@
 """Unit tests for TF-IDF intent classification handler.
 
 This module tests the core intent classification functionality including:
-    - All 9 intent categories detection
+    - All 14 intent categories detection (9 original + 5 domain-specific)
     - Confidence threshold filtering
     - Multi-label classification mode
     - Edge cases (empty input, special characters, etc.)
@@ -52,12 +52,12 @@ def custom_config() -> ModelClassificationConfig:
 SAMPLE_CODE_GENERATION = [
     "Please generate a Python function to parse JSON",
     "Create a new class for user authentication",
-    "Implement a REST API endpoint for user registration",
-    "Write a module to handle database connections",
+    "Implement a function for data validation",
+    "Write a module to handle file operations",
     "Build a component for file upload functionality",
     "Develop a function to calculate tax rates",
-    "Make a scaffold for a new microservice",
-    "Update the configuration file for the database",
+    "Make a scaffold for a new service",
+    "Update the configuration file for the system",
 ]
 
 SAMPLE_DEBUGGING = [
@@ -105,10 +105,10 @@ SAMPLE_DOCUMENTATION = [
 ]
 
 SAMPLE_ANALYSIS = [
-    "Review the architecture design decisions",
+    "Review the implementation decisions carefully",
     "Review and inspect the module structure",
     "Examine the code organization carefully",
-    "Evaluate the design decisions used here",
+    "Evaluate the decisions used here",
     "Audit the dependency versions",
     "Investigate the memory usage patterns",
     "Review the existing implementation",
@@ -154,6 +154,7 @@ SAMPLE_SEMANTIC_ANALYSIS = [
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestCodeGenerationIntent:
     """Tests for code_generation intent detection."""
 
@@ -177,6 +178,7 @@ class TestCodeGenerationIntent:
         assert "build" in patterns
 
 
+@pytest.mark.unit
 class TestDebuggingIntent:
     """Tests for debugging intent detection."""
 
@@ -200,6 +202,7 @@ class TestDebuggingIntent:
         assert "crash" in patterns
 
 
+@pytest.mark.unit
 class TestRefactoringIntent:
     """Tests for refactoring intent detection."""
 
@@ -223,6 +226,7 @@ class TestRefactoringIntent:
         assert "clean" in patterns
 
 
+@pytest.mark.unit
 class TestTestingIntent:
     """Tests for testing intent detection."""
 
@@ -246,6 +250,7 @@ class TestTestingIntent:
         assert "coverage" in patterns
 
 
+@pytest.mark.unit
 class TestDocumentationIntent:
     """Tests for documentation intent detection."""
 
@@ -269,6 +274,7 @@ class TestDocumentationIntent:
         assert "docstring" in patterns
 
 
+@pytest.mark.unit
 class TestAnalysisIntent:
     """Tests for analysis intent detection."""
 
@@ -292,6 +298,7 @@ class TestAnalysisIntent:
         assert "evaluate" in patterns
 
 
+@pytest.mark.unit
 class TestPatternLearningIntent:
     """Tests for pattern_learning intent detection."""
 
@@ -315,6 +322,7 @@ class TestPatternLearningIntent:
         assert "vector" in patterns
 
 
+@pytest.mark.unit
 class TestQualityAssessmentIntent:
     """Tests for quality_assessment intent detection."""
 
@@ -338,6 +346,7 @@ class TestQualityAssessmentIntent:
         assert "onex" in patterns
 
 
+@pytest.mark.unit
 class TestSemanticAnalysisIntent:
     """Tests for semantic_analysis intent detection."""
 
@@ -366,6 +375,7 @@ class TestSemanticAnalysisIntent:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestConfidenceThreshold:
     """Tests for confidence threshold filtering."""
 
@@ -423,6 +433,7 @@ class TestConfidenceThreshold:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestMultiLabelClassification:
     """Tests for multi-label classification mode."""
 
@@ -481,6 +492,7 @@ class TestMultiLabelClassification:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
@@ -525,8 +537,29 @@ class TestEdgeCases:
 
     def test_unicode_content(self) -> None:
         """Test that unicode content is handled correctly."""
-        result = classify_intent("Generate a function to process text")
-        assert result.get("success", True)
+        # Test with various unicode characters (Chinese, emoji, accented chars)
+        unicode_content = "Generate a function to process \u4e2d\u6587 text with caf\u00e9"
+        result = classify_intent(unicode_content)
+
+        # Should classify as code_generation and return valid result structure
+        assert result["intent_category"] == "code_generation"
+        assert result["confidence"] > 0.0
+        assert isinstance(result["keywords"], list)
+        assert "generate" in result["keywords"]
+
+    def test_unicode_only_content(self) -> None:
+        """Test classification of content with only unicode characters."""
+        # Pure unicode content with no recognizable keywords
+        result = classify_intent("\u4e2d\u6587\u6587\u672c", confidence_threshold=0.9)
+        # Should return unknown since no English keywords match
+        assert result["intent_category"] == "unknown"
+        assert isinstance(result["confidence"], float)
+
+    def test_unicode_keywords_mixed(self) -> None:
+        """Test that unicode mixed with keywords still classifies correctly."""
+        result = classify_intent("Debug the \u30d0\u30b0 bug in \u30b3\u30fc\u30c9")
+        assert result["intent_category"] == "debugging"
+        assert "debug" in result["keywords"] or "bug" in result["keywords"]
 
     def test_very_long_content(self) -> None:
         """Test classification of very long content."""
@@ -557,6 +590,7 @@ class TestEdgeCases:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestResultStructure:
     """Tests for result dictionary structure."""
 
@@ -587,12 +621,13 @@ class TestResultStructure:
         assert isinstance(result["secondary_intents"], list)
 
     def test_all_scores_contains_all_intents(self) -> None:
-        """Test that all_scores contains scores for all 9 intents."""
+        """Test that all_scores contains scores for all 14 intents."""
         result = classify_intent("generate code")
 
-        assert len(result["all_scores"]) == 9
+        assert len(result["all_scores"]) == 14
 
         expected_intents = {
+            # Original 9 categories
             "code_generation",
             "debugging",
             "refactoring",
@@ -602,6 +637,12 @@ class TestResultStructure:
             "pattern_learning",
             "quality_assessment",
             "semantic_analysis",
+            # Domain-specific categories (aligned with DOMAIN_TO_INTENT_MAP)
+            "api_design",
+            "architecture",
+            "database",
+            "devops",
+            "security",
         }
         assert set(result["all_scores"].keys()) == expected_intents
 
@@ -627,6 +668,7 @@ class TestResultStructure:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestConfigurationPassing:
     """Tests for explicit configuration passing."""
 
@@ -712,16 +754,18 @@ class TestConfigurationPassing:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestIntentPatterns:
     """Tests for INTENT_PATTERNS constant."""
 
-    def test_intent_patterns_has_nine_categories(self) -> None:
-        """Test that INTENT_PATTERNS contains exactly 9 intent categories."""
-        assert len(INTENT_PATTERNS) == 9
+    def test_intent_patterns_has_fourteen_categories(self) -> None:
+        """Test that INTENT_PATTERNS contains exactly 14 intent categories."""
+        assert len(INTENT_PATTERNS) == 14
 
     def test_intent_patterns_categories(self) -> None:
         """Test that all expected categories are present."""
         expected_categories = {
+            # Original 9 categories
             "code_generation",
             "debugging",
             "refactoring",
@@ -731,6 +775,12 @@ class TestIntentPatterns:
             "pattern_learning",
             "quality_assessment",
             "semantic_analysis",
+            # Domain-specific categories (aligned with DOMAIN_TO_INTENT_MAP)
+            "api_design",
+            "architecture",
+            "database",
+            "devops",
+            "security",
         }
         assert set(INTENT_PATTERNS.keys()) == expected_categories
 

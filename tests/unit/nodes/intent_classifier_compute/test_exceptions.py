@@ -29,6 +29,7 @@ from omniintelligence.nodes.intent_classifier_compute.handlers import (
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestIntentClassificationError:
     """Tests for the base IntentClassificationError exception."""
 
@@ -74,6 +75,7 @@ class TestIntentClassificationError:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestIntentClassificationValidationError:
     """Tests for IntentClassificationValidationError exception."""
 
@@ -132,6 +134,7 @@ class TestIntentClassificationValidationError:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestIntentClassificationComputeError:
     """Tests for IntentClassificationComputeError exception."""
 
@@ -185,6 +188,7 @@ class TestIntentClassificationComputeError:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestSemanticAnalysisError:
     """Tests for SemanticAnalysisError exception."""
 
@@ -265,6 +269,7 @@ class TestSemanticAnalysisError:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestExceptionHierarchy:
     """Tests for exception class hierarchy."""
 
@@ -345,6 +350,7 @@ class TestExceptionHierarchy:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestErrorCodeSemantics:
     """Tests for error code semantic meaning."""
 
@@ -401,6 +407,7 @@ class TestErrorCodeSemantics:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestUsagePatterns:
     """Tests for common exception usage patterns."""
 

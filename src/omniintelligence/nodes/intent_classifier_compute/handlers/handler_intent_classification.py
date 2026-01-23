@@ -20,6 +20,7 @@ ONEX Compliance:
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import Counter
 from typing import TYPE_CHECKING
@@ -51,6 +52,8 @@ if TYPE_CHECKING:
         all_scores: dict[str, float]
         secondary_intents: list[SecondaryIntentResultDict]
 
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Intent Patterns - Keyword patterns for each intent category
@@ -186,6 +189,96 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "nlp",
         "language",
     ],
+    # Domain-specific categories (aligned with DOMAIN_TO_INTENT_MAP)
+    "api_design": [
+        "api",
+        "rest",
+        "restful",
+        "graphql",
+        "endpoint",
+        "http",
+        "request",
+        "response",
+        "route",
+        "controller",
+        "middleware",
+        "swagger",
+        "openapi",
+        "websocket",
+        "grpc",
+        "rpc",
+        "service",
+    ],
+    "architecture": [
+        "architecture",
+        "design",
+        "structure",
+        "system",
+        "layer",
+        "tier",
+        "microservice",
+        "monolith",
+        "distributed",
+        "scalable",
+        "modular",
+        "dependency",
+        "coupling",
+        "cohesion",
+    ],
+    "database": [
+        "database",
+        "sql",
+        "nosql",
+        "query",
+        "table",
+        "schema",
+        "migration",
+        "orm",
+        "entity",
+        "relationship",
+        "index",
+        "transaction",
+        "postgres",
+        "mysql",
+        "mongodb",
+        "redis",
+    ],
+    "devops": [
+        "deploy",
+        "deployment",
+        "ci",
+        "cd",
+        "pipeline",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "container",
+        "terraform",
+        "ansible",
+        "jenkins",
+        "aws",
+        "gcp",
+        "azure",
+        "cloud",
+        "infrastructure",
+    ],
+    "security": [
+        "security",
+        "secure",
+        "vulnerability",
+        "encrypt",
+        "decrypt",
+        "hash",
+        "password",
+        "credential",
+        "permission",
+        "role",
+        "access",
+        "ssl",
+        "tls",
+        "https",
+        "sanitize",
+    ],
 }
 
 # Pre-normalized patterns for performance (computed once at module load)
@@ -213,7 +306,7 @@ def classify_intent(
     *,
     config: ModelClassificationConfig | None = None,
     confidence_threshold: float | None = None,
-    multi_label: bool = False,
+    multi_label: bool | None = None,
     max_intents: int | None = None,
 ) -> ClassificationResultDict:
     """Classify user intent using TF-IDF scoring.
@@ -243,6 +336,7 @@ def classify_intent(
             Defaults to config.default_confidence_threshold (0.5).
         multi_label: If True, return all intents above threshold as
             secondary_intents. If False, only return primary intent.
+            Defaults to config.default_multi_label (False).
         max_intents: Maximum number of secondary intents to return when
             multi_label is True. Defaults to config.default_max_intents (5).
 
@@ -271,70 +365,128 @@ def classify_intent(
         >>> custom_config = ModelClassificationConfig(exact_match_weight=20.0)
         >>> result = classify_intent("Generate code", config=custom_config)
     """
-    # Use provided config or default
-    if config is None:
-        config = DEFAULT_CLASSIFICATION_CONFIG
+    try:
+        # Runtime type validation for defensive programming when called from untyped code.
+        # These checks are intentionally guarded against static type analysis since they
+        # provide runtime safety for dynamic/untyped callers.
+        if not isinstance(content, str):
+            logger.warning(  # type: ignore[unreachable]
+                "Invalid content type %s, expected str. Converting to string.",
+                type(content).__name__,
+            )
+            content = str(content) if content is not None else ""
 
-    # Apply config defaults for None parameters
-    if confidence_threshold is None:
-        confidence_threshold = config.default_confidence_threshold
-    if max_intents is None:
-        max_intents = config.default_max_intents
+        if confidence_threshold is not None and not isinstance(
+            confidence_threshold, (int, float)
+        ):
+            logger.warning(  # type: ignore[unreachable]
+                "Invalid confidence_threshold type %s, using default.",
+                type(confidence_threshold).__name__,
+            )
+            confidence_threshold = None
 
-    # Step 1: Tokenize and normalize
-    tokens = _tokenize(content)
+        if multi_label is not None and not isinstance(multi_label, bool):
+            logger.warning(  # type: ignore[unreachable]
+                "Invalid multi_label type %s, using default.",
+                type(multi_label).__name__,
+            )
+            multi_label = None
 
-    if not tokens:
-        return {
+        if max_intents is not None and not isinstance(max_intents, int):
+            logger.warning(  # type: ignore[unreachable]
+                "Invalid max_intents type %s, using default.",
+                type(max_intents).__name__,
+            )
+            max_intents = None
+
+        # Use provided config or default
+        if config is None:
+            config = DEFAULT_CLASSIFICATION_CONFIG
+
+        # Apply config defaults for None parameters
+        if confidence_threshold is None:
+            confidence_threshold = config.default_confidence_threshold
+        if max_intents is None:
+            max_intents = config.default_max_intents
+        if multi_label is None:
+            multi_label = config.default_multi_label
+
+        # Step 1: Tokenize and normalize
+        tokens = _tokenize(content)
+
+        if not tokens:
+            result: ClassificationResultDict = {
+                "intent_category": "unknown",
+                "confidence": 0.0,
+                "keywords": [],
+                "all_scores": {},
+            }
+            # Ensure secondary_intents is included for multi_label mode
+            if multi_label:
+                result["secondary_intents"] = []
+            return result
+
+        # Step 2: Calculate term frequencies
+        tf_scores = _calculate_term_frequency(tokens)
+
+        # Step 3: Score each intent category
+        intent_scores: dict[str, float] = {}
+        intent_keywords: dict[str, list[str]] = {}
+
+        for intent, patterns in _NORMALIZED_PATTERNS.items():
+            score, matched_keywords = _calculate_intent_score(
+                tf_scores, patterns, tokens, config
+            )
+            intent_scores[intent] = score
+            intent_keywords[intent] = matched_keywords
+
+        # Step 4: Normalize scores to 0.0-1.0 range
+        max_score = max(intent_scores.values()) if intent_scores else 1.0
+        normalized_scores: dict[str, float] = {
+            intent: score / max_score if max_score > 0 else 0.0
+            for intent, score in intent_scores.items()
+        }
+
+        # Step 5: Rank by confidence (descending)
+        sorted_intents = sorted(
+            normalized_scores.items(), key=lambda x: x[1], reverse=True
+        )
+
+        # Step 6: Build result based on mode
+        if multi_label:
+            return _build_multi_label_result(
+                sorted_intents=sorted_intents,
+                intent_keywords=intent_keywords,
+                normalized_scores=normalized_scores,
+                confidence_threshold=confidence_threshold,
+                max_intents=max_intents,
+            )
+
+        # Single label mode: return top result
+        return _build_single_label_result(
+            sorted_intents=sorted_intents,
+            intent_keywords=intent_keywords,
+            normalized_scores=normalized_scores,
+            confidence_threshold=confidence_threshold,
+        )
+
+    except Exception as e:
+        # Catch-all handler for unexpected exceptions
+        logger.exception(
+            "Unexpected error during intent classification: %s",
+            str(e),
+        )
+        # Return graceful degradation result
+        error_result: ClassificationResultDict = {
             "intent_category": "unknown",
             "confidence": 0.0,
             "keywords": [],
             "all_scores": {},
         }
-
-    # Step 2: Calculate term frequencies
-    tf_scores = _calculate_term_frequency(tokens)
-
-    # Step 3: Score each intent category
-    intent_scores: dict[str, float] = {}
-    intent_keywords: dict[str, list[str]] = {}
-
-    for intent, patterns in _NORMALIZED_PATTERNS.items():
-        score, matched_keywords = _calculate_intent_score(
-            tf_scores, patterns, tokens, config
-        )
-        intent_scores[intent] = score
-        intent_keywords[intent] = matched_keywords
-
-    # Step 4: Normalize scores to 0.0-1.0 range
-    max_score = max(intent_scores.values()) if intent_scores else 1.0
-    normalized_scores: dict[str, float] = {
-        intent: score / max_score if max_score > 0 else 0.0
-        for intent, score in intent_scores.items()
-    }
-
-    # Step 5: Rank by confidence (descending)
-    sorted_intents = sorted(
-        normalized_scores.items(), key=lambda x: x[1], reverse=True
-    )
-
-    # Step 6: Build result based on mode
-    if multi_label:
-        return _build_multi_label_result(
-            sorted_intents=sorted_intents,
-            intent_keywords=intent_keywords,
-            normalized_scores=normalized_scores,
-            confidence_threshold=confidence_threshold,
-            max_intents=max_intents,
-        )
-
-    # Single label mode: return top result
-    return _build_single_label_result(
-        sorted_intents=sorted_intents,
-        intent_keywords=intent_keywords,
-        normalized_scores=normalized_scores,
-        confidence_threshold=confidence_threshold,
-    )
+        # Include secondary_intents if multi_label was requested
+        if multi_label:
+            error_result["secondary_intents"] = []
+        return error_result
 
 
 # =============================================================================
@@ -419,7 +571,9 @@ def _calculate_intent_score(
     for token in tokens:
         for pattern in patterns:
             # Only do partial matching for patterns of sufficient length
-            if len(pattern) > min_pattern_length:
+            # Use >= for inclusive threshold (min_pattern_length_for_partial means
+            # patterns of at least that length are eligible for partial matching)
+            if len(pattern) >= min_pattern_length:
                 if pattern in token or token in pattern:
                     # Avoid double-counting exact matches
                     if token not in matched_keywords:

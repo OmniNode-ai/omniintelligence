@@ -26,6 +26,8 @@ class ModelClassificationConfig(BaseModel):
     All fields have sensible defaults matching the contract specification.
 
     Attributes:
+        classifier_version: Version identifier for the classifier algorithm.
+            Used in metadata for traceability and debugging.
         exact_match_weight: Weight applied to exact keyword matches in TF-IDF scoring.
             Higher values prioritize exact matches over partial matches.
         partial_match_weight: Weight applied to partial/fuzzy keyword matches.
@@ -38,8 +40,12 @@ class ModelClassificationConfig(BaseModel):
             multi-label mode.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
+    classifier_version: str = Field(
+        default="1.0.0",
+        description="Version identifier for the classifier algorithm",
+    )
     exact_match_weight: float = Field(
         default=15.0,
         ge=0.0,
@@ -66,6 +72,10 @@ class ModelClassificationConfig(BaseModel):
         ge=1,
         description="Maximum number of secondary intents to return",
     )
+    default_multi_label: bool = Field(
+        default=False,
+        description="Default multi-label mode for returning secondary intents",
+    )
 
 
 class ModelSemanticBoostsConfig(BaseModel):
@@ -83,7 +93,7 @@ class ModelSemanticBoostsConfig(BaseModel):
         context_boost: Boost applied when context matches a domain.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     domain_match_boost: float = Field(
         default=0.10,
@@ -137,7 +147,7 @@ class ModelSemanticScoringConfig(BaseModel):
         concept_confidence_multiplier: Multiplier for concept confidence extraction.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     match_base_initial: float = Field(
         default=0.15,
@@ -189,9 +199,11 @@ class ModelSemanticLimitsConfig(BaseModel):
     Attributes:
         max_concepts: Maximum number of concepts to return.
         max_domain_indicators: Maximum number of domain indicators to return.
+        min_token_length: Minimum length for tokens to be included in analysis.
+            Tokens shorter than this are filtered out during tokenization.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     max_concepts: int = Field(
         default=20,
@@ -202,6 +214,11 @@ class ModelSemanticLimitsConfig(BaseModel):
         default=5,
         ge=1,
         description="Maximum number of domain indicators to return",
+    )
+    min_token_length: int = Field(
+        default=2,
+        ge=1,
+        description="Minimum length for tokens to be included in analysis",
     )
 
 
@@ -218,7 +235,7 @@ class ModelSemanticAnalysisConfig(BaseModel):
         default_min_confidence: Default minimum confidence threshold for results.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     boosts: ModelSemanticBoostsConfig = Field(
         default_factory=ModelSemanticBoostsConfig,
