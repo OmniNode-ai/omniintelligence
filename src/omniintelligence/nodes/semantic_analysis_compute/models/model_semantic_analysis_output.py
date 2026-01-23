@@ -6,6 +6,13 @@ from typing import TypedDict
 
 from pydantic import BaseModel, Field, field_validator
 
+from omniintelligence.nodes.semantic_analysis_compute.models.model_semantic_entity import (
+    ModelSemanticEntity,
+)
+from omniintelligence.nodes.semantic_analysis_compute.models.model_semantic_relation import (
+    ModelSemanticRelation,
+)
+
 
 class SemanticFeaturesDict(TypedDict, total=False):
     """Typed structure for extracted semantic features.
@@ -94,6 +101,24 @@ class ModelSemanticAnalysisOutput(BaseModel):
         default=None,
         description="Typed metadata about the analysis. Uses SemanticAnalysisMetadataDict "
         "with total=False, allowing any subset of typed fields.",
+    )
+
+    # AST-based semantic analysis fields
+    parse_ok: bool = Field(
+        default=True,
+        description="Whether the AST parsing completed successfully",
+    )
+    entities: list[ModelSemanticEntity] = Field(
+        default_factory=list,
+        description="Semantic entities extracted from the code via AST analysis",
+    )
+    relations: list[ModelSemanticRelation] = Field(
+        default_factory=list,
+        description="Semantic relations between entities in the code graph",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Non-fatal warnings encountered during analysis",
     )
 
     @field_validator("similarity_scores")

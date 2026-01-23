@@ -416,10 +416,10 @@ class TestRealNodeStubDetection:
         # qdrant_vector_effect, memgraph_graph_effect, postgres_pattern_effect,
         # intelligence_api_effect, entity_extraction_compute,
         # context_keyword_extractor_compute, relationship_detection_compute)
+        # Note: quality_scoring_compute was implemented in PR #16
+        # Note: semantic_analysis_compute was implemented in OMN-1422
         known_stubs = [
-            "quality_scoring_compute",
             "intent_classifier_compute",
-            "semantic_analysis_compute",
             "pattern_learning_compute",
             "execution_trace_parser_compute",
             "success_criteria_matcher_compute",
@@ -437,9 +437,13 @@ class TestRealNodeStubDetection:
     def test_known_non_stub_nodes_not_detected(self, nodes_directory: Path) -> None:
         """Known non-stub nodes should NOT be detected as stubs."""
         # Note: vectorization_compute was removed in PR #12
+        # Note: quality_scoring_compute was implemented in PR #16
+        # Note: semantic_analysis_compute was implemented in OMN-1422
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
+            "quality_scoring_compute",
+            "semantic_analysis_compute",
         ]
 
         for node_name in known_non_stubs:
