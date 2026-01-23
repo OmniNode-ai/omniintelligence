@@ -84,33 +84,29 @@ from omniintelligence.nodes.intent_classifier_compute.handlers.exceptions import
     SemanticAnalysisError,
 )
 from omniintelligence.nodes.intent_classifier_compute.handlers.handler_intent_classification import (
+    DEFAULT_CLASSIFICATION_CONFIG,
     INTENT_PATTERNS,
     classify_intent,
-    reset_classification_config,
 )
 from omniintelligence.nodes.intent_classifier_compute.handlers.handler_langextract import (
+    DEFAULT_SEMANTIC_CONFIG,
     SemanticResult,
     analyze_semantics,
     create_empty_semantic_result,
     map_semantic_to_intent_boost,
-    reset_semantic_config,
 )
 
 __all__ = [
-    # Core classification
+    "DEFAULT_CLASSIFICATION_CONFIG",
+    "DEFAULT_SEMANTIC_CONFIG",
     "INTENT_PATTERNS",
-    "classify_intent",
-    # Semantic analysis
+    "IntentClassificationComputeError",
+    "IntentClassificationError",
+    "IntentClassificationValidationError",
+    "SemanticAnalysisError",
     "SemanticResult",
     "analyze_semantics",
+    "classify_intent",
     "create_empty_semantic_result",
     "map_semantic_to_intent_boost",
-    # Configuration reset (for test isolation)
-    "reset_classification_config",
-    "reset_semantic_config",
-    # Exceptions (contract-defined)
-    "IntentClassificationComputeError",  # INTENT_002
-    "IntentClassificationError",  # Base class
-    "IntentClassificationValidationError",  # INTENT_001
-    "SemanticAnalysisError",  # INTENT_003
 ]

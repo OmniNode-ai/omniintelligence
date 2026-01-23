@@ -15,9 +15,33 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.intent_classifier_compute.handlers import (
+    DEFAULT_CLASSIFICATION_CONFIG,
     INTENT_PATTERNS,
     classify_intent,
 )
+from omniintelligence.nodes.intent_classifier_compute.models import (
+    ModelClassificationConfig,
+)
+
+
+# =============================================================================
+# Test Fixtures - Configuration
+# =============================================================================
+
+
+@pytest.fixture
+def default_config() -> ModelClassificationConfig:
+    """Provide default classification config for tests."""
+    return ModelClassificationConfig()
+
+
+@pytest.fixture
+def custom_config() -> ModelClassificationConfig:
+    """Provide a custom config for testing config behavior."""
+    return ModelClassificationConfig(
+        exact_match_weight=20.0,
+        default_confidence_threshold=0.3,
+    )
 
 
 # =============================================================================
@@ -502,7 +526,7 @@ class TestEdgeCases:
     def test_unicode_content(self) -> None:
         """Test that unicode content is handled correctly."""
         result = classify_intent("Generate a function to process text")
-        assert result["success"] if "success" in result else True
+        assert result.get("success", True)
 
     def test_very_long_content(self) -> None:
         """Test classification of very long content."""
@@ -596,6 +620,91 @@ class TestResultStructure:
 
         for keyword in result["keywords"]:
             assert keyword == keyword.lower()
+
+
+# =============================================================================
+# Configuration Tests
+# =============================================================================
+
+
+class TestConfigurationPassing:
+    """Tests for explicit configuration passing."""
+
+    def test_default_config_matches_module_default(
+        self, default_config: ModelClassificationConfig
+    ) -> None:
+        """Test that fixture default_config matches DEFAULT_CLASSIFICATION_CONFIG."""
+        assert default_config.exact_match_weight == DEFAULT_CLASSIFICATION_CONFIG.exact_match_weight
+        assert default_config.default_confidence_threshold == DEFAULT_CLASSIFICATION_CONFIG.default_confidence_threshold
+
+    def test_classify_with_explicit_default_config(
+        self, default_config: ModelClassificationConfig
+    ) -> None:
+        """Test classification with explicitly passed default config."""
+        result = classify_intent("generate a function", config=default_config)
+        assert result["intent_category"] == "code_generation"
+        assert result["confidence"] > 0.0
+
+    def test_classify_with_custom_config(
+        self, custom_config: ModelClassificationConfig
+    ) -> None:
+        """Test classification with custom config."""
+        result = classify_intent("generate a function", config=custom_config)
+        assert result["intent_category"] == "code_generation"
+        # Custom config has exact_match_weight=20.0 (higher than default 15.0)
+        # This should still classify correctly
+        assert result["confidence"] > 0.0
+
+    def test_custom_threshold_via_config(self) -> None:
+        """Test that custom threshold in config is respected."""
+        low_threshold_config = ModelClassificationConfig(
+            default_confidence_threshold=0.1,
+        )
+        high_threshold_config = ModelClassificationConfig(
+            default_confidence_threshold=0.99,
+        )
+
+        # Low threshold should return result for weak match
+        result_low = classify_intent("work on the project", config=low_threshold_config)
+        # High threshold should return unknown for same text
+        result_high = classify_intent("work on the project", config=high_threshold_config)
+
+        # Low threshold allows weak matches through
+        # High threshold filters them out
+        if result_low["intent_category"] != "unknown":
+            assert result_high["intent_category"] == "unknown" or result_high["confidence"] >= 0.99
+
+    def test_config_weight_affects_scoring(self) -> None:
+        """Test that different weights affect relative scoring."""
+        normal_config = ModelClassificationConfig()
+        high_exact_config = ModelClassificationConfig(
+            exact_match_weight=30.0,  # Double the default
+        )
+
+        result_normal = classify_intent("generate code", config=normal_config)
+        result_high = classify_intent("generate code", config=high_exact_config)
+
+        # Both should classify as code_generation
+        assert result_normal["intent_category"] == "code_generation"
+        assert result_high["intent_category"] == "code_generation"
+
+    def test_none_config_uses_default(self) -> None:
+        """Test that passing config=None uses default configuration."""
+        result_none = classify_intent("generate a function", config=None)
+        result_default = classify_intent(
+            "generate a function", config=DEFAULT_CLASSIFICATION_CONFIG
+        )
+
+        assert result_none["intent_category"] == result_default["intent_category"]
+        assert result_none["confidence"] == result_default["confidence"]
+
+    def test_config_is_frozen(self) -> None:
+        """Test that config is immutable (frozen)."""
+        from pydantic import ValidationError
+
+        config = ModelClassificationConfig()
+        with pytest.raises(ValidationError):
+            config.exact_match_weight = 100.0  # type: ignore[misc]
 
 
 # =============================================================================

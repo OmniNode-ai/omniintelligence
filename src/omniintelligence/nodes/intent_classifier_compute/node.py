@@ -21,12 +21,14 @@ logger = logging.getLogger(__name__)
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.intent_classifier_compute.handlers import (
+    DEFAULT_CLASSIFICATION_CONFIG,
     IntentClassificationComputeError,
     IntentClassificationValidationError,
     classify_intent,
 )
 from omniintelligence.nodes.intent_classifier_compute.models import (
     IntentMetadataDict,
+    ModelClassificationConfig,
     ModelIntentClassificationInput,
     ModelIntentClassificationOutput,
     SecondaryIntentDict,
@@ -81,10 +83,17 @@ class NodeIntentClassifierCompute(
     The node follows the ONEX pure shell pattern, delegating computation
     to side-effect-free handler functions.
 
+    Attributes:
+        _classification_config: Configuration for TF-IDF classification.
+            Uses default config; can be overridden in subclasses or via contract.
+
     Note:
         This node follows the declarative node pattern - no custom __init__ is needed.
         The base NodeCompute class handles initialization.
     """
+
+    # Use default config - can be overridden in subclasses or via contract loading
+    _classification_config: ModelClassificationConfig = DEFAULT_CLASSIFICATION_CONFIG
 
     async def compute(
         self, input_data: ModelIntentClassificationInput
@@ -115,6 +124,7 @@ class NodeIntentClassifierCompute(
             # Call pure handler function for TF-IDF classification
             result = classify_intent(
                 content=input_data.content,
+                config=self._classification_config,  # Pass explicit config
                 confidence_threshold=confidence_threshold,
                 multi_label=True,  # Always compute secondary intents
                 max_intents=max_intents,

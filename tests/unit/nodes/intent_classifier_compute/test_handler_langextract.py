@@ -14,16 +14,42 @@ The handler is PURE COMPUTATION - no HTTP calls, no external services.
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
+from pydantic import ValidationError
 
 from omniintelligence.nodes.intent_classifier_compute.handlers import (
+    DEFAULT_SEMANTIC_CONFIG,
     SemanticResult,
     analyze_semantics,
     create_empty_semantic_result,
     map_semantic_to_intent_boost,
 )
+from omniintelligence.nodes.intent_classifier_compute.models import (
+    ModelSemanticAnalysisConfig,
+    ModelSemanticBoostsConfig,
+    ModelSemanticLimitsConfig,
+)
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def default_semantic_config() -> ModelSemanticAnalysisConfig:
+    """Provide default semantic config for tests."""
+    return ModelSemanticAnalysisConfig()
+
+
+@pytest.fixture
+def custom_semantic_config() -> ModelSemanticAnalysisConfig:
+    """Provide custom config with modified boosts."""
+    return ModelSemanticAnalysisConfig(
+        boosts=ModelSemanticBoostsConfig(
+            max_boost_cap=0.5,
+        ),
+    )
 
 
 # =============================================================================
@@ -396,3 +422,103 @@ class TestIntegrationWithIntentClassification:
                 d in [expected, expected.replace("_", "")]
                 for d in semantic_result["domain_indicators"]
             )
+
+
+# =============================================================================
+# Explicit Config Parameter Tests
+# =============================================================================
+
+
+class TestExplicitConfigParameter:
+    """Tests for explicit config parameter passing."""
+
+    def test_analyze_semantics_with_default_config(
+        self, default_semantic_config: ModelSemanticAnalysisConfig
+    ) -> None:
+        """Test that analyze_semantics accepts explicit default config."""
+        result = analyze_semantics(
+            "Create REST API endpoint",
+            config=default_semantic_config,
+        )
+        assert "api_design" in result["domain_indicators"]
+
+    def test_analyze_semantics_with_none_config_uses_default(self) -> None:
+        """Test that None config uses DEFAULT_SEMANTIC_CONFIG."""
+        result_none = analyze_semantics("Create REST API endpoint", config=None)
+        result_default = analyze_semantics(
+            "Create REST API endpoint", config=DEFAULT_SEMANTIC_CONFIG
+        )
+
+        # Results should be equivalent
+        assert result_none["domain_indicators"] == result_default["domain_indicators"]
+
+    def test_map_semantic_with_custom_boost_cap(
+        self, custom_semantic_config: ModelSemanticAnalysisConfig
+    ) -> None:
+        """Test that custom boost cap is respected."""
+        result = analyze_semantics(
+            "api rest endpoint http request response authentication jwt oauth",
+            config=custom_semantic_config,
+        )
+        boosts = map_semantic_to_intent_boost(result, config=custom_semantic_config)
+
+        # Custom config has max_boost_cap=0.5
+        for intent, boost in boosts.items():
+            assert boost <= 0.5, f"Boost for {intent} ({boost}) exceeds custom max 0.5"
+
+    def test_map_semantic_with_default_boost_cap(self) -> None:
+        """Test that default boost cap (0.30) is applied."""
+        result = analyze_semantics(
+            "api rest endpoint http request response authentication jwt oauth"
+        )
+        boosts = map_semantic_to_intent_boost(result)
+
+        # Default config has max_boost_cap=0.30
+        for intent, boost in boosts.items():
+            assert boost <= 0.30, f"Boost for {intent} ({boost}) exceeds default max"
+
+    def test_custom_config_with_modified_scoring(self) -> None:
+        """Test that custom scoring config affects results."""
+        # Create config with higher minimum confidence
+        # (default_min_confidence is on ModelSemanticAnalysisConfig, not scoring)
+        high_min_config = ModelSemanticAnalysisConfig(
+            default_min_confidence=0.9,
+        )
+
+        # With high minimum confidence, should get fewer results
+        result_high = analyze_semantics(
+            "Test content for scoring",
+            config=high_min_config,
+        )
+
+        # Default config with lower threshold
+        result_default = analyze_semantics("Test content for scoring")
+
+        # High threshold should filter more
+        assert len(result_high["domains"]) <= len(result_default["domains"])
+
+    def test_custom_limits_config(self) -> None:
+        """Test that custom limits config affects results."""
+        # Create config with lower limits
+        # (ModelSemanticLimitsConfig has max_concepts and max_domain_indicators)
+        limited_config = ModelSemanticAnalysisConfig(
+            limits=ModelSemanticLimitsConfig(
+                max_concepts=2,
+                max_domain_indicators=2,
+            ),
+        )
+
+        result = analyze_semantics(
+            "Create REST API with testing and documentation and debugging",
+            config=limited_config,
+        )
+
+        # Should respect limits
+        assert len(result["concepts"]) <= 2
+        assert len(result["domain_indicators"]) <= 2
+
+    def test_default_semantic_config_is_frozen(self) -> None:
+        """Test that DEFAULT_SEMANTIC_CONFIG is immutable."""
+        # Pydantic models with frozen=True should raise ValidationError on modification
+        with pytest.raises(ValidationError):
+            DEFAULT_SEMANTIC_CONFIG.boosts.max_boost_cap = 0.99  # type: ignore[misc]
