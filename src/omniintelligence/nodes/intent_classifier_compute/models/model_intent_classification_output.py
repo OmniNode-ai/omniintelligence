@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SecondaryIntentDict(TypedDict, total=False):
@@ -28,6 +28,10 @@ class IntentMetadataDict(TypedDict, total=False):
     message: str
     tracking_url: str
 
+    # Error details (for traceability)
+    error_code: str | None
+    error_type: str | None
+
     # Classification details
     classifier_version: str
     classification_time_ms: float
@@ -41,7 +45,10 @@ class ModelIntentClassificationOutput(BaseModel):
     """Output model for intent classification operations.
 
     This model represents the result of classifying intents.
+    Aligned with contract.yaml operations.classify_intent.output_fields.
     """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     success: bool = Field(
         ...,
@@ -62,13 +69,22 @@ class ModelIntentClassificationOutput(BaseModel):
         description="List of secondary intents with confidence scores. Uses SecondaryIntentDict "
         "with total=False, allowing any subset of typed fields per entry.",
     )
+    keywords: list[str] = Field(
+        default_factory=list,
+        description="Keywords extracted for the primary intent classification. "
+        "Contract alignment: operations.classify_intent.output_fields.keywords",
+    )
+    processing_time_ms: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Time taken to process the classification in milliseconds. "
+        "Contract alignment: operations.classify_intent.output_fields.processing_time_ms",
+    )
     metadata: IntentMetadataDict | None = Field(
         default=None,
         description="Additional metadata about the classification. Uses IntentMetadataDict "
         "with total=False, allowing any subset of typed fields.",
     )
-
-    model_config = {"frozen": True, "extra": "forbid"}
 
 
 __all__ = [
