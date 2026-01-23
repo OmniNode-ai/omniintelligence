@@ -13,7 +13,7 @@ Key characteristics:
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ from omniintelligence.nodes.semantic_analysis_compute.models import (
     ModelSemanticEntity,
     ModelSemanticRelation,
     SemanticAnalysisMetadataDict,
+    SemanticFeaturesDict,
 )
 
 
@@ -116,7 +117,9 @@ class NodeSemanticAnalysisCompute(NodeCompute[ModelSemanticAnalysisInput, ModelS
             entities=entities,
             relations=relations,
             warnings=result["warnings"],
-            semantic_features=result["semantic_features"],
+            # Cast handler's SemanticFeaturesDict to model's SemanticFeaturesDict
+            # Both have identical fields but different total= settings
+            semantic_features=cast(SemanticFeaturesDict, result["semantic_features"]),
             embeddings=[],  # Embeddings require external service, not handled here
             similarity_scores={},  # Similarity requires embeddings
             metadata=metadata,
@@ -156,7 +159,8 @@ def _convert_entity_dict_to_model(entity: EntityDict) -> ModelSemanticEntity:
         line_end=entity["line_end"],
         decorators=entity["decorators"],
         docstring=entity["docstring"],
-        metadata=entity["metadata"],
+        # Cast TypedDict union to dict[str, Any] for Pydantic model compatibility
+        metadata=cast(dict[str, Any], entity["metadata"]),
     )
 
 

@@ -30,7 +30,92 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
+
+
+# =============================================================================
+# Semantic Entity Metadata TypedDicts
+# =============================================================================
+# These TypedDicts define the metadata structure for each entity type.
+# Using Semantic* prefix to avoid collisions with other entity types
+# (runtime, registry, memory entities, etc.).
+
+
+class SemanticFunctionMetadata(TypedDict):
+    """Metadata specific to function entities.
+
+    Required fields are always populated by the handler.
+    Optional fields use NotRequired for cases where data may not exist.
+
+    Attributes:
+        is_async: Whether the function is async (always determined).
+        arguments: List of argument names (always extracted, may be empty).
+        return_type: Return type annotation string, if present in source.
+    """
+
+    is_async: bool
+    arguments: list[str]
+    return_type: NotRequired[str | None]
+
+
+class SemanticClassMetadata(TypedDict):
+    """Metadata specific to class entities.
+
+    All fields are required and always populated (may be empty lists).
+
+    Attributes:
+        bases: List of base class names (empty if no explicit inheritance).
+        methods: List of method names defined in the class body.
+    """
+
+    bases: list[str]
+    methods: list[str]
+
+
+class SemanticImportMetadata(TypedDict):
+    """Metadata specific to import entities.
+
+    Captures the structure of Python import statements.
+    Fields are optional because different import forms populate different fields.
+
+    Import forms and their metadata:
+        - `import foo`         → source_module="foo", alias=None
+        - `import foo as f`    → source_module="foo", alias="f"
+        - `from foo import bar` → source_module="foo", imported_name="bar"
+        - `from foo import bar as b` → source_module="foo", imported_name="bar", alias="b"
+
+    Attributes:
+        source_module: The module being imported or imported from.
+        imported_name: The specific name being imported (for 'from' imports).
+        alias: The alias if 'as X' was used.
+    """
+
+    source_module: NotRequired[str | None]
+    imported_name: NotRequired[str | None]
+    alias: NotRequired[str | None]
+
+
+class SemanticConstantMetadata(TypedDict):
+    """Metadata specific to constant/variable entities.
+
+    Both fields are optional as they depend on source code annotations.
+
+    Attributes:
+        type_annotation: Type annotation string if present (e.g., "int", "Final[str]").
+        value_ast_type: AST node type of the value (e.g., "Constant", "List", "Call").
+    """
+
+    type_annotation: NotRequired[str | None]
+    value_ast_type: NotRequired[str | None]
+
+
+# Union of all semantic entity metadata types
+SemanticEntityMetadata = (
+    SemanticFunctionMetadata
+    | SemanticClassMetadata
+    | SemanticImportMetadata
+    | SemanticConstantMetadata
+)
 
 
 class EntityDict(TypedDict):
@@ -54,7 +139,7 @@ class EntityDict(TypedDict):
     line_end: int
     decorators: list[str]
     docstring: str | None
-    metadata: dict[str, object]
+    metadata: SemanticEntityMetadata
 
 
 class RelationDict(TypedDict):
@@ -75,11 +160,11 @@ class RelationDict(TypedDict):
     confidence: float
 
 
-class SemanticFeaturesDict(TypedDict, total=False):
+class SemanticFeaturesDict(TypedDict):
     """Typed structure for extracted semantic features.
 
     Contains the semantic features extracted from code analysis.
-    With total=False, all fields are optional.
+    All fields are required (total=True by default).
 
     Attributes:
         function_count: Number of function definitions.
@@ -257,7 +342,12 @@ __all__ = [
     "RelationDict",
     "SemanticAnalysisMetadataDict",
     "SemanticAnalysisResult",
+    "SemanticClassMetadata",
+    "SemanticConstantMetadata",
+    "SemanticEntityMetadata",
     "SemanticFeaturesDict",
+    "SemanticFunctionMetadata",
+    "SemanticImportMetadata",
     "create_empty_features",
     "create_error_result",
 ]

@@ -227,20 +227,20 @@ class TestEntityExtraction:
         imports = [e for e in result["entities"] if e["entity_type"] == "import"]
         assert len(imports) == 4  # os, List, Optional, Path
 
-        # Check direct import
+        # Check direct import (`import os`)
         os_import = next((i for i in imports if i["name"] == "os"), None)
         assert os_import is not None
-        assert os_import["metadata"]["module"] == "os"
+        assert os_import["metadata"]["source_module"] == "os"
 
-        # Check from import
+        # Check from import (`from typing import List`)
         list_import = next((i for i in imports if i["name"] == "List"), None)
         assert list_import is not None
-        assert list_import["metadata"]["from_module"] == "typing"
-        assert list_import["metadata"]["original_name"] == "List"
+        assert list_import["metadata"]["source_module"] == "typing"
+        assert list_import["metadata"]["imported_name"] == "List"
 
         path_import = next((i for i in imports if i["name"] == "Path"), None)
         assert path_import is not None
-        assert path_import["metadata"]["from_module"] == "pathlib"
+        assert path_import["metadata"]["source_module"] == "pathlib"
 
     def test_extract_constants(self) -> None:
         """Test module-level constant extraction."""
@@ -803,17 +803,17 @@ from pandas import DataFrame as DF
 
         imports = [e for e in result["entities"] if e["entity_type"] == "import"]
 
-        # Check numpy alias
+        # Check numpy alias (`import numpy as np`)
         np_import = next((i for i in imports if i["name"] == "np"), None)
         assert np_import is not None
-        assert np_import["metadata"]["module"] == "numpy"
+        assert np_import["metadata"]["source_module"] == "numpy"
         assert np_import["metadata"]["alias"] == "np"
 
-        # Check DataFrame alias
+        # Check DataFrame alias (`from pandas import DataFrame as DF`)
         df_import = next((i for i in imports if i["name"] == "DF"), None)
         assert df_import is not None
-        assert df_import["metadata"]["from_module"] == "pandas"
-        assert df_import["metadata"]["original_name"] == "DataFrame"
+        assert df_import["metadata"]["source_module"] == "pandas"
+        assert df_import["metadata"]["imported_name"] == "DataFrame"
         assert df_import["metadata"]["alias"] == "DF"
 
 

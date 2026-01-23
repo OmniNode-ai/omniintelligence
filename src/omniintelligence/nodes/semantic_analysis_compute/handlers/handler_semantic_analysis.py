@@ -33,6 +33,7 @@ Example:
 from __future__ import annotations
 
 import ast
+import contextlib
 import time
 from collections import Counter
 from typing import Final
@@ -44,7 +45,11 @@ from omniintelligence.nodes.semantic_analysis_compute.handlers.protocols import 
     RelationDict,
     SemanticAnalysisMetadataDict,
     SemanticAnalysisResult,
+    SemanticClassMetadata,
+    SemanticConstantMetadata,
     SemanticFeaturesDict,
+    SemanticFunctionMetadata,
+    SemanticImportMetadata,
     create_empty_features,
 )
 
@@ -310,10 +315,6 @@ def _extract_function_entity(
     docstring = ast.get_docstring(node)
 
     # Build metadata
-    metadata: dict[str, object] = {
-        "is_async": isinstance(node, ast.AsyncFunctionDef),
-    }
-
     # Extract argument information
     args = node.args
     arg_names = [arg.arg for arg in args.args]
@@ -321,14 +322,21 @@ def _extract_function_entity(
         arg_names.append(f"*{args.vararg.arg}")
     if args.kwarg:
         arg_names.append(f"**{args.kwarg.arg}")
-    metadata["arguments"] = arg_names
 
     # Extract return type annotation if present
+    return_type: str | None = None
     if node.returns:
         try:
-            metadata["return_type"] = ast.unparse(node.returns)
+            return_type = ast.unparse(node.returns)
         except Exception:
-            metadata["return_type"] = None
+            return_type = None
+
+    metadata: SemanticFunctionMetadata = {
+        "is_async": isinstance(node, ast.AsyncFunctionDef),
+        "arguments": arg_names,
+    }
+    if return_type is not None:
+        metadata["return_type"] = return_type
 
     return EntityDict(
         name=node.name,
@@ -357,11 +365,8 @@ def _extract_class_entity(node: ast.ClassDef) -> EntityDict:
     docstring = ast.get_docstring(node)
 
     # Build metadata
-    metadata: dict[str, object] = {}
-
     # Extract base classes
     bases = [_get_name_from_expr(base) for base in node.bases]
-    metadata["bases"] = [b for b in bases if b is not None]
 
     # Extract method names
     methods = [
@@ -369,7 +374,11 @@ def _extract_class_entity(node: ast.ClassDef) -> EntityDict:
         for n in node.body
         if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
     ]
-    metadata["methods"] = methods
+
+    metadata: SemanticClassMetadata = {
+        "bases": [b for b in bases if b is not None],
+        "methods": methods,
+    }
 
     return EntityDict(
         name=node.name,
@@ -394,8 +403,14 @@ def _extract_import_entities(node: ast.Import | ast.ImportFrom) -> list[EntityDi
     entities: list[EntityDict] = []
 
     if isinstance(node, ast.Import):
+        # `import foo` or `import foo as f`
         for alias in node.names:
             name = alias.asname if alias.asname else alias.name
+            import_meta: SemanticImportMetadata = {
+                "source_module": alias.name,
+            }
+            if alias.asname:
+                import_meta["alias"] = alias.asname
             entities.append(
                 EntityDict(
                     name=name,
@@ -404,16 +419,20 @@ def _extract_import_entities(node: ast.Import | ast.ImportFrom) -> list[EntityDi
                     line_end=node.end_lineno or node.lineno,
                     decorators=[],
                     docstring=None,
-                    metadata={
-                        "module": alias.name,
-                        "alias": alias.asname,
-                    },
+                    metadata=import_meta,
                 )
             )
     elif isinstance(node, ast.ImportFrom):
-        module = node.module or ""
+        # `from foo import bar` or `from foo import bar as b`
+        source_module = node.module or ""
         for alias in node.names:
             name = alias.asname if alias.asname else alias.name
+            from_import_meta: SemanticImportMetadata = {
+                "source_module": source_module if source_module else None,
+                "imported_name": alias.name,
+            }
+            if alias.asname:
+                from_import_meta["alias"] = alias.asname
             entities.append(
                 EntityDict(
                     name=name,
@@ -422,11 +441,7 @@ def _extract_import_entities(node: ast.Import | ast.ImportFrom) -> list[EntityDi
                     line_end=node.end_lineno or node.lineno,
                     decorators=[],
                     docstring=None,
-                    metadata={
-                        "from_module": module,
-                        "original_name": alias.name,
-                        "alias": alias.asname,
-                    },
+                    metadata=from_import_meta,
                 )
             )
 
@@ -452,10 +467,10 @@ def _extract_constant_entities(node: ast.Assign) -> list[EntityDict]:
             if target.id.isupper() or (
                 "_" in target.id and target.id.replace("_", "").isupper()
             ):
-                metadata: dict[str, object] = {}
                 # Capture AST node type for value (safe, no evaluation)
+                const_meta: SemanticConstantMetadata = {}
                 if node.value:
-                    metadata["value_ast_type"] = node.value.__class__.__name__
+                    const_meta["value_ast_type"] = node.value.__class__.__name__
 
                 entities.append(
                     EntityDict(
@@ -465,7 +480,7 @@ def _extract_constant_entities(node: ast.Assign) -> list[EntityDict]:
                         line_end=node.end_lineno or node.lineno,
                         decorators=[],
                         docstring=None,
-                        metadata=metadata,
+                        metadata=const_meta,
                     )
                 )
 
@@ -487,18 +502,16 @@ def _extract_annotated_constant_entity(node: ast.AnnAssign) -> EntityDict | None
         name = node.target.id
         # Check if name follows UPPER_CASE convention
         if name.isupper() or ("_" in name and name.replace("_", "").isupper()):
-            metadata: dict[str, object] = {}
+            const_meta: SemanticConstantMetadata = {}
 
-            # Extract type annotation if present
+            # Extract type annotation if present (unparse may fail on complex annotations)
             if node.annotation:
-                try:
-                    metadata["type_annotation"] = ast.unparse(node.annotation)
-                except Exception:
-                    metadata["type_annotation"] = None
+                with contextlib.suppress(Exception):
+                    const_meta["type_annotation"] = ast.unparse(node.annotation)
 
             # Capture AST node type for value (safe, no evaluation)
             if node.value:
-                metadata["value_ast_type"] = node.value.__class__.__name__
+                const_meta["value_ast_type"] = node.value.__class__.__name__
 
             return EntityDict(
                 name=name,
@@ -507,7 +520,7 @@ def _extract_annotated_constant_entity(node: ast.AnnAssign) -> EntityDict | None
                 line_end=node.end_lineno or node.lineno,
                 decorators=[],
                 docstring=None,
-                metadata=metadata,
+                metadata=const_meta,
             )
 
     return None
@@ -780,8 +793,8 @@ def _compute_semantic_features(
     # Compute complexity score (based on control flow)
     complexity_score = _compute_complexity_score(tree)
 
-    # Detect frameworks
-    detected_frameworks = _detect_frameworks(entities, content)
+    # Detect frameworks from import statements
+    detected_frameworks = _detect_frameworks_from_imports(entities)
 
     # Detect patterns
     detected_patterns = _detect_patterns(tree, entities)
@@ -848,24 +861,32 @@ def _compute_complexity_score(tree: ast.Module) -> float:
     return min(avg_complexity / 10.0, 1.0)
 
 
-def _detect_frameworks(entities: list[EntityDict], content: str) -> list[str]:
-    """Detect frameworks from imports and patterns.
+def _detect_frameworks_from_imports(entities: list[EntityDict]) -> list[str]:
+    """Detect frameworks from import entities only.
+
+    Uses import entity names and their source_module metadata for accurate detection.
+    Does NOT scan raw content to avoid false positives from comments/strings.
 
     Args:
         entities: Extracted entities.
-        content: Source code content.
 
     Returns:
         List of detected framework names.
     """
     frameworks: list[str] = []
 
-    # Check import entities for common frameworks
-    import_names = {
-        e["name"].lower()
-        for e in entities
-        if e["entity_type"] == "import"
-    }
+    # Collect all import-related names and modules from import entities
+    import_names: set[str] = set()
+    for e in entities:
+        if e["entity_type"] == "import":
+            import_names.add(e["name"].lower())
+            metadata = e["metadata"]
+            # source_module covers both `import x` and `from x import y` cases
+            if source_module := metadata.get("source_module"):
+                import_names.add(str(source_module).lower())
+            # imported_name for `from x import y` (the `y` part)
+            if imported_name := metadata.get("imported_name"):
+                import_names.add(str(imported_name).lower())
 
     # Framework detection patterns
     framework_patterns: dict[str, list[str]] = {
@@ -883,7 +904,7 @@ def _detect_frameworks(entities: list[EntityDict], content: str) -> list[str]:
 
     for framework, patterns in framework_patterns.items():
         for pattern in patterns:
-            if pattern.lower() in import_names or pattern in content:
+            if pattern.lower() in import_names:
                 frameworks.append(framework)
                 break
 
