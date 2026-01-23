@@ -7,6 +7,7 @@ contract-defined error codes for traceability.
 Error Codes (from contract.yaml):
     - INTENT_001: Input validation failed (non-recoverable)
     - INTENT_002: Classification computation error (recoverable, immediate retry)
+    - INTENT_003: Semantic analysis error (non-blocking, returns empty result)
 """
 
 from __future__ import annotations
@@ -82,8 +83,39 @@ class IntentClassificationComputeError(IntentClassificationError):
         super().__init__(message, code="INTENT_002")
 
 
+class SemanticAnalysisError(IntentClassificationError):
+    """Raised when semantic analysis encounters an error.
+
+    This exception indicates an error during semantic analysis (e.g., domain
+    detection, concept extraction, theme identification). The semantic analysis
+    handler is designed to be non-blocking - it returns an empty result rather
+    than propagating this exception.
+
+    Contract Error Code: INTENT_003
+    Recoverable: True (errors are captured and empty result returned)
+    Retry Strategy: None (graceful degradation - classification works without enrichment)
+
+    Attributes:
+        message: Human-readable error description.
+        code: Always "INTENT_003".
+
+    Note:
+        This exception is typically caught internally by analyze_semantics()
+        and converted to an empty SemanticResult with the error message.
+        It should rarely be seen by callers.
+
+    Example:
+        >>> raise SemanticAnalysisError("Failed to tokenize content")
+        SemanticAnalysisError: Failed to tokenize content
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="INTENT_003")
+
+
 __all__ = [
     "IntentClassificationComputeError",
     "IntentClassificationError",
     "IntentClassificationValidationError",
+    "SemanticAnalysisError",
 ]

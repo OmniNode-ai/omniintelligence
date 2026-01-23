@@ -25,16 +25,41 @@ output_model:
   description: "Output containing classified intents and confidence scores."
 operations:
   - name: "classify_intent"
-    description: "Classify intent from content"
+    description: "Classify intent from content using TF-IDF pattern matching"
     input_fields:
       - content
       - correlation_id
       - context
+      - confidence_threshold
+      - multi_label
     output_fields:
       - success
       - intent_category
       - confidence
       - secondary_intents
+      - keywords
+      - processing_time_ms
+  - name: "analyze_semantics"
+    description: "Perform semantic analysis to extract domains, concepts, and themes from content"
+    input_fields:
+      - content
+      - context
+      - min_confidence
+    output_fields:
+      - concepts
+      - themes
+      - domains
+      - patterns
+      - domain_indicators
+      - topic_weights
+      - processing_time_ms
+      - error
+  - name: "map_semantic_to_intent_boost"
+    description: "Map semantic analysis results to intent confidence boosts"
+    input_fields:
+      - semantic_result
+    output_fields:
+      - intent_boosts
 # =============================================================================
 # TODO(#15): Protocol Integration - IntentClassifierProtocol
 # =============================================================================
@@ -70,6 +95,11 @@ error_handling:
       description: "Error during intent classification"
       recoverable: true
       retry_strategy: "immediate_retry"
+    - name: "SemanticAnalysisError"
+      error_code: "INTENT_003"
+      description: "Error during semantic analysis (returns empty result, non-blocking)"
+      recoverable: true
+      retry_strategy: "none"
 health_check:
   enabled: true
   endpoint: "/health"
@@ -77,10 +107,11 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-10-02"
-  updated: "2026-01-18"
+  updated: "2026-01-23"
   tags:
     - "ONEX"
     - "compute"
     - "intent"
     - "classifier"
     - "pattern-extraction"
+    - "semantic-analysis"

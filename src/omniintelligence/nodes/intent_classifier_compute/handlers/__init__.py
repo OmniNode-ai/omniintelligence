@@ -1,12 +1,12 @@
 """Intent Classifier Compute Handlers.
 
 This module provides handler functions for intent classification operations,
-including TF-IDF based classification and optional semantic enrichment.
+including TF-IDF based classification and semantic enrichment.
 
 Handler Pattern:
-    Each handler is a function that:
+    Each handler is a PURE FUNCTION that:
     - Accepts input parameters
-    - Performs computation or external calls
+    - Performs computation (no external I/O)
     - Returns a typed result dictionary
     - Handles errors gracefully without raising
 
@@ -18,11 +18,11 @@ Core Classification:
     - Supports multi-label classification
     - Pure functional design (no side effects)
 
-Langextract Integration:
-    The langextract handler provides OPTIONAL semantic enrichment:
-    - Extracts concepts, themes, domains, and patterns from text
-    - Falls back gracefully if the service is unavailable
-    - Never blocks intent classification if enrichment fails
+Semantic Analysis:
+    The analyze_semantics handler provides semantic enrichment:
+    - Extracts concepts, themes, domains from text using keyword patterns
+    - Pure computation - no HTTP calls or external services
+    - Enhances intent classification with domain-specific boosts
 
 Error Handling:
     Contract-defined exceptions with error codes for structured handling:
@@ -82,6 +82,7 @@ from omniintelligence.nodes.intent_classifier_compute.handlers.exceptions import
     IntentClassificationComputeError,
     IntentClassificationError,
     IntentClassificationValidationError,
+    SemanticAnalysisError,
 )
 from omniintelligence.nodes.intent_classifier_compute.handlers.handler_intent_classification import (
     INTENT_PATTERNS,
@@ -91,21 +92,32 @@ from omniintelligence.nodes.intent_classifier_compute.handlers.handler_langextra
     LANGEXTRACT_SERVICE_URL,
     LANGEXTRACT_TIMEOUT_SECONDS,
     LangextractResult,
+    SemanticResult,
+    analyze_semantics,
     create_empty_langextract_result,
+    create_empty_semantic_result,
     enrich_with_semantics,
     map_semantic_to_intent_boost,
 )
 
 __all__ = [
+    # Core classification
     "INTENT_PATTERNS",
+    "classify_intent",
+    # Semantic analysis (new API)
+    "SemanticResult",
+    "analyze_semantics",
+    "create_empty_semantic_result",
+    "map_semantic_to_intent_boost",
+    # Exceptions (contract-defined)
+    "IntentClassificationComputeError",  # INTENT_002
+    "IntentClassificationError",  # Base class
+    "IntentClassificationValidationError",  # INTENT_001
+    "SemanticAnalysisError",  # INTENT_003
+    # Backwards compatibility aliases
     "LANGEXTRACT_SERVICE_URL",
     "LANGEXTRACT_TIMEOUT_SECONDS",
-    "IntentClassificationComputeError",
-    "IntentClassificationError",
-    "IntentClassificationValidationError",
     "LangextractResult",
-    "classify_intent",
     "create_empty_langextract_result",
     "enrich_with_semantics",
-    "map_semantic_to_intent_boost",
 ]

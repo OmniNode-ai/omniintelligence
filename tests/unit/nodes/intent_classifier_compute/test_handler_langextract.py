@@ -1,44 +1,46 @@
 # SPDX-FileCopyrightText: 2025 OmniNode Team
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for langextract semantic enrichment handler.
+"""Unit tests for semantic enrichment handler (pure computation).
 
-This module tests the langextract integration including:
-    - Empty result creation
+This module tests the semantic analysis handler including:
+    - Domain detection from keywords
+    - Concept extraction
+    - Theme identification
     - Semantic to intent boost mapping
-    - Domain indicator processing
-    - Concept mapping
-    - Topic weight processing
-    - Graceful error handling
+    - Edge cases and error handling
+
+The handler is PURE COMPUTATION - no HTTP calls, no external services.
 """
 
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
 
-import httpx
 import pytest
 
 from omniintelligence.nodes.intent_classifier_compute.handlers import (
     LANGEXTRACT_SERVICE_URL,
     LANGEXTRACT_TIMEOUT_SECONDS,
+    SemanticResult,
+    analyze_semantics,
     create_empty_langextract_result,
+    create_empty_semantic_result,
     enrich_with_semantics,
     map_semantic_to_intent_boost,
 )
 
 
 # =============================================================================
-# create_empty_langextract_result Tests
+# create_empty_semantic_result Tests
 # =============================================================================
 
 
-class TestCreateEmptyLangextractResult:
-    """Tests for create_empty_langextract_result factory function."""
+class TestCreateEmptySemanticResult:
+    """Tests for create_empty_semantic_result factory function."""
 
     def test_creates_empty_result_without_error(self) -> None:
         """Test that empty result has all required fields."""
-        result = create_empty_langextract_result()
+        result = create_empty_semantic_result()
 
         assert result["concepts"] == []
         assert result["themes"] == []
@@ -51,21 +53,22 @@ class TestCreateEmptyLangextractResult:
 
     def test_creates_empty_result_with_error_message(self) -> None:
         """Test that error message is included when provided."""
-        error_msg = "Connection failed"
-        result = create_empty_langextract_result(error=error_msg)
+        error_msg = "Analysis failed"
+        result = create_empty_semantic_result(error=error_msg)
 
         assert result["error"] == error_msg
         assert result["concepts"] == []
         assert result["themes"] == []
 
-    def test_creates_empty_result_with_none_error(self) -> None:
-        """Test that None error is handled correctly."""
-        result = create_empty_langextract_result(error=None)
+    def test_backwards_compatibility_alias(self) -> None:
+        """Test that create_empty_langextract_result is an alias."""
+        result = create_empty_langextract_result()
+        assert result["concepts"] == []
         assert result["error"] is None
 
     def test_result_structure_completeness(self) -> None:
         """Test that all expected keys are present."""
-        result = create_empty_langextract_result()
+        result = create_empty_semantic_result()
 
         expected_keys = {
             "concepts",
@@ -81,6 +84,170 @@ class TestCreateEmptyLangextractResult:
 
 
 # =============================================================================
+# analyze_semantics Tests (Pure Computation)
+# =============================================================================
+
+
+class TestAnalyzeSemantics:
+    """Tests for analyze_semantics function."""
+
+    def test_empty_content_returns_empty_result(self) -> None:
+        """Test that empty content returns empty result."""
+        result = analyze_semantics("")
+        assert result["concepts"] == []
+        assert result["error"] is None
+
+    def test_whitespace_content_returns_empty_result(self) -> None:
+        """Test that whitespace-only content returns empty result."""
+        result = analyze_semantics("   \n\t  ")
+        assert result["concepts"] == []
+
+    def test_detects_api_domain(self) -> None:
+        """Test that API-related content detects api_design domain."""
+        result = analyze_semantics("Create a REST API endpoint for authentication")
+
+        assert "api_design" in result["domain_indicators"]
+        assert result["topic_weights"].get("api_design", 0) > 0
+
+    def test_detects_testing_domain(self) -> None:
+        """Test that testing content detects testing domain."""
+        result = analyze_semantics("Write unit tests with pytest and mocks")
+
+        assert "testing" in result["domain_indicators"]
+        assert result["topic_weights"].get("testing", 0) > 0
+
+    def test_detects_code_generation_domain(self) -> None:
+        """Test that code generation content detects correct domain."""
+        result = analyze_semantics("Generate a Python function to process data")
+
+        assert "code_generation" in result["domain_indicators"]
+
+    def test_detects_debugging_domain(self) -> None:
+        """Test that debugging content detects debugging domain."""
+        result = analyze_semantics("Fix the bug in error handling")
+
+        assert "debugging" in result["domain_indicators"]
+
+    def test_detects_documentation_domain(self) -> None:
+        """Test that documentation content detects documentation domain."""
+        result = analyze_semantics("Write documentation and README for the API")
+
+        assert "documentation" in result["domain_indicators"]
+
+    def test_detects_multiple_domains(self) -> None:
+        """Test that content with multiple domains detects all."""
+        result = analyze_semantics(
+            "Create an API endpoint with unit tests and documentation"
+        )
+
+        # Should detect multiple domains
+        domains = result["domain_indicators"]
+        assert len(domains) >= 2
+
+    def test_context_boosts_domain(self) -> None:
+        """Test that context parameter boosts specific domain."""
+        result_no_context = analyze_semantics("Write code")
+        result_with_context = analyze_semantics("Write code", context="testing")
+
+        # Context should boost testing domain score if it exists
+        if "testing" in result_with_context["topic_weights"]:
+            testing_with_ctx = result_with_context["topic_weights"]["testing"]
+            testing_no_ctx = result_no_context["topic_weights"].get("testing", 0)
+            assert testing_with_ctx >= testing_no_ctx
+
+    def test_extracts_concepts(self) -> None:
+        """Test that concepts are extracted from content."""
+        result = analyze_semantics("Create REST API endpoint with authentication")
+
+        assert len(result["concepts"]) > 0
+        concept_names = [c["name"] for c in result["concepts"]]
+        # Should find some API-related concepts
+        assert any(
+            c in ["api", "rest", "endpoint", "authentication"] for c in concept_names
+        )
+
+    def test_concepts_have_confidence(self) -> None:
+        """Test that concepts have confidence scores."""
+        result = analyze_semantics("Generate code with testing")
+
+        for concept in result["concepts"]:
+            assert "confidence" in concept
+            assert 0.0 <= concept["confidence"] <= 1.0
+
+    def test_concepts_have_category(self) -> None:
+        """Test that concepts have category assigned."""
+        result = analyze_semantics("Generate code with unit tests")
+
+        for concept in result["concepts"]:
+            assert "category" in concept
+            assert isinstance(concept["category"], str)
+
+    def test_detects_themes(self) -> None:
+        """Test that themes are detected from domains."""
+        result = analyze_semantics("Generate code and refactor for debugging")
+
+        # Should detect development theme (covers code_generation, refactoring, debugging)
+        theme_names = [t["name"] for t in result["themes"]]
+        assert "development" in theme_names
+
+    def test_themes_have_weight(self) -> None:
+        """Test that themes have weight scores."""
+        result = analyze_semantics("Generate code and write tests")
+
+        for theme in result["themes"]:
+            assert "weight" in theme
+            assert 0.0 <= theme["weight"] <= 1.0
+
+    def test_processing_time_recorded(self) -> None:
+        """Test that processing time is recorded."""
+        result = analyze_semantics("Test content for timing")
+        assert result["processing_time_ms"] >= 0.0
+
+    def test_min_confidence_filtering(self) -> None:
+        """Test that min_confidence filters low-confidence results."""
+        # With high threshold, should return fewer results
+        result_high = analyze_semantics(
+            "Test content",
+            min_confidence=0.8,
+        )
+        result_low = analyze_semantics(
+            "Test content",
+            min_confidence=0.1,
+        )
+
+        # Low threshold should return same or more domains
+        assert len(result_low["domains"]) >= len(result_high["domains"])
+
+
+# =============================================================================
+# enrich_with_semantics Tests (Async Wrapper)
+# =============================================================================
+
+
+class TestEnrichWithSemantics:
+    """Tests for enrich_with_semantics async wrapper."""
+
+    @pytest.mark.asyncio
+    async def test_async_wrapper_returns_same_as_sync(self) -> None:
+        """Test that async wrapper returns same result as sync function."""
+        content = "Create a REST API"
+
+        sync_result = analyze_semantics(content)
+        async_result = await enrich_with_semantics(content)
+
+        # Results should have same structure
+        assert sync_result["domain_indicators"] == async_result["domain_indicators"]
+        assert len(sync_result["concepts"]) == len(async_result["concepts"])
+
+    @pytest.mark.asyncio
+    async def test_async_empty_content(self) -> None:
+        """Test async wrapper with empty content."""
+        result = await enrich_with_semantics("")
+        assert result["concepts"] == []
+        assert result["error"] is None
+
+
+# =============================================================================
 # map_semantic_to_intent_boost Tests
 # =============================================================================
 
@@ -90,155 +257,57 @@ class TestMapSemanticToIntentBoost:
 
     def test_empty_result_returns_empty_boosts(self) -> None:
         """Test that empty semantic result returns no boosts."""
-        empty_result = create_empty_langextract_result()
+        empty_result = create_empty_semantic_result()
         boosts = map_semantic_to_intent_boost(empty_result)
         assert boosts == {}
 
-    def test_domain_indicator_mapping(self) -> None:
-        """Test that domain indicators map to intent boosts."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": ["api", "testing"],
-            "concepts": [],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
-
-        # Should have boosts for api_design and testing
-        assert "api_design" in boosts
-        assert "testing" in boosts
-        assert boosts["api_design"] > 0.0
-        assert boosts["testing"] > 0.0
-
-    def test_concept_mapping_by_name(self) -> None:
-        """Test that concepts map to intent boosts by name."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": [],
-            "concepts": [
-                {"name": "api_design", "confidence": 0.9, "category": ""},
-            ],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
+    def test_api_domain_maps_to_api_design(self) -> None:
+        """Test that api_design domain maps to api_design intent."""
+        result = analyze_semantics("Create REST API endpoint")
+        boosts = map_semantic_to_intent_boost(result)
 
         assert "api_design" in boosts
         assert boosts["api_design"] > 0.0
 
-    def test_concept_mapping_by_category(self) -> None:
-        """Test that concepts map to intent boosts by category."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": [],
-            "concepts": [
-                {"name": "unknown", "confidence": 0.8, "category": "testing"},
-            ],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
+    def test_testing_domain_maps_to_testing(self) -> None:
+        """Test that testing domain maps to testing intent."""
+        result = analyze_semantics("Write unit tests with pytest")
+        boosts = map_semantic_to_intent_boost(result)
 
         assert "testing" in boosts
         assert boosts["testing"] > 0.0
 
-    def test_concept_confidence_scaling(self) -> None:
-        """Test that concept confidence scales the boost."""
-        high_confidence: dict[str, Any] = {
-            "domain_indicators": [],
-            "concepts": [
-                {"name": "testing", "confidence": 1.0, "category": ""},
-            ],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        low_confidence: dict[str, Any] = {
-            "domain_indicators": [],
-            "concepts": [
-                {"name": "testing", "confidence": 0.1, "category": ""},
-            ],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-
-        high_boosts = map_semantic_to_intent_boost(high_confidence)
-        low_boosts = map_semantic_to_intent_boost(low_confidence)
-
-        assert high_boosts["testing"] > low_boosts["testing"]
-
-    def test_topic_weight_mapping(self) -> None:
-        """Test that topic weights map to intent boosts."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": [],
-            "concepts": [],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {"api": 0.8, "testing": 0.5},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
-
-        assert "api_design" in boosts
-        assert "testing" in boosts
-
-    def test_domain_mapping(self) -> None:
-        """Test that explicit domains map to intent boosts."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": [],
-            "concepts": [],
-            "themes": [],
-            "domains": [
-                {"name": "software_development", "confidence": 0.9},
-            ],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
+    def test_code_generation_domain_maps_correctly(self) -> None:
+        """Test that code_generation domain maps correctly."""
+        result = analyze_semantics("Generate Python function to process data")
+        boosts = map_semantic_to_intent_boost(result)
 
         assert "code_generation" in boosts
+        assert boosts["code_generation"] > 0.0
+
+    def test_debugging_domain_maps_correctly(self) -> None:
+        """Test that debugging domain maps correctly."""
+        result = analyze_semantics("Fix the bug in error handling")
+        boosts = map_semantic_to_intent_boost(result)
+
+        assert "debugging" in boosts
+        assert boosts["debugging"] > 0.0
+
+    def test_documentation_domain_maps_correctly(self) -> None:
+        """Test that documentation domain maps correctly."""
+        result = analyze_semantics("Write documentation for the API")
+        boosts = map_semantic_to_intent_boost(result)
+
+        assert "documentation" in boosts
+        assert boosts["documentation"] > 0.0
 
     def test_boost_capped_at_max(self) -> None:
         """Test that boosts are capped at maximum value (0.30)."""
-        # Create a result that would generate very high boosts
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": ["api", "api", "api_design", "rest", "graphql"],
-            "concepts": [
-                {"name": "api", "confidence": 1.0, "category": "api_design"},
-                {"name": "api", "confidence": 1.0, "category": "api_design"},
-            ],
-            "themes": [],
-            "domains": [
-                {"name": "api", "confidence": 1.0},
-                {"name": "api_design", "confidence": 1.0},
-            ],
-            "patterns": [],
-            "topic_weights": {"api": 1.0, "api_design": 1.0},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
+        # Create content that would generate high boosts
+        result = analyze_semantics(
+            "api rest endpoint http request response authentication jwt oauth"
+        )
+        boosts = map_semantic_to_intent_boost(result)
 
         # All boosts should be capped at 0.30
         for intent, boost in boosts.items():
@@ -246,384 +315,149 @@ class TestMapSemanticToIntentBoost:
 
     def test_multiple_sources_combine(self) -> None:
         """Test that boosts from multiple sources combine."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": ["api"],  # +0.10
-            "concepts": [
-                {"name": "api", "confidence": 1.0, "category": ""},  # +0.05
-            ],
-            "themes": [],
-            "domains": [],
-            "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
+        result = analyze_semantics("Create REST API with authentication and tests")
+        boosts = map_semantic_to_intent_boost(result)
 
-        # Should have combined boost (0.10 + 0.05 = 0.15)
-        assert "api_design" in boosts
-        assert boosts["api_design"] > 0.10  # More than just domain indicator
+        # Should have multiple intent boosts
+        assert len(boosts) >= 2
 
-    def test_normalized_key_matching(self) -> None:
-        """Test that keys are normalized (lowercase, underscores)."""
-        semantic_result: dict[str, Any] = {
-            "domain_indicators": ["API-design", "Software Development"],
+    def test_unknown_domains_ignored(self) -> None:
+        """Test that unmapped content produces no boosts."""
+        # Content with no matching domain keywords
+        result: SemanticResult = {
             "concepts": [],
             "themes": [],
             "domains": [],
             "patterns": [],
-            "topic_weights": {},
-            "processing_time_ms": 0.0,
-            "error": None,
-        }
-        boosts = map_semantic_to_intent_boost(semantic_result)
-
-        # api-design should normalize to api_design
-        # software development should normalize to software_development -> code_generation
-        assert "api_design" in boosts
-        assert "code_generation" in boosts
-
-    def test_unknown_domains_ignored(self) -> None:
-        """Test that unknown domains are ignored (no errors)."""
-        semantic_result: dict[str, Any] = {
             "domain_indicators": ["unknown_domain", "random_thing"],
-            "concepts": [
-                {"name": "something_else", "confidence": 0.9, "category": "unknown"},
-            ],
-            "themes": [],
-            "domains": [
-                {"name": "not_in_mapping", "confidence": 0.8},
-            ],
-            "patterns": [],
-            "topic_weights": {"unmapped_topic": 0.7},
+            "topic_weights": {"unmapped": 0.8},
             "processing_time_ms": 0.0,
             "error": None,
         }
-        boosts = map_semantic_to_intent_boost(semantic_result)
+        boosts = map_semantic_to_intent_boost(result)
 
         # Should return empty dict (no valid mappings)
         assert boosts == {}
 
 
 # =============================================================================
-# enrich_with_semantics Tests (Async)
+# Domain Coverage Tests
 # =============================================================================
 
 
-class TestEnrichWithSemantics:
-    """Tests for enrich_with_semantics async function."""
+class TestDomainCoverage:
+    """Tests for domain keyword coverage."""
 
-    @pytest.mark.asyncio
-    async def test_empty_content_returns_empty_result(self) -> None:
-        """Test that empty content returns empty result without calling service."""
-        result = await enrich_with_semantics("")
+    @pytest.mark.parametrize(
+        "content,expected_domain",
+        [
+            ("Create REST API endpoint", "api_design"),
+            ("Write unit tests with pytest", "testing"),
+            ("Generate Python function", "code_generation"),
+            ("Fix the bug causing crash", "debugging"),
+            ("Refactor the code for performance", "refactoring"),
+            ("Write documentation and README", "documentation"),
+            ("Design system architecture with microservices", "architecture"),
+            ("Query the database using SQL", "database"),
+            ("Deploy with Docker and Kubernetes", "devops"),
+            ("Implement authentication and encryption", "security"),
+            ("Analyze the code metrics", "analysis"),
+        ],
+    )
+    def test_domain_detection(self, content: str, expected_domain: str) -> None:
+        """Test that various content types detect correct domains."""
+        result = analyze_semantics(content)
+        assert expected_domain in result["domain_indicators"], (
+            f"Expected {expected_domain} in domains for '{content}', "
+            f"got {result['domain_indicators']}"
+        )
+
+
+# =============================================================================
+# Backwards Compatibility Tests
+# =============================================================================
+
+
+class TestBackwardsCompatibility:
+    """Tests for backwards compatibility with old API."""
+
+    def test_langextract_service_url_is_embedded(self) -> None:
+        """Test that service URL indicates embedded/pure handler."""
+        assert "embedded" in LANGEXTRACT_SERVICE_URL.lower()
+
+    def test_langextract_timeout_is_zero(self) -> None:
+        """Test that timeout is zero (no HTTP calls)."""
+        assert LANGEXTRACT_TIMEOUT_SECONDS == 0.0
+
+    def test_langextract_result_alias_works(self) -> None:
+        """Test that LangextractResult type alias works."""
+        from omniintelligence.nodes.intent_classifier_compute.handlers import (
+            LangextractResult,
+        )
+
+        # Should be able to create a result using the alias
+        result: LangextractResult = create_empty_langextract_result()
         assert result["concepts"] == []
-        assert result["error"] is None
-
-    @pytest.mark.asyncio
-    async def test_whitespace_content_returns_empty_result(self) -> None:
-        """Test that whitespace-only content returns empty result."""
-        result = await enrich_with_semantics("   \n\t  ")
-        assert result["concepts"] == []
-
-    @pytest.mark.asyncio
-    async def test_timeout_returns_empty_result_with_error(self) -> None:
-        """Test that timeout returns empty result with error message."""
-        with patch("httpx.AsyncClient.post", side_effect=httpx.TimeoutException("")):
-            result = await enrich_with_semantics("test content")
-            assert result["concepts"] == []
-            assert "timeout" in result["error"].lower()
-
-    @pytest.mark.asyncio
-    async def test_connection_error_returns_empty_result(self) -> None:
-        """Test that connection error returns empty result with error message."""
-        with patch(
-            "httpx.AsyncClient.post",
-            side_effect=httpx.ConnectError("Connection refused"),
-        ):
-            result = await enrich_with_semantics("test content")
-            assert result["concepts"] == []
-            assert "connect" in result["error"].lower()
-
-    @pytest.mark.asyncio
-    async def test_http_error_returns_empty_result(self) -> None:
-        """Test that HTTP error returns empty result with error message."""
-        with patch(
-            "httpx.AsyncClient.post",
-            side_effect=httpx.HTTPError("Server error"),
-        ):
-            result = await enrich_with_semantics("test content")
-            assert result["concepts"] == []
-            assert result["error"] is not None
-
-    @pytest.mark.asyncio
-    async def test_non_200_status_returns_empty_result(self) -> None:
-        """Test that non-200 status code returns empty result."""
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.json.return_value = {}
-
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-
-        with patch("httpx.AsyncClient") as mock_async_client:
-            mock_async_client.return_value.__aenter__.return_value = mock_client
-            result = await enrich_with_semantics("test content")
-            assert result["concepts"] == []
-            assert "500" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_successful_response_parsing(self) -> None:
-        """Test that successful response is parsed correctly."""
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "concepts": [{"name": "api", "confidence": 0.9}],
-            "themes": [{"name": "backend"}],
-            "domains": [{"name": "software", "confidence": 0.8}],
-            "semantic_patterns": [{"pattern_type": "test", "confidence_score": 0.85}],
-            "domain_indicators": ["api", "rest"],
-            "topic_weights": {"api": 0.7, "testing": 0.3},
-        }
-
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-
-        with patch("httpx.AsyncClient") as mock_async_client:
-            mock_async_client.return_value.__aenter__.return_value = mock_client
-            result = await enrich_with_semantics("Create a REST API")
-
-            assert len(result["concepts"]) == 1
-            assert result["concepts"][0]["name"] == "api"
-            assert len(result["domain_indicators"]) == 2
-            assert result["topic_weights"]["api"] == 0.7
-            assert result["error"] is None
-
-    @pytest.mark.asyncio
-    async def test_min_confidence_filtering(self) -> None:
-        """Test that results are filtered by min_confidence."""
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "concepts": [
-                {"name": "high", "confidence": 0.9},
-                {"name": "low", "confidence": 0.5},
-            ],
-            "themes": [],
-            "domains": [
-                {"name": "high_domain", "confidence": 0.8},
-                {"name": "low_domain", "confidence": 0.3},
-            ],
-            "semantic_patterns": [],
-            "domain_indicators": [],
-            "topic_weights": {},
-        }
-
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-
-        with patch("httpx.AsyncClient") as mock_async_client:
-            mock_async_client.return_value.__aenter__.return_value = mock_client
-            result = await enrich_with_semantics(
-                "test content",
-                min_confidence=0.7,
-            )
-
-            # Only high-confidence items should be included
-            assert len(result["concepts"]) == 1
-            assert result["concepts"][0]["name"] == "high"
-            assert len(result["domains"]) == 1
-            assert result["domains"][0]["name"] == "high_domain"
-
-    @pytest.mark.asyncio
-    async def test_processing_time_recorded(self) -> None:
-        """Test that processing time is recorded."""
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "concepts": [],
-            "themes": [],
-            "domains": [],
-            "semantic_patterns": [],
-            "domain_indicators": [],
-            "topic_weights": {},
-        }
-
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-
-        with patch("httpx.AsyncClient") as mock_async_client:
-            mock_async_client.return_value.__aenter__.return_value = mock_client
-            result = await enrich_with_semantics("test content")
-            assert result["processing_time_ms"] >= 0.0
-
-    @pytest.mark.asyncio
-    async def test_context_parameter_passed(self) -> None:
-        """Test that context parameter is passed to the service."""
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "concepts": [],
-            "themes": [],
-            "domains": [],
-            "semantic_patterns": [],
-            "domain_indicators": [],
-            "topic_weights": {},
-        }
-
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-
-        with patch("httpx.AsyncClient") as mock_async_client:
-            mock_async_client.return_value.__aenter__.return_value = mock_client
-            await enrich_with_semantics(
-                "Create an API",
-                context="api_development",
-            )
-
-            # Verify context was passed in the request
-            call_args = mock_client.post.call_args
-            request_json = call_args.kwargs.get("json", {})
-            assert request_json.get("context") == "api_development"
-
-    @pytest.mark.asyncio
-    async def test_unexpected_exception_handled(self) -> None:
-        """Test that unexpected exceptions are handled gracefully."""
-        with patch(
-            "httpx.AsyncClient.post",
-            side_effect=RuntimeError("Unexpected error"),
-        ):
-            result = await enrich_with_semantics("test content")
-            assert result["concepts"] == []
-            assert "Unexpected" in result["error"]
 
 
 # =============================================================================
-# Configuration Constants Tests
+# Integration with Intent Classification
 # =============================================================================
 
 
-class TestConfigurationConstants:
-    """Tests for configuration constants."""
+class TestIntegrationWithIntentClassification:
+    """Tests for integration between semantic analysis and intent classification."""
 
-    def test_service_url_has_default(self) -> None:
-        """Test that LANGEXTRACT_SERVICE_URL has a default value."""
-        assert LANGEXTRACT_SERVICE_URL is not None
-        assert isinstance(LANGEXTRACT_SERVICE_URL, str)
-        assert len(LANGEXTRACT_SERVICE_URL) > 0
+    def test_semantic_boosts_can_enhance_classification(self) -> None:
+        """Test that semantic boosts can be used to enhance classification."""
+        from omniintelligence.nodes.intent_classifier_compute.handlers import (
+            classify_intent,
+        )
 
-    def test_timeout_has_default(self) -> None:
-        """Test that LANGEXTRACT_TIMEOUT_SECONDS has a reasonable default."""
-        assert LANGEXTRACT_TIMEOUT_SECONDS is not None
-        assert isinstance(LANGEXTRACT_TIMEOUT_SECONDS, float)
-        assert LANGEXTRACT_TIMEOUT_SECONDS > 0
-        # Should be a reasonable timeout (not too short, not too long)
-        assert LANGEXTRACT_TIMEOUT_SECONDS <= 60.0
+        content = "Create a REST API endpoint with tests"
 
+        # Get base classification
+        base_result = classify_intent(content)
 
-# =============================================================================
-# Domain Mapping Coverage Tests
-# =============================================================================
+        # Get semantic analysis
+        semantic_result = analyze_semantics(content)
 
+        # Get boosts
+        boosts = map_semantic_to_intent_boost(semantic_result)
 
-class TestDomainMappingCoverage:
-    """Tests for domain-to-intent mapping coverage."""
+        # Verify we can combine them (the actual combination logic is in the node)
+        assert base_result["confidence"] > 0
+        assert len(boosts) > 0
 
-    def test_api_domains_map_to_api_design(self) -> None:
-        """Test that API-related domains map to api_design intent."""
-        api_domains = ["api", "api_design", "rest", "graphql", "endpoint", "http"]
-        for domain in api_domains:
-            semantic_result: dict[str, Any] = {
-                "domain_indicators": [domain],
-                "concepts": [],
-                "themes": [],
-                "domains": [],
-                "patterns": [],
-                "topic_weights": {},
-                "processing_time_ms": 0.0,
-                "error": None,
-            }
+        # The combined confidence could be calculated as:
+        base_intent = base_result["intent_category"]
+        boost = boosts.get(base_intent, 0.0)
+        enhanced_confidence = min(1.0, base_result["confidence"] + boost)
+
+        assert enhanced_confidence >= base_result["confidence"]
+
+    def test_semantic_and_tfidf_agree_on_strong_signals(self) -> None:
+        """Test that semantic and TF-IDF agree on clear intent signals."""
+        from omniintelligence.nodes.intent_classifier_compute.handlers import (
+            classify_intent,
+        )
+
+        test_cases = [
+            ("Generate a Python function to sort a list", "code_generation"),
+            ("Write comprehensive unit tests", "testing"),
+            ("Fix the authentication bug", "debugging"),
+        ]
+
+        for content, expected in test_cases:
+            tfidf_result = classify_intent(content)
+            semantic_result = analyze_semantics(content)
             boosts = map_semantic_to_intent_boost(semantic_result)
-            assert "api_design" in boosts, f"Domain '{domain}' should map to api_design"
 
-    def test_testing_domains_map_to_testing(self) -> None:
-        """Test that testing-related domains map to testing intent."""
-        testing_domains = ["testing", "test", "unit_test", "integration_test"]
-        for domain in testing_domains:
-            semantic_result: dict[str, Any] = {
-                "domain_indicators": [domain],
-                "concepts": [],
-                "themes": [],
-                "domains": [],
-                "patterns": [],
-                "topic_weights": {},
-                "processing_time_ms": 0.0,
-                "error": None,
-            }
-            boosts = map_semantic_to_intent_boost(semantic_result)
-            assert "testing" in boosts, f"Domain '{domain}' should map to testing"
+            # TF-IDF should classify correctly
+            assert tfidf_result["intent_category"] == expected
 
-    def test_code_generation_domains_map_correctly(self) -> None:
-        """Test that code generation domains map correctly."""
-        code_domains = ["code_generation", "programming", "software_development"]
-        for domain in code_domains:
-            semantic_result: dict[str, Any] = {
-                "domain_indicators": [domain],
-                "concepts": [],
-                "themes": [],
-                "domains": [],
-                "patterns": [],
-                "topic_weights": {},
-                "processing_time_ms": 0.0,
-                "error": None,
-            }
-            boosts = map_semantic_to_intent_boost(semantic_result)
-            assert "code_generation" in boosts, (
-                f"Domain '{domain}' should map to code_generation"
-            )
-
-    def test_debugging_domains_map_correctly(self) -> None:
-        """Test that debugging domains map correctly."""
-        debug_domains = ["debugging", "troubleshooting", "error_handling", "bug_fix"]
-        for domain in debug_domains:
-            semantic_result: dict[str, Any] = {
-                "domain_indicators": [domain],
-                "concepts": [],
-                "themes": [],
-                "domains": [],
-                "patterns": [],
-                "topic_weights": {},
-                "processing_time_ms": 0.0,
-                "error": None,
-            }
-            boosts = map_semantic_to_intent_boost(semantic_result)
-            assert "debugging" in boosts, f"Domain '{domain}' should map to debugging"
-
-    def test_documentation_domains_map_correctly(self) -> None:
-        """Test that documentation domains map correctly."""
-        doc_domains = ["documentation", "docs", "readme", "technical_writing"]
-        for domain in doc_domains:
-            semantic_result: dict[str, Any] = {
-                "domain_indicators": [domain],
-                "concepts": [],
-                "themes": [],
-                "domains": [],
-                "patterns": [],
-                "topic_weights": {},
-                "processing_time_ms": 0.0,
-                "error": None,
-            }
-            boosts = map_semantic_to_intent_boost(semantic_result)
-            assert "documentation" in boosts, (
-                f"Domain '{domain}' should map to documentation"
+            # Semantic analysis should boost the same intent
+            assert expected in boosts or any(
+                d in [expected, expected.replace("_", "")]
+                for d in semantic_result["domain_indicators"]
             )

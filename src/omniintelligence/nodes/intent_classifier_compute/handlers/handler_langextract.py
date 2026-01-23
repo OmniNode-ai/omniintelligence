@@ -1,39 +1,29 @@
-"""Handler for langextract semantic enrichment (optional).
+"""Handler for semantic enrichment (pure computation).
 
-This module provides an async HTTP client for the langextract service,
-enabling optional semantic enrichment for intent classification.
+This module provides semantic analysis for intent classification enrichment.
+Unlike the original HTTP-based implementation, this is a PURE COMPUTE handler
+with no external service dependencies.
 
-IMPORTANT: This handler is OPTIONAL and designed for graceful degradation.
-If the langextract service is unavailable, all functions return empty results
-without raising exceptions.
+Design Principles:
+    - Pure computation: No HTTP calls, no external services
+    - Deterministic: Same input always produces same output
+    - Fast: Pattern matching and keyword analysis
+    - Self-contained: All domain knowledge embedded in module
 
-Design Decisions:
-    - Never raises exceptions - all errors return empty/default results
-    - Configurable via environment variables
-    - Uses httpx for async HTTP with proper timeout handling
-    - No hard dependency on langextract service availability
-    - Provides mapping from semantic concepts to intent confidence boosts
-
-Langextract API:
-    Endpoint: POST /analyze/semantic
-    Request: {"content": str, "context": str?, "language": str}
-    Response: {
-        "concepts": [...],
-        "themes": [...],
-        "semantic_patterns": [...],
-        "domain_indicators": [...],
-        "topic_weights": {...},
-        ...
-    }
+The handler extracts:
+    - Domain indicators (api, testing, code_generation, etc.)
+    - Concepts with confidence scores
+    - Theme classification
+    - Topic weights for intent boosting
 
 Usage:
     from omniintelligence.nodes.intent_classifier_compute.handlers import (
-        enrich_with_semantics,
+        analyze_semantics,
         map_semantic_to_intent_boost,
     )
 
-    # Enrich with semantic analysis (graceful fallback on failure)
-    result = await enrich_with_semantics(
+    # Analyze content semantically
+    result = analyze_semantics(
         content="Create a REST API endpoint for user authentication",
         context="api_development",
     )
@@ -41,45 +31,23 @@ Usage:
     # Map results to intent boosts
     boosts = map_semantic_to_intent_boost(result)
     # -> {"code_generation": 0.15, "api_design": 0.10, ...}
-
-Example:
-    >>> import asyncio
-    >>> from omniintelligence.nodes.intent_classifier_compute.handlers import (
-    ...     create_empty_langextract_result,
-    ...     map_semantic_to_intent_boost,
-    ... )
-    >>> result = create_empty_langextract_result()
-    >>> boosts = map_semantic_to_intent_boost(result)
-    >>> boosts
-    {}
 """
 
 from __future__ import annotations
 
 import logging
-import os
+import re
 import time
-from typing import TYPE_CHECKING, Any, Final, cast
-
-import httpx
+from collections import Counter
+from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
     from typing import TypedDict
 
-    class LangextractResult(TypedDict, total=False):
-        """Result from langextract semantic analysis.
+    class SemanticResult(TypedDict, total=False):
+        """Result from semantic analysis.
 
-        All fields are optional to support graceful degradation.
-        An empty result (all fields empty/None) indicates either:
-        - Service unavailable
-        - Request timeout
-        - Invalid response
-
-        Nested dict structures:
-            - concepts: list of {concept_id?, name, confidence, category?}
-            - themes: list of {theme_id?, name, weight?}
-            - domains: list of {domain_id?, name, confidence}
-            - patterns: list of {pattern_id?, pattern_type, pattern_name, confidence_score}
+        All fields are populated by pure computation.
         """
 
         concepts: list[dict[str, Any]]
@@ -92,88 +60,362 @@ if TYPE_CHECKING:
         error: str | None
 
 else:
-    # Runtime type aliases for non-TYPE_CHECKING context
-    LangextractResult = dict
+    SemanticResult = dict
 
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# Configuration (Environment Variables)
+# Domain and Topic Knowledge Base (Embedded)
 # =============================================================================
 
-LANGEXTRACT_SERVICE_URL: Final[str] = os.getenv(
-    "LANGEXTRACT_SERVICE_URL",
-    "http://localhost:8156",
-)
-LANGEXTRACT_TIMEOUT_SECONDS: Final[float] = float(
-    os.getenv("LANGEXTRACT_TIMEOUT_SECONDS", "10.0")
-)
+# Domain indicators and their associated keywords
+# Each domain maps to keywords that suggest that domain
+DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
+    "api_design": [
+        "api",
+        "rest",
+        "restful",
+        "graphql",
+        "endpoint",
+        "http",
+        "request",
+        "response",
+        "route",
+        "controller",
+        "middleware",
+        "authentication",
+        "authorization",
+        "oauth",
+        "jwt",
+        "token",
+        "swagger",
+        "openapi",
+        "postman",
+        "curl",
+        "websocket",
+        "grpc",
+        "rpc",
+        "service",
+    ],
+    "code_generation": [
+        "generate",
+        "create",
+        "implement",
+        "build",
+        "write",
+        "develop",
+        "code",
+        "function",
+        "class",
+        "method",
+        "module",
+        "script",
+        "program",
+        "application",
+        "software",
+        "component",
+        "feature",
+        "logic",
+        "algorithm",
+    ],
+    "testing": [
+        "test",
+        "unit",
+        "integration",
+        "e2e",
+        "end-to-end",
+        "mock",
+        "stub",
+        "fixture",
+        "assert",
+        "expect",
+        "pytest",
+        "jest",
+        "mocha",
+        "coverage",
+        "tdd",
+        "bdd",
+        "qa",
+        "quality",
+        "verification",
+        "validation",
+    ],
+    "debugging": [
+        "debug",
+        "fix",
+        "bug",
+        "error",
+        "issue",
+        "problem",
+        "crash",
+        "exception",
+        "traceback",
+        "stack",
+        "breakpoint",
+        "logging",
+        "trace",
+        "diagnose",
+        "troubleshoot",
+        "investigate",
+        "resolve",
+        "patch",
+    ],
+    "refactoring": [
+        "refactor",
+        "restructure",
+        "reorganize",
+        "cleanup",
+        "improve",
+        "optimize",
+        "simplify",
+        "extract",
+        "rename",
+        "move",
+        "consolidate",
+        "modularize",
+        "decouple",
+        "abstract",
+        "generalize",
+        "performance",
+    ],
+    "documentation": [
+        "document",
+        "documentation",
+        "docs",
+        "readme",
+        "docstring",
+        "comment",
+        "explain",
+        "describe",
+        "guide",
+        "tutorial",
+        "reference",
+        "api-doc",
+        "specification",
+        "wiki",
+        "markdown",
+    ],
+    "architecture": [
+        "architecture",
+        "design",
+        "pattern",
+        "structure",
+        "system",
+        "component",
+        "layer",
+        "tier",
+        "microservice",
+        "monolith",
+        "distributed",
+        "scalable",
+        "modular",
+        "dependency",
+        "coupling",
+        "cohesion",
+    ],
+    "database": [
+        "database",
+        "sql",
+        "nosql",
+        "query",
+        "table",
+        "schema",
+        "migration",
+        "orm",
+        "model",
+        "entity",
+        "relationship",
+        "index",
+        "transaction",
+        "postgres",
+        "mysql",
+        "mongodb",
+        "redis",
+    ],
+    "devops": [
+        "deploy",
+        "deployment",
+        "ci",
+        "cd",
+        "pipeline",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "container",
+        "terraform",
+        "ansible",
+        "jenkins",
+        "github-actions",
+        "aws",
+        "gcp",
+        "azure",
+        "cloud",
+        "infrastructure",
+    ],
+    "security": [
+        "security",
+        "secure",
+        "vulnerability",
+        "encrypt",
+        "decrypt",
+        "hash",
+        "password",
+        "credential",
+        "authentication",
+        "authorization",
+        "permission",
+        "role",
+        "access",
+        "ssl",
+        "tls",
+        "https",
+        "sanitize",
+        "validate",
+    ],
+    "analysis": [
+        "analyze",
+        "analysis",
+        "review",
+        "examine",
+        "inspect",
+        "evaluate",
+        "assess",
+        "audit",
+        "profile",
+        "metrics",
+        "measure",
+        "benchmark",
+        "compare",
+        "statistics",
+    ],
+    "pattern_learning": [
+        "pattern",
+        "learn",
+        "learning",
+        "machine",
+        "ml",
+        "ai",
+        "model",
+        "train",
+        "training",
+        "dataset",
+        "feature",
+        "prediction",
+        "classification",
+        "regression",
+        "neural",
+        "deep",
+    ],
+    "quality_assessment": [
+        "quality",
+        "assessment",
+        "score",
+        "rating",
+        "grade",
+        "compliance",
+        "standard",
+        "best-practice",
+        "lint",
+        "linter",
+        "static-analysis",
+        "code-review",
+        "smell",
+        "technical-debt",
+    ],
+    "semantic_analysis": [
+        "semantic",
+        "meaning",
+        "context",
+        "intent",
+        "nlp",
+        "natural-language",
+        "parse",
+        "extract",
+        "entity",
+        "concept",
+        "topic",
+        "theme",
+        "sentiment",
+        "classification",
+    ],
+}
 
-# Intent category to semantic domain/concept mapping
-# Maps langextract domains/concepts to intent categories for confidence boosting
+# Theme patterns - broader categories that group related domains
+THEME_PATTERNS: Final[dict[str, list[str]]] = {
+    "development": ["code_generation", "refactoring", "debugging", "architecture"],
+    "quality": ["testing", "quality_assessment", "documentation", "security"],
+    "operations": ["devops", "database", "api_design"],
+    "intelligence": ["analysis", "pattern_learning", "semantic_analysis"],
+}
+
+# Intent category mapping for boost calculation
 DOMAIN_TO_INTENT_MAP: Final[dict[str, str]] = {
-    # API-related domains
+    # API-related
     "api": "api_design",
     "api_design": "api_design",
     "rest": "api_design",
     "graphql": "api_design",
     "endpoint": "api_design",
     "http": "api_design",
-    # Code generation domains
+    # Code generation
     "code_generation": "code_generation",
     "programming": "code_generation",
     "software_development": "code_generation",
     "implementation": "code_generation",
     "coding": "code_generation",
-    # Testing domains
+    # Testing
     "testing": "testing",
     "test": "testing",
     "unit_test": "testing",
     "integration_test": "testing",
     "quality_assurance": "testing",
-    # Documentation domains
+    # Documentation
     "documentation": "documentation",
     "docs": "documentation",
     "readme": "documentation",
     "technical_writing": "documentation",
-    # Architecture domains
+    # Architecture
     "architecture": "architecture",
     "design_pattern": "architecture",
     "system_design": "architecture",
     "infrastructure": "architecture",
-    # Database domains
+    # Database
     "database": "database",
     "sql": "database",
     "nosql": "database",
     "data_modeling": "database",
-    # DevOps domains
+    # DevOps
     "devops": "devops",
     "ci_cd": "devops",
     "deployment": "devops",
     "kubernetes": "devops",
     "docker": "devops",
-    # Security domains
+    # Security
     "security": "security",
     "authentication": "security",
     "authorization": "security",
     "encryption": "security",
-    # Debugging domains
+    # Debugging
     "debugging": "debugging",
     "troubleshooting": "debugging",
     "error_handling": "debugging",
     "bug_fix": "debugging",
-    # Refactoring domains
+    # Refactoring
     "refactoring": "refactoring",
     "code_cleanup": "refactoring",
     "optimization": "refactoring",
-    # Research domains
-    "research": "research",
-    "investigation": "research",
-    "analysis": "research",
+    # Analysis
+    "analysis": "analysis",
+    "research": "analysis",
+    "investigation": "analysis",
+    # Pattern learning (maps to our intent categories)
+    "pattern_learning": "pattern_learning",
+    "quality_assessment": "quality_assessment",
+    "semantic_analysis": "semantic_analysis",
 }
 
-# Confidence boost amounts for different match types
+# Confidence boost amounts
 DOMAIN_MATCH_BOOST: Final[float] = 0.10
 CONCEPT_MATCH_BOOST: Final[float] = 0.05
 TOPIC_WEIGHT_MULTIPLIER: Final[float] = 0.15
@@ -184,25 +426,23 @@ TOPIC_WEIGHT_MULTIPLIER: Final[float] = 0.15
 # =============================================================================
 
 
-def create_empty_langextract_result(error: str | None = None) -> LangextractResult:
-    """Create an empty langextract result.
+def create_empty_semantic_result(error: str | None = None) -> SemanticResult:
+    """Create an empty semantic result.
 
-    Use this when the service is unavailable or an error occurred.
+    Use this for error cases or empty input.
 
     Args:
-        error: Optional error message to include.
+        error: Optional error message.
 
     Returns:
-        LangextractResult with all fields empty/default.
+        SemanticResult with all fields empty/default.
 
     Example:
-        >>> result = create_empty_langextract_result()
+        >>> result = create_empty_semantic_result()
         >>> result["concepts"]
         []
-        >>> result["error"] is None
-        True
     """
-    return LangextractResult(
+    return SemanticResult(
         concepts=[],
         themes=[],
         domains=[],
@@ -214,196 +454,157 @@ def create_empty_langextract_result(error: str | None = None) -> LangextractResu
     )
 
 
+# Alias for backwards compatibility
+create_empty_langextract_result = create_empty_semantic_result
+
+
 # =============================================================================
-# Main Handler Functions
+# Core Analysis Functions (Pure Computation)
 # =============================================================================
 
 
-async def enrich_with_semantics(
+def analyze_semantics(
     content: str,
     context: str | None = None,
-    language: str = "en",
-    min_confidence: float = 0.7,
-) -> LangextractResult:
-    """Enrich intent classification with semantic analysis from langextract.
+    min_confidence: float = 0.3,
+) -> SemanticResult:
+    """Analyze content semantically for domain, concepts, and themes.
 
-    This is OPTIONAL and should be used when deeper semantic understanding
-    is needed. Falls back gracefully if langextract service is unavailable.
-
-    The function never raises exceptions. All errors are captured and
-    returned as empty results with an error message.
+    This is a PURE FUNCTION with no external dependencies.
+    Uses keyword matching and pattern analysis to extract semantic information.
 
     Args:
         content: Text content to analyze.
         context: Optional context hint (e.g., "api_development", "testing").
-            Helps langextract provide more relevant analysis.
-        language: Language code (default: "en").
         min_confidence: Minimum confidence threshold for results (0.0-1.0).
-            Lower values return more results with potentially lower quality.
 
     Returns:
-        LangextractResult with semantic analysis data:
-        - concepts: Extracted semantic concepts
+        SemanticResult with:
+        - concepts: Extracted concepts with confidence
         - themes: Identified themes
-        - domains: Detected domains
-        - patterns: Semantic patterns
+        - domains: Detected domains with confidence
         - domain_indicators: Raw domain indicator strings
         - topic_weights: Topic -> weight mapping
-        - processing_time_ms: Time taken for analysis
-        - error: Error message if any (None on success)
-
-    Note:
-        This function NEVER raises exceptions. Errors are captured and
-        returned in the result's "error" field.
+        - processing_time_ms: Processing time
 
     Example:
-        >>> import asyncio
-        >>> result = asyncio.run(enrich_with_semantics("Create a REST API"))
-        >>> # Returns empty result if service unavailable
-        >>> isinstance(result.get("concepts", []), list)
+        >>> result = analyze_semantics("Create a REST API for users")
+        >>> "api_design" in result["domain_indicators"]
         True
     """
     if not content or not content.strip():
         logger.debug("Empty content provided, returning empty result")
-        return create_empty_langextract_result()
+        return create_empty_semantic_result()
 
     start_time = time.perf_counter()
-    url = f"{LANGEXTRACT_SERVICE_URL.rstrip('/')}/analyze/semantic"
-
-    # Build request payload
-    request_payload: dict[str, Any] = {
-        "content": content,
-        "language": language,
-    }
-    if context:
-        request_payload["context"] = context
 
     try:
-        async with httpx.AsyncClient() as client:
-            logger.debug(f"Calling langextract at {url}")
+        # Normalize content for analysis
+        content_lower = content.lower()
+        tokens = _tokenize(content_lower)
 
-            response = await client.post(
-                url,
-                json=request_payload,
-                timeout=LANGEXTRACT_TIMEOUT_SECONDS,
-            )
+        # Detect domains
+        domain_scores = _detect_domains(tokens, content_lower)
 
-            processing_time_ms = (time.perf_counter() - start_time) * 1000
+        # Apply context boost if provided
+        if context:
+            context_normalized = context.lower().replace("-", "_").replace(" ", "_")
+            if context_normalized in domain_scores:
+                domain_scores[context_normalized] = min(
+                    1.0, domain_scores[context_normalized] + 0.15
+                )
 
-            # Handle non-200 responses gracefully
-            if response.status_code != 200:
-                error_msg = f"Langextract returned status {response.status_code}"
-                logger.warning(error_msg)
-                return create_empty_langextract_result(error=error_msg)
+        # Filter by confidence
+        domains = [
+            {"name": domain, "confidence": score}
+            for domain, score in domain_scores.items()
+            if score >= min_confidence
+        ]
 
-            # Parse response
-            data = response.json()
+        # Extract domain indicators (top domains)
+        domain_indicators = [d["name"] for d in sorted(
+            domains, key=lambda x: x["confidence"], reverse=True
+        )[:5]]
 
-            # Extract and filter results by confidence threshold
-            # Use cast() to preserve type information after filtering
-            concepts = cast(
-                list[dict[str, Any]],
-                _filter_by_confidence(
-                    data.get("concepts", []),
-                    min_confidence,
-                    confidence_key="confidence",
-                ),
-            )
-            themes = cast(list[dict[str, Any]], data.get("themes", []))
-            domains = cast(
-                list[dict[str, Any]],
-                _filter_by_confidence(
-                    data.get("domains", []),
-                    min_confidence,
-                    confidence_key="confidence",
-                ),
-            )
-            patterns = cast(
-                list[dict[str, Any]],
-                _filter_by_confidence(
-                    data.get("semantic_patterns", []),
-                    min_confidence,
-                    confidence_key="confidence_score",
-                ),
-            )
-            domain_indicators = cast(list[str], data.get("domain_indicators", []))
-            topic_weights = cast(dict[str, float], data.get("topic_weights", {}))
+        # Build concepts from detected keywords
+        concepts = _extract_concepts(tokens, domain_scores, min_confidence)
 
-            logger.info(
-                f"Langextract enrichment completed in {processing_time_ms:.2f}ms: "
-                f"{len(concepts)} concepts, {len(themes)} themes, "
-                f"{len(domains)} domains, {len(patterns)} patterns"
-            )
+        # Detect themes
+        themes = _detect_themes(domain_indicators)
 
-            return LangextractResult(
-                concepts=concepts,
-                themes=themes,
-                domains=domains,
-                patterns=patterns,
-                domain_indicators=domain_indicators,
-                topic_weights=topic_weights,
-                processing_time_ms=round(processing_time_ms, 2),
-                error=None,
-            )
+        # Calculate topic weights
+        topic_weights = {d["name"]: d["confidence"] for d in domains}
 
-    except httpx.TimeoutException:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
-        error_msg = f"Langextract timeout after {LANGEXTRACT_TIMEOUT_SECONDS}s"
-        logger.warning(error_msg)
-        return create_empty_langextract_result(error=error_msg)
 
-    except httpx.ConnectError as e:
-        processing_time_ms = (time.perf_counter() - start_time) * 1000
-        error_msg = f"Cannot connect to langextract at {LANGEXTRACT_SERVICE_URL}: {e}"
-        logger.warning(error_msg)
-        return create_empty_langextract_result(error=error_msg)
+        logger.debug(
+            f"Semantic analysis completed in {processing_time_ms:.2f}ms: "
+            f"{len(concepts)} concepts, {len(themes)} themes, "
+            f"{len(domains)} domains"
+        )
 
-    except httpx.HTTPError as e:
-        processing_time_ms = (time.perf_counter() - start_time) * 1000
-        error_msg = f"HTTP error calling langextract: {e}"
-        logger.warning(error_msg)
-        return create_empty_langextract_result(error=error_msg)
+        return SemanticResult(
+            concepts=concepts,
+            themes=themes,
+            domains=domains,
+            patterns=[],  # Patterns require more complex analysis
+            domain_indicators=domain_indicators,
+            topic_weights=topic_weights,
+            processing_time_ms=round(processing_time_ms, 2),
+            error=None,
+        )
 
     except Exception as e:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
-        error_msg = f"Unexpected error calling langextract: {type(e).__name__}: {e}"
+        error_msg = f"Semantic analysis error: {type(e).__name__}: {e}"
         logger.warning(error_msg, exc_info=True)
-        return create_empty_langextract_result(error=error_msg)
+        return create_empty_semantic_result(error=error_msg)
+
+
+# Async wrapper for compatibility
+async def enrich_with_semantics(
+    content: str,
+    context: str | None = None,
+    language: str = "en",  # Kept for API compatibility
+    min_confidence: float = 0.3,
+) -> SemanticResult:
+    """Async wrapper for analyze_semantics.
+
+    Provided for backwards compatibility with async callers.
+    The underlying analysis is synchronous (pure computation).
+
+    Args:
+        content: Text content to analyze.
+        context: Optional context hint.
+        language: Language code (currently unused, kept for compatibility).
+        min_confidence: Minimum confidence threshold.
+
+    Returns:
+        SemanticResult from analyze_semantics.
+    """
+    return analyze_semantics(content, context, min_confidence)
 
 
 def map_semantic_to_intent_boost(
-    semantic_result: LangextractResult,
+    semantic_result: SemanticResult,
 ) -> dict[str, float]:
     """Map semantic analysis results to intent confidence boosts.
 
-    Use semantic concepts, domains, and topics to boost intent classification
-    confidence. Higher semantic confidence in a domain increases the boost
-    for the corresponding intent category.
-
-    This function is pure and never raises exceptions.
+    Uses domain indicators, concepts, and topic weights to calculate
+    additive confidence boosts for intent categories.
 
     Args:
-        semantic_result: Result from enrich_with_semantics().
+        semantic_result: Result from analyze_semantics().
 
     Returns:
         Dictionary mapping intent categories to confidence boost amounts.
-        Boosts are additive values (typically 0.05-0.20) that can be
-        added to intent classification confidence scores.
+        Boosts are capped at 0.30 per category.
 
     Example:
-        >>> from omniintelligence.nodes.intent_classifier_compute.handlers import (
-        ...     create_empty_langextract_result,
-        ...     map_semantic_to_intent_boost,
-        ... )
-        >>> # Empty result produces no boosts
-        >>> empty_result = create_empty_langextract_result()
-        >>> boosts = map_semantic_to_intent_boost(empty_result)
-        >>> boosts
-        {}
-
-    Note:
-        Boost values are capped to prevent over-weighting semantic signals.
-        Maximum boost per intent category is 0.30.
+        >>> result = analyze_semantics("Write unit tests for the API")
+        >>> boosts = map_semantic_to_intent_boost(result)
+        >>> "testing" in boosts or "api_design" in boosts
+        True
     """
     boosts: dict[str, float] = {}
 
@@ -422,15 +623,14 @@ def map_semantic_to_intent_boost(
         concept_category = concept.get("category", "").lower().replace(" ", "_").replace("-", "_")
         concept_confidence = concept.get("confidence", 0.0)
 
-        # Check concept name against mapping
+        # Check concept name
         intent = DOMAIN_TO_INTENT_MAP.get(concept_name)
         if intent:
-            # Scale boost by concept confidence
             boosts[intent] = boosts.get(intent, 0.0) + (
                 CONCEPT_MATCH_BOOST * concept_confidence
             )
 
-        # Check concept category against mapping
+        # Check concept category
         intent = DOMAIN_TO_INTENT_MAP.get(concept_category)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (
@@ -443,7 +643,6 @@ def map_semantic_to_intent_boost(
         topic_normalized = topic.lower().replace(" ", "_").replace("-", "_")
         intent = DOMAIN_TO_INTENT_MAP.get(topic_normalized)
         if intent:
-            # Scale boost by topic weight
             boosts[intent] = boosts.get(intent, 0.0) + (
                 TOPIC_WEIGHT_MULTIPLIER * weight
             )
@@ -459,7 +658,7 @@ def map_semantic_to_intent_boost(
                 DOMAIN_MATCH_BOOST * domain_confidence
             )
 
-    # Cap boosts to prevent over-weighting
+    # Cap boosts at maximum
     max_boost = 0.30
     return {intent: min(boost, max_boost) for intent, boost in boosts.items()}
 
@@ -469,36 +668,176 @@ def map_semantic_to_intent_boost(
 # =============================================================================
 
 
-def _filter_by_confidence(
-    items: list[dict[str, Any]],
-    min_confidence: float,
-    confidence_key: str = "confidence",
-) -> list[dict[str, Any]]:
-    """Filter items by confidence threshold.
+def _tokenize(text: str) -> list[str]:
+    """Tokenize text into words.
 
     Args:
-        items: List of items with confidence scores.
-        min_confidence: Minimum confidence threshold.
-        confidence_key: Key name for the confidence field.
+        text: Text to tokenize (should be lowercase).
 
     Returns:
-        Filtered list containing only items above threshold.
+        List of word tokens.
     """
-    if not items:
-        return []
+    # Split on non-alphanumeric characters, keep hyphenated words
+    words = re.findall(r'\b[\w-]+\b', text)
+    return [w for w in words if len(w) > 1]
 
-    return [
-        item
-        for item in items
-        if item.get(confidence_key, 0.0) >= min_confidence
-    ]
+
+def _detect_domains(tokens: list[str], content_lower: str) -> dict[str, float]:
+    """Detect domains from tokens and content.
+
+    Args:
+        tokens: List of word tokens.
+        content_lower: Lowercase content string.
+
+    Returns:
+        Dictionary of domain -> confidence score.
+    """
+    domain_scores: dict[str, float] = {}
+    token_set = set(tokens)
+    token_counter = Counter(tokens)
+    total_tokens = len(tokens) if tokens else 1
+
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        # Count keyword matches
+        matches = 0
+        matched_keywords: list[str] = []
+
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+
+            # Exact token match
+            if keyword_lower in token_set:
+                matches += token_counter[keyword_lower]
+                matched_keywords.append(keyword_lower)
+
+            # Partial match for compound keywords
+            elif "-" in keyword_lower or "_" in keyword_lower:
+                # Check if keyword appears in content
+                if keyword_lower.replace("-", " ") in content_lower:
+                    matches += 1
+                    matched_keywords.append(keyword_lower)
+                elif keyword_lower.replace("_", " ") in content_lower:
+                    matches += 1
+                    matched_keywords.append(keyword_lower)
+
+        if matches > 0:
+            # Calculate confidence based on:
+            # 1. Absolute match count (strong signal even for short content)
+            # 2. Match density (ratio of matches to tokens)
+            # 3. Keyword diversity (number of unique keywords matched)
+
+            # Base confidence from absolute matches
+            # 1 match = 0.3, 2 matches = 0.45, 3+ matches = 0.6+
+            match_base = min(0.6, 0.15 + (len(matched_keywords) * 0.15))
+
+            # Bonus for high match density
+            match_ratio = matches / total_tokens
+            density_bonus = min(0.2, match_ratio * 0.3)
+
+            # Bonus for multiple unique keywords (strong domain signal)
+            diversity_bonus = min(0.2, len(matched_keywords) * 0.05)
+
+            confidence = min(1.0, match_base + density_bonus + diversity_bonus)
+
+            domain_scores[domain] = round(confidence, 3)
+
+    return domain_scores
+
+
+def _extract_concepts(
+    tokens: list[str],
+    domain_scores: dict[str, float],
+    min_confidence: float,
+) -> list[dict[str, Any]]:
+    """Extract concepts from tokens based on domain analysis.
+
+    Args:
+        tokens: List of word tokens.
+        domain_scores: Domain confidence scores.
+        min_confidence: Minimum confidence threshold.
+
+    Returns:
+        List of concept dictionaries.
+    """
+    concepts = []
+    seen_concepts = set()
+
+    # Find keywords that match domain patterns
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        if domain not in domain_scores:
+            continue
+
+        domain_confidence = domain_scores[domain]
+        if domain_confidence < min_confidence:
+            continue
+
+        keyword_set = set(k.lower() for k in keywords)
+        for token in tokens:
+            if token in keyword_set and token not in seen_concepts:
+                seen_concepts.add(token)
+                concepts.append({
+                    "name": token,
+                    "confidence": round(domain_confidence * 0.8, 3),
+                    "category": domain,
+                })
+
+    # Sort by confidence
+    concepts.sort(key=lambda x: x["confidence"], reverse=True)
+
+    # Limit to top concepts
+    return concepts[:20]
+
+
+def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:
+    """Detect themes from domain indicators.
+
+    Args:
+        domain_indicators: List of detected domain names.
+
+    Returns:
+        List of theme dictionaries.
+    """
+    themes = []
+    domain_set = set(domain_indicators)
+
+    for theme, theme_domains in THEME_PATTERNS.items():
+        # Count how many theme domains are present
+        matching = domain_set.intersection(theme_domains)
+        if matching:
+            coverage = len(matching) / len(theme_domains)
+            themes.append({
+                "name": theme,
+                "weight": round(coverage, 3),
+                "related_domains": list(matching),
+            })
+
+    # Sort by weight
+    themes.sort(key=lambda x: x["weight"], reverse=True)
+    return themes
+
+
+# =============================================================================
+# Backwards Compatibility Aliases
+# =============================================================================
+
+# These constants are kept for backwards compatibility with existing code
+LANGEXTRACT_SERVICE_URL: Final[str] = "embedded://pure-handler"
+LANGEXTRACT_TIMEOUT_SECONDS: Final[float] = 0.0  # No timeout - pure computation
+
+# Type alias for backwards compatibility
+LangextractResult = SemanticResult
 
 
 __all__ = [
+    # New API
+    "SemanticResult",
+    "analyze_semantics",
+    "create_empty_semantic_result",
+    "map_semantic_to_intent_boost",
+    # Backwards compatibility
+    "LangextractResult",
     "LANGEXTRACT_SERVICE_URL",
     "LANGEXTRACT_TIMEOUT_SECONDS",
-    "LangextractResult",
     "create_empty_langextract_result",
     "enrich_with_semantics",
-    "map_semantic_to_intent_boost",
 ]
