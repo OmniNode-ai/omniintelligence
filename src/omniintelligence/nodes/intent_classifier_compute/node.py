@@ -33,6 +33,35 @@ from omniintelligence.nodes.intent_classifier_compute.models import (
 )
 
 
+def _build_error_response(
+    start_time: float,
+    status: str,
+    message: str,
+) -> ModelIntentClassificationOutput:
+    """Build standardized error response with timing.
+
+    Args:
+        start_time: The perf_counter timestamp when processing started.
+        status: Error status type (e.g., "validation_error", "compute_error").
+        message: Human-readable error message.
+
+    Returns:
+        ModelIntentClassificationOutput configured for error state.
+    """
+    processing_time = (time.perf_counter() - start_time) * 1000
+    return ModelIntentClassificationOutput(
+        success=False,
+        intent_category="unknown",
+        confidence=0.0,
+        secondary_intents=[],
+        metadata=IntentMetadataDict(
+            status=status,
+            message=message,
+            classification_time_ms=processing_time,
+        ),
+    )
+
+
 class NodeIntentClassifierCompute(
     NodeCompute[ModelIntentClassificationInput, ModelIntentClassificationOutput]
 ):
@@ -131,50 +160,21 @@ class NodeIntentClassifierCompute(
             )
 
         except IntentClassificationValidationError as e:
-            processing_time = (time.perf_counter() - start_time) * 1000
-            return ModelIntentClassificationOutput(
-                success=False,
-                intent_category="unknown",
-                confidence=0.0,
-                secondary_intents=[],
-                metadata=IntentMetadataDict(
-                    status="validation_error",
-                    message=str(e),
-                    classification_time_ms=processing_time,
-                ),
-            )
+            return _build_error_response(start_time, "validation_error", str(e))
 
         except IntentClassificationComputeError as e:
-            processing_time = (time.perf_counter() - start_time) * 1000
-            return ModelIntentClassificationOutput(
-                success=False,
-                intent_category="unknown",
-                confidence=0.0,
-                secondary_intents=[],
-                metadata=IntentMetadataDict(
-                    status="compute_error",
-                    message=str(e),
-                    classification_time_ms=processing_time,
-                ),
-            )
+            return _build_error_response(start_time, "compute_error", str(e))
 
         except Exception as e:
-            processing_time = (time.perf_counter() - start_time) * 1000
             logger.exception(
                 "Unexpected error in intent classification: %s: %s",
                 type(e).__name__,
                 e,
             )
-            return ModelIntentClassificationOutput(
-                success=False,
-                intent_category="unknown",
-                confidence=0.0,
-                secondary_intents=[],
-                metadata=IntentMetadataDict(
-                    status="unexpected_error",
-                    message=f"Unexpected error: {type(e).__name__}: {e}",
-                    classification_time_ms=processing_time,
-                ),
+            return _build_error_response(
+                start_time,
+                "unexpected_error",
+                f"Unexpected error: {type(e).__name__}: {e}",
             )
 
 

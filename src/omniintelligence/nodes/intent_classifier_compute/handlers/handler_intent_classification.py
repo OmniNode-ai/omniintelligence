@@ -22,10 +22,21 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from typing import TypedDict
+
+    class SecondaryIntentResultDict(TypedDict):
+        """Secondary intent structure returned by classify_intent.
+
+        This TypedDict provides proper typing for secondary intent items,
+        ensuring type safety when processing multi-label classification results.
+        """
+
+        intent_category: str
+        confidence: float
+        keywords: list[str]
 
     class ClassificationResultDict(TypedDict, total=False):
         """Result structure from classify_intent function."""
@@ -34,7 +45,7 @@ if TYPE_CHECKING:
         confidence: float
         keywords: list[str]
         all_scores: dict[str, float]
-        secondary_intents: list[dict[str, object]]
+        secondary_intents: list[SecondaryIntentResultDict]
 
 
 # =============================================================================
@@ -189,15 +200,20 @@ _NORMALIZED_PATTERNS: dict[str, list[str]] = {
 # See: contract.yaml -> configuration.classification
 # =============================================================================
 
-# Configuration dictionary with defaults from contract.yaml
-# Can be updated at runtime via configure_classification()
-_CLASSIFICATION_CONFIG: dict[str, float | int] = {
+# Immutable reference of default configuration values
+# Used by reset_classification_config() to restore defaults
+_DEFAULT_CLASSIFICATION_CONFIG: Final[dict[str, float | int]] = {
     "exact_match_weight": 15.0,
     "partial_match_weight": 3.0,
     "min_pattern_length_for_partial": 3,
     "default_confidence_threshold": 0.5,
     "default_max_intents": 5,
 }
+
+# Configuration dictionary with defaults from contract.yaml
+# Can be updated at runtime via configure_classification()
+_CLASSIFICATION_CONFIG: dict[str, float | int] = dict(_DEFAULT_CLASSIFICATION_CONFIG)
+
 
 def configure_classification(
     exact_match_weight: float | None = None,
@@ -242,6 +258,26 @@ def get_classification_config() -> dict[str, float | int]:
         Dictionary with current configuration values.
     """
     return dict(_CLASSIFICATION_CONFIG)
+
+
+def reset_classification_config() -> None:
+    """Reset classification configuration to default values.
+
+    Restores _CLASSIFICATION_CONFIG to original default values defined in
+    _DEFAULT_CLASSIFICATION_CONFIG. Use this in test teardown to ensure
+    test isolation.
+
+    Example:
+        >>> configure_classification(exact_match_weight=99.0)
+        >>> _CLASSIFICATION_CONFIG["exact_match_weight"]
+        99.0
+        >>> reset_classification_config()
+        >>> _CLASSIFICATION_CONFIG["exact_match_weight"]
+        15.0
+    """
+    global _CLASSIFICATION_CONFIG
+    _CLASSIFICATION_CONFIG.clear()
+    _CLASSIFICATION_CONFIG.update(_DEFAULT_CLASSIFICATION_CONFIG)
 
 
 # =============================================================================
@@ -537,7 +573,8 @@ def _build_multi_label_result(
     primary_intent, primary_score = filtered_intents[0]
 
     # Build secondary intents list (skip primary, limit to max_intents)
-    secondary_intents: list[dict[str, object]] = []
+    # Using SecondaryIntentResultDict type for proper type safety
+    secondary_intents: list[SecondaryIntentResultDict] = []
     for intent, score in filtered_intents[1 : max_intents + 1]:
         secondary_intents.append(
             {
@@ -567,4 +604,5 @@ __all__ = [
     # Configuration
     "configure_classification",
     "get_classification_config",
+    "reset_classification_config",
 ]

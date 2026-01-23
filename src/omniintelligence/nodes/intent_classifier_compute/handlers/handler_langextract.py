@@ -425,9 +425,9 @@ DOMAIN_TO_INTENT_MAP: Final[dict[str, str]] = {
 # See: contract.yaml -> configuration.semantic_analysis
 # =============================================================================
 
-# Configuration dictionary with defaults from contract.yaml
-# Can be updated at runtime via configure_semantic_analysis()
-_SEMANTIC_CONFIG: dict[str, float | int] = {
+# Immutable reference of default configuration values
+# Used by reset_semantic_config() to restore defaults
+_DEFAULT_SEMANTIC_CONFIG: Final[dict[str, float | int]] = {
     # Boost amounts
     "domain_match_boost": 0.10,
     "concept_match_boost": 0.05,
@@ -448,6 +448,10 @@ _SEMANTIC_CONFIG: dict[str, float | int] = {
     "max_concepts": 20,
     "max_domain_indicators": 5,
 }
+
+# Configuration dictionary with defaults from contract.yaml
+# Can be updated at runtime via configure_semantic_analysis()
+_SEMANTIC_CONFIG: dict[str, float | int] = dict(_DEFAULT_SEMANTIC_CONFIG)
 
 def configure_semantic_analysis(
     domain_match_boost: float | None = None,
@@ -532,6 +536,26 @@ def get_semantic_config() -> dict[str, float | int]:
         Dictionary with current configuration values.
     """
     return dict(_SEMANTIC_CONFIG)
+
+
+def reset_semantic_config() -> None:
+    """Reset semantic analysis configuration to default values.
+
+    Restores _SEMANTIC_CONFIG to original default values defined in
+    _DEFAULT_SEMANTIC_CONFIG. Use this in test teardown to ensure
+    test isolation.
+
+    Example:
+        >>> configure_semantic_analysis(max_boost_cap=0.99)
+        >>> _SEMANTIC_CONFIG["max_boost_cap"]
+        0.99
+        >>> reset_semantic_config()
+        >>> _SEMANTIC_CONFIG["max_boost_cap"]
+        0.3
+    """
+    global _SEMANTIC_CONFIG
+    _SEMANTIC_CONFIG.clear()
+    _SEMANTIC_CONFIG.update(_DEFAULT_SEMANTIC_CONFIG)
 
 
 # =============================================================================
@@ -973,4 +997,5 @@ __all__ = [
     # Configuration
     "configure_semantic_analysis",
     "get_semantic_config",
+    "reset_semantic_config",
 ]
