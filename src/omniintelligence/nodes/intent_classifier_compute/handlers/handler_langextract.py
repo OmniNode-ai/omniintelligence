@@ -38,6 +38,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+import warnings
 from collections import Counter
 from typing import TYPE_CHECKING, Any, Final, cast
 
@@ -415,10 +416,130 @@ DOMAIN_TO_INTENT_MAP: Final[dict[str, str]] = {
     "semantic_analysis": "semantic_analysis",
 }
 
-# Confidence boost amounts
-DOMAIN_MATCH_BOOST: Final[float] = 0.10
-CONCEPT_MATCH_BOOST: Final[float] = 0.05
-TOPIC_WEIGHT_MULTIPLIER: Final[float] = 0.15
+# =============================================================================
+# Configuration Defaults
+# =============================================================================
+# These values match the contract.yaml configuration section and can be
+# overridden via config injection. The module works standalone with these
+# defaults.
+#
+# See: contract.yaml -> configuration.semantic_analysis
+# =============================================================================
+
+# Configuration dictionary with defaults from contract.yaml
+# Can be updated at runtime via configure_semantic_analysis()
+_SEMANTIC_CONFIG: dict[str, float | int] = {
+    # Boost amounts
+    "domain_match_boost": 0.10,
+    "concept_match_boost": 0.05,
+    "topic_weight_multiplier": 0.15,
+    "max_boost_cap": 0.30,
+    "context_boost": 0.15,
+    # Default thresholds
+    "default_min_confidence": 0.3,
+    # Scoring parameters
+    "match_base_initial": 0.15,
+    "match_base_max": 0.6,
+    "density_bonus_max": 0.2,
+    "density_multiplier": 0.3,
+    "diversity_bonus_max": 0.2,
+    "diversity_multiplier": 0.05,
+    "concept_confidence_multiplier": 0.8,
+    # Limits
+    "max_concepts": 20,
+    "max_domain_indicators": 5,
+}
+
+# Module-level constants for backwards compatibility
+# These are Final to indicate they shouldn't be reassigned
+DOMAIN_MATCH_BOOST: Final[float] = 0.10  # Default; actual value from _SEMANTIC_CONFIG
+CONCEPT_MATCH_BOOST: Final[float] = 0.05  # Default; actual value from _SEMANTIC_CONFIG
+TOPIC_WEIGHT_MULTIPLIER: Final[float] = 0.15  # Default; actual value from _SEMANTIC_CONFIG
+
+
+def configure_semantic_analysis(
+    domain_match_boost: float | None = None,
+    concept_match_boost: float | None = None,
+    topic_weight_multiplier: float | None = None,
+    max_boost_cap: float | None = None,
+    context_boost: float | None = None,
+    default_min_confidence: float | None = None,
+    match_base_initial: float | None = None,
+    match_base_max: float | None = None,
+    density_bonus_max: float | None = None,
+    density_multiplier: float | None = None,
+    diversity_bonus_max: float | None = None,
+    diversity_multiplier: float | None = None,
+    concept_confidence_multiplier: float | None = None,
+    max_concepts: int | None = None,
+    max_domain_indicators: int | None = None,
+) -> None:
+    """Configure semantic analysis parameters.
+
+    Updates the module-level configuration dictionary. This allows runtime
+    configuration without modifying module constants.
+
+    Args:
+        domain_match_boost: Boost for domain indicator matches (default: 0.10).
+        concept_match_boost: Boost for concept matches (default: 0.05).
+        topic_weight_multiplier: Multiplier for topic weights (default: 0.15).
+        max_boost_cap: Maximum total boost per intent (default: 0.30).
+        context_boost: Boost when context matches domain (default: 0.15).
+        default_min_confidence: Default min confidence threshold (default: 0.3).
+        match_base_initial: Initial base for match scoring (default: 0.15).
+        match_base_max: Maximum base from matches (default: 0.6).
+        density_bonus_max: Maximum density bonus (default: 0.2).
+        density_multiplier: Multiplier for density calculation (default: 0.3).
+        diversity_bonus_max: Maximum diversity bonus (default: 0.2).
+        diversity_multiplier: Multiplier for diversity calculation (default: 0.05).
+        concept_confidence_multiplier: Multiplier for concept confidence (default: 0.8).
+        max_concepts: Maximum concepts to return (default: 20).
+        max_domain_indicators: Maximum domain indicators to return (default: 5).
+
+    Example:
+        >>> configure_semantic_analysis(max_boost_cap=0.40, default_min_confidence=0.25)
+        >>> _SEMANTIC_CONFIG["max_boost_cap"]
+        0.4
+    """
+    if domain_match_boost is not None:
+        _SEMANTIC_CONFIG["domain_match_boost"] = domain_match_boost
+    if concept_match_boost is not None:
+        _SEMANTIC_CONFIG["concept_match_boost"] = concept_match_boost
+    if topic_weight_multiplier is not None:
+        _SEMANTIC_CONFIG["topic_weight_multiplier"] = topic_weight_multiplier
+    if max_boost_cap is not None:
+        _SEMANTIC_CONFIG["max_boost_cap"] = max_boost_cap
+    if context_boost is not None:
+        _SEMANTIC_CONFIG["context_boost"] = context_boost
+    if default_min_confidence is not None:
+        _SEMANTIC_CONFIG["default_min_confidence"] = default_min_confidence
+    if match_base_initial is not None:
+        _SEMANTIC_CONFIG["match_base_initial"] = match_base_initial
+    if match_base_max is not None:
+        _SEMANTIC_CONFIG["match_base_max"] = match_base_max
+    if density_bonus_max is not None:
+        _SEMANTIC_CONFIG["density_bonus_max"] = density_bonus_max
+    if density_multiplier is not None:
+        _SEMANTIC_CONFIG["density_multiplier"] = density_multiplier
+    if diversity_bonus_max is not None:
+        _SEMANTIC_CONFIG["diversity_bonus_max"] = diversity_bonus_max
+    if diversity_multiplier is not None:
+        _SEMANTIC_CONFIG["diversity_multiplier"] = diversity_multiplier
+    if concept_confidence_multiplier is not None:
+        _SEMANTIC_CONFIG["concept_confidence_multiplier"] = concept_confidence_multiplier
+    if max_concepts is not None:
+        _SEMANTIC_CONFIG["max_concepts"] = max_concepts
+    if max_domain_indicators is not None:
+        _SEMANTIC_CONFIG["max_domain_indicators"] = max_domain_indicators
+
+
+def get_semantic_config() -> dict[str, float | int]:
+    """Get a copy of the current semantic analysis configuration.
+
+    Returns:
+        Dictionary with current configuration values.
+    """
+    return dict(_SEMANTIC_CONFIG)
 
 
 # =============================================================================
@@ -466,17 +587,23 @@ create_empty_langextract_result = create_empty_semantic_result
 def analyze_semantics(
     content: str,
     context: str | None = None,
-    min_confidence: float = 0.3,
+    min_confidence: float | None = None,
 ) -> SemanticResult:
     """Analyze content semantically for domain, concepts, and themes.
 
     This is a PURE FUNCTION with no external dependencies.
     Uses keyword matching and pattern analysis to extract semantic information.
 
+    Configuration:
+        This function uses parameters from _SEMANTIC_CONFIG. Defaults
+        can be modified via configure_semantic_analysis() or by updating
+        the config dict directly. See contract.yaml -> configuration.semantic_analysis.
+
     Args:
         content: Text content to analyze.
         context: Optional context hint (e.g., "api_development", "testing").
         min_confidence: Minimum confidence threshold for results (0.0-1.0).
+            Defaults to config value (0.3).
 
     Returns:
         SemanticResult with:
@@ -492,6 +619,14 @@ def analyze_semantics(
         >>> "api_design" in result["domain_indicators"]
         True
     """
+    # Apply config defaults for None parameters
+    if min_confidence is None:
+        min_confidence = float(_SEMANTIC_CONFIG["default_min_confidence"])
+
+    # Read config values used in this function
+    context_boost = float(_SEMANTIC_CONFIG["context_boost"])
+    max_domain_indicators = int(_SEMANTIC_CONFIG["max_domain_indicators"])
+
     if not content or not content.strip():
         logger.debug("Empty content provided, returning empty result")
         return create_empty_semantic_result()
@@ -511,7 +646,7 @@ def analyze_semantics(
             context_normalized = context.lower().replace("-", "_").replace(" ", "_")
             if context_normalized in domain_scores:
                 domain_scores[context_normalized] = min(
-                    1.0, domain_scores[context_normalized] + 0.15
+                    1.0, domain_scores[context_normalized] + context_boost
                 )
 
         # Filter by confidence
@@ -525,7 +660,7 @@ def analyze_semantics(
         # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
         domain_indicators: list[str] = [str(d["name"]) for d in sorted(
             domains, key=lambda x: cast(float, x["confidence"]), reverse=True
-        )[:5]]
+        )[:max_domain_indicators]]
 
         # Build concepts from detected keywords
         concepts = _extract_concepts(tokens, domain_scores, min_confidence)
@@ -565,27 +700,38 @@ def analyze_semantics(
         return create_empty_semantic_result(error=error_msg)
 
 
-# Async wrapper for compatibility
+# Async wrapper for compatibility (DEPRECATED)
 async def enrich_with_semantics(
     content: str,
     context: str | None = None,
     language: str = "en",  # Kept for API compatibility
-    min_confidence: float = 0.3,
+    min_confidence: float | None = None,
 ) -> SemanticResult:
-    """Async wrapper for analyze_semantics.
+    """Async wrapper for analyze_semantics (DEPRECATED).
 
-    Provided for backwards compatibility with async callers.
-    The underlying analysis is synchronous (pure computation).
+    .. deprecated::
+        Use :func:`analyze_semantics` directly instead. This async wrapper
+        exists only for backwards compatibility and will be removed.
+
+    The underlying analysis is synchronous (pure computation), so there is
+    no benefit to using this async wrapper.
 
     Args:
         content: Text content to analyze.
         context: Optional context hint.
         language: Language code (currently unused, kept for compatibility).
-        min_confidence: Minimum confidence threshold.
+        min_confidence: Minimum confidence threshold. Defaults to config value (0.3).
 
     Returns:
         SemanticResult from analyze_semantics.
     """
+    warnings.warn(
+        "enrich_with_semantics is deprecated. Use analyze_semantics() directly "
+        "as the underlying operation is pure computation with no I/O. "
+        "This async wrapper will be removed in a future version.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return analyze_semantics(content, context, min_confidence)
 
 
@@ -597,12 +743,19 @@ def map_semantic_to_intent_boost(
     Uses domain indicators, concepts, and topic weights to calculate
     additive confidence boosts for intent categories.
 
+    Configuration:
+        Uses parameters from _SEMANTIC_CONFIG:
+        - domain_match_boost: Boost for domain matches (default: 0.10)
+        - concept_match_boost: Boost for concept matches (default: 0.05)
+        - topic_weight_multiplier: Multiplier for topic weights (default: 0.15)
+        - max_boost_cap: Maximum boost per category (default: 0.30)
+
     Args:
         semantic_result: Result from analyze_semantics().
 
     Returns:
         Dictionary mapping intent categories to confidence boost amounts.
-        Boosts are capped at 0.30 per category.
+        Boosts are capped at max_boost_cap per category.
 
     Example:
         >>> result = analyze_semantics("Write unit tests for the API")
@@ -610,6 +763,12 @@ def map_semantic_to_intent_boost(
         >>> "testing" in boosts or "api_design" in boosts
         True
     """
+    # Read boost amounts from config
+    domain_boost = float(_SEMANTIC_CONFIG["domain_match_boost"])
+    concept_boost = float(_SEMANTIC_CONFIG["concept_match_boost"])
+    topic_multiplier = float(_SEMANTIC_CONFIG["topic_weight_multiplier"])
+    max_boost_cap = float(_SEMANTIC_CONFIG["max_boost_cap"])
+
     boosts: dict[str, float] = {}
 
     # Process domain indicators
@@ -618,7 +777,7 @@ def map_semantic_to_intent_boost(
         indicator_lower = indicator.lower().replace(" ", "_").replace("-", "_")
         intent = DOMAIN_TO_INTENT_MAP.get(indicator_lower)
         if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + DOMAIN_MATCH_BOOST
+            boosts[intent] = boosts.get(intent, 0.0) + domain_boost
 
     # Process concepts
     concepts = semantic_result.get("concepts", [])
@@ -631,14 +790,14 @@ def map_semantic_to_intent_boost(
         intent = DOMAIN_TO_INTENT_MAP.get(concept_name)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (
-                CONCEPT_MATCH_BOOST * concept_confidence
+                concept_boost * concept_confidence
             )
 
         # Check concept category
         intent = DOMAIN_TO_INTENT_MAP.get(concept_category)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (
-                CONCEPT_MATCH_BOOST * concept_confidence
+                concept_boost * concept_confidence
             )
 
     # Process topic weights
@@ -648,7 +807,7 @@ def map_semantic_to_intent_boost(
         intent = DOMAIN_TO_INTENT_MAP.get(topic_normalized)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (
-                TOPIC_WEIGHT_MULTIPLIER * weight
+                topic_multiplier * weight
             )
 
     # Process explicit domains
@@ -659,12 +818,11 @@ def map_semantic_to_intent_boost(
         intent = DOMAIN_TO_INTENT_MAP.get(domain_name)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (
-                DOMAIN_MATCH_BOOST * domain_confidence
+                domain_boost * domain_confidence
             )
 
     # Cap boosts at maximum
-    max_boost = 0.30
-    return {intent: min(boost, max_boost) for intent, boost in boosts.items()}
+    return {intent: min(boost, max_boost_cap) for intent, boost in boosts.items()}
 
 
 # =============================================================================
@@ -689,6 +847,15 @@ def _tokenize(text: str) -> list[str]:
 def _detect_domains(tokens: list[str], content_lower: str) -> dict[str, float]:
     """Detect domains from tokens and content.
 
+    Configuration:
+        Uses parameters from _SEMANTIC_CONFIG (scoring section):
+        - match_base_initial: Initial base score (default: 0.15)
+        - match_base_max: Maximum base score (default: 0.6)
+        - density_bonus_max: Maximum density bonus (default: 0.2)
+        - density_multiplier: Density calculation multiplier (default: 0.3)
+        - diversity_bonus_max: Maximum diversity bonus (default: 0.2)
+        - diversity_multiplier: Diversity calculation multiplier (default: 0.05)
+
     Args:
         tokens: List of word tokens.
         content_lower: Lowercase content string.
@@ -696,6 +863,14 @@ def _detect_domains(tokens: list[str], content_lower: str) -> dict[str, float]:
     Returns:
         Dictionary of domain -> confidence score.
     """
+    # Read scoring parameters from config
+    match_base_initial = float(_SEMANTIC_CONFIG["match_base_initial"])
+    match_base_max = float(_SEMANTIC_CONFIG["match_base_max"])
+    density_bonus_max = float(_SEMANTIC_CONFIG["density_bonus_max"])
+    density_multiplier = float(_SEMANTIC_CONFIG["density_multiplier"])
+    diversity_bonus_max = float(_SEMANTIC_CONFIG["diversity_bonus_max"])
+    diversity_multiplier = float(_SEMANTIC_CONFIG["diversity_multiplier"])
+
     domain_scores: dict[str, float] = {}
     token_set = set(tokens)
     token_counter = Counter(tokens)
@@ -731,15 +906,20 @@ def _detect_domains(tokens: list[str], content_lower: str) -> dict[str, float]:
             # 3. Keyword diversity (number of unique keywords matched)
 
             # Base confidence from absolute matches
-            # 1 match = 0.3, 2 matches = 0.45, 3+ matches = 0.6+
-            match_base = min(0.6, 0.15 + (len(matched_keywords) * 0.15))
+            # Formula: match_base = min(max, initial + (matches * initial))
+            match_base = min(
+                match_base_max,
+                match_base_initial + (len(matched_keywords) * match_base_initial),
+            )
 
             # Bonus for high match density
             match_ratio = matches / total_tokens
-            density_bonus = min(0.2, match_ratio * 0.3)
+            density_bonus = min(density_bonus_max, match_ratio * density_multiplier)
 
             # Bonus for multiple unique keywords (strong domain signal)
-            diversity_bonus = min(0.2, len(matched_keywords) * 0.05)
+            diversity_bonus = min(
+                diversity_bonus_max, len(matched_keywords) * diversity_multiplier
+            )
 
             confidence = min(1.0, match_base + density_bonus + diversity_bonus)
 
@@ -755,6 +935,11 @@ def _extract_concepts(
 ) -> list[dict[str, Any]]:
     """Extract concepts from tokens based on domain analysis.
 
+    Configuration:
+        Uses parameters from _SEMANTIC_CONFIG:
+        - concept_confidence_multiplier: Multiplier for concept confidence (default: 0.8)
+        - max_concepts: Maximum concepts to return (default: 20)
+
     Args:
         tokens: List of word tokens.
         domain_scores: Domain confidence scores.
@@ -763,6 +948,10 @@ def _extract_concepts(
     Returns:
         List of concept dictionaries.
     """
+    # Read config values
+    confidence_multiplier = float(_SEMANTIC_CONFIG["concept_confidence_multiplier"])
+    max_concepts = int(_SEMANTIC_CONFIG["max_concepts"])
+
     concepts = []
     seen_concepts = set()
 
@@ -781,7 +970,7 @@ def _extract_concepts(
                 seen_concepts.add(token)
                 concepts.append({
                     "name": token,
-                    "confidence": round(domain_confidence * 0.8, 3),
+                    "confidence": round(domain_confidence * confidence_multiplier, 3),
                     "category": domain,
                 })
 
@@ -790,7 +979,7 @@ def _extract_concepts(
     concepts.sort(key=lambda x: cast(float, x["confidence"]), reverse=True)
 
     # Limit to top concepts
-    return concepts[:20]
+    return concepts[:max_concepts]
 
 
 def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:
@@ -835,11 +1024,14 @@ LangextractResult = SemanticResult
 
 
 __all__ = [
-    # New API
+    # Core API
     "SemanticResult",
     "analyze_semantics",
     "create_empty_semantic_result",
     "map_semantic_to_intent_boost",
+    # Configuration
+    "configure_semantic_analysis",
+    "get_semantic_config",
     # Backwards compatibility
     "LangextractResult",
     "LANGEXTRACT_SERVICE_URL",

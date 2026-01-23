@@ -13,7 +13,10 @@ Key characteristics:
 
 from __future__ import annotations
 
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
@@ -151,6 +154,25 @@ class NodeIntentClassifierCompute(
                 metadata=IntentMetadataDict(
                     status="compute_error",
                     message=str(e),
+                    classification_time_ms=processing_time,
+                ),
+            )
+
+        except Exception as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            logger.exception(
+                "Unexpected error in intent classification: %s: %s",
+                type(e).__name__,
+                e,
+            )
+            return ModelIntentClassificationOutput(
+                success=False,
+                intent_category="unknown",
+                confidence=0.0,
+                secondary_intents=[],
+                metadata=IntentMetadataDict(
+                    status="unexpected_error",
+                    message=f"Unexpected error: {type(e).__name__}: {e}",
                     classification_time_ms=processing_time,
                 ),
             )

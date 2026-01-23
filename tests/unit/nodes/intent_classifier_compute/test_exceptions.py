@@ -6,6 +6,7 @@ This module tests the exception hierarchy including:
     - IntentClassificationError (base exception)
     - IntentClassificationValidationError (INTENT_001)
     - IntentClassificationComputeError (INTENT_002)
+    - SemanticAnalysisError (INTENT_003)
     - Error code assignment
     - Exception inheritance
     - Message handling
@@ -19,6 +20,7 @@ from omniintelligence.nodes.intent_classifier_compute.handlers import (
     IntentClassificationComputeError,
     IntentClassificationError,
     IntentClassificationValidationError,
+    SemanticAnalysisError,
 )
 
 
@@ -179,6 +181,86 @@ class TestIntentClassificationComputeError:
 
 
 # =============================================================================
+# SemanticAnalysisError Tests
+# =============================================================================
+
+
+class TestSemanticAnalysisError:
+    """Tests for SemanticAnalysisError exception."""
+
+    def test_has_correct_error_code(self) -> None:
+        """Test that semantic analysis error has code INTENT_003."""
+        error = SemanticAnalysisError("Semantic analysis failed")
+        assert error.code == "INTENT_003"
+
+    def test_message_preserved(self) -> None:
+        """Test that message is preserved correctly."""
+        error = SemanticAnalysisError("Failed to tokenize content")
+        assert error.message == "Failed to tokenize content"
+        assert str(error) == "Failed to tokenize content"
+
+    def test_inherits_from_base_exception(self) -> None:
+        """Test that it inherits from IntentClassificationError."""
+        assert issubclass(
+            SemanticAnalysisError,
+            IntentClassificationError,
+        )
+
+    def test_can_be_caught_as_base_exception(self) -> None:
+        """Test that it can be caught as IntentClassificationError."""
+        with pytest.raises(IntentClassificationError) as exc_info:
+            raise SemanticAnalysisError("Semantic error")
+
+        assert exc_info.value.code == "INTENT_003"
+
+    def test_can_be_caught_specifically(self) -> None:
+        """Test that it can be caught specifically."""
+        with pytest.raises(SemanticAnalysisError):
+            raise SemanticAnalysisError("Specific semantic error")
+
+    def test_error_code_not_overridable(self) -> None:
+        """Test that error code is always INTENT_003."""
+        error = SemanticAnalysisError("Test")
+        assert error.code == "INTENT_003"
+
+    def test_distinguishable_from_other_errors(self) -> None:
+        """Test that semantic error is distinguishable from other error types."""
+        semantic_error = SemanticAnalysisError("Semantic")
+        compute_error = IntentClassificationComputeError("Compute")
+        validation_error = IntentClassificationValidationError("Validation")
+
+        assert semantic_error.code != compute_error.code
+        assert semantic_error.code != validation_error.code
+        assert semantic_error.code == "INTENT_003"
+        assert compute_error.code == "INTENT_002"
+        assert validation_error.code == "INTENT_001"
+
+    def test_empty_message_allowed(self) -> None:
+        """Test that empty message is allowed."""
+        error = SemanticAnalysisError("")
+        assert error.message == ""
+        assert error.code == "INTENT_003"
+
+    def test_long_message_preserved(self) -> None:
+        """Test that long messages are preserved completely."""
+        long_message = "B" * 1000
+        error = SemanticAnalysisError(long_message)
+        assert error.message == long_message
+        assert len(error.message) == 1000
+
+    def test_not_subclass_of_sibling_errors(self) -> None:
+        """Test that semantic error is not a subclass of sibling errors."""
+        assert not issubclass(
+            SemanticAnalysisError,
+            IntentClassificationValidationError,
+        )
+        assert not issubclass(
+            SemanticAnalysisError,
+            IntentClassificationComputeError,
+        )
+
+
+# =============================================================================
 # Exception Hierarchy Tests
 # =============================================================================
 
@@ -186,14 +268,18 @@ class TestIntentClassificationComputeError:
 class TestExceptionHierarchy:
     """Tests for exception class hierarchy."""
 
-    def test_both_errors_inherit_from_base(self) -> None:
-        """Test that both error types inherit from base."""
+    def test_all_errors_inherit_from_base(self) -> None:
+        """Test that all error types inherit from base."""
         assert issubclass(
             IntentClassificationValidationError,
             IntentClassificationError,
         )
         assert issubclass(
             IntentClassificationComputeError,
+            IntentClassificationError,
+        )
+        assert issubclass(
+            SemanticAnalysisError,
             IntentClassificationError,
         )
 
@@ -211,14 +297,26 @@ class TestExceptionHierarchy:
             IntentClassificationValidationError,
         )
 
+    def test_semantic_not_subclass_of_siblings(self) -> None:
+        """Test that semantic is not a subclass of other error types."""
+        assert not issubclass(
+            SemanticAnalysisError,
+            IntentClassificationValidationError,
+        )
+        assert not issubclass(
+            SemanticAnalysisError,
+            IntentClassificationComputeError,
+        )
+
     def test_all_inherit_from_standard_exception(self) -> None:
         """Test that all exception types inherit from Exception."""
         assert issubclass(IntentClassificationError, Exception)
         assert issubclass(IntentClassificationValidationError, Exception)
         assert issubclass(IntentClassificationComputeError, Exception)
+        assert issubclass(SemanticAnalysisError, Exception)
 
-    def test_catch_base_catches_both_subclasses(self) -> None:
-        """Test that catching base exception catches both subclasses."""
+    def test_catch_base_catches_all_subclasses(self) -> None:
+        """Test that catching base exception catches all subclasses."""
         errors_caught = []
 
         try:
@@ -231,9 +329,15 @@ class TestExceptionHierarchy:
         except IntentClassificationError as e:
             errors_caught.append(e)
 
-        assert len(errors_caught) == 2
+        try:
+            raise SemanticAnalysisError("S")
+        except IntentClassificationError as e:
+            errors_caught.append(e)
+
+        assert len(errors_caught) == 3
         assert errors_caught[0].code == "INTENT_001"
         assert errors_caught[1].code == "INTENT_002"
+        assert errors_caught[2].code == "INTENT_003"
 
 
 # =============================================================================
@@ -256,13 +360,20 @@ class TestErrorCodeSemantics:
         error = IntentClassificationComputeError("Failed")
         assert error.code == "INTENT_002"
 
+    def test_intent_003_for_semantic_analysis(self) -> None:
+        """Test that INTENT_003 is reserved for semantic analysis errors."""
+        # According to contract, INTENT_003 = semantic analysis (non-blocking)
+        error = SemanticAnalysisError("Analysis failed")
+        assert error.code == "INTENT_003"
+
     def test_error_codes_are_unique(self) -> None:
         """Test that each error type has a unique code."""
         codes = {
             IntentClassificationValidationError("").code,
             IntentClassificationComputeError("").code,
+            SemanticAnalysisError("").code,
         }
-        assert len(codes) == 2
+        assert len(codes) == 3
 
     def test_error_codes_follow_pattern(self) -> None:
         """Test that error codes follow INTENT_NNN pattern."""
@@ -272,9 +383,17 @@ class TestErrorCodeSemantics:
 
         validation_code = IntentClassificationValidationError("").code
         compute_code = IntentClassificationComputeError("").code
+        semantic_code = SemanticAnalysisError("").code
 
         assert pattern.match(validation_code), f"Invalid code format: {validation_code}"
         assert pattern.match(compute_code), f"Invalid code format: {compute_code}"
+        assert pattern.match(semantic_code), f"Invalid code format: {semantic_code}"
+
+    def test_error_codes_are_sequential(self) -> None:
+        """Test that error codes are sequential (001, 002, 003)."""
+        assert IntentClassificationValidationError("").code == "INTENT_001"
+        assert IntentClassificationComputeError("").code == "INTENT_002"
+        assert SemanticAnalysisError("").code == "INTENT_003"
 
 
 # =============================================================================
@@ -334,3 +453,36 @@ class TestUsagePatterns:
         assert error1 is not error2
         # But same error code (class-level)
         assert error1.code == error2.code
+
+    def test_semantic_error_graceful_degradation(self) -> None:
+        """Test that semantic error supports graceful degradation pattern.
+
+        The SemanticAnalysisError is designed to be caught and converted to
+        an empty result rather than propagated. This tests that pattern.
+        """
+        result = None
+        error_message = None
+
+        try:
+            raise SemanticAnalysisError("Failed to analyze domains")
+        except SemanticAnalysisError as e:
+            # Graceful degradation: capture error, return empty result
+            error_message = e.message
+            result = {"domains": [], "concepts": [], "themes": []}
+
+        assert result is not None
+        assert result == {"domains": [], "concepts": [], "themes": []}
+        assert error_message == "Failed to analyze domains"
+
+    def test_all_error_types_can_be_chained(self) -> None:
+        """Test that all error types can be used in exception chaining."""
+        original = ValueError("Root cause")
+
+        errors = [
+            IntentClassificationValidationError(f"Validation: {original}"),
+            IntentClassificationComputeError(f"Compute: {original}"),
+            SemanticAnalysisError(f"Semantic: {original}"),
+        ]
+
+        for error in errors:
+            assert "Root cause" in error.message

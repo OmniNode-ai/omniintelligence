@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -179,10 +179,76 @@ _NORMALIZED_PATTERNS: dict[str, list[str]] = {
     for intent, keywords in INTENT_PATTERNS.items()
 }
 
-# Algorithm weights for scoring
-_EXACT_MATCH_WEIGHT: float = 15.0  # Weight for exact keyword matches
-_PARTIAL_MATCH_WEIGHT: float = 3.0  # Weight for partial/fuzzy matches
-_MIN_PATTERN_LENGTH_FOR_PARTIAL: int = 3  # Minimum pattern length for partial matching
+# =============================================================================
+# Configuration Defaults
+# =============================================================================
+# These values match the contract.yaml configuration section and can be
+# overridden via config injection. The module works standalone with these
+# defaults.
+#
+# See: contract.yaml -> configuration.classification
+# =============================================================================
+
+# Configuration dictionary with defaults from contract.yaml
+# Can be updated at runtime via configure_classification()
+_CLASSIFICATION_CONFIG: dict[str, float | int] = {
+    "exact_match_weight": 15.0,
+    "partial_match_weight": 3.0,
+    "min_pattern_length_for_partial": 3,
+    "default_confidence_threshold": 0.5,
+    "default_max_intents": 5,
+}
+
+# Module-level constants reference the config dict for easy access
+# These are Final to indicate they shouldn't be reassigned (use configure_classification instead)
+_EXACT_MATCH_WEIGHT: Final[float] = 15.0  # Default; actual value from _CLASSIFICATION_CONFIG
+_PARTIAL_MATCH_WEIGHT: Final[float] = 3.0  # Default; actual value from _CLASSIFICATION_CONFIG
+_MIN_PATTERN_LENGTH_FOR_PARTIAL: Final[int] = 3  # Default; actual value from _CLASSIFICATION_CONFIG
+
+
+def configure_classification(
+    exact_match_weight: float | None = None,
+    partial_match_weight: float | None = None,
+    min_pattern_length_for_partial: int | None = None,
+    default_confidence_threshold: float | None = None,
+    default_max_intents: int | None = None,
+) -> None:
+    """Configure classification algorithm parameters.
+
+    Updates the module-level configuration dictionary. This allows runtime
+    configuration without modifying module constants.
+
+    Args:
+        exact_match_weight: Weight for exact keyword matches (default: 15.0).
+        partial_match_weight: Weight for partial/fuzzy matches (default: 3.0).
+        min_pattern_length_for_partial: Min pattern length for partial matching (default: 3).
+        default_confidence_threshold: Default confidence threshold (default: 0.5).
+        default_max_intents: Default max intents for multi-label (default: 5).
+
+    Example:
+        >>> configure_classification(exact_match_weight=20.0, default_confidence_threshold=0.6)
+        >>> _CLASSIFICATION_CONFIG["exact_match_weight"]
+        20.0
+    """
+    if exact_match_weight is not None:
+        _CLASSIFICATION_CONFIG["exact_match_weight"] = exact_match_weight
+    if partial_match_weight is not None:
+        _CLASSIFICATION_CONFIG["partial_match_weight"] = partial_match_weight
+    if min_pattern_length_for_partial is not None:
+        _CLASSIFICATION_CONFIG["min_pattern_length_for_partial"] = min_pattern_length_for_partial
+    if default_confidence_threshold is not None:
+        _CLASSIFICATION_CONFIG["default_confidence_threshold"] = default_confidence_threshold
+    if default_max_intents is not None:
+        _CLASSIFICATION_CONFIG["default_max_intents"] = default_max_intents
+
+
+def get_classification_config() -> dict[str, float | int]:
+    """Get a copy of the current classification configuration.
+
+    Returns:
+        Dictionary with current configuration values.
+    """
+    return dict(_CLASSIFICATION_CONFIG)
 
 
 # =============================================================================
@@ -192,9 +258,9 @@ _MIN_PATTERN_LENGTH_FOR_PARTIAL: int = 3  # Minimum pattern length for partial m
 
 def classify_intent(
     content: str,
-    confidence_threshold: float = 0.5,
+    confidence_threshold: float | None = None,
     multi_label: bool = False,
-    max_intents: int = 5,
+    max_intents: int | None = None,
 ) -> ClassificationResultDict:
     """Classify user intent using TF-IDF scoring.
 
@@ -209,14 +275,20 @@ def classify_intent(
         4. Normalize scores to 0.0-1.0 range
         5. Return classification results based on confidence threshold
 
+    Configuration:
+        This function uses parameters from _CLASSIFICATION_CONFIG. Defaults
+        can be modified via configure_classification() or by updating the
+        config dict directly. See contract.yaml -> configuration.classification.
+
     Args:
         content: Text to classify. Must be non-empty for meaningful results.
         confidence_threshold: Minimum confidence to return (0.0-1.0).
             Results below this threshold return "unknown" intent.
+            Defaults to config value (0.5).
         multi_label: If True, return all intents above threshold as
             secondary_intents. If False, only return primary intent.
         max_intents: Maximum number of secondary intents to return when
-            multi_label is True.
+            multi_label is True. Defaults to config value (5).
 
     Returns:
         Dictionary with classification results:
@@ -239,6 +311,12 @@ def classify_intent(
         >>> len(result.get("secondary_intents", [])) >= 0
         True
     """
+    # Apply config defaults for None parameters
+    if confidence_threshold is None:
+        confidence_threshold = float(_CLASSIFICATION_CONFIG["default_confidence_threshold"])
+    if max_intents is None:
+        max_intents = int(_CLASSIFICATION_CONFIG["default_max_intents"])
+
     # Step 1: Tokenize and normalize
     tokens = _tokenize(content)
 
@@ -345,6 +423,12 @@ def _calculate_intent_score(
     Exact matches are weighted more heavily than partial matches
     to prioritize clear signals.
 
+    Configuration:
+        Uses parameters from _CLASSIFICATION_CONFIG:
+        - exact_match_weight: Weight for exact matches (default: 15.0)
+        - partial_match_weight: Weight for partial matches (default: 3.0)
+        - min_pattern_length_for_partial: Min length for partial matching (default: 3)
+
     Args:
         tf_scores: Term frequency scores for all tokens.
         patterns: Intent-specific keyword patterns (lowercase).
@@ -355,24 +439,29 @@ def _calculate_intent_score(
         weighted score and matched_keywords are the tokens that
         contributed to the score.
     """
+    # Read weights from config (allows runtime configuration)
+    exact_weight = float(_CLASSIFICATION_CONFIG["exact_match_weight"])
+    partial_weight = float(_CLASSIFICATION_CONFIG["partial_match_weight"])
+    min_pattern_length = int(_CLASSIFICATION_CONFIG["min_pattern_length_for_partial"])
+
     score = 0.0
     matched_keywords: list[str] = []
 
     # Direct pattern matches (heavily weighted by TF)
     for pattern in patterns:
         if pattern in tf_scores:
-            score += tf_scores[pattern] * _EXACT_MATCH_WEIGHT
+            score += tf_scores[pattern] * exact_weight
             matched_keywords.append(pattern)
 
     # Partial matches (fuzzy matching for word variations)
     for token in tokens:
         for pattern in patterns:
             # Only do partial matching for patterns of sufficient length
-            if len(pattern) > _MIN_PATTERN_LENGTH_FOR_PARTIAL:
+            if len(pattern) > min_pattern_length:
                 if pattern in token or token in pattern:
                     # Avoid double-counting exact matches
                     if token not in matched_keywords:
-                        score += tf_scores.get(token, 0.0) * _PARTIAL_MATCH_WEIGHT
+                        score += tf_scores.get(token, 0.0) * partial_weight
                         matched_keywords.append(token)
 
     return score, matched_keywords
@@ -479,6 +568,10 @@ def _build_multi_label_result(
 # =============================================================================
 
 __all__ = [
+    # Core API
     "INTENT_PATTERNS",
     "classify_intent",
+    # Configuration
+    "configure_classification",
+    "get_classification_config",
 ]

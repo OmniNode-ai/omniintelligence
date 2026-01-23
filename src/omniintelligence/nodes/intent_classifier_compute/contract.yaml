@@ -61,6 +61,99 @@ operations:
     output_fields:
       - intent_boosts
 # =============================================================================
+# Configuration Parameters
+# =============================================================================
+# These parameters control the behavior of the intent classification and
+# semantic analysis algorithms. Values can be overridden at runtime via
+# environment variables or config injection.
+#
+# Naming Convention:
+#   - Module constants use SCREAMING_SNAKE_CASE (e.g., EXACT_MATCH_WEIGHT)
+#   - Config keys use snake_case (e.g., exact_match_weight)
+# =============================================================================
+configuration:
+  # ---------------------------------------------------------------------------
+  # Intent Classification Parameters (handler_intent_classification.py)
+  # ---------------------------------------------------------------------------
+  classification:
+    # Weight applied to exact keyword matches in TF-IDF scoring.
+    # Higher values prioritize exact matches over partial matches.
+    exact_match_weight: 15.0
+
+    # Weight applied to partial/fuzzy keyword matches.
+    # Should be lower than exact_match_weight to prefer exact matches.
+    partial_match_weight: 3.0
+
+    # Minimum pattern length required for partial matching.
+    # Prevents false positives from very short patterns.
+    min_pattern_length_for_partial: 3
+
+    # Default confidence threshold for classification results.
+    # Results below this threshold return "unknown" intent.
+    default_confidence_threshold: 0.5
+
+    # Maximum number of secondary intents to return in multi-label mode.
+    default_max_intents: 5
+
+  # ---------------------------------------------------------------------------
+  # Semantic Analysis Parameters (handler_langextract.py)
+  # ---------------------------------------------------------------------------
+  semantic_analysis:
+    # Confidence boost amounts for different match types
+    boosts:
+      # Boost applied when a domain indicator matches an intent category.
+      domain_match_boost: 0.10
+
+      # Boost applied when a concept matches an intent category.
+      # Multiplied by concept confidence.
+      concept_match_boost: 0.05
+
+      # Multiplier for topic weights when calculating intent boosts.
+      topic_weight_multiplier: 0.15
+
+      # Maximum total boost that can be applied to any single intent.
+      # Prevents over-boosting from multiple matches.
+      max_boost_cap: 0.30
+
+      # Boost applied when context matches a domain.
+      context_boost: 0.15
+
+    # Default minimum confidence threshold for semantic results.
+    default_min_confidence: 0.3
+
+    # Scoring algorithm parameters for domain detection
+    scoring:
+      # Initial base score for domain matches.
+      # Formula: match_base = min(match_base_max, match_base_initial + (matches * match_base_initial))
+      match_base_initial: 0.15
+
+      # Maximum base score from keyword matches.
+      match_base_max: 0.6
+
+      # Maximum bonus from high match density.
+      density_bonus_max: 0.2
+
+      # Multiplier for match ratio when calculating density bonus.
+      density_multiplier: 0.3
+
+      # Maximum bonus from keyword diversity.
+      diversity_bonus_max: 0.2
+
+      # Multiplier for unique keyword count when calculating diversity bonus.
+      diversity_multiplier: 0.05
+
+      # Multiplier for concept confidence when extracting concepts.
+      concept_confidence_multiplier: 0.8
+
+    # Limits for result set sizes
+    limits:
+      # Maximum number of concepts to return.
+      max_concepts: 20
+
+      # Maximum number of domain indicators to return.
+      max_domain_indicators: 5
+
+# =============================================================================
 # TODO(#15): Protocol Integration - IntentClassifierProtocol
 # =============================================================================
 # Status: Backlog - Phase 3 (v0.4.0)
