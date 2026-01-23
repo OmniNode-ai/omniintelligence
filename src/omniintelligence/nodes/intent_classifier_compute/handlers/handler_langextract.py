@@ -39,7 +39,7 @@ import logging
 import re
 import time
 from collections import Counter
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -522,8 +522,9 @@ def analyze_semantics(
         ]
 
         # Extract domain indicators (top domains)
-        domain_indicators = [d["name"] for d in sorted(
-            domains, key=lambda x: x["confidence"], reverse=True
+        # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
+        domain_indicators: list[str] = [str(d["name"]) for d in sorted(
+            domains, key=lambda x: cast(float, x["confidence"]), reverse=True
         )[:5]]
 
         # Build concepts from detected keywords
@@ -533,7 +534,10 @@ def analyze_semantics(
         themes = _detect_themes(domain_indicators)
 
         # Calculate topic weights
-        topic_weights = {d["name"]: d["confidence"] for d in domains}
+        # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
+        topic_weights: dict[str, float] = {
+            str(d["name"]): cast(float, d["confidence"]) for d in domains
+        }
 
         processing_time_ms = (time.perf_counter() - start_time) * 1000
 
@@ -782,7 +786,8 @@ def _extract_concepts(
                 })
 
     # Sort by confidence
-    concepts.sort(key=lambda x: x["confidence"], reverse=True)
+    # Note: Explicit cast for mypy - dict values are Any but runtime types are correct
+    concepts.sort(key=lambda x: cast(float, x["confidence"]), reverse=True)
 
     # Limit to top concepts
     return concepts[:20]
@@ -812,7 +817,8 @@ def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:
             })
 
     # Sort by weight
-    themes.sort(key=lambda x: x["weight"], reverse=True)
+    # Note: Explicit cast for mypy - dict values are Any but runtime types are correct
+    themes.sort(key=lambda x: cast(float, x["weight"]), reverse=True)
     return themes
 
 
