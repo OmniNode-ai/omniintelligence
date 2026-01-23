@@ -19,13 +19,9 @@ from typing import Any
 import pytest
 
 from omniintelligence.nodes.intent_classifier_compute.handlers import (
-    LANGEXTRACT_SERVICE_URL,
-    LANGEXTRACT_TIMEOUT_SECONDS,
     SemanticResult,
     analyze_semantics,
-    create_empty_langextract_result,
     create_empty_semantic_result,
-    enrich_with_semantics,
     map_semantic_to_intent_boost,
 )
 
@@ -59,12 +55,6 @@ class TestCreateEmptySemanticResult:
         assert result["error"] == error_msg
         assert result["concepts"] == []
         assert result["themes"] == []
-
-    def test_backwards_compatibility_alias(self) -> None:
-        """Test that create_empty_langextract_result is an alias."""
-        result = create_empty_langextract_result()
-        assert result["concepts"] == []
-        assert result["error"] is None
 
     def test_result_structure_completeness(self) -> None:
         """Test that all expected keys are present."""
@@ -220,34 +210,6 @@ class TestAnalyzeSemantics:
 
 
 # =============================================================================
-# enrich_with_semantics Tests (Async Wrapper)
-# =============================================================================
-
-
-class TestEnrichWithSemantics:
-    """Tests for enrich_with_semantics async wrapper."""
-
-    @pytest.mark.asyncio
-    async def test_async_wrapper_returns_same_as_sync(self) -> None:
-        """Test that async wrapper returns same result as sync function."""
-        content = "Create a REST API"
-
-        sync_result = analyze_semantics(content)
-        async_result = await enrich_with_semantics(content)
-
-        # Results should have same structure
-        assert sync_result["domain_indicators"] == async_result["domain_indicators"]
-        assert len(sync_result["concepts"]) == len(async_result["concepts"])
-
-    @pytest.mark.asyncio
-    async def test_async_empty_content(self) -> None:
-        """Test async wrapper with empty content."""
-        result = await enrich_with_semantics("")
-        assert result["concepts"] == []
-        assert result["error"] is None
-
-
-# =============================================================================
 # map_semantic_to_intent_boost Tests
 # =============================================================================
 
@@ -371,33 +333,6 @@ class TestDomainCoverage:
             f"Expected {expected_domain} in domains for '{content}', "
             f"got {result['domain_indicators']}"
         )
-
-
-# =============================================================================
-# Backwards Compatibility Tests
-# =============================================================================
-
-
-class TestBackwardsCompatibility:
-    """Tests for backwards compatibility with old API."""
-
-    def test_langextract_service_url_is_embedded(self) -> None:
-        """Test that service URL indicates embedded/pure handler."""
-        assert "embedded" in LANGEXTRACT_SERVICE_URL.lower()
-
-    def test_langextract_timeout_is_zero(self) -> None:
-        """Test that timeout is zero (no HTTP calls)."""
-        assert LANGEXTRACT_TIMEOUT_SECONDS == 0.0
-
-    def test_langextract_result_alias_works(self) -> None:
-        """Test that LangextractResult type alias works."""
-        from omniintelligence.nodes.intent_classifier_compute.handlers import (
-            LangextractResult,
-        )
-
-        # Should be able to create a result using the alias
-        result: LangextractResult = create_empty_langextract_result()
-        assert result["concepts"] == []
 
 
 # =============================================================================

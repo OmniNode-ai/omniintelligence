@@ -1,7 +1,7 @@
 """Intent Classifier Compute Handlers.
 
 This module provides handler functions for intent classification operations,
-including TF-IDF based classification and semantic enrichment.
+including TF-IDF based classification and semantic analysis.
 
 Handler Pattern:
     Each handler is a PURE FUNCTION that:
@@ -28,15 +28,14 @@ Error Handling:
     Contract-defined exceptions with error codes for structured handling:
     - IntentClassificationValidationError (INTENT_001): Non-recoverable input errors
     - IntentClassificationComputeError (INTENT_002): Recoverable computation errors
+    - SemanticAnalysisError (INTENT_003): Non-blocking semantic errors
 
 Usage:
     from omniintelligence.nodes.intent_classifier_compute.handlers import (
         classify_intent,
         INTENT_PATTERNS,
-        enrich_with_semantics,
+        analyze_semantics,
         map_semantic_to_intent_boost,
-        LangextractResult,
-        create_empty_langextract_result,
         IntentClassificationValidationError,
         IntentClassificationComputeError,
     )
@@ -49,8 +48,8 @@ Usage:
     )
     print(f"Intent: {result['intent_category']} ({result['confidence']:.2f})")
 
-    # Optional semantic enrichment
-    semantic_result = await enrich_with_semantics(
+    # Optional semantic analysis
+    semantic_result = analyze_semantics(
         content="Create a REST API endpoint",
         context="api_development",
     )
@@ -89,14 +88,9 @@ from omniintelligence.nodes.intent_classifier_compute.handlers.handler_intent_cl
     classify_intent,
 )
 from omniintelligence.nodes.intent_classifier_compute.handlers.handler_langextract import (
-    LANGEXTRACT_SERVICE_URL,
-    LANGEXTRACT_TIMEOUT_SECONDS,
-    LangextractResult,
     SemanticResult,
     analyze_semantics,
-    create_empty_langextract_result,
     create_empty_semantic_result,
-    enrich_with_semantics,
     map_semantic_to_intent_boost,
 )
 
@@ -104,7 +98,7 @@ __all__ = [
     # Core classification
     "INTENT_PATTERNS",
     "classify_intent",
-    # Semantic analysis (new API)
+    # Semantic analysis
     "SemanticResult",
     "analyze_semantics",
     "create_empty_semantic_result",
@@ -114,10 +108,4 @@ __all__ = [
     "IntentClassificationError",  # Base class
     "IntentClassificationValidationError",  # INTENT_001
     "SemanticAnalysisError",  # INTENT_003
-    # Backwards compatibility aliases
-    "LANGEXTRACT_SERVICE_URL",
-    "LANGEXTRACT_TIMEOUT_SECONDS",
-    "LangextractResult",
-    "create_empty_langextract_result",
-    "enrich_with_semantics",
 ]

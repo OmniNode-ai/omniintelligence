@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -198,13 +198,6 @@ _CLASSIFICATION_CONFIG: dict[str, float | int] = {
     "default_confidence_threshold": 0.5,
     "default_max_intents": 5,
 }
-
-# Module-level constants reference the config dict for easy access
-# These are Final to indicate they shouldn't be reassigned (use configure_classification instead)
-_EXACT_MATCH_WEIGHT: Final[float] = 15.0  # Default; actual value from _CLASSIFICATION_CONFIG
-_PARTIAL_MATCH_WEIGHT: Final[float] = 3.0  # Default; actual value from _CLASSIFICATION_CONFIG
-_MIN_PATTERN_LENGTH_FOR_PARTIAL: Final[int] = 3  # Default; actual value from _CLASSIFICATION_CONFIG
-
 
 def configure_classification(
     exact_match_weight: float | None = None,

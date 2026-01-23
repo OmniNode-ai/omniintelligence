@@ -38,7 +38,6 @@ from __future__ import annotations
 import logging
 import re
 import time
-import warnings
 from collections import Counter
 from typing import TYPE_CHECKING, Any, Final, cast
 
@@ -450,13 +449,6 @@ _SEMANTIC_CONFIG: dict[str, float | int] = {
     "max_domain_indicators": 5,
 }
 
-# Module-level constants for backwards compatibility
-# These are Final to indicate they shouldn't be reassigned
-DOMAIN_MATCH_BOOST: Final[float] = 0.10  # Default; actual value from _SEMANTIC_CONFIG
-CONCEPT_MATCH_BOOST: Final[float] = 0.05  # Default; actual value from _SEMANTIC_CONFIG
-TOPIC_WEIGHT_MULTIPLIER: Final[float] = 0.15  # Default; actual value from _SEMANTIC_CONFIG
-
-
 def configure_semantic_analysis(
     domain_match_boost: float | None = None,
     concept_match_boost: float | None = None,
@@ -573,10 +565,6 @@ def create_empty_semantic_result(error: str | None = None) -> SemanticResult:
         processing_time_ms=0.0,
         error=error,
     )
-
-
-# Alias for backwards compatibility
-create_empty_langextract_result = create_empty_semantic_result
 
 
 # =============================================================================
@@ -698,41 +686,6 @@ def analyze_semantics(
         error_msg = f"Semantic analysis error: {type(e).__name__}: {e}"
         logger.warning(error_msg, exc_info=True)
         return create_empty_semantic_result(error=error_msg)
-
-
-# Async wrapper for compatibility (DEPRECATED)
-async def enrich_with_semantics(
-    content: str,
-    context: str | None = None,
-    language: str = "en",  # Kept for API compatibility
-    min_confidence: float | None = None,
-) -> SemanticResult:
-    """Async wrapper for analyze_semantics (DEPRECATED).
-
-    .. deprecated::
-        Use :func:`analyze_semantics` directly instead. This async wrapper
-        exists only for backwards compatibility and will be removed.
-
-    The underlying analysis is synchronous (pure computation), so there is
-    no benefit to using this async wrapper.
-
-    Args:
-        content: Text content to analyze.
-        context: Optional context hint.
-        language: Language code (currently unused, kept for compatibility).
-        min_confidence: Minimum confidence threshold. Defaults to config value (0.3).
-
-    Returns:
-        SemanticResult from analyze_semantics.
-    """
-    warnings.warn(
-        "enrich_with_semantics is deprecated. Use analyze_semantics() directly "
-        "as the underlying operation is pure computation with no I/O. "
-        "This async wrapper will be removed in a future version.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return analyze_semantics(content, context, min_confidence)
 
 
 def map_semantic_to_intent_boost(
@@ -1011,18 +964,6 @@ def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:
     return themes
 
 
-# =============================================================================
-# Backwards Compatibility Aliases
-# =============================================================================
-
-# These constants are kept for backwards compatibility with existing code
-LANGEXTRACT_SERVICE_URL: Final[str] = "embedded://pure-handler"
-LANGEXTRACT_TIMEOUT_SECONDS: Final[float] = 0.0  # No timeout - pure computation
-
-# Type alias for backwards compatibility
-LangextractResult = SemanticResult
-
-
 __all__ = [
     # Core API
     "SemanticResult",
@@ -1032,10 +973,4 @@ __all__ = [
     # Configuration
     "configure_semantic_analysis",
     "get_semantic_config",
-    # Backwards compatibility
-    "LangextractResult",
-    "LANGEXTRACT_SERVICE_URL",
-    "LANGEXTRACT_TIMEOUT_SECONDS",
-    "create_empty_langextract_result",
-    "enrich_with_semantics",
 ]
