@@ -38,6 +38,7 @@ import contextlib
 import logging
 import os
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC
 from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
@@ -46,17 +47,15 @@ from uuid import UUID, uuid4
 if TYPE_CHECKING:
     from omniintelligence.enums import EnumIntelligenceOperationType
 
-try:
-    from confluent_kafka import Consumer, KafkaError, KafkaException
-
-    KAFKA_AVAILABLE = True
-except ImportError:
-    KAFKA_AVAILABLE = False
-    Consumer = None
-    KafkaError = None
-    KafkaException = None
-
 from pydantic import BaseModel, Field
+
+# ONEX base class and protocols
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omnibase_core.nodes import NodeEffect
+from omnibase_core.protocols.event_bus import (
+    ProtocolEventMessage,
+    ProtocolKafkaEventBusAdapter,
+)
 
 # Centralized configuration
 try:
@@ -806,21 +805,21 @@ def _extract_error_info(error: Exception | None) -> dict[str, str]:
     }
 
 
-class NodeIntelligenceAdapterEffect:
+class NodeIntelligenceAdapterEffect(NodeEffect):
     """
-    Intelligence Adapter Effect Node with Kafka Event Integration.
+    Intelligence Adapter Effect Node with Protocol-Based Event Integration.
 
     This ONEX Effect node integrates Archon's intelligence services with
-    event-driven architecture via Kafka. It subscribes to code analysis
-    request events, processes them via intelligence services, and publishes
-    completion/failure events.
+    event-driven architecture via the ProtocolKafkaEventBusAdapter protocol.
+    It subscribes to code analysis request events, processes them via
+    intelligence services, and publishes completion/failure events.
 
     **Core Capabilities**:
     - Code quality assessment with ONEX compliance scoring
     - Document quality analysis
     - Pattern extraction and matching
     - Architectural compliance validation
-    - Kafka event subscription and publishing
+    - Protocol-based event subscription and publishing
     - Distributed tracing with correlation IDs
 
     **Event Subscription**:
@@ -835,16 +834,25 @@ class NodeIntelligenceAdapterEffect:
     - DLQ routing: Unrecoverable errors sent to .dlq topic
 
     **Lifecycle Management**:
-    - initialize(): Start Kafka consumer and background loop
-    - shutdown(): Stop consumer, commit offsets, cleanup
+    - initialize(): Start event subscription and background loop
+    - shutdown(): Stop subscription, cleanup
     - Graceful error handling with exponential backoff
 
     **Usage**:
         >>> from uuid import uuid4
         >>> from omniintelligence.models import ModelIntelligenceInput
+        >>> from omnibase_core.models.container import ModelONEXContainer
+        >>>
+        >>> # Create container and event bus adapter
+        >>> container = ModelONEXContainer(...)
+        >>> event_bus = MyKafkaEventBusAdapter(...)  # implements ProtocolKafkaEventBusAdapter
         >>>
         >>> # Direct operation (non-event)
-        >>> node = NodeIntelligenceAdapterEffect(service_url="http://localhost:8053")
+        >>> node = NodeIntelligenceAdapterEffect(
+        ...     container=container,
+        ...     event_bus=event_bus,
+        ...     service_url="http://localhost:8053"
+        ... )
         >>> await node.initialize()
         >>>
         >>> input_data = ModelIntelligenceInput(
@@ -866,23 +874,23 @@ class NodeIntelligenceAdapterEffect:
         >>> await node.shutdown()
 
     **Error Handling**:
-    - Kafka consumer errors: Log and retry with backoff
+    - Event bus errors: Log and retry with backoff
     - Analysis errors: Publish CODE_ANALYSIS_FAILED event
     - Unrecoverable errors: Route to DLQ topic
     - Circuit breaker: Prevent cascading failures
 
     Attributes:
         service_url: Intelligence service base URL
-        event_publisher: Kafka event publisher
-        kafka_consumer: Kafka consumer instance
-        consumer_config: Kafka consumer configuration
+        event_bus: Protocol-based event bus adapter
+        consumer_config: Consumer configuration
         is_running: Consumer running status
         metrics: Operation metrics (events processed, errors, etc.)
     """
 
     def __init__(
         self,
-        container: Any,
+        container: ModelONEXContainer,
+        event_bus: ProtocolKafkaEventBusAdapter | None = None,
         service_url: str = "http://archon-intelligence:8053",
         bootstrap_servers: str = _DEFAULT_KAFKA_SERVERS,
         consumer_config: ModelKafkaConsumerConfig | None = None,
@@ -892,12 +900,13 @@ class NodeIntelligenceAdapterEffect:
 
         Args:
             container: ONEX container for dependency injection
+            event_bus: Protocol-based event bus adapter for Kafka operations
             service_url: Intelligence service base URL
-            bootstrap_servers: Kafka bootstrap servers
-            consumer_config: Optional Kafka consumer configuration
+            bootstrap_servers: Kafka bootstrap servers (for configuration)
+            consumer_config: Optional consumer configuration
         """
-        self.container = container
-        self.node_id = uuid4()
+        super().__init__(container)
+        self._event_bus = event_bus
         self.service_url = service_url
         self.bootstrap_servers = bootstrap_servers
         self.consumer_config = consumer_config or ModelKafkaConsumerConfig(
@@ -908,9 +917,9 @@ class NodeIntelligenceAdapterEffect:
         self._config: ModelIntelligenceConfig | None = None
         self._client: IntelligenceServiceClient | None = None
 
-        # Kafka infrastructure
+        # Event bus infrastructure
         self.event_publisher: EventPublisher | None = None
-        self.kafka_consumer: Consumer | None = None
+        self._unsubscribe: Callable[[], Awaitable[None]] | None = None
         self._event_consumption_task: asyncio.Task[None] | None = None
 
         # Lifecycle state
@@ -1006,23 +1015,23 @@ class NodeIntelligenceAdapterEffect:
                     f"Health check failed with unexpected error (continuing anyway): {health_error}"
                 )
 
-            # Step 5-7: Initialize Kafka infrastructure (if available)
-            if KAFKA_AVAILABLE:
+            # Step 5-7: Initialize event bus infrastructure (if event bus provided)
+            if self._event_bus is not None:
                 try:
-                    await self._initialize_kafka_infrastructure()
-                except (KafkaException, ConnectionError, TimeoutError) as kafka_error:
-                    # Kafka-specific or network errors during initialization are non-fatal
+                    await self._initialize_event_bus_infrastructure()
+                except (ConnectionError, TimeoutError) as bus_error:
+                    # Network errors during initialization are non-fatal
                     logger.warning(
-                        f"Kafka initialization failed (continuing without event bus): {kafka_error}"
+                        f"Event bus initialization failed (continuing without event bus): {bus_error}"
                     )
-                except RuntimeError as kafka_error:
-                    # RuntimeError from our own _initialize_kafka_infrastructure
+                except RuntimeError as bus_error:
+                    # RuntimeError from our own _initialize_event_bus_infrastructure
                     logger.warning(
-                        f"Kafka initialization failed (continuing without event bus): {kafka_error}"
+                        f"Event bus initialization failed (continuing without event bus): {bus_error}"
                     )
             else:
                 logger.warning(
-                    "Kafka not available, skipping event bus initialization. "
+                    "Event bus not provided, skipping event subscription. "
                     "Direct API calls only."
                 )
 
@@ -1031,7 +1040,7 @@ class NodeIntelligenceAdapterEffect:
                 f"node_id={self.node_id} | "
                 f"config_loaded=True | "
                 f"client_connected=True | "
-                f"kafka_available={KAFKA_AVAILABLE}"
+                f"event_bus_available={self._event_bus is not None}"
             )
 
         except (ConnectionError, TimeoutError, OSError) as e:
@@ -1067,44 +1076,45 @@ class NodeIntelligenceAdapterEffect:
                 message=f"Failed to initialize Intelligence Adapter: {e!s}",
             ) from e
 
-    async def _initialize_kafka_infrastructure(self) -> None:
+    async def _initialize_event_bus_infrastructure(self) -> None:
         """
-        Initialize Kafka consumer and event publisher.
+        Initialize event bus subscription using protocol.
 
         This is a separate method to allow initialization to succeed even
-        if Kafka is not available (for direct API usage).
+        if event bus is not available (for direct API usage).
 
         Raises:
-            RuntimeError: If Kafka initialization fails
+            RuntimeError: If event bus initialization fails
         """
         if self.is_running:
-            logger.warning("Consumer already running, skipping Kafka initialization")
+            logger.warning("Consumer already running, skipping event bus initialization")
+            return
+
+        if self._event_bus is None:
+            logger.warning("Event bus not configured, skipping subscription")
             return
 
         try:
-            # Step 1: Create Kafka consumer
-            consumer_conf = {
-                "bootstrap.servers": self.consumer_config.bootstrap_servers,
-                "group.id": self.consumer_config.group_id,
-                "auto.offset.reset": self.consumer_config.auto_offset_reset,
-                "enable.auto.commit": self.consumer_config.enable_auto_commit,
-                "max.poll.interval.ms": self.consumer_config.max_poll_interval_ms,
-                "session.timeout.ms": self.consumer_config.session_timeout_ms,
-                "client.id": f"intelligence-adapter-{uuid4().hex[:8]}",
-            }
+            # Subscribe to topics using protocol
+            # Subscribe to the first topic (protocol handles single topic subscription)
+            topic = self.consumer_config.topics[0] if self.consumer_config.topics else ""
+            if not topic:
+                logger.warning("No topics configured, skipping subscription")
+                return
 
-            self.kafka_consumer = Consumer(consumer_conf)
-
-            # Step 2: Subscribe to topics
-            self.kafka_consumer.subscribe(self.consumer_config.topics)
+            self._unsubscribe = await self._event_bus.subscribe(
+                topic=topic,
+                group_id=self.consumer_config.group_id,
+                on_message=self._handle_event_message,
+            )
 
             logger.info(
-                f"Kafka consumer subscribed | "
-                f"topics={self.consumer_config.topics} | "
+                f"Event bus subscribed | "
+                f"topic={topic} | "
                 f"group_id={self.consumer_config.group_id}"
             )
 
-            # Step 3: Initialize event publisher
+            # Initialize stub event publisher (for logging/testing)
             self.event_publisher = EventPublisher(
                 bootstrap_servers=self.bootstrap_servers,
                 service_name="archon-intelligence",
@@ -1115,44 +1125,267 @@ class NodeIntelligenceAdapterEffect:
 
             logger.info("Event publisher initialized")
 
-            # Step 4: Start background consumption loop
-            self._event_consumption_task = asyncio.create_task(
-                self._consume_events_loop()
-            )
-
             self.is_running = True
 
-            logger.info("Kafka infrastructure initialized and consumption started")
+            logger.info("Event bus infrastructure initialized and subscription started")
 
-        except KafkaException as e:
-            # Kafka-specific errors (broker connection, subscription, etc.)
-            logger.error(
-                f"Failed to initialize Kafka infrastructure (Kafka error): {e}", exc_info=True
-            )
-            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}") from e
         except (ConnectionError, TimeoutError) as e:
-            # Network-related errors during Kafka initialization
+            # Network-related errors during event bus initialization
             logger.error(
-                f"Failed to initialize Kafka infrastructure (network error): {e}", exc_info=True
+                f"Failed to initialize event bus infrastructure (network error): {e}", exc_info=True
             )
-            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}") from e
+            raise RuntimeError(f"Event bus infrastructure initialization failed: {e}") from e
         except Exception as e:
-            # Intentionally broad: catch unexpected errors during Kafka setup
+            # Intentionally broad: catch unexpected errors during setup
             # and convert to RuntimeError for consistent handling
             logger.error(
-                f"Failed to initialize Kafka infrastructure (unexpected): {e}", exc_info=True
+                f"Failed to initialize event bus infrastructure (unexpected): {e}", exc_info=True
             )
-            raise RuntimeError(f"Kafka infrastructure initialization failed: {e}") from e
+            raise RuntimeError(f"Event bus infrastructure initialization failed: {e}") from e
+
+    async def _handle_event_message(self, message: ProtocolEventMessage) -> None:
+        """
+        Handle incoming event message from protocol subscription.
+
+        This method is called by the event bus when a message is received.
+        It processes the message and acknowledges it upon success.
+
+        Args:
+            message: Protocol event message from subscription
+        """
+        self.metrics["events_consumed"] += 1
+
+        try:
+            await self._process_event_message(message)
+            self.metrics["events_processed"] += 1
+
+            # Acknowledge successful processing
+            await message.ack()
+
+        except ValueError as e:
+            # Deserialization or validation errors
+            self.metrics["events_failed"] += 1
+            logger.error(
+                f"Failed to process event (validation error) | error={e} | "
+                f"topic={message.topic}",
+                exc_info=True,
+            )
+            await self._route_protocol_message_to_dlq(message, e)
+            await message.nack()
+
+        except Exception as e:
+            # Intentionally broad: any processing error should route to DLQ
+            self.metrics["events_failed"] += 1
+            logger.error(
+                f"Failed to process event | error={e} | "
+                f"topic={message.topic}",
+                exc_info=True,
+            )
+            await self._route_protocol_message_to_dlq(message, e)
+            await message.nack()
+
+    async def _process_event_message(self, message: ProtocolEventMessage) -> None:
+        """
+        Process an event message from the protocol subscription.
+
+        Args:
+            message: Protocol event message
+
+        Raises:
+            ValueError: If message deserialization fails
+        """
+        import json
+
+        start_time = time.perf_counter()
+
+        # Step 1: Deserialize message
+        try:
+            message_value = message.value.decode("utf-8")
+            event_dict = json.loads(message_value)
+        except UnicodeDecodeError as e:
+            logger.error(f"Failed to decode message bytes: {e}")
+            raise ValueError(f"Message decoding failed (invalid UTF-8): {e}") from e
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse message JSON: {e}")
+            raise ValueError(f"Message parsing failed (invalid JSON): {e}") from e
+
+        # Step 2: Extract event metadata
+        event_type = event_dict.get("event_type", "")
+        correlation_id_str = event_dict.get("correlation_id")
+        event_id_str = event_dict.get("event_id")
+
+        if not correlation_id_str:
+            raise ValueError("Missing correlation_id in event envelope")
+
+        correlation_id = UUID(correlation_id_str)
+        causation_id = UUID(event_id_str) if event_id_str else None
+
+        logger.info(
+            f"Processing event | event_type={event_type} | "
+            f"correlation_id={correlation_id} | "
+            f"topic={message.topic}"
+        )
+
+        # Step 3: Deserialize payload using event helper
+        try:
+            event_type_enum, payload = (
+                IntelligenceAdapterEventHelpers.extract_typed_payload(event_dict)
+            )
+        except KeyError as e:
+            logger.error(f"Missing field in event payload: {e}")
+            raise ValueError(f"Payload deserialization failed (missing field): {e}") from e
+        except (TypeError, ValueError) as e:
+            logger.error(f"Invalid event payload: {e}")
+            raise ValueError(f"Payload deserialization failed (validation error): {e}") from e
+
+        # Step 4: Route based on event type
+        if event_type_enum == EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value:
+            await self._handle_code_analysis_requested(
+                payload=payload,
+                correlation_id=correlation_id,
+                causation_id=causation_id,
+                start_time=start_time,
+            )
+        else:
+            logger.warning(f"Unknown event type: {event_type_enum}, skipping")
+
+    async def _route_protocol_message_to_dlq(
+        self, message: ProtocolEventMessage, error: Exception | None
+    ) -> None:
+        """
+        Route failed protocol message to Dead Letter Queue.
+
+        Args:
+            message: Original protocol message that failed processing
+            error: Exception explaining why processing failed
+        """
+        import json
+        import traceback
+        from datetime import datetime
+
+        original_topic = message.topic
+        dlq_topic = f"{original_topic}.dlq"
+
+        error_info = _extract_error_info(error)
+
+        if self._event_bus is None:
+            logger.warning(
+                f"Event bus not configured, cannot route to DLQ | "
+                f"topic={original_topic} | error={error}"
+            )
+            self.metrics["dlq_routed"] += 1
+            return
+
+        try:
+            # Decode original message content
+            try:
+                original_content = message.value.decode("utf-8")
+                try:
+                    original_payload = json.loads(original_content)
+                except json.JSONDecodeError:
+                    original_payload = {"raw_content": original_content}
+            except UnicodeDecodeError as decode_error:
+                original_payload = {
+                    "raw_bytes": message.value.hex() if message.value else None,
+                    "decode_error": str(decode_error),
+                }
+
+            # Build DLQ payload
+            dlq_payload = {
+                "original_message": original_payload,
+                "error": {
+                    "error_type": error_info["error_type"],
+                    "error_message": error_info["error_message"],
+                    "error_module": error_info["error_module"],
+                    "traceback": traceback.format_exc(),
+                },
+                "original_metadata": {
+                    "topic": original_topic,
+                    "key": message.key.decode("utf-8") if message.key else None,
+                    "headers": message.headers,
+                },
+                "processing_context": {
+                    "node_id": str(self.node_id),
+                    "consumer_group": self.consumer_config.group_id,
+                    "routed_at": datetime.now(UTC).isoformat(),
+                    "service_url": self.service_url,
+                },
+            }
+
+            # Extract correlation_id from original message if available
+            correlation_id = uuid4()
+            if isinstance(original_payload, dict):
+                correlation_id_str = original_payload.get("correlation_id")
+                if correlation_id_str:
+                    with contextlib.suppress(ValueError, TypeError):
+                        correlation_id = UUID(correlation_id_str)
+
+            # Publish to DLQ using protocol
+            await self._publish_event_via_protocol(
+                topic=dlq_topic,
+                key=message.key,
+                value=json.dumps(dlq_payload).encode("utf-8"),
+                headers={"event_type": "CODE_ANALYSIS_DLQ"},
+            )
+
+            self.metrics["dlq_routed"] += 1
+
+            logger.warning(
+                f"Routed message to DLQ | "
+                f"dlq_topic={dlq_topic} | "
+                f"original_topic={original_topic} | "
+                f"correlation_id={correlation_id} | "
+                f"error={error}"
+            )
+
+        except Exception as e:
+            self.metrics["dlq_routed"] += 1
+            logger.error(
+                f"Failed to route message to DLQ | "
+                f"dlq_topic={dlq_topic} | "
+                f"original_topic={original_topic} | "
+                f"routing_error={e}",
+                exc_info=True,
+            )
+
+    async def _publish_event_via_protocol(
+        self,
+        topic: str,
+        key: bytes | None,
+        value: bytes,
+        headers: dict[str, str],
+    ) -> None:
+        """
+        Publish event using protocol-based event bus.
+
+        Args:
+            topic: Target topic
+            key: Message key
+            value: Message value
+            headers: Message headers
+        """
+        if self._event_bus is None:
+            logger.warning(f"Event bus not configured, cannot publish to {topic}")
+            return
+
+        # Create a simple headers object that satisfies the protocol
+        # The actual implementation will depend on the concrete event bus adapter
+        await self._event_bus.publish(
+            topic=topic,
+            key=key,
+            value=value,
+            headers=cast(Any, headers),  # Cast to satisfy protocol
+        )
 
     async def shutdown(self) -> None:
         """
-        Shutdown Kafka consumer and event publisher.
+        Shutdown event subscription and publisher.
 
         This method:
         1. Signals shutdown to background loop
         2. Waits for in-flight events to complete
-        3. Commits final offsets
-        4. Closes Kafka consumer
+        3. Unsubscribes from event bus
+        4. Closes event bus connection
         5. Closes event publisher
         6. Cleans up node resources
 
@@ -1178,18 +1411,22 @@ class NodeIntelligenceAdapterEffect:
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._event_consumption_task
 
-        # Step 3: Commit offsets and close consumer
-        if self.kafka_consumer:
+        # Step 3: Unsubscribe and close event bus
+        if self._unsubscribe:
             try:
-                self.kafka_consumer.commit()
-                self.kafka_consumer.close()
-                logger.info("Kafka consumer closed, offsets committed")
-            except KafkaException as e:
-                # Kafka-specific errors during cleanup
-                logger.warning(f"Kafka error closing consumer: {e}")
+                await self._unsubscribe()
+                logger.info("Event bus unsubscribed")
             except Exception as e:
                 # Intentionally broad: cleanup must never raise, any error is logged only
-                logger.warning(f"Error closing Kafka consumer: {e}")
+                logger.warning(f"Error unsubscribing from event bus: {e}")
+
+        if self._event_bus:
+            try:
+                await self._event_bus.close()
+                logger.info("Event bus connection closed")
+            except Exception as e:
+                # Intentionally broad: cleanup must never raise, any error is logged only
+                logger.warning(f"Error closing event bus: {e}")
 
         # Step 4: Close event publisher
         if self.event_publisher:
@@ -1244,198 +1481,10 @@ class NodeIntelligenceAdapterEffect:
             finally:
                 self._client = None
 
-    async def _consume_events_loop(self) -> None:
-        """
-        Background event consumption loop.
-
-        This method:
-        1. Polls Kafka for new messages in batches
-        2. Routes messages to appropriate handlers
-        3. Commits offsets after successful processing
-        4. Handles errors with retry and DLQ routing
-        5. Runs until shutdown signal
-
-        Error Handling:
-        - Kafka errors: Log and continue
-        - Processing errors: Publish failed event, route to DLQ
-        - Unrecoverable errors: Log and skip message
-        """
-        logger.info("Starting event consumption loop...")
-
-        while not self._shutdown_event.is_set():
-            try:
-                # Guard: Kafka consumer must be initialized
-                if self.kafka_consumer is None:
-                    logger.error("Kafka consumer not initialized, stopping loop")
-                    break
-
-                # Poll for messages (1 second timeout)
-                msg = self.kafka_consumer.poll(timeout=1.0)
-
-                if msg is None:
-                    # No message, continue polling
-                    continue
-
-                if msg.error():
-                    # Kafka error
-                    if msg.error().code() == KafkaError._PARTITION_EOF:
-                        # End of partition, continue
-                        continue
-                    else:
-                        logger.error(f"Kafka consumer error: {msg.error()}")
-                        continue
-
-                # Step 1: Message received
-                self.metrics["events_consumed"] += 1
-
-                # Step 2: Deserialize and route message
-                try:
-                    await self._route_event_to_operation(msg)
-                    self.metrics["events_processed"] += 1
-
-                    # Step 3: Commit offset after successful processing
-                    if not self.consumer_config.enable_auto_commit:
-                        self.kafka_consumer.commit(asynchronous=True)
-
-                except ValueError as e:
-                    # Deserialization or validation errors
-                    self.metrics["events_failed"] += 1
-                    logger.error(
-                        f"Failed to process event (validation error) | error={e} | "
-                        f"topic={msg.topic()} | partition={msg.partition()} | "
-                        f"offset={msg.offset()}",
-                        exc_info=True,
-                    )
-                    # Pass exception directly for proper error type extraction
-                    await self._route_to_dlq(msg, e)
-
-                except Exception as e:
-                    # Intentionally broad: any processing error should route to DLQ
-                    # rather than crash the consumer loop
-                    self.metrics["events_failed"] += 1
-                    logger.error(
-                        f"Failed to process event | error={e} | "
-                        f"topic={msg.topic()} | partition={msg.partition()} | "
-                        f"offset={msg.offset()}",
-                        exc_info=True,
-                    )
-
-                    # Route to DLQ for manual inspection - pass exception for type extraction
-                    await self._route_to_dlq(msg, e)
-
-            except KafkaException as ke:
-                logger.error(
-                    f"Kafka exception in consumption loop: {ke}", exc_info=True
-                )
-                # Continue after Kafka errors
-                await asyncio.sleep(1.0)
-
-            except asyncio.CancelledError:
-                # Task cancellation - must re-raise to stop the loop cleanly
-                logger.info("Event consumption loop cancelled")
-                raise
-
-            except (ConnectionError, TimeoutError) as e:
-                # Network-related errors in the consumption loop
-                logger.error(
-                    f"Network error in consumption loop: {e}", exc_info=True
-                )
-                await asyncio.sleep(1.0)
-
-            except Exception as e:
-                # Intentionally broad: event loop must never crash, any unexpected
-                # error is logged and the loop continues
-                logger.error(
-                    f"Unexpected error in consumption loop: {e}", exc_info=True
-                )
-                # Continue after unexpected errors
-                await asyncio.sleep(1.0)
-
-        logger.info("Event consumption loop stopped")
-
-    async def _route_event_to_operation(self, message: Any) -> None:
-        """
-        Route Kafka message to appropriate operation handler.
-
-        This method:
-        1. Deserializes Kafka message value (JSON)
-        2. Extracts event envelope and payload
-        3. Determines event type
-        4. Routes to analyze_code() for CODE_ANALYSIS_REQUESTED
-        5. Publishes completion/failure events
-
-        Args:
-            message: Kafka message from consumer
-
-        Raises:
-            Exception: If message processing fails (caller handles DLQ routing)
-        """
-        import json
-
-        start_time = time.perf_counter()
-
-        # Step 1: Deserialize message
-        try:
-            message_value = message.value().decode("utf-8")
-            event_dict = json.loads(message_value)
-        except UnicodeDecodeError as e:
-            logger.error(f"Failed to decode message bytes: {e}")
-            raise ValueError(f"Message decoding failed (invalid UTF-8): {e}") from e
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse message JSON: {e}")
-            raise ValueError(f"Message parsing failed (invalid JSON): {e}") from e
-        except (AttributeError, TypeError) as e:
-            # message.value() returned None or unexpected type
-            logger.error(f"Invalid message format: {e}")
-            raise ValueError(f"Message deserialization failed (invalid format): {e}") from e
-
-        # Step 2: Extract event metadata
-        event_type = event_dict.get("event_type", "")
-        correlation_id_str = event_dict.get("correlation_id")
-        event_id_str = event_dict.get("event_id")
-
-        if not correlation_id_str:
-            raise ValueError("Missing correlation_id in event envelope")
-
-        correlation_id = UUID(correlation_id_str)
-        causation_id = UUID(event_id_str) if event_id_str else None
-
-        logger.info(
-            f"Processing event | event_type={event_type} | "
-            f"correlation_id={correlation_id} | "
-            f"topic={message.topic()}"
-        )
-
-        # Step 3: Deserialize payload using event helper
-        try:
-            event_type_enum, payload = (
-                IntelligenceAdapterEventHelpers.extract_typed_payload(event_dict)
-            )
-        except KeyError as e:
-            # Missing required fields in event payload
-            logger.error(f"Missing field in event payload: {e}")
-            raise ValueError(f"Payload deserialization failed (missing field): {e}") from e
-        except (TypeError, ValueError) as e:
-            # Type conversion or validation errors
-            logger.error(f"Invalid event payload: {e}")
-            raise ValueError(f"Payload deserialization failed (validation error): {e}") from e
-        except Exception as e:
-            # Intentionally broad: catch any deserialization error from external helper
-            # and convert to ValueError for consistent handling
-            logger.error(f"Failed to deserialize event payload: {e}")
-            raise ValueError(f"Payload deserialization failed: {e}") from e
-
-        # Step 4: Route based on event type
-        if event_type_enum == EnumCodeAnalysisEventType.CODE_ANALYSIS_REQUESTED.value:
-            # payload is already typed as ModelCodeAnalysisRequestPayload
-            await self._handle_code_analysis_requested(
-                payload=payload,
-                correlation_id=correlation_id,
-                causation_id=causation_id,
-                start_time=start_time,
-            )
-        else:
-            logger.warning(f"Unknown event type: {event_type_enum}, skipping")
+    # NOTE: The old _consume_events_loop and _route_event_to_operation methods have been
+    # replaced by protocol-based event handling via _handle_event_message and
+    # _process_event_message. The protocol's subscribe() method handles the consumption
+    # loop internally and calls _handle_event_message for each message.
 
     async def _handle_code_analysis_requested(
         self,
@@ -1641,8 +1690,8 @@ class NodeIntelligenceAdapterEffect:
                 f"processing_time={processing_time_ms:.2f}ms"
             )
 
-        except (KafkaException, ConnectionError, TimeoutError) as e:
-            # Kafka or network errors during event publishing
+        except (ConnectionError, TimeoutError) as e:
+            # Network errors during event publishing
             logger.error(
                 f"Failed to publish CODE_ANALYSIS_COMPLETED (publish error) | "
                 f"correlation_id={correlation_id} | error={e}",
@@ -1735,8 +1784,8 @@ class NodeIntelligenceAdapterEffect:
                 f"processing_time={processing_time_ms:.2f}ms"
             )
 
-        except (KafkaException, ConnectionError, TimeoutError) as e:
-            # Kafka or network errors during event publishing
+        except (ConnectionError, TimeoutError) as e:
+            # Network errors during event publishing
             logger.error(
                 f"Failed to publish CODE_ANALYSIS_FAILED (publish error) | "
                 f"correlation_id={correlation_id} | error={e}",
@@ -1751,164 +1800,8 @@ class NodeIntelligenceAdapterEffect:
                 exc_info=True,
             )
 
-    async def _route_to_dlq(self, message: Any, error: Exception | None) -> None:
-        """
-        Route failed message to Dead Letter Queue.
-
-        This method publishes failed messages to a DLQ topic for manual inspection
-        and potential reprocessing. The DLQ topic is the original topic with a `.dlq`
-        suffix (e.g., `dev.archon-intelligence.intelligence.code-analysis-requested.v1.dlq`).
-
-        The DLQ payload includes:
-        - Original message content (decoded if possible)
-        - Error details and stack trace
-        - Original message metadata (topic, partition, offset, timestamp)
-        - Processing context (node_id, consumer_group, attempt time)
-
-        Args:
-            message: Original Kafka message that failed processing
-            error: Exception explaining why processing failed (may be None)
-
-        Note:
-            If event_publisher is not initialized, the method logs a warning
-            and only updates metrics. This allows graceful degradation when
-            Kafka infrastructure is unavailable.
-        """
-        import json
-        import traceback
-        from datetime import datetime
-
-        original_topic = message.topic()
-        dlq_topic = f"{original_topic}.dlq"
-
-        # Use centralized helper for consistent error extraction across all DLQ routing
-        error_info = _extract_error_info(error)
-
-        # Check if event_publisher is available before doing extraction work
-        if self.event_publisher is None:
-            logger.warning(
-                f"Event publisher not initialized, cannot route to DLQ | "
-                f"topic={original_topic} | partition={message.partition()} | "
-                f"offset={message.offset()} | error={error}"
-            )
-            self.metrics["dlq_routed"] += 1
-            return
-
-        try:
-            # Decode original message content
-            try:
-                original_content = message.value().decode("utf-8")
-                try:
-                    # Try to parse as JSON for structured storage
-                    original_payload = json.loads(original_content)
-                except json.JSONDecodeError:
-                    original_payload = {"raw_content": original_content}
-            except UnicodeDecodeError as decode_error:
-                # Message content is not valid UTF-8, store as hex
-                original_payload = {
-                    "raw_bytes": message.value().hex() if message.value() else None,
-                    "decode_error": str(decode_error),
-                }
-            except (AttributeError, TypeError) as decode_error:
-                # message.value() returned None or unexpected type
-                original_payload = {
-                    "raw_bytes": None,
-                    "decode_error": str(decode_error),
-                }
-
-            # Extract message timestamp if available
-            message_timestamp = None
-            if hasattr(message, "timestamp") and message.timestamp():
-                _ts_type, ts_value = message.timestamp()
-                if ts_value:
-                    message_timestamp = datetime.fromtimestamp(
-                        ts_value / 1000, tz=UTC
-                    ).isoformat()
-
-            # Build DLQ payload with full context
-            # Error details use centralized _extract_error_info for consistency
-            dlq_payload = {
-                "original_message": original_payload,
-                "error": {
-                    "error_type": error_info["error_type"],
-                    "error_message": error_info["error_message"],
-                    "error_module": error_info["error_module"],
-                    "traceback": traceback.format_exc(),
-                },
-                "original_metadata": {
-                    "topic": original_topic,
-                    "partition": message.partition(),
-                    "offset": message.offset(),
-                    "timestamp": message_timestamp,
-                    "key": message.key().decode("utf-8") if message.key() else None,
-                },
-                "processing_context": {
-                    "node_id": str(self.node_id),
-                    "consumer_group": self.consumer_config.group_id,
-                    "routed_at": datetime.now(UTC).isoformat(),
-                    "service_url": self.service_url,
-                },
-            }
-
-            # Publish to DLQ topic
-            # Extract correlation_id from original message if available
-            correlation_id = None
-            if isinstance(original_payload, dict):
-                correlation_id_str = original_payload.get("correlation_id")
-                if correlation_id_str:
-                    try:
-                        correlation_id = UUID(correlation_id_str)
-                    except (ValueError, TypeError):
-                        correlation_id = uuid4()
-                else:
-                    correlation_id = uuid4()
-            else:
-                correlation_id = uuid4()
-
-            await self.event_publisher.publish(
-                event_type="CODE_ANALYSIS_DLQ",
-                payload=dlq_payload,
-                correlation_id=correlation_id,
-                topic=dlq_topic,
-            )
-
-            self.metrics["dlq_routed"] += 1
-
-            logger.warning(
-                f"Routed message to DLQ | "
-                f"dlq_topic={dlq_topic} | "
-                f"original_topic={original_topic} | "
-                f"partition={message.partition()} | "
-                f"offset={message.offset()} | "
-                f"correlation_id={correlation_id} | "
-                f"error={error}"
-            )
-
-        except (KafkaException, ConnectionError, TimeoutError) as e:
-            # Kafka or network errors during DLQ routing
-            self.metrics["dlq_routed"] += 1  # Still count the attempt
-            logger.error(
-                f"Failed to route message to DLQ (network/Kafka error) | "
-                f"dlq_topic={dlq_topic} | "
-                f"original_topic={original_topic} | "
-                f"partition={message.partition()} | "
-                f"offset={message.offset()} | "
-                f"routing_error={e}",
-                exc_info=True,
-            )
-        except Exception as e:
-            # Intentionally broad: DLQ routing must never raise and must never
-            # block the main processing loop. Any error is logged but swallowed.
-            self.metrics["dlq_routed"] += 1  # Still count the attempt
-            logger.error(
-                f"Failed to route message to DLQ | "
-                f"dlq_topic={dlq_topic} | "
-                f"original_topic={original_topic} | "
-                f"partition={message.partition()} | "
-                f"offset={message.offset()} | "
-                f"routing_error={e}",
-                exc_info=True,
-            )
+    # NOTE: The old _route_to_dlq method for raw Kafka messages has been replaced by
+    # _route_protocol_message_to_dlq which handles ProtocolEventMessage objects.
 
     # =========================================================================
     # ONEX Effect Pattern Methods
