@@ -1,14 +1,16 @@
-"""Event payload models for intelligence adapter events.
+"""Event payload models for code analysis Kafka events.
 
-This module contains Pydantic models for Kafka event payloads used by
-the intelligence adapter node:
+This module contains Pydantic models for Kafka event payloads used in
+the OmniIntelligence code analysis event bus:
 
 - ModelCodeAnalysisRequestPayload: Incoming analysis request events
 - ModelCodeAnalysisCompletedPayload: Successful analysis result events
 - ModelCodeAnalysisFailedPayload: Failed analysis error events
 
-These models are referenced by the contract.yaml consumed_events and
-published_events sections.
+These models define the contracts for the following Kafka topics:
+- dev.archon-intelligence.intelligence.code-analysis-requested.v1
+- dev.archon-intelligence.intelligence.code-analysis-completed.v1
+- dev.archon-intelligence.intelligence.code-analysis-failed.v1
 
 Migration Note:
     These models were extracted from the monolithic

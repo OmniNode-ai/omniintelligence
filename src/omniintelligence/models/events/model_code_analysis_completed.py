@@ -1,7 +1,7 @@
 """Code analysis completed event payload model.
 
 This module defines the Pydantic model for CODE_ANALYSIS_COMPLETED events
-published by the intelligence adapter after successful analysis.
+published to the code analysis completed Kafka topic after successful analysis.
 
 ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}

@@ -1,7 +1,7 @@
 """Code analysis failed event payload model.
 
 This module defines the Pydantic model for CODE_ANALYSIS_FAILED events
-published by the intelligence adapter when analysis fails.
+published to the code analysis failed Kafka topic when analysis fails.
 
 ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}

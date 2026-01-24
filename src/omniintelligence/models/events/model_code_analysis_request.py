@@ -1,7 +1,7 @@
 """Code analysis request event payload model.
 
 This module defines the Pydantic model for CODE_ANALYSIS_REQUESTED events
-consumed by the intelligence adapter.
+published to the code analysis request Kafka topic.
 
 ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}
