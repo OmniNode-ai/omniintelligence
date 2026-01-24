@@ -69,7 +69,6 @@ class NodeClaudeHookEventEffect(NodeEffect):
     Dependency Injection:
         Adapters and compute nodes are injected via setter methods:
         - set_intent_classifier(): Intent classifier compute node
-        - set_intent_graph_adapter(): AdapterIntentGraph for Memgraph
         - set_kafka_producer(): Kafka producer for event emission
 
     Example:
@@ -85,7 +84,6 @@ class NodeClaudeHookEventEffect(NodeEffect):
 
         # Wire dependencies
         effect.set_intent_classifier(intent_classifier)
-        effect.set_intent_graph_adapter(adapter_intent_graph)
         effect.set_kafka_producer(kafka_producer)
 
         # Process a hook event
