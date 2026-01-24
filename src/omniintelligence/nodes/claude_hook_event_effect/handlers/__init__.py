@@ -6,12 +6,16 @@ This module exports handlers for processing Claude Code hook events.
 """
 
 from omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event import (
+    ProtocolIntentClassifier,
+    ProtocolKafkaPublisher,
     handle_no_op,
     handle_user_prompt_submit,
     route_hook_event,
 )
 
 __all__ = [
+    "ProtocolIntentClassifier",
+    "ProtocolKafkaPublisher",
     "handle_no_op",
     "handle_user_prompt_submit",
     "route_hook_event",

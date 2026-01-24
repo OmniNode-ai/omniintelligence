@@ -35,11 +35,15 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
-from omniintelligence.nodes.claude_hook_event_effect.handlers import route_hook_event
+from omniintelligence.nodes.claude_hook_event_effect.handlers import (
+    ProtocolIntentClassifier,
+    ProtocolKafkaPublisher,
+    route_hook_event,
+)
 from omniintelligence.nodes.claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeHookResult,
@@ -100,23 +104,24 @@ class NodeClaudeHookEventEffect(NodeEffect):
         super().__init__(container)
 
         # Injected dependencies (optional - node works without them)
-        self._intent_classifier: Any | None = None
-        self._kafka_producer: Any | None = None
+        self._intent_classifier: ProtocolIntentClassifier | None = None
+        self._kafka_producer: ProtocolKafkaPublisher | None = None
         self._topic_env_prefix: str = "dev"
 
-    def set_intent_classifier(self, classifier: Any) -> None:
+    def set_intent_classifier(self, classifier: ProtocolIntentClassifier) -> None:
         """Set the intent classifier compute node.
 
         Args:
-            classifier: Intent classifier compute node instance.
+            classifier: Intent classifier compute node instance implementing
+                ProtocolIntentClassifier.
         """
         self._intent_classifier = classifier
 
-    def set_kafka_producer(self, producer: Any) -> None:
+    def set_kafka_producer(self, producer: ProtocolKafkaPublisher) -> None:
         """Set the Kafka producer for event emission.
 
         Args:
-            producer: Kafka producer instance.
+            producer: Kafka producer instance implementing ProtocolKafkaPublisher.
         """
         self._kafka_producer = producer
 
@@ -134,12 +139,12 @@ class NodeClaudeHookEventEffect(NodeEffect):
         return self._topic_env_prefix
 
     @property
-    def intent_classifier(self) -> Any | None:
+    def intent_classifier(self) -> ProtocolIntentClassifier | None:
         """Get the intent classifier if configured."""
         return self._intent_classifier
 
     @property
-    def kafka_producer(self) -> Any | None:
+    def kafka_producer(self) -> ProtocolKafkaPublisher | None:
         """Get the Kafka producer if configured."""
         return self._kafka_producer
 

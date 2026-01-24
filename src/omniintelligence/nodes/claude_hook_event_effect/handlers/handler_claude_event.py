@@ -27,6 +27,7 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
     ModelClaudeCodeHookEvent,
+    ModelClaudeCodeHookEventPayload,
     ModelClaudeHookResult,
     ModelIntentResult,
 )
@@ -201,6 +202,63 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     )
 
 
+def _extract_prompt_from_payload(
+    payload: ModelClaudeCodeHookEventPayload,
+) -> tuple[str, str]:
+    """Extract the user prompt from a hook event payload.
+
+    This helper encapsulates the prompt extraction logic and documents the
+    payload contract dependency. The prompt field location depends on how
+    ModelClaudeCodeHookEventPayload is configured in omnibase_core.
+
+    Payload Contract (omnibase_core.models.hooks.claude_code):
+    ----------------------------------------------------------
+    ModelClaudeCodeHookEventPayload uses Pydantic's extra="allow" configuration,
+    which means fields not explicitly defined in the model (like "prompt") are
+    stored in the model_extra dict. This is intentional to support extensible
+    payloads without schema changes.
+
+    Expected payload structure for UserPromptSubmit:
+        {
+            "prompt": "user's input text",
+            ... other optional fields ...
+        }
+
+    Extraction Strategy:
+    1. First, try direct attribute access (future-proofing if prompt becomes
+       a declared field)
+    2. Fall back to model_extra dict access (current behavior)
+    3. Return empty string if neither source has the prompt
+
+    Args:
+        payload: The hook event payload to extract from.
+
+    Returns:
+        A tuple of (prompt, extraction_source) where:
+        - prompt: The extracted prompt string, or empty string if not found
+        - extraction_source: One of "direct_attribute", "model_extra", or
+          "not_found" indicating how the prompt was obtained
+    """
+    # Strategy 1: Try direct attribute access (future-proof for schema changes)
+    # If ModelClaudeCodeHookEventPayload ever adds "prompt" as a declared field,
+    # this will automatically use it without code changes.
+    # Note: Access model_fields on the class (not instance) per Pydantic V2.11+
+    payload_class = type(payload)
+    if hasattr(payload_class, "model_fields") and "prompt" in payload_class.model_fields:
+        direct_value = getattr(payload, "prompt", None)
+        if direct_value is not None and direct_value != "":
+            return str(direct_value), "direct_attribute"
+
+    # Strategy 2: Extract from model_extra (current behavior with extra="allow")
+    if payload.model_extra:
+        prompt_value = payload.model_extra.get("prompt")
+        if prompt_value is not None and prompt_value != "":
+            return str(prompt_value), "model_extra"
+
+    # Strategy 3: Not found in any source
+    return "", "not_found"
+
+
 async def handle_user_prompt_submit(
     event: ModelClaudeCodeHookEvent,
     *,
@@ -230,10 +288,11 @@ async def handle_user_prompt_submit(
     """
     metadata: dict[str, Any] = {"handler": "user_prompt_submit"}
 
-    # Extract prompt from payload
-    # Core model uses ModelClaudeCodeHookEventPayload with extra="allow"
-    # Extra fields (like "prompt") are stored in model_extra
-    prompt = event.payload.model_extra.get("prompt", "") if event.payload.model_extra else ""
+    # Extract prompt from payload using robust helper
+    # See _extract_prompt_from_payload docstring for payload contract details
+    prompt, extraction_source = _extract_prompt_from_payload(event.payload)
+    metadata["prompt_extraction_source"] = extraction_source
+
     if not prompt:
         return ModelClaudeHookResult(
             status=EnumHookProcessingStatus.FAILED,

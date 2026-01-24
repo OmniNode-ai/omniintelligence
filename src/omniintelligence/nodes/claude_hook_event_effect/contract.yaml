@@ -50,21 +50,33 @@ output_model:
 # UserPromptSubmit routing to intent classification. Other event types return
 # success (no-op) and are ready for future handler implementations.
 #
+# Implementation Note:
+#   Handlers are implemented as async/sync functions, not classes.
+#   The main entry point is `route_hook_event()` which dispatches to:
+#     - `handle_user_prompt_submit()` for UserPromptSubmit events
+#     - `handle_no_op()` for all other event types
+#
 # Execution Flow:
 #   1. Receive ModelClaudeCodeHookEvent with event_type
-#   2. Route to handler based on event_type
+#   2. Route to handler function based on event_type
 #   3. For UserPromptSubmit: classify intent, emit to Kafka
 #   4. For other types: return success (no-op)
 #   5. Return ModelClaudeHookResult with processing outcome
 # =============================================================================
 handler_routing:
   routing_strategy: "event_type_match"
+  entry_point:
+    function: "route_hook_event"
+    module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+    type: "async"
+    description: "Main entry point that routes events to appropriate handler functions"
   handlers:
     # UserPromptSubmit - Intent Classification
     - event_type: "UserPromptSubmit"
       handler:
-        name: "HandlerUserPromptSubmit"
+        function: "handle_user_prompt_submit"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "async"
       description: "Classify user prompt intent"
       actions:
         - "call intent_classifier_compute"
@@ -73,49 +85,56 @@ handler_routing:
     # SessionStart - No-op (future: session tracking)
     - event_type: "SessionStart"
       handler:
-        name: "HandlerNoOp"
+        function: "handle_no_op"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
       description: "Session start event (no-op, future: session tracking)"
 
     # SessionEnd - No-op (future: session summary)
     - event_type: "SessionEnd"
       handler:
-        name: "HandlerNoOp"
+        function: "handle_no_op"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
       description: "Session end event (no-op, future: session summary)"
 
     # PreToolUse - No-op (future: tool validation)
     - event_type: "PreToolUse"
       handler:
-        name: "HandlerNoOp"
+        function: "handle_no_op"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
       description: "Pre-tool-use event (no-op, future: tool validation)"
 
     # PostToolUse - No-op (future: result capture)
     - event_type: "PostToolUse"
       handler:
-        name: "HandlerNoOp"
+        function: "handle_no_op"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
       description: "Post-tool-use event (no-op, future: result capture)"
 
     # Stop - No-op (future: completion tracking)
     - event_type: "Stop"
       handler:
-        name: "HandlerNoOp"
+        function: "handle_no_op"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
       description: "Stop event (no-op, future: completion tracking)"
 
     # Notification - No-op (future: async notification handling)
     - event_type: "Notification"
       handler:
-        name: "HandlerNoOp"
+        function: "handle_no_op"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
       description: "Notification event (no-op, future: async handling)"
 
   # Default handler for unrecognized event types
   default_handler:
-    name: "HandlerNoOp"
+    function: "handle_no_op"
     module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+    type: "sync"
     description: "Default no-op handler for unrecognized event types"
 
 # =============================================================================
