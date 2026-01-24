@@ -53,13 +53,6 @@ files:
       - "env-access"
       - "file-io"
 
-  # Effect nodes - these legitimately need I/O for their purpose
-  - path: "src/omniintelligence/nodes/intelligence_adapter/node_intelligence_adapter_effect.py"
-    reason: "Effect node consuming Kafka events and routing to intelligence operations"
-    allowed_rules:
-      - "net-client"
-      - "env-access"
-
   # Node entry points (__main__.py) - these are CLI runners, not pure nodes
   # They legitimately read env vars (LOG_LEVEL, HEALTH_PORT) to configure
   # the node before instantiation. This is standard entrypoint behavior.

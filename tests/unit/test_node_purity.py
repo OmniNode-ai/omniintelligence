@@ -898,28 +898,6 @@ class TestRealNodeFiles:
         assert result.node_class_name == "NodeIntelligenceReducer"
         assert result.base_class == "NodeReducer"
 
-    def test_intelligence_adapter_is_impure(self, nodes_directory: Path) -> None:
-        """intelligence_adapter/node_intelligence_adapter_effect.py should fail purity check."""
-        node_path = (
-            nodes_directory
-            / "intelligence_adapter"
-            / "node_intelligence_adapter_effect.py"
-        )
-        if not node_path.exists():
-            pytest.skip(f"Node file not found: {node_path}")
-
-        result = check_node_purity(node_path)
-        assert not result.is_stub, "intelligence_adapter should not be a stub"
-        assert (
-            not result.is_pure
-        ), "intelligence_adapter should fail purity check (has business logic)"
-        # Should have violations for methods, os.environ, etc.
-        assert len(result.violations) > 0
-        # Print violations for debugging
-        print(f"\nintelligence_adapter violations ({len(result.violations)}):")
-        for v in result.violations[:10]:  # Show first 10
-            print(f"  {v}")
-
     def test_stub_nodes_are_detected_and_skipped(self, nodes_directory: Path) -> None:
         """Stub nodes should be detected and skipped from purity checks."""
         # Known stub nodes
@@ -940,19 +918,11 @@ class TestRealNodeFiles:
                 result.is_pure
             ), f"Stub node {node_name} should pass purity check (skipped)"
 
-    @pytest.mark.xfail(
-        reason="intelligence_adapter is a known impure node pending refactoring (OMN-1140)",
-        strict=True,  # Fail if this unexpectedly passes (all nodes become pure)
-    )
     def test_all_non_stub_nodes_are_pure(self, nodes_directory: Path) -> None:
         """All non-stub nodes should pass purity checks.
 
         This is the main enforcement test - if this fails, a node has
         business logic that should be moved elsewhere.
-
-        Note: Currently marked as xfail because intelligence_adapter is a
-        known impure node that needs refactoring. Remove the xfail marker
-        once intelligence_adapter is refactored to be a pure shell.
         """
         results = check_all_nodes(nodes_directory)
 
