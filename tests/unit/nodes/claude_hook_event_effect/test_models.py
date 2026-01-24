@@ -21,6 +21,8 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
     ModelIntentResult,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestEnumClaudeCodeHookEventType:
     """Tests for EnumClaudeCodeHookEventType enum (from omnibase_core)."""

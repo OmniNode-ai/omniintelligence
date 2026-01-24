@@ -450,7 +450,7 @@ async def _emit_intent_to_kafka(
 
     # Build event payload
     event_payload = {
-        "event_type": "INTENT_CLASSIFIED",
+        "event_type": "IntentClassified",
         "session_id": session_id,
         "correlation_id": str(correlation_id),
         "intent_category": intent_category,

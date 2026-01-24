@@ -167,8 +167,6 @@ published_events:
   - topic: "{env}.omniintelligence.intent.classified.v1"
     event_type: "IntentClassified"
     trigger: "UserPromptSubmit processed successfully"
-    payload_model: "ModelIntentClassifiedPayload"
-    payload_module: "omniintelligence.events.models.intent_classification_events"
     description: "Emitted when a user prompt intent is successfully classified"
 
 # =============================================================================

@@ -24,6 +24,8 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
     ModelClaudeCodeHookEventPayload,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def sample_user_prompt_event() -> ModelClaudeCodeHookEvent:
