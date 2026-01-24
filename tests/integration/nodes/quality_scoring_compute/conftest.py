@@ -5,8 +5,10 @@ This module provides pytest fixtures for testing the NodeQualityScoringCompute
 node against real Python files from the codebase. Fixtures include:
 
 - Path constants for project structure navigation
+- Quality threshold constants for test assertions
 - Real Python file collection from the codebase
 - Node instantiation fixtures
+- Code sample fixtures for quality level testing
 
 Usage:
     @pytest.mark.integration
@@ -22,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -38,6 +41,25 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 # Nodes source directory for collecting real Python files
 NODES_DIR = PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
+
+
+# =============================================================================
+# Quality Threshold Constants
+# =============================================================================
+
+# Thresholds for production code quality assertions
+PRODUCTION_CODE_MIN_SCORE: Final[float] = 0.6
+DOCUMENTATION_MIN_SCORE: Final[float] = 0.5
+
+# Thresholds for different quality levels
+HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6
+LOW_QUALITY_MAX_SCORE: Final[float] = 0.7
+MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4
+MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85
+
+# Performance thresholds (in milliseconds)
+PROCESSING_TIME_NORMAL_MS: Final[float] = 500.0
+PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
 
 
 # =============================================================================
@@ -108,3 +130,142 @@ def quality_scoring_node(onex_container: ModelONEXContainer) -> NodeQualityScori
         Configured NodeQualityScoringCompute instance
     """
     return NodeQualityScoringCompute(container=onex_container)
+
+
+# =============================================================================
+# Code Sample Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def high_quality_onex_code() -> str:
+    """ONEX-compliant code sample with proper patterns.
+
+    Returns:
+        High quality Python code demonstrating ONEX best practices.
+    """
+    return '''"""ONEX-compliant model with proper patterns.
+
+This module demonstrates best practices for ONEX node development.
+"""
+
+from __future__ import annotations
+
+from typing import ClassVar, Final
+
+from pydantic import BaseModel, Field, field_validator
+
+
+__all__ = ["UserModel", "create_user"]
+
+
+class UserModel(BaseModel):
+    """User model following ONEX patterns.
+
+    Attributes:
+        name: The user's display name.
+        email: The user's email address.
+        age: The user's age in years.
+    """
+
+    name: str = Field(..., min_length=1, description="User display name")
+    email: str = Field(..., description="User email address")
+    age: int = Field(..., ge=0, le=150, description="User age in years")
+
+    model_config: ClassVar[dict[str, bool | str]] = {
+        "frozen": True,
+        "extra": "forbid",
+    }
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        """Validate email format."""
+        if "@" not in v:
+            raise ValueError("Invalid email format")
+        return v.lower()
+
+
+def create_user(name: str, email: str, age: int) -> UserModel:
+    """Create a new user instance.
+
+    Args:
+        name: The user's display name.
+        email: The user's email address.
+        age: The user's age in years.
+
+    Returns:
+        A validated UserModel instance.
+    """
+    return UserModel(name=name, email=email, age=age)
+'''
+
+
+@pytest.fixture
+def low_quality_code() -> str:
+    """Code sample with anti-patterns and poor quality.
+
+    Returns:
+        Low quality Python code with issues for testing.
+    """
+    return '''# TODO: Fix this later
+# FIXME: Performance issues
+# XXX: Deprecated approach
+
+def BADFUNCTION(x, y, z, a, b, c, d, e, f, g, **kwargs):
+    result = {}
+    data = []
+    if x:
+        if y:
+            if z:
+                if a:
+                    if b:
+                        if c:
+                            result["value"] = x + y + z
+    for i in range(100):
+        for j in range(100):
+            for k in range(100):
+                data.append(i + j + k)
+    return result
+
+
+class badclass:
+    def method1(self): pass
+    def method2(self): pass
+    def method3(self): pass
+    def method4(self): pass
+    def method5(self): pass
+    model_config = {}
+'''
+
+
+@pytest.fixture
+def moderate_quality_code() -> str:
+    """Code sample with moderate quality.
+
+    Returns:
+        Average quality Python code for testing middle-range scores.
+    """
+    return '''"""A module with moderate code quality."""
+
+from typing import Optional
+
+
+class DataProcessor:
+    """Process data with basic functionality."""
+
+    def __init__(self, data: list) -> None:
+        self.data = data
+
+    def process(self) -> list:
+        """Process the data and return results."""
+        result = []
+        for item in self.data:
+            if item is not None:
+                result.append(item * 2)
+        return result
+
+    def filter_data(self, threshold: int) -> list:
+        """Filter data above threshold."""
+        return [x for x in self.data if x and x > threshold]
+'''

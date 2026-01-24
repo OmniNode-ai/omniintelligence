@@ -13,11 +13,7 @@ produce expected results for different code quality levels.
 
 from __future__ import annotations
 
-from typing import Final
-
 import pytest
-
-from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 from omniintelligence.nodes.quality_scoring_compute.handlers import (
     OnexStrictnessLevel,
@@ -31,147 +27,19 @@ from omniintelligence.nodes.quality_scoring_compute.node import (
     NodeQualityScoringCompute,
 )
 
+# Import centralized constants from conftest
+from .conftest import (
+    HIGH_QUALITY_MIN_SCORE,
+    LOW_QUALITY_MAX_SCORE,
+    MODERATE_QUALITY_MAX_SCORE,
+    MODERATE_QUALITY_MIN_SCORE,
+    PROCESSING_TIME_LARGE_MS,
+    PROCESSING_TIME_NORMAL_MS,
+)
 
-# =============================================================================
-# Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def onex_container() -> ModelONEXContainer:
-    """Create a fresh ONEX container for each test."""
-    return ModelONEXContainer()
-
-
-# =============================================================================
-# Constants
-# =============================================================================
-
-# Quality score thresholds for test assertions
-HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6
-LOW_QUALITY_MAX_SCORE: Final[float] = 0.7
-MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4
-MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85
-PROCESSING_TIME_NORMAL_MS: Final[float] = 500.0
-PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
-
-
-# =============================================================================
-# Sample Code Fixtures
-# =============================================================================
-
-
-HIGH_QUALITY_ONEX_CODE = '''"""ONEX-compliant model with proper patterns.
-
-This module demonstrates best practices for ONEX node development.
-"""
-
-from __future__ import annotations
-
-from typing import ClassVar, Final
-
-from pydantic import BaseModel, Field, field_validator
-
-
-__all__ = ["UserModel", "create_user"]
-
-
-class UserModel(BaseModel):
-    """User model following ONEX patterns.
-
-    Attributes:
-        name: The user's display name.
-        email: The user's email address.
-        age: The user's age in years.
-    """
-
-    name: str = Field(..., min_length=1, description="User display name")
-    email: str = Field(..., description="User email address")
-    age: int = Field(..., ge=0, le=150, description="User age in years")
-
-    model_config: ClassVar[dict[str, bool | str]] = {
-        "frozen": True,
-        "extra": "forbid",
-    }
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        """Validate email format."""
-        if "@" not in v:
-            raise ValueError("Invalid email format")
-        return v.lower()
-
-
-def create_user(name: str, email: str, age: int) -> UserModel:
-    """Create a new user instance.
-
-    Args:
-        name: The user's display name.
-        email: The user's email address.
-        age: The user's age in years.
-
-    Returns:
-        A validated UserModel instance.
-    """
-    return UserModel(name=name, email=email, age=age)
-'''
-
-
-LOW_QUALITY_CODE = '''# TODO: Fix this later
-# FIXME: Performance issues
-# XXX: Deprecated approach
-
-def BADFUNCTION(x, y, z, a, b, c, d, e, f, g, **kwargs):
-    result = {}
-    data = []
-    if x:
-        if y:
-            if z:
-                if a:
-                    if b:
-                        if c:
-                            result["value"] = x + y + z
-    for i in range(100):
-        for j in range(100):
-            for k in range(100):
-                data.append(i + j + k)
-    return result
-
-
-class badclass:
-    def method1(self): pass
-    def method2(self): pass
-    def method3(self): pass
-    def method4(self): pass
-    def method5(self): pass
-    model_config = {}
-'''
-
-
-MODERATE_QUALITY_CODE = '''"""A module with moderate code quality."""
-
-from typing import Optional
-
-
-class DataProcessor:
-    """Process data with basic functionality."""
-
-    def __init__(self, data: list) -> None:
-        self.data = data
-
-    def process(self) -> list:
-        """Process the data and return results."""
-        result = []
-        for item in self.data:
-            if item is not None:
-                result.append(item * 2)
-        return result
-
-    def filter_data(self, threshold: int) -> list:
-        """Filter data above threshold."""
-        return [x for x in self.data if x and x > threshold]
-'''
+# Note: onex_container and quality_scoring_node fixtures are provided by conftest.py
+# Note: high_quality_onex_code, low_quality_code, moderate_quality_code fixtures
+#       are provided by conftest.py
 
 
 # =============================================================================
@@ -184,9 +52,9 @@ class TestNodeComputeMethod:
     """Integration tests for NodeQualityScoringCompute.compute() method."""
 
     @pytest.fixture
-    def node(self, onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
-        """Create a fresh node instance for each test."""
-        return NodeQualityScoringCompute(container=onex_container)
+    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
+        """Alias for quality_scoring_node fixture from conftest."""
+        return quality_scoring_node
 
     async def test_compute_returns_valid_output_model(
         self, node: NodeQualityScoringCompute
@@ -219,12 +87,12 @@ class TestNodeComputeMethod:
         assert isinstance(output.recommendations, list)
 
     async def test_compute_pipeline_input_to_output(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test full pipeline: ModelQualityScoringInput -> compute() -> ModelQualityScoringOutput."""
         input_data = ModelQualityScoringInput(
             source_path="src/models/user.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
             project_name="test_project",
         )
@@ -261,12 +129,12 @@ class TestNodeComputeMethod:
         assert output.metadata.processing_time_ms >= 0.0
 
     async def test_compute_with_high_quality_code(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test compute() scores ONEX-compliant code highly."""
         input_data = ModelQualityScoringInput(
             source_path="src/models/user.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
         )
 
@@ -291,12 +159,12 @@ class TestNodeComputeMethod:
         assert len(output.recommendations) <= 3
 
     async def test_compute_with_low_quality_code(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, low_quality_code: str
     ) -> None:
         """Test compute() gives low scores to code with anti-patterns."""
         input_data = ModelQualityScoringInput(
             source_path="legacy/bad_code.py",
-            content=LOW_QUALITY_CODE,
+            content=low_quality_code,
             language="python",
         )
 
@@ -323,12 +191,12 @@ class TestNodeComputeMethod:
         assert len(output.recommendations) >= 1
 
     async def test_compute_with_moderate_quality_code(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, moderate_quality_code: str
     ) -> None:
         """Test compute() returns moderate scores for average code."""
         input_data = ModelQualityScoringInput(
             source_path="src/processor.py",
-            content=MODERATE_QUALITY_CODE,
+            content=moderate_quality_code,
             language="python",
         )
 
@@ -342,7 +210,7 @@ class TestNodeComputeMethod:
         )
 
     async def test_compute_with_custom_weights(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test compute() respects custom dimension weights."""
         # Custom weights emphasizing documentation
@@ -357,7 +225,7 @@ class TestNodeComputeMethod:
 
         input_data = ModelQualityScoringInput(
             source_path="test.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
             dimension_weights=custom_weights,
         )
@@ -369,12 +237,12 @@ class TestNodeComputeMethod:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_compute_with_min_quality_threshold(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, low_quality_code: str
     ) -> None:
         """Test compute() respects min_quality_threshold setting."""
         input_data = ModelQualityScoringInput(
             source_path="test.py",
-            content=LOW_QUALITY_CODE,
+            content=low_quality_code,
             language="python",
             min_quality_threshold=0.9,  # Very high threshold
         )
@@ -394,17 +262,17 @@ class TestPresetIntegration:
     """Integration tests for preset behavior through the node."""
 
     @pytest.fixture
-    def node(self, onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
-        """Create a fresh node instance for each test."""
-        return NodeQualityScoringCompute(container=onex_container)
+    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
+        """Alias for quality_scoring_node fixture from conftest."""
+        return quality_scoring_node
 
     async def test_strict_preset_through_compute(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test STRICT preset via compute() method."""
         input_data = ModelQualityScoringInput(
             source_path="production/service.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
             onex_preset=OnexStrictnessLevel.STRICT,
         )
@@ -417,12 +285,12 @@ class TestPresetIntegration:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_standard_preset_through_compute(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, moderate_quality_code: str
     ) -> None:
         """Test STANDARD preset via compute() method."""
         input_data = ModelQualityScoringInput(
             source_path="src/module.py",
-            content=MODERATE_QUALITY_CODE,
+            content=moderate_quality_code,
             language="python",
             onex_preset=OnexStrictnessLevel.STANDARD,
         )
@@ -434,12 +302,12 @@ class TestPresetIntegration:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_lenient_preset_through_compute(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, low_quality_code: str
     ) -> None:
         """Test LENIENT preset via compute() method."""
         input_data = ModelQualityScoringInput(
             source_path="prototype/experiment.py",
-            content=LOW_QUALITY_CODE,
+            content=low_quality_code,
             language="python",
             onex_preset=OnexStrictnessLevel.LENIENT,
         )
@@ -451,7 +319,7 @@ class TestPresetIntegration:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_preset_overrides_custom_weights(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that preset takes precedence over dimension_weights."""
         # Custom weights that would produce different results
@@ -467,7 +335,7 @@ class TestPresetIntegration:
         # First run without preset
         input_without_preset = ModelQualityScoringInput(
             source_path="test.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
             dimension_weights=custom_weights,
         )
@@ -476,7 +344,7 @@ class TestPresetIntegration:
         # Second run with preset (should override weights)
         input_with_preset = ModelQualityScoringInput(
             source_path="test.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
             dimension_weights=custom_weights,
             onex_preset=OnexStrictnessLevel.STANDARD,
@@ -495,19 +363,19 @@ class TestPresetIntegration:
         assert 0.0 <= output_with_preset.quality_score <= 1.0
 
     async def test_preset_determines_onex_compliance_threshold(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, moderate_quality_code: str
     ) -> None:
         """Test that preset correctly sets ONEX compliance threshold."""
         # Use code that scores around 0.6-0.75 range
         input_strict = ModelQualityScoringInput(
             source_path="test.py",
-            content=MODERATE_QUALITY_CODE,
+            content=moderate_quality_code,
             language="python",
             onex_preset=OnexStrictnessLevel.STRICT,  # threshold 0.8
         )
         input_lenient = ModelQualityScoringInput(
             source_path="test.py",
-            content=MODERATE_QUALITY_CODE,
+            content=moderate_quality_code,
             language="python",
             onex_preset=OnexStrictnessLevel.LENIENT,  # threshold 0.5
         )
@@ -530,9 +398,9 @@ class TestErrorPropagation:
     """Tests for error handling through the compute() method."""
 
     @pytest.fixture
-    def node(self, onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
-        """Create a fresh node instance for each test."""
-        return NodeQualityScoringCompute(container=onex_container)
+    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
+        """Alias for quality_scoring_node fixture from conftest."""
+        return quality_scoring_node
 
     async def test_empty_content_error_propagates(
         self, node: NodeQualityScoringCompute
@@ -624,12 +492,12 @@ class TestErrorPropagation:
         assert has_unsupported_rec
 
     async def test_processing_time_captured(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that processing time is captured in metadata."""
         input_data = ModelQualityScoringInput(
             source_path="test.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
         )
 
@@ -647,17 +515,17 @@ class TestNodeDeterminism:
     """Tests verifying the node produces deterministic results."""
 
     @pytest.fixture
-    def node(self, onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
-        """Create a fresh node instance for each test."""
-        return NodeQualityScoringCompute(container=onex_container)
+    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
+        """Alias for quality_scoring_node fixture from conftest."""
+        return quality_scoring_node
 
     async def test_compute_is_deterministic(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that compute() produces same output for same input."""
         input_data = ModelQualityScoringInput(
             source_path="test.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
         )
 
@@ -679,15 +547,17 @@ class TestNodeDeterminism:
         assert output1.metadata.analysis_version == output2.metadata.analysis_version
 
     async def test_multiple_node_instances_produce_same_results(
-        self, onex_container: ModelONEXContainer
+        self, onex_container: "ModelONEXContainer", moderate_quality_code: str
     ) -> None:
         """Test that different node instances produce identical results."""
+        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+
         node1 = NodeQualityScoringCompute(container=onex_container)
         node2 = NodeQualityScoringCompute(container=ModelONEXContainer())
 
         input_data = ModelQualityScoringInput(
             source_path="test.py",
-            content=MODERATE_QUALITY_CODE,
+            content=moderate_quality_code,
             language="python",
         )
 
@@ -704,17 +574,17 @@ class TestNodePerformance:
     """Performance tests for the compute node."""
 
     @pytest.fixture
-    def node(self, onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
-        """Create a fresh node instance for each test."""
-        return NodeQualityScoringCompute(container=onex_container)
+    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
+        """Alias for quality_scoring_node fixture from conftest."""
+        return quality_scoring_node
 
     async def test_compute_completes_in_bounded_time(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that compute completes quickly for reasonable input."""
         input_data = ModelQualityScoringInput(
             source_path="test.py",
-            content=HIGH_QUALITY_ONEX_CODE,
+            content=high_quality_onex_code,
             language="python",
         )
 
@@ -726,11 +596,11 @@ class TestNodePerformance:
         assert output.metadata.processing_time_ms < PROCESSING_TIME_NORMAL_MS
 
     async def test_compute_handles_large_file(
-        self, node: NodeQualityScoringCompute
+        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that compute handles larger files without issues."""
         # Create a larger file by repeating content
-        large_content = HIGH_QUALITY_ONEX_CODE * 10  # ~6KB of code
+        large_content = high_quality_onex_code * 10  # ~6KB of code
 
         input_data = ModelQualityScoringInput(
             source_path="large_module.py",

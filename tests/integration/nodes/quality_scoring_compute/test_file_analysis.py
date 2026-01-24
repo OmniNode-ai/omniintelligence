@@ -20,13 +20,15 @@ from typing import Final
 
 import pytest
 
-from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omniintelligence.nodes.quality_scoring_compute.models import (
     ModelQualityScoringInput,
 )
 from omniintelligence.nodes.quality_scoring_compute.node import (
     NodeQualityScoringCompute,
 )
+
+# Import centralized constants from conftest
+from .conftest import DOCUMENTATION_MIN_SCORE, PRODUCTION_CODE_MIN_SCORE
 
 # =============================================================================
 # Constants
@@ -56,34 +58,23 @@ MODEL_INPUT_FILE: Final[Path] = (
     / "model_quality_scoring_input.py"
 )
 
-# Minimum quality thresholds for production code
-PRODUCTION_CODE_MIN_SCORE: Final[float] = 0.6
-DOCUMENTATION_MIN_SCORE: Final[float] = 0.5
-
 
 # =============================================================================
 # Fixtures
 # =============================================================================
 
-
-@pytest.fixture
-def onex_container() -> ModelONEXContainer:
-    """Create a test ONEX container instance."""
-    return ModelONEXContainer()
+# Note: onex_container and quality_scoring_node fixtures are provided by conftest.py
 
 
 @pytest.fixture
-def quality_scoring_node(onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
-    """Create a quality scoring compute node instance with container."""
-    return NodeQualityScoringCompute(container=onex_container)
+def specific_test_files() -> list[Path]:
+    """Return list of specific Python files for targeted batch testing.
 
-
-@pytest.fixture
-def sample_python_files() -> list[Path]:
-    """Return list of sample Python files for batch testing.
+    This fixture returns a small set of known files for consistent testing,
+    unlike sample_python_files which collects up to 20 files dynamically.
 
     Returns:
-        List of Path objects pointing to real Python files in the codebase.
+        List of Path objects pointing to specific real Python files.
     """
     files = [NODE_FILE, HANDLER_FILE, MODEL_INPUT_FILE]
     # Filter to only files that exist (in case paths change)
