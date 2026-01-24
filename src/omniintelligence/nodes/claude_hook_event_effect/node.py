@@ -104,6 +104,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
         # Injected dependencies (optional - node works without them)
         self._intent_classifier: Any | None = None
         self._kafka_producer: Any | None = None
+        self._topic_env_prefix: str = "dev"
 
     def set_intent_classifier(self, classifier: Any) -> None:
         """Set the intent classifier compute node.
@@ -120,6 +121,19 @@ class NodeClaudeHookEventEffect(NodeEffect):
             producer: Kafka producer instance.
         """
         self._kafka_producer = producer
+
+    def set_topic_env_prefix(self, prefix: str) -> None:
+        """Set the environment prefix for Kafka topics.
+
+        Args:
+            prefix: Environment prefix (e.g., "dev", "prod").
+        """
+        self._topic_env_prefix = prefix
+
+    @property
+    def topic_env_prefix(self) -> str:
+        """Get the configured Kafka topic environment prefix."""
+        return self._topic_env_prefix
 
     @property
     def intent_classifier(self) -> Any | None:
@@ -157,6 +171,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
             event=event,
             intent_classifier=self._intent_classifier,
             kafka_producer=self._kafka_producer,
+            topic_env_prefix=self._topic_env_prefix,
         )
 
 

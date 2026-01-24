@@ -1,3 +1,4 @@
+---
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
 #
@@ -28,12 +29,10 @@ node_type: "EFFECT_GENERIC"
 
 # Description
 description: >
-  Unified Effect node for handling all Claude Code hook events. Receives events
-  from SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop, and other
-  hook types, routing them to appropriate handlers. For UserPromptSubmit,
-  routes to intent_classifier_compute for classification. Emits classified
-  intents to Kafka for downstream consumers (graph storage handled by omnimemory).
-
+  Unified Effect node for handling all Claude Code hook events. Receives events from SessionStart, UserPromptSubmit,
+  PreToolUse, PostToolUse, Stop, and other hook types, routing them to appropriate handlers. For UserPromptSubmit,
+  routes to intent_classifier_compute for classification. Emits classified intents to Kafka for downstream
+  consumers (graph storage handled by omnimemory). #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelClaudeHookEvent"
@@ -203,7 +202,8 @@ capabilities:
   - name: "intent_classification_routing"
     description: "Route UserPromptSubmit events to intent classification"
   - name: "kafka_emission"
-    description: "Emit classified intents to Kafka for downstream consumers (graph storage handled by omnimemory consuming these events)"
+    description: "Emit classified intents to Kafka for downstream consumers (graph storage handled by
+      omnimemory consuming these events)"
   - name: "no_op_handlers"
     description: "Return success for event types not yet implemented"
 

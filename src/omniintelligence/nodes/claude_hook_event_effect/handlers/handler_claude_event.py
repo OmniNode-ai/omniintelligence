@@ -37,6 +37,7 @@ async def route_hook_event(
     *,
     intent_classifier: Any | None = None,
     kafka_producer: Any | None = None,
+    topic_env_prefix: str = "dev",
 ) -> ModelClaudeHookResult:
     """Route a Claude Code hook event to the appropriate handler.
 
@@ -47,6 +48,7 @@ async def route_hook_event(
         event: The Claude Code hook event to process.
         intent_classifier: Optional intent classifier compute node.
         kafka_producer: Optional Kafka producer for event emission.
+        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
 
     Returns:
         ModelClaudeHookResult with processing outcome.
@@ -60,6 +62,7 @@ async def route_hook_event(
                 event=event,
                 intent_classifier=intent_classifier,
                 kafka_producer=kafka_producer,
+                topic_env_prefix=topic_env_prefix,
             )
         else:
             # All other event types are no-op for now
@@ -125,6 +128,7 @@ async def handle_user_prompt_submit(
     *,
     intent_classifier: Any | None = None,
     kafka_producer: Any | None = None,
+    topic_env_prefix: str = "dev",
 ) -> ModelClaudeHookResult:
     """Handle UserPromptSubmit events with intent classification.
 
@@ -140,6 +144,7 @@ async def handle_user_prompt_submit(
         event: The UserPromptSubmit hook event.
         intent_classifier: Intent classifier compute node (optional for testing).
         kafka_producer: Kafka producer for event emission (optional).
+        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
 
     Returns:
         ModelClaudeHookResult with intent classification results.
@@ -198,6 +203,7 @@ async def handle_user_prompt_submit(
                 confidence=confidence,
                 correlation_id=event.correlation_id,
                 producer=kafka_producer,
+                topic_env_prefix=topic_env_prefix,
             )
             emitted_to_kafka = True
             metadata["kafka_emission"] = "success"
@@ -288,6 +294,8 @@ async def _emit_intent_to_kafka(
     confidence: float,
     correlation_id: UUID,
     producer: Any,
+    *,
+    topic_env_prefix: str = "dev",
 ) -> None:
     """Emit the classified intent to Kafka.
 
@@ -297,13 +305,10 @@ async def _emit_intent_to_kafka(
         confidence: Classification confidence.
         correlation_id: Correlation ID for tracing.
         producer: Kafka producer instance.
+        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
     """
-    import os
-    from datetime import UTC, datetime
-
     # Build topic name with environment prefix
-    env_prefix = os.getenv("TOPIC_ENV_PREFIX", "dev")
-    topic = f"{env_prefix}.omniintelligence.intent.classified.v1"
+    topic = f"{topic_env_prefix}.omniintelligence.intent.classified.v1"
 
     # Build event payload
     event_payload = {
