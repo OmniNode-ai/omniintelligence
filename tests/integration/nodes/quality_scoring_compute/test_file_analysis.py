@@ -34,6 +34,7 @@ from .conftest import (
     FROZEN_MODEL_MIN_PATTERNS_SCORE,
     HIGH_COMPLEXITY_MAX_SCORE,
     PRODUCTION_CODE_MIN_SCORE,
+    SRC_BASE,
     TODO_MAX_TEMPORAL_SCORE,
     TYPEDDICT_MIN_PATTERNS_SCORE,
 )
@@ -41,9 +42,6 @@ from .conftest import (
 # =============================================================================
 # Constants
 # =============================================================================
-
-# Base path for source files
-SRC_BASE: Final[Path] = Path(__file__).parent.parent.parent.parent.parent / "src"
 
 # Node source files for testing
 NODE_FILE: Final[Path] = (

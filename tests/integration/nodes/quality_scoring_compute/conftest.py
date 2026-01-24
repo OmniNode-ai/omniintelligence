@@ -39,8 +39,11 @@ from omniintelligence.nodes.quality_scoring_compute import NodeQualityScoringCom
 # Project root directory (relative to this test file)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
+# Base path for source files (used across test modules)
+SRC_BASE = PROJECT_ROOT / "src"
+
 # Nodes source directory for collecting real Python files
-NODES_DIR = PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
+NODES_DIR = SRC_BASE / "omniintelligence" / "nodes"
 
 
 # =============================================================================
@@ -52,10 +55,12 @@ PRODUCTION_CODE_MIN_SCORE: Final[float] = 0.6
 DOCUMENTATION_MIN_SCORE: Final[float] = 0.5
 
 # Thresholds for different quality levels
-HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6
-LOW_QUALITY_MAX_SCORE: Final[float] = 0.7
-MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4
-MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85
+# Note: These define BOUNDARIES, not quality. HIGH_QUALITY_MIN is the floor for "high quality",
+# while LOW_QUALITY_MAX is the ceiling - code scoring above this isn't considered "low quality"
+HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6  # Code scoring >= this is high quality
+LOW_QUALITY_MAX_SCORE: Final[float] = 0.7   # Code scoring < this may be low quality
+MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4  # Lower bound for moderate quality
+MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85  # Upper bound for moderate quality
 
 # Performance thresholds (in milliseconds)
 PROCESSING_TIME_NORMAL_MS: Final[float] = 500.0
@@ -123,13 +128,13 @@ def sample_python_files() -> list[Path]:
     return _collect_python_files(NODES_DIR, limit=20)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def onex_container() -> ModelONEXContainer:
     """Create a test ONEX container instance."""
     return ModelONEXContainer()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def quality_scoring_node(onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
     """Instantiate a NodeQualityScoringCompute node for testing.
 

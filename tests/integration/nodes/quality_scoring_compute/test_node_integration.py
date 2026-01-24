@@ -52,13 +52,8 @@ from .conftest import (
 class TestNodeComputeMethod:
     """Integration tests for NodeQualityScoringCompute.compute() method."""
 
-    @pytest.fixture
-    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
-        """Alias for quality_scoring_node fixture from conftest."""
-        return quality_scoring_node
-
     async def test_compute_returns_valid_output_model(
-        self, node: NodeQualityScoringCompute
+        self, quality_scoring_node: NodeQualityScoringCompute
     ) -> None:
         """Test compute() returns properly structured ModelQualityScoringOutput."""
         input_data = ModelQualityScoringInput(
@@ -67,7 +62,7 @@ class TestNodeComputeMethod:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Verify output is correct type
         assert isinstance(output, ModelQualityScoringOutput)
@@ -88,7 +83,7 @@ class TestNodeComputeMethod:
         assert isinstance(output.recommendations, list)
 
     async def test_compute_pipeline_input_to_output(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test full pipeline: ModelQualityScoringInput -> compute() -> ModelQualityScoringOutput."""
         input_data = ModelQualityScoringInput(
@@ -98,7 +93,7 @@ class TestNodeComputeMethod:
             project_name="test_project",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Verify successful processing
         assert output.success is True
@@ -130,7 +125,7 @@ class TestNodeComputeMethod:
         assert output.metadata.processing_time_ms >= 0.0
 
     async def test_compute_with_high_quality_code(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test compute() scores ONEX-compliant code highly."""
         input_data = ModelQualityScoringInput(
@@ -139,7 +134,7 @@ class TestNodeComputeMethod:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # High quality code should score well
         assert output.success is True
@@ -160,7 +155,7 @@ class TestNodeComputeMethod:
         assert len(output.recommendations) <= 3
 
     async def test_compute_with_low_quality_code(
-        self, node: NodeQualityScoringCompute, low_quality_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, low_quality_code: str
     ) -> None:
         """Test compute() gives low scores to code with anti-patterns."""
         input_data = ModelQualityScoringInput(
@@ -169,7 +164,7 @@ class TestNodeComputeMethod:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Should still succeed (processing worked)
         assert output.success is True
@@ -192,7 +187,7 @@ class TestNodeComputeMethod:
         assert len(output.recommendations) >= 1
 
     async def test_compute_with_moderate_quality_code(
-        self, node: NodeQualityScoringCompute, moderate_quality_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, moderate_quality_code: str
     ) -> None:
         """Test compute() returns moderate scores for average code."""
         input_data = ModelQualityScoringInput(
@@ -201,7 +196,7 @@ class TestNodeComputeMethod:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
 
@@ -211,7 +206,7 @@ class TestNodeComputeMethod:
         )
 
     async def test_compute_with_custom_weights(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test compute() respects custom dimension weights."""
         # Custom weights emphasizing documentation
@@ -231,14 +226,14 @@ class TestNodeComputeMethod:
             dimension_weights=custom_weights,
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
         # The score should reflect the weighted dimensions
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_compute_with_min_quality_threshold(
-        self, node: NodeQualityScoringCompute, low_quality_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, low_quality_code: str
     ) -> None:
         """Test compute() respects min_quality_threshold setting."""
         input_data = ModelQualityScoringInput(
@@ -248,7 +243,7 @@ class TestNodeComputeMethod:
             min_quality_threshold=0.9,  # Very high threshold
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Should fail the threshold check
         assert output.success is False
@@ -262,13 +257,8 @@ class TestNodeComputeMethod:
 class TestPresetIntegration:
     """Integration tests for preset behavior through the node."""
 
-    @pytest.fixture
-    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
-        """Alias for quality_scoring_node fixture from conftest."""
-        return quality_scoring_node
-
     async def test_strict_preset_through_compute(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test STRICT preset via compute() method."""
         input_data = ModelQualityScoringInput(
@@ -278,7 +268,7 @@ class TestPresetIntegration:
             onex_preset=OnexStrictnessLevel.STRICT,
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
         # STRICT preset has 0.8 threshold
@@ -286,7 +276,7 @@ class TestPresetIntegration:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_standard_preset_through_compute(
-        self, node: NodeQualityScoringCompute, moderate_quality_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, moderate_quality_code: str
     ) -> None:
         """Test STANDARD preset via compute() method."""
         input_data = ModelQualityScoringInput(
@@ -296,14 +286,14 @@ class TestPresetIntegration:
             onex_preset=OnexStrictnessLevel.STANDARD,
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
         # STANDARD preset has 0.7 threshold
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_lenient_preset_through_compute(
-        self, node: NodeQualityScoringCompute, low_quality_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, low_quality_code: str
     ) -> None:
         """Test LENIENT preset via compute() method."""
         input_data = ModelQualityScoringInput(
@@ -313,14 +303,14 @@ class TestPresetIntegration:
             onex_preset=OnexStrictnessLevel.LENIENT,
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
         # LENIENT preset has 0.5 threshold - even low quality might pass
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_preset_overrides_custom_weights(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that preset takes precedence over dimension_weights."""
         # Custom weights that would produce different results
@@ -340,7 +330,7 @@ class TestPresetIntegration:
             language="python",
             dimension_weights=custom_weights,
         )
-        output_without_preset = await node.compute(input_without_preset)
+        output_without_preset = await quality_scoring_node.compute(input_without_preset)
 
         # Second run with preset (should override weights)
         input_with_preset = ModelQualityScoringInput(
@@ -350,7 +340,7 @@ class TestPresetIntegration:
             dimension_weights=custom_weights,
             onex_preset=OnexStrictnessLevel.STANDARD,
         )
-        output_with_preset = await node.compute(input_with_preset)
+        output_with_preset = await quality_scoring_node.compute(input_with_preset)
 
         # Both should succeed
         assert output_without_preset.success is True
@@ -364,7 +354,7 @@ class TestPresetIntegration:
         assert 0.0 <= output_with_preset.quality_score <= 1.0
 
     async def test_preset_determines_onex_compliance_threshold(
-        self, node: NodeQualityScoringCompute, moderate_quality_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, moderate_quality_code: str
     ) -> None:
         """Test that preset correctly sets ONEX compliance threshold."""
         # Use code that scores around 0.6-0.75 range
@@ -381,8 +371,8 @@ class TestPresetIntegration:
             onex_preset=OnexStrictnessLevel.LENIENT,  # threshold 0.5
         )
 
-        output_strict = await node.compute(input_strict)
-        output_lenient = await node.compute(input_lenient)
+        output_strict = await quality_scoring_node.compute(input_strict)
+        output_lenient = await quality_scoring_node.compute(input_lenient)
 
         # Same code, different presets
         # With strict (0.8 threshold), moderate code likely not compliant
@@ -398,13 +388,8 @@ class TestPresetIntegration:
 class TestErrorPropagation:
     """Tests for error handling through the compute() method."""
 
-    @pytest.fixture
-    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
-        """Alias for quality_scoring_node fixture from conftest."""
-        return quality_scoring_node
-
     async def test_empty_content_error_propagates(
-        self, node: NodeQualityScoringCompute
+        self, quality_scoring_node: NodeQualityScoringCompute
     ) -> None:
         """Test validation error for empty content propagates correctly."""
         # The input model validates content is non-empty, so we need to
@@ -415,7 +400,7 @@ class TestErrorPropagation:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Should return error result, not raise exception
         assert output.success is False
@@ -426,9 +411,7 @@ class TestErrorPropagation:
         assert output.metadata.message is not None
         assert "empty" in output.metadata.message.lower()
 
-    async def test_invalid_weights_error_propagates(
-        self, node: NodeQualityScoringCompute
-    ) -> None:
+    async def test_invalid_weights_error_propagates(self) -> None:
         """Test validation error for invalid weights propagates correctly."""
         # Invalid weights that don't sum to 1.0 will fail Pydantic validation
         # So we test by checking the model validation works
@@ -443,7 +426,7 @@ class TestErrorPropagation:
             )
 
     async def test_compute_error_captured_in_metadata(
-        self, node: NodeQualityScoringCompute
+        self, quality_scoring_node: NodeQualityScoringCompute
     ) -> None:
         """Test that compute errors are captured in output metadata."""
         # Syntax error in code should be handled gracefully
@@ -453,7 +436,7 @@ class TestErrorPropagation:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Should still return a result (not raise)
         assert output.success is True  # Scoring worked, code just has issues
@@ -468,7 +451,7 @@ class TestErrorPropagation:
         assert has_syntax_rec, f"Expected syntax recommendation in {output.recommendations}"
 
     async def test_unsupported_language_handled_gracefully(
-        self, node: NodeQualityScoringCompute
+        self, quality_scoring_node: NodeQualityScoringCompute
     ) -> None:
         """Test that unsupported languages get baseline scores."""
         input_data = ModelQualityScoringInput(
@@ -477,7 +460,7 @@ class TestErrorPropagation:
             language="rust",  # Unsupported
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         # Should succeed with baseline scores
         assert output.success is True
@@ -494,7 +477,7 @@ class TestErrorPropagation:
 
     @pytest.mark.performance
     async def test_processing_time_captured(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that processing time is captured in metadata."""
         input_data = ModelQualityScoringInput(
@@ -503,7 +486,7 @@ class TestErrorPropagation:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.metadata is not None
         assert output.metadata.processing_time_ms is not None
@@ -516,13 +499,8 @@ class TestErrorPropagation:
 class TestNodeDeterminism:
     """Tests verifying the node produces deterministic results."""
 
-    @pytest.fixture
-    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
-        """Alias for quality_scoring_node fixture from conftest."""
-        return quality_scoring_node
-
     async def test_compute_is_deterministic(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that compute() produces same output for same input."""
         input_data = ModelQualityScoringInput(
@@ -531,8 +509,8 @@ class TestNodeDeterminism:
             language="python",
         )
 
-        output1 = await node.compute(input_data)
-        output2 = await node.compute(input_data)
+        output1 = await quality_scoring_node.compute(input_data)
+        output2 = await quality_scoring_node.compute(input_data)
 
         # Core fields should be identical
         assert output1.success == output2.success
@@ -574,13 +552,8 @@ class TestNodeDeterminism:
 class TestNodePerformance:
     """Performance tests for the compute node."""
 
-    @pytest.fixture
-    def node(self, quality_scoring_node: NodeQualityScoringCompute) -> NodeQualityScoringCompute:
-        """Alias for quality_scoring_node fixture from conftest."""
-        return quality_scoring_node
-
     async def test_compute_completes_in_bounded_time(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that compute completes quickly for reasonable input."""
         input_data = ModelQualityScoringInput(
@@ -589,7 +562,7 @@ class TestNodePerformance:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
         assert output.metadata is not None
@@ -597,7 +570,7 @@ class TestNodePerformance:
         assert output.metadata.processing_time_ms < PROCESSING_TIME_NORMAL_MS
 
     async def test_compute_handles_large_file(
-        self, node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
         """Test that compute handles larger files without issues."""
         # Create a larger file by repeating content
@@ -609,7 +582,7 @@ class TestNodePerformance:
             language="python",
         )
 
-        output = await node.compute(input_data)
+        output = await quality_scoring_node.compute(input_data)
 
         assert output.success is True
         assert output.metadata is not None
