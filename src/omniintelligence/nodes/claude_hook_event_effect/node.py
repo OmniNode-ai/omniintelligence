@@ -12,7 +12,7 @@ Extends NodeEffect from omnibase_core for infrastructure I/O operations.
 Handler routing is driven by event_type matching.
 
 Handler Routing Pattern:
-    1. Receive hook event (ModelClaudeHookEvent)
+    1. Receive hook event (ModelClaudeCodeHookEvent)
     2. Route to handler based on event_type
     3. For UserPromptSubmit: classify intent, store in graph, emit to Kafka
     4. For other types: return success (no-op)
@@ -25,7 +25,7 @@ Design Decisions:
     - External adapters injected via setter methods
 
 Node Responsibilities:
-    - Define I/O model contract (ModelClaudeHookEvent -> ModelClaudeHookResult)
+    - Define I/O model contract (ModelClaudeCodeHookEvent -> ModelClaudeHookResult)
     - Provide dependency injection points for adapters
     - Delegate execution to handlers
 
@@ -41,7 +41,7 @@ from omnibase_core.nodes.node_effect import NodeEffect
 
 from omniintelligence.nodes.claude_hook_event_effect.handlers import route_hook_event
 from omniintelligence.nodes.claude_hook_event_effect.models import (
-    ModelClaudeHookEvent,
+    ModelClaudeCodeHookEvent,
     ModelClaudeHookResult,
 )
 
@@ -64,7 +64,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
         - Stop: Stop signal
         - SessionEnd: Session ends
         - Notification: Async notifications
-        - And more (see EnumClaudeHookEventType)
+        - And more (see EnumClaudeCodeHookEventType)
 
     Dependency Injection:
         Adapters and compute nodes are injected via setter methods:
@@ -153,7 +153,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
         """Check if Kafka producer is configured."""
         return self._kafka_producer is not None
 
-    async def execute(self, event: ModelClaudeHookEvent) -> ModelClaudeHookResult:
+    async def execute(self, event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         """Execute the effect node on a hook event.
 
         Routes the event to the appropriate handler based on event_type

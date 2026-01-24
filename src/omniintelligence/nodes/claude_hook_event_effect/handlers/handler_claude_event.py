@@ -20,23 +20,100 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.claude_hook_event_effect.models import (
-    EnumClaudeHookEventType,
+    EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
-    ModelClaudeHookEvent,
+    ModelClaudeCodeHookEvent,
     ModelClaudeHookResult,
     ModelIntentResult,
 )
 
+if TYPE_CHECKING:
+    from omniintelligence.nodes.intent_classifier_compute.models import (
+        ModelIntentClassificationInput,
+        ModelIntentClassificationOutput,
+    )
+
+
+# =============================================================================
+# Local Protocol Definitions
+# =============================================================================
+# These protocols define the expected interfaces for injected dependencies.
+# They are defined locally to avoid coupling to specific implementations while
+# providing proper type hints for static analysis.
+#
+# Note: The contract.yaml references ProtocolKafkaProducer from
+# omnibase_infra.protocols.protocol_kafka_producer, but this protocol doesn't
+# exist yet. Once it's implemented, these local protocols can be replaced with
+# imports from that module.
+# =============================================================================
+
+
+@runtime_checkable
+class ProtocolIntentClassifier(Protocol):
+    """Protocol for intent classifier compute nodes.
+
+    Defines the interface expected by handler functions for classifying
+    user prompts. Any compute node implementing this protocol can be used
+    as an intent classifier.
+
+    The protocol matches the interface of NodeIntentClassifierCompute from
+    omniintelligence.nodes.intent_classifier_compute.
+    """
+
+    async def compute(
+        self,
+        input_data: ModelIntentClassificationInput,
+    ) -> ModelIntentClassificationOutput:
+        """Classify the intent of user input.
+
+        Args:
+            input_data: Classification input containing content and context.
+
+        Returns:
+            Classification output with intent category, confidence, and
+            optional secondary intents.
+        """
+        ...
+
+
+@runtime_checkable
+class ProtocolKafkaPublisher(Protocol):
+    """Protocol for Kafka event publishers.
+
+    Defines a simplified interface for publishing events to Kafka topics.
+    This protocol uses a dict-based value for flexibility, with serialization
+    handled by the implementation.
+
+    Note: This is a simplified interface. For production use, consider using
+    ProtocolEventPublisher from omnibase_spi.protocols.event_bus which
+    provides additional reliability features (retries, circuit breaker, DLQ).
+    """
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        value: dict[str, Any],
+    ) -> None:
+        """Publish an event to a Kafka topic.
+
+        Args:
+            topic: Target Kafka topic name.
+            key: Message key for partitioning.
+            value: Event payload as a dictionary (serialized by implementation).
+        """
+        ...
+
 
 async def route_hook_event(
-    event: ModelClaudeHookEvent,
+    event: ModelClaudeCodeHookEvent,
     *,
-    intent_classifier: Any | None = None,
-    kafka_producer: Any | None = None,
+    intent_classifier: ProtocolIntentClassifier | None = None,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
     topic_env_prefix: str = "dev",
 ) -> ModelClaudeHookResult:
     """Route a Claude Code hook event to the appropriate handler.
@@ -46,8 +123,9 @@ async def route_hook_event(
 
     Args:
         event: The Claude Code hook event to process.
-        intent_classifier: Optional intent classifier compute node.
-        kafka_producer: Optional Kafka producer for event emission.
+        intent_classifier: Optional intent classifier compute node implementing
+            ProtocolIntentClassifier.
+        kafka_producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
 
     Returns:
@@ -57,7 +135,7 @@ async def route_hook_event(
 
     try:
         # Route based on event type
-        if event.event_type == EnumClaudeHookEventType.USER_PROMPT_SUBMIT:
+        if event.event_type == EnumClaudeCodeHookEventType.USER_PROMPT_SUBMIT:
             result = await handle_user_prompt_submit(
                 event=event,
                 intent_classifier=intent_classifier,
@@ -98,7 +176,7 @@ async def route_hook_event(
         )
 
 
-def handle_no_op(event: ModelClaudeHookEvent) -> ModelClaudeHookResult:
+def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     """Handle event types that are not yet implemented.
 
     Returns success without performing any processing. This allows the
@@ -124,10 +202,10 @@ def handle_no_op(event: ModelClaudeHookEvent) -> ModelClaudeHookResult:
 
 
 async def handle_user_prompt_submit(
-    event: ModelClaudeHookEvent,
+    event: ModelClaudeCodeHookEvent,
     *,
-    intent_classifier: Any | None = None,
-    kafka_producer: Any | None = None,
+    intent_classifier: ProtocolIntentClassifier | None = None,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
     topic_env_prefix: str = "dev",
 ) -> ModelClaudeHookResult:
     """Handle UserPromptSubmit events with intent classification.
@@ -142,8 +220,9 @@ async def handle_user_prompt_submit(
 
     Args:
         event: The UserPromptSubmit hook event.
-        intent_classifier: Intent classifier compute node (optional for testing).
-        kafka_producer: Kafka producer for event emission (optional).
+        intent_classifier: Intent classifier compute node implementing
+            ProtocolIntentClassifier (optional for testing).
+        kafka_producer: Kafka producer implementing ProtocolKafkaPublisher (optional).
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
 
     Returns:
@@ -243,7 +322,7 @@ async def _classify_intent(
     prompt: str,
     session_id: str,
     correlation_id: UUID,
-    classifier: Any,
+    classifier: ProtocolIntentClassifier,
 ) -> dict[str, Any]:
     """Call the intent classifier compute node.
 
@@ -251,7 +330,7 @@ async def _classify_intent(
         prompt: The user prompt to classify.
         session_id: Session ID for context.
         correlation_id: Correlation ID for tracing.
-        classifier: The intent classifier compute node.
+        classifier: Intent classifier implementing ProtocolIntentClassifier.
 
     Returns:
         Dict with intent_category, confidence, and secondary_intents.
@@ -293,7 +372,7 @@ async def _emit_intent_to_kafka(
     intent_category: str,
     confidence: float,
     correlation_id: UUID,
-    producer: Any,
+    producer: ProtocolKafkaPublisher,
     *,
     topic_env_prefix: str = "dev",
 ) -> None:
@@ -304,7 +383,7 @@ async def _emit_intent_to_kafka(
         intent_category: Classified intent category.
         confidence: Classification confidence.
         correlation_id: Correlation ID for tracing.
-        producer: Kafka producer instance.
+        producer: Kafka producer implementing ProtocolKafkaPublisher.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
     """
     # Build topic name with environment prefix
@@ -329,6 +408,8 @@ async def _emit_intent_to_kafka(
 
 
 __all__ = [
+    "ProtocolIntentClassifier",
+    "ProtocolKafkaPublisher",
     "handle_no_op",
     "handle_user_prompt_submit",
     "route_hook_event",

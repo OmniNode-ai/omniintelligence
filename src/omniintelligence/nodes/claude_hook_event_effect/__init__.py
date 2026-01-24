@@ -10,9 +10,9 @@ Reference:
 """
 
 from omniintelligence.nodes.claude_hook_event_effect.models import (
-    EnumClaudeHookEventType,
+    EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
-    ModelClaudeHookEvent,
+    ModelClaudeCodeHookEvent,
     ModelClaudeHookResult,
     ModelIntentResult,
 )
@@ -21,11 +21,11 @@ from omniintelligence.nodes.claude_hook_event_effect.node import (
 )
 
 __all__ = [
-    # Input models
-    "EnumClaudeHookEventType",
+    # Input models (canonical from omnibase_core)
+    "EnumClaudeCodeHookEventType",
     # Output models
     "EnumHookProcessingStatus",
-    "ModelClaudeHookEvent",
+    "ModelClaudeCodeHookEvent",
     "ModelClaudeHookResult",
     "ModelIntentResult",
     # Node

@@ -32,10 +32,10 @@ description: >
   Unified Effect node for handling all Claude Code hook events. Receives events from SessionStart, UserPromptSubmit,
   PreToolUse, PostToolUse, Stop, and other hook types, routing them to appropriate handlers. For UserPromptSubmit,
   routes to intent_classifier_compute for classification. Emits classified intents to Kafka for downstream
-  consumers (graph storage handled by omnimemory). #magic___^_^___line
+  consumers (graph storage handled by omnimemory).
 # Strongly typed I/O models
 input_model:
-  name: "ModelClaudeHookEvent"
+  name: "ModelClaudeCodeHookEvent"
   module: "omniintelligence.nodes.claude_hook_event_effect.models"
   description: "Unified input model for all Claude Code hook events."
 output_model:
@@ -51,7 +51,7 @@ output_model:
 # success (no-op) and are ready for future handler implementations.
 #
 # Execution Flow:
-#   1. Receive ModelClaudeHookEvent with event_type
+#   1. Receive ModelClaudeCodeHookEvent with event_type
 #   2. Route to handler based on event_type
 #   3. For UserPromptSubmit: classify intent, emit to Kafka
 #   4. For other types: return success (no-op)

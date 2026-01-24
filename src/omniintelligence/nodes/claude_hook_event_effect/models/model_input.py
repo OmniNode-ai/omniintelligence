@@ -19,17 +19,8 @@ from omnibase_core.models.hooks.claude_code import (
     ModelClaudeCodeHookEventPayload,
 )
 
-# Backward compatibility aliases
-# These were the original names used locally before moving to core
-EnumClaudeHookEventType = EnumClaudeCodeHookEventType
-ModelClaudeHookEvent = ModelClaudeCodeHookEvent
-
 __all__ = [
-    # Canonical names from core
     "EnumClaudeCodeHookEventType",
-    # Backward compatibility aliases
-    "EnumClaudeHookEventType",
     "ModelClaudeCodeHookEvent",
     "ModelClaudeCodeHookEventPayload",
-    "ModelClaudeHookEvent",
 ]
