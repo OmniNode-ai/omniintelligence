@@ -30,9 +30,9 @@ node_type: "EFFECT_GENERIC"
 description: >
   Unified Effect node for handling all Claude Code hook events. Receives events
   from SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop, and other
-  hook types, routing them to appropriate compute nodes. For UserPromptSubmit,
-  routes to intent_classifier_compute and stores results in Memgraph via
-  AdapterIntentGraph. Emits classified intents to Kafka for downstream consumers.
+  hook types, routing them to appropriate handlers. For UserPromptSubmit,
+  routes to intent_classifier_compute for classification. Emits classified
+  intents to Kafka for downstream consumers (graph storage handled by omnimemory).
 
 # Strongly typed I/O models
 input_model:
@@ -54,7 +54,7 @@ output_model:
 # Execution Flow:
 #   1. Receive ModelClaudeHookEvent with event_type
 #   2. Route to handler based on event_type
-#   3. For UserPromptSubmit: classify intent, store in graph, emit to Kafka
+#   3. For UserPromptSubmit: classify intent, emit to Kafka
 #   4. For other types: return success (no-op)
 #   5. Return ModelClaudeHookResult with processing outcome
 # =============================================================================
@@ -66,10 +66,9 @@ handler_routing:
       handler:
         name: "HandlerUserPromptSubmit"
         module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
-      description: "Classify user prompt intent and store in graph"
+      description: "Classify user prompt intent"
       actions:
         - "call intent_classifier_compute"
-        - "store via AdapterIntentGraph"
         - "emit to Kafka"
 
     # SessionStart - No-op (future: session tracking)
@@ -190,10 +189,6 @@ error_handling:
       description: "Failed to classify user prompt intent"
       recoverable: true
       retry_strategy: "exponential_backoff"
-    - name: "GraphStorageError"
-      description: "Failed to store intent in Memgraph"
-      recoverable: true
-      retry_strategy: "exponential_backoff"
     - name: "KafkaPublishError"
       description: "Failed to publish to Kafka"
       recoverable: true
@@ -225,7 +220,6 @@ metadata:
     - claude-code
     - hooks
     - intent-classification
-    - memgraph
     - kafka
   references:
     - ticket: "OMN-1456"

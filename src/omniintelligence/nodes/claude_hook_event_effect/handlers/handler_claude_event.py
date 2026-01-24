@@ -46,7 +46,6 @@ async def route_hook_event(
     Args:
         event: The Claude Code hook event to process.
         intent_classifier: Optional intent classifier compute node.
-        intent_graph_adapter: Optional AdapterIntentGraph for Memgraph storage.
         kafka_producer: Optional Kafka producer for event emission.
 
     Returns:
@@ -227,7 +226,7 @@ async def handle_user_prompt_submit(
         session_id=event.session_id,
         correlation_id=event.correlation_id,
         intent_result=intent_result,
-        processing_time_ms=0.0,  # Will be updated by caller
+        processing_time_ms=0.0,  # Placeholder - caller creates final result with actual time
         processed_at=datetime.now(UTC),
         error_message=None,
         metadata=metadata,
