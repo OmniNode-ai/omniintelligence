@@ -13,6 +13,8 @@ produce expected results for different code quality levels.
 
 from __future__ import annotations
 
+from typing import Final
+
 import pytest
 
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
@@ -39,6 +41,19 @@ from omniintelligence.nodes.quality_scoring_compute.node import (
 def onex_container() -> ModelONEXContainer:
     """Create a fresh ONEX container for each test."""
     return ModelONEXContainer()
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+# Quality score thresholds for test assertions
+HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6
+LOW_QUALITY_MAX_SCORE: Final[float] = 0.7
+MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4
+MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85
+PROCESSING_TIME_NORMAL_MS: Final[float] = 500.0
+PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
 
 
 # =============================================================================
@@ -259,8 +274,8 @@ class TestNodeComputeMethod:
 
         # High quality code should score well
         assert output.success is True
-        assert output.quality_score >= 0.6, (
-            f"High quality code scored {output.quality_score}, expected >= 0.6"
+        assert output.quality_score >= HIGH_QUALITY_MIN_SCORE, (
+            f"High quality code scored {output.quality_score}, expected >= {HIGH_QUALITY_MIN_SCORE}"
         )
 
         # Should be ONEX compliant with default threshold
@@ -291,8 +306,8 @@ class TestNodeComputeMethod:
         assert output.success is True
 
         # Low quality code should score poorly
-        assert output.quality_score < 0.7, (
-            f"Low quality code scored {output.quality_score}, expected < 0.7"
+        assert output.quality_score < LOW_QUALITY_MAX_SCORE, (
+            f"Low quality code scored {output.quality_score}, expected < {LOW_QUALITY_MAX_SCORE}"
         )
 
         # Should have low temporal relevance (TODOs, FIXMEs)
@@ -322,7 +337,7 @@ class TestNodeComputeMethod:
         assert output.success is True
 
         # Moderate code should score in the middle range
-        assert 0.4 <= output.quality_score <= 0.85, (
+        assert MODERATE_QUALITY_MIN_SCORE <= output.quality_score <= MODERATE_QUALITY_MAX_SCORE, (
             f"Moderate code scored {output.quality_score}"
         )
 
@@ -708,7 +723,7 @@ class TestNodePerformance:
         assert output.success is True
         assert output.metadata is not None
         # Should complete in under 500ms for normal code
-        assert output.metadata.processing_time_ms < 500.0
+        assert output.metadata.processing_time_ms < PROCESSING_TIME_NORMAL_MS
 
     async def test_compute_handles_large_file(
         self, node: NodeQualityScoringCompute
@@ -728,4 +743,4 @@ class TestNodePerformance:
         assert output.success is True
         assert output.metadata is not None
         # Should still complete in reasonable time
-        assert output.metadata.processing_time_ms < 2000.0
+        assert output.metadata.processing_time_ms < PROCESSING_TIME_LARGE_MS
