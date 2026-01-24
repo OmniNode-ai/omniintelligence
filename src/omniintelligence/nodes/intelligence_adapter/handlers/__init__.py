@@ -4,19 +4,28 @@ This module provides pluggable handlers for intelligence adapter operations.
 Handlers implement the transformation and processing logic for specific operation types,
 following the handler-based architecture pattern (Option C from ARCHITECTURE.md).
 
-Handler Pattern:
-    Each handler is a standalone module with pure functions that:
+Handler Types:
+    1. **Operation Handlers** (ProtocolMessageHandler implementations):
+       - HandlerCodeAnalysisRequested: Handles CODE_ANALYSIS_REQUESTED events
+       - HandlerUnknownEvent: Default handler for unrouted events
+
+    2. **Transform Handlers** (pure functions):
+       - transform_quality_response: Quality assessment response transformation
+       - transform_pattern_response: Pattern detection response transformation
+       - transform_performance_response: Performance analysis response transformation
+
+Operation Handler Pattern:
+    Operation handlers implement ProtocolMessageHandler and:
+    - Receive ModelEventEnvelope from the runtime
+    - Process the payload using transform handlers
+    - Return ModelHandlerOutput.for_effect(events=...) with completion/failure events
+    - Runtime publishes the returned events
+
+Transform Handler Pattern:
+    Transform handlers are pure functions that:
     - Accept raw response data from the intelligence service
     - Transform to canonical format for event publishing
     - Have no side effects (pure transformations)
-
-Available Handlers:
-    - handler_transform_quality: Quality assessment response transformation
-    - handler_transform_pattern: Pattern detection response transformation
-    - handler_transform_performance: Performance analysis response transformation
-    - validation: Handler return value validation utilities
-    - protocols: TypedDict definitions for type-safe handler responses
-    - utils: Shared utility functions and constants for safe type conversions
 
 Type Safety:
     All handler functions are typed with specific TypedDict return types:
@@ -29,6 +38,10 @@ Type Safety:
 
 Usage:
     from omniintelligence.nodes.intelligence_adapter.handlers import (
+        # Operation handlers (ProtocolMessageHandler)
+        HandlerCodeAnalysisRequested,
+        HandlerUnknownEvent,
+        # Transform functions
         transform_quality_response,
         transform_pattern_response,
         transform_performance_response,
@@ -39,12 +52,19 @@ Usage:
         PatternHandlerResponse,
         ValidatedHandlerResponse,
     )
-
-    quality_result = transform_quality_response(raw_quality_response)
-    validated_result = validate_handler_result(quality_result, "assess_code_quality")
-    # validated_result is guaranteed to have all expected keys with proper types
 """
 
+# Operation handlers (ProtocolMessageHandler implementations)
+from omniintelligence.nodes.intelligence_adapter.handlers.handler_code_analysis_requested import (
+    HANDLER_ID as CODE_ANALYSIS_HANDLER_ID,
+    HandlerCodeAnalysisRequested,
+)
+from omniintelligence.nodes.intelligence_adapter.handlers.handler_unknown_event import (
+    HANDLER_ID as UNKNOWN_EVENT_HANDLER_ID,
+    HandlerUnknownEvent,
+)
+
+# Transform handlers (pure functions)
 from omniintelligence.nodes.intelligence_adapter.handlers.handler_transform_pattern import (
     transform_pattern_response,
 )
@@ -86,13 +106,20 @@ from omniintelligence.nodes.intelligence_adapter.handlers.validation import (
 )
 
 __all__ = [
-    "MAX_ISSUES",
-    "SCORE_MAX",
-    "SCORE_MIN",
+    # Operation handlers
+    "CODE_ANALYSIS_HANDLER_ID",
+    "HandlerCodeAnalysisRequested",
+    "HandlerUnknownEvent",
+    "UNKNOWN_EVENT_HANDLER_ID",
+    # Transform handlers
+    "transform_pattern_response",
+    "transform_performance_response",
+    "transform_quality_response",
+    "validate_handler_result",
+    # Protocols and types
     "AnyHandlerResponse",
     "AnyResultData",
     "BaseHandlerResponse",
-    "HandlerValidationError",
     "PatternHandlerResponse",
     "PatternResultData",
     "PerformanceBaselineMetrics",
@@ -102,6 +129,11 @@ __all__ = [
     "QualityHandlerResponse",
     "QualityResultData",
     "ValidatedHandlerResponse",
+    # Utils
+    "HandlerValidationError",
+    "MAX_ISSUES",
+    "SCORE_MAX",
+    "SCORE_MIN",
     "_get_optional_field",
     "_require_field",
     "_require_float",
@@ -109,8 +141,4 @@ __all__ = [
     "_safe_dict",
     "_safe_float",
     "_safe_list",
-    "transform_pattern_response",
-    "transform_performance_response",
-    "transform_quality_response",
-    "validate_handler_result",
 ]

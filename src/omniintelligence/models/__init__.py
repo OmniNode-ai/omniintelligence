@@ -25,6 +25,11 @@ Migration from Legacy (omniarchon):
     For complete migration guidance, see MIGRATION.md in this directory.
 """
 
+from omniintelligence.models.events import (
+    ModelCodeAnalysisCompletedPayload,
+    ModelCodeAnalysisFailedPayload,
+    ModelCodeAnalysisRequestPayload,
+)
 from omniintelligence.models.model_entity import ModelEntity, ModelRelationship
 from omniintelligence.models.model_intelligence_input import (
     IntelligenceMetadataDict,
@@ -48,6 +53,9 @@ __all__ = [
     "AnalysisResultsDict",
     "IntelligenceMetadataDict",
     "IntelligenceOptionsDict",
+    "ModelCodeAnalysisCompletedPayload",
+    "ModelCodeAnalysisFailedPayload",
+    "ModelCodeAnalysisRequestPayload",
     "ModelEntity",
     "ModelIntelligenceInput",
     "ModelIntelligenceOutput",

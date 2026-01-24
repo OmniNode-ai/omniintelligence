@@ -5,6 +5,11 @@ the intelligence system for FSM operations, operation types,
 entity types, and other categorical values.
 """
 
+from omniintelligence.enums.enum_code_analysis import (
+    EnumAnalysisErrorCode,
+    EnumAnalysisOperationType,
+    EnumCodeAnalysisEventType,
+)
 from omniintelligence.enums.enum_entity import EnumEntityType, EnumRelationshipType
 from omniintelligence.enums.enum_fsm import EnumFSMType
 from omniintelligence.enums.enum_operation import (
@@ -13,6 +18,9 @@ from omniintelligence.enums.enum_operation import (
 )
 
 __all__ = [
+    "EnumAnalysisErrorCode",
+    "EnumAnalysisOperationType",
+    "EnumCodeAnalysisEventType",
     "EnumEntityType",
     "EnumFSMType",
     "EnumIntelligenceOperationType",
