@@ -28,7 +28,15 @@ from omniintelligence.nodes.quality_scoring_compute.node import (
 )
 
 # Import centralized constants from conftest
-from .conftest import DOCUMENTATION_MIN_SCORE, PRODUCTION_CODE_MIN_SCORE
+from .conftest import (
+    DOCSTRINGS_MIN_DOC_SCORE,
+    DOCUMENTATION_MIN_SCORE,
+    FROZEN_MODEL_MIN_PATTERNS_SCORE,
+    HIGH_COMPLEXITY_MAX_SCORE,
+    PRODUCTION_CODE_MIN_SCORE,
+    TODO_MAX_TEMPORAL_SCORE,
+    TYPEDDICT_MIN_PATTERNS_SCORE,
+)
 
 # =============================================================================
 # Constants
@@ -364,9 +372,9 @@ class TestRealFileAnalysis:
         # Model files with frozen=True should have good patterns score
         assert result.dimensions is not None
         # Pydantic models with frozen=True should score at least moderately on patterns
-        assert result.dimensions["patterns"] >= 0.5, (
+        assert result.dimensions["patterns"] >= TYPEDDICT_MIN_PATTERNS_SCORE, (
             f"Model patterns score {result.dimensions['patterns']:.2f} "
-            "lower than expected for frozen Pydantic model"
+            f"lower than expected minimum {TYPEDDICT_MIN_PATTERNS_SCORE}"
         )
 
     async def test_batch_score_multiple_files(
@@ -540,9 +548,9 @@ class TestKnownCodePatterns:
 
         # Frozen models should score well on patterns
         patterns_score = result.dimensions["patterns"]
-        assert patterns_score >= 0.7, (
+        assert patterns_score >= FROZEN_MODEL_MIN_PATTERNS_SCORE, (
             f"Frozen Pydantic model patterns score {patterns_score:.2f} "
-            "is below expected 0.7"
+            f"is below expected {FROZEN_MODEL_MIN_PATTERNS_SCORE}"
         )
 
     async def test_typeddict_usage_scores_well(
@@ -568,9 +576,9 @@ class TestKnownCodePatterns:
 
         # TypedDict usage should result in decent patterns score
         patterns_score = result.dimensions["patterns"]
-        assert patterns_score >= 0.5, (
+        assert patterns_score >= TYPEDDICT_MIN_PATTERNS_SCORE, (
             f"TypedDict usage patterns score {patterns_score:.2f} "
-            "is below expected 0.5"
+            f"is below expected {TYPEDDICT_MIN_PATTERNS_SCORE}"
         )
 
     async def test_todo_comments_lower_temporal_score(
@@ -598,9 +606,9 @@ class TestKnownCodePatterns:
         temporal_score = result.dimensions["temporal_relevance"]
         # 4 staleness indicators * 0.1 penalty each = 0.4 penalty
         # Expected: 1.0 - 0.4 = 0.6 or lower
-        assert temporal_score <= 0.7, (
+        assert temporal_score <= TODO_MAX_TEMPORAL_SCORE, (
             f"Temporal relevance score {temporal_score:.2f} is too high "
-            "for code with multiple TODO/FIXME comments"
+            f"for code with multiple TODO/FIXME comments (max: {TODO_MAX_TEMPORAL_SCORE})"
         )
 
     async def test_docstrings_improve_documentation_score(
@@ -626,9 +634,9 @@ class TestKnownCodePatterns:
 
         # Good docstrings should result in high documentation score
         doc_score = result.dimensions["documentation"]
-        assert doc_score >= 0.7, (
-            f"Documentation score {doc_score:.2f} is below expected 0.7 "
-            "for well-documented code"
+        assert doc_score >= DOCSTRINGS_MIN_DOC_SCORE, (
+            f"Documentation score {doc_score:.2f} is below expected "
+            f"{DOCSTRINGS_MIN_DOC_SCORE} for well-documented code"
         )
 
     async def test_complex_functions_lower_complexity_score(
@@ -654,9 +662,9 @@ class TestKnownCodePatterns:
 
         # High complexity should result in lower complexity score
         complexity_score = result.dimensions["complexity"]
-        assert complexity_score <= 0.6, (
+        assert complexity_score <= HIGH_COMPLEXITY_MAX_SCORE, (
             f"Complexity score {complexity_score:.2f} is too high "
-            "for deeply nested code"
+            f"for deeply nested code (max: {HIGH_COMPLEXITY_MAX_SCORE})"
         )
 
     async def test_good_code_is_onex_compliant(

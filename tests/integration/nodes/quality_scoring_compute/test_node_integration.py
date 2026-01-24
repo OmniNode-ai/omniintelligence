@@ -14,6 +14,7 @@ produce expected results for different code quality levels.
 from __future__ import annotations
 
 import pytest
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 from omniintelligence.nodes.quality_scoring_compute.handlers import (
     OnexStrictnessLevel,
@@ -491,6 +492,7 @@ class TestErrorPropagation:
         )
         assert has_unsupported_rec
 
+    @pytest.mark.performance
     async def test_processing_time_captured(
         self, node: NodeQualityScoringCompute, high_quality_onex_code: str
     ) -> None:
@@ -547,11 +549,9 @@ class TestNodeDeterminism:
         assert output1.metadata.analysis_version == output2.metadata.analysis_version
 
     async def test_multiple_node_instances_produce_same_results(
-        self, onex_container: "ModelONEXContainer", moderate_quality_code: str
+        self, onex_container: ModelONEXContainer, moderate_quality_code: str
     ) -> None:
         """Test that different node instances produce identical results."""
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
-
         node1 = NodeQualityScoringCompute(container=onex_container)
         node2 = NodeQualityScoringCompute(container=ModelONEXContainer())
 
@@ -570,6 +570,7 @@ class TestNodeDeterminism:
 
 
 @pytest.mark.integration
+@pytest.mark.performance
 class TestNodePerformance:
     """Performance tests for the compute node."""
 

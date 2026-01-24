@@ -61,6 +61,13 @@ MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85
 PROCESSING_TIME_NORMAL_MS: Final[float] = 500.0
 PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
 
+# Thresholds for known code pattern tests
+FROZEN_MODEL_MIN_PATTERNS_SCORE: Final[float] = 0.7
+TYPEDDICT_MIN_PATTERNS_SCORE: Final[float] = 0.5
+TODO_MAX_TEMPORAL_SCORE: Final[float] = 0.7
+DOCSTRINGS_MIN_DOC_SCORE: Final[float] = 0.7
+HIGH_COMPLEXITY_MAX_SCORE: Final[float] = 0.6
+
 
 # =============================================================================
 # Helper Functions
@@ -70,17 +77,21 @@ PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
 def _collect_python_files(base_dir: Path, limit: int = 20) -> list[Path]:
     """Collect Python files from a directory tree.
 
+    Collects ALL candidate files first, sorts them deterministically by path,
+    then returns the first `limit` files. This ensures consistent file selection
+    across different file systems where directory traversal order may vary.
+
     Args:
         base_dir: Base directory to search
         limit: Maximum number of files to collect
 
     Returns:
-        List of Python file paths, limited to avoid test slowdown
+        List of Python file paths, sorted deterministically and limited
     """
     if not base_dir.exists():
         return []
 
-    files: list[Path] = []
+    candidates: list[Path] = []
     for py_file in base_dir.rglob("*.py"):
         # Skip __pycache__ and test files
         if "__pycache__" in str(py_file) or "test_" in py_file.name:
@@ -88,11 +99,10 @@ def _collect_python_files(base_dir: Path, limit: int = 20) -> list[Path]:
         # Skip empty files
         if py_file.stat().st_size == 0:
             continue
-        files.append(py_file)
-        if len(files) >= limit:
-            break
+        candidates.append(py_file)
 
-    return sorted(files)
+    # Sort ALL candidates first for deterministic selection, then take limit
+    return sorted(candidates, key=lambda p: p.as_posix())[:limit]
 
 
 # =============================================================================
