@@ -163,11 +163,15 @@ io_operations:
 # =============================================================================
 # PUBLISHED EVENTS (Kafka)
 # =============================================================================
+# Topic naming follows ONEX convention: {env}.onex.{type}.{domain}.{event}.{version}
+# The topic_suffix is the canonical topic name; env prefix is injected at runtime.
+# =============================================================================
 published_events:
-  - topic: "{env}.omniintelligence.intent.classified.v1"
+  - topic_suffix: "onex.evt.omniintelligence.intent-classified.v1"
+    full_topic_pattern: "{env}.onex.evt.omniintelligence.intent-classified.v1"
     event_type: "IntentClassified"
     trigger: "UserPromptSubmit processed successfully"
-    description: "Emitted when a user prompt intent is successfully classified"
+    description: "Emitted when a user prompt intent is successfully classified. Consumed by omnimemory for graph storage."
 
 # =============================================================================
 # DEPENDENCIES
