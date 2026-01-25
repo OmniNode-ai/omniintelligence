@@ -30,11 +30,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (1)
-    "NodeIntelligenceAdapterEffect": (
-        "omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect",
-        "NodeIntelligenceAdapterEffect",
-    ),
+    # Effects (0) - intelligence_adapter has been deleted
     # Computes (6)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.execution_trace_parser_compute.node",
@@ -87,9 +83,6 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.execution_trace_parser_compute.node import (
         NodeExecutionTraceParserCompute as NodeExecutionTraceParserCompute,
     )
-    from omniintelligence.nodes.intelligence_adapter.node_intelligence_adapter_effect import (
-        NodeIntelligenceAdapterEffect as NodeIntelligenceAdapterEffect,
-    )
     from omniintelligence.nodes.intelligence_orchestrator.node import (
         NodeIntelligenceOrchestrator as NodeIntelligenceOrchestrator,
     )
@@ -118,7 +111,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "NodeExecutionTraceParserCompute",
-    "NodeIntelligenceAdapterEffect",
     "NodeIntelligenceOrchestrator",
     "NodeIntelligenceReducer",
     "NodeIntentClassifierCompute",
