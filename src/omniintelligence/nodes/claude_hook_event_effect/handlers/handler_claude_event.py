@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
+from omniintelligence.constants import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 from omniintelligence.nodes.claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
@@ -445,8 +446,9 @@ async def _emit_intent_to_kafka(
         producer: Kafka producer implementing ProtocolKafkaPublisher.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
     """
-    # Build topic name with environment prefix
-    topic = f"{topic_env_prefix}.omniintelligence.intent.classified.v1"
+    # Build topic name with environment prefix using ONEX naming convention
+    # TEMP_BOOTSTRAP: Topic suffix from constants until runtime injection is wired (OMN-1546)
+    topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}"
 
     # Build event payload
     event_payload = {

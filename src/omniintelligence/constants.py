@@ -45,10 +45,38 @@ Used in:
 """
 
 # =============================================================================
+# Kafka Topic Suffixes (TEMP_BOOTSTRAP)
+# =============================================================================
+# TEMP_BOOTSTRAP: These constants are temporary until runtime injection from
+# contract.yaml is wired. Delete when OMN-1546 completes.
+#
+# Topic naming follows ONEX convention:
+#   {env}.onex.{type}.{domain}.{event-name}.{version}
+#
+# These constants define the SUFFIX (everything after env prefix).
+# Full topic is constructed as: f"{env_prefix}.{suffix}"
+# =============================================================================
+
+TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for intent classification events.
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.intent-classified.v1
+
+This constant is temporary (OMN-1539). When runtime injection from contract.yaml
+is wired, this will be removed and the topic will be resolved from:
+  - contract.yaml published_events[].topic_suffix
+  - Runtime config provides env prefix
+
+Deletion ticket: OMN-1546
+"""
+
+# =============================================================================
 # Exports
 # =============================================================================
 
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
+    "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
 ]
