@@ -171,7 +171,8 @@ published_events:
     full_topic_pattern: "{env}.onex.evt.omniintelligence.intent-classified.v1"
     event_type: "IntentClassified"
     trigger: "UserPromptSubmit processed successfully"
-    description: "Emitted when a user prompt intent is successfully classified. Consumed by omnimemory for graph storage."
+    description: "Emitted when a user prompt intent is successfully classified. Consumed by omnimemory
+      for graph storage."
 
 # =============================================================================
 # DEPENDENCIES
