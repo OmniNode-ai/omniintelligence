@@ -570,11 +570,51 @@ class TestNodePerformance:
         assert output.metadata.processing_time_ms < PROCESSING_TIME_NORMAL_MS
 
     async def test_compute_handles_large_file(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self, quality_scoring_node: NodeQualityScoringCompute
     ) -> None:
         """Test that compute handles larger files without issues."""
-        # Create a larger file by repeating content
-        large_content = high_quality_onex_code * 10  # ~6KB of code
+        # Generate valid large Python content with numbered variants to avoid duplicates
+        parts = [
+            '"""Large module for testing quality scoring on larger files.\n\n'
+            "This module contains multiple model classes to test scoring performance.\n"
+            '"""\n\n'
+            "from __future__ import annotations\n\n"
+            "from typing import ClassVar\n\n"
+            "from pydantic import BaseModel, Field, field_validator\n\n"
+        ]
+
+        # Generate 20 unique classes (~300 bytes each = ~6KB total)
+        for i in range(20):
+            parts.append(
+                f'class Model{i}(BaseModel):\n'
+                f'    """Model variant {i} following ONEX patterns.\n\n'
+                f"    Attributes:\n"
+                f"        name: The model's display name.\n"
+                f"        value: The model's numeric value.\n"
+                f'    """\n\n'
+                f'    name: str = Field(..., min_length=1, description="Display name")\n'
+                f"    value: int = Field(default={i}, ge=0, description=\"Numeric value\")\n\n"
+                f'    model_config: ClassVar[dict[str, bool | str]] = {{\n'
+                f'        "frozen": True,\n'
+                f'        "extra": "forbid",\n'
+                f"    }}\n\n"
+                f'    @field_validator("name")\n'
+                f"    @classmethod\n"
+                f"    def validate_name_{i}(cls, v: str) -> str:\n"
+                f'        """Validate name is not empty."""\n'
+                f"        return v.strip()\n\n\n"
+                f"def create_model_{i}(name: str, value: int = {i}) -> Model{i}:\n"
+                f'    """Create a Model{i} instance.\n\n'
+                f"    Args:\n"
+                f"        name: The display name.\n"
+                f"        value: The numeric value.\n\n"
+                f"    Returns:\n"
+                f"        A validated Model{i} instance.\n"
+                f'    """\n'
+                f"    return Model{i}(name=name, value=value)\n\n\n"
+            )
+
+        large_content = "".join(parts)
 
         input_data = ModelQualityScoringInput(
             source_path="large_module.py",

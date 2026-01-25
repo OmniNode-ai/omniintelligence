@@ -49,29 +49,80 @@ NODES_DIR = SRC_BASE / "omniintelligence" / "nodes"
 # =============================================================================
 # Quality Threshold Constants
 # =============================================================================
+#
+# These thresholds define BOUNDARIES for test assertions, not strict quality tiers.
+# Understanding the overlap semantics is critical for writing correct test assertions.
+#
+# SCORE SPECTRUM AND THRESHOLD PLACEMENT:
+#
+#   0.0 -------- 0.4 -------- 0.5 -------- 0.6 -------- 0.7 -------- 0.85 ------- 1.0
+#         |            |            |            |            |            |
+#      Very Low    Moderate     Doc Min    High Min/    Low Max     Moderate    Excellent
+#                   Min                   Prod Min                    Max
+#
+# INTENTIONAL OVERLAP ZONE (0.6 - 0.7):
+#
+#   The overlap between HIGH_QUALITY_MIN_SCORE (0.6) and LOW_QUALITY_MAX_SCORE (0.7)
+#   is by design. This "gray zone" serves multiple purposes:
+#
+#   1. Test Tolerance: Allows assertions to pass even with minor score fluctuations
+#      due to algorithm updates or edge cases in code analysis.
+#
+#   2. Semantic Flexibility: Code scoring 0.65 can be asserted as "high quality"
+#      (>= 0.6) in one test context, while another test can assert the same code
+#      is "not definitively low quality" (< 0.7). Both assertions are valid.
+#
+#   3. Algorithm Variance: Quality scoring involves heuristics that may produce
+#      slightly different scores for similar code patterns.
+#
+# HOW TO USE THESE THRESHOLDS:
+#
+#   - HIGH_QUALITY_MIN_SCORE: Use for "assert score >= 0.6" when testing code
+#     that should demonstrate good quality (frozen models, proper docs, etc.)
+#
+#   - LOW_QUALITY_MAX_SCORE: Use for "assert score < 0.7" when testing code
+#     with known issues (deep nesting, TODO markers, missing docs, etc.)
+#
+#   - MODERATE_QUALITY_*: Use for code that is neither exemplary nor problematic
+#
+# =============================================================================
 
-# Thresholds for production code quality assertions
+# -----------------------------------------------------------------------------
+# Production Code Thresholds
+# -----------------------------------------------------------------------------
+# Minimum acceptable scores for code in production environments
+
 PRODUCTION_CODE_MIN_SCORE: Final[float] = 0.6
 DOCUMENTATION_MIN_SCORE: Final[float] = 0.5
 
-# Thresholds for different quality levels
-# Note: These define BOUNDARIES, not quality. HIGH_QUALITY_MIN is the floor for "high quality",
-# while LOW_QUALITY_MAX is the ceiling - code scoring above this isn't considered "low quality"
-HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6  # Code scoring >= this is high quality
-LOW_QUALITY_MAX_SCORE: Final[float] = 0.7   # Code scoring < this may be low quality
+# -----------------------------------------------------------------------------
+# Quality Level Boundaries
+# -----------------------------------------------------------------------------
+# These define assertion boundaries, not quality tiers. See overlap explanation above.
+
+HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6  # Floor for "high quality" assertions
+LOW_QUALITY_MAX_SCORE: Final[float] = 0.7   # Ceiling for "low quality" assertions
 MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4  # Lower bound for moderate quality
 MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85  # Upper bound for moderate quality
 
-# Performance thresholds (in milliseconds)
+# -----------------------------------------------------------------------------
+# Performance Thresholds
+# -----------------------------------------------------------------------------
+# Maximum acceptable processing times in milliseconds
+
 PROCESSING_TIME_NORMAL_MS: Final[float] = 500.0
 PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
 
-# Thresholds for known code pattern tests
-FROZEN_MODEL_MIN_PATTERNS_SCORE: Final[float] = 0.7
-TYPEDDICT_MIN_PATTERNS_SCORE: Final[float] = 0.5
-TODO_MAX_TEMPORAL_SCORE: Final[float] = 0.7
-DOCSTRINGS_MIN_DOC_SCORE: Final[float] = 0.7
-HIGH_COMPLEXITY_MAX_SCORE: Final[float] = 0.6
+# -----------------------------------------------------------------------------
+# Pattern-Specific Thresholds
+# -----------------------------------------------------------------------------
+# Expected scores for code with known patterns or anti-patterns
+
+FROZEN_MODEL_MIN_PATTERNS_SCORE: Final[float] = 0.7  # Frozen Pydantic models
+TYPEDDICT_MIN_PATTERNS_SCORE: Final[float] = 0.5     # TypedDict usage
+TODO_MAX_TEMPORAL_SCORE: Final[float] = 0.7          # Code with TODO/FIXME markers
+DOCSTRINGS_MIN_DOC_SCORE: Final[float] = 0.7         # Well-documented code
+HIGH_COMPLEXITY_MAX_SCORE: Final[float] = 0.6        # Deeply nested/complex code
 
 
 # =============================================================================
