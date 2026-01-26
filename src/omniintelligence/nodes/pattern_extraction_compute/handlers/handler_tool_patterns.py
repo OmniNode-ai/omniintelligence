@@ -35,6 +35,9 @@ if TYPE_CHECKING:
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
     ToolPatternResult,
 )
+from omniintelligence.nodes.pattern_extraction_compute.handlers.utils import (
+    get_extension,
+)
 
 # Confidence calculation significance factors
 # These control how occurrence counts translate to confidence scores.
@@ -135,7 +138,7 @@ def extract_tool_patterns(
         # Associate each tool with the file extensions present in the session
         session_extensions = set()
         for file_path in files_accessed:
-            ext = _get_extension(file_path)
+            ext = get_extension(file_path)
             if ext:
                 session_extensions.add(ext)
 
@@ -244,31 +247,6 @@ def extract_tool_patterns(
                 )
 
     return results
-
-
-def _get_extension(file_path: str) -> str:
-    """Extract file extension from path.
-
-    Returns the extension including the leading dot (e.g., '.py')
-    or empty string if no extension found.
-
-    Args:
-        file_path: File path to extract extension from.
-
-    Returns:
-        File extension with leading dot, or empty string.
-
-    Examples:
-        >>> _get_extension("/path/to/file.py")
-        '.py'
-        >>> _get_extension("README")
-        ''
-        >>> _get_extension("config.settings.yaml")
-        '.yaml'
-    """
-    if "." in file_path:
-        return "." + file_path.rsplit(".", 1)[-1]
-    return ""
 
 
 def _get_session_context(files_accessed: tuple[str, ...] | list[str]) -> str:

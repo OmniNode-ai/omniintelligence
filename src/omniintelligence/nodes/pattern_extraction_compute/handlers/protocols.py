@@ -201,8 +201,10 @@ class ErrorPatternResult(TypedDict):
     Pattern Types:
         - error_prone_file: Files with high failure rates across sessions,
           indicating fragile or problematic code paths.
-        - tool_failure: Specific tools that consistently fail on specific
-          file types or extensions (e.g., Edit fails on .yaml files).
+        - tool_failure: [PLANNED - see OMN-1579] Specific tools that
+          consistently fail on specific file types or extensions (e.g., Edit
+          fails on .yaml files). Reserved in the type system for future
+          implementation.
         - error_sequence: Common error -> fix patterns that indicate
           recurring issues with predictable remediation steps.
 

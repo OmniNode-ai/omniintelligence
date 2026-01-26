@@ -18,11 +18,15 @@ import sys
 def main() -> int:
     """Run the pattern extraction compute node CLI.
 
+    TODO(OMN-1578): Implement CLI with argparse for standalone execution.
+    Currently a placeholder that prints status and exits.
+
     Returns:
         Exit code (0 for success, non-zero for failure).
     """
+    # TODO(OMN-1578): Implement CLI entry point
     print("Pattern Extraction Compute Node")
-    print("Node implementation pending - CLI not yet available")
+    print("CLI not yet implemented")
     return 0
 
 

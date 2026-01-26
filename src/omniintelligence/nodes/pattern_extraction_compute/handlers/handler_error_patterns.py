@@ -191,31 +191,6 @@ def extract_error_patterns(
     return results
 
 
-def _get_extension(file_path: str) -> str:
-    """Extract file extension from path.
-
-    Returns the extension including the leading dot (e.g., '.py')
-    or empty string if no extension found.
-
-    Args:
-        file_path: File path to extract extension from.
-
-    Returns:
-        File extension with leading dot, or empty string.
-
-    Examples:
-        >>> _get_extension("/path/to/file.py")
-        '.py'
-        >>> _get_extension("README")
-        ''
-        >>> _get_extension("config.settings.yaml")
-        '.yaml'
-    """
-    if "." in file_path:
-        return "." + file_path.rsplit(".", 1)[-1]
-    return ""
-
-
 def _summarize_errors(contexts: list[str]) -> str:
     """Summarize error messages from multiple occurrences.
 
