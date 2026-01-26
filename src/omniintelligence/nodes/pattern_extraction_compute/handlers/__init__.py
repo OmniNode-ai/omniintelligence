@@ -96,6 +96,9 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_converte
     convert_file_patterns,
     convert_tool_patterns,
 )
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_extract_all_patterns import (
+    extract_all_patterns,
+)
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
     ArchitecturePatternResult,
     ErrorPatternResult,
@@ -129,6 +132,8 @@ __all__ = [
     # Factory functions
     "create_empty_metrics",
     "create_error_result",
+    # Main handler (orchestrates all extraction)
+    "extract_all_patterns",
     # Extractors
     "extract_architecture_patterns",
     "extract_error_patterns",
