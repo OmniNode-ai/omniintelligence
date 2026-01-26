@@ -199,13 +199,14 @@ event_bus:
     - "onex.evt.omniintelligence.intent-classified.v1"
 
   # Metadata for subscribed topics
+  # Note: consumer_group is NOT specified here - it's runtime configuration
+  # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.claude-hook-event.v1":
       schema_ref: "omniintelligence.nodes.claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
       content_type: "application/json"
-      consumer_group: "omniintelligence-claude-hook-processor"
 
   # Metadata for published topics
   publish_topic_metadata:
