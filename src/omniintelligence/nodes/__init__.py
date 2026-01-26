@@ -31,7 +31,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodeIntelligenceReducer",
     ),
     # Effects (0) - intelligence_adapter has been deleted
-    # Computes (6)
+    # Computes (7)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
@@ -39,6 +39,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodeIntentClassifierCompute": (
         "omniintelligence.nodes.intent_classifier_compute.node",
         "NodeIntentClassifierCompute",
+    ),
+    "NodePatternExtractionCompute": (
+        "omniintelligence.nodes.pattern_extraction_compute.node",
+        "NodePatternExtractionCompute",
     ),
     "NodePatternMatchingCompute": (
         "omniintelligence.nodes.pattern_matching_compute.node",
@@ -95,6 +99,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
     )
+    from omniintelligence.nodes.pattern_extraction_compute.node import (
+        NodePatternExtractionCompute as NodePatternExtractionCompute,
+    )
     from omniintelligence.nodes.pattern_matching_compute.node import (
         NodePatternMatchingCompute as NodePatternMatchingCompute,
     )
@@ -115,6 +122,7 @@ __all__ = [
     "NodeIntelligenceReducer",
     "NodeIntentClassifierCompute",
     "NodePatternAssemblerOrchestrator",
+    "NodePatternExtractionCompute",
     "NodePatternMatchingCompute",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
