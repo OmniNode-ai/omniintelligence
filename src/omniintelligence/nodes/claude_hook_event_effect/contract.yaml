@@ -161,12 +161,25 @@ io_operations:
       - metadata
 
 # =============================================================================
-# PUBLISHED EVENTS (Kafka) - Documentation
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
 # =============================================================================
-# Topic naming follows ONEX convention: onex.{kind}.{producer}.{event-name}.v{n}
+# PURPOSE: Human-readable documentation of WHAT events this node produces.
+#
+# This section provides rich metadata for:
+#   - IntentTypeExtractor (capability inference)
+#   - Contract validation and diff computation
+#   - Human understanding of node behavior
+#
+# Contains: event_type, trigger conditions, descriptions, full topic patterns.
+#
+# NOTE: This is intentionally separate from event_bus (below) which handles
+# WHERE events are routed. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Topic naming: onex.{kind}.{producer}.{event-name}.v{n}
 #   - kind=cmd for commands/inputs
 #   - kind=evt for events/outputs
-# The topic_suffix is the canonical topic name; env prefix is injected at runtime.
 # =============================================================================
 published_events:
   - topic_suffix: "onex.evt.omniintelligence.intent-classified.v1"
@@ -177,11 +190,23 @@ published_events:
       for graph storage."
 
 # =============================================================================
-# EVENT BUS SUBCONTRACT
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
 # =============================================================================
-# Defines Kafka topics for RuntimeHostProcess event routing.
-# This subcontract enables the node to receive events from the event bus
-# and publish results to downstream consumers.
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# Contains: topic suffixes (simple strings) + optional schema references.
+#
+# NOTE: This is intentionally separate from published_events (above) which
+# documents WHAT events this node produces. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Added by OMN-1537 for topic-based routing configuration.
 # =============================================================================
 event_bus:
   version:
