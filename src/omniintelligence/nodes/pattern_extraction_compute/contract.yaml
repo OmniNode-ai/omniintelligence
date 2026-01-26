@@ -1,0 +1,194 @@
+---
+# ONEX Node Contract - Pattern Extraction Compute Node
+#
+# Part of OMN-1402: OmniClaude Learning Compute Node for Pattern Extraction
+# Analyzes Claude Code session data to extract patterns and insights about codebases.
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "pattern_extraction_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node that analyzes Claude Code session data to extract patterns and insights
+  about codebases. Detects file access patterns, error patterns, architecture patterns,
+  and tool usage patterns. This node is pure computation with no external dependencies.
+input_model:
+  name: "ModelPatternExtractionInput"
+  module: "omniintelligence.nodes.pattern_extraction_compute.models"
+  description: "Input containing session snapshots, existing insights, and extraction configuration."
+output_model:
+  name: "ModelPatternExtractionOutput"
+  module: "omniintelligence.nodes.pattern_extraction_compute.models"
+  description: "Output containing extracted patterns, updated insights, metrics, and metadata."
+operations:
+  - name: "extract_patterns"
+    description: "Extract all pattern types from session snapshots (main entry point)"
+    input_fields:
+      - session_snapshots
+      - existing_insights
+      - config
+      - correlation_id
+    output_fields:
+      - success
+      - new_insights
+      - updated_insights
+      - metrics
+      - metadata
+  - name: "extract_file_patterns"
+    description: "Extract file access patterns (co-access, entry points, modification clusters)"
+    input_fields:
+      - session_snapshots
+      - config
+    output_fields:
+      - file_patterns
+      - confidence_scores
+  - name: "extract_error_patterns"
+    description: "Extract error patterns (error-prone files, fix sequences, tool failures)"
+    input_fields:
+      - session_snapshots
+      - config
+    output_fields:
+      - error_patterns
+      - confidence_scores
+  - name: "extract_architecture_patterns"
+    description: "Extract architecture patterns (module boundaries, layers, dependency chains)"
+    input_fields:
+      - session_snapshots
+      - config
+    output_fields:
+      - architecture_patterns
+      - confidence_scores
+  - name: "extract_tool_patterns"
+    description: "Extract tool usage patterns (sequences, preferences, success rates)"
+    input_fields:
+      - session_snapshots
+      - config
+    output_fields:
+      - tool_patterns
+      - confidence_scores
+# =============================================================================
+# Configuration Parameters
+# =============================================================================
+# These parameters control the behavior of pattern extraction algorithms.
+# Values can be overridden at runtime via environment variables or config injection.
+#
+# Naming Convention:
+#   - Module constants use SCREAMING_SNAKE_CASE (e.g., MIN_CONFIDENCE)
+#   - Config keys use snake_case (e.g., min_confidence)
+# =============================================================================
+configuration:
+  # ---------------------------------------------------------------------------
+  # Extraction Parameters
+  # ---------------------------------------------------------------------------
+  extraction:
+    # Minimum confidence threshold for pattern inclusion.
+    # Patterns below this threshold are discarded.
+    min_confidence: 0.6
+
+    # Minimum number of occurrences required to consider a pattern valid.
+    # Prevents one-off coincidences from becoming patterns.
+    min_pattern_occurrences: 2
+
+    # Maximum number of insights to retain per pattern type.
+    # Prevents unbounded growth of insight storage.
+    max_insights_per_type: 50
+
+    # Maximum number of files to include in a single pattern.
+    # Prevents overly broad patterns with low signal.
+    max_files_per_pattern: 20
+
+    # Staleness threshold in days for pattern decay.
+    # Patterns older than this receive reduced confidence.
+    pattern_staleness_days: 30
+
+  # ---------------------------------------------------------------------------
+  # Confidence Calculation Weights
+  # ---------------------------------------------------------------------------
+  # Used to calculate overall pattern confidence from multiple factors.
+  # Weights should sum to 1.0.
+  confidence_weights:
+    # Weight for number of occurrences (more occurrences = higher confidence).
+    occurrence_weight: 0.5
+
+    # Weight for consistency across sessions (consistent patterns = higher confidence).
+    consistency_weight: 0.3
+
+    # Weight for recency (more recent patterns = higher confidence).
+    recency_weight: 0.2
+
+  # ---------------------------------------------------------------------------
+  # Pattern Type Specific Thresholds
+  # ---------------------------------------------------------------------------
+  pattern_thresholds:
+    # File co-access: minimum overlap ratio to consider files related.
+    file_cooccurrence_min_overlap: 0.3
+
+    # Error patterns: minimum error count to flag a file as error-prone.
+    error_prone_min_errors: 3
+
+    # Architecture: minimum files to consider a directory a module.
+    architecture_min_files_per_module: 3
+
+    # Tool patterns: minimum tool sequence length to track.
+    tool_sequence_min_length: 2
+
+# =============================================================================
+# TODO(OMN-XXXX): Protocol Integration - ProtocolPatternExtractor
+# =============================================================================
+# Status: Backlog
+# Issue: TBD
+#
+# Priority: Low (current implementation functional without protocol abstraction)
+# Description: Add ProtocolPatternExtractor to omnibase_spi
+#
+# When implemented:
+#   - Import from omnibase_spi.protocols.intelligence.ProtocolPatternExtractor
+#   - Node should implement the protocol interface
+#   - Uncomment dependency below
+# =============================================================================
+dependencies: []
+# Future dependency (when protocol is implemented):
+# - name: "pattern_extractor"
+#   type: "protocol"
+#   module: "omnibase_spi.protocols.intelligence"
+#   description: "Pattern extraction protocol from SPI"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "PatternExtractionValidationError"
+      error_code: "PATTERN_001"
+      description: "Input validation failed (e.g., invalid session format, missing required fields)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternExtractionComputeError"
+      error_code: "PATTERN_002"
+      description: "Error during pattern extraction computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+    - name: "PatternConfidenceCalculationError"
+      error_code: "PATTERN_003"
+      description: "Error calculating pattern confidence scores"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+# Note: health_check omitted - pure compute nodes are stateless with no external
+# dependencies, so health checks are not applicable.
+metadata:
+  author: "OmniNode Team"
+  created: "2026-01-26"
+  updated: "2026-01-26"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "pattern-extraction"
+    - "session-analysis"
+    - "learning"
+    - "file-patterns"
+    - "error-patterns"
+    - "architecture-patterns"
+    - "tool-patterns"
