@@ -9,7 +9,7 @@ Part of OMN-1402: OmniClaude Learning Compute Node for Pattern Extraction.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -17,6 +17,9 @@ from omnibase_core.mixins.mixin_introspection import MixinNodeIntrospection
 from omnibase_core.models.primitives.model_semver import ModelSemVer
 
 if TYPE_CHECKING:
+    from omnibase_core.models.core.model_node_introspection_response import (
+        ModelNodeIntrospectionResponse,
+    )
     from pydantic import BaseModel
 
 
@@ -57,7 +60,7 @@ class PatternExtractionMetadataLoader:
     """
 
     node_name: str = "pattern_extraction_compute"
-    node_version: ModelSemVer = ModelSemVer(major=1, minor=0, patch=0)
+    node_version: ModelSemVer = field(default_factory=lambda: ModelSemVer(major=1, minor=0, patch=0))
     node_description: str = (
         "Compute node that analyzes Claude Code session data to extract patterns "
         "and insights about codebases. Detects file access patterns, error patterns, "
@@ -174,7 +177,7 @@ class PatternExtractionIntrospection(MixinNodeIntrospection):
 
 
 # Convenience function for direct introspection access
-def get_introspection_response():
+def get_introspection_response() -> ModelNodeIntrospectionResponse:
     """Get the introspection response for pattern extraction compute node.
 
     Returns:
