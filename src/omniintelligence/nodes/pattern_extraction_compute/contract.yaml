@@ -138,10 +138,10 @@ configuration:
     tool_sequence_min_length: 2
 
 # =============================================================================
-# TODO(OMN-XXXX): Protocol Integration - ProtocolPatternExtractor
+# TODO(OMN-1580): Protocol Integration - ProtocolPatternExtractor
 # =============================================================================
 # Status: Backlog
-# Issue: TBD
+# Issue: https://linear.app/omninode/issue/OMN-1580
 #
 # Priority: Low (current implementation functional without protocol abstraction)
 # Description: Add ProtocolPatternExtractor to omnibase_spi
