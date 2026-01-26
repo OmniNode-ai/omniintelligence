@@ -14,9 +14,9 @@ node_version:
 name: "pattern_extraction_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Compute node that analyzes Claude Code session data to extract patterns and insights
-  about codebases. Detects file access patterns, error patterns, architecture patterns,
-  and tool usage patterns. This node is pure computation with no external dependencies.
+  Compute node that analyzes Claude Code session data to extract patterns and insights about codebases.
+  Detects file access patterns, error patterns, architecture patterns, and tool usage patterns. This node
+  is pure computation with no external dependencies.
 input_model:
   name: "ModelPatternExtractionInput"
   module: "omniintelligence.nodes.pattern_extraction_compute.models"
