@@ -7,9 +7,6 @@ including input/output models, configuration, and insight types.
 from omniintelligence.nodes.pattern_extraction_compute.models.enum_insight_type import (
     EnumInsightType,
 )
-from omniintelligence.nodes.pattern_extraction_compute.models.model_config import (
-    ModelPatternExtractionConfig,
-)
 from omniintelligence.nodes.pattern_extraction_compute.models.model_input import (
     ModelExtractionConfig,
     ModelPatternExtractionInput,
@@ -29,7 +26,6 @@ __all__ = [
     "ModelCodebaseInsight",
     "ModelExtractionConfig",
     "ModelExtractionMetrics",
-    "ModelPatternExtractionConfig",
     "ModelPatternExtractionInput",
     "ModelPatternExtractionMetadata",
     "ModelPatternExtractionOutput",

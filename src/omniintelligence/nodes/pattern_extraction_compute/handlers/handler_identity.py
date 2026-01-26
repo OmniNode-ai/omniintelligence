@@ -93,5 +93,15 @@ def insight_identity_key(insight: ModelCodebaseInsight) -> str:
             files_key = "|".join(sorted(insight.evidence_files[:5]))
             return f"{base}mod:{files_key}"
 
+        case _:
+            # Fallback for any new insight types added to the enum.
+            # This is intentionally defensive - mypy sees it as unreachable
+            # because all current enum values are handled, but we want
+            # runtime safety if new values are added without updating this match.
+            desc_hash = hashlib.md5(  # type: ignore[unreachable]
+                insight.description.encode(), usedforsecurity=False
+            ).hexdigest()[:8]
+            return f"{base}unknown:{desc_hash}"
+
 
 __all__ = ["insight_identity_key"]
