@@ -57,16 +57,26 @@ Used in:
 # Full topic is constructed as: f"{env_prefix}.{suffix}"
 # =============================================================================
 
+TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = "onex.cmd.omniintelligence.claude-hook-event.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for Claude Code hook events (INPUT).
+
+Full topic at runtime: {env}.onex.cmd.omniintelligence.claude-hook-event.v1
+
+omniclaude publishes Claude Code hook events to this topic.
+RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
+
+Deletion ticket: OMN-1546
+"""
+
 TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
 """
-TEMP_BOOTSTRAP: Topic suffix for intent classification events.
+TEMP_BOOTSTRAP: Topic suffix for intent classification events (OUTPUT).
 
 Full topic at runtime: {env}.onex.evt.omniintelligence.intent-classified.v1
 
-This constant is temporary (OMN-1539). When runtime injection from contract.yaml
-is wired, this will be removed and the topic will be resolved from:
-  - contract.yaml published_events[].topic_suffix
-  - Runtime config provides env prefix
+NodeClaudeHookEventEffect publishes classified intents to this topic.
+omnimemory consumes for graph storage.
 
 Deletion ticket: OMN-1546
 """
@@ -78,5 +88,6 @@ Deletion ticket: OMN-1546
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
+    "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
 ]
