@@ -46,7 +46,7 @@ neo4j==5.15.0
 # py2neo==2021.2.4  # Commented out - old version, use neo4j driver directly
 
 # Data validation and serialization
-marshmallow==3.20.1
+marshmallow==3.26.2
 jsonschema==4.20.0
 
 # Async support
