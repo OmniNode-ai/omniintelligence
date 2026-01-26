@@ -36,7 +36,7 @@ class ModelExtractionConfig(BaseModel):
         description="Minimum occurrences to consider a pattern",
     )
     min_confidence: float = Field(
-        default=0.5,
+        default=0.6,  # Aligned with contract.yaml configuration.extraction.min_confidence
         ge=0.0,
         le=1.0,
         description="Minimum confidence threshold for patterns",
@@ -121,6 +121,10 @@ class ModelPatternExtractionInput(BaseModel):
     existing_insights: tuple[ModelCodebaseInsight, ...] = Field(
         default=(),
         description="Existing insights to merge with (for incremental updates)",
+    )
+    correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for distributed tracing",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}

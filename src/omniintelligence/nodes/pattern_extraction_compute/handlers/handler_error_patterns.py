@@ -25,7 +25,9 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from typing import Any
+    from omniintelligence.nodes.pattern_extraction_compute.models import (
+        ModelSessionSnapshot,
+    )
 
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
     ErrorPatternResult,
@@ -33,7 +35,7 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import
 
 
 def extract_error_patterns(
-    sessions: Sequence[Any],  # ModelSessionSnapshot
+    sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
 ) -> list[ErrorPatternResult]:

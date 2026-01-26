@@ -35,15 +35,28 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from typing import Any
+    from omniintelligence.nodes.pattern_extraction_compute.models import (
+        ModelSessionSnapshot,
+    )
 
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
     FileAccessPatternResult,
 )
 
+# Confidence calculation significance factors
+# These control how occurrence counts translate to confidence scores.
+# A factor of 0.5 means pattern occurring in 50% of sessions yields confidence=1.0.
+# A factor of 0.3 means pattern occurring in 30% of sessions yields confidence=1.0.
+
+CO_ACCESS_SIGNIFICANCE_FACTOR = 0.5
+"""Co-access patterns: occurrence in 50% of sessions is considered highly significant."""
+
+MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR = 0.3
+"""Modification clusters: occurrence in 30% of sessions is significant (rarer pattern)."""
+
 
 def extract_file_access_patterns(
-    sessions: Sequence[Any],  # ModelSessionSnapshot or compatible
+    sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
 ) -> list[FileAccessPatternResult]:
@@ -137,8 +150,7 @@ def extract_file_access_patterns(
         if count < min_occurrences:
             break
         # Confidence based on fraction of sessions containing pair
-        # Using 0.5 factor because co-access in half of sessions is significant
-        confidence = min(1.0, count / (total_sessions * 0.5))
+        confidence = min(1.0, count / (total_sessions * CO_ACCESS_SIGNIFICANCE_FACTOR))
         if confidence >= min_confidence:
             # Find sessions containing this pair
             evidence = tuple(
@@ -182,9 +194,8 @@ def extract_file_access_patterns(
     for (f1, f2), count in modification_pairs.most_common():
         if count < min_occurrences:
             break
-        # Modification clusters are rarer, so use 0.3 factor
-        # (co-modification in 30% of sessions is significant)
-        confidence = min(1.0, count / (total_sessions * 0.3))
+        # Modification clusters are rarer than co-access patterns
+        confidence = min(1.0, count / (total_sessions * MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR))
         if confidence >= min_confidence:
             evidence = tuple(
                 sid

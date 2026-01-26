@@ -72,21 +72,6 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.exceptions impor
     PatternExtractionError,
     PatternExtractionValidationError,
 )
-from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_identity import (
-    insight_identity_key,
-)
-from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_merge import (
-    merge_insights,
-)
-from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_error_patterns import (
-    extract_error_patterns,
-)
-from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_file_patterns import (
-    extract_file_access_patterns,
-)
-from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_patterns import (
-    extract_tool_patterns,
-)
 from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_architecture_patterns import (
     extract_architecture_patterns,
 )
@@ -96,8 +81,23 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_converte
     convert_file_patterns,
     convert_tool_patterns,
 )
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_error_patterns import (
+    extract_error_patterns,
+)
 from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_extract_all_patterns import (
     extract_all_patterns,
+)
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_file_patterns import (
+    extract_file_access_patterns,
+)
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_identity import (
+    insight_identity_key,
+)
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_merge import (
+    merge_insights,
+)
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_patterns import (
+    extract_tool_patterns,
 )
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
     ArchitecturePatternResult,

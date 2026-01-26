@@ -28,15 +28,30 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from typing import Any
+    from omniintelligence.nodes.pattern_extraction_compute.models import (
+        ModelSessionSnapshot,
+    )
 
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
     ToolPatternResult,
 )
 
+# Confidence calculation significance factors
+# These control how occurrence counts translate to confidence scores.
+# Higher factors require more occurrences to reach full confidence.
+
+BIGRAM_SEQUENCE_SIGNIFICANCE_FACTOR = 2
+"""Tool bigrams: expect ~2 bigrams per session on average, so 2x sessions = full confidence."""
+
+TOOL_PREFERENCE_SIGNIFICANCE_FACTOR = 3
+"""Tool preferences: expect multiple tool-type associations per session (3x sessions)."""
+
+SUCCESS_RATE_SIGNIFICANCE_FACTOR = 5
+"""Success rates: require substantial sample size for statistical relevance (5x sessions)."""
+
 
 def extract_tool_patterns(
-    sessions: Sequence[Any],  # ModelSessionSnapshot
+    sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
 ) -> list[ToolPatternResult]:
@@ -154,7 +169,7 @@ def extract_tool_patterns(
         if count < min_occurrences:
             break
 
-        confidence = min(1.0, count / (total_sessions * 2))
+        confidence = min(1.0, count / (total_sessions * BIGRAM_SEQUENCE_SIGNIFICANCE_FACTOR))
         if confidence >= min_confidence:
             results.append(
                 ToolPatternResult(
@@ -192,7 +207,7 @@ def extract_tool_patterns(
         if count < min_occurrences:
             break
 
-        confidence = min(1.0, count / (total_sessions * 3))
+        confidence = min(1.0, count / (total_sessions * TOOL_PREFERENCE_SIGNIFICANCE_FACTOR))
         if confidence >= min_confidence:
             results.append(
                 ToolPatternResult(
@@ -214,7 +229,7 @@ def extract_tool_patterns(
         success_rate = sum(successes) / len(successes)
         # Only report notably high or low success rates
         if success_rate >= 0.9 or success_rate <= 0.5:
-            confidence = min(1.0, len(successes) / (total_sessions * 5))
+            confidence = min(1.0, len(successes) / (total_sessions * SUCCESS_RATE_SIGNIFICANCE_FACTOR))
             if confidence >= min_confidence:
                 results.append(
                     ToolPatternResult(

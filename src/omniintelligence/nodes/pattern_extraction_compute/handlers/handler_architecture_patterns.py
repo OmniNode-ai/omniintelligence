@@ -31,7 +31,7 @@ from __future__ import annotations
 import os
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
@@ -39,7 +39,9 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import
 )
 
 if TYPE_CHECKING:
-    pass
+    from omniintelligence.nodes.pattern_extraction_compute.models import (
+        ModelSessionSnapshot,
+    )
 
 
 # =============================================================================
@@ -48,7 +50,7 @@ if TYPE_CHECKING:
 
 
 def extract_architecture_patterns(
-    sessions: Sequence[Any],  # Sequence of ModelSessionSnapshot
+    sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
 ) -> list[ArchitecturePatternResult]:
