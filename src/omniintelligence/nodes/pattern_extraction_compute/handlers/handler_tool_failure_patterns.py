@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     )
 
 from omniintelligence.nodes.pattern_extraction_compute.handlers.protocols import (
+    ContextFeatures,
     ErrorPatternResult,
 )
 
@@ -99,6 +100,7 @@ def extract_tool_failure_patterns(
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
     min_distinct_sessions: int = 2,
+    max_results_per_type: int = MAX_RESULTS_PER_TYPE,
 ) -> list[ErrorPatternResult]:
     """Extract failure patterns from tool executions.
 
@@ -114,6 +116,8 @@ def extract_tool_failure_patterns(
             Defaults to 0.6 to ensure statistical relevance.
         min_distinct_sessions: Minimum distinct sessions a pattern must appear in.
             Defaults to 2 to avoid single-session noise.
+        max_results_per_type: Maximum results per pattern type.
+            Defaults to MAX_RESULTS_PER_TYPE (20).
 
     Returns:
         List of detected tool failure patterns, deterministically ordered.
@@ -129,35 +133,55 @@ def extract_tool_failure_patterns(
     # 1. Recurring failures (same tool + error_type)
     results.extend(
         _detect_recurring_failures(
-            failures, min_occurrences, min_confidence, min_distinct_sessions
+            failures,
+            min_occurrences,
+            min_confidence,
+            min_distinct_sessions,
+            max_results_per_type,
         )
     )
 
     # 2. Failure sequences (A fails -> B fails within bounds)
     results.extend(
         _detect_failure_sequences(
-            sessions, min_occurrences, min_confidence, min_distinct_sessions
+            sessions,
+            min_occurrences,
+            min_confidence,
+            min_distinct_sessions,
+            max_results_per_type,
         )
     )
 
     # 3. Context-sensitive failures (file type/path correlations)
     results.extend(
         _detect_context_failures(
-            failures, min_occurrences, min_confidence, min_distinct_sessions
+            failures,
+            min_occurrences,
+            min_confidence,
+            min_distinct_sessions,
+            max_results_per_type,
         )
     )
 
     # 4. Recovery patterns (failure -> retry -> outcome)
     results.extend(
         _detect_recovery_patterns(
-            sessions, min_occurrences, min_confidence, min_distinct_sessions
+            sessions,
+            min_occurrences,
+            min_confidence,
+            min_distinct_sessions,
+            max_results_per_type,
         )
     )
 
     # 5. Failure hotspots (tool_name + directory level)
     results.extend(
         _detect_failure_hotspots(
-            failures, min_occurrences, min_confidence, min_distinct_sessions
+            failures,
+            min_occurrences,
+            min_confidence,
+            min_distinct_sessions,
+            max_results_per_type,
         )
     )
 
@@ -255,6 +279,7 @@ def _detect_recurring_failures(
     min_occurrences: int,
     min_confidence: float,
     min_distinct_sessions: int,
+    max_results_per_type: int,
 ) -> list[ErrorPatternResult]:
     """Detect recurring failure patterns (same tool + error_type).
 
@@ -265,6 +290,7 @@ def _detect_recurring_failures(
         min_occurrences: Minimum occurrences threshold.
         min_confidence: Minimum confidence threshold.
         min_distinct_sessions: Minimum distinct sessions threshold.
+        max_results_per_type: Maximum results to return.
 
     Returns:
         List of ErrorPatternResult for recurring failures.
@@ -330,9 +356,9 @@ def _detect_recurring_failures(
             )
         )
 
-    # Sort by confidence descending, limit to MAX_RESULTS_PER_TYPE
+    # Sort by confidence descending, limit to max_results_per_type
     results.sort(key=lambda r: -r["confidence"])
-    return results[:MAX_RESULTS_PER_TYPE]
+    return results[:max_results_per_type]
 
 
 # =============================================================================
@@ -345,6 +371,7 @@ def _detect_failure_sequences(
     min_occurrences: int,
     min_confidence: float,
     min_distinct_sessions: int,
+    max_results_per_type: int,
 ) -> list[ErrorPatternResult]:
     """Detect failure sequence patterns (A fails -> B fails within bounds).
 
@@ -355,6 +382,7 @@ def _detect_failure_sequences(
         min_occurrences: Minimum occurrences threshold.
         min_confidence: Minimum confidence threshold.
         min_distinct_sessions: Minimum distinct sessions threshold.
+        max_results_per_type: Maximum results to return.
 
     Returns:
         List of ErrorPatternResult for failure sequences.
@@ -439,9 +467,9 @@ def _detect_failure_sequences(
             )
         )
 
-    # Sort by confidence descending, limit to MAX_RESULTS_PER_TYPE
+    # Sort by confidence descending, limit to max_results_per_type
     results.sort(key=lambda r: -r["confidence"])
-    return results[:MAX_RESULTS_PER_TYPE]
+    return results[:max_results_per_type]
 
 
 # =============================================================================
@@ -454,6 +482,7 @@ def _detect_context_failures(
     min_occurrences: int,
     min_confidence: float,
     min_distinct_sessions: int,
+    max_results_per_type: int,
 ) -> list[ErrorPatternResult]:
     """Detect context-sensitive failures (file extension/directory correlations).
 
@@ -465,6 +494,7 @@ def _detect_context_failures(
         min_occurrences: Minimum occurrences threshold.
         min_confidence: Minimum confidence threshold.
         min_distinct_sessions: Minimum distinct sessions threshold.
+        max_results_per_type: Maximum results to return.
 
     Returns:
         List of ErrorPatternResult for context failures.
@@ -566,9 +596,9 @@ def _detect_context_failures(
             )
         )
 
-    # Sort by confidence descending, limit to MAX_RESULTS_PER_TYPE
+    # Sort by confidence descending, limit to max_results_per_type
     results.sort(key=lambda r: -r["confidence"])
-    return results[:MAX_RESULTS_PER_TYPE]
+    return results[:max_results_per_type]
 
 
 # =============================================================================
@@ -581,6 +611,7 @@ def _detect_recovery_patterns(
     min_occurrences: int,
     min_confidence: float,
     min_distinct_sessions: int,
+    max_results_per_type: int,
 ) -> list[ErrorPatternResult]:
     """Detect recovery patterns (failure -> retry -> outcome).
 
@@ -592,6 +623,7 @@ def _detect_recovery_patterns(
         min_occurrences: Minimum occurrences threshold.
         min_confidence: Minimum confidence threshold.
         min_distinct_sessions: Minimum distinct sessions threshold.
+        max_results_per_type: Maximum results to return.
 
     Returns:
         List of ErrorPatternResult for recovery patterns.
@@ -694,9 +726,9 @@ def _detect_recovery_patterns(
             )
         )
 
-    # Sort by confidence descending, limit to MAX_RESULTS_PER_TYPE
+    # Sort by confidence descending, limit to max_results_per_type
     results.sort(key=lambda r: -r["confidence"])
-    return results[:MAX_RESULTS_PER_TYPE]
+    return results[:max_results_per_type]
 
 
 # =============================================================================
@@ -709,6 +741,7 @@ def _detect_failure_hotspots(
     min_occurrences: int,
     min_confidence: float,
     min_distinct_sessions: int,
+    max_results_per_type: int,
 ) -> list[ErrorPatternResult]:
     """Detect failure hotspots (tool_name + directory level).
 
@@ -719,6 +752,7 @@ def _detect_failure_hotspots(
         min_occurrences: Minimum occurrences threshold.
         min_confidence: Minimum confidence threshold.
         min_distinct_sessions: Minimum distinct sessions threshold.
+        max_results_per_type: Maximum results to return.
 
     Returns:
         List of ErrorPatternResult for failure hotspots.
@@ -778,9 +812,9 @@ def _detect_failure_hotspots(
             )
         )
 
-    # Sort by confidence descending, limit to MAX_RESULTS_PER_TYPE
+    # Sort by confidence descending, limit to max_results_per_type
     results.sort(key=lambda r: -r["confidence"])
-    return results[:MAX_RESULTS_PER_TYPE]
+    return results[:max_results_per_type]
 
 
 # =============================================================================
@@ -888,7 +922,7 @@ def _extract_directory(params: dict[str, Any] | None) -> str | None:
     return None
 
 
-def _extract_context_features(params: dict[str, Any] | None) -> dict[str, Any]:
+def _extract_context_features(params: dict[str, Any] | None) -> ContextFeatures:
     """Extract STABLE context features from tool_parameters.
 
     Values in tool_parameters don't affect features - only structure matters.
@@ -897,15 +931,15 @@ def _extract_context_features(params: dict[str, Any] | None) -> dict[str, Any]:
         params: Tool parameters dict.
 
     Returns:
-        Dict with extension, top_level_dir, has_lockfile, param_shape.
+        ContextFeatures with extension, top_level_dir, has_lockfile, param_shape.
     """
     if not params or not isinstance(params, dict):
-        return {
-            "extension": None,
-            "top_level_dir": None,
-            "has_lockfile": False,
-            "param_shape": "",
-        }
+        return ContextFeatures(
+            extension=None,
+            top_level_dir=None,
+            has_lockfile=False,
+            param_shape="",
+        )
 
     path_value = _extract_path_value(params)
 
@@ -917,12 +951,12 @@ def _extract_context_features(params: dict[str, Any] | None) -> dict[str, Any]:
     param_keys = sorted(set(params.keys()))[:10]
     param_shape = "|".join(param_keys)
 
-    return {
-        "extension": extension,
-        "top_level_dir": top_level_dir,
-        "has_lockfile": has_lockfile,
-        "param_shape": param_shape,
-    }
+    return ContextFeatures(
+        extension=extension,
+        top_level_dir=top_level_dir,
+        has_lockfile=has_lockfile,
+        param_shape=param_shape,
+    )
 
 
 def _is_lockfile_path(path: str | None) -> bool:

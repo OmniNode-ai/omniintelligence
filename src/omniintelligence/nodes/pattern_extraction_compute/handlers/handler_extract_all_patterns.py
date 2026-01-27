@@ -271,6 +271,7 @@ def _run_extractors(
                 config.min_pattern_occurrences,
                 config.min_confidence,
                 config.min_distinct_sessions,
+                config.max_results_per_pattern_type,
             )
         else:
             results = extract_func(

@@ -56,6 +56,12 @@ class ModelExtractionConfig(BaseModel):
         ge=1,
         description="Maximum insights to return per type",
     )
+    max_results_per_pattern_type: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum patterns to return per pattern subtype (e.g., recurring_failure, failure_sequence)",
+    )
     reference_time: datetime | None = Field(
         default=None,
         description="Reference time for deterministic timestamps (uses max session ended_at if None)",

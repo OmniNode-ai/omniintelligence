@@ -412,6 +412,30 @@ class InsightDict(TypedDict):
 
 
 # =============================================================================
+# Context Features TypedDict
+# =============================================================================
+
+
+class ContextFeatures(TypedDict):
+    """Context features extracted from tool parameters for pattern analysis.
+
+    Used by tool failure pattern extraction to identify stable contextual
+    features that correlate with failures (file extensions, directories, etc.).
+
+    Attributes:
+        extension: File extension (e.g., ".py", ".json") or None.
+        top_level_dir: First directory component of the path or None.
+        has_lockfile: Whether the path is a known lockfile.
+        param_shape: Sorted pipe-delimited keys from tool_parameters.
+    """
+
+    extension: str | None
+    top_level_dir: str | None
+    has_lockfile: bool
+    param_shape: str
+
+
+# =============================================================================
 # Pattern Extraction Metadata TypedDict
 # =============================================================================
 
@@ -597,6 +621,7 @@ def create_error_result(
 
 __all__ = [
     "ArchitecturePatternResult",
+    "ContextFeatures",
     "ErrorPatternResult",
     "FileAccessPatternResult",
     "InsightDict",
