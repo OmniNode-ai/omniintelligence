@@ -1114,3 +1114,156 @@ def single_failure_session(base_time: datetime) -> tuple[ModelSessionSnapshot, .
             outcome="failure",
         ),
     )
+
+
+@pytest.fixture
+def sessions_with_extension_failures(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions with failures concentrated on specific file extensions.
+
+    Designed to detect:
+    - Context failures: failures correlated with file extensions (e.g., .json files)
+    - Triggers context_failure pattern detection when tool fails on same extension
+      across multiple sessions
+
+    This fixture creates 3 sessions where Read/Edit fails on .json files:
+    - Session 1: Read fails on config.json, Edit fails on settings.json
+    - Session 2: Read fails on package.json
+    - Session 3: Read fails on data.json, Edit fails on schema.json
+
+    Total: 5 failures on .json files across 3 sessions, plus some .py successes
+    for contrast.
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="ext-failure-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=25),
+            files_accessed=("config.json", "settings.json", "src/main.py"),
+            files_modified=(),
+            tools_used=("Read", "Read", "Edit", "Read"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="JSON parse error: unexpected token at line 42",
+                    error_type="JSONDecodeError",
+                    duration_ms=15,
+                    tool_parameters={"file_path": "config.json"},
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=30,
+                    tool_parameters={"file_path": "src/main.py"},
+                    timestamp=base_time + timedelta(seconds=20),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Invalid JSON structure: missing closing brace",
+                    error_type="JSONDecodeError",
+                    duration_ms=12,
+                    tool_parameters={"file_path": "settings.json"},
+                    timestamp=base_time + timedelta(seconds=40),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=25,
+                    tool_parameters={"file_path": "src/main.py"},
+                    timestamp=base_time + timedelta(seconds=60),
+                ),
+            ),
+            errors_encountered=(
+                "JSONDecodeError: config.json",
+                "JSONDecodeError: settings.json",
+            ),
+            outcome="partial",
+        ),
+        ModelSessionSnapshot(
+            session_id="ext-failure-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=20),
+            files_accessed=("package.json", "src/utils.py"),
+            files_modified=("src/utils.py",),
+            tools_used=("Read", "Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="JSON parse error: trailing comma not allowed",
+                    error_type="JSONDecodeError",
+                    duration_ms=18,
+                    tool_parameters={"file_path": "package.json"},
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=35,
+                    tool_parameters={"file_path": "src/utils.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=25),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=28,
+                    tool_parameters={"file_path": "src/utils.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=50),
+                ),
+            ),
+            errors_encountered=("JSONDecodeError: package.json",),
+            outcome="partial",
+        ),
+        ModelSessionSnapshot(
+            session_id="ext-failure-003",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=2),
+            ended_at=base_time + timedelta(hours=2, minutes=30),
+            files_accessed=("data/data.json", "data/schema.json", "src/handler.py"),
+            files_modified=("src/handler.py",),
+            tools_used=("Read", "Edit", "Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="JSON parse error: invalid escape sequence",
+                    error_type="JSONDecodeError",
+                    duration_ms=14,
+                    tool_parameters={"file_path": "data/data.json"},
+                    timestamp=base_time + timedelta(hours=2),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit malformed JSON file",
+                    error_type="JSONDecodeError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "data/schema.json"},
+                    timestamp=base_time + timedelta(hours=2, seconds=30),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=40,
+                    tool_parameters={"file_path": "src/handler.py"},
+                    timestamp=base_time + timedelta(hours=2, seconds=60),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=32,
+                    tool_parameters={"file_path": "src/handler.py"},
+                    timestamp=base_time + timedelta(hours=2, seconds=90),
+                ),
+            ),
+            errors_encountered=(
+                "JSONDecodeError: data/data.json",
+                "JSONDecodeError: data/schema.json",
+            ),
+            outcome="partial",
+        ),
+    )

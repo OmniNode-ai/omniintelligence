@@ -966,8 +966,10 @@ class TestExtractToolFailurePatterns:
             min_confidence=0.3,
             min_distinct_sessions=1,
         )
-        # Should find recovery patterns
-        assert len(results) >= 0  # May or may not find depending on thresholds
+        # Recovery patterns may not be detected with these thresholds due to
+        # insufficient retry occurrences - this test verifies the function
+        # executes without error and returns a valid result
+        assert isinstance(results, list)
 
     def test_detects_failure_hotspots(
         self, sessions_with_directory_failures: tuple[ModelSessionSnapshot, ...]
@@ -981,6 +983,57 @@ class TestExtractToolFailurePatterns:
             sessions_with_directory_failures, min_occurrences=2, min_confidence=0.3
         )
         assert len(results) > 0
+
+    def test_detects_extension_context_failures(
+        self, sessions_with_extension_failures: tuple[ModelSessionSnapshot, ...]
+    ) -> None:
+        """Should detect failures correlated with file extensions (e.g., .json files).
+
+        The sessions_with_extension_failures fixture has 5 failures on .json files
+        across 3 sessions (Read and Edit both fail on various .json files).
+        This should trigger context_failure pattern detection for the .json extension.
+        """
+        from omniintelligence.nodes.pattern_extraction_compute.handlers import (
+            extract_tool_failure_patterns,
+        )
+
+        results = extract_tool_failure_patterns(
+            sessions_with_extension_failures,
+            min_occurrences=2,
+            min_confidence=0.3,
+            min_distinct_sessions=2,
+        )
+
+        # Should detect at least one pattern
+        assert len(results) > 0, "Should detect failure patterns from .json files"
+
+        # Find context_failure patterns (extension-based)
+        context_patterns = [
+            r for r in results
+            if "context_failure:" in r["error_summary"]
+            and ".json" in r["error_summary"]
+        ]
+
+        # Should detect context_failure for .json extension
+        assert len(context_patterns) > 0, (
+            "Should detect context_failure pattern for .json extension. "
+            f"Found patterns: {[r['error_summary'] for r in results]}"
+        )
+
+        # Verify pattern structure
+        json_pattern = context_patterns[0]
+        assert json_pattern["pattern_type"] == "tool_failure"
+        assert json_pattern["occurrences"] >= 2
+        assert json_pattern["confidence"] > 0
+        assert len(json_pattern["evidence_session_ids"]) >= 2, (
+            "Pattern should span at least 2 distinct sessions"
+        )
+
+        # Verify affected files contain .json files
+        affected = json_pattern["affected_files"]
+        assert any(".json" in f for f in affected), (
+            f"Affected files should include .json files: {affected}"
+        )
 
     # === Threshold Tests ===
 
