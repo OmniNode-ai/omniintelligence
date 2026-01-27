@@ -917,6 +917,7 @@ class TestDeterminism:
 # =============================================================================
 
 
+@pytest.mark.unit
 class TestExtractToolFailurePatterns:
     """Tests for tool failure pattern extraction handler."""
 
@@ -968,8 +969,12 @@ class TestExtractToolFailurePatterns:
         )
         # Recovery patterns may not be detected with these thresholds due to
         # insufficient retry occurrences - this test verifies the function
-        # executes without error and returns a valid result
+        # executes without error and returns a valid result structure
         assert isinstance(results, list)
+        # If any patterns found, verify they have correct structure
+        for r in results:
+            assert "pattern_type" in r
+            assert r["pattern_type"] == "tool_failure"
 
     def test_detects_failure_hotspots(
         self, sessions_with_directory_failures: tuple[ModelSessionSnapshot, ...]

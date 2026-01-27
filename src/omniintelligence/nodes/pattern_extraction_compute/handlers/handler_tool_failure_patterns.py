@@ -64,7 +64,7 @@ MAX_RESULTS_PER_TYPE = 20
 """Cap per pattern type to prevent noise."""
 
 # Path key normalization (aliases -> canonical)
-PATH_KEY_ALIASES = {"file_path", "path", "filename", "file"}
+PATH_KEY_ALIASES = ("file_path", "path", "filename", "file")
 """Common aliases for file path parameters."""
 
 CANONICAL_PATH_KEY = "file_path"
@@ -617,6 +617,8 @@ def _detect_recovery_patterns(
 
         for i, exec_record in enumerate(tool_executions):
             primary_param = _extract_primary_param(exec_record.tool_parameters)
+            if not primary_param:
+                continue  # Skip tools without path-like params to avoid false patterns
             key = (exec_record.tool_name, primary_param)
             param_history[key].append((i, exec_record.success))
 

@@ -264,11 +264,20 @@ def _run_extractors(
             continue
 
         # Extract and convert
-        results = extract_func(
-            sessions,
-            config.min_pattern_occurrences,
-            config.min_confidence,
-        )
+        # PATTERN-005 (tool_failure) requires min_distinct_sessions as 4th arg
+        if extract_func is extract_tool_failure_patterns:
+            results = extract_tool_failure_patterns(
+                sessions,
+                config.min_pattern_occurrences,
+                config.min_confidence,
+                config.min_distinct_sessions,
+            )
+        else:
+            results = extract_func(
+                sessions,
+                config.min_pattern_occurrences,
+                config.min_confidence,
+            )
         insights = convert_func(results, reference_time)
 
         all_patterns.extend(insights)
