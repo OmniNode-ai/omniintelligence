@@ -28,6 +28,7 @@ Reference:
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -68,10 +69,9 @@ class EventBusKafkaPublisherAdapter:
 
     Protocol Bridging:
         ProtocolKafkaPublisher.publish(topic, key, value: dict) ->
-        EventBusInmemory.publish_envelope(envelope: object, topic)
+        EventBusInmemory.publish(topic, key: bytes, value: bytes)
 
-    The adapter stores the key in the value dict under '_message_key' for
-    downstream consumers that need partitioning information.
+    The adapter serializes the dict value to JSON bytes for storage.
 
     Attributes:
         _event_bus: The underlying EventBusInmemory instance.
@@ -107,23 +107,21 @@ class EventBusKafkaPublisherAdapter:
         key: str,
         value: dict[str, Any],
     ) -> None:
-        """Publish event to EventBusInmemory.
+        """Publish event to EventBusInmemory using bytes API.
 
-        Implements ProtocolKafkaPublisher interface by delegating to
-        EventBusInmemory.publish_envelope(). The key is stored in the
-        value dict for consumers that need it.
+        Implements ProtocolKafkaPublisher interface by serializing the event
+        to JSON bytes and delegating to EventBusInmemory.publish().
 
         Args:
             topic: Target Kafka topic name.
-            key: Message key for partitioning (stored in envelope).
+            key: Message key for partitioning.
             value: Event payload as a dictionary.
         """
-        # Include the message key in the envelope for downstream consumers
-        envelope = {
-            **value,
-            "_message_key": key,
-        }
-        await self._event_bus.publish_envelope(envelope, topic)
+        value_bytes = json.dumps(
+            value, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        key_bytes = key.encode("utf-8") if key else None
+        await self._event_bus.publish(topic=topic, key=key_bytes, value=value_bytes)
 
 
 # =============================================================================

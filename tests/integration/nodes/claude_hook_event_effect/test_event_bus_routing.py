@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -25,7 +24,6 @@ from omnibase_core.models.hooks.claude_code import (
 from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_infra.event_bus.models import ModelEventMessage
 
-from omniintelligence.constants import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 from omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event import (
     ProtocolKafkaPublisher,
     route_hook_event,
@@ -41,92 +39,9 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
 
 
 @pytest.fixture
-def event_bus() -> EventBusInmemory:
-    """Create an EventBusInmemory instance for testing."""
-    return EventBusInmemory(environment="test", group="integration-test")
-
-
-@pytest.fixture
-def output_topic() -> str:
-    """Return the output topic for intent-classified events."""
-    return f"test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}"
-
-
-@pytest.fixture
 def test_group_id() -> str:
     """Create a test consumer group ID for subscriptions."""
     return "test.omniintelligence.claude_hook_event_effect.v1"
-
-
-@pytest.fixture
-def sample_user_prompt_event() -> ModelClaudeCodeHookEvent:
-    """Create a sample UserPromptSubmit event for testing."""
-    return ModelClaudeCodeHookEvent(
-        event_type=EnumClaudeCodeHookEventType.USER_PROMPT_SUBMIT,
-        session_id="test-session-12345",
-        correlation_id=uuid4(),
-        timestamp_utc=datetime.now(UTC),
-        payload=ModelClaudeCodeHookEventPayload(prompt="Help me debug this Python code"),
-    )
-
-
-@pytest.fixture
-def sample_session_start_event() -> ModelClaudeCodeHookEvent:
-    """Create a sample SessionStart event for testing."""
-    return ModelClaudeCodeHookEvent(
-        event_type=EnumClaudeCodeHookEventType.SESSION_START,
-        session_id="test-session-67890",
-        correlation_id=uuid4(),
-        timestamp_utc=datetime.now(UTC),
-        payload=ModelClaudeCodeHookEventPayload(),
-    )
-
-
-class EventBusKafkaPublisherAdapter:
-    """Adapter to make EventBusInmemory compatible with ProtocolKafkaPublisher.
-
-    The handler expects a publisher with the signature:
-        async def publish(topic: str, key: str, value: dict[str, Any]) -> None
-
-    This adapter wraps EventBusInmemory and handles the conversion.
-    """
-
-    def __init__(self, event_bus: EventBusInmemory) -> None:
-        """Initialize the adapter.
-
-        Args:
-            event_bus: The EventBusInmemory instance to wrap.
-        """
-        self._event_bus = event_bus
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, Any],
-    ) -> None:
-        """Publish an event to the event bus.
-
-        Args:
-            topic: Target Kafka topic name.
-            key: Message key for partitioning.
-            value: Event payload as a dictionary.
-        """
-        # Serialize value to JSON bytes
-        value_bytes = json.dumps(value).encode("utf-8")
-        key_bytes = key.encode("utf-8") if key else None
-
-        await self._event_bus.publish(
-            topic=topic,
-            key=key_bytes,
-            value=value_bytes,
-        )
-
-
-@pytest.fixture
-def kafka_publisher_adapter(event_bus: EventBusInmemory) -> ProtocolKafkaPublisher:
-    """Create a Kafka publisher adapter wrapping the event bus."""
-    return EventBusKafkaPublisherAdapter(event_bus)
 
 
 # =============================================================================
@@ -642,7 +557,6 @@ class TestEdgeCases:
 
 
 __all__ = [
-    "EventBusKafkaPublisherAdapter",
     "TestAllEventTypesHandled",
     "TestEdgeCases",
     "TestEventBusPublishSubscribe",
