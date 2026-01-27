@@ -1267,3 +1267,233 @@ def sessions_with_extension_failures(base_time: datetime) -> tuple[ModelSessionS
             outcome="partial",
         ),
     )
+
+
+@pytest.fixture
+def sessions_with_many_failure_patterns(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions designed to produce MULTIPLE patterns of EACH subtype.
+
+    This fixture is specifically for testing max_results_per_type limiting.
+    It creates enough failures across sessions to generate:
+    - Multiple recurring_failure patterns (different tool+error_type combinations)
+    - Multiple failure_sequence patterns (different A->B sequences)
+    - Multiple context_failure patterns (different file extensions)
+    - Multiple failure_hotspot patterns (different directories)
+
+    Each pattern subtype should have MORE than 1 pattern so we can verify
+    max_results_per_type=1 actually limits results.
+    """
+    return (
+        # Session 1: Multiple recurring failures and sequences
+        ModelSessionSnapshot(
+            session_id="many-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=30),
+            files_accessed=("src/api/routes.py", "config/settings.json", "data/file.csv"),
+            files_modified=(),
+            tools_used=("Read", "Read", "Edit", "Bash", "Read", "Edit"),
+            tool_executions=(
+                # Read failure on .py file (recurring pattern 1: Read+FileNotFoundError)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: src/api/routes.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time,
+                ),
+                # Edit failure follows Read failure (sequence: Read->Edit)
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit: src/api/routes.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time + timedelta(seconds=10),
+                ),
+                # Read failure on .json file (recurring pattern 2: Read+JSONDecodeError)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Invalid JSON: config/settings.json",
+                    error_type="JSONDecodeError",
+                    duration_ms=12,
+                    tool_parameters={"file_path": "config/settings.json"},
+                    timestamp=base_time + timedelta(seconds=20),
+                ),
+                # Bash failure (recurring pattern 3: Bash+CommandError)
+                ModelToolExecution(
+                    tool_name="Bash",
+                    success=False,
+                    error_message="Command failed with exit code 1",
+                    error_type="CommandError",
+                    duration_ms=500,
+                    tool_parameters={"command": "pytest tests/"},
+                    timestamp=base_time + timedelta(seconds=30),
+                ),
+                # Read failure on .csv file (context_failure for .csv extension)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="CSV parse error: data/file.csv",
+                    error_type="CSVError",
+                    duration_ms=15,
+                    tool_parameters={"file_path": "data/file.csv"},
+                    timestamp=base_time + timedelta(seconds=40),
+                ),
+                # Edit failure follows Read failure (another Read->Edit sequence instance)
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit CSV: data/file.csv",
+                    error_type="CSVError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "data/file.csv"},
+                    timestamp=base_time + timedelta(seconds=50),
+                ),
+            ),
+            errors_encountered=("FileNotFoundError", "JSONDecodeError", "CommandError"),
+            outcome="failure",
+        ),
+        # Session 2: More patterns to ensure min_distinct_sessions is met
+        ModelSessionSnapshot(
+            session_id="many-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=30),
+            files_accessed=("src/models/user.py", "config/app.json", "data/export.csv"),
+            files_modified=(),
+            tools_used=("Read", "Edit", "Read", "Bash", "Read", "Edit"),
+            tool_executions=(
+                # Read failure on .py file (recurring pattern 1: Read+FileNotFoundError)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: src/models/user.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=11,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                # Edit failure follows Read (sequence: Read->Edit)
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit: src/models/user.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=9,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=10),
+                ),
+                # Read failure on .json file (recurring pattern 2: Read+JSONDecodeError)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Invalid JSON: config/app.json",
+                    error_type="JSONDecodeError",
+                    duration_ms=13,
+                    tool_parameters={"file_path": "config/app.json"},
+                    timestamp=base_time + timedelta(hours=1, seconds=20),
+                ),
+                # Bash failure (recurring pattern 3: Bash+CommandError)
+                ModelToolExecution(
+                    tool_name="Bash",
+                    success=False,
+                    error_message="Command failed with exit code 2",
+                    error_type="CommandError",
+                    duration_ms=450,
+                    tool_parameters={"command": "npm test"},
+                    timestamp=base_time + timedelta(hours=1, seconds=30),
+                ),
+                # Read failure on .csv (context_failure for .csv)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="CSV parse error: data/export.csv",
+                    error_type="CSVError",
+                    duration_ms=14,
+                    tool_parameters={"file_path": "data/export.csv"},
+                    timestamp=base_time + timedelta(hours=1, seconds=40),
+                ),
+                # Bash->Edit sequence (new sequence type)
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Edit failed after bash",
+                    error_type="EditError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=50),
+                ),
+            ),
+            errors_encountered=("FileNotFoundError", "JSONDecodeError", "CommandError"),
+            outcome="failure",
+        ),
+        # Session 3: Additional patterns for variety
+        ModelSessionSnapshot(
+            session_id="many-003",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=2),
+            ended_at=base_time + timedelta(hours=2, minutes=30),
+            files_accessed=("lib/helper.py", "config/db.json", "logs/error.log"),
+            files_modified=(),
+            tools_used=("Read", "Edit", "Read", "Bash", "Read"),
+            tool_executions=(
+                # Read failure on .py file (recurring pattern 1)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: lib/helper.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "lib/helper.py"},
+                    timestamp=base_time + timedelta(hours=2),
+                ),
+                # Edit failure follows Read (sequence: Read->Edit)
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit: lib/helper.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "lib/helper.py"},
+                    timestamp=base_time + timedelta(hours=2, seconds=10),
+                ),
+                # Read failure on .json (recurring pattern 2)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Invalid JSON: config/db.json",
+                    error_type="JSONDecodeError",
+                    duration_ms=12,
+                    tool_parameters={"file_path": "config/db.json"},
+                    timestamp=base_time + timedelta(hours=2, seconds=20),
+                ),
+                # Bash failure (recurring pattern 3)
+                ModelToolExecution(
+                    tool_name="Bash",
+                    success=False,
+                    error_message="Command failed with exit code 127",
+                    error_type="CommandError",
+                    duration_ms=100,
+                    tool_parameters={"command": "make build"},
+                    timestamp=base_time + timedelta(hours=2, seconds=30),
+                ),
+                # Read failure on .log (context_failure for .log extension)
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Cannot read log: logs/error.log",
+                    error_type="PermissionError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "logs/error.log"},
+                    timestamp=base_time + timedelta(hours=2, seconds=40),
+                ),
+            ),
+            errors_encountered=("FileNotFoundError", "JSONDecodeError", "CommandError"),
+            outcome="failure",
+        ),
+    )

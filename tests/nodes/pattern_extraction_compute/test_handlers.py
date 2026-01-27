@@ -13,7 +13,7 @@ These tests follow the ONEX testing pattern:
 - Clear test names describe what's being tested
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -23,9 +23,6 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers import (
     extract_error_patterns,
     extract_file_access_patterns,
     extract_tool_patterns,
-)
-from omniintelligence.nodes.pattern_extraction_compute.handlers.exceptions import (
-    PatternExtractionComputeError,
 )
 from omniintelligence.nodes.pattern_extraction_compute.models import (
     EnumInsightType,
@@ -1170,3 +1167,290 @@ class TestExtractToolFailurePatterns:
             json.dumps(r["error_summary"])
             json.dumps(list(r["affected_files"]))
             json.dumps(list(r["evidence_session_ids"]))
+
+    # === max_results_per_type Tests ===
+
+    def test_respects_max_results_per_type(
+        self, sessions_with_many_failure_patterns: tuple[ModelSessionSnapshot, ...]
+    ) -> None:
+        """Should limit results per pattern subtype when max_results_per_type is set.
+
+        The max_results_per_type parameter should limit the number of results
+        returned for each pattern subtype (recurring_failure, failure_sequence,
+        context_failure, recovery_pattern, failure_hotspot).
+
+        This test verifies that when max_results_per_type=1 is set, each
+        pattern subtype has at most 1 result in the output.
+        """
+        from collections import Counter
+
+        from omniintelligence.nodes.pattern_extraction_compute.handlers import (
+            extract_tool_failure_patterns,
+        )
+
+        # First, verify that without limit we get multiple patterns per type
+        results_unlimited = extract_tool_failure_patterns(
+            sessions_with_many_failure_patterns,
+            min_occurrences=1,
+            min_confidence=0.0,
+            min_distinct_sessions=1,
+            max_results_per_type=100,  # Effectively unlimited
+        )
+
+        # Now test with limit of 1 per type
+        results_limited = extract_tool_failure_patterns(
+            sessions_with_many_failure_patterns,
+            min_occurrences=1,
+            min_confidence=0.0,
+            min_distinct_sessions=1,
+            max_results_per_type=1,
+        )
+
+        # Extract pattern subtypes from error_summary (format: "subtype:tool:...")
+        def get_subtype(result: dict) -> str:
+            summary = result.get("error_summary", "")
+            if ":" in summary:
+                return summary.split(":")[0]
+            return "unknown"
+
+        # Count patterns per subtype for limited results
+        subtype_counts = Counter(get_subtype(r) for r in results_limited)
+
+        # Verify each subtype has at most 1 result
+        for subtype, count in subtype_counts.items():
+            assert count <= 1, (
+                f"Pattern subtype '{subtype}' has {count} results, "
+                f"but max_results_per_type=1 should limit to 1. "
+                f"Results: {[r['error_summary'] for r in results_limited if get_subtype(r) == subtype]}"
+            )
+
+        # Verify limiting actually reduced results (if there were multiple to begin with)
+        if len(results_unlimited) > len(subtype_counts):
+            assert len(results_limited) < len(results_unlimited), (
+                "max_results_per_type=1 should reduce total results when "
+                "there are multiple patterns per subtype"
+            )
+
+
+# =============================================================================
+# _within_time_bound Helper Function Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestWithinTimeBound:
+    """Unit tests for _within_time_bound helper function.
+
+    This function checks if two tool executions are within a time bound.
+    It's used as a SECONDARY guard in failure sequence detection.
+    Index-based ordering is the primary criterion.
+    """
+
+    def test_within_time_bound_returns_true_when_within_limit(
+        self, base_time: datetime
+    ) -> None:
+        """Two executions 30 seconds apart with limit 60 should return True."""
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time + timedelta(seconds=30),
+        )
+
+        result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
+
+        assert result is True, "30 seconds apart with 60 second limit should be within bound"
+
+    def test_within_time_bound_returns_false_when_outside_limit(
+        self, base_time: datetime
+    ) -> None:
+        """Two executions 90 seconds apart with limit 60 should return False."""
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time + timedelta(seconds=90),
+        )
+
+        result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
+
+        assert result is False, "90 seconds apart with 60 second limit should be outside bound"
+
+    def test_within_time_bound_equal_timestamps(
+        self, base_time: datetime
+    ) -> None:
+        """Same timestamp should return True (short-circuit path)."""
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,  # Same timestamp
+        )
+
+        result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
+
+        assert result is True, "Equal timestamps should return True"
+
+    def test_within_time_bound_handles_negative_gracefully(
+        self, base_time: datetime
+    ) -> None:
+        """B before A (negative delta) should return True (graceful handling).
+
+        This shouldn't happen in practice (index-based ordering is primary),
+        but the function handles it gracefully by returning True since
+        negative values are <= max_gap_sec.
+        """
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time + timedelta(seconds=30),  # A is LATER
+        )
+        exec_b = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,  # B is EARLIER
+        )
+
+        result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
+
+        assert result is True, "Negative delta (B before A) should return True"
+
+    def test_within_time_bound_exactly_at_boundary(
+        self, base_time: datetime
+    ) -> None:
+        """Exactly at the boundary (60 seconds with limit 60) should return True."""
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time + timedelta(seconds=60),
+        )
+
+        result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
+
+        assert result is True, "Exactly at boundary (60s with 60s limit) should return True"
+
+    def test_within_time_bound_just_over_boundary(
+        self, base_time: datetime
+    ) -> None:
+        """Just over the boundary (61 seconds with limit 60) should return False."""
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time + timedelta(seconds=61),
+        )
+
+        result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
+
+        assert result is False, "Just over boundary (61s with 60s limit) should return False"
+
+    def test_within_time_bound_zero_max_gap(
+        self, base_time: datetime
+    ) -> None:
+        """Zero max_gap_sec should only allow equal timestamps."""
+        from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+            _within_time_bound,
+        )
+        from omniintelligence.nodes.pattern_extraction_compute.models import (
+            ModelToolExecution,
+        )
+
+        exec_a = ModelToolExecution(
+            tool_name="Read",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b_same = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time,
+        )
+        exec_b_later = ModelToolExecution(
+            tool_name="Edit",
+            success=False,
+            error_type="FileNotFoundError",
+            timestamp=base_time + timedelta(seconds=1),
+        )
+
+        # Same timestamp with zero max_gap should return True
+        assert _within_time_bound(exec_a, exec_b_same, max_gap_sec=0) is True
+
+        # Any positive delta with zero max_gap should return False
+        assert _within_time_bound(exec_a, exec_b_later, max_gap_sec=0) is False

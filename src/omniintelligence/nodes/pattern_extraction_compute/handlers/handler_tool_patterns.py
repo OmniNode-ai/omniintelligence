@@ -57,6 +57,8 @@ def extract_tool_patterns(
     sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
+    min_distinct_sessions: int = 2,  # noqa: ARG001 - Unused, for uniform interface
+    max_results_per_type: int = 20,  # noqa: ARG001 - Unused, for uniform interface
 ) -> list[ToolPatternResult]:
     """Extract tool usage patterns from sessions.
 

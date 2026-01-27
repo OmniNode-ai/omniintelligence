@@ -68,8 +68,10 @@ from omniintelligence.nodes.pattern_extraction_compute.models import (
 logger = logging.getLogger(__name__)
 
 # Type aliases for extractor and converter functions
+# All extractors now have a uniform signature:
+#   (sessions, min_occurrences, min_confidence, min_distinct_sessions, max_results_per_type)
 _ExtractorFunc = Callable[
-    [Sequence[ModelSessionSnapshot], int, float],
+    [Sequence[ModelSessionSnapshot], int, float, int, int],
     list[Any],
 ]
 _ConverterFunc = Callable[
@@ -263,22 +265,14 @@ def _run_extractors(
             metrics_counts[metrics_field] = 0
             continue
 
-        # Extract and convert
-        # PATTERN-005 (tool_failure) requires min_distinct_sessions as 4th arg
-        if extract_func is extract_tool_failure_patterns:
-            results = extract_tool_failure_patterns(
-                sessions,
-                config.min_pattern_occurrences,
-                config.min_confidence,
-                config.min_distinct_sessions,
-                config.max_results_per_pattern_type,
-            )
-        else:
-            results = extract_func(
-                sessions,
-                config.min_pattern_occurrences,
-                config.min_confidence,
-            )
+        # Extract and convert - all extractors have uniform signature
+        results = extract_func(
+            sessions,
+            config.min_pattern_occurrences,
+            config.min_confidence,
+            config.min_distinct_sessions,
+            config.max_results_per_pattern_type,
+        )
         insights = convert_func(results, reference_time)
 
         all_patterns.extend(insights)
