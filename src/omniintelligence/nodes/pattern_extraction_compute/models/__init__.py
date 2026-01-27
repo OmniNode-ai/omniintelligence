@@ -11,6 +11,7 @@ from omniintelligence.nodes.pattern_extraction_compute.models.model_input import
     ModelExtractionConfig,
     ModelPatternExtractionInput,
     ModelSessionSnapshot,
+    ModelToolExecution,
 )
 from omniintelligence.nodes.pattern_extraction_compute.models.model_insight import (
     ModelCodebaseInsight,
@@ -30,4 +31,5 @@ __all__ = [
     "ModelPatternExtractionMetadata",
     "ModelPatternExtractionOutput",
     "ModelSessionSnapshot",
+    "ModelToolExecution",
 ]

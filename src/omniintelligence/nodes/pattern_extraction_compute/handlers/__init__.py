@@ -96,6 +96,9 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_identity
 from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_merge import (
     merge_insights,
 )
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+    extract_tool_failure_patterns,
+)
 from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_patterns import (
     extract_tool_patterns,
 )
@@ -138,6 +141,7 @@ __all__ = [
     "extract_architecture_patterns",
     "extract_error_patterns",
     "extract_file_access_patterns",
+    "extract_tool_failure_patterns",
     "extract_tool_patterns",
     # Utilities
     "insight_identity_key",

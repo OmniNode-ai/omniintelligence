@@ -54,6 +54,11 @@ class ModelExtractionMetrics(BaseModel):
         ge=0,
         description="Number of tool usage patterns found",
     )
+    tool_failure_patterns_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of tool failure patterns extracted",
+    )
 
     model_config = {"frozen": True, "extra": "forbid"}
 
