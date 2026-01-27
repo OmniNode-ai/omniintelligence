@@ -13,6 +13,7 @@ from omniintelligence.nodes.pattern_extraction_compute.models import (
     ModelExtractionConfig,
     ModelPatternExtractionInput,
     ModelSessionSnapshot,
+    ModelToolExecution,
     EnumInsightType,
 )
 
@@ -516,4 +517,600 @@ def full_extraction_input(
         config=config_with_time,
         existing_insights=(),
         correlation_id="test-correlation-001",
+    )
+
+
+# =============================================================================
+# Tool Execution Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def tool_execution_success(base_time: datetime) -> ModelToolExecution:
+    """Successful tool execution."""
+    return ModelToolExecution(
+        tool_name="Read",
+        success=True,
+        duration_ms=45,
+        timestamp=base_time,
+    )
+
+
+@pytest.fixture
+def tool_execution_failure(base_time: datetime) -> ModelToolExecution:
+    """Failed tool execution."""
+    return ModelToolExecution(
+        tool_name="Read",
+        success=False,
+        error_message="File not found: /path/to/file.py",
+        error_type="FileNotFoundError",
+        duration_ms=12,
+        tool_parameters={"file_path": "/path/to/file.py"},
+        timestamp=base_time,
+    )
+
+
+# =============================================================================
+# Tool Failure Pattern Session Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def sessions_with_recurring_failures(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions with same tool+error_type across multiple sessions (min 3).
+
+    Designed to detect:
+    - Recurring failure patterns: same tool + same error_type across sessions
+    - Should trigger recurring_failure pattern detection when min_distinct_sessions >= 2
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="recurring-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=20),
+            files_accessed=("src/config.py", "src/settings.py"),
+            files_modified=(),
+            tools_used=("Read", "Read"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=30,
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: /path/to/missing.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "/path/to/missing.py"},
+                    timestamp=base_time + timedelta(seconds=30),
+                ),
+            ),
+            errors_encountered=("FileNotFoundError: /path/to/missing.py",),
+            outcome="failure",
+        ),
+        ModelSessionSnapshot(
+            session_id="recurring-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=15),
+            files_accessed=("src/main.py",),
+            files_modified=(),
+            tools_used=("Read", "Read"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=25,
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: /path/to/another.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "/path/to/another.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=45),
+                ),
+            ),
+            errors_encountered=("FileNotFoundError: /path/to/another.py",),
+            outcome="failure",
+        ),
+        ModelSessionSnapshot(
+            session_id="recurring-003",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=2),
+            ended_at=base_time + timedelta(hours=2, minutes=25),
+            files_accessed=("src/utils.py",),
+            files_modified=(),
+            tools_used=("Read", "Read"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=35,
+                    timestamp=base_time + timedelta(hours=2),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: /path/to/third.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=11,
+                    tool_parameters={"file_path": "/path/to/third.py"},
+                    timestamp=base_time + timedelta(hours=2, seconds=60),
+                ),
+            ),
+            errors_encountered=("FileNotFoundError: /path/to/third.py",),
+            outcome="failure",
+        ),
+    )
+
+
+@pytest.fixture
+def sessions_with_failure_sequence(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions where Read failure is followed by Edit failure (within 5 calls).
+
+    Designed to detect:
+    - Failure cascades: one tool failure leading to another
+    - Sequence patterns where failure A often precedes failure B
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="sequence-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=30),
+            files_accessed=("src/module.py",),
+            files_modified=(),
+            tools_used=("Read", "Edit", "Read"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: src/module.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "src/module.py"},
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit non-existent file: src/module.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "src/module.py"},
+                    timestamp=base_time + timedelta(seconds=15),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=40,
+                    timestamp=base_time + timedelta(seconds=30),
+                ),
+            ),
+            errors_encountered=(
+                "FileNotFoundError: src/module.py",
+                "Cannot edit non-existent file",
+            ),
+            outcome="partial",
+        ),
+        ModelSessionSnapshot(
+            session_id="sequence-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=25),
+            files_accessed=("src/handler.py",),
+            files_modified=(),
+            tools_used=("Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: src/handler.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=12,
+                    tool_parameters={"file_path": "src/handler.py"},
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit non-existent file: src/handler.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=9,
+                    tool_parameters={"file_path": "src/handler.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=20),
+                ),
+            ),
+            errors_encountered=(
+                "FileNotFoundError: src/handler.py",
+                "Cannot edit non-existent file",
+            ),
+            outcome="failure",
+        ),
+        ModelSessionSnapshot(
+            session_id="sequence-003",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=2),
+            ended_at=base_time + timedelta(hours=2, minutes=20),
+            files_accessed=("src/service.py",),
+            files_modified=(),
+            tools_used=("Read", "Bash", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File not found: src/service.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=11,
+                    tool_parameters={"file_path": "src/service.py"},
+                    timestamp=base_time + timedelta(hours=2),
+                ),
+                ModelToolExecution(
+                    tool_name="Bash",
+                    success=True,
+                    duration_ms=500,
+                    timestamp=base_time + timedelta(hours=2, seconds=10),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit non-existent file: src/service.py",
+                    error_type="FileNotFoundError",
+                    duration_ms=7,
+                    tool_parameters={"file_path": "src/service.py"},
+                    timestamp=base_time + timedelta(hours=2, seconds=25),
+                ),
+            ),
+            errors_encountered=(
+                "FileNotFoundError: src/service.py",
+                "Cannot edit non-existent file",
+            ),
+            outcome="failure",
+        ),
+    )
+
+
+@pytest.fixture
+def sessions_with_recovery_pattern(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions with failure -> retry -> success pattern.
+
+    Designed to detect:
+    - Recovery patterns: same tool, same parameters, failure then success
+    - Retry behavior indicating transient failures
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="recovery-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=15),
+            files_accessed=("src/api/routes.py",),
+            files_modified=("src/api/routes.py",),
+            tools_used=("Read", "Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Permission denied: src/api/routes.py",
+                    error_type="PermissionError",
+                    duration_ms=5,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=45,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time + timedelta(seconds=10),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=30,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time + timedelta(seconds=25),
+                ),
+            ),
+            errors_encountered=(),
+            outcome="success",
+        ),
+        ModelSessionSnapshot(
+            session_id="recovery-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=20),
+            files_accessed=("src/models/user.py",),
+            files_modified=("src/models/user.py",),
+            tools_used=("Read", "Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Permission denied: src/models/user.py",
+                    error_type="PermissionError",
+                    duration_ms=6,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=50,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=15),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=35,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=30),
+                ),
+            ),
+            errors_encountered=(),
+            outcome="success",
+        ),
+    )
+
+
+@pytest.fixture
+def sessions_with_directory_failures(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions with failures concentrated in specific directory.
+
+    Designed to detect:
+    - Directory hotspots: directories with high failure rates
+    - Multiple failures in same directory (e.g., /src/broken/)
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="hotspot-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=20),
+            files_accessed=("src/broken/module_a.py", "src/broken/module_b.py"),
+            files_modified=(),
+            tools_used=("Read", "Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Syntax error in file: src/broken/module_a.py",
+                    error_type="SyntaxError",
+                    duration_ms=15,
+                    tool_parameters={"file_path": "src/broken/module_a.py"},
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Encoding error: src/broken/module_b.py",
+                    error_type="UnicodeDecodeError",
+                    duration_ms=12,
+                    tool_parameters={"file_path": "src/broken/module_b.py"},
+                    timestamp=base_time + timedelta(seconds=20),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=False,
+                    error_message="Cannot edit file with errors: src/broken/module_a.py",
+                    error_type="ValueError",
+                    duration_ms=8,
+                    tool_parameters={"file_path": "src/broken/module_a.py"},
+                    timestamp=base_time + timedelta(seconds=40),
+                ),
+            ),
+            errors_encountered=(
+                "SyntaxError: src/broken/module_a.py",
+                "UnicodeDecodeError: src/broken/module_b.py",
+            ),
+            outcome="failure",
+        ),
+        ModelSessionSnapshot(
+            session_id="hotspot-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=25),
+            files_accessed=("src/broken/module_c.py", "src/working/module.py"),
+            files_modified=("src/working/module.py",),
+            tools_used=("Read", "Read", "Edit"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Import error in file: src/broken/module_c.py",
+                    error_type="ImportError",
+                    duration_ms=20,
+                    tool_parameters={"file_path": "src/broken/module_c.py"},
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=40,
+                    tool_parameters={"file_path": "src/working/module.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=25),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=30,
+                    tool_parameters={"file_path": "src/working/module.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=50),
+                ),
+            ),
+            errors_encountered=("ImportError: src/broken/module_c.py",),
+            outcome="partial",
+        ),
+        ModelSessionSnapshot(
+            session_id="hotspot-003",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=2),
+            ended_at=base_time + timedelta(hours=2, minutes=15),
+            files_accessed=("src/broken/module_d.py",),
+            files_modified=(),
+            tools_used=("Read",),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="File corrupted: src/broken/module_d.py",
+                    error_type="IOError",
+                    duration_ms=18,
+                    tool_parameters={"file_path": "src/broken/module_d.py"},
+                    timestamp=base_time + timedelta(hours=2),
+                ),
+            ),
+            errors_encountered=("IOError: File corrupted",),
+            outcome="failure",
+        ),
+    )
+
+
+@pytest.fixture
+def sessions_all_success(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Sessions with only successful tool executions (no failures).
+
+    Designed to verify:
+    - No failure patterns are detected when all executions succeed
+    - Handler gracefully handles sessions without failures
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="success-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=30),
+            files_accessed=("src/api/routes.py", "src/api/handlers.py"),
+            files_modified=("src/api/routes.py",),
+            tools_used=("Read", "Read", "Edit", "Bash"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=45,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=40,
+                    tool_parameters={"file_path": "src/api/handlers.py"},
+                    timestamp=base_time + timedelta(seconds=15),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=30,
+                    tool_parameters={"file_path": "src/api/routes.py"},
+                    timestamp=base_time + timedelta(seconds=30),
+                ),
+                ModelToolExecution(
+                    tool_name="Bash",
+                    success=True,
+                    duration_ms=500,
+                    tool_parameters={"command": "pytest tests/"},
+                    timestamp=base_time + timedelta(seconds=45),
+                ),
+            ),
+            errors_encountered=(),
+            outcome="success",
+        ),
+        ModelSessionSnapshot(
+            session_id="success-002",
+            working_directory="/project",
+            started_at=base_time + timedelta(hours=1),
+            ended_at=base_time + timedelta(hours=1, minutes=25),
+            files_accessed=("src/models/user.py", "tests/test_user.py"),
+            files_modified=("src/models/user.py", "tests/test_user.py"),
+            tools_used=("Read", "Edit", "Read", "Edit", "Bash"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=50,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=35,
+                    tool_parameters={"file_path": "src/models/user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=20),
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=45,
+                    tool_parameters={"file_path": "tests/test_user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=40),
+                ),
+                ModelToolExecution(
+                    tool_name="Edit",
+                    success=True,
+                    duration_ms=40,
+                    tool_parameters={"file_path": "tests/test_user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=60),
+                ),
+                ModelToolExecution(
+                    tool_name="Bash",
+                    success=True,
+                    duration_ms=800,
+                    tool_parameters={"command": "pytest tests/test_user.py"},
+                    timestamp=base_time + timedelta(hours=1, seconds=80),
+                ),
+            ),
+            errors_encountered=(),
+            outcome="success",
+        ),
+    )
+
+
+@pytest.fixture
+def single_failure_session(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+    """Single session with one failure - should NOT create pattern.
+
+    Designed to verify:
+    - Single occurrences do not create patterns (min_distinct_sessions=2)
+    - Handler correctly filters out non-patterns
+    """
+    return (
+        ModelSessionSnapshot(
+            session_id="single-001",
+            working_directory="/project",
+            started_at=base_time,
+            ended_at=base_time + timedelta(minutes=15),
+            files_accessed=("src/unique/file.py",),
+            files_modified=(),
+            tools_used=("Read", "Read"),
+            tool_executions=(
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=True,
+                    duration_ms=30,
+                    tool_parameters={"file_path": "src/main.py"},
+                    timestamp=base_time,
+                ),
+                ModelToolExecution(
+                    tool_name="Read",
+                    success=False,
+                    error_message="Unique error that only happens once",
+                    error_type="UniqueError",
+                    duration_ms=10,
+                    tool_parameters={"file_path": "src/unique/file.py"},
+                    timestamp=base_time + timedelta(seconds=30),
+                ),
+            ),
+            errors_encountered=("UniqueError: only happens once",),
+            outcome="failure",
+        ),
     )

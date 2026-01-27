@@ -49,6 +49,9 @@ from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_identity
 from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_merge import (
     merge_insights,
 )
+from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
+    extract_tool_failure_patterns,
+)
 from omniintelligence.nodes.pattern_extraction_compute.handlers.handler_tool_patterns import (
     extract_tool_patterns,
 )
@@ -105,6 +108,13 @@ _EXTRACTORS: list[tuple[str, str, str, _ExtractorFunc, _ConverterFunc]] = [
         "tool_patterns_count",
         extract_tool_patterns,
         convert_tool_patterns,
+    ),
+    (
+        "PATTERN-005",
+        "extract_tool_failure_patterns",
+        "tool_failure_patterns_count",
+        extract_tool_failure_patterns,
+        convert_error_patterns,
     ),
 ]
 

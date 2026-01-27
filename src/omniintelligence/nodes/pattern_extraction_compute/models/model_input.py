@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from omnibase_core.types import JsonType
 from pydantic import BaseModel, Field
 
 from omniintelligence.nodes.pattern_extraction_compute.models.model_insight import (
@@ -30,10 +31,19 @@ class ModelExtractionConfig(BaseModel):
         default=True,
         description="Extract tool usage patterns",
     )
+    extract_tool_failure_patterns: bool = Field(
+        default=True,
+        description="Extract tool failure patterns from tool_executions",
+    )
     min_pattern_occurrences: int = Field(
         default=2,
         ge=1,
         description="Minimum occurrences to consider a pattern",
+    )
+    min_distinct_sessions: int = Field(
+        default=2,
+        ge=1,
+        description="Minimum distinct sessions a pattern must appear in",
     )
     min_confidence: float = Field(
         default=0.6,  # Aligned with contract.yaml configuration.extraction.min_confidence
@@ -50,6 +60,25 @@ class ModelExtractionConfig(BaseModel):
         default=None,
         description="Reference time for deterministic timestamps (uses max session ended_at if None)",
     )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
+# TEMP_BOOTSTRAP: Should move to core intelligence input models
+# Follow-up ticket: OMN-1608
+class ModelToolExecution(BaseModel):
+    """Single tool execution record for pattern analysis."""
+
+    tool_name: str = Field(..., description="Tool name (Read, Write, Edit, Bash, etc.)")
+    success: bool = Field(..., description="Whether the tool execution succeeded")
+    error_message: str | None = Field(default=None, description="Error message if failed")
+    error_type: str | None = Field(default=None, description="Exception type if failed")
+    duration_ms: int | None = Field(default=None, ge=0, description="Execution duration")
+    # IMPORTANT: Use JsonType | None, NOT dict[str, Any]
+    tool_parameters: JsonType | None = Field(
+        default=None, description="Tool input parameters (opaque JSON)"
+    )
+    timestamp: datetime = Field(..., description="When the tool was executed")
 
     model_config = {"frozen": True, "extra": "forbid"}
 
@@ -89,6 +118,11 @@ class ModelSessionSnapshot(BaseModel):
     tools_used: tuple[str, ...] = Field(
         default=(),
         description="Tools invoked during the session (in order)",
+    )
+    tool_executions: tuple[ModelToolExecution, ...] = Field(
+        default=(),
+        description="Structured tool execution records including success/failure. "
+        "ORDER IS AUTHORITATIVE for sequence detection.",
     )
     errors_encountered: tuple[str, ...] = Field(
         default=(),
@@ -134,4 +168,5 @@ __all__ = [
     "ModelExtractionConfig",
     "ModelPatternExtractionInput",
     "ModelSessionSnapshot",
+    "ModelToolExecution",
 ]
