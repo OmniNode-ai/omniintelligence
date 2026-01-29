@@ -36,6 +36,12 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from omnibase_core.models.pattern_learning import (
+    ModelLearnedPattern,
+    ModelPatternLearningMetadata,
+    ModelPatternLearningMetrics,
+)
+
 
 class StructuralFeaturesDict(TypedDict):
     """Structural code metrics extracted from AST analysis.
@@ -215,20 +221,13 @@ class PatternLearningResult(TypedDict):
         metrics: Aggregation metrics for monitoring and debugging.
         metadata: Processing metadata (timing, versions, etc.).
         warnings: List of warnings generated during processing.
-
-    Note:
-        The dict[str, ...] types are placeholders. Once OMN-1683 lands,
-        these will be replaced with proper imports from omnibase_core:
-        - candidate_patterns/learned_patterns -> list[ModelLearnedPattern]
-        - metrics -> ModelPatternLearningMetrics
-        - metadata -> ModelPatternLearningMetadata
     """
 
     success: bool
-    candidate_patterns: list[dict[str, object]]  # Will be ModelLearnedPattern from core
-    learned_patterns: list[dict[str, object]]  # Will be ModelLearnedPattern from core
-    metrics: dict[str, object]  # Will be ModelPatternLearningMetrics from core
-    metadata: dict[str, object]  # Will be ModelPatternLearningMetadata from core
+    candidate_patterns: list[ModelLearnedPattern]
+    learned_patterns: list[ModelLearnedPattern]
+    metrics: ModelPatternLearningMetrics
+    metadata: ModelPatternLearningMetadata
     warnings: list[str]
 
 
