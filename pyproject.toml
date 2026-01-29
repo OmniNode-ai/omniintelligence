@@ -51,7 +51,7 @@ pre-commit = ">=4.5.0"
 [tool.poetry.group.core.dependencies]
 # ONEX ecosystem dependencies
 # Version constraints use caret syntax: ^0.9.5 = >=0.9.5,<0.10.0
-omnibase-core = "^0.9.6"
+omnibase-core = "^0.9.8"
 omnibase-spi = "^0.6.1"
 omnibase-infra = "^0.2.5"
 # Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
@@ -140,7 +140,7 @@ dev = [
 #   ^0.2.5 = >=0.2.5,<0.3.0  (compatible releases within 0.2.x)
 core = [
     # ONEX ecosystem dependencies (version bounds match Poetry caret syntax)
-    "omnibase-core>=0.9.6,<0.10.0",
+    "omnibase-core>=0.9.8,<0.10.0",
     "omnibase-spi>=0.6.1,<0.7.0",
     "omnibase-infra>=0.2.5,<0.3.0",
     # Web framework for API endpoints
