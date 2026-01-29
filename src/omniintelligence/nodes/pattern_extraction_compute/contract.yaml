@@ -102,6 +102,11 @@ configuration:
     # Prevents overly broad patterns with low signal.
     max_files_per_pattern: 20
 
+    # Maximum patterns to return per pattern subtype (e.g., recurring_failure,
+    # failure_sequence, context_failure). Prevents any single subtype from
+    # dominating results.
+    max_results_per_pattern_type: 20
+
     # Staleness threshold in days for pattern decay.
     # Patterns older than this receive reduced confidence.
     pattern_staleness_days: 30
