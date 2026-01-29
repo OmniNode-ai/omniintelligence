@@ -93,7 +93,13 @@ def extract_features(item: TrainingDataItemDict) -> ExtractedFeaturesDict:
     code_snippet = item.get("code_snippet", "")
 
     # Convert labels to tuple for immutability
-    labels_tuple = tuple(labels) if isinstance(labels, list) else (labels,)
+    # Handle: tuple (use as-is), list (convert), single value (wrap), empty/None (empty tuple)
+    if isinstance(labels, tuple):
+        labels_tuple = labels
+    elif isinstance(labels, list):
+        labels_tuple = tuple(labels)
+    else:
+        labels_tuple = (labels,) if labels else ()
 
     # Check if this is Python code
     is_python = _is_python_language(language)

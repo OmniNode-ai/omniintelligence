@@ -668,6 +668,23 @@ class TestEdgeCases:
         assert isinstance(result["labels"], tuple)
         assert result["labels"] == ("a", "b", "c")
 
+    def test_labels_already_tuple_preserved(self) -> None:
+        """Labels already as tuple are preserved without double-wrapping."""
+        # Create item with labels as tuple directly (simulating pre-processed input)
+        item: TrainingDataItemDict = {
+            "item_id": "tuple_labels_test",
+            "code_snippet": "x = 1",
+            "language": "python",
+            "labels": ("pre", "existing", "tuple"),  # Already a tuple
+        }
+
+        result = extract_features(item)
+
+        # Should be preserved as-is, not wrapped: (("pre", "existing", "tuple"),)
+        assert isinstance(result["labels"], tuple)
+        assert result["labels"] == ("pre", "existing", "tuple")
+        assert len(result["labels"]) == 3  # Not 1 (which would indicate wrapping)
+
     def test_large_code_snippet(self) -> None:
         """Large code snippets are handled without issues."""
         # Generate a large code snippet
