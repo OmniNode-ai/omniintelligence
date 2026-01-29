@@ -64,6 +64,9 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.replay import (
     NULL_EMITTER,
     ReplayArtifactEmitter,
 )
+from omniintelligence.nodes.pattern_learning_compute.handlers.union_find import (
+    UnionFind,
+)
 from omniintelligence.nodes.pattern_learning_compute.handlers.utils import (
     compute_normalized_distance,
     distance_to_similarity,
@@ -464,7 +467,9 @@ def cluster_patterns(
     Returns:
         List of PatternClusterDict, each containing:
         - cluster_id: Unique identifier (e.g., "cluster-0001")
-        - pattern_type: Dominant pattern type (first pattern indicator or "unknown")
+        - pattern_type: Dominant pattern type (most common pattern indicator
+          in cluster; ties broken by alphabetical order for determinism).
+          Returns "unknown" if no pattern indicators present.
         - member_ids: Tuple of item_ids in this cluster
         - centroid_features: Medoid member's features
         - member_count: Number of items in cluster
@@ -521,30 +526,9 @@ def cluster_patterns(
     sorted_features = sorted(features_list, key=lambda f: f["item_id"])
     n = len(sorted_features)
 
-    # Build index mapping for efficient lookup
-    item_id_to_idx: dict[str, int] = {
-        f["item_id"]: i for i, f in enumerate(sorted_features)
-    }
-
-    # Step 2: Build similarity edges in sorted order
-    # Union-Find data structure for single-linkage clustering
-    parent: list[int] = list(range(n))
-
-    def find(x: int) -> int:
-        """Find root with path compression."""
-        if parent[x] != x:
-            parent[x] = find(parent[x])
-        return parent[x]
-
-    def union(x: int, y: int) -> None:
-        """Union two sets (smaller index becomes root for determinism)."""
-        root_x, root_y = find(x), find(y)
-        if root_x != root_y:
-            # Smaller index becomes root for determinism
-            if root_x < root_y:
-                parent[root_y] = root_x
-            else:
-                parent[root_x] = root_y
+    # Step 2: Build similarity edges in sorted order using Union-Find
+    # for single-linkage clustering (deterministic: smaller index becomes root)
+    uf = UnionFind(n)
 
     # Compute pairwise similarities and build edges
     # Single-linkage: merge if ANY pair >= threshold
@@ -554,15 +538,10 @@ def cluster_patterns(
                 sorted_features[i], sorted_features[j], weights
             )
             if result["similarity"] >= threshold:
-                union(i, j)
+                uf.union(i, j)
 
     # Step 3: Group items by cluster root
-    clusters_by_root: dict[int, list[int]] = {}
-    for i in range(n):
-        root = find(i)
-        if root not in clusters_by_root:
-            clusters_by_root[root] = []
-        clusters_by_root[root].append(i)
+    clusters_by_root = uf.components()
 
     # Step 4: Assign cluster_id by sorted leader
     # Leader = smallest item_id in cluster (which is smallest index due to sorting)
