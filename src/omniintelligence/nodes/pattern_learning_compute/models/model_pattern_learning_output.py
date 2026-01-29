@@ -18,8 +18,9 @@ class ModelPatternLearningOutput(BaseModel):
     """Output model for pattern learning operations.
 
     This model represents the result of pattern learning operations.
-    Patterns are split into candidates (not yet validated) and learned
-    (validated and ready for use).
+    Patterns are split by lifecycle_state (from ModelLearnedPattern):
+    - candidate_patterns: Any state except "validated" (draft, pending, rejected, etc.)
+    - learned_patterns: lifecycle_state == "validated" (ready for production use)
 
     Attributes:
         success: Whether pattern learning succeeded.
@@ -56,6 +57,36 @@ class ModelPatternLearningOutput(BaseModel):
     )
 
     model_config = {"frozen": True, "extra": "forbid"}
+
+    @classmethod
+    def from_patterns(
+        cls,
+        all_patterns: list[ModelLearnedPattern],
+        metrics: ModelPatternLearningMetrics,
+        metadata: ModelPatternLearningMetadata,
+        warnings: list[str] | None = None,
+    ) -> ModelPatternLearningOutput:
+        """Create output by automatically splitting patterns by lifecycle_state.
+
+        Args:
+            all_patterns: All patterns to split (validated vs non-validated).
+            metrics: Aggregated learning metrics.
+            metadata: Processing metadata.
+            warnings: Optional non-fatal warnings.
+
+        Returns:
+            ModelPatternLearningOutput with patterns split by validation state.
+        """
+        candidates = [p for p in all_patterns if p.lifecycle_state != "validated"]
+        learned = [p for p in all_patterns if p.lifecycle_state == "validated"]
+        return cls(
+            success=True,
+            candidate_patterns=candidates,
+            learned_patterns=learned,
+            metrics=metrics,
+            metadata=metadata,
+            warnings=warnings or [],
+        )
 
 
 __all__ = [
