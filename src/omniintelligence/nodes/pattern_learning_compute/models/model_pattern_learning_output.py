@@ -68,6 +68,9 @@ class ModelPatternLearningOutput(BaseModel):
     ) -> ModelPatternLearningOutput:
         """Create output by automatically splitting patterns by lifecycle_state.
 
+        This is a convenience factory for successful pattern learning operations.
+        It automatically categorizes patterns based on their lifecycle_state.
+
         Args:
             all_patterns: All patterns to split (validated vs non-validated).
             metrics: Aggregated learning metrics.
@@ -76,6 +79,10 @@ class ModelPatternLearningOutput(BaseModel):
 
         Returns:
             ModelPatternLearningOutput with patterns split by validation state.
+
+        Note:
+            This factory always sets success=True. For failure cases where
+            success=False is needed, use the constructor directly.
         """
         candidates = [p for p in all_patterns if p.lifecycle_state != "validated"]
         learned = [p for p in all_patterns if p.lifecycle_state == "validated"]

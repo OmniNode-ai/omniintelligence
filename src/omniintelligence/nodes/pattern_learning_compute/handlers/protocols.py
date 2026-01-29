@@ -8,7 +8,7 @@ IMPORTANT - INTERNAL ONLY:
     They define handler-to-handler intermediate data structures that may change
     as the implementation improves.
 
-    Contract models (LearnedPatternDict, PatternScoreComponentsDict, etc.) are
+    Contract models (ModelLearnedPattern, ModelPatternScoreComponents, etc.) are
     defined in `omnibase_core` (OMN-1683) and should be used for external APIs.
 
 Design Decisions:
