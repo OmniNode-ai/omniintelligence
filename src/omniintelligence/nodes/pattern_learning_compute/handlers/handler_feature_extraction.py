@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
+from typing import Any
 
 from omniintelligence.nodes.pattern_learning_compute.handlers.presets import (
     ONEX_BASE_CLASSES,
@@ -92,14 +93,8 @@ def extract_features(item: TrainingDataItemDict) -> ExtractedFeaturesDict:
     language = item.get("language", "")
     code_snippet = item.get("code_snippet", "")
 
-    # Convert labels to tuple for immutability
-    # Handle: tuple (use as-is), list (convert), single value (wrap), empty/None (empty tuple)
-    if isinstance(labels, tuple):
-        labels_tuple = labels
-    elif isinstance(labels, list):
-        labels_tuple = tuple(labels)
-    else:
-        labels_tuple = (labels,) if labels else ()
+    # Normalize labels to immutable tuple
+    labels_tuple = _normalize_labels(labels)
 
     # Check if this is Python code
     is_python = _is_python_language(language)
@@ -158,6 +153,28 @@ def extract_features_batch(
 # =============================================================================
 # Internal Helpers - AST Extraction
 # =============================================================================
+
+
+def _normalize_labels(labels: Any) -> tuple[str, ...]:
+    """Normalize labels to an immutable tuple.
+
+    Handles:
+        - tuple: Preserved as-is
+        - list: Converted to tuple
+        - single value: Wrapped in tuple
+        - empty/None: Returns empty tuple
+
+    Args:
+        labels: Labels in various formats.
+
+    Returns:
+        Normalized tuple of label strings.
+    """
+    if isinstance(labels, tuple):
+        return labels
+    if isinstance(labels, list):
+        return tuple(labels)
+    return (labels,) if labels else ()
 
 
 def _extract_features_from_ast(
@@ -420,11 +437,16 @@ def _extract_pattern_indicators(tree: ast.AST, _content: str) -> tuple[str, ...]
 def _extract_base_classes(tree: ast.AST) -> tuple[str, ...]:
     """Extract inherited base class names.
 
+    Note: Base class names preserve original case (unlike keywords which are
+    normalized to lowercase). This is intentional for accurate pattern detection
+    against ONEX_BASE_CLASSES, which uses original casing like "NodeCompute".
+
     Args:
         tree: Parsed AST.
 
     Returns:
-        Tuple of base class name strings (not normalized, preserves case).
+        Tuple of base class name strings, sorted and deduplicated but NOT
+        lowercased. Preserves original casing for pattern matching.
     """
     base_classes: list[str] = []
 
@@ -547,6 +569,11 @@ def _compute_cyclomatic_complexity(tree: ast.AST) -> int:
         - +1 for each except handler
         - +1 for each and/or in boolean expressions
         - +1 for each comprehension
+        - +1 for each assert statement
+
+    Note: Including assert statements differs from standard McCabe complexity.
+    This is intentional for pattern learning: assertions represent conditional
+    paths that affect code behavior and are relevant for pattern comparison.
 
     This is a simplified version of McCabe complexity that provides
     a reasonable approximation for pattern comparison.
