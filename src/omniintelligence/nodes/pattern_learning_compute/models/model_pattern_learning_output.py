@@ -1,91 +1,63 @@
-"""Output model for Pattern Learning Compute (STUB)."""
+"""Output model for Pattern Learning Compute.
+
+Uses contract models from omnibase_core for canonical pattern representations.
+"""
 
 from __future__ import annotations
 
-from typing import TypedDict
-
 from pydantic import BaseModel, Field
 
-
-class LearnedPatternDict(TypedDict, total=False):
-    """Typed structure for a learned pattern.
-
-    Provides type-safe fields for pattern learning results.
-    """
-
-    # Identification
-    pattern_id: str
-    pattern_name: str
-    pattern_type: str
-
-    # Classification
-    category: str
-    subcategory: str
-    tags: list[str]
-
-    # Matching criteria
-    signature: str
-    keywords: list[str]
-    confidence: float
-
-    # Metadata
-    source_count: int
-    first_seen: str
-    last_seen: str
-
-
-class LearningMetadataDict(TypedDict, total=False):
-    """Typed structure for learning metadata.
-
-    Provides type-safe fields for pattern learning metadata.
-    """
-
-    # Processing info
-    processing_time_ms: int
-    timestamp: str
-    model_version: str
-
-    # Dataset info
-    training_samples: int
-    validation_samples: int
-
-    # Quality indicators
-    convergence_achieved: bool
-    early_stopped: bool
-    final_epoch: int
+from omnibase_core.models.pattern_learning import (
+    ModelLearnedPattern,
+    ModelPatternLearningMetadata,
+    ModelPatternLearningMetrics,
+)
 
 
 class ModelPatternLearningOutput(BaseModel):
-    """Output model for pattern learning operations (STUB).
+    """Output model for pattern learning operations.
 
     This model represents the result of pattern learning operations.
-    This is a stub implementation for forward compatibility.
+    Patterns are split into candidates (not yet validated) and learned
+    (validated and ready for use).
 
-    All fields use strong typing without dict[str, Any].
+    Attributes:
+        success: Whether pattern learning succeeded.
+        candidate_patterns: Patterns with lifecycle_state != "validated".
+        learned_patterns: Patterns with lifecycle_state == "validated".
+        metrics: Aggregated metrics from the learning process.
+        metadata: Processing metadata (timestamps, thresholds used, etc.).
+        warnings: Non-fatal warnings encountered during processing.
     """
 
     success: bool = Field(
         ...,
         description="Whether pattern learning succeeded",
     )
-    learned_patterns: list[LearnedPatternDict] = Field(
+    candidate_patterns: list[ModelLearnedPattern] = Field(
         default_factory=list,
-        description="List of learned patterns with typed fields",
+        description="Patterns not yet validated (lifecycle_state != validated)",
     )
-    metrics: dict[str, float] = Field(
-        default_factory=dict,
-        description="Learning metrics (accuracy, loss, etc.)",
+    learned_patterns: list[ModelLearnedPattern] = Field(
+        default_factory=list,
+        description="Validated patterns ready for use (lifecycle_state == validated)",
     )
-    metadata: LearningMetadataDict | None = Field(
-        default=None,
-        description="Additional metadata about the learning with typed fields",
+    metrics: ModelPatternLearningMetrics = Field(
+        ...,
+        description="Aggregated learning metrics",
+    )
+    metadata: ModelPatternLearningMetadata = Field(
+        ...,
+        description="Processing metadata",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Non-fatal warnings encountered during processing",
     )
 
     model_config = {"frozen": True, "extra": "forbid"}
 
 
 __all__ = [
-    "LearnedPatternDict",
-    "LearningMetadataDict",
     "ModelPatternLearningOutput",
 ]
