@@ -180,7 +180,7 @@ class TestEnumPatternLifecycleStatusMembers:
 # =========================================================================
 
 
-class TestMigrationFileConsistency:
+class TestLearnedPatternsMigrationFile:
     """Validate consistency with SQL migration file."""
 
     @pytest.fixture

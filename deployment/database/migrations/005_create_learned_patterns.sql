@@ -20,7 +20,10 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
     pattern_signature TEXT NOT NULL,
 
     -- Domain with taxonomy (foreign key to domain_taxonomy)
-    domain_id VARCHAR(50) NOT NULL REFERENCES domain_taxonomy(domain_id),
+    -- FK Cascade: RESTRICT prevents accidental domain deletion while patterns reference it;
+    --             CASCADE propagates domain_id renames to maintain referential integrity.
+    domain_id VARCHAR(50) NOT NULL REFERENCES domain_taxonomy(domain_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
     domain_version VARCHAR(20) NOT NULL,
     domain_candidates JSONB NOT NULL DEFAULT '[]',  -- [{domain, confidence}, ...]
 
@@ -55,6 +58,10 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
         CHECK (success_count_rolling_20 + failure_count_rolling_20 <= injection_count_rolling_20),
 
     -- Versioning
+    -- Note: supersedes/superseded_by form a version chain (linked list of pattern versions).
+    -- CIRCULAR REFERENCE CONSTRAINT: Application logic MUST ensure no cycles in the version chain.
+    -- A pattern cannot supersede itself directly (A -> A) or transitively (A -> B -> C -> A).
+    -- Database-level cycle prevention is not implemented due to complexity; enforce in application layer.
     version INT NOT NULL DEFAULT 1,
     is_current BOOLEAN NOT NULL DEFAULT TRUE,
     supersedes UUID REFERENCES learned_patterns(id),
@@ -195,8 +202,8 @@ COMMENT ON CONSTRAINT check_rolling_metrics_sum ON learned_patterns IS 'Ensures 
 -- Versioning
 COMMENT ON COLUMN learned_patterns.version IS 'Pattern version number';
 COMMENT ON COLUMN learned_patterns.is_current IS 'Whether this is the current version';
-COMMENT ON COLUMN learned_patterns.supersedes IS 'Previous version this pattern supersedes';
-COMMENT ON COLUMN learned_patterns.superseded_by IS 'Newer version that supersedes this pattern';
+COMMENT ON COLUMN learned_patterns.supersedes IS 'Previous version this pattern supersedes. Forms a version chain with superseded_by. APPLICATION CONSTRAINT: Must not form circular chains (A->B->C->A). A pattern cannot supersede itself directly or transitively. Cycle prevention enforced in application layer, not database.';
+COMMENT ON COLUMN learned_patterns.superseded_by IS 'Newer version that supersedes this pattern. Forms a version chain with supersedes. APPLICATION CONSTRAINT: Must not form circular chains (A->B->C->A). A pattern cannot be superseded by itself directly or transitively. Cycle prevention enforced in application layer, not database.';
 
 -- Compiled artifact
 COMMENT ON COLUMN learned_patterns.compiled_snippet IS 'Pre-compiled snippet for injection';

@@ -135,7 +135,7 @@ class TestEnumDomainTaxonomyProperties:
 # =========================================================================
 
 
-class TestMigrationFileConsistency:
+class TestDomainTaxonomyMigrationFile:
     """Validate consistency with SQL migration file."""
 
     @pytest.fixture
