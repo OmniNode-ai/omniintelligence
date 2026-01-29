@@ -544,3 +544,142 @@ class TestFromPatternsEdgeCases:
         )
 
         assert result.warnings == []
+
+
+# =============================================================================
+# Tests for from_failure() Factory Method
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestFromFailureFactoryMethod:
+    """Tests for ModelPatternLearningOutput.from_failure() class method."""
+
+    def test_from_failure_sets_success_false(
+        self,
+        sample_metrics: ModelPatternLearningMetrics,
+        sample_metadata: ModelPatternLearningMetadata,
+    ) -> None:
+        """Verify from_failure() always sets success=False."""
+        # Act
+        result = ModelPatternLearningOutput.from_failure(
+            metrics=sample_metrics,
+            metadata=sample_metadata,
+            error_message="Test error occurred",
+        )
+
+        # Assert
+        assert result.success is False
+
+    def test_from_failure_has_empty_pattern_lists(
+        self,
+        sample_metrics: ModelPatternLearningMetrics,
+        sample_metadata: ModelPatternLearningMetadata,
+    ) -> None:
+        """Verify both learned_patterns and candidate_patterns are empty on failure."""
+        # Act
+        result = ModelPatternLearningOutput.from_failure(
+            metrics=sample_metrics,
+            metadata=sample_metadata,
+            error_message="Pattern learning failed",
+        )
+
+        # Assert
+        assert result.learned_patterns == []
+        assert result.candidate_patterns == []
+
+    def test_from_failure_includes_error_message_first_in_warnings(
+        self,
+        sample_metrics: ModelPatternLearningMetrics,
+        sample_metadata: ModelPatternLearningMetadata,
+    ) -> None:
+        """Verify error_message is the first element in warnings list."""
+        # Arrange
+        error_msg = "Critical failure during pattern extraction"
+        additional_warnings = ["Warning 1", "Warning 2"]
+
+        # Act
+        result = ModelPatternLearningOutput.from_failure(
+            metrics=sample_metrics,
+            metadata=sample_metadata,
+            error_message=error_msg,
+            warnings=additional_warnings,
+        )
+
+        # Assert
+        assert len(result.warnings) > 0
+        assert result.warnings[0] == error_msg
+
+    def test_from_failure_appends_additional_warnings(
+        self,
+        sample_metrics: ModelPatternLearningMetrics,
+        sample_metadata: ModelPatternLearningMetadata,
+    ) -> None:
+        """Verify additional warnings come after the error message."""
+        # Arrange
+        error_msg = "Main error"
+        additional_warnings = ["Secondary issue", "Tertiary concern", "Final note"]
+
+        # Act
+        result = ModelPatternLearningOutput.from_failure(
+            metrics=sample_metrics,
+            metadata=sample_metadata,
+            error_message=error_msg,
+            warnings=additional_warnings,
+        )
+
+        # Assert
+        assert len(result.warnings) == 4
+        assert result.warnings[0] == error_msg
+        assert result.warnings[1] == "Secondary issue"
+        assert result.warnings[2] == "Tertiary concern"
+        assert result.warnings[3] == "Final note"
+
+    def test_from_failure_with_none_warnings(
+        self,
+        sample_metrics: ModelPatternLearningMetrics,
+        sample_metadata: ModelPatternLearningMetadata,
+    ) -> None:
+        """Verify None warnings results in only error_message in warnings list."""
+        # Arrange
+        error_msg = "Failure with no additional warnings"
+
+        # Act
+        result = ModelPatternLearningOutput.from_failure(
+            metrics=sample_metrics,
+            metadata=sample_metadata,
+            error_message=error_msg,
+            warnings=None,
+        )
+
+        # Assert
+        assert len(result.warnings) == 1
+        assert result.warnings[0] == error_msg
+
+    def test_from_failure_preserves_metrics_and_metadata(
+        self,
+        sample_metrics: ModelPatternLearningMetrics,
+        sample_metadata: ModelPatternLearningMetadata,
+    ) -> None:
+        """Verify metrics and metadata are passed through unchanged on failure."""
+        # Act
+        result = ModelPatternLearningOutput.from_failure(
+            metrics=sample_metrics,
+            metadata=sample_metadata,
+            error_message="Learning process failed",
+        )
+
+        # Assert - verify metrics are preserved
+        assert result.metrics.input_count == sample_metrics.input_count
+        assert result.metrics.cluster_count == sample_metrics.cluster_count
+        assert result.metrics.candidate_count == sample_metrics.candidate_count
+        assert result.metrics.learned_count == sample_metrics.learned_count
+        assert result.metrics.mean_confidence == sample_metrics.mean_confidence
+        assert result.metrics.processing_time_ms == sample_metrics.processing_time_ms
+
+        # Assert - verify metadata is preserved
+        assert result.metadata.status == sample_metadata.status
+        assert result.metadata.model_version == sample_metadata.model_version
+        assert result.metadata.convergence_achieved == sample_metadata.convergence_achieved
+        assert result.metadata.training_samples == sample_metadata.training_samples
+        assert result.metadata.final_epoch == sample_metadata.final_epoch
