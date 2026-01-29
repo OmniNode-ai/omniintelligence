@@ -12,11 +12,56 @@ os.environ.setdefault("OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA", "true")
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+
+
+# =========================================================================
+# Project Path Fixtures
+# =========================================================================
+
+
+@pytest.fixture
+def project_root() -> Path:
+    """Find project root by looking for pyproject.toml.
+
+    This provides a robust way to find the project root regardless of
+    where tests are run from or how deep the test file is in the directory
+    structure.
+
+    Returns:
+        Path to the project root directory.
+
+    Raises:
+        RuntimeError: If project root cannot be found (no pyproject.toml or .git).
+    """
+    current = Path(__file__).resolve().parent
+    while current != current.parent:
+        if (current / "pyproject.toml").exists():
+            return current
+        if (current / ".git").exists():
+            return current
+        current = current.parent
+    raise RuntimeError(
+        "Could not find project root (no pyproject.toml or .git found)"
+    )
+
+
+@pytest.fixture
+def migrations_dir(project_root: Path) -> Path:
+    """Path to database migrations directory.
+
+    Args:
+        project_root: Injected project root fixture.
+
+    Returns:
+        Path to deployment/database/migrations directory.
+    """
+    return project_root / "deployment" / "database" / "migrations"
 
 
 # =========================================================================
