@@ -61,6 +61,10 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.utils import (
     normalize_identifiers,
     validate_similarity_weights,
 )
+from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_clustering import (
+    cluster_patterns,
+    compute_similarity,
+)
 
 __all__ = [
     "DEFAULT_SIMILARITY_WEIGHTS",
@@ -76,6 +80,8 @@ __all__ = [
     "SimilarityResultDict",
     "SimilarityWeightsDict",
     "StructuralFeaturesDict",
+    "cluster_patterns",
+    "compute_similarity",
     "jaccard_similarity",
     "normalize_identifier",
     "normalize_identifiers",
