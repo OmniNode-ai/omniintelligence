@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from omnibase_core.enums.pattern_learning import EnumPatternLifecycleState
 from omnibase_core.models.pattern_learning import (
     ModelLearnedPattern,
     ModelPatternLearningMetadata,
@@ -19,13 +20,13 @@ class ModelPatternLearningOutput(BaseModel):
 
     This model represents the result of pattern learning operations.
     Patterns are split by lifecycle_state (from ModelLearnedPattern):
-    - candidate_patterns: Any state except "validated" (draft, pending, rejected, etc.)
-    - learned_patterns: lifecycle_state == "validated" (ready for production use)
+    - candidate_patterns: CANDIDATE, PROVISIONAL, or DEPRECATED states
+    - learned_patterns: VALIDATED state only (ready for production use)
 
     Attributes:
         success: Whether pattern learning succeeded.
-        candidate_patterns: Patterns with lifecycle_state != "validated".
-        learned_patterns: Patterns with lifecycle_state == "validated".
+        candidate_patterns: Patterns with lifecycle_state != VALIDATED.
+        learned_patterns: Patterns with lifecycle_state == VALIDATED.
         metrics: Aggregated metrics from the learning process.
         metadata: Processing metadata (timestamps, thresholds used, etc.).
         warnings: Non-fatal warnings encountered during processing.
@@ -84,8 +85,8 @@ class ModelPatternLearningOutput(BaseModel):
             This factory always sets success=True. For failure cases where
             success=False is needed, use the constructor directly.
         """
-        candidates = [p for p in all_patterns if p.lifecycle_state != "validated"]
-        learned = [p for p in all_patterns if p.lifecycle_state == "validated"]
+        candidates = [p for p in all_patterns if p.lifecycle_state != EnumPatternLifecycleState.VALIDATED]
+        learned = [p for p in all_patterns if p.lifecycle_state == EnumPatternLifecycleState.VALIDATED]
         return cls(
             success=True,
             candidate_patterns=candidates,
