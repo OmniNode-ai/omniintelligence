@@ -50,11 +50,25 @@ class ReplayArtifactEmitter(Protocol):
 
 
 class NullEmitter:
-    """No-op emitter for tests and when replay logging is disabled."""
+    """No-op emitter for tests and when replay logging is disabled.
+
+    Note:
+        Still validates JSON-safety to catch serialization bugs early in tests.
+        Even though data is discarded, validation ensures that production
+        emitters would also succeed.
+    """
 
     def emit(self, name: str, payload: dict[str, object]) -> None:
-        """No-op implementation - discards artifacts."""
-        pass
+        """Validate payload is JSON-safe, then discard.
+
+        Args:
+            name: Artifact name (unused but validated for protocol compliance).
+            payload: JSON-serializable dict - validated then discarded.
+
+        Raises:
+            TypeError: If payload is not JSON-serializable.
+        """
+        assert_json_safe(payload)  # Catch serialization bugs early in tests
 
 
 # Default instance for convenience

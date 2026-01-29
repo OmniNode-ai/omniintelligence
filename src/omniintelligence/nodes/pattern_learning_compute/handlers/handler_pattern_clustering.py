@@ -45,8 +45,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from omniintelligence.nodes.pattern_learning_compute.handlers.exceptions import (
     PatternLearningValidationError,
 )
@@ -72,9 +70,6 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.utils import (
     jaccard_similarity,
     validate_similarity_weights,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 # =============================================================================
@@ -598,13 +593,17 @@ def cluster_patterns(
 
         if all_patterns:
             # Most common pattern indicator
+            # Tie-break: alphabetically ascending (smallest string wins)
+            # This matches the item_id determinism pattern used elsewhere
             pattern_counts: dict[str, int] = {}
             for p in all_patterns:
                 pattern_counts[p] = pattern_counts.get(p, 0) + 1
-            pattern_type = max(
+            # Sort by count descending, then alphabetically ascending for ties
+            sorted_patterns = sorted(
                 pattern_counts.keys(),
-                key=lambda k: (pattern_counts[k], -ord(k[0]) if k else 0),
+                key=lambda k: (-pattern_counts[k], k),
             )
+            pattern_type = sorted_patterns[0]
         else:
             pattern_type = "unknown"
 
