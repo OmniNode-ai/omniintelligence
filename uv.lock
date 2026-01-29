@@ -2463,7 +2463,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-core"
-version = "0.9.8"
+version = "0.9.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -2475,9 +2475,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/15/40/c34d84d90686561f1505758acd4551e46bd6595de685d71891983d1aeb9a/omnibase_core-0.9.8.tar.gz", hash = "sha256:4c414645ecd00f3066b72d935dd449492f48c1c9ac1ee631e39e0f5a6586df80", size = 2987406, upload-time = "2026-01-29T20:58:57.831Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/0e/77623e52eb32c25fba27e7cde1bc9ca4f67cf7d5f5e9b831521cf471b176/omnibase_core-0.9.9.tar.gz", hash = "sha256:cccc7049e5230618e9eb02439254783924c8c00bd277e2f34108efd62c40754f", size = 2987613, upload-time = "2026-01-29T21:25:08.038Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/6c/675debdccb8b5b111b6dffc3d3453de74075cadeb069f3557bcf5e7bc960/omnibase_core-0.9.8-py3-none-any.whl", hash = "sha256:61102795acd7496f78e77dafcd1161cf69c025e3eff70d4758f1712763036225", size = 4473458, upload-time = "2026-01-29T20:58:56.26Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/43/67f9df7d61bc52c39c38f092248c8fe67ff57ffa4cb49ddedd9dbe464c99/omnibase_core-0.9.9-py3-none-any.whl", hash = "sha256:297a0d053016fb410c30e68aec8cfbcf0aa4c572c7b3a7f2195b5c9e1fdd8f33", size = 4473697, upload-time = "2026-01-29T21:25:05.436Z" },
 ]
 
 [[package]]
@@ -2678,7 +2678,7 @@ all = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = ">=0.9.8,<0.10.0" },
+    { name = "omnibase-core", specifier = ">=0.9.9,<0.10.0" },
     { name = "omnibase-infra", specifier = ">=0.2.5,<0.3.0" },
     { name = "omnibase-spi", specifier = ">=0.6.1,<0.7.0" },
     { name = "openai", specifier = ">=1.71.0" },
@@ -2717,7 +2717,7 @@ core = [
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = ">=0.9.8,<0.10.0" },
+    { name = "omnibase-core", specifier = ">=0.9.9,<0.10.0" },
     { name = "omnibase-infra", specifier = ">=0.2.5,<0.3.0" },
     { name = "omnibase-spi", specifier = ">=0.6.1,<0.7.0" },
     { name = "openai", specifier = ">=1.71.0" },
