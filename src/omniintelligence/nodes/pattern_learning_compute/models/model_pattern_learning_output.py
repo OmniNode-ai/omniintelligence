@@ -30,6 +30,10 @@ class ModelPatternLearningOutput(BaseModel):
         metrics: Aggregated metrics from the learning process.
         metadata: Processing metadata (timestamps, thresholds used, etc.).
         warnings: Non-fatal warnings encountered during processing.
+
+    Factory Methods:
+        from_patterns: Create output for successful operations with auto-splitting.
+        from_failure: Create output for failed operations with error handling.
     """
 
     success: bool = Field(
@@ -83,10 +87,15 @@ class ModelPatternLearningOutput(BaseModel):
 
         Note:
             This factory always sets success=True. For failure cases where
-            success=False is needed, use the constructor directly.
+            success=False is needed, use from_failure() instead.
         """
-        candidates = [p for p in all_patterns if p.lifecycle_state != EnumPatternLifecycleState.VALIDATED]
-        learned = [p for p in all_patterns if p.lifecycle_state == EnumPatternLifecycleState.VALIDATED]
+        candidates: list[ModelLearnedPattern] = []
+        learned: list[ModelLearnedPattern] = []
+        for p in all_patterns:
+            if p.lifecycle_state == EnumPatternLifecycleState.VALIDATED:
+                learned.append(p)
+            else:
+                candidates.append(p)
         return cls(
             success=True,
             candidate_patterns=candidates,
@@ -94,6 +103,41 @@ class ModelPatternLearningOutput(BaseModel):
             metrics=metrics,
             metadata=metadata,
             warnings=warnings or [],
+        )
+
+    @classmethod
+    def from_failure(
+        cls,
+        metrics: ModelPatternLearningMetrics,
+        metadata: ModelPatternLearningMetadata,
+        error_message: str,
+        warnings: list[str] | None = None,
+    ) -> ModelPatternLearningOutput:
+        """Create output for failed pattern learning operations.
+
+        This is a convenience factory for failed pattern learning operations.
+        It creates an output with success=False, empty pattern lists, and
+        the error message included in warnings.
+
+        Args:
+            metrics: Aggregated learning metrics (may be partial).
+            metadata: Processing metadata.
+            error_message: The primary error that caused the failure.
+            warnings: Optional additional non-fatal warnings.
+
+        Returns:
+            ModelPatternLearningOutput with success=False and error in warnings.
+        """
+        all_warnings = [error_message]
+        if warnings:
+            all_warnings.extend(warnings)
+        return cls(
+            success=False,
+            candidate_patterns=[],
+            learned_patterns=[],
+            metrics=metrics,
+            metadata=metadata,
+            warnings=all_warnings,
         )
 
 
