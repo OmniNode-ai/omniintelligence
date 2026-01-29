@@ -48,9 +48,12 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
     -- Rolling quality metrics (window of 20)
     quality_score FLOAT DEFAULT 0.5
         CONSTRAINT check_quality_score_bounds CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
-    injection_count_rolling_20 INT DEFAULT 0,
-    success_count_rolling_20 INT DEFAULT 0,
-    failure_count_rolling_20 INT DEFAULT 0,
+    injection_count_rolling_20 INT DEFAULT 0
+        CONSTRAINT check_injection_count_rolling_max CHECK (injection_count_rolling_20 <= 20),
+    success_count_rolling_20 INT DEFAULT 0
+        CONSTRAINT check_success_count_rolling_max CHECK (success_count_rolling_20 <= 20),
+    failure_count_rolling_20 INT DEFAULT 0
+        CONSTRAINT check_failure_count_rolling_max CHECK (failure_count_rolling_20 <= 20),
     failure_streak INT DEFAULT 0,
 
     -- Data integrity constraint: success + failure can never exceed total injections
@@ -111,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_learned_patterns_last_seen
 -- Index for promotion candidates (temporal stability)
 CREATE INDEX IF NOT EXISTS idx_learned_patterns_promotion_candidates
     ON learned_patterns(status, distinct_days_seen, quality_score)
-    WHERE status = 'candidate' OR status = 'provisional';
+    WHERE status IN ('candidate', 'provisional');
 
 -- Index for current versions only
 CREATE INDEX IF NOT EXISTS idx_learned_patterns_current
@@ -198,6 +201,9 @@ COMMENT ON COLUMN learned_patterns.failure_streak IS 'Consecutive failures (trig
 -- Constraint comments
 COMMENT ON CONSTRAINT check_quality_score_bounds ON learned_patterns IS 'Ensures quality_score remains within valid range [0.0, 1.0]';
 COMMENT ON CONSTRAINT check_rolling_metrics_sum ON learned_patterns IS 'Ensures success + failure counts never exceed total injection count in rolling window';
+COMMENT ON CONSTRAINT check_injection_count_rolling_max ON learned_patterns IS 'Ensures injection_count_rolling_20 cannot exceed rolling window size of 20';
+COMMENT ON CONSTRAINT check_success_count_rolling_max ON learned_patterns IS 'Ensures success_count_rolling_20 cannot exceed rolling window size of 20';
+COMMENT ON CONSTRAINT check_failure_count_rolling_max ON learned_patterns IS 'Ensures failure_count_rolling_20 cannot exceed rolling window size of 20';
 
 -- Versioning
 COMMENT ON COLUMN learned_patterns.version IS 'Pattern version number';
