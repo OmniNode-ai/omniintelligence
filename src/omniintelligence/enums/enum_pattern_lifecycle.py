@@ -50,5 +50,45 @@ class EnumPatternLifecycleStatus(str, Enum):
     VALIDATED = "validated"
     DEPRECATED = "deprecated"
 
+    def can_transition_to(self, target: "EnumPatternLifecycleStatus") -> bool:
+        """Check if transition to target status is valid.
+
+        Valid transitions:
+            CANDIDATE → PROVISIONAL, DEPRECATED
+            PROVISIONAL → VALIDATED, DEPRECATED
+            VALIDATED → DEPRECATED
+            DEPRECATED → (none - terminal state)
+
+        Args:
+            target: The target status to transition to.
+
+        Returns:
+            True if the transition is valid, False otherwise.
+
+        Example:
+            >>> status = EnumPatternLifecycleStatus.CANDIDATE
+            >>> status.can_transition_to(EnumPatternLifecycleStatus.PROVISIONAL)
+            True
+            >>> status.can_transition_to(EnumPatternLifecycleStatus.VALIDATED)
+            False
+        """
+        valid_transitions: dict[
+            EnumPatternLifecycleStatus, set[EnumPatternLifecycleStatus]
+        ] = {
+            EnumPatternLifecycleStatus.CANDIDATE: {
+                EnumPatternLifecycleStatus.PROVISIONAL,
+                EnumPatternLifecycleStatus.DEPRECATED,
+            },
+            EnumPatternLifecycleStatus.PROVISIONAL: {
+                EnumPatternLifecycleStatus.VALIDATED,
+                EnumPatternLifecycleStatus.DEPRECATED,
+            },
+            EnumPatternLifecycleStatus.VALIDATED: {
+                EnumPatternLifecycleStatus.DEPRECATED,
+            },
+            EnumPatternLifecycleStatus.DEPRECATED: set(),
+        }
+        return target in valid_transitions.get(self, set())
+
 
 __all__ = ["EnumPatternLifecycleStatus"]

@@ -63,11 +63,19 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
     CONSTRAINT check_rolling_metrics_sum
         CHECK (success_count_rolling_20 + failure_count_rolling_20 <= injection_count_rolling_20),
 
+    -- Data integrity constraint: promoted_at must be consistent with status
+    -- Note: 'deprecated' allows NULL promoted_at because CANDIDATE → DEPRECATED is valid (early failure/manual deprecation)
+    CONSTRAINT check_promoted_at_status_consistency CHECK (
+        (status = 'candidate' AND promoted_at IS NULL) OR
+        (status IN ('provisional', 'validated') AND promoted_at IS NOT NULL) OR
+        (status = 'deprecated')  -- Allow NULL or NOT NULL (depends on transition path)
+    ),
+
     -- Versioning
     -- Note: supersedes/superseded_by form a version chain (linked list of pattern versions).
-    -- CIRCULAR REFERENCE CONSTRAINT: Application logic MUST ensure no cycles in the version chain.
-    -- A pattern cannot supersede itself directly (A -> A) or transitively (A -> B -> C -> A).
-    -- Database-level cycle prevention is not implemented due to complexity; enforce in application layer.
+    -- CIRCULAR REFERENCE CONSTRAINTS:
+    -- - Direct self-cycles (A -> A) are prevented at database level via check_no_self_supersede/check_no_self_superseded_by.
+    -- - Transitive cycles (A -> B -> C -> A) must be prevented in application layer due to complexity.
     version INT NOT NULL DEFAULT 1,
     is_current BOOLEAN NOT NULL DEFAULT TRUE,
     supersedes UUID REFERENCES learned_patterns(id),
@@ -83,7 +91,11 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- Uniqueness constraint for signature + domain + version
-    CONSTRAINT unique_signature_domain_version UNIQUE (pattern_signature, domain_id, version)
+    CONSTRAINT unique_signature_domain_version UNIQUE (pattern_signature, domain_id, version),
+
+    -- Self-cycle prevention: a pattern cannot supersede itself
+    CONSTRAINT check_no_self_supersede CHECK (supersedes IS NULL OR supersedes != id),
+    CONSTRAINT check_no_self_superseded_by CHECK (superseded_by IS NULL OR superseded_by != id)
 );
 
 -- ============================================================================
@@ -205,12 +217,15 @@ COMMENT ON CONSTRAINT check_failure_count_rolling_bounds ON learned_patterns IS 
 COMMENT ON CONSTRAINT check_failure_streak_non_negative ON learned_patterns IS 'Ensures failure_streak cannot be negative';
 COMMENT ON CONSTRAINT check_recurrence_count_min ON learned_patterns IS 'Ensures recurrence_count is at least 1 (pattern must be seen at least once)';
 COMMENT ON CONSTRAINT check_distinct_days_seen_min ON learned_patterns IS 'Ensures distinct_days_seen is at least 1 (pattern must be seen on at least one day)';
+COMMENT ON CONSTRAINT check_promoted_at_status_consistency ON learned_patterns IS 'Ensures promoted_at is NULL for candidates, NOT NULL for provisional/validated. Deprecated allows either (CANDIDATE→DEPRECATED has no promotion timestamp).';
+COMMENT ON CONSTRAINT check_no_self_supersede ON learned_patterns IS 'Prevents direct self-cycle: a pattern cannot supersede itself (supersedes != id)';
+COMMENT ON CONSTRAINT check_no_self_superseded_by ON learned_patterns IS 'Prevents direct self-cycle: a pattern cannot be superseded by itself (superseded_by != id)';
 
 -- Versioning
 COMMENT ON COLUMN learned_patterns.version IS 'Pattern version number';
 COMMENT ON COLUMN learned_patterns.is_current IS 'Whether this is the current version';
-COMMENT ON COLUMN learned_patterns.supersedes IS 'Previous version this pattern supersedes. Forms a version chain with superseded_by. APPLICATION CONSTRAINT: Must not form circular chains (A->B->C->A). A pattern cannot supersede itself directly or transitively. Cycle prevention enforced in application layer, not database.';
-COMMENT ON COLUMN learned_patterns.superseded_by IS 'Newer version that supersedes this pattern. Forms a version chain with supersedes. APPLICATION CONSTRAINT: Must not form circular chains (A->B->C->A). A pattern cannot be superseded by itself directly or transitively. Cycle prevention enforced in application layer, not database.';
+COMMENT ON COLUMN learned_patterns.supersedes IS 'Previous version this pattern supersedes. Forms a version chain with superseded_by. DATABASE CONSTRAINT: Direct self-cycles (A->A) prevented by check_no_self_supersede. APPLICATION CONSTRAINT: Transitive cycles (A->B->C->A) must be prevented in application layer.';
+COMMENT ON COLUMN learned_patterns.superseded_by IS 'Newer version that supersedes this pattern. Forms a version chain with supersedes. DATABASE CONSTRAINT: Direct self-cycles (A->A) prevented by check_no_self_superseded_by. APPLICATION CONSTRAINT: Transitive cycles (A->B->C->A) must be prevented in application layer.';
 
 -- Compiled artifact
 COMMENT ON COLUMN learned_patterns.compiled_snippet IS 'Pre-compiled snippet for injection';
