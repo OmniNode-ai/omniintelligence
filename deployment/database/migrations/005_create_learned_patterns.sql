@@ -43,11 +43,16 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
     distinct_days_seen INT NOT NULL DEFAULT 1,
 
     -- Rolling quality metrics (window of 20)
-    quality_score FLOAT DEFAULT 0.5,
+    quality_score FLOAT DEFAULT 0.5
+        CONSTRAINT check_quality_score_bounds CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
     injection_count_rolling_20 INT DEFAULT 0,
     success_count_rolling_20 INT DEFAULT 0,
     failure_count_rolling_20 INT DEFAULT 0,
     failure_streak INT DEFAULT 0,
+
+    -- Data integrity constraint: success + failure can never exceed total injections
+    CONSTRAINT check_rolling_metrics_sum
+        CHECK (success_count_rolling_20 + failure_count_rolling_20 <= injection_count_rolling_20),
 
     -- Versioning
     version INT NOT NULL DEFAULT 1,
@@ -182,6 +187,10 @@ COMMENT ON COLUMN learned_patterns.injection_count_rolling_20 IS 'Injection coun
 COMMENT ON COLUMN learned_patterns.success_count_rolling_20 IS 'Success count in rolling window of 20';
 COMMENT ON COLUMN learned_patterns.failure_count_rolling_20 IS 'Failure count in rolling window of 20';
 COMMENT ON COLUMN learned_patterns.failure_streak IS 'Consecutive failures (triggers demotion)';
+
+-- Constraint comments
+COMMENT ON CONSTRAINT check_quality_score_bounds ON learned_patterns IS 'Ensures quality_score remains within valid range [0.0, 1.0]';
+COMMENT ON CONSTRAINT check_rolling_metrics_sum ON learned_patterns IS 'Ensures success + failure counts never exceed total injection count in rolling window';
 
 -- Versioning
 COMMENT ON COLUMN learned_patterns.version IS 'Pattern version number';

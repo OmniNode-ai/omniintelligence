@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS domain_taxonomy (
     description TEXT,
 
     -- Auditing
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================================
@@ -35,9 +36,7 @@ CREATE TABLE IF NOT EXISTS domain_taxonomy (
 CREATE INDEX IF NOT EXISTS idx_domain_taxonomy_version
     ON domain_taxonomy(domain_version);
 
--- Index for domain lookup
-CREATE INDEX IF NOT EXISTS idx_domain_taxonomy_domain_id
-    ON domain_taxonomy(domain_id);
+-- Note: No explicit index needed for domain_id - the UNIQUE constraint creates one implicitly
 
 -- ============================================================================
 -- Seed Data: v1.0 Domain Taxonomy
@@ -57,6 +56,23 @@ INSERT INTO domain_taxonomy (domain_id, domain_version, description) VALUES
 ON CONFLICT (domain_id) DO NOTHING;
 
 -- ============================================================================
+-- Trigger for updated_at
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION update_domain_taxonomy_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_domain_taxonomy_updated_at
+    BEFORE UPDATE ON domain_taxonomy
+    FOR EACH ROW
+    EXECUTE FUNCTION update_domain_taxonomy_updated_at();
+
+-- ============================================================================
 -- Comments
 -- ============================================================================
 
@@ -65,3 +81,4 @@ COMMENT ON COLUMN domain_taxonomy.domain_id IS 'Unique domain identifier (e.g., 
 COMMENT ON COLUMN domain_taxonomy.domain_version IS 'Taxonomy version (e.g., 1.0) for schema evolution';
 COMMENT ON COLUMN domain_taxonomy.description IS 'Human-readable description of the domain';
 COMMENT ON COLUMN domain_taxonomy.created_at IS 'When this domain was added to the taxonomy';
+COMMENT ON COLUMN domain_taxonomy.updated_at IS 'When this domain was last modified';

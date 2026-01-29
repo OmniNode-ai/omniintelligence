@@ -184,15 +184,12 @@ class TestMigrationFileConsistency:
     """Validate consistency with SQL migration file."""
 
     @pytest.fixture
-    def migration_path(self) -> Path:
-        """Path to the learned_patterns migration."""
-        return (
-            Path(__file__).parents[3]
-            / "deployment"
-            / "database"
-            / "migrations"
-            / "005_create_learned_patterns.sql"
-        )
+    def migration_path(self, migrations_dir: Path) -> Path:
+        """Path to the learned_patterns migration.
+
+        Uses the migrations_dir fixture from conftest.py for robust path resolution.
+        """
+        return migrations_dir / "005_create_learned_patterns.sql"
 
     def test_migration_file_exists(self, migration_path: Path) -> None:
         """Verify the migration file exists."""
