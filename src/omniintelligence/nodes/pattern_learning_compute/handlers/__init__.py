@@ -59,6 +59,7 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.utils import (
     jaccard_similarity,
     normalize_identifier,
     normalize_identifiers,
+    validate_similarity_weights,
 )
 
 __all__ = [
@@ -78,4 +79,5 @@ __all__ = [
     "jaccard_similarity",
     "normalize_identifier",
     "normalize_identifiers",
+    "validate_similarity_weights",
 ]
