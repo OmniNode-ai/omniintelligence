@@ -64,9 +64,11 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
         CHECK (success_count_rolling_20 + failure_count_rolling_20 <= injection_count_rolling_20),
 
     -- Data integrity constraint: promoted_at must be consistent with status
+    -- Note: 'deprecated' allows NULL promoted_at because CANDIDATE → DEPRECATED is valid (early failure/manual deprecation)
     CONSTRAINT check_promoted_at_status_consistency CHECK (
         (status = 'candidate' AND promoted_at IS NULL) OR
-        (status IN ('provisional', 'validated', 'deprecated') AND promoted_at IS NOT NULL)
+        (status IN ('provisional', 'validated') AND promoted_at IS NOT NULL) OR
+        (status = 'deprecated')  -- Allow NULL or NOT NULL (depends on transition path)
     ),
 
     -- Versioning
@@ -215,7 +217,7 @@ COMMENT ON CONSTRAINT check_failure_count_rolling_bounds ON learned_patterns IS 
 COMMENT ON CONSTRAINT check_failure_streak_non_negative ON learned_patterns IS 'Ensures failure_streak cannot be negative';
 COMMENT ON CONSTRAINT check_recurrence_count_min ON learned_patterns IS 'Ensures recurrence_count is at least 1 (pattern must be seen at least once)';
 COMMENT ON CONSTRAINT check_distinct_days_seen_min ON learned_patterns IS 'Ensures distinct_days_seen is at least 1 (pattern must be seen on at least one day)';
-COMMENT ON CONSTRAINT check_promoted_at_status_consistency ON learned_patterns IS 'Ensures promoted_at is NULL for candidates and NOT NULL for promoted statuses (provisional, validated, deprecated)';
+COMMENT ON CONSTRAINT check_promoted_at_status_consistency ON learned_patterns IS 'Ensures promoted_at is NULL for candidates, NOT NULL for provisional/validated. Deprecated allows either (CANDIDATE→DEPRECATED has no promotion timestamp).';
 COMMENT ON CONSTRAINT check_no_self_supersede ON learned_patterns IS 'Prevents direct self-cycle: a pattern cannot supersede itself (supersedes != id)';
 COMMENT ON CONSTRAINT check_no_self_superseded_by ON learned_patterns IS 'Prevents direct self-cycle: a pattern cannot be superseded by itself (superseded_by != id)';
 

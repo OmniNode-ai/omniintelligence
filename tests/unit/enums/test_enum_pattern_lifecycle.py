@@ -36,6 +36,7 @@ EXPECTED_COUNT = 4
 # =========================================================================
 
 
+@pytest.mark.unit
 class TestEnumPatternLifecycleStatusMatchesDatabase:
     """Validate that Python enum matches SQL CHECK constraint."""
 
@@ -88,6 +89,7 @@ class TestEnumPatternLifecycleStatusMatchesDatabase:
 # =========================================================================
 
 
+@pytest.mark.unit
 class TestEnumPatternLifecycleStatusProperties:
     """Test enum behavior and properties."""
 
@@ -151,6 +153,7 @@ class TestEnumPatternLifecycleStatusProperties:
 # =========================================================================
 
 
+@pytest.mark.unit
 class TestEnumPatternLifecycleStatusMembers:
     """Test specific enum member existence and values."""
 
@@ -180,6 +183,7 @@ class TestEnumPatternLifecycleStatusMembers:
 # =========================================================================
 
 
+@pytest.mark.unit
 class TestLearnedPatternsMigrationFile:
     """Validate consistency with SQL migration file."""
 
@@ -236,6 +240,7 @@ class TestLearnedPatternsMigrationFile:
 # =========================================================================
 
 
+@pytest.mark.unit
 class TestEnumPatternLifecycleStatusTransitions:
     """Test state transition validation via can_transition_to() method."""
 
