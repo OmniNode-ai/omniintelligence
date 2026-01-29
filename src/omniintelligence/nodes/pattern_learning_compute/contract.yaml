@@ -24,7 +24,8 @@ input_model:
 output_model:
   name: "ModelPatternLearningOutput"
   module: "omniintelligence.nodes.pattern_learning_compute.models"
-  description: "Output containing candidate/learned patterns, metrics, and metadata. Uses contract models from omnibase_core."
+  description: >-
+    Output containing candidate/learned patterns, metrics, and metadata. Uses contract models from omnibase_core.
 # Minimal sections for stub
 dependencies: []
 # Error Handling Configuration (stub - minimal)
