@@ -40,21 +40,24 @@ CREATE TABLE IF NOT EXISTS learned_patterns (
 
     -- Provenance tracking
     source_session_ids UUID[] NOT NULL,
-    recurrence_count INT NOT NULL DEFAULT 1,
+    recurrence_count INT NOT NULL DEFAULT 1
+        CONSTRAINT check_recurrence_count_min CHECK (recurrence_count >= 1),
     first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    distinct_days_seen INT NOT NULL DEFAULT 1,
+    distinct_days_seen INT NOT NULL DEFAULT 1
+        CONSTRAINT check_distinct_days_seen_min CHECK (distinct_days_seen >= 1),
 
     -- Rolling quality metrics (window of 20)
     quality_score FLOAT DEFAULT 0.5
         CONSTRAINT check_quality_score_bounds CHECK (quality_score >= 0.0 AND quality_score <= 1.0),
     injection_count_rolling_20 INT DEFAULT 0
-        CONSTRAINT check_injection_count_rolling_max CHECK (injection_count_rolling_20 <= 20),
+        CONSTRAINT check_injection_count_rolling_bounds CHECK (injection_count_rolling_20 >= 0 AND injection_count_rolling_20 <= 20),
     success_count_rolling_20 INT DEFAULT 0
-        CONSTRAINT check_success_count_rolling_max CHECK (success_count_rolling_20 <= 20),
+        CONSTRAINT check_success_count_rolling_bounds CHECK (success_count_rolling_20 >= 0 AND success_count_rolling_20 <= 20),
     failure_count_rolling_20 INT DEFAULT 0
-        CONSTRAINT check_failure_count_rolling_max CHECK (failure_count_rolling_20 <= 20),
-    failure_streak INT DEFAULT 0,
+        CONSTRAINT check_failure_count_rolling_bounds CHECK (failure_count_rolling_20 >= 0 AND failure_count_rolling_20 <= 20),
+    failure_streak INT DEFAULT 0
+        CONSTRAINT check_failure_streak_non_negative CHECK (failure_streak >= 0),
 
     -- Data integrity constraint: success + failure can never exceed total injections
     CONSTRAINT check_rolling_metrics_sum
@@ -115,11 +118,6 @@ CREATE INDEX IF NOT EXISTS idx_learned_patterns_last_seen
 CREATE INDEX IF NOT EXISTS idx_learned_patterns_promotion_candidates
     ON learned_patterns(status, distinct_days_seen, quality_score)
     WHERE status IN ('candidate', 'provisional');
-
--- Index for current versions only
-CREATE INDEX IF NOT EXISTS idx_learned_patterns_current
-    ON learned_patterns(is_current)
-    WHERE is_current = TRUE;
 
 -- Index for quality-based queries
 CREATE INDEX IF NOT EXISTS idx_learned_patterns_quality
@@ -201,9 +199,12 @@ COMMENT ON COLUMN learned_patterns.failure_streak IS 'Consecutive failures (trig
 -- Constraint comments
 COMMENT ON CONSTRAINT check_quality_score_bounds ON learned_patterns IS 'Ensures quality_score remains within valid range [0.0, 1.0]';
 COMMENT ON CONSTRAINT check_rolling_metrics_sum ON learned_patterns IS 'Ensures success + failure counts never exceed total injection count in rolling window';
-COMMENT ON CONSTRAINT check_injection_count_rolling_max ON learned_patterns IS 'Ensures injection_count_rolling_20 cannot exceed rolling window size of 20';
-COMMENT ON CONSTRAINT check_success_count_rolling_max ON learned_patterns IS 'Ensures success_count_rolling_20 cannot exceed rolling window size of 20';
-COMMENT ON CONSTRAINT check_failure_count_rolling_max ON learned_patterns IS 'Ensures failure_count_rolling_20 cannot exceed rolling window size of 20';
+COMMENT ON CONSTRAINT check_injection_count_rolling_bounds ON learned_patterns IS 'Ensures injection_count_rolling_20 is within valid range [0, 20]';
+COMMENT ON CONSTRAINT check_success_count_rolling_bounds ON learned_patterns IS 'Ensures success_count_rolling_20 is within valid range [0, 20]';
+COMMENT ON CONSTRAINT check_failure_count_rolling_bounds ON learned_patterns IS 'Ensures failure_count_rolling_20 is within valid range [0, 20]';
+COMMENT ON CONSTRAINT check_failure_streak_non_negative ON learned_patterns IS 'Ensures failure_streak cannot be negative';
+COMMENT ON CONSTRAINT check_recurrence_count_min ON learned_patterns IS 'Ensures recurrence_count is at least 1 (pattern must be seen at least once)';
+COMMENT ON CONSTRAINT check_distinct_days_seen_min ON learned_patterns IS 'Ensures distinct_days_seen is at least 1 (pattern must be seen on at least one day)';
 
 -- Versioning
 COMMENT ON COLUMN learned_patterns.version IS 'Pattern version number';
