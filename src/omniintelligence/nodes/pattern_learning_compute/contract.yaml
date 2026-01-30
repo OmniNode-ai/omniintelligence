@@ -1,8 +1,8 @@
 ---
-# ONEX Node Contract - Pattern Learning Compute Node (STUB)
+# ONEX Node Contract - Pattern Learning Compute Node
 #
-# STATUS: STUB - Minimal contract for forward compatibility
-# This node will handle pattern learning computation when implemented.
+# STATUS: ACTIVE - Fully implemented pattern aggregation node
+# This node aggregates and summarizes observed patterns following the 4-phase pipeline.
 # =============================================================================
 contract_version:
   major: 1
@@ -14,21 +14,22 @@ node_version:
   patch: 0
 name: "pattern_learning_compute"
 node_type: "COMPUTE_GENERIC"
-status: "stub"
+status: "active"
 description: >-
-  STUB: Compute node for pattern learning operations. Will handle pattern extraction, learning, and refinement.
+  Compute node for pattern aggregation operations. Orchestrates the 4-phase pipeline:
+  feature extraction, clustering, confidence scoring, and deduplication. This node
+  describes STRUCTURE, not IMPORTANCE - all thresholds are inputs, not decisions.
 input_model:
   name: "ModelPatternLearningInput"
   module: "omniintelligence.nodes.pattern_learning_compute.models"
-  description: "STUB: Input containing training data and learning parameters."
+  description: "Input containing training data items and optional learning parameters."
 output_model:
   name: "ModelPatternLearningOutput"
   module: "omniintelligence.nodes.pattern_learning_compute.models"
   description: >-
     Output containing candidate/learned patterns, metrics, and metadata. Uses contract models from omnibase_core.
-# Minimal sections for stub
 dependencies: []
-# Error Handling Configuration (stub - minimal)
+# Error Handling Configuration
 # =============================================
 error_handling:
   error_types:
