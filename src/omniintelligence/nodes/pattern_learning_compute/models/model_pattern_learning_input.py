@@ -1,4 +1,4 @@
-"""Input model for Pattern Learning Compute (STUB)."""
+"""Input model for Pattern Learning Compute Node."""
 
 from __future__ import annotations
 
@@ -58,10 +58,10 @@ class LearningParametersDict(TypedDict, total=False):
 
 
 class ModelPatternLearningInput(BaseModel):
-    """Input model for pattern learning operations (STUB).
+    """Input model for pattern learning (aggregation) operations.
 
-    This model represents the input for pattern learning operations.
-    This is a stub implementation for forward compatibility.
+    This model represents the input for pattern learning operations,
+    containing training data items and optional learning parameters.
 
     All fields use strong typing without dict[str, Any].
     """
