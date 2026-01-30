@@ -22,14 +22,17 @@ Reference:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     ProtocolPatternRepository,
+    compute_and_store_heuristics,
     record_session_outcome,
     update_pattern_rolling_metrics,
 )
@@ -94,6 +97,10 @@ class InjectionState:
     outcome_recorded: bool = False
     outcome_success: bool | None = None
     outcome_failure_reason: str | None = None
+    # Heuristic fields (OMN-1679)
+    contribution_heuristic: str | None = None  # JSONB stored as string
+    heuristic_method: str | None = None
+    heuristic_confidence: float | None = None
 
 
 class MockPatternRepository:
@@ -222,6 +229,22 @@ class MockPatternRepository:
                         p.success_count_rolling_20 -= 1
                     # Increment failure streak
                     p.failure_streak += 1
+                    count += 1
+            return f"UPDATE {count}"
+
+        # Handle: Update injection heuristics (OMN-1679)
+        # SQL_UPDATE_INJECTION_HEURISTIC: UPDATE pattern_injections SET ... WHERE injection_id = $1 AND contribution_heuristic IS NULL
+        if "UPDATE pattern_injections" in query and "contribution_heuristic" in query and "heuristic_method" in query:
+            injection_id = args[0]
+            weights_json = args[1]
+            method = args[2]
+            confidence = args[3]
+            count = 0
+            for inj in self.injections:
+                if inj.injection_id == injection_id and inj.contribution_heuristic is None:
+                    inj.contribution_heuristic = weights_json
+                    inj.heuristic_method = method
+                    inj.heuristic_confidence = confidence
                     count += 1
             return f"UPDATE {count}"
 
@@ -1719,3 +1742,411 @@ class TestNodePatternFeedbackEffect:
         assert sample_pattern_id in result.pattern_ids
         assert result.error_message is None
         assert node.has_repository is True
+
+
+# =============================================================================
+# Test Class: Contribution Heuristics (OMN-1679)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestContributionHeuristics:
+    """Tests for contribution heuristic computation and storage.
+
+    These tests verify OMN-1679 functionality:
+    - Heuristics are computed at outcome recording time
+    - Weights are stored in pattern_injections table
+    - Different heuristic methods work correctly
+    - Idempotency is maintained (only write if NULL)
+    - Duplicate patterns across injections are handled correctly
+
+    Reference:
+        - OMN-1679: FEEDBACK-004 contribution heuristic for outcome attribution
+    """
+
+    @pytest.mark.asyncio
+    async def test_heuristic_stored_on_outcome_recording(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Heuristics are computed and stored when recording outcome."""
+        # Arrange
+        injection_id = uuid4()
+        mock_repository.add_pattern(PatternState(id=sample_pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Act
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            heuristic_method=EnumHeuristicMethod.EQUAL_SPLIT,
+        )
+
+        # Assert: Heuristic was stored
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        assert injection.contribution_heuristic is not None
+        assert injection.heuristic_method == "equal_split"
+        assert injection.heuristic_confidence == 0.5
+
+        # Verify weights JSON
+        weights = json.loads(injection.contribution_heuristic)
+        assert str(sample_pattern_id) in weights
+        assert weights[str(sample_pattern_id)] == 1.0
+
+    @pytest.mark.asyncio
+    async def test_equal_split_with_multiple_patterns(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_ids: list[UUID],
+    ) -> None:
+        """EQUAL_SPLIT distributes weight equally among patterns."""
+        # Arrange
+        injection_id = uuid4()
+        for pid in sample_pattern_ids:
+            mock_repository.add_pattern(PatternState(id=pid))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=sample_pattern_ids,  # 3 patterns
+            )
+        )
+
+        # Act
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            heuristic_method=EnumHeuristicMethod.EQUAL_SPLIT,
+        )
+
+        # Assert
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        weights = json.loads(injection.contribution_heuristic)
+
+        # Each pattern gets 1/3
+        expected = 1.0 / 3
+        for pid in sample_pattern_ids:
+            assert abs(weights[str(pid)] - expected) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_recency_weighted_later_patterns_get_more(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_ids: list[UUID],
+    ) -> None:
+        """RECENCY_WEIGHTED gives more weight to later patterns."""
+        # Arrange
+        injection_id = uuid4()
+        for pid in sample_pattern_ids:
+            mock_repository.add_pattern(PatternState(id=pid))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=sample_pattern_ids,  # 3 patterns in order
+            )
+        )
+
+        # Act
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            heuristic_method=EnumHeuristicMethod.RECENCY_WEIGHTED,
+        )
+
+        # Assert
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        assert injection.heuristic_method == "recency_weighted"
+        assert injection.heuristic_confidence == 0.4
+
+        weights = json.loads(injection.contribution_heuristic)
+        # Positions: 1, 2, 3. Sum = 6. Weights: 1/6, 2/6, 3/6
+        assert abs(weights[str(sample_pattern_ids[0])] - 1.0/6) < 1e-9
+        assert abs(weights[str(sample_pattern_ids[1])] - 2.0/6) < 1e-9
+        assert abs(weights[str(sample_pattern_ids[2])] - 3.0/6) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_first_match_only_first_pattern(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_ids: list[UUID],
+    ) -> None:
+        """FIRST_MATCH gives all credit to first pattern."""
+        # Arrange
+        injection_id = uuid4()
+        for pid in sample_pattern_ids:
+            mock_repository.add_pattern(PatternState(id=pid))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=sample_pattern_ids,
+            )
+        )
+
+        # Act
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            heuristic_method=EnumHeuristicMethod.FIRST_MATCH,
+        )
+
+        # Assert
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        assert injection.heuristic_method == "first_match"
+        assert injection.heuristic_confidence == 0.3
+
+        weights = json.loads(injection.contribution_heuristic)
+        assert weights == {str(sample_pattern_ids[0]): 1.0}
+
+    @pytest.mark.asyncio
+    async def test_idempotency_heuristic_not_overwritten(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Heuristic is not overwritten on retry (idempotency).
+
+        When contribution_heuristic is already set, the UPDATE should not
+        modify it (WHERE contribution_heuristic IS NULL guards against this).
+        """
+        # Arrange: Injection with heuristic already set
+        injection_id = uuid4()
+        original_heuristic = json.dumps({str(sample_pattern_id): 0.99})
+        mock_repository.add_pattern(PatternState(id=sample_pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+                contribution_heuristic=original_heuristic,  # Already set!
+                heuristic_method="equal_split",
+                heuristic_confidence=0.5,
+            )
+        )
+
+        # Act: Try to compute heuristics again
+        updated = await compute_and_store_heuristics(
+            injection_rows=[
+                MockRecord({
+                    "injection_id": injection_id,
+                    "pattern_ids": [sample_pattern_id],
+                })
+            ],
+            heuristic_method=EnumHeuristicMethod.FIRST_MATCH,  # Different method
+            repository=mock_repository,
+        )
+
+        # Assert: Should NOT have updated (idempotency)
+        assert updated == 0
+
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        # Original values preserved
+        assert injection.contribution_heuristic == original_heuristic
+        assert injection.heuristic_method == "equal_split"
+
+    @pytest.mark.asyncio
+    async def test_multiple_injections_same_session(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_ids: list[UUID],
+    ) -> None:
+        """Multiple injections in same session get same heuristic weights.
+
+        When a session has multiple injections, all patterns across all
+        injections are collected in order, and the same computed weights
+        are stored on each injection row.
+        """
+        # Arrange: Two injections, each with different patterns
+        injection_id_1 = uuid4()
+        injection_id_2 = uuid4()
+
+        for pid in sample_pattern_ids:
+            mock_repository.add_pattern(PatternState(id=pid))
+
+        # Injection 1: patterns A, B
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id_1,
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_ids[0], sample_pattern_ids[1]],
+            )
+        )
+        # Injection 2: pattern C
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id_2,
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_ids[2]],
+            )
+        )
+
+        # Act
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            heuristic_method=EnumHeuristicMethod.EQUAL_SPLIT,
+        )
+
+        # Assert: Both injections have the same weights
+        inj1 = next(i for i in mock_repository.injections if i.injection_id == injection_id_1)
+        inj2 = next(i for i in mock_repository.injections if i.injection_id == injection_id_2)
+
+        # Both should have same weights (session-level computation)
+        assert inj1.contribution_heuristic == inj2.contribution_heuristic
+        assert inj1.heuristic_method == inj2.heuristic_method
+        assert inj1.heuristic_confidence == inj2.heuristic_confidence
+
+        # Weights: 3 patterns total, each gets 1/3
+        weights = json.loads(inj1.contribution_heuristic)
+        for pid in sample_pattern_ids:
+            assert abs(weights[str(pid)] - 1.0/3) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_duplicate_patterns_across_injections_accumulated(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_ids: list[UUID],
+    ) -> None:
+        """Duplicate patterns across injections accumulate weight.
+
+        If pattern A appears in both injection 1 and injection 2, its
+        weight is accumulated (respecting order for RECENCY_WEIGHTED).
+        """
+        # Arrange: Two injections, pattern A appears in both
+        injection_id_1 = uuid4()
+        injection_id_2 = uuid4()
+        pattern_a = sample_pattern_ids[0]
+        pattern_b = sample_pattern_ids[1]
+
+        for pid in [pattern_a, pattern_b]:
+            mock_repository.add_pattern(PatternState(id=pid))
+
+        # Injection 1: A, B
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id_1,
+                session_id=sample_session_id,
+                pattern_ids=[pattern_a, pattern_b],
+            )
+        )
+        # Injection 2: A (duplicate)
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id_2,
+                session_id=sample_session_id,
+                pattern_ids=[pattern_a],
+            )
+        )
+
+        # Act: Use RECENCY_WEIGHTED to see position-based accumulation
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            heuristic_method=EnumHeuristicMethod.RECENCY_WEIGHTED,
+        )
+
+        # Assert
+        inj = next(i for i in mock_repository.injections if i.injection_id == injection_id_1)
+        weights = json.loads(inj.contribution_heuristic)
+
+        # Order: A(1), B(2), A(3). Sum = 6.
+        # A: 1/6 + 3/6 = 4/6 = 2/3
+        # B: 2/6 = 1/3
+        assert abs(weights[str(pattern_a)] - 4.0/6) < 1e-9
+        assert abs(weights[str(pattern_b)] - 2.0/6) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_default_heuristic_method_is_equal_split(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Default heuristic method is EQUAL_SPLIT when not specified."""
+        # Arrange
+        injection_id = uuid4()
+        mock_repository.add_pattern(PatternState(id=sample_pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Act: No heuristic_method specified (use default)
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+            # heuristic_method not specified, should default to EQUAL_SPLIT
+        )
+
+        # Assert
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        assert injection.heuristic_method == "equal_split"
+        assert injection.heuristic_confidence == 0.5
+
+    @pytest.mark.asyncio
+    async def test_empty_pattern_ids_no_heuristic(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+    ) -> None:
+        """Injection with empty pattern_ids has no heuristic computed."""
+        # Arrange: Injection with no patterns
+        injection_id = uuid4()
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=injection_id,
+                session_id=sample_session_id,
+                pattern_ids=[],  # Empty!
+            )
+        )
+
+        # Act
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        # Assert: No heuristic computed (nothing to attribute)
+        injection = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id
+        )
+        # The heuristic should not be set (empty weights returns early)
+        assert injection.contribution_heuristic is None
