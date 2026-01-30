@@ -168,3 +168,11 @@ class ModelPatternPromotedEvent(BaseModel):
         default=None,
         description="Correlation ID for tracing",
     )
+
+
+__all__ = [
+    "ModelGateSnapshot",
+    "ModelPatternPromotedEvent",
+    "ModelPromotionCheckResult",
+    "ModelPromotionResult",
+]

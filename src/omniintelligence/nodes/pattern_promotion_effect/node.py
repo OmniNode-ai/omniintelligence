@@ -122,8 +122,20 @@ class NodePatternPromotionEffect(NodeEffect):
         """Set the environment prefix for Kafka topics.
 
         Args:
-            prefix: Environment prefix (e.g., "dev", "prod").
+            prefix: Environment prefix (e.g., "dev", "staging", "prod").
+                Must be non-empty and contain only alphanumeric characters,
+                hyphens, or underscores.
+
+        Raises:
+            ValueError: If prefix is empty or contains invalid characters.
         """
+        if not prefix:
+            raise ValueError("topic_env_prefix cannot be empty")
+        if not all(c.isalnum() or c in "-_" for c in prefix):
+            raise ValueError(
+                f"topic_env_prefix '{prefix}' contains invalid characters. "
+                "Only alphanumeric characters, hyphens, and underscores are allowed."
+            )
         self._topic_env_prefix = prefix
 
     @property

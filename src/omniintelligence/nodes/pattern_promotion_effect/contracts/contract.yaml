@@ -32,7 +32,7 @@ description: >
   Effect node for promoting patterns from provisional to validated status. Evaluates patterns based on
   rolling window metrics (rolling_20 success rate from pattern_feedback_effect) and configurable thresholds.
   Supports dry_run mode for previewing promotions without committing. Publishes pattern-promoted events
-  to Kafka for downstream consumers to update their caches. #magic___^_^___line
+  to Kafka for downstream consumers to update their caches.
 # Strongly typed I/O models
 input_model:
   name: "ModelPromotionCheckRequest"
