@@ -16,9 +16,9 @@ name: "pattern_learning_compute"
 node_type: "COMPUTE_GENERIC"
 status: "active"
 description: >-
-  Compute node for pattern aggregation operations. Orchestrates the 4-phase pipeline:
-  feature extraction, clustering, confidence scoring, and deduplication. This node
-  describes STRUCTURE, not IMPORTANCE - all thresholds are inputs, not decisions.
+  Compute node for pattern aggregation operations. Orchestrates the 4-phase pipeline: feature extraction,
+  clustering, confidence scoring, and deduplication. This node describes STRUCTURE, not IMPORTANCE - all
+  thresholds are inputs, not decisions.
 input_model:
   name: "ModelPatternLearningInput"
   module: "omniintelligence.nodes.pattern_learning_compute.models"
@@ -49,7 +49,8 @@ handler_routing:
     - operation: "pattern_learning.aggregate"
       handler_class: "HandlerPatternLearning"
       handler_module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_learning"
-      description: "Orchestrates 4-phase pattern aggregation pipeline (feature extraction, clustering, confidence scoring, deduplication)"
+      description: "Orchestrates 4-phase pattern aggregation pipeline (feature extraction, clustering,
+        confidence scoring, deduplication)"
 # Dependencies (handlers and sub-handlers for pipeline phases)
 dependencies:
   - name: "handler_pattern_learning"
