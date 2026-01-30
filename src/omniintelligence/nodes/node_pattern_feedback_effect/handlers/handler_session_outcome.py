@@ -224,7 +224,7 @@ async def record_session_outcome(
         succeeds), data may be left in an inconsistent state where injections
         are marked as recorded but pattern metrics are not updated.
     """
-    logger.debug(
+    logger.info(
         "Recording session outcome",
         extra={
             "correlation_id": str(correlation_id) if correlation_id else None,
