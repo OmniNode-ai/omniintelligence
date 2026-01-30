@@ -52,6 +52,7 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.protocols import (
     PatternClusterDict,
     PatternLearningResult,
     PatternScoreComponentsDict,
+    PatternSignatureDict,
     SimilarityResultDict,
     SimilarityWeightsDict,
     StructuralFeaturesDict,
@@ -72,6 +73,10 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.handler_confidence
 from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_clustering import (
     cluster_patterns,
     compute_similarity,
+)
+from omniintelligence.nodes.pattern_learning_compute.handlers.handler_deduplication import (
+    deduplicate_patterns,
+    generate_pattern_signature,
 )
 from omniintelligence.nodes.pattern_learning_compute.handlers.replay import (
     NULL_EMITTER,
@@ -95,6 +100,7 @@ __all__ = [
     "PatternLearningResult",
     "PatternLearningValidationError",
     "PatternScoreComponentsDict",
+    "PatternSignatureDict",
     "ReplayArtifactEmitter",
     "SIGNATURE_NORMALIZATION",
     "SIGNATURE_VERSION",
@@ -106,8 +112,10 @@ __all__ = [
     "cluster_patterns",
     "compute_cluster_scores",
     "compute_similarity",
+    "deduplicate_patterns",
     "extract_features",
     "extract_features_batch",
+    "generate_pattern_signature",
     "jaccard_similarity",
     "normalize_identifier",
     "normalize_identifiers",
