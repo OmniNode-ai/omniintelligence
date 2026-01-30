@@ -213,9 +213,28 @@ class NodePatternPromotionEffect(NodeEffect):
 
             return result
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            # Recoverable infrastructure errors (database connection issues, query timeouts,
+            # network failures). Return empty result to allow caller to retry or continue.
+            # OSError covers broader network issues; ConnectionError is a subclass.
+            logger.warning(
+                "Recoverable error during pattern promotion check: %s",
+                str(e),
+                extra={"correlation_id": str(correlation_id) if correlation_id else None},
+            )
+            return ModelPromotionCheckResult(
+                dry_run=request.dry_run,
+                patterns_checked=0,
+                patterns_eligible=0,
+                patterns_promoted=[],
+                correlation_id=correlation_id,
+            )
         except Exception as e:
+            # Unexpected error (programming error, data corruption, etc.).
+            # Log with full traceback for debugging but return empty result to avoid
+            # breaking the caller. Consider re-raising in strict/debug mode if needed.
             logger.exception(
-                "Error during pattern promotion check: %s",
+                "Unexpected error during pattern promotion check: %s",
                 str(e),
                 extra={"correlation_id": str(correlation_id) if correlation_id else None},
             )

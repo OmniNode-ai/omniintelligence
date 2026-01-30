@@ -43,8 +43,6 @@ input_model:
       - min_injection_count: Minimum injection count in rolling window (default: 5)
       - min_success_rate: Minimum success rate required for promotion (default: 0.6)
       - max_failure_streak: Maximum consecutive failures allowed (default: 3)
-    If pattern_ids is provided, only those patterns are evaluated; otherwise all provisional patterns
-    are checked.
 output_model:
   name: "ModelPromotionCheckResult"
   module: "omniintelligence.nodes.pattern_promotion_effect.models"
@@ -67,7 +65,7 @@ output_model:
 # =============================================================================
 # PROMOTION GATES (Configurable Thresholds)
 # =============================================================================
-# All three gates must pass for a pattern to be promoted:
+# All four gates must pass for a pattern to be promoted:
 #
 #   Gate 1: Injection Count Gate
 #     - Parameter: min_injection_count (default: 5)
@@ -84,6 +82,17 @@ output_model:
 #     - Condition: current_failure_streak < max_failure_streak
 #     - Purpose: Prevents promotion if pattern is currently failing repeatedly
 #
+#   Gate 4: Not Disabled Gate
+#     - Condition: pattern_id NOT IN disabled_patterns_current
+#     - Purpose: Prevents promotion of patterns that have been manually disabled
+#
+# Implementation Note:
+#   Gates 1-3 are evaluated in the meets_promotion_criteria() pure function.
+#   Gate 4 (Not Disabled) is enforced at the SQL query level via LEFT JOIN
+#   with the disabled_patterns_current table. This separation is intentional
+#   for performance - disabled patterns are filtered BEFORE being fetched
+#   for evaluation, reducing memory usage and processing time.
+#
 # Default Threshold Summary:
 #   - min_injection_count: 5 (pattern must have 5+ injections in rolling window)
 #   - min_success_rate: 0.6 (60% success rate required)
@@ -93,7 +102,7 @@ output_model:
 # Execution Flow:
 #   1. Receive ModelPromotionCheckRequest with optional dry_run flag and thresholds
 #   2. Query all provisional patterns with their rolling_20 metrics
-#   3. Evaluate each pattern against the three promotion gates
+#   3. Evaluate each pattern against the four promotion gates
 #   4. If dry_run=False, update pattern status to 'validated'
 #   5. Publish pattern-promoted event to Kafka (if not dry_run)
 #   6. Return ModelPromotionCheckResult with promoted pattern details
@@ -117,7 +126,6 @@ io_operations:
       - min_injection_count
       - min_success_rate
       - max_failure_streak
-      - pattern_ids
       - correlation_id
     output_fields:
       - status

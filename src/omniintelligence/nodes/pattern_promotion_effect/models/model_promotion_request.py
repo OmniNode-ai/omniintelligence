@@ -36,10 +36,6 @@ class ModelPromotionCheckRequest(BaseModel):
         ge=1,
         description="Maximum consecutive failures allowed for promotion eligibility",
     )
-    pattern_ids: list[UUID] | None = Field(
-        default=None,
-        description="Optional list of specific pattern IDs to check; if None, check all provisional",
-    )
     correlation_id: UUID | None = Field(
         default=None,
         description="Optional correlation ID for tracing",
