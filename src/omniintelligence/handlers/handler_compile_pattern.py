@@ -59,11 +59,19 @@ def format_pattern_snippet(
     Returns:
         Formatted markdown snippet with compiler version stamp.
     """
-    # Limit keywords to first 10
-    keyword_str = ", ".join(keywords[:10]) if keywords else "none"
+    # Truncate long names with ellipsis indicator
+    display_name = pattern_name[:100] + "..." if len(pattern_name) > 100 else pattern_name
+
+    # Limit keywords to first 10, add ellipsis if truncated
+    if not keywords:
+        keyword_str = "none"
+    elif len(keywords) > 10:
+        keyword_str = ", ".join(keywords[:10]) + ", ..."
+    else:
+        keyword_str = ", ".join(keywords)
 
     return f"""<!-- compiler:v{COMPILER_VERSION} -->
-### {pattern_name[:100]}
+### {display_name}
 
 - **Domain**: {domain_name} (`{domain_id}`)
 - **Confidence**: {confidence:.0%}

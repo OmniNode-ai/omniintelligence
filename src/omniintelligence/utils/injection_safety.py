@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import re
 
-# Control characters (excluding common whitespace)
-_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+# Control characters (excluding tab and newline only)
+# Note: Carriage return (0x0d) is rejected as it enables terminal injection attacks
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 # ANSI escape sequences
 _ANSI_ESCAPE = re.compile(r"\x1b\[[\d;]*[A-Za-z]|\x1b.")
@@ -23,7 +24,9 @@ _DANGEROUS_BRACES = re.compile(r"\{[^}]*(__|\[|\.)")
 _PROMPT_INJECTION = re.compile(
     r"(?i)"
     r"\[?(SYSTEM|ADMIN|OVERRIDE|IGNORE\s+PREVIOUS)\]?\s*:|"
-    r"---\s*\n|"
+    # Triple-dash only when followed by non-whitespace content (mid-text separator)
+    # This allows horizontal rules at end of snippets (no content after)
+    r"\n---\s*\n(?=\S)|"
     r"```\s*(system|admin)"
 )
 

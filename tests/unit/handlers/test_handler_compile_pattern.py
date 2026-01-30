@@ -283,7 +283,7 @@ class TestFormatPatternSnippetNameTruncation:
     """Tests that long names are truncated."""
 
     def test_truncates_long_pattern_name(self) -> None:
-        """Pattern name longer than 100 chars is truncated."""
+        """Pattern name longer than 100 chars is truncated with ellipsis."""
         from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
 
         long_name = "A" * 150
@@ -298,11 +298,11 @@ class TestFormatPatternSnippetNameTruncation:
 
         # Full long name should NOT appear
         assert long_name not in snippet
-        # Truncated name (100 chars) should appear
-        assert "A" * 100 in snippet
+        # Truncated name (100 chars) should appear with ellipsis
+        assert "A" * 100 + "..." in snippet
 
     def test_does_not_truncate_short_name(self) -> None:
-        """Pattern name under 100 chars is not truncated."""
+        """Pattern name under 100 chars is not truncated and has no ellipsis."""
         from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
 
         short_name = "Short Pattern Name"
@@ -316,9 +316,11 @@ class TestFormatPatternSnippetNameTruncation:
         )
 
         assert short_name in snippet
+        # No ellipsis for short names
+        assert "..." not in snippet
 
     def test_truncates_exactly_at_100(self) -> None:
-        """Pattern name is truncated to exactly 100 characters."""
+        """Pattern name is truncated to exactly 100 characters plus ellipsis."""
         from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
 
         # Name with 120 characters
@@ -332,10 +334,30 @@ class TestFormatPatternSnippetNameTruncation:
             keywords=["test"],
         )
 
-        # Should contain exactly 100 X's in the heading
-        # The line format is "### {name[:100]}"
-        assert "### " + "X" * 100 in snippet
+        # Should contain exactly 100 X's followed by ellipsis in the heading
+        # The line format is "### {display_name}" where display_name = name[:100] + "..."
+        assert "### " + "X" * 100 + "..." in snippet
         assert "X" * 101 not in snippet
+
+    def test_exactly_100_chars_has_no_ellipsis(self) -> None:
+        """Pattern name with exactly 100 chars is not truncated and has no ellipsis."""
+        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+
+        # Name with exactly 100 characters
+        exact_name = "Y" * 100
+        snippet = format_pattern_snippet(
+            pattern_name=exact_name,
+            domain_name="Domain",
+            domain_id="test",
+            confidence=0.8,
+            quality_score=0.9,
+            keywords=["test"],
+        )
+
+        # Should contain full name without ellipsis
+        assert "### " + "Y" * 100 in snippet
+        # No ellipsis since exactly at limit
+        assert "..." not in snippet
 
 
 # =============================================================================
@@ -348,7 +370,7 @@ class TestFormatPatternSnippetKeywordLimiting:
     """Tests that keywords are limited to 10."""
 
     def test_limits_keywords_to_ten(self, many_keywords: list[str]) -> None:
-        """Keywords list is limited to first 10."""
+        """Keywords list is limited to first 10 with ellipsis indicator."""
         from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
 
         assert len(many_keywords) > 10
@@ -370,8 +392,11 @@ class TestFormatPatternSnippetKeywordLimiting:
         for kw in many_keywords[10:]:
             assert kw not in snippet
 
+        # Ellipsis should indicate truncation
+        assert "..." in snippet
+
     def test_accepts_fewer_than_ten_keywords(self) -> None:
-        """Fewer than 10 keywords are all included."""
+        """Fewer than 10 keywords are all included without ellipsis."""
         from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
 
         keywords = ["one", "two", "three"]
@@ -387,8 +412,11 @@ class TestFormatPatternSnippetKeywordLimiting:
         for kw in keywords:
             assert kw in snippet
 
+        # No ellipsis when not truncated
+        assert "..." not in snippet
+
     def test_handles_empty_keywords(self) -> None:
-        """Empty keywords list shows 'none'."""
+        """Empty keywords list shows 'none' without ellipsis."""
         from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
 
         snippet = format_pattern_snippet(
@@ -401,6 +429,8 @@ class TestFormatPatternSnippetKeywordLimiting:
         )
 
         assert "**Keywords**: none" in snippet
+        # No ellipsis for empty keywords
+        assert "..." not in snippet
 
     def test_accepts_tuple_keywords(self) -> None:
         """Keywords can be a tuple (not just list)."""
