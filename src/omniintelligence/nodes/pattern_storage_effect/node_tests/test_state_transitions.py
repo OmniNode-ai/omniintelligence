@@ -478,6 +478,8 @@ class TestMetricsSnapshot:
             state_manager=mock_state_manager,
         )
 
+        # metrics_snapshot should be present when explicitly provided
+        assert event.metrics_snapshot is not None
         assert event.metrics_snapshot.confidence == 0.85
         assert event.metrics_snapshot.match_count == 10
         assert event.metrics_snapshot.success_rate == 0.9
@@ -488,7 +490,12 @@ class TestMetricsSnapshot:
         self,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
-        """Default metrics should be provided when none specified."""
+        """No metrics should be returned when none specified.
+
+        When metrics_snapshot is not provided, it should be None rather than
+        a default with misleading zero values. This clearly indicates
+        'no metrics captured' in audit trails.
+        """
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
@@ -500,9 +507,9 @@ class TestMetricsSnapshot:
             # No metrics_snapshot provided
         )
 
-        assert event.metrics_snapshot is not None
-        assert event.metrics_snapshot.confidence == 0.0
-        assert event.metrics_snapshot.match_count == 0
+        # metrics_snapshot should be None when not provided
+        # This is intentional to avoid misleading 0.0 confidence values
+        assert event.metrics_snapshot is None
 
 
 # =============================================================================

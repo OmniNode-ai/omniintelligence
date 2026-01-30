@@ -35,7 +35,6 @@ from omniintelligence.nodes.pattern_storage_effect.models import (
     PatternStorageGovernance,
 )
 
-
 # =============================================================================
 # Logging Configuration
 # =============================================================================
@@ -69,6 +68,13 @@ class ProtocolPatternStore(Protocol):
         - Idempotent storage (same pattern_id + signature_hash returns existing)
         - Version management (is_current flag transitions)
         - Atomic operations (set_previous_not_current + store_pattern)
+
+    IMPORTANT: Implementations MUST ensure that set_previous_not_current() and
+    store_pattern() are executed atomically (within a single database transaction).
+    If store_pattern fails after set_previous_not_current succeeds, the lineage
+    would be left without a current version, violating invariants. The handler
+    cannot enforce this at the protocol level, so implementations are responsible
+    for wrapping these operations in a transaction.
     """
 
     async def store_pattern(
@@ -187,6 +193,26 @@ class ProtocolPatternStore(Protocol):
 
         Returns:
             Latest version number, or None if no versions exist.
+        """
+        ...
+
+    async def get_stored_at(
+        self,
+        pattern_id: UUID,
+    ) -> datetime | None:
+        """Get the original stored_at timestamp for a pattern.
+
+        Used for idempotent returns to provide consistent timestamps.
+        This is an optional method - implementations that do not support
+        timestamp retrieval may return None, and the handler will fall
+        back to using the current time.
+
+        Args:
+            pattern_id: The pattern to query.
+
+        Returns:
+            The original stored_at timestamp, or None if not found or
+            not supported by the implementation.
         """
         ...
 
@@ -438,16 +464,20 @@ async def handle_store_pattern(
 
     if not governance_result.valid:
         violation_messages = "; ".join(v.message for v in governance_result.violations)
-        logger.warning(
+        # Log at INFO level since governance rejection is expected business logic,
+        # not an error condition - patterns below threshold should be rejected
+        logger.info(
             "Pattern rejected due to governance violations",
             extra={
                 "pattern_id": str(input_data.pattern_id),
                 "domain": input_data.domain,
                 "signature_hash": input_data.signature_hash,
                 "violations": [v.rule for v in governance_result.violations],
-                "correlation_id": str(input_data.correlation_id)
-                if input_data.correlation_id
-                else None,
+                "correlation_id": (
+                    str(input_data.correlation_id)
+                    if input_data.correlation_id
+                    else None
+                ),
             },
         )
         msg = f"Governance validation failed: {violation_messages}"
@@ -498,6 +528,11 @@ async def handle_store_pattern(
     )
 
     if existing_id is not None:
+        # Try to get the original stored_at timestamp for consistency
+        # Fall back to current time if not available (backward compatibility)
+        original_stored_at = await pattern_store.get_stored_at(existing_id)
+        idempotent_timestamp = original_stored_at if original_stored_at else stored_at
+
         logger.info(
             "Idempotent return: pattern already exists",
             extra={
@@ -505,9 +540,12 @@ async def handle_store_pattern(
                 "existing_id": str(existing_id),
                 "domain": input_data.domain,
                 "signature_hash": input_data.signature_hash,
-                "correlation_id": str(input_data.correlation_id)
-                if input_data.correlation_id
-                else None,
+                "used_original_timestamp": original_stored_at is not None,
+                "correlation_id": (
+                    str(input_data.correlation_id)
+                    if input_data.correlation_id
+                    else None
+                ),
             },
         )
         # Return event for existing pattern (idempotent behavior)
@@ -519,7 +557,7 @@ async def handle_store_pattern(
             version=input_data.version,
             confidence=input_data.confidence,
             state=EnumPatternState.CANDIDATE,
-            stored_at=stored_at,  # Use current time for event, not original storage time
+            stored_at=idempotent_timestamp,
             actor=input_data.metadata.actor,
             source_run_id=input_data.metadata.source_run_id,
             correlation_id=input_data.correlation_id,
@@ -612,9 +650,9 @@ async def handle_store_pattern(
             "version": version,
             "confidence": input_data.confidence,
             "state": initial_state.value,
-            "correlation_id": str(input_data.correlation_id)
-            if input_data.correlation_id
-            else None,
+            "correlation_id": (
+                str(input_data.correlation_id) if input_data.correlation_id else None
+            ),
         },
     )
 
@@ -637,9 +675,11 @@ async def handle_store_pattern(
             "to_state": audit_record.to_state.value,
             "reason": audit_record.reason,
             "actor": audit_record.actor,
-            "correlation_id": str(audit_record.correlation_id)
-            if audit_record.correlation_id
-            else None,
+            "correlation_id": (
+                str(audit_record.correlation_id)
+                if audit_record.correlation_id
+                else None
+            ),
         },
     )
 

@@ -276,6 +276,11 @@ class ProtocolPatternStateManager(Protocol):
 
     The protocol is runtime-checkable for isinstance() validation.
 
+    IMPORTANT: Implementations MUST ensure that update_state() and record_transition()
+    are executed atomically (within a single database transaction). If record_transition
+    fails after update_state succeeds, the pattern state would be updated without an
+    audit trail, violating governance compliance requirements.
+
     Usage:
         class PostgresPatternStateManager:
             async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
@@ -418,7 +423,8 @@ async def handle_promote_pattern(
         to_state: The target state for the promotion.
         reason: Human-readable reason for the promotion.
         metrics_snapshot: Optional metrics snapshot at promotion time.
-            If not provided, a default snapshot with confidence=0.0 is created.
+            If not provided, the event will have metrics_snapshot=None,
+            clearly indicating "no metrics captured" in the audit trail.
         state_manager: Optional state manager for database operations.
             If not provided, only validation is performed (dry-run mode).
         actor: Identifier of the entity triggering the promotion.
@@ -513,17 +519,7 @@ async def handle_promote_pattern(
         await state_manager.record_transition(transition)
 
     # Step 5: Return event for Kafka broadcast
-    # Use provided metrics snapshot or create default
-    if metrics_snapshot is None:
-        metrics_snapshot = ModelPatternMetricsSnapshot(
-            confidence=0.0,
-            match_count=0,
-            success_rate=0.0,
-            last_matched_at=None,
-            validation_count=0,
-            additional_metrics={},
-        )
-
+    # Pass metrics_snapshot as-is (None indicates "no metrics captured")
     return ModelPatternPromotedEvent(
         pattern_id=pattern_id,
         from_state=from_state,

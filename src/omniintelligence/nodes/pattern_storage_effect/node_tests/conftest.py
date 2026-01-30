@@ -145,6 +145,25 @@ class MockPatternStore:
         """Get the latest version number for a pattern lineage."""
         return self._version_tracker.get((domain, signature_hash))
 
+    async def get_stored_at(
+        self,
+        pattern_id: UUID,
+    ) -> datetime | None:
+        """Get the original stored_at timestamp for a pattern.
+
+        Used for idempotent returns to provide consistent timestamps.
+
+        Args:
+            pattern_id: The pattern to query.
+
+        Returns:
+            The original stored_at timestamp, or None if not found.
+        """
+        pattern = self.patterns.get(pattern_id)
+        if pattern is not None:
+            return pattern.get("stored_at")
+        return None
+
     def reset(self) -> None:
         """Reset all storage for test isolation."""
         self.patterns.clear()

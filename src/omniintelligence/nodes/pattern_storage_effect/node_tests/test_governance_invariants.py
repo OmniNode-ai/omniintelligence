@@ -422,6 +422,11 @@ class TestHandlerGovernanceIntegration:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Handler should log governance violations before rejecting."""
+        import logging
+
+        # Set log level to capture INFO logs (governance rejections are INFO level)
+        caplog.set_level(logging.INFO)
+
         input_data = ModelPatternStorageInput(
             pattern_id=uuid4(),
             signature="   ",  # Whitespace only - governance violation
@@ -433,7 +438,7 @@ class TestHandlerGovernanceIntegration:
         with pytest.raises(ValueError):
             await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
 
-        # Check that violation was logged
+        # Check that violation was logged (at INFO level since rejection is expected business logic)
         assert any("governance" in record.message.lower() for record in caplog.records)
 
     @pytest.mark.asyncio

@@ -229,9 +229,9 @@ class ModelPatternPromotedEvent(BaseModel):
         min_length=1,
         description="Human-readable reason for the promotion",
     )
-    metrics_snapshot: ModelPatternMetricsSnapshot = Field(
-        ...,
-        description="Snapshot of metrics at promotion time for audit",
+    metrics_snapshot: ModelPatternMetricsSnapshot | None = Field(
+        default=None,
+        description="Snapshot of metrics at promotion time (None if not captured)",
     )
     promoted_at: datetime = Field(
         ...,

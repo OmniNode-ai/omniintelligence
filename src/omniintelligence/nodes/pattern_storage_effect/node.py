@@ -47,6 +47,10 @@ from omniintelligence.nodes.pattern_storage_effect.handlers import (
     ProtocolPatternStateManager,
     ProtocolPatternStore,
 )
+from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
+    PatternNotFoundError,
+    PatternStateTransitionError,
+)
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage import (
     OPERATION_PROMOTE_PATTERN,
     OPERATION_STORE_PATTERN,
@@ -327,7 +331,12 @@ class NodePatternStorageEffect(NodeEffect):
         )
         if not result.get("success", False):
             error_msg = result.get("error_message", "Unknown error during store_pattern")
-            raise ValueError(error_msg)
+            # Governance failures raise ValueError (e.g., confidence below threshold)
+            # Other unexpected failures raise RuntimeError
+            if "governance" in error_msg.lower() or "confidence" in error_msg.lower():
+                raise ValueError(error_msg)
+            else:
+                raise RuntimeError(error_msg)
         return ModelPatternStoredEvent(**result["event"])
 
     async def promote_pattern(
@@ -411,7 +420,18 @@ class NodePatternStorageEffect(NodeEffect):
 
         if not result.get("success", False):
             error_msg = result.get("error_message", "Unknown error during promote_pattern")
-            raise ValueError(error_msg)
+            # Match exception type to error content per docstring contract
+            if "not found" in error_msg.lower():
+                raise PatternNotFoundError(pattern_id)
+            elif "invalid transition" in error_msg.lower() or "cannot transition" in error_msg.lower():
+                raise PatternStateTransitionError(
+                    pattern_id=pattern_id,
+                    from_state=None,  # Unknown at this level
+                    to_state=to_state,
+                    message=error_msg,
+                )
+            else:
+                raise ValueError(error_msg)
 
         return ModelPatternPromotedEvent(**result["event"])
 
