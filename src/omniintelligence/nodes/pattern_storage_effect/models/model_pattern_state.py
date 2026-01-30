@@ -14,6 +14,7 @@ Reference:
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Final
 
 
 class EnumPatternState(StrEnum):
@@ -46,7 +47,7 @@ class PatternStorageGovernance:
             Patterns below this threshold are rejected as low-quality.
     """
 
-    MIN_CONFIDENCE: float = 0.5
+    MIN_CONFIDENCE: Final[float] = 0.5
     """Minimum confidence threshold for pattern storage (hard-coded governance constant)."""
 
 
