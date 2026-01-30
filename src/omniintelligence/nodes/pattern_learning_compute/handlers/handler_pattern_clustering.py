@@ -614,6 +614,14 @@ def cluster_patterns(
         member_ids_sorted = tuple(sorted(m["item_id"] for m in members))
         leader_id = member_ids_sorted[0]
 
+        # Build member_pattern_indicators parallel to member_ids_sorted
+        # Create a lookup dict for O(1) access by item_id
+        members_by_id = {m["item_id"]: m for m in members}
+        member_pattern_indicators = tuple(
+            members_by_id[item_id]["pattern_indicators"]
+            for item_id in member_ids_sorted
+        )
+
         # Determine dominant pattern type
         all_patterns: list[str] = []
         for m in members:
@@ -633,11 +641,33 @@ def cluster_patterns(
         else:
             pattern_type = "unknown"
 
+        # Compute label_agreement: fraction of members whose pattern_indicators
+        # contain the dominant pattern_type
+        if pattern_type != "unknown":
+            match_count = sum(
+                1
+                for indicators in member_pattern_indicators
+                if pattern_type in indicators
+            )
+            label_agreement = match_count / len(members)
+        else:
+            # No pattern_type means no agreement possible
+            label_agreement = 0.0
+
         # Select medoid as centroid
         centroid = _select_medoid(members, weights)
 
         # Compute internal similarity
         internal_sim = _compute_intra_cluster_similarity(members, weights)
+
+        # Invariant checks (enforced at construction)
+        assert len(member_pattern_indicators) == len(member_ids_sorted), (
+            f"member_pattern_indicators length {len(member_pattern_indicators)} "
+            f"!= member_ids length {len(member_ids_sorted)}"
+        )
+        assert len(members) == len(member_ids_sorted), (
+            f"member_count {len(members)} != member_ids length {len(member_ids_sorted)}"
+        )
 
         # Build cluster dict
         cluster_dict = PatternClusterDict(
@@ -647,6 +677,8 @@ def cluster_patterns(
             centroid_features=centroid,
             member_count=len(members),
             internal_similarity=internal_sim,
+            member_pattern_indicators=member_pattern_indicators,
+            label_agreement=label_agreement,
         )
         result_clusters.append(cluster_dict)
 
