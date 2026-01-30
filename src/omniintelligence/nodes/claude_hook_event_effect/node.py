@@ -23,21 +23,29 @@ Design Decisions:
     - Event type routing to specialized handlers
     - No-op handlers for unimplemented event types (stable pipeline shape)
     - External adapters injected via setter methods
+    - Contract-driven topic resolution (OMN-1551)
 
 Node Responsibilities:
     - Define I/O model contract (ModelClaudeCodeHookEvent -> ModelClaudeHookResult)
     - Provide dependency injection points for adapters
+    - Load publish topics from contract's event_bus subcontract
     - Delegate execution to handlers
 
 Reference:
     - OMN-1456: Unified Claude Code hook endpoint
+    - OMN-1551: Contract-driven topic resolution
 """
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from omnibase_core.nodes.node_effect import NodeEffect
+from omnibase_infra.runtime.event_bus_subcontract_wiring import (
+    load_event_bus_subcontract,
+)
 
 from omniintelligence.nodes.claude_hook_event_effect.handlers import (
     ProtocolIntentClassifier,
@@ -51,6 +59,8 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
 
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+
+logger = logging.getLogger(__name__)
 
 
 class NodeClaudeHookEventEffect(NodeEffect):
@@ -108,6 +118,45 @@ class NodeClaudeHookEventEffect(NodeEffect):
         self._kafka_producer: ProtocolKafkaPublisher | None = None
         self._topic_env_prefix: str = "dev"
 
+        # Load publish topic suffix from contract (OMN-1551: contract-driven topic resolution)
+        self._publish_topic_suffix: str | None = self._load_publish_topic_from_contract()
+
+    def _load_publish_topic_from_contract(self) -> str | None:
+        """Load the first publish topic suffix from contract.yaml.
+
+        Reads the event_bus.publish_topics[0] from the node's contract file.
+        This enables contract-driven topic resolution per OMN-1551.
+
+        Returns:
+            Topic suffix string (e.g., "onex.evt.omniintelligence.intent-classified.v1")
+            or None if contract cannot be loaded.
+        """
+        # Contract is co-located with node.py in the same directory
+        contract_path = Path(__file__).parent / "contract.yaml"
+
+        subcontract = load_event_bus_subcontract(contract_path, logger)
+        if subcontract is None:
+            logger.warning(
+                "Failed to load event_bus subcontract from %s, "
+                "publish topic must be set explicitly via set_publish_topic_suffix()",
+                contract_path,
+            )
+            return None
+
+        if not subcontract.publish_topics:
+            logger.warning(
+                "No publish_topics in event_bus subcontract from %s",
+                contract_path,
+            )
+            return None
+
+        topic_suffix = subcontract.publish_topics[0]
+        logger.debug(
+            "Loaded publish topic suffix from contract: %s",
+            topic_suffix,
+        )
+        return topic_suffix
+
     def set_intent_classifier(self, classifier: ProtocolIntentClassifier) -> None:
         """Set the intent classifier compute node.
 
@@ -133,10 +182,23 @@ class NodeClaudeHookEventEffect(NodeEffect):
         """
         self._topic_env_prefix = prefix
 
+    def set_publish_topic_suffix(self, suffix: str) -> None:
+        """Set the publish topic suffix (override contract-loaded value).
+
+        Args:
+            suffix: Topic suffix (e.g., "onex.evt.omniintelligence.intent-classified.v1").
+        """
+        self._publish_topic_suffix = suffix
+
     @property
     def topic_env_prefix(self) -> str:
         """Get the configured Kafka topic environment prefix."""
         return self._topic_env_prefix
+
+    @property
+    def publish_topic_suffix(self) -> str | None:
+        """Get the publish topic suffix from contract or explicit override."""
+        return self._publish_topic_suffix
 
     @property
     def intent_classifier(self) -> ProtocolIntentClassifier | None:
@@ -175,6 +237,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
             intent_classifier=self._intent_classifier,
             kafka_producer=self._kafka_producer,
             topic_env_prefix=self._topic_env_prefix,
+            publish_topic_suffix=self._publish_topic_suffix,
         )
 
 

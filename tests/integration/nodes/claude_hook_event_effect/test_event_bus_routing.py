@@ -32,6 +32,8 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
     EnumHookProcessingStatus,
 )
 
+from .conftest import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
+
 
 # =============================================================================
 # Test Fixtures
@@ -148,6 +150,7 @@ class TestUserPromptSubmitFullFlow:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify handler succeeded
@@ -204,6 +207,7 @@ class TestUserPromptSubmitFullFlow:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -282,6 +286,7 @@ class TestNoOpEventTypes:
                 event=sample_session_start_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify handler returned success without intent
@@ -344,6 +349,7 @@ class TestAllEventTypesHandled:
                     event=event,
                     kafka_producer=kafka_publisher_adapter,
                     topic_env_prefix="test",
+                    publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                 )
 
                 # Verify all return SUCCESS or PARTIAL (not FAILED)
@@ -402,6 +408,7 @@ class TestEventHistoryDebugging:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -443,6 +450,7 @@ class TestEventHistoryDebugging:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify history has the event
@@ -461,6 +469,7 @@ class TestEventHistoryDebugging:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify only the new event is in history
@@ -517,6 +526,7 @@ class TestEdgeCases:
                 event=event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify handler failed gracefully

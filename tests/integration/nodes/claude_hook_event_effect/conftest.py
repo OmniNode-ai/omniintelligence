@@ -43,17 +43,18 @@ from omnibase_core.models.hooks.claude_code import (
 )
 from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 
-from omniintelligence.constants import (
-    TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
-)
-
 # =============================================================================
 # Test Topic Constants
 # =============================================================================
 
 TEST_TOPIC_PREFIX: str = "test"
 """Environment prefix for test topics."""
+
+TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = "onex.cmd.omniintelligence.claude-hook-event.v1"
+"""Topic suffix for Claude Code hook events (INPUT) in tests."""
+
+TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
+"""Topic suffix for intent classification events (OUTPUT) in tests."""
 
 
 # =============================================================================
