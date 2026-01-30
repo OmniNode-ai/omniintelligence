@@ -256,7 +256,7 @@ class TestComputeClusterScoresConfidence:
     def test_confidence_weights_sum_to_one(self) -> None:
         """Verify that confidence weights (0.40 + 0.30 + 0.30) sum to 1.0."""
         # This is a documentation/sanity check
-        assert 0.40 + 0.30 + 0.30 == pytest.approx(1.0)
+        assert pytest.approx(1.0) == 0.40 + 0.30 + 0.30
 
 
 # =============================================================================

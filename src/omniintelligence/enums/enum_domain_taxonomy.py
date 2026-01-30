@@ -63,4 +63,4 @@ class EnumDomainTaxonomy(str, Enum):
 DOMAIN_TAXONOMY_VERSION = "1.0"
 
 
-__all__ = ["EnumDomainTaxonomy", "DOMAIN_TAXONOMY_VERSION"]
+__all__ = ["DOMAIN_TAXONOMY_VERSION", "EnumDomainTaxonomy"]

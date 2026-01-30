@@ -22,7 +22,7 @@ from omniintelligence.nodes.pattern_learning_compute.introspection import (
 )
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel
+    pass
 
 
 # =============================================================================
