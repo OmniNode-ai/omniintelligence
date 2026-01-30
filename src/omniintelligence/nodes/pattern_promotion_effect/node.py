@@ -55,10 +55,10 @@ class NodePatternPromotionEffect(NodeEffect):
     It is a lightweight shell that delegates actual processing to handler
     functions.
 
-    Promotion Gates (all must pass):
-        1. Injection Count: injection_count_rolling_20 >= 5
-        2. Success Rate: success_rate >= 60%
-        3. Failure Streak: failure_streak < 3
+    Promotion Gates (all must pass, thresholds configurable via request):
+        1. Injection Count: injection_count_rolling_20 >= min_injection_count (default: 5)
+        2. Success Rate: success_rate >= min_success_rate (default: 60%)
+        3. Failure Streak: failure_streak < max_failure_streak (default: 3)
         4. Not Disabled: Pattern not in disabled_patterns_current
 
     Dependency Injection:
@@ -150,12 +150,11 @@ class NodePatternPromotionEffect(NodeEffect):
         and promotes those meeting all criteria. Supports dry_run mode
         to preview promotions without committing.
 
-        Note:
-            The request model's min_success_count, min_success_rate, and
-            min_sample_size parameters are NOT used in the current
-            implementation. The handler uses fixed thresholds defined
-            in handler_promotion.py (MIN_INJECTION_COUNT=5, MIN_SUCCESS_RATE=0.6,
-            MAX_FAILURE_STREAK=3). This may be enhanced in a future version.
+        Configurable Thresholds:
+            The following request parameters control promotion gates:
+            - min_injection_count: Minimum injections required (default: 5)
+            - min_success_rate: Minimum success rate 0.0-1.0 (default: 0.6)
+            - max_failure_streak: Max consecutive failures allowed (default: 3)
 
         Args:
             request: The promotion check request with criteria and options.
@@ -184,6 +183,9 @@ class NodePatternPromotionEffect(NodeEffect):
                 extra={
                     "correlation_id": str(correlation_id) if correlation_id else None,
                     "dry_run": request.dry_run,
+                    "min_injection_count": request.min_injection_count,
+                    "min_success_rate": request.min_success_rate,
+                    "max_failure_streak": request.max_failure_streak,
                 },
             )
 
@@ -191,6 +193,9 @@ class NodePatternPromotionEffect(NodeEffect):
                 repository=self._repository,
                 producer=self._kafka_producer,
                 dry_run=request.dry_run,
+                min_injection_count=request.min_injection_count,
+                min_success_rate=request.min_success_rate,
+                max_failure_streak=request.max_failure_streak,
                 correlation_id=correlation_id,
                 topic_env_prefix=self._topic_env_prefix,
             )

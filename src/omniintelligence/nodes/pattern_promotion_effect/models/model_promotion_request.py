@@ -20,21 +20,21 @@ class ModelPromotionCheckRequest(BaseModel):
         default=False,
         description="If True, return what WOULD be promoted without mutating",
     )
-    min_success_count: int = Field(
-        default=10,
-        ge=1,
-        description="Minimum rolling_20_success_count required for promotion",
-    )
-    min_success_rate: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Minimum rolling_20 success rate (0.0-1.0) required for promotion",
-    )
-    min_sample_size: int = Field(
+    min_injection_count: int = Field(
         default=5,
         ge=1,
-        description="Minimum total outcomes recorded for pattern to be eligible",
+        description="Minimum injection_count_rolling_20 required for promotion eligibility",
+    )
+    min_success_rate: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description="Minimum success rate (0.0-1.0) required for promotion",
+    )
+    max_failure_streak: int = Field(
+        default=3,
+        ge=1,
+        description="Maximum consecutive failures allowed for promotion eligibility",
     )
     pattern_ids: list[UUID] | None = Field(
         default=None,

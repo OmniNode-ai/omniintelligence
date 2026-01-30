@@ -37,7 +37,14 @@ description: >
 input_model:
   name: "ModelPromotionCheckRequest"
   module: "omniintelligence.nodes.pattern_promotion_effect.models"
-  description: "Input model for pattern promotion check requests with optional dry_run flag."
+  description: >
+    Input model for pattern promotion check requests. Supports optional dry_run flag for previewing promotions
+    without committing. All threshold parameters are configurable:
+      - min_injection_count: Minimum injection count in rolling window (default: 5)
+      - min_success_rate: Minimum success rate required for promotion (default: 0.6)
+      - max_failure_streak: Maximum consecutive failures allowed (default: 3)
+    If pattern_ids is provided, only those patterns are evaluated; otherwise all provisional patterns
+    are checked.
 output_model:
   name: "ModelPromotionCheckResult"
   module: "omniintelligence.nodes.pattern_promotion_effect.models"
@@ -57,16 +64,36 @@ output_model:
 #     - Publishes promotion events to Kafka
 #     - Returns summary of promoted patterns
 #
-# Promotion Criteria:
-#   - Pattern must be in 'provisional' status
-#   - rolling_20_success_count >= min_success_count threshold (default: 10)
-#   - rolling_20_success_rate >= min_success_rate threshold (default: 0.7)
-#   - Pattern must have sufficient sample size (min 5 outcomes recorded)
+# =============================================================================
+# PROMOTION GATES (Configurable Thresholds)
+# =============================================================================
+# All three gates must pass for a pattern to be promoted:
 #
+#   Gate 1: Injection Count Gate
+#     - Parameter: min_injection_count (default: 5)
+#     - Condition: pattern.injection_count >= min_injection_count
+#     - Purpose: Ensures pattern has been used enough times to evaluate
+#
+#   Gate 2: Success Rate Gate
+#     - Parameter: min_success_rate (default: 0.6)
+#     - Condition: rolling_20_success_rate >= min_success_rate
+#     - Purpose: Ensures pattern achieves minimum 60% success rate
+#
+#   Gate 3: Failure Streak Gate
+#     - Parameter: max_failure_streak (default: 3)
+#     - Condition: current_failure_streak < max_failure_streak
+#     - Purpose: Prevents promotion if pattern is currently failing repeatedly
+#
+# Default Threshold Summary:
+#   - min_injection_count: 5 (pattern must have 5+ injections in rolling window)
+#   - min_success_rate: 0.6 (60% success rate required)
+#   - max_failure_streak: 3 (less than 3 consecutive failures allowed)
+#
+# =============================================================================
 # Execution Flow:
 #   1. Receive ModelPromotionCheckRequest with optional dry_run flag and thresholds
 #   2. Query all provisional patterns with their rolling_20 metrics
-#   3. Filter patterns meeting promotion thresholds
+#   3. Evaluate each pattern against the three promotion gates
 #   4. If dry_run=False, update pattern status to 'validated'
 #   5. Publish pattern-promoted event to Kafka (if not dry_run)
 #   6. Return ModelPromotionCheckResult with promoted pattern details
@@ -84,12 +111,12 @@ handler_routing:
 # =============================================================================
 io_operations:
   - operation: "check_and_promote_patterns"
-    description: "Check provisional patterns and promote those meeting thresholds"
+    description: "Check provisional patterns and promote those meeting all three promotion gates"
     input_fields:
       - dry_run
-      - min_success_count
+      - min_injection_count
       - min_success_rate
-      - min_sample_size
+      - max_failure_streak
       - pattern_ids
       - correlation_id
     output_fields:

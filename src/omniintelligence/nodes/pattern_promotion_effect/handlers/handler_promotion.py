@@ -201,7 +201,13 @@ WHERE id = $1
 # =============================================================================
 
 
-def meets_promotion_criteria(pattern: Mapping[str, Any]) -> bool:
+def meets_promotion_criteria(
+    pattern: Mapping[str, Any],
+    *,
+    min_injection_count: int = MIN_INJECTION_COUNT,
+    min_success_rate: float = MIN_SUCCESS_RATE,
+    max_failure_streak: int = MAX_FAILURE_STREAK,
+) -> bool:
     """Check if a pattern meets all promotion criteria.
 
     This is a PURE FUNCTION with no I/O - it only evaluates the pattern
@@ -213,12 +219,18 @@ def meets_promotion_criteria(pattern: Mapping[str, Any]) -> bool:
             - success_count_rolling_20: int
             - failure_count_rolling_20: int
             - failure_streak: int
+        min_injection_count: Minimum number of injections required for promotion.
+            Defaults to MIN_INJECTION_COUNT (5).
+        min_success_rate: Minimum success rate required for promotion (0.0-1.0).
+            Defaults to MIN_SUCCESS_RATE (0.6).
+        max_failure_streak: Maximum consecutive failures allowed for promotion.
+            Defaults to MAX_FAILURE_STREAK (3).
 
     Returns:
         True if pattern meets ALL four promotion gates:
-            1. injection_count_rolling_20 >= MIN_INJECTION_COUNT (5)
-            2. success_rate >= MIN_SUCCESS_RATE (0.6)
-            3. failure_streak < MAX_FAILURE_STREAK (3)
+            1. injection_count_rolling_20 >= min_injection_count
+            2. success_rate >= min_success_rate
+            3. failure_streak < max_failure_streak
             4. Not disabled (already filtered in query)
 
     Note:
@@ -231,7 +243,7 @@ def meets_promotion_criteria(pattern: Mapping[str, Any]) -> bool:
     failure_streak = pattern.get("failure_streak", 0) or 0
 
     # Gate 1: Minimum injection count
-    if injection_count < MIN_INJECTION_COUNT:
+    if injection_count < min_injection_count:
         return False
 
     # Gate 2: Minimum success rate
@@ -241,11 +253,11 @@ def meets_promotion_criteria(pattern: Mapping[str, Any]) -> bool:
         return False
 
     success_rate = success_count / total_outcomes
-    if success_rate < MIN_SUCCESS_RATE:
+    if success_rate < min_success_rate:
         return False
 
     # Gate 3: Maximum failure streak
-    if failure_streak >= MAX_FAILURE_STREAK:
+    if failure_streak >= max_failure_streak:
         return False
 
     # All gates passed
@@ -300,6 +312,9 @@ async def check_and_promote_patterns(
     producer: ProtocolKafkaPublisher | None = None,
     *,
     dry_run: bool = False,
+    min_injection_count: int = MIN_INJECTION_COUNT,
+    min_success_rate: float = MIN_SUCCESS_RATE,
+    max_failure_streak: int = MAX_FAILURE_STREAK,
     correlation_id: UUID | None = None,
     topic_env_prefix: str = "dev",
 ) -> ModelPromotionCheckResult:
@@ -316,6 +331,12 @@ async def check_and_promote_patterns(
         producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
             If None, Kafka events are not emitted.
         dry_run: If True, return what WOULD be promoted without mutating.
+        min_injection_count: Minimum number of injections required for promotion.
+            Defaults to MIN_INJECTION_COUNT (5).
+        min_success_rate: Minimum success rate required for promotion (0.0-1.0).
+            Defaults to MIN_SUCCESS_RATE (0.6).
+        max_failure_streak: Maximum consecutive failures allowed for promotion.
+            Defaults to MAX_FAILURE_STREAK (3).
         correlation_id: Optional correlation ID for distributed tracing.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
 
@@ -348,7 +369,12 @@ async def check_and_promote_patterns(
     # Step 2: Evaluate each pattern against promotion gates
     eligible_patterns: list[Mapping[str, Any]] = []
     for pattern in patterns:
-        if meets_promotion_criteria(pattern):
+        if meets_promotion_criteria(
+            pattern,
+            min_injection_count=min_injection_count,
+            min_success_rate=min_success_rate,
+            max_failure_streak=max_failure_streak,
+        ):
             eligible_patterns.append(pattern)
 
     logger.info(

@@ -1534,3 +1534,246 @@ class TestEdgeCases:
             "another_extra": 123,
         })
         assert meets_promotion_criteria(pattern) is True
+
+
+# =============================================================================
+# Test Class: Configurable Thresholds
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestConfigurableThresholds:
+    """Tests for configurable promotion thresholds.
+
+    The handler functions accept optional threshold parameters that override
+    the default constants:
+    - min_injection_count (default: 5)
+    - min_success_rate (default: 0.6)
+    - max_failure_streak (default: 3)
+
+    These tests verify that custom thresholds work correctly for both
+    stricter and more lenient configurations.
+    """
+
+    def test_custom_min_injection_count_more_strict(self) -> None:
+        """Pattern passes default threshold (5) but fails custom stricter threshold (10).
+
+        A pattern with 7 injections:
+        - Passes default: 7 >= 5
+        - Fails custom: 7 < 10
+        """
+        pattern = MockRecord({
+            "injection_count_rolling_20": 7,
+            "success_count_rolling_20": 6,  # 86% success rate
+            "failure_count_rolling_20": 1,
+            "failure_streak": 0,
+        })
+
+        # Passes with default threshold
+        assert meets_promotion_criteria(pattern) is True
+
+        # Fails with stricter threshold
+        assert meets_promotion_criteria(
+            pattern,
+            min_injection_count=10,
+        ) is False
+
+    def test_custom_min_injection_count_more_lenient(self) -> None:
+        """Pattern fails default threshold (5) but passes custom lenient threshold (2).
+
+        A pattern with 3 injections:
+        - Fails default: 3 < 5
+        - Passes custom: 3 >= 2
+        """
+        pattern = MockRecord({
+            "injection_count_rolling_20": 3,
+            "success_count_rolling_20": 3,  # 100% success rate
+            "failure_count_rolling_20": 0,
+            "failure_streak": 0,
+        })
+
+        # Fails with default threshold
+        assert meets_promotion_criteria(pattern) is False
+
+        # Passes with lenient threshold
+        assert meets_promotion_criteria(
+            pattern,
+            min_injection_count=2,
+        ) is True
+
+    def test_custom_min_success_rate_more_strict(self) -> None:
+        """Pattern passes default threshold (0.6) but fails custom stricter threshold (0.8).
+
+        A pattern with 65% success rate:
+        - Passes default: 0.65 >= 0.6
+        - Fails custom: 0.65 < 0.8
+        """
+        # 65% success rate: 13 successes, 7 failures (13/20 = 0.65)
+        pattern = MockRecord({
+            "injection_count_rolling_20": 20,
+            "success_count_rolling_20": 13,
+            "failure_count_rolling_20": 7,
+            "failure_streak": 0,
+        })
+
+        # Passes with default threshold
+        assert meets_promotion_criteria(pattern) is True
+
+        # Fails with stricter threshold
+        assert meets_promotion_criteria(
+            pattern,
+            min_success_rate=0.8,
+        ) is False
+
+    def test_custom_min_success_rate_more_lenient(self) -> None:
+        """Pattern fails default threshold (0.6) but passes custom lenient threshold (0.4).
+
+        A pattern with 50% success rate:
+        - Fails default: 0.5 < 0.6
+        - Passes custom: 0.5 >= 0.4
+        """
+        # 50% success rate: 5 successes, 5 failures
+        pattern = MockRecord({
+            "injection_count_rolling_20": 10,
+            "success_count_rolling_20": 5,
+            "failure_count_rolling_20": 5,
+            "failure_streak": 0,
+        })
+
+        # Fails with default threshold
+        assert meets_promotion_criteria(pattern) is False
+
+        # Passes with lenient threshold
+        assert meets_promotion_criteria(
+            pattern,
+            min_success_rate=0.4,
+        ) is True
+
+    def test_custom_max_failure_streak_more_strict(self) -> None:
+        """Pattern passes default threshold (3) but fails custom stricter threshold (2).
+
+        A pattern with 2 consecutive failures:
+        - Passes default: 2 < 3
+        - Fails custom: 2 >= 2
+        """
+        pattern = MockRecord({
+            "injection_count_rolling_20": 10,
+            "success_count_rolling_20": 8,  # 80% success rate
+            "failure_count_rolling_20": 2,
+            "failure_streak": 2,
+        })
+
+        # Passes with default threshold
+        assert meets_promotion_criteria(pattern) is True
+
+        # Fails with stricter threshold (max_failure_streak=2 means 2+ fails)
+        assert meets_promotion_criteria(
+            pattern,
+            max_failure_streak=2,
+        ) is False
+
+    def test_custom_max_failure_streak_more_lenient(self) -> None:
+        """Pattern fails default threshold (3) but passes custom lenient threshold (5).
+
+        A pattern with 4 consecutive failures:
+        - Fails default: 4 >= 3
+        - Passes custom: 4 < 5
+        """
+        pattern = MockRecord({
+            "injection_count_rolling_20": 10,
+            "success_count_rolling_20": 7,  # 70% success rate
+            "failure_count_rolling_20": 3,
+            "failure_streak": 4,
+        })
+
+        # Fails with default threshold
+        assert meets_promotion_criteria(pattern) is False
+
+        # Passes with lenient threshold
+        assert meets_promotion_criteria(
+            pattern,
+            max_failure_streak=5,
+        ) is True
+
+    @pytest.mark.asyncio
+    async def test_check_and_promote_with_custom_thresholds(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """Patterns NOT promoted with defaults ARE promoted with lenient thresholds.
+
+        Sets up patterns that fail default thresholds but pass lenient ones:
+        - Pattern 1: 3 injections (fails default 5, passes custom 2)
+        - Pattern 2: 50% success (fails default 0.6, passes custom 0.4)
+        - Pattern 3: 4 failure streak (fails default 3, passes custom 5)
+
+        With default thresholds: 0 patterns promoted
+        With lenient thresholds: 3 patterns promoted
+        """
+        # Pattern 1: Low injection count (fails default, passes lenient)
+        pattern_1 = PromotablePattern(
+            id=uuid4(),
+            pattern_signature="low_injection_pattern",
+            injection_count_rolling_20=3,  # < 5 (default), >= 2 (lenient)
+            success_count_rolling_20=3,  # 100% success rate
+            failure_count_rolling_20=0,
+            failure_streak=0,
+        )
+
+        # Pattern 2: Low success rate (fails default, passes lenient)
+        pattern_2 = PromotablePattern(
+            id=uuid4(),
+            pattern_signature="low_success_pattern",
+            injection_count_rolling_20=10,  # >= 2
+            success_count_rolling_20=5,  # 50% < 0.6, >= 0.4
+            failure_count_rolling_20=5,
+            failure_streak=0,
+        )
+
+        # Pattern 3: High failure streak (fails default, passes lenient)
+        pattern_3 = PromotablePattern(
+            id=uuid4(),
+            pattern_signature="high_streak_pattern",
+            injection_count_rolling_20=10,  # >= 2
+            success_count_rolling_20=7,  # 70% >= 0.4
+            failure_count_rolling_20=3,
+            failure_streak=4,  # >= 3 (default), < 5 (lenient)
+        )
+
+        mock_repository.add_pattern(pattern_1)
+        mock_repository.add_pattern(pattern_2)
+        mock_repository.add_pattern(pattern_3)
+
+        # Act with DEFAULT thresholds - none should be promoted
+        result_default = await check_and_promote_patterns(
+            repository=mock_repository,
+            producer=None,
+            dry_run=True,
+        )
+
+        # Assert: No patterns eligible with defaults
+        assert result_default.patterns_checked == 3
+        assert result_default.patterns_eligible == 0
+        assert len(result_default.patterns_promoted) == 0
+
+        # Act with LENIENT thresholds - all should be promoted
+        result_lenient = await check_and_promote_patterns(
+            repository=mock_repository,
+            producer=mock_producer,
+            dry_run=False,
+            min_injection_count=2,
+            min_success_rate=0.4,
+            max_failure_streak=5,
+        )
+
+        # Assert: All patterns eligible with lenient thresholds
+        assert result_lenient.patterns_checked == 3
+        assert result_lenient.patterns_eligible == 3
+        assert len(result_lenient.patterns_promoted) == 3
+        assert len(mock_producer.published_events) == 3
+
+        # Verify all patterns were actually promoted in the repository
+        assert mock_repository.patterns[pattern_1.id].status == "validated"
+        assert mock_repository.patterns[pattern_2.id].status == "validated"
+        assert mock_repository.patterns[pattern_3.id].status == "validated"
