@@ -53,7 +53,7 @@ pre-commit = ">=4.5.0"
 # Version constraints use caret syntax: ^0.9.10 = >=0.9.10,<0.10.0
 omnibase-core = "^0.9.10"
 omnibase-spi = "^0.6.3"
-omnibase-infra = "^0.2.6"
+omnibase-infra = "^0.2.7"
 # Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
 # Included here for self-contained --only core installs
 pydantic = ">=2.9.0"
@@ -137,12 +137,12 @@ dev = [
 # Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
 #   ^0.9.10 = >=0.9.10,<0.10.0  (compatible releases within 0.9.x)
 #   ^0.6.3 = >=0.6.3,<0.7.0  (compatible releases within 0.6.x)
-#   ^0.2.6 = >=0.2.6,<0.3.0  (compatible releases within 0.2.x)
+#   ^0.2.7 = >=0.2.7,<0.3.0  (compatible releases within 0.2.x)
 core = [
     # ONEX ecosystem dependencies (version bounds match Poetry caret syntax)
     "omnibase-core>=0.9.10,<0.10.0",
     "omnibase-spi>=0.6.3,<0.7.0",
-    "omnibase-infra>=0.2.6,<0.3.0",
+    "omnibase-infra>=0.2.7,<0.3.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",

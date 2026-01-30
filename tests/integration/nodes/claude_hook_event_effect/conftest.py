@@ -42,6 +42,7 @@ from omnibase_core.models.hooks.claude_code import (
     ModelClaudeCodeHookEventPayload,
 )
 from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
+from omnibase_infra.models import ModelNodeIdentity
 
 # =============================================================================
 # Test Topic Constants
@@ -55,6 +56,32 @@ TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = "onex.cmd.omniintelligence.claude-hook-
 
 TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
 """Topic suffix for intent classification events (OUTPUT) in tests."""
+
+
+# =============================================================================
+# Node Identity Fixture
+# =============================================================================
+
+
+@pytest.fixture
+def test_node_identity() -> ModelNodeIdentity:
+    """Create a test node identity for event bus subscriptions.
+
+    The identity is configured with:
+        - env: "test" for test isolation
+        - service: "omniintelligence" matching the repository
+        - node_name: "claude_hook_event_effect" matching the node under test
+        - version: "1.0.0" for test consistency
+
+    Returns:
+        A ModelNodeIdentity for use with event bus subscribe().
+    """
+    return ModelNodeIdentity(
+        env="test",
+        service="omniintelligence",
+        node_name="claude_hook_event_effect",
+        version="1.0.0",
+    )
 
 
 # =============================================================================
@@ -345,4 +372,5 @@ __all__ = [
     "sample_session_start_event",
     "sample_stop_event",
     "sample_user_prompt_event",
+    "test_node_identity",
 ]
