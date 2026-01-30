@@ -23,9 +23,9 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
 )
-
-# Test-only constant for topic suffix (production uses contract-driven injection)
-TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
+from tests.integration.nodes.claude_hook_event_effect.conftest import (
+    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+)
 
 pytestmark = pytest.mark.unit
 

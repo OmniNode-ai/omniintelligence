@@ -151,6 +151,13 @@ class NodeClaudeHookEventEffect(NodeEffect):
             return None
 
         topic_suffix = subcontract.publish_topics[0]
+        if len(subcontract.publish_topics) > 1:
+            logger.warning(
+                "Multiple publish_topics found in contract, using first: %s "
+                "(ignoring %d additional topics)",
+                topic_suffix,
+                len(subcontract.publish_topics) - 1,
+            )
         logger.debug(
             "Loaded publish topic suffix from contract: %s",
             topic_suffix,
