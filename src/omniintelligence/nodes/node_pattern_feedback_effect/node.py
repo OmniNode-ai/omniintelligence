@@ -56,12 +56,19 @@ class NodePatternFeedbackEffect(NodeEffect):
                 error_message="Repository not configured",
             )
 
-        return await record_session_outcome(
-            session_id=request.session_id,
-            success=request.success,
-            failure_reason=request.failure_reason,
-            repository=self._repository,
-        )
+        try:
+            return await record_session_outcome(
+                session_id=request.session_id,
+                success=request.success,
+                failure_reason=request.failure_reason,
+                repository=self._repository,
+            )
+        except Exception as e:
+            return ModelSessionOutcomeResult(
+                status=EnumOutcomeRecordingStatus.ERROR,
+                session_id=request.session_id,
+                error_message=str(e),
+            )
 
 
 __all__ = ["NodePatternFeedbackEffect"]

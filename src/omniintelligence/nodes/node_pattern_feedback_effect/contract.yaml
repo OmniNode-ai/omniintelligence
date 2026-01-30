@@ -29,12 +29,10 @@ node_type: "EFFECT_GENERIC"
 
 # Description
 description: >
-  Effect node for recording session outcomes and updating rolling window metrics in PostgreSQL.
-  Receives session outcome events containing pattern_id, success/failure status, and optional
-  metrics. Updates the rolling_pattern_metrics table with aggregated statistics over configurable
-  time windows (1h, 24h, 7d). Provides feedback loop data for pattern learning and confidence
-  scoring nodes.
-
+  Effect node for recording session outcomes and updating rolling window metrics in PostgreSQL. Receives
+  session outcome events containing pattern_id, success/failure status, and optional metrics. Updates
+  the rolling_pattern_metrics table with aggregated statistics over configurable time windows (1h, 24h,
+  7d). Provides feedback loop data for pattern learning and confidence scoring nodes.
 # Strongly typed I/O models
 input_model:
   name: "ModelSessionOutcomeRequest"

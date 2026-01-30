@@ -32,17 +32,15 @@ Design Principles:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
     ModelSessionOutcomeResult,
 )
-
-if TYPE_CHECKING:
-    import asyncpg
 
 
 # =============================================================================
@@ -67,7 +65,7 @@ class ProtocolPatternRepository(Protocol):
         rather than named parameters.
     """
 
-    async def fetch(self, query: str, *args: Any) -> list[asyncpg.Record]:
+    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
         """Execute a query and return all results as Records.
 
         Args:
@@ -75,7 +73,7 @@ class ProtocolPatternRepository(Protocol):
             *args: Positional arguments corresponding to placeholders.
 
         Returns:
-            List of asyncpg.Record objects (dict-like access to columns).
+            List of record objects with dict-like access to columns.
         """
         ...
 
