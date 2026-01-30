@@ -97,8 +97,10 @@ def compute_cluster_scores(
         - confidence: Weighted sum of components (0.40 + 0.30 + 0.30)
 
     Raises:
-        PatternLearningValidationError: If cluster is empty (member_count == 0).
-            Empty clusters are a bug upstream and should explode loudly.
+        PatternLearningValidationError: If cluster is empty (member_count == 0),
+            if min_frequency is not positive, or if pre-computed values
+            (label_agreement, internal_similarity) are outside [0.0, 1.0].
+            These conditions indicate a bug upstream and should explode loudly.
 
     Examples:
         >>> cluster = {"member_count": 5, "internal_similarity": 0.8, "label_agreement": 0.9, ...}
@@ -118,9 +120,31 @@ def compute_cluster_scores(
             "Empty clusters indicate a bug in the clustering phase."
         )
 
+    # Validate min_frequency is positive (prevents division by zero)
+    if min_frequency <= 0:
+        raise PatternLearningValidationError(
+            f"min_frequency must be positive, got {min_frequency}. "
+            "A zero or negative min_frequency is invalid for frequency factor calculation."
+        )
+
     # Read pre-computed values (do NOT recompute)
     label_agreement = cluster["label_agreement"]
     cluster_cohesion = cluster["internal_similarity"]
+
+    # Validate pre-computed values are in valid range [0.0, 1.0]
+    # If upstream has a bug producing invalid values, fail loudly here
+    if not (0.0 <= label_agreement <= 1.0):
+        raise PatternLearningValidationError(
+            f"label_agreement must be in range [0.0, 1.0], got {label_agreement} "
+            f"for cluster {cluster['cluster_id']}. "
+            "This indicates a bug in the clustering phase."
+        )
+    if not (0.0 <= cluster_cohesion <= 1.0):
+        raise PatternLearningValidationError(
+            f"internal_similarity must be in range [0.0, 1.0], got {cluster_cohesion} "
+            f"for cluster {cluster['cluster_id']}. "
+            "This indicates a bug in the clustering phase."
+        )
 
     # Compute frequency factor: monotonic and capped at 1.0
     frequency_factor = min(1.0, member_count / min_frequency)

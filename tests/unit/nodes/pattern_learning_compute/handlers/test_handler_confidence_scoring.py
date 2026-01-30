@@ -181,6 +181,24 @@ class TestComputeClusterScoresFrequencyFactor:
         expected = 1 / 5  # 0.2
         assert result["frequency_factor"] == pytest.approx(expected)
 
+    def test_min_frequency_zero_raises_error(self) -> None:
+        """min_frequency=0 should raise PatternLearningValidationError."""
+        cluster = make_cluster()
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster, min_frequency=0)
+
+        assert "min_frequency" in str(exc_info.value)
+
+    def test_min_frequency_negative_raises_error(self) -> None:
+        """Negative min_frequency should raise PatternLearningValidationError."""
+        cluster = make_cluster()
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster, min_frequency=-5)
+
+        assert "min_frequency" in str(exc_info.value)
+
 
 # =============================================================================
 # compute_cluster_scores Tests - Confidence Calculation
@@ -347,3 +365,101 @@ class TestComputeClusterScoresRanges:
         result = compute_cluster_scores(cluster, min_frequency=5)
 
         assert result["frequency_factor"] == 1.0
+
+
+# =============================================================================
+# compute_cluster_scores Tests - Pre-computed Value Validation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestComputeClusterScoresPrecomputedValidation:
+    """Tests for validation of pre-computed values (label_agreement, internal_similarity)."""
+
+    def test_label_agreement_above_one_raises_error(self) -> None:
+        """label_agreement > 1.0 should raise PatternLearningValidationError."""
+        cluster = make_cluster(label_agreement=1.5)
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster)
+
+        error_message = str(exc_info.value)
+        assert "label_agreement" in error_message
+        assert "1.5" in error_message
+        assert "[0.0, 1.0]" in error_message
+
+    def test_label_agreement_below_zero_raises_error(self) -> None:
+        """label_agreement < 0.0 should raise PatternLearningValidationError."""
+        cluster = make_cluster(label_agreement=-0.1)
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster)
+
+        error_message = str(exc_info.value)
+        assert "label_agreement" in error_message
+        assert "-0.1" in error_message
+        assert "[0.0, 1.0]" in error_message
+
+    def test_internal_similarity_above_one_raises_error(self) -> None:
+        """internal_similarity > 1.0 should raise PatternLearningValidationError."""
+        cluster = make_cluster(internal_similarity=1.2)
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster)
+
+        error_message = str(exc_info.value)
+        assert "internal_similarity" in error_message
+        assert "1.2" in error_message
+        assert "[0.0, 1.0]" in error_message
+
+    def test_internal_similarity_below_zero_raises_error(self) -> None:
+        """internal_similarity < 0.0 should raise PatternLearningValidationError."""
+        cluster = make_cluster(internal_similarity=-0.2)
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster)
+
+        error_message = str(exc_info.value)
+        assert "internal_similarity" in error_message
+        assert "-0.2" in error_message
+        assert "[0.0, 1.0]" in error_message
+
+    def test_precomputed_validation_includes_cluster_id(self) -> None:
+        """Error message should include cluster_id for debugging."""
+        cluster = make_cluster(
+            cluster_id="cluster-debug-123",
+            label_agreement=2.0,
+        )
+
+        with pytest.raises(PatternLearningValidationError) as exc_info:
+            compute_cluster_scores(cluster)
+
+        assert "cluster-debug-123" in str(exc_info.value)
+
+    def test_label_agreement_at_boundary_zero_is_valid(self) -> None:
+        """label_agreement = 0.0 (boundary) should be accepted."""
+        cluster = make_cluster(label_agreement=0.0)
+        result = compute_cluster_scores(cluster)
+
+        assert result["label_agreement"] == 0.0
+
+    def test_label_agreement_at_boundary_one_is_valid(self) -> None:
+        """label_agreement = 1.0 (boundary) should be accepted."""
+        cluster = make_cluster(label_agreement=1.0)
+        result = compute_cluster_scores(cluster)
+
+        assert result["label_agreement"] == 1.0
+
+    def test_internal_similarity_at_boundary_zero_is_valid(self) -> None:
+        """internal_similarity = 0.0 (boundary) should be accepted."""
+        cluster = make_cluster(internal_similarity=0.0)
+        result = compute_cluster_scores(cluster)
+
+        assert result["cluster_cohesion"] == 0.0
+
+    def test_internal_similarity_at_boundary_one_is_valid(self) -> None:
+        """internal_similarity = 1.0 (boundary) should be accepted."""
+        cluster = make_cluster(internal_similarity=1.0)
+        result = compute_cluster_scores(cluster)
+
+        assert result["cluster_cohesion"] == 1.0
