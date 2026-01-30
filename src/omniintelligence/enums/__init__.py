@@ -16,6 +16,12 @@ from omniintelligence.enums.enum_domain_taxonomy import (
 )
 from omniintelligence.enums.enum_entity import EnumEntityType, EnumRelationshipType
 from omniintelligence.enums.enum_fsm import EnumFSMType
+from omniintelligence.enums.enum_injection import (
+    COHORT_CONTROL_PERCENTAGE,
+    COHORT_TREATMENT_PERCENTAGE,
+    EnumCohort,
+    EnumInjectionContext,
+)
 from omniintelligence.enums.enum_operation import (
     EnumIntelligenceOperationType,
     EnumOrchestratorWorkflowType,
@@ -23,13 +29,17 @@ from omniintelligence.enums.enum_operation import (
 from omniintelligence.enums.enum_pattern_lifecycle import EnumPatternLifecycleStatus
 
 __all__ = [
+    "COHORT_CONTROL_PERCENTAGE",
+    "COHORT_TREATMENT_PERCENTAGE",
     "DOMAIN_TAXONOMY_VERSION",
     "EnumAnalysisErrorCode",
     "EnumAnalysisOperationType",
     "EnumCodeAnalysisEventType",
+    "EnumCohort",
     "EnumDomainTaxonomy",
     "EnumEntityType",
     "EnumFSMType",
+    "EnumInjectionContext",
     "EnumIntelligenceOperationType",
     "EnumOrchestratorWorkflowType",
     "EnumPatternLifecycleStatus",
