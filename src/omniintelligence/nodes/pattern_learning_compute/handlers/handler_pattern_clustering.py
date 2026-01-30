@@ -198,33 +198,73 @@ def _compute_structural_similarity(
         >>> _compute_structural_similarity(struct_a, struct_b)
         0.85...  # Close structural similarity
     """
-    similarities: list[tuple[str, float]] = []
-
-    # Numeric features: compute normalized distance, convert to similarity
-    numeric_features: list[tuple[str, float]] = [
-        ("class_count", _MAX_CLASS_COUNT_DIFF),
-        ("function_count", _MAX_FUNCTION_COUNT_DIFF),
-        ("max_nesting_depth", _MAX_NESTING_DEPTH_DIFF),
-        ("line_count", _MAX_LINE_COUNT_DIFF),
-        ("cyclomatic_complexity", _MAX_CYCLOMATIC_COMPLEXITY_DIFF),
+    # Compute feature similarities with explicit key access to avoid type: ignore
+    # comments from dynamic string indexing on TypedDict. Build a list of
+    # (name, similarity) tuples in the same order as the original implementation
+    # to preserve identical floating point behavior with sum().
+    similarities: list[tuple[str, float]] = [
+        (
+            "class_count",
+            distance_to_similarity(
+                compute_normalized_distance(
+                    float(struct_a["class_count"]),
+                    float(struct_b["class_count"]),
+                    _MAX_CLASS_COUNT_DIFF,
+                )
+            ),
+        ),
+        (
+            "function_count",
+            distance_to_similarity(
+                compute_normalized_distance(
+                    float(struct_a["function_count"]),
+                    float(struct_b["function_count"]),
+                    _MAX_FUNCTION_COUNT_DIFF,
+                )
+            ),
+        ),
+        (
+            "max_nesting_depth",
+            distance_to_similarity(
+                compute_normalized_distance(
+                    float(struct_a["max_nesting_depth"]),
+                    float(struct_b["max_nesting_depth"]),
+                    _MAX_NESTING_DEPTH_DIFF,
+                )
+            ),
+        ),
+        (
+            "line_count",
+            distance_to_similarity(
+                compute_normalized_distance(
+                    float(struct_a["line_count"]),
+                    float(struct_b["line_count"]),
+                    _MAX_LINE_COUNT_DIFF,
+                )
+            ),
+        ),
+        (
+            "cyclomatic_complexity",
+            distance_to_similarity(
+                compute_normalized_distance(
+                    float(struct_a["cyclomatic_complexity"]),
+                    float(struct_b["cyclomatic_complexity"]),
+                    _MAX_CYCLOMATIC_COMPLEXITY_DIFF,
+                )
+            ),
+        ),
+        # Boolean features: 1.0 if match, 0.0 if different
+        (
+            "has_type_hints",
+            1.0 if struct_a["has_type_hints"] == struct_b["has_type_hints"] else 0.0,
+        ),
+        (
+            "has_docstrings",
+            1.0 if struct_a["has_docstrings"] == struct_b["has_docstrings"] else 0.0,
+        ),
     ]
 
-    for feature_name, max_expected in numeric_features:
-        value_a = float(struct_a[feature_name])  # type: ignore[literal-required]
-        value_b = float(struct_b[feature_name])  # type: ignore[literal-required]
-        distance = compute_normalized_distance(value_a, value_b, max_expected)
-        similarity = distance_to_similarity(distance)
-        similarities.append((feature_name, similarity))
-
-    # Boolean features: 1.0 if match, 0.0 if different
-    bool_features = ["has_type_hints", "has_docstrings"]
-    for feature_name in bool_features:
-        value_a = struct_a[feature_name]  # type: ignore[literal-required]
-        value_b = struct_b[feature_name]  # type: ignore[literal-required]
-        similarity = 1.0 if value_a == value_b else 0.0
-        similarities.append((feature_name, similarity))
-
-    # Weighted combination
+    # Weighted combination using sum() to preserve original floating point behavior
     total_similarity = sum(
         _STRUCTURAL_WEIGHTS[name] * sim for name, sim in similarities
     )

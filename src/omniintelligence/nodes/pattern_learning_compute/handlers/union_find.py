@@ -114,8 +114,8 @@ class UnionFind:
     def find(self, x: int) -> int:
         """Find the root of the set containing element x.
 
-        Uses path compression: all nodes on the path to root are flattened
-        to point directly to the root, amortizing future find() calls.
+        Uses iterative path compression: all nodes on the path to root are
+        updated to point directly to the root, amortizing future find() calls.
 
         Args:
             x: Element index (must be in range [0, n)).
@@ -136,10 +136,18 @@ class UnionFind:
         if x < 0 or x >= self._n:
             raise IndexError(f"Index {x} out of bounds for UnionFind with {self._n} elements")
 
-        # Path compression: recursively find root and flatten
-        if self._parent[x] != x:
-            self._parent[x] = self.find(self._parent[x])
-        return self._parent[x]
+        # Pass 1: Find root
+        root = x
+        while self._parent[root] != root:
+            root = self._parent[root]
+
+        # Pass 2: Path compression - update all nodes to point to root
+        while self._parent[x] != root:
+            next_x = self._parent[x]
+            self._parent[x] = root
+            x = next_x
+
+        return root
 
     def union(self, x: int, y: int) -> None:
         """Merge the sets containing elements x and y.
