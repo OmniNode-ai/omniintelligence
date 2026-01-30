@@ -19,7 +19,9 @@ from omniintelligence.enums.enum_fsm import EnumFSMType
 from omniintelligence.enums.enum_injection import (
     COHORT_CONTROL_PERCENTAGE,
     COHORT_TREATMENT_PERCENTAGE,
+    HEURISTIC_CONFIDENCE,
     EnumCohort,
+    EnumHeuristicMethod,
     EnumInjectionContext,
 )
 from omniintelligence.enums.enum_operation import (
@@ -32,6 +34,7 @@ __all__ = [
     "COHORT_CONTROL_PERCENTAGE",
     "COHORT_TREATMENT_PERCENTAGE",
     "DOMAIN_TAXONOMY_VERSION",
+    "HEURISTIC_CONFIDENCE",
     "EnumAnalysisErrorCode",
     "EnumAnalysisOperationType",
     "EnumCodeAnalysisEventType",
@@ -39,6 +42,7 @@ __all__ = [
     "EnumDomainTaxonomy",
     "EnumEntityType",
     "EnumFSMType",
+    "EnumHeuristicMethod",
     "EnumInjectionContext",
     "EnumIntelligenceOperationType",
     "EnumOrchestratorWorkflowType",

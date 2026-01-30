@@ -15,21 +15,29 @@ Rolling Window Metrics:
     the last 20 injections using decay logic. See handler_session_outcome.py
     for the decay approximation algorithm.
 
+Contribution Heuristics:
+    When recording outcomes, contribution heuristics are computed to attribute
+    session outcomes to individual patterns. See heuristics.py for the pure
+    functions that compute weights.
+
 Usage:
     from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
         ProtocolPatternRepository,
         record_session_outcome,
         update_pattern_rolling_metrics,
+        apply_heuristic,
     )
 
-    # Record outcome and update metrics
+    # Record outcome and update metrics (includes heuristic computation)
     result = await record_session_outcome(
         session_id=uuid,
         success=True,
         repository=db_connection,
+        heuristic_method=EnumHeuristicMethod.EQUAL_SPLIT,
     )
 
 Reference:
+    - OMN-1679: FEEDBACK-004 contribution heuristic for outcome attribution
     - OMN-1678: Rolling window metric updates with decay approximation
     - OMN-1677: Pattern feedback effect node foundation
 """
@@ -37,13 +45,27 @@ Reference:
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
     ROLLING_WINDOW_SIZE,
     ProtocolPatternRepository,
+    compute_and_store_heuristics,
     record_session_outcome,
     update_pattern_rolling_metrics,
+)
+from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
+    ContributionWeights,
+    apply_heuristic,
+    compute_equal_split,
+    compute_first_match,
+    compute_recency_weighted,
 )
 
 __all__ = [
     "ROLLING_WINDOW_SIZE",
+    "ContributionWeights",
     "ProtocolPatternRepository",
+    "apply_heuristic",
+    "compute_and_store_heuristics",
+    "compute_equal_split",
+    "compute_first_match",
+    "compute_recency_weighted",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]

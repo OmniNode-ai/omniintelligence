@@ -20,7 +20,22 @@ This ensures:
 2. The ratio reflects recent performance, not all-time performance
 3. Old outcomes are "forgotten" as new ones arrive
 
+Contribution Heuristics (OMN-1679):
+-----------------------------------
+When recording outcomes, we compute contribution heuristics to attribute
+the outcome to individual patterns. This is explicitly a HEURISTIC, not
+causal attribution - multi-injection sessions make true attribution impossible.
+
+Three methods are supported:
+- EQUAL_SPLIT: Each pattern gets 1/N credit
+- RECENCY_WEIGHTED: Later patterns get more credit (linear ramp)
+- FIRST_MATCH: All credit to the first pattern
+
+Idempotency: Heuristics are only computed for injections where
+contribution_heuristic IS NULL, preventing retry overwrites.
+
 Reference:
+    - OMN-1679: FEEDBACK-004 contribution heuristic for outcome attribution
     - OMN-1678: Implement rolling window metric updates with decay approximation
     - OMN-1677: Pattern feedback effect node foundation
 
@@ -32,12 +47,17 @@ Design Principles:
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
+from omniintelligence.enums import EnumHeuristicMethod
+from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
+    apply_heuristic,
+)
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
     ModelSessionOutcomeResult,
@@ -121,11 +141,13 @@ class ProtocolPatternRepository(Protocol):
 # =============================================================================
 
 # Query to find pattern injections for a session that haven't had outcomes recorded
+# ORDER BY (injected_at, injection_id) is canonical for deterministic ordering
 SQL_FIND_UNRECORDED_INJECTIONS = """
 SELECT injection_id, pattern_ids
 FROM pattern_injections
 WHERE session_id = $1
   AND outcome_recorded = FALSE
+ORDER BY injected_at ASC, injection_id ASC
 """
 
 # Query to mark injections as having their outcome recorded
@@ -180,6 +202,20 @@ SET
 WHERE id = ANY($1)
 """
 
+# SQL for updating contribution heuristics on a single injection
+# Idempotency: only update if contribution_heuristic IS NULL
+# This prevents retry overwrites and preserves debugging history
+SQL_UPDATE_INJECTION_HEURISTIC = """
+UPDATE pattern_injections
+SET
+    contribution_heuristic = $2,
+    heuristic_method = $3,
+    heuristic_confidence = $4,
+    updated_at = NOW()
+WHERE injection_id = $1
+  AND contribution_heuristic IS NULL
+"""
+
 
 # =============================================================================
 # Handler Functions
@@ -193,6 +229,7 @@ async def record_session_outcome(
     *,
     repository: ProtocolPatternRepository,
     correlation_id: UUID | None = None,
+    heuristic_method: EnumHeuristicMethod = EnumHeuristicMethod.EQUAL_SPLIT,
 ) -> ModelSessionOutcomeResult:
     """Record the outcome of a Claude Code session and update pattern metrics.
 
@@ -200,7 +237,8 @@ async def record_session_outcome(
     completes, we:
     1. Find all pattern_injections for this session that haven't been processed
     2. Mark them as processed with the outcome
-    3. Update rolling metrics for all unique patterns involved
+    3. Compute and store contribution heuristics for each injection
+    4. Update rolling metrics for all unique patterns involved
 
     Args:
         session_id: The Claude Code session ID.
@@ -208,6 +246,8 @@ async def record_session_outcome(
         failure_reason: Optional reason for failure (ignored if success=True).
         repository: Database repository implementing ProtocolPatternRepository.
         correlation_id: Optional correlation ID for distributed tracing.
+        heuristic_method: Method for computing contribution attribution.
+            Defaults to EQUAL_SPLIT. See EnumHeuristicMethod for options.
 
     Returns:
         ModelSessionOutcomeResult with status and counts of updated records.
@@ -223,6 +263,10 @@ async def record_session_outcome(
         fails mid-execution (e.g., the second update fails after the first
         succeeds), data may be left in an inconsistent state where injections
         are marked as recorded but pattern metrics are not updated.
+
+        Heuristic Idempotency: Contribution heuristics are only written for
+        injections where contribution_heuristic IS NULL. This prevents retries
+        from overwriting previously computed attributions.
     """
     logger.info(
         "Recording session outcome",
@@ -315,7 +359,24 @@ async def record_session_outcome(
         },
     )
 
-    # Step 4: Update rolling metrics for all patterns
+    # Step 4: Compute and store contribution heuristics
+    await compute_and_store_heuristics(
+        injection_rows=injection_rows,
+        heuristic_method=heuristic_method,
+        repository=repository,
+    )
+
+    logger.debug(
+        "Computed contribution heuristics",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "heuristic_method": heuristic_method.value,
+            "injection_count": len(injection_rows),
+        },
+    )
+
+    # Step 5: Update rolling metrics for all patterns
     patterns_updated = 0
     if pattern_ids:
         patterns_updated = await update_pattern_rolling_metrics(
@@ -343,6 +404,78 @@ async def record_session_outcome(
         recorded_at=datetime.now(UTC),
         error_message=None,
     )
+
+
+async def compute_and_store_heuristics(
+    injection_rows: list[Mapping[str, Any]],
+    heuristic_method: EnumHeuristicMethod,
+    *,
+    repository: ProtocolPatternRepository,
+) -> int:
+    """Compute and store contribution heuristics for session injections.
+
+    This function computes the contribution weights using the specified heuristic
+    method and stores them on each injection record. The computation considers
+    all patterns across all injections in canonical order.
+
+    Duplicate Pattern Handling:
+        If the same pattern appears in multiple injections, weights are accumulated
+        across all occurrences (respecting order for RECENCY_WEIGHTED) and then
+        normalized. Each injection row gets the same final weights dictionary.
+
+    Idempotency:
+        Only writes to injection rows where contribution_heuristic IS NULL.
+        This prevents retry overwrites.
+
+    Args:
+        injection_rows: List of injection records from SQL query, each containing:
+            - injection_id (UUID)
+            - pattern_ids (list[UUID])
+        heuristic_method: Method for computing contribution attribution.
+        repository: Database repository implementing ProtocolPatternRepository.
+
+    Returns:
+        Number of injection rows updated with heuristics.
+    """
+    if not injection_rows:
+        return 0
+
+    # Collect all pattern_ids in canonical order (rows already ordered by injected_at, injection_id)
+    ordered_pattern_ids: list[UUID] = []
+    for row in injection_rows:
+        pattern_ids = row.get("pattern_ids") or []
+        ordered_pattern_ids.extend(pattern_ids)
+
+    if not ordered_pattern_ids:
+        return 0
+
+    # Compute the heuristic once for the entire session
+    weights, confidence = apply_heuristic(
+        method=heuristic_method,
+        ordered_pattern_ids=ordered_pattern_ids,
+    )
+
+    # Serialize weights to JSON string for PostgreSQL
+    weights_json = json.dumps(weights)
+
+    # Update each injection row with the heuristic
+    # Each injection gets the same session-level weights (the contribution is
+    # at the session level, not per-injection)
+    updated_count = 0
+    for row in injection_rows:
+        injection_id = row["injection_id"]
+        status = await repository.execute(
+            SQL_UPDATE_INJECTION_HEURISTIC,
+            injection_id,
+            weights_json,
+            heuristic_method.value,
+            confidence,
+        )
+        # Check if row was actually updated (idempotency check may skip it)
+        if _parse_update_count(status) > 0:
+            updated_count += 1
+
+    return updated_count
 
 
 async def update_pattern_rolling_metrics(
@@ -430,6 +563,7 @@ def _parse_update_count(status: str | None) -> int:
 __all__ = [
     "ROLLING_WINDOW_SIZE",
     "ProtocolPatternRepository",
+    "compute_and_store_heuristics",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]
