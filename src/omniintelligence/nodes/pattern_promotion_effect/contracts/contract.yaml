@@ -29,11 +29,10 @@ node_type: "EFFECT_GENERIC"
 
 # Description
 description: >
-  Effect node for promoting patterns from provisional to validated status. Evaluates patterns
-  based on rolling window metrics (rolling_20 success rate from pattern_feedback_effect) and
-  configurable thresholds. Supports dry_run mode for previewing promotions without committing.
-  Publishes pattern-promoted events to Kafka for downstream consumers to update their caches.
-
+  Effect node for promoting patterns from provisional to validated status. Evaluates patterns based on
+  rolling window metrics (rolling_20 success rate from pattern_feedback_effect) and configurable thresholds.
+  Supports dry_run mode for previewing promotions without committing. Publishes pattern-promoted events
+  to Kafka for downstream consumers to update their caches. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelPromotionCheckRequest"
@@ -129,8 +128,8 @@ published_events:
     full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
     event_type: "PatternPromoted"
     trigger: "Pattern successfully promoted from provisional to validated"
-    description: "Emitted when a pattern is promoted. Contains pattern_id, old_status, new_status,
-      and promotion metrics. Consumed by downstream caches for invalidation."
+    description: "Emitted when a pattern is promoted. Contains pattern_id, old_status, new_status, and
+      promotion metrics. Consumed by downstream caches for invalidation."
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
@@ -179,8 +178,8 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolPatternRepository"
     module: "omniintelligence.nodes.pattern_promotion_effect.handlers.handler_promotion"
-    description: "Pattern repository protocol for database operations (fetch provisional patterns,
-      update status, read rolling metrics)"
+    description: "Pattern repository protocol for database operations (fetch provisional patterns, update
+      status, read rolling metrics)"
     required: true
 
   - name: "kafka_producer"
