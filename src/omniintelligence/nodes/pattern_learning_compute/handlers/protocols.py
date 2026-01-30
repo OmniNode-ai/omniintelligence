@@ -34,7 +34,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 from omnibase_core.models.pattern_learning import (
     ModelLearnedPattern,
@@ -85,6 +85,13 @@ class ExtractedFeaturesDict(TypedDict):
         decorators: Tuple of decorator names used.
         labels: Original training labels from input.
         language: Programming language of the snippet.
+        extraction_quality: Indicates the depth of feature extraction performed.
+            - "full": Complete AST-based extraction (Python). All features are
+              populated from parsed syntax tree with high confidence.
+            - "minimal": Basic extraction without AST (non-Python or fallback).
+              Features are derived from text patterns with lower confidence.
+              Enables distinguishing "empty because no code" from "empty because
+              language not supported."
     """
 
     item_id: str
@@ -95,6 +102,7 @@ class ExtractedFeaturesDict(TypedDict):
     decorators: tuple[str, ...]
     labels: tuple[str, ...]
     language: str
+    extraction_quality: Literal["full", "minimal"]
 
 
 class SimilarityWeightsDict(TypedDict, total=False):
