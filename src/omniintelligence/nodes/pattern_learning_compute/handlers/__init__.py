@@ -51,6 +51,7 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.protocols import (
     NearThresholdWarningDict,
     PatternClusterDict,
     PatternLearningResult,
+    PatternScoreComponentsDict,
     SimilarityResultDict,
     SimilarityWeightsDict,
     StructuralFeaturesDict,
@@ -60,6 +61,9 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.utils import (
     normalize_identifier,
     normalize_identifiers,
     validate_similarity_weights,
+)
+from omniintelligence.nodes.pattern_learning_compute.handlers.handler_confidence_scoring import (
+    compute_cluster_scores,
 )
 from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_clustering import (
     cluster_patterns,
@@ -86,6 +90,7 @@ __all__ = [
     "PatternLearningComputeError",
     "PatternLearningResult",
     "PatternLearningValidationError",
+    "PatternScoreComponentsDict",
     "ReplayArtifactEmitter",
     "SIGNATURE_NORMALIZATION",
     "SIGNATURE_VERSION",
@@ -95,6 +100,7 @@ __all__ = [
     "UnionFind",
     "assert_json_safe",
     "cluster_patterns",
+    "compute_cluster_scores",
     "compute_similarity",
     "jaccard_similarity",
     "normalize_identifier",

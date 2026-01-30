@@ -1121,3 +1121,226 @@ class TestClusterPatternsEdgeCases:
         # Verify sorted
         assert member_ids == tuple(sorted(member_ids))
         assert member_ids == ("a", "m", "z")
+
+
+# =============================================================================
+# cluster_patterns Tests - Member Pattern Indicators (Parallel Tuple)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestClusterPatternsMemberPatternIndicators:
+    """Tests for member_pattern_indicators field."""
+
+    def test_member_pattern_indicators_parallel_to_member_ids(
+        self,
+    ) -> None:
+        """member_pattern_indicators should have same length as member_ids."""
+        features = [
+            make_features(item_id="a", pattern_indicators=("NodeCompute",)),
+            make_features(item_id="b", pattern_indicators=("NodeEffect",)),
+            make_features(item_id="c", pattern_indicators=("NodeReducer",)),
+        ]
+
+        # Low threshold to cluster all together
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        cluster = result[0]
+        assert len(cluster["member_pattern_indicators"]) == len(cluster["member_ids"])
+
+    def test_member_pattern_indicators_order_matches_member_ids(
+        self,
+    ) -> None:
+        """member_pattern_indicators[i] should correspond to member_ids[i]."""
+        features = [
+            make_features(item_id="c", pattern_indicators=("Indicator_C",)),
+            make_features(item_id="a", pattern_indicators=("Indicator_A",)),
+            make_features(item_id="b", pattern_indicators=("Indicator_B",)),
+        ]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        cluster = result[0]
+
+        # member_ids should be sorted: ("a", "b", "c")
+        assert cluster["member_ids"] == ("a", "b", "c")
+
+        # member_pattern_indicators should match that order
+        assert cluster["member_pattern_indicators"][0] == ("Indicator_A",)  # for "a"
+        assert cluster["member_pattern_indicators"][1] == ("Indicator_B",)  # for "b"
+        assert cluster["member_pattern_indicators"][2] == ("Indicator_C",)  # for "c"
+
+    def test_member_pattern_indicators_preserves_tuple_structure(
+        self,
+    ) -> None:
+        """pattern_indicators tuples should be preserved as-is."""
+        features = [
+            make_features(item_id="a", pattern_indicators=("NodeCompute", "frozen")),
+        ]
+
+        result = cluster_patterns(features, threshold=0.99)
+
+        assert len(result) == 1
+        assert result[0]["member_pattern_indicators"][0] == ("NodeCompute", "frozen")
+
+    def test_member_pattern_indicators_empty_tuple_preserved(
+        self,
+    ) -> None:
+        """Empty pattern_indicators should be preserved as empty tuple."""
+        features = [
+            make_features(item_id="a", pattern_indicators=()),
+        ]
+
+        result = cluster_patterns(features)
+
+        assert len(result) == 1
+        assert result[0]["member_pattern_indicators"][0] == ()
+
+
+# =============================================================================
+# cluster_patterns Tests - Label Agreement
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestClusterPatternsLabelAgreement:
+    """Tests for label_agreement field."""
+
+    def test_label_agreement_all_match(
+        self,
+    ) -> None:
+        """label_agreement should be 1.0 when all members match dominant pattern_type."""
+        features = [
+            make_features(item_id="a", pattern_indicators=("NodeCompute",)),
+            make_features(item_id="b", pattern_indicators=("NodeCompute",)),
+            make_features(item_id="c", pattern_indicators=("NodeCompute",)),
+        ]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        assert result[0]["pattern_type"] == "NodeCompute"
+        assert result[0]["label_agreement"] == 1.0
+
+    def test_label_agreement_partial_match(
+        self,
+    ) -> None:
+        """label_agreement should reflect fraction of members matching."""
+        features = [
+            make_features(item_id="a", pattern_indicators=("NodeCompute",)),
+            make_features(item_id="b", pattern_indicators=("NodeCompute",)),
+            make_features(item_id="c", pattern_indicators=("NodeEffect",)),  # different
+        ]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        # NodeCompute appears 2x, NodeEffect 1x -> dominant is NodeCompute
+        # 2 of 3 members have NodeCompute in their indicators
+        assert result[0]["pattern_type"] == "NodeCompute"
+        assert result[0]["label_agreement"] == pytest.approx(2 / 3)
+
+    def test_label_agreement_none_match(
+        self,
+    ) -> None:
+        """label_agreement should be 0.0 when no members contain dominant pattern."""
+        # Edge case: each member has different single indicator
+        # Dominant is alphabetically first (tie-break), but none have it twice
+        features = [
+            make_features(item_id="a", pattern_indicators=("Alpha",)),
+            make_features(item_id="b", pattern_indicators=("Beta",)),
+            make_features(item_id="c", pattern_indicators=("Gamma",)),
+        ]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        # All have 1 count, alphabetically "Alpha" wins
+        assert result[0]["pattern_type"] == "Alpha"
+        # Only 1 of 3 has "Alpha"
+        assert result[0]["label_agreement"] == pytest.approx(1 / 3)
+
+    def test_label_agreement_unknown_pattern_type(
+        self,
+    ) -> None:
+        """label_agreement should be 0.0 when pattern_type is 'unknown'."""
+        features = [
+            make_features(item_id="a", pattern_indicators=()),
+            make_features(item_id="b", pattern_indicators=()),
+        ]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        assert result[0]["pattern_type"] == "unknown"
+        assert result[0]["label_agreement"] == 0.0
+
+    def test_label_agreement_single_member(
+        self,
+    ) -> None:
+        """Single member cluster should have label_agreement based on its own indicators."""
+        features = [
+            make_features(item_id="a", pattern_indicators=("NodeCompute",)),
+        ]
+
+        result = cluster_patterns(features)
+
+        assert len(result) == 1
+        assert result[0]["pattern_type"] == "NodeCompute"
+        # The single member has "NodeCompute", so 1/1 = 1.0
+        assert result[0]["label_agreement"] == 1.0
+
+    def test_label_agreement_member_has_multiple_indicators(
+        self,
+    ) -> None:
+        """Members with multiple indicators should match if any contains dominant."""
+        features = [
+            make_features(item_id="a", pattern_indicators=("NodeCompute", "frozen")),
+            make_features(item_id="b", pattern_indicators=("NodeCompute",)),
+            make_features(item_id="c", pattern_indicators=("frozen",)),  # no NodeCompute
+        ]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        assert len(result) == 1
+        # NodeCompute appears 2x (in a and b), frozen appears 2x (in a and c)
+        # Tie-break: NodeCompute < frozen alphabetically
+        assert result[0]["pattern_type"] == "NodeCompute"
+        # "a" has NodeCompute, "b" has NodeCompute, "c" doesn't -> 2/3
+        assert result[0]["label_agreement"] == pytest.approx(2 / 3)
+
+
+# =============================================================================
+# cluster_patterns Tests - Invariants
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestClusterPatternsInvariants:
+    """Tests for cluster invariants."""
+
+    def test_invariant_member_count_equals_member_ids_length(
+        self,
+    ) -> None:
+        """member_count should equal len(member_ids)."""
+        features = [make_features(item_id=f"item-{i}") for i in range(5)]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        for cluster in result:
+            assert cluster["member_count"] == len(cluster["member_ids"])
+
+    def test_invariant_pattern_indicators_length_equals_member_ids(
+        self,
+    ) -> None:
+        """len(member_pattern_indicators) should equal len(member_ids)."""
+        features = [make_features(item_id=f"item-{i}") for i in range(5)]
+
+        result = cluster_patterns(features, threshold=0.0)
+
+        for cluster in result:
+            assert len(cluster["member_pattern_indicators"]) == len(
+                cluster["member_ids"]
+            )

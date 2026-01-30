@@ -157,13 +157,23 @@ class PatternClusterDict(TypedDict):
     Clusters represent groups of training items that share common
     characteristics and can be summarized into a single pattern.
 
+    Invariants (enforced at construction):
+        - len(member_pattern_indicators) == len(member_ids)
+        - member_count == len(member_ids)
+        - member_ids is sorted deterministically
+        - member_pattern_indicators[i] corresponds to member_ids[i]
+
     Attributes:
         cluster_id: Unique identifier for this cluster.
         pattern_type: The dominant pattern type in this cluster.
-        member_ids: Tuple of item_ids that belong to this cluster.
-        centroid_features: Representative features for the cluster.
+        member_ids: Tuple of item_ids that belong to this cluster (sorted).
+        centroid_features: Representative features for the cluster (medoid).
         member_count: Number of items in the cluster.
         internal_similarity: Average pairwise similarity within cluster.
+        member_pattern_indicators: Per-member pattern indicators, parallel to member_ids.
+            Immutable tuple of tuples for replay safety and determinism.
+        label_agreement: Fraction of members whose pattern_indicators contain
+            the dominant pattern_type. Range [0.0, 1.0].
     """
 
     cluster_id: str
@@ -172,6 +182,44 @@ class PatternClusterDict(TypedDict):
     centroid_features: ExtractedFeaturesDict
     member_count: int
     internal_similarity: float
+    member_pattern_indicators: tuple[tuple[str, ...], ...]
+    label_agreement: float
+
+
+class PatternScoreComponentsDict(TypedDict):
+    """Decomposed scoring components for pattern confidence.
+
+    IMPORTANT: Never make downstream decisions solely on confidence.
+    The rolled-up score is for convenience only. Inspect components
+    to understand WHY a pattern scored high or low.
+
+    Interpretation Guide:
+        - High agreement, low cohesion → Items have same label but different structure
+        - High cohesion, low frequency → Strong pattern but rare
+        - All high → Confident pattern
+
+    Confidence Formula:
+        confidence = 0.40 * label_agreement + 0.30 * cluster_cohesion + 0.30 * frequency_factor
+
+    Attributes:
+        label_agreement: Fraction of cluster members matching dominant pattern_type.
+            Read directly from PatternClusterDict (pre-computed during clustering).
+            Range [0.0, 1.0].
+        cluster_cohesion: Average pairwise similarity within cluster.
+            Read directly from PatternClusterDict.internal_similarity.
+            Range [0.0, 1.0].
+        frequency_factor: Normalized cluster size contribution.
+            Computed as min(1.0, member_count / DEFAULT_MIN_FREQUENCY).
+            Range [0.0, 1.0].
+        confidence: Derived weighted confidence score.
+            WARNING: Inspect components, not just this value.
+            Range [0.0, 1.0].
+    """
+
+    label_agreement: float
+    cluster_cohesion: float
+    frequency_factor: float
+    confidence: float
 
 
 class NearThresholdWarningDict(TypedDict):
@@ -245,6 +293,7 @@ __all__ = [
     "NearThresholdWarningDict",
     "PatternClusterDict",
     "PatternLearningResult",
+    "PatternScoreComponentsDict",
     "SimilarityResultDict",
     "SimilarityWeightsDict",
     "StructuralFeaturesDict",
