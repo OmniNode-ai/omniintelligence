@@ -30,7 +30,35 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (0) - intelligence_adapter has been deleted
+    # Effects (1)
+    "NodePatternFeedbackEffect": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "NodePatternFeedbackEffect",
+    ),
+    "ModelSessionOutcomeRequest": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "ModelSessionOutcomeRequest",
+    ),
+    "ModelSessionOutcomeResult": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "ModelSessionOutcomeResult",
+    ),
+    "EnumOutcomeRecordingStatus": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "EnumOutcomeRecordingStatus",
+    ),
+    "ProtocolPatternRepository": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "ProtocolPatternRepository",
+    ),
+    "record_session_outcome": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "record_session_outcome",
+    ),
+    "update_pattern_rolling_metrics": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "update_pattern_rolling_metrics",
+    ),
     # Computes (7)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.execution_trace_parser_compute.node",
@@ -115,16 +143,33 @@ if TYPE_CHECKING:
         NodeSuccessCriteriaMatcherCompute as NodeSuccessCriteriaMatcherCompute,
     )
 
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        EnumOutcomeRecordingStatus as EnumOutcomeRecordingStatus,
+        ModelSessionOutcomeRequest as ModelSessionOutcomeRequest,
+        ModelSessionOutcomeResult as ModelSessionOutcomeResult,
+        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
+        ProtocolPatternRepository as ProtocolPatternRepository,
+        record_session_outcome as record_session_outcome,
+        update_pattern_rolling_metrics as update_pattern_rolling_metrics,
+    )
+
 
 __all__ = [
+    "EnumOutcomeRecordingStatus",
+    "ModelSessionOutcomeRequest",
+    "ModelSessionOutcomeResult",
     "NodeExecutionTraceParserCompute",
     "NodeIntelligenceOrchestrator",
     "NodeIntelligenceReducer",
     "NodeIntentClassifierCompute",
     "NodePatternAssemblerOrchestrator",
     "NodePatternExtractionCompute",
+    "NodePatternFeedbackEffect",
     "NodePatternMatchingCompute",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
+    "ProtocolPatternRepository",
+    "record_session_outcome",
+    "update_pattern_rolling_metrics",
 ]
