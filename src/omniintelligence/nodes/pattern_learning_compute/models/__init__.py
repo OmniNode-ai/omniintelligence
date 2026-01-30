@@ -1,4 +1,15 @@
-"""Models for Pattern Learning Compute Node (STUB)."""
+"""Models for Pattern Learning Compute Node.
+
+Contract models (ModelLearnedPattern, etc.) are imported from omnibase_core.
+"""
+
+from omnibase_core.models.pattern_learning import (
+    ModelLearnedPattern,
+    ModelPatternLearningMetadata,
+    ModelPatternLearningMetrics,
+    ModelPatternScoreComponents,
+    ModelPatternSignature,
+)
 
 from omniintelligence.nodes.pattern_learning_compute.models.model_pattern_learning_input import (
     LearningParametersDict,
@@ -6,16 +17,17 @@ from omniintelligence.nodes.pattern_learning_compute.models.model_pattern_learni
     TrainingDataItemDict,
 )
 from omniintelligence.nodes.pattern_learning_compute.models.model_pattern_learning_output import (
-    LearnedPatternDict,
-    LearningMetadataDict,
     ModelPatternLearningOutput,
 )
 
 __all__ = [
-    "LearnedPatternDict",
-    "LearningMetadataDict",
     "LearningParametersDict",
+    "ModelLearnedPattern",
     "ModelPatternLearningInput",
+    "ModelPatternLearningMetadata",
+    "ModelPatternLearningMetrics",
     "ModelPatternLearningOutput",
+    "ModelPatternScoreComponents",
+    "ModelPatternSignature",
     "TrainingDataItemDict",
 ]

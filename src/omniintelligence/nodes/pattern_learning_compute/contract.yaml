@@ -24,7 +24,8 @@ input_model:
 output_model:
   name: "ModelPatternLearningOutput"
   module: "omniintelligence.nodes.pattern_learning_compute.models"
-  description: "STUB: Output containing learned patterns and metrics."
+  description: >-
+    Output containing candidate/learned patterns, metrics, and metadata. Uses contract models from omnibase_core.
 # Minimal sections for stub
 dependencies: []
 # Error Handling Configuration (stub - minimal)
@@ -48,10 +49,9 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-18"
+  updated: "2026-01-29"
   # NOTE: status field is at root level (line 17), not duplicated here
   tags:
     - "ONEX"
     - "compute"
     - "pattern-learning"
-    - "stub"
