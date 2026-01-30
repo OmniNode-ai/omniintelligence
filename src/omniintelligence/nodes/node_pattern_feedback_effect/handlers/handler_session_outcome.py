@@ -189,6 +189,7 @@ async def record_session_outcome(
     failure_reason: str | None = None,
     *,
     repository: ProtocolPatternRepository,
+    correlation_id: UUID | None = None,
 ) -> ModelSessionOutcomeResult:
     """Record the outcome of a Claude Code session and update pattern metrics.
 
@@ -203,6 +204,7 @@ async def record_session_outcome(
         success: Whether the session succeeded.
         failure_reason: Optional reason for failure (ignored if success=True).
         repository: Database repository implementing ProtocolPatternRepository.
+        correlation_id: Optional correlation ID for distributed tracing.
 
     Returns:
         ModelSessionOutcomeResult with status and counts of updated records.
@@ -219,6 +221,8 @@ async def record_session_outcome(
         succeeds), data may be left in an inconsistent state where injections
         are marked as recorded but pattern metrics are not updated.
     """
+    # correlation_id is available for future tracing/logging enhancements
+    _ = correlation_id  # Acknowledge parameter to avoid unused variable warnings
     # Step 1: Find unrecorded injections for this session
     injection_rows = await repository.fetch(
         SQL_FIND_UNRECORDED_INJECTIONS,

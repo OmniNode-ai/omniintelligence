@@ -62,6 +62,7 @@ class NodePatternFeedbackEffect(NodeEffect):
                 success=request.success,
                 failure_reason=request.failure_reason,
                 repository=self._repository,
+                correlation_id=request.correlation_id,
             )
         except Exception as e:
             return ModelSessionOutcomeResult(

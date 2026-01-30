@@ -13,9 +13,9 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models.model_output imp
 )
 
 __all__ = [
-    # Output models
-    "EnumOutcomeRecordingStatus",
     # Input models
     "ModelSessionOutcomeRequest",
+    # Output models
+    "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
 ]
