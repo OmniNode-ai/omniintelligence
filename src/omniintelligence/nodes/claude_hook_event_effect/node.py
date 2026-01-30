@@ -3,34 +3,28 @@
 """Claude Hook Event Effect - Unified handler for Claude Code hook events.
 
 This node follows the ONEX declarative pattern:
-    - EFFECT node for receiving and routing Claude Code hook events
-    - Routes by event_type to appropriate handlers
-    - Lightweight shell that delegates to handlers via dependency injection
-    - Pattern: "Contract-driven, handlers wired externally"
+    - 100% Contract-Driven: All topics/routing defined in YAML, not Python
+    - Zero Contract Loading: Runtime wires everything from contract.yaml
+    - Declarative Execution: Thin shell that delegates to handlers
 
 Extends NodeEffect from omnibase_core for infrastructure I/O operations.
-Handler routing is driven by event_type matching.
-
-Handler Routing Pattern:
-    1. Receive hook event (ModelClaudeCodeHookEvent)
-    2. Route to handler based on event_type
-    3. For UserPromptSubmit: classify intent, store in graph, emit to Kafka
-    4. For other types: return success (no-op)
-    5. Return structured response (ModelClaudeHookResult)
+Handler routing is initialized by the RUNTIME (not this module).
 
 Design Decisions:
     - Single ingress for all Claude Code hook types
     - Event type routing to specialized handlers
     - No-op handlers for unimplemented event types (stable pipeline shape)
-    - External adapters injected via setter methods
+    - Dependencies wired by runtime via container or direct injection
+    - Contract-driven topic resolution (OMN-1551)
 
 Node Responsibilities:
     - Define I/O model contract (ModelClaudeCodeHookEvent -> ModelClaudeHookResult)
-    - Provide dependency injection points for adapters
-    - Delegate execution to handlers
+    - Delegate execution to handlers with runtime-wired dependencies
 
 Reference:
     - OMN-1456: Unified Claude Code hook endpoint
+    - OMN-1551: Contract-driven topic resolution
+    - NodeRegistrationOrchestrator pattern (omnibase_infra)
 """
 
 from __future__ import annotations
@@ -56,9 +50,9 @@ if TYPE_CHECKING:
 class NodeClaudeHookEventEffect(NodeEffect):
     """Effect node for unified Claude Code hook event handling.
 
-    This effect node receives all Claude Code hook events and routes them
-    to appropriate handlers based on event_type. It is a lightweight shell
-    that delegates actual processing to handler functions.
+    This is a thin declarative shell - all behavior is defined in contract.yaml.
+    Topic wiring, handler routing, and dependency injection are initialized
+    by the RUNTIME, not this module.
 
     Supported Event Types (from Claude Code hook lifecycle):
         - SessionStart: Session begins
@@ -70,11 +64,6 @@ class NodeClaudeHookEventEffect(NodeEffect):
         - Notification: Async notifications
         - And more (see EnumClaudeCodeHookEventType)
 
-    Dependency Injection:
-        Adapters and compute nodes are injected via setter methods:
-        - set_intent_classifier(): Intent classifier compute node
-        - set_kafka_producer(): Kafka producer for event emission
-
     Example:
         ```python
         from omnibase_core.models.container import ModelONEXContainer
@@ -82,99 +71,60 @@ class NodeClaudeHookEventEffect(NodeEffect):
             NodeClaudeHookEventEffect,
         )
 
-        # Create effect node
+        # Create effect node with container (runtime wires dependencies)
         container = ModelONEXContainer()
         effect = NodeClaudeHookEventEffect(container)
 
-        # Wire dependencies
-        effect.set_intent_classifier(intent_classifier)
-        effect.set_kafka_producer(kafka_producer)
-
-        # Process a hook event
-        result = await effect.execute(hook_event)
+        # Execute - dependencies are wired by runtime or passed directly
+        result = await effect.execute(
+            event=hook_event,
+            intent_classifier=classifier,  # Runtime-wired
+            kafka_producer=producer,        # Runtime-wired
+            topic_env_prefix="dev",         # From contract
+            publish_topic_suffix="onex.evt.omniintelligence.intent-classified.v1",
+        )
         ```
     """
 
     def __init__(self, container: ModelONEXContainer) -> None:
-        """Initialize the effect node.
+        """Initialize with container dependency injection.
 
         Args:
             container: ONEX dependency injection container.
         """
         super().__init__(container)
 
-        # Injected dependencies (optional - node works without them)
-        self._intent_classifier: ProtocolIntentClassifier | None = None
-        self._kafka_producer: ProtocolKafkaPublisher | None = None
-        self._topic_env_prefix: str = "dev"
-
-    def set_intent_classifier(self, classifier: ProtocolIntentClassifier) -> None:
-        """Set the intent classifier compute node.
-
-        Args:
-            classifier: Intent classifier compute node instance implementing
-                ProtocolIntentClassifier.
-        """
-        self._intent_classifier = classifier
-
-    def set_kafka_producer(self, producer: ProtocolKafkaPublisher) -> None:
-        """Set the Kafka producer for event emission.
-
-        Args:
-            producer: Kafka producer instance implementing ProtocolKafkaPublisher.
-        """
-        self._kafka_producer = producer
-
-    def set_topic_env_prefix(self, prefix: str) -> None:
-        """Set the environment prefix for Kafka topics.
-
-        Args:
-            prefix: Environment prefix (e.g., "dev", "prod").
-        """
-        self._topic_env_prefix = prefix
-
-    @property
-    def topic_env_prefix(self) -> str:
-        """Get the configured Kafka topic environment prefix."""
-        return self._topic_env_prefix
-
-    @property
-    def intent_classifier(self) -> ProtocolIntentClassifier | None:
-        """Get the intent classifier if configured."""
-        return self._intent_classifier
-
-    @property
-    def kafka_producer(self) -> ProtocolKafkaPublisher | None:
-        """Get the Kafka producer if configured."""
-        return self._kafka_producer
-
-    @property
-    def has_intent_classifier(self) -> bool:
-        """Check if intent classifier is configured."""
-        return self._intent_classifier is not None
-
-    @property
-    def has_kafka_producer(self) -> bool:
-        """Check if Kafka producer is configured."""
-        return self._kafka_producer is not None
-
-    async def execute(self, event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
+    async def execute(
+        self,
+        event: ModelClaudeCodeHookEvent,
+        *,
+        intent_classifier: ProtocolIntentClassifier | None = None,
+        kafka_producer: ProtocolKafkaPublisher | None = None,
+        topic_env_prefix: str = "dev",
+        publish_topic_suffix: str | None = None,
+    ) -> ModelClaudeHookResult:
         """Execute the effect node on a hook event.
 
         Routes the event to the appropriate handler based on event_type
-        and returns the processing result.
+        and returns the processing result. Dependencies are wired by
+        the runtime from contract.yaml.
 
         Args:
             event: The Claude Code hook event to process.
+            intent_classifier: Intent classifier compute node (runtime-wired).
+            kafka_producer: Kafka producer for event emission (runtime-wired).
+            topic_env_prefix: Environment prefix for Kafka topic (from contract).
+            publish_topic_suffix: Topic suffix from contract's event_bus.publish_topics.
 
         Returns:
             ModelClaudeHookResult with processing outcome.
         """
         return await route_hook_event(
             event=event,
-            intent_classifier=self._intent_classifier,
-            kafka_producer=self._kafka_producer,
-            topic_env_prefix=self._topic_env_prefix,
+            intent_classifier=intent_classifier,
+            kafka_producer=kafka_producer,
+            topic_env_prefix=topic_env_prefix,
+            publish_topic_suffix=publish_topic_suffix,
         )
 
 

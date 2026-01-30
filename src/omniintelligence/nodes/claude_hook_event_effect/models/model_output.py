@@ -29,6 +29,19 @@ class EnumHookProcessingStatus(StrEnum):
     SKIPPED = "skipped"
 
 
+class EnumKafkaEmissionStatus(StrEnum):
+    """Status of Kafka event emission.
+
+    Used in handler metadata to indicate the outcome of attempting
+    to emit events to Kafka topics.
+    """
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    NO_PRODUCER = "no_producer_available"
+    NO_TOPIC_SUFFIX = "no_topic_suffix_configured"
+
+
 class ModelIntentResult(BaseModel):
     """Result of intent classification (for UserPromptSubmit events).
 
@@ -142,6 +155,7 @@ class ModelClaudeHookResult(BaseModel):
 
 __all__ = [
     "EnumHookProcessingStatus",
+    "EnumKafkaEmissionStatus",
     "ModelClaudeHookResult",
     "ModelIntentResult",
 ]
