@@ -575,6 +575,257 @@ class TestClusterPatternsDeterminism:
 
 
 # =============================================================================
+# cluster_patterns Tests - B Contract (Sort-Internally) Compliance
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestClusterPatternsDeterminismContract:
+    """Tests for B (sort-internally) contract compliance.
+
+    The B contract guarantees that cluster_patterns produces canonical output
+    regardless of input order. This ensures:
+    - Identical clusters from any permutation of the same inputs
+    - Cluster leaders are always the minimum member_id
+    - Cluster list is ordered by cluster_id (assigned by leader)
+    """
+
+    def test_shuffled_input_produces_canonical_cluster_order(self) -> None:
+        """Multiple random shuffles of input produce identical output.
+
+        This test verifies that the cluster_patterns function is fully
+        deterministic: the same set of features, regardless of input order,
+        always produces the same output (cluster_ids, member_ids, centroids).
+        """
+        import random
+
+        # Fixed seed for reproducibility
+        random.seed(42)
+
+        # Create 7 features with varying similarity characteristics
+        # Group 1: Similar compute features (should cluster together)
+        features_list = [
+            make_features(
+                item_id="compute-alpha",
+                keywords=("def", "class", "typing"),
+                pattern_indicators=("NodeCompute", "frozen"),
+                labels=("compute", "pure"),
+            ),
+            make_features(
+                item_id="compute-beta",
+                keywords=("def", "class", "typing"),
+                pattern_indicators=("NodeCompute",),
+                labels=("compute", "pure"),
+            ),
+            make_features(
+                item_id="compute-gamma",
+                keywords=("def", "class", "typing"),
+                pattern_indicators=("NodeCompute", "immutable"),
+                labels=("compute",),
+            ),
+            # Group 2: Effect features (should cluster together)
+            make_features(
+                item_id="effect-delta",
+                keywords=("async", "await", "httpx"),
+                pattern_indicators=("NodeEffect", "async"),
+                labels=("effect", "io"),
+            ),
+            make_features(
+                item_id="effect-epsilon",
+                keywords=("async", "await", "httpx"),
+                pattern_indicators=("NodeEffect",),
+                labels=("effect", "network"),
+            ),
+            # Standalone features (should be separate clusters)
+            make_features(
+                item_id="reducer-zeta",
+                keywords=("state", "reduce", "aggregate"),
+                pattern_indicators=("NodeReducer",),
+                labels=("reducer",),
+            ),
+            make_features(
+                item_id="orchestrator-eta",
+                keywords=("workflow", "coordinate", "dispatch"),
+                pattern_indicators=("NodeOrchestrator",),
+                labels=("orchestrator",),
+            ),
+        ]
+
+        # Get canonical result from sorted input
+        canonical_result = cluster_patterns(
+            sorted(features_list, key=lambda f: f["item_id"]),
+            threshold=0.5,
+        )
+
+        # Run 10 iterations with random shuffles
+        for iteration in range(10):
+            shuffled_features = features_list.copy()
+            random.shuffle(shuffled_features)
+
+            shuffled_result = cluster_patterns(shuffled_features, threshold=0.5)
+
+            # Assert same number of clusters
+            assert len(shuffled_result) == len(canonical_result), (
+                f"Iteration {iteration}: cluster count mismatch "
+                f"({len(shuffled_result)} vs {len(canonical_result)})"
+            )
+
+            # Assert identical cluster structure
+            for i in range(len(canonical_result)):
+                assert shuffled_result[i]["cluster_id"] == canonical_result[i]["cluster_id"], (
+                    f"Iteration {iteration}, cluster {i}: cluster_id mismatch"
+                )
+                assert shuffled_result[i]["member_ids"] == canonical_result[i]["member_ids"], (
+                    f"Iteration {iteration}, cluster {i}: member_ids mismatch"
+                )
+                assert (
+                    shuffled_result[i]["centroid_features"]["item_id"]
+                    == canonical_result[i]["centroid_features"]["item_id"]
+                ), f"Iteration {iteration}, cluster {i}: centroid mismatch"
+
+    def test_cluster_leader_is_min_member_id_invariant(self) -> None:
+        """Assert member_ids[0] == min(member_ids) for every cluster.
+
+        The B contract specifies that the leader (first member) of each cluster
+        must be the lexicographically smallest member_id. This invariant ensures
+        deterministic cluster_id assignment.
+        """
+        # Create features that will form multiple clusters with varied item_ids
+        features_list = [
+            # Cluster 1: Similar features (zulu should NOT be leader despite being first)
+            make_features(
+                item_id="zulu-item",
+                keywords=("shared", "common"),
+                pattern_indicators=("TypeA",),
+                labels=("group1",),
+            ),
+            make_features(
+                item_id="alpha-item",
+                keywords=("shared", "common"),
+                pattern_indicators=("TypeA",),
+                labels=("group1",),
+            ),
+            make_features(
+                item_id="mike-item",
+                keywords=("shared", "common"),
+                pattern_indicators=("TypeA",),
+                labels=("group1",),
+            ),
+            # Cluster 2: Different features
+            make_features(
+                item_id="yankee-diff",
+                keywords=("unique", "different"),
+                pattern_indicators=("TypeB",),
+                labels=("group2",),
+            ),
+            make_features(
+                item_id="bravo-diff",
+                keywords=("unique", "different"),
+                pattern_indicators=("TypeB",),
+                labels=("group2",),
+            ),
+            # Cluster 3: Standalone
+            make_features(
+                item_id="oscar-solo",
+                keywords=("standalone", "isolated"),
+                pattern_indicators=("TypeC",),
+                labels=("group3",),
+            ),
+        ]
+
+        result = cluster_patterns(features_list, threshold=0.5)
+
+        # Verify invariant for every cluster
+        for cluster in result:
+            member_ids = cluster["member_ids"]
+            leader = member_ids[0]
+            min_member = min(member_ids)
+
+            assert leader == min_member, (
+                f"Cluster {cluster['cluster_id']}: leader '{leader}' is not the "
+                f"minimum member_id. Expected '{min_member}'. "
+                f"Full member_ids: {member_ids}"
+            )
+
+    def test_cluster_list_ordered_by_leader(self) -> None:
+        """Output clusters are ordered by cluster_id (which is assigned by leader).
+
+        The B contract specifies that the output cluster list must be sorted
+        by cluster_id. Since cluster_ids are assigned based on leader order
+        (cluster-0001 for smallest leader, cluster-0002 for next, etc.),
+        this ensures a deterministic, reproducible output order.
+        """
+        # Create features forming multiple distinct clusters
+        features_list = [
+            # Will form cluster with leader "zebra-..." (should be LAST)
+            make_features(
+                item_id="zebra-one",
+                keywords=("z-group",),
+                pattern_indicators=("ZType",),
+                labels=("z-label",),
+            ),
+            make_features(
+                item_id="zebra-two",
+                keywords=("z-group",),
+                pattern_indicators=("ZType",),
+                labels=("z-label",),
+            ),
+            # Will form cluster with leader "alpha-..." (should be FIRST)
+            make_features(
+                item_id="alpha-first",
+                keywords=("a-group",),
+                pattern_indicators=("AType",),
+                labels=("a-label",),
+            ),
+            make_features(
+                item_id="alpha-second",
+                keywords=("a-group",),
+                pattern_indicators=("AType",),
+                labels=("a-label",),
+            ),
+            # Will form cluster with leader "mid-..." (should be MIDDLE)
+            make_features(
+                item_id="mid-one",
+                keywords=("m-group",),
+                pattern_indicators=("MType",),
+                labels=("m-label",),
+            ),
+            make_features(
+                item_id="mid-two",
+                keywords=("m-group",),
+                pattern_indicators=("MType",),
+                labels=("m-label",),
+            ),
+        ]
+
+        result = cluster_patterns(features_list, threshold=0.5)
+
+        # Verify clusters are ordered by cluster_id
+        for i in range(len(result) - 1):
+            current_id = result[i]["cluster_id"]
+            next_id = result[i + 1]["cluster_id"]
+
+            assert current_id < next_id, (
+                f"Clusters not ordered by cluster_id: "
+                f"result[{i}] has '{current_id}', result[{i + 1}] has '{next_id}'"
+            )
+
+        # Also verify the cluster_id sequence is contiguous (0001, 0002, 0003)
+        for i, cluster in enumerate(result):
+            expected_id = f"cluster-{i + 1:04d}"
+            assert cluster["cluster_id"] == expected_id, (
+                f"Cluster at index {i} has id '{cluster['cluster_id']}', "
+                f"expected '{expected_id}'"
+            )
+
+        # Verify leaders are in ascending order (which determines cluster_id order)
+        leaders = [cluster["member_ids"][0] for cluster in result]
+        assert leaders == sorted(leaders), (
+            f"Cluster leaders are not in ascending order: {leaders}"
+        )
+
+
+# =============================================================================
 # cluster_patterns Tests - Basic Clustering Behavior
 # =============================================================================
 
@@ -1344,3 +1595,288 @@ class TestClusterPatternsInvariants:
             assert len(cluster["member_pattern_indicators"]) == len(
                 cluster["member_ids"]
             )
+
+
+# =============================================================================
+# cluster_patterns Tests - Replay Artifact Invariants (Surgical Tests)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestClusterPatternsReplayInvariants:
+    """Surgical invariant tests for replay artifacts.
+
+    These tests verify structural invariants of the replay artifacts
+    rather than brittle JSON blob comparisons. Each test focuses on
+    a specific invariant that must hold for correct clustering behavior.
+    """
+
+    def test_invariant_every_item_appears_exactly_once_in_assignment_map(
+        self,
+    ) -> None:
+        """Every input item_id appears exactly once in cluster_assignment_map.
+
+        Invariant: len(assignment_map) == len(input_features)
+        Invariant: set(assignment_map.keys()) == {f["item_id"] for f in input_features}
+        """
+        # Create 6 features with various characteristics
+        features = [
+            make_features(
+                item_id=f"feature-{i:03d}",
+                keywords=("shared", "common") if i < 3 else ("unique", f"kw-{i}"),
+                pattern_indicators=("NodeCompute",) if i < 3 else ("NodeEffect",),
+                labels=("compute",) if i < 3 else ("effect",),
+            )
+            for i in range(6)
+        ]
+
+        emitter = MagicMock()
+        cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
+
+        # Extract replay artifact payload
+        emitter.emit.assert_called_once()
+        payload = emitter.emit.call_args[0][1]
+        assignment_map = payload["cluster_assignment_map"]
+
+        # Invariant 1: Every input item appears in assignment_map
+        input_item_ids = {f["item_id"] for f in features}
+        assigned_item_ids = set(assignment_map.keys())
+
+        assert len(assignment_map) == len(features), (
+            f"Assignment map size {len(assignment_map)} != input size {len(features)}"
+        )
+        assert assigned_item_ids == input_item_ids, (
+            f"Assignment map keys mismatch. "
+            f"Missing: {input_item_ids - assigned_item_ids}, "
+            f"Extra: {assigned_item_ids - input_item_ids}"
+        )
+
+        # Invariant 2: No duplicate item_ids (implicitly verified by dict keys)
+        # But verify explicitly that each item_id maps to exactly one cluster
+        assert len(list(assignment_map.keys())) == len(set(assignment_map.keys())), (
+            "Duplicate item_ids detected in assignment_map"
+        )
+
+    def test_invariant_leaders_match_min_member_ids(
+        self,
+    ) -> None:
+        """For each cluster, leader == min(member_ids for that cluster).
+
+        This invariant ensures deterministic cluster_id assignment.
+        The leader is always the lexicographically smallest member_id.
+        """
+        # Create features that will form distinct clusters with varied item_ids
+        features = [
+            # Group 1: Will cluster together (similar features)
+            make_features(
+                item_id="zulu-node-001",
+                keywords=("group-alpha", "shared"),
+                pattern_indicators=("NodeCompute",),
+                labels=("compute",),
+            ),
+            make_features(
+                item_id="alpha-node-002",
+                keywords=("group-alpha", "shared"),
+                pattern_indicators=("NodeCompute",),
+                labels=("compute",),
+            ),
+            make_features(
+                item_id="mike-node-003",
+                keywords=("group-alpha", "shared"),
+                pattern_indicators=("NodeCompute",),
+                labels=("compute",),
+            ),
+            # Group 2: Will cluster together (different from group 1)
+            make_features(
+                item_id="yankee-effect-001",
+                keywords=("group-beta", "network"),
+                pattern_indicators=("NodeEffect",),
+                labels=("effect",),
+            ),
+            make_features(
+                item_id="bravo-effect-002",
+                keywords=("group-beta", "network"),
+                pattern_indicators=("NodeEffect",),
+                labels=("effect",),
+            ),
+        ]
+
+        emitter = MagicMock()
+        cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
+
+        # Extract replay artifact
+        payload = emitter.emit.call_args[0][1]
+        assignment_map = payload["cluster_assignment_map"]
+        cluster_leaders = payload["cluster_leaders"]
+
+        # Invert assignment_map to get members per cluster
+        members_by_cluster: dict[str, list[str]] = {}
+        for item_id, cluster_id in assignment_map.items():
+            if cluster_id not in members_by_cluster:
+                members_by_cluster[cluster_id] = []
+            members_by_cluster[cluster_id].append(item_id)
+
+        # Verify invariant: leader == min(members) for each cluster
+        for cluster_id, members in members_by_cluster.items():
+            expected_leader = min(members)
+            actual_leader = cluster_leaders[cluster_id]
+
+            assert actual_leader == expected_leader, (
+                f"Cluster {cluster_id}: leader '{actual_leader}' is not the "
+                f"minimum member_id. Expected '{expected_leader}'. "
+                f"Full members: {sorted(members)}"
+            )
+
+    def test_invariant_assignment_cluster_ids_exist_in_leaders(
+        self,
+    ) -> None:
+        """All cluster_ids in assignment_map values exist as keys in leaders map.
+
+        This invariant ensures referential integrity between the two maps.
+        Every cluster referenced in assignment_map must have a corresponding
+        leader defined in cluster_leaders.
+        """
+        # Create features with various clustering behavior
+        features = [
+            make_features(
+                item_id=f"item-{i}",
+                keywords=(f"unique-{i}",) if i % 2 == 0 else ("shared", "common"),
+                pattern_indicators=("Type-A",) if i < 3 else ("Type-B",),
+                labels=(f"label-{i % 3}",),
+            )
+            for i in range(8)
+        ]
+
+        emitter = MagicMock()
+        cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
+
+        # Extract replay artifact
+        payload = emitter.emit.call_args[0][1]
+        assignment_map = payload["cluster_assignment_map"]
+        cluster_leaders = payload["cluster_leaders"]
+
+        # Collect all unique cluster_ids from assignment_map
+        assigned_cluster_ids = set(assignment_map.values())
+
+        # Collect all cluster_ids from leaders map
+        leader_cluster_ids = set(cluster_leaders.keys())
+
+        # Invariant: Every cluster_id in assignment_map exists in cluster_leaders
+        assert assigned_cluster_ids == leader_cluster_ids, (
+            f"Cluster ID mismatch. "
+            f"In assignment but not in leaders: {assigned_cluster_ids - leader_cluster_ids}, "
+            f"In leaders but not in assignment: {leader_cluster_ids - assigned_cluster_ids}"
+        )
+
+        # Additional verification: All cluster_ids follow the expected format
+        for cluster_id in assigned_cluster_ids:
+            assert cluster_id.startswith("cluster-"), (
+                f"Invalid cluster_id format: '{cluster_id}'"
+            )
+            # Verify 4-digit padding: cluster-0001, cluster-0002, etc.
+            suffix = cluster_id[8:]
+            assert len(suffix) == 4 and suffix.isdigit(), (
+                f"Cluster ID should have 4-digit suffix, got: '{cluster_id}'"
+            )
+
+    def test_golden_dataset_exact_assignment(
+        self,
+    ) -> None:
+        """Golden input produces exact expected cluster assignments.
+
+        This test uses a deterministic dataset with known similarity
+        characteristics to verify exact clustering behavior:
+        - "item-a" and "item-b" have identical features (should cluster together)
+        - "item-c" has completely different features (should be separate)
+
+        The exact cluster_ids depend on the leader sorting, so:
+        - "item-a" < "item-b" means "item-a" is leader of their cluster
+        - "item-c" is alone, so it is its own leader
+        - Since "item-a" < "item-c", the cluster with "item-a" gets cluster-0001
+        - The cluster with "item-c" gets cluster-0002
+        """
+        # Create deterministic features with known similarity
+        # item-a and item-b: Identical features (will cluster together)
+        features_a = make_features(
+            item_id="item-a",
+            keywords=("identical", "features", "pair"),
+            pattern_indicators=("NodeCompute", "frozen"),
+            labels=("compute", "pure"),
+            class_count=2,
+            function_count=5,
+            max_nesting_depth=3,
+            line_count=100,
+            cyclomatic_complexity=8,
+            has_type_hints=True,
+            has_docstrings=True,
+        )
+        features_b = make_features(
+            item_id="item-b",
+            keywords=("identical", "features", "pair"),
+            pattern_indicators=("NodeCompute", "frozen"),
+            labels=("compute", "pure"),
+            class_count=2,
+            function_count=5,
+            max_nesting_depth=3,
+            line_count=100,
+            cyclomatic_complexity=8,
+            has_type_hints=True,
+            has_docstrings=True,
+        )
+
+        # item-c: Completely different features (will be separate)
+        features_c = make_features(
+            item_id="item-c",
+            keywords=("completely", "different", "keywords"),
+            pattern_indicators=("NodeEffect", "async"),
+            labels=("effect", "io"),
+            class_count=0,
+            function_count=15,
+            max_nesting_depth=6,
+            line_count=300,
+            cyclomatic_complexity=20,
+            has_type_hints=False,
+            has_docstrings=False,
+        )
+
+        emitter = MagicMock()
+        result = cluster_patterns(
+            [features_a, features_b, features_c],
+            threshold=0.5,
+            replay_emitter=emitter,
+        )
+
+        # Verify we got 2 clusters
+        assert len(result) == 2, f"Expected 2 clusters, got {len(result)}"
+
+        # Extract replay artifact
+        payload = emitter.emit.call_args[0][1]
+        assignment_map = payload["cluster_assignment_map"]
+        cluster_leaders = payload["cluster_leaders"]
+
+        # Verify exact cluster_assignment_map
+        # item-a and item-b should be in cluster-0001 (leader is "item-a")
+        # item-c should be in cluster-0002 (leader is "item-c")
+        expected_assignment_map = {
+            "item-a": "cluster-0001",
+            "item-b": "cluster-0001",
+            "item-c": "cluster-0002",
+        }
+
+        assert assignment_map == expected_assignment_map, (
+            f"Assignment map mismatch.\n"
+            f"Expected: {expected_assignment_map}\n"
+            f"Actual: {assignment_map}"
+        )
+
+        # Verify exact cluster_leaders
+        expected_leaders = {
+            "cluster-0001": "item-a",  # min("item-a", "item-b") = "item-a"
+            "cluster-0002": "item-c",  # only member
+        }
+
+        assert cluster_leaders == expected_leaders, (
+            f"Cluster leaders mismatch.\n"
+            f"Expected: {expected_leaders}\n"
+            f"Actual: {cluster_leaders}"
+        )

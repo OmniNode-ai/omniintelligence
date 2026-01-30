@@ -508,6 +508,196 @@ class TestDeduplicatePatternsDeterminism:
 
 
 # =============================================================================
+# deduplicate_patterns Tests - Determinism Contract (B: sort-internally)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDeduplicatePatternsDeterminismContract:
+    """Tests for B (sort-internally) contract compliance.
+
+    These tests verify that the deduplication output is in canonical order
+    regardless of input ordering, without requiring post-processing sorts.
+    """
+
+    def test_shuffled_clusters_produce_same_deduplication(self) -> None:
+        """Multiple random shuffles of input produce identical output.
+
+        This test verifies that regardless of how the input clusters are ordered,
+        the deduplicated output is always identical - same IDs in same order.
+        """
+        import random
+
+        # Create 5 clusters - some similar enough to merge, others distinct
+        # cluster-0001 and cluster-0002 are identical (will be deduplicated)
+        # cluster-0003, cluster-0004, cluster-0005 are distinct
+        clusters = [
+            make_cluster(
+                cluster_id="cluster-0001",
+                keywords=("alpha", "beta", "gamma"),
+                pattern_indicators=("NodeCompute",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0002",
+                keywords=("alpha", "beta", "gamma"),  # Same as cluster-0001
+                pattern_indicators=("NodeCompute",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0003",
+                keywords=("delta", "epsilon", "zeta"),
+                pattern_indicators=("NodeEffect",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0004",
+                keywords=("eta", "theta", "iota"),
+                pattern_indicators=("NodeReducer",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0005",
+                keywords=("kappa", "lambda", "mu"),
+                pattern_indicators=("NodeOrchestrator",),
+            ),
+        ]
+
+        # Get baseline result
+        baseline_result = deduplicate_patterns(clusters, similarity_threshold=0.85)
+        baseline_ids = [c["cluster_id"] for c in baseline_result["deduplicated_clusters"]]
+
+        # Run 10 iterations with random shuffles
+        random.seed(42)  # For reproducibility
+        for iteration in range(10):
+            shuffled = clusters.copy()
+            random.shuffle(shuffled)
+
+            result = deduplicate_patterns(shuffled, similarity_threshold=0.85)
+            result_ids = [c["cluster_id"] for c in result["deduplicated_clusters"]]
+
+            # Assert identical output (same IDs in same order) - NO sorting needed
+            assert result_ids == baseline_ids, (
+                f"Iteration {iteration}: shuffled input produced different output. "
+                f"Expected {baseline_ids}, got {result_ids}"
+            )
+
+    def test_deduplicated_output_already_in_canonical_order(self) -> None:
+        """Output list is in canonical order without needing sort().
+
+        The deduplicated_clusters list should be pre-sorted by cluster_id,
+        not requiring manual sorting by the caller.
+        """
+        # Create clusters that will be partially merged (0001 and 0002 identical)
+        clusters = [
+            make_cluster(
+                cluster_id="cluster-0005",  # Intentionally out of order
+                keywords=("mu", "nu", "xi"),
+                pattern_indicators=("NodeOrchestrator",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0002",
+                keywords=("alpha", "beta", "gamma"),  # Same as 0001
+                pattern_indicators=("NodeCompute",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0003",
+                keywords=("delta", "epsilon", "zeta"),
+                pattern_indicators=("NodeEffect",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0001",
+                keywords=("alpha", "beta", "gamma"),  # Same as 0002
+                pattern_indicators=("NodeCompute",),
+            ),
+            make_cluster(
+                cluster_id="cluster-0004",
+                keywords=("eta", "theta", "iota"),
+                pattern_indicators=("NodeReducer",),
+            ),
+        ]
+
+        result = deduplicate_patterns(clusters, similarity_threshold=0.85)
+        deduplicated = result["deduplicated_clusters"]
+
+        # Verify there are at least 2 clusters to check ordering
+        assert len(deduplicated) >= 2, "Need at least 2 clusters to verify ordering"
+
+        # Verify the output is already sorted - no manual sorting needed
+        for i in range(len(deduplicated) - 1):
+            current_id = deduplicated[i]["cluster_id"]
+            next_id = deduplicated[i + 1]["cluster_id"]
+            assert current_id < next_id, (
+                f"Output not in canonical order: {current_id} should come before {next_id}. "
+                f"Full order: {[c['cluster_id'] for c in deduplicated]}"
+            )
+
+    def test_confidence_tiebreak_uses_member_count_then_leader(self) -> None:
+        """When confidence ties, member_count breaks tie; when that ties, smaller leader wins.
+
+        Tiebreak order:
+        1. Higher confidence wins
+        2. If confidence ties, larger member_count wins
+        3. If member_count ties, smaller leader (member_ids[0]) wins
+        """
+        # Test case 1: Confidence tie, different member counts
+        # cluster-0001 has 2 members, cluster-0002 has 4 members
+        # Both have same confidence (internal_similarity used as fallback)
+        cluster_fewer_members = make_cluster(
+            cluster_id="cluster-0001",
+            keywords=("shared", "keywords", "here"),
+            pattern_indicators=("NodeCompute",),
+            member_ids=("item-a", "item-b"),
+            member_count=2,
+            internal_similarity=0.85,  # Same confidence
+        )
+        cluster_more_members = make_cluster(
+            cluster_id="cluster-0002",
+            keywords=("shared", "keywords", "here"),  # Same - will be deduplicated
+            pattern_indicators=("NodeCompute",),
+            member_ids=("item-c", "item-d", "item-e", "item-f"),
+            member_count=4,
+            internal_similarity=0.85,  # Same confidence
+        )
+
+        result1 = deduplicate_patterns(
+            [cluster_fewer_members, cluster_more_members],
+            similarity_threshold=0.5,  # Low threshold to force deduplication
+        )
+
+        assert len(result1["deduplicated_clusters"]) == 1
+        # Cluster with more members survives
+        assert result1["deduplicated_clusters"][0]["cluster_id"] == "cluster-0002", (
+            "When confidence ties, larger member_count should win"
+        )
+
+        # Test case 2: Confidence tie AND member_count tie, smaller leader wins
+        cluster_larger_leader = make_cluster(
+            cluster_id="cluster-0003",
+            keywords=("identical", "pattern", "set"),
+            pattern_indicators=("NodeEffect",),
+            member_ids=("zebra-item",),  # Larger leader
+            member_count=1,
+            internal_similarity=0.85,
+        )
+        cluster_smaller_leader = make_cluster(
+            cluster_id="cluster-0004",
+            keywords=("identical", "pattern", "set"),  # Same - will be deduplicated
+            pattern_indicators=("NodeEffect",),
+            member_ids=("alpha-item",),  # Smaller leader
+            member_count=1,
+            internal_similarity=0.85,
+        )
+
+        result2 = deduplicate_patterns(
+            [cluster_larger_leader, cluster_smaller_leader],
+            similarity_threshold=0.5,  # Low threshold to force deduplication
+        )
+
+        assert len(result2["deduplicated_clusters"]) == 1
+        # Cluster with smaller leader (member_ids[0]) survives
+        assert result2["deduplicated_clusters"][0]["cluster_id"] == "cluster-0004", (
+            "When confidence and member_count tie, smaller leader should win"
+        )
+
+
+# =============================================================================
 # deduplicate_patterns Tests - Validation
 # =============================================================================
 
@@ -545,6 +735,232 @@ class TestDeduplicatePatternsValidation:
         """similarity_threshold = 1.0 should be accepted."""
         result = deduplicate_patterns([make_cluster()], similarity_threshold=1.0)
         assert result["threshold_used"] == 1.0
+
+
+# =============================================================================
+# Replay Artifact Invariant Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDeduplicationReplayInvariants:
+    """Surgical invariant tests for signature and warning artifacts.
+
+    These tests verify exact replay artifacts for determinism guarantees:
+    - Signature golden hash must match exactly (no drift)
+    - Warning cluster IDs must reference valid input clusters
+    - Warning similarity must be within the documented margin
+    """
+
+    def test_signature_golden_input_exact_hash(self) -> None:
+        """Golden cluster input produces exact expected signature hash.
+
+        FROZEN TEST DATA:
+            cluster_id="test-golden"
+            pattern_type="compute"
+            keywords=("async", "await", "handler")
+            pattern_indicators=("NodeCompute", "BaseModel")
+
+        Expected signature inputs (normalized, sorted):
+            ("compute", "async", "await", "handler", "basemodel", "nodecompute")
+
+        This test MUST fail if signature algorithm changes, alerting developers
+        to bump SIGNATURE_VERSION.
+        """
+        # Create FROZEN cluster with exact known values
+        cluster = make_cluster(
+            cluster_id="test-golden",
+            pattern_type="compute",
+            keywords=("async", "await", "handler"),
+            pattern_indicators=("NodeCompute", "BaseModel"),
+        )
+
+        sig = generate_pattern_signature(cluster)
+
+        # Assert exact golden hash (computed once, frozen forever)
+        expected_hash = "f627fa55ebd8499dea29b6c42c5ed0f91acfe4ba9eb9328b7ff1cdb70b720684"
+        assert sig["signature"] == expected_hash, (
+            f"Signature hash drift detected! "
+            f"Expected {expected_hash}, got {sig['signature']}. "
+            f"If algorithm changed intentionally, bump SIGNATURE_VERSION."
+        )
+
+        # Assert version matches preset
+        assert sig["signature_version"] == SIGNATURE_VERSION
+
+        # Assert exact signature inputs (order matters for hash)
+        expected_inputs = (
+            "compute",
+            "async",
+            "await",
+            "handler",
+            "basemodel",
+            "nodecompute",
+        )
+        assert sig["signature_inputs"] == expected_inputs
+
+    def test_near_threshold_warning_cluster_ids_are_valid(self) -> None:
+        """Warning cluster_a_id and cluster_b_id are from input clusters.
+
+        This invariant ensures warnings reference actual clusters, not phantom IDs.
+        Both cluster_a_id and cluster_b_id must exist in the input cluster list.
+        """
+        # Create clusters that will trigger a near-threshold warning
+        # Using similarity just below threshold (within NEAR_THRESHOLD_MARGIN)
+        cluster1 = make_cluster(
+            cluster_id="cluster-warning-a",
+            keywords=("alpha", "beta", "gamma", "delta"),
+            pattern_indicators=("NodeCompute",),
+        )
+        cluster2 = make_cluster(
+            cluster_id="cluster-warning-b",
+            keywords=("alpha", "beta", "gamma", "epsilon"),  # High overlap
+            pattern_indicators=("NodeCompute",),
+        )
+        cluster3 = make_cluster(
+            cluster_id="cluster-warning-c",
+            keywords=("zeta", "eta", "theta", "iota"),  # Different
+            pattern_indicators=("NodeEffect",),
+        )
+
+        input_clusters = [cluster1, cluster2, cluster3]
+        input_cluster_ids = {c["cluster_id"] for c in input_clusters}
+
+        # Run deduplication with margin that might produce warnings
+        result = deduplicate_patterns(
+            input_clusters,
+            similarity_threshold=0.85,
+            near_threshold_margin=NEAR_THRESHOLD_MARGIN,
+        )
+
+        # Assert ALL warning cluster IDs are from the input
+        for warning in result["near_threshold_warnings"]:
+            assert warning["cluster_a_id"] in input_cluster_ids, (
+                f"Warning cluster_a_id '{warning['cluster_a_id']}' "
+                f"not in input clusters: {input_cluster_ids}"
+            )
+            assert warning["cluster_b_id"] in input_cluster_ids, (
+                f"Warning cluster_b_id '{warning['cluster_b_id']}' "
+                f"not in input clusters: {input_cluster_ids}"
+            )
+
+    def test_invariant_warning_similarity_within_margin(self) -> None:
+        """Warning similarity is within NEAR_THRESHOLD_MARGIN of threshold.
+
+        For "kept_separate" warnings:
+            threshold - margin <= similarity < threshold
+
+        For "merged" warnings:
+            threshold <= similarity < threshold + margin
+
+        This invariant ensures warnings are only emitted for borderline cases.
+        """
+        # Create clusters with high similarity that will merge
+        cluster1 = make_cluster(
+            cluster_id="cluster-margin-a",
+            keywords=("shared", "common", "terms"),
+            pattern_indicators=("NodeCompute",),
+        )
+        cluster2 = make_cluster(
+            cluster_id="cluster-margin-b",
+            keywords=("shared", "common", "terms"),  # Identical = high similarity
+            pattern_indicators=("NodeCompute",),
+        )
+        # Create a cluster that's somewhat similar (partial overlap)
+        cluster3 = make_cluster(
+            cluster_id="cluster-margin-c",
+            keywords=("shared", "different", "stuff"),
+            pattern_indicators=("NodeCompute",),
+        )
+
+        threshold = 0.85
+        margin = NEAR_THRESHOLD_MARGIN
+
+        result = deduplicate_patterns(
+            [cluster1, cluster2, cluster3],
+            similarity_threshold=threshold,
+            near_threshold_margin=margin,
+        )
+
+        # Verify each warning's similarity is in the correct range
+        for warning in result["near_threshold_warnings"]:
+            sim = warning["similarity"]
+            action = warning["action_taken"]
+
+            if action == "kept_separate":
+                # Similarity should be: threshold - margin <= sim < threshold
+                assert (threshold - margin) <= sim < threshold, (
+                    f"kept_separate warning has similarity {sim} outside valid range "
+                    f"[{threshold - margin}, {threshold}). Margin={margin}"
+                )
+            elif action == "merged":
+                # Similarity should be: threshold <= sim < threshold + margin
+                assert threshold <= sim < (threshold + margin), (
+                    f"merged warning has similarity {sim} outside valid range "
+                    f"[{threshold}, {threshold + margin}). Margin={margin}"
+                )
+            else:
+                pytest.fail(f"Unknown action_taken: {action}")
+
+    def test_near_threshold_no_false_warnings(self) -> None:
+        """Clusters with similarity far from threshold produce no warnings.
+
+        When similarity is significantly below or above the threshold
+        (outside the NEAR_THRESHOLD_MARGIN window), no warnings should be emitted.
+        """
+        threshold = 0.85
+        margin = NEAR_THRESHOLD_MARGIN  # 0.05
+
+        # Create clusters with very LOW similarity (far below threshold - margin)
+        # Completely different keywords = similarity ~0.0
+        cluster_low_a = make_cluster(
+            cluster_id="cluster-far-low-a",
+            keywords=("aaa", "bbb", "ccc"),
+            pattern_indicators=("NodeCompute",),
+        )
+        cluster_low_b = make_cluster(
+            cluster_id="cluster-far-low-b",
+            keywords=("xxx", "yyy", "zzz"),  # Completely different
+            pattern_indicators=("NodeEffect",),  # Also different indicator
+        )
+
+        result_low = deduplicate_patterns(
+            [cluster_low_a, cluster_low_b],
+            similarity_threshold=threshold,
+            near_threshold_margin=margin,
+        )
+
+        # Very low similarity should not trigger warnings
+        assert result_low["near_threshold_warnings"] == [], (
+            f"Clusters with very low similarity should not produce warnings. "
+            f"Got: {result_low['near_threshold_warnings']}"
+        )
+
+        # Create clusters with very HIGH similarity (far above threshold + margin)
+        # Using threshold = 0.5 so identical clusters (sim=1.0) are far above threshold + margin
+        cluster_high_a = make_cluster(
+            cluster_id="cluster-far-high-a",
+            keywords=("identical", "keywords", "here"),
+            pattern_indicators=("NodeCompute",),
+        )
+        cluster_high_b = make_cluster(
+            cluster_id="cluster-far-high-b",
+            keywords=("identical", "keywords", "here"),  # Same = sim ~1.0
+            pattern_indicators=("NodeCompute",),
+        )
+
+        # With threshold=0.5 and margin=0.05, sim=1.0 is far above 0.55
+        result_high = deduplicate_patterns(
+            [cluster_high_a, cluster_high_b],
+            similarity_threshold=0.5,
+            near_threshold_margin=margin,
+        )
+
+        # Very high similarity (far above threshold+margin) should not trigger warnings
+        assert result_high["near_threshold_warnings"] == [], (
+            f"Clusters with very high similarity (far above threshold) should not "
+            f"produce warnings. Got: {result_high['near_threshold_warnings']}"
+        )
 
 
 # =============================================================================
