@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omniintelligence.nodes.pattern_learning_compute.models import (
     TrainingDataItemDict,
 )
@@ -43,16 +41,3 @@ def make_training_item(
         context="test",
         framework="onex",
     )
-
-
-@pytest.fixture
-def training_item_factory():
-    """Provide make_training_item as a fixture.
-
-    This fixture returns the factory function itself, allowing tests to
-    create training items with custom parameters.
-
-    Returns:
-        The make_training_item factory function.
-    """
-    return make_training_item

@@ -619,8 +619,12 @@ def _cluster_to_learned_pattern(
     # Timestamps
     now = datetime.now(UTC)
 
-    # Build pattern name
-    pattern_name = f"{pattern_type_str}_pattern"
+    # Build pattern name - avoid redundant "_pattern" suffix
+    pattern_name = (
+        pattern_type_str
+        if pattern_type_str.endswith("_pattern")
+        else f"{pattern_type_str}_pattern"
+    )
 
     return ModelLearnedPattern(
         pattern_id=pattern_id,
