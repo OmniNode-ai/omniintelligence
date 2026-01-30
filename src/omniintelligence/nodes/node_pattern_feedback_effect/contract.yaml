@@ -32,8 +32,8 @@ description: >
   Effect node for recording session outcomes and updating rolling window metrics in PostgreSQL. Receives
   session outcome events containing session_id, success flag, optional failure_reason, and correlation_id.
   Updates the pattern_injections table to mark outcomes as recorded and updates the learned_patterns table
-  with rolling window metrics (rolling_20 counters using decay approximation). Provides feedback loop data
-  for pattern learning and confidence scoring nodes.
+  with rolling window metrics (rolling_20 counters using decay approximation). Provides feedback loop
+  data for pattern learning and confidence scoring nodes.
 # Strongly typed I/O models
 input_model:
   name: "ModelSessionOutcomeRequest"
@@ -100,7 +100,8 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolPatternRepository"
     module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome"
-    description: "Pattern repository protocol for database operations (fetch/execute) on session outcomes and rolling metrics"
+    description: "Pattern repository protocol for database operations (fetch/execute) on session outcomes
+      and rolling metrics"
     required: true
 
 # =============================================================================
