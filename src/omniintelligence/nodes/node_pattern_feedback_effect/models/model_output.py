@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EnumOutcomeRecordingStatus(str, Enum):
@@ -33,6 +33,8 @@ class ModelSessionOutcomeResult(BaseModel):
     This model represents the outcome of processing a session feedback
     request, including how many patterns were updated and any errors.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     status: EnumOutcomeRecordingStatus = Field(
         ...,

@@ -186,6 +186,15 @@ async def record_session_outcome(
 
     Raises:
         Exception: Propagates database errors for caller to handle.
+
+    Note:
+        Transaction Handling: This function executes multiple queries (fetch,
+        then two updates) without explicit transaction management. If atomicity
+        is required, the caller must provide a repository/connection that is
+        already within a transaction context. Without a transaction, if a query
+        fails mid-execution (e.g., the second update fails after the first
+        succeeds), data may be left in an inconsistent state where injections
+        are marked as recorded but pattern metrics are not updated.
     """
     # Step 1: Find unrecorded injections for this session
     injection_rows = await repository.fetch(
