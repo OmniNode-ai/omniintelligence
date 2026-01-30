@@ -1,0 +1,167 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternFeedbackEffect
+#
+# This contract defines the interface for the pattern feedback effect node.
+# The node receives session outcome events and updates rolling window metrics
+# in PostgreSQL for pattern learning feedback loops.
+#
+# Reference: OMN-1678 - Rolling window metric updates for session outcomes
+
+# Contract identifiers
+name: "pattern_feedback_effect"
+contract_name: "pattern_feedback_effect"
+node_name: "pattern_feedback_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node for recording session outcomes and updating rolling window metrics in PostgreSQL. Receives
+  session outcome events containing session_id, success flag, optional failure_reason, and correlation_id.
+  Updates the pattern_injections table to mark outcomes as recorded and updates the learned_patterns table
+  with rolling window metrics (rolling_20 counters using decay approximation). Provides feedback loop
+  data for pattern learning and confidence scoring nodes.
+# Strongly typed I/O models
+input_model:
+  name: "ModelSessionOutcomeRequest"
+  module: "omniintelligence.nodes.node_pattern_feedback_effect.models"
+  description: "Input model for session outcome recording requests."
+output_model:
+  name: "ModelSessionOutcomeResult"
+  module: "omniintelligence.nodes.node_pattern_feedback_effect.models"
+  description: "Output model containing recording status and updated metric summary."
+
+# =============================================================================
+# HANDLER ROUTING (Single Entry Point)
+# =============================================================================
+# This node has a single primary operation: record session outcomes.
+# Future versions may add additional handlers for metric queries or batch updates.
+#
+# Implementation Note:
+#   The main entry point is `record_session_outcome()` which:
+#     - Finds unrecorded pattern_injections for the session
+#     - Marks injections as recorded with outcome (success/failure)
+#     - Updates rolling window metrics in learned_patterns table
+#     - Returns counts of updated records
+#
+# Execution Flow:
+#   1. Receive ModelSessionOutcomeRequest with session_id, success, failure_reason
+#   2. Find all pattern_injections for this session that haven't been processed
+#   3. Mark injections as recorded with the outcome
+#   4. Update rolling_20 metrics for all unique patterns involved (decay approximation)
+#   5. Return ModelSessionOutcomeResult with status, counts, and pattern_ids
+# =============================================================================
+handler_routing:
+  routing_strategy: "single_entry"
+  entry_point:
+    function: "record_session_outcome"
+    module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome"
+    type: "async"
+    description: "Main entry point for recording session outcomes and updating rolling metrics"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "record_session_outcome"
+    description: "Record a session outcome and update rolling window metrics for the associated pattern"
+    input_fields:
+      - session_id
+      - success
+      - failure_reason
+      - correlation_id
+    output_fields:
+      - status
+      - session_id
+      - injections_updated
+      - patterns_updated
+      - pattern_ids
+      - recorded_at
+      - error_message
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "pattern_repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome"
+    description: "Pattern repository protocol for database operations (fetch/execute) on session outcomes
+      and rolling metrics"
+    required: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "IntegrityError"
+
+  error_types:
+    - name: "PatternNotFoundError"
+      description: "Referenced pattern_id does not exist in patterns table"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DatabaseWriteError"
+      description: "Failed to write outcome or update metrics in PostgreSQL"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "RollingWindowUpdateError"
+      description: "Failed to update rolling window aggregates"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ValidationError"
+      description: "Invalid session outcome request data"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "database_write"
+    description: "Write session outcome records to PostgreSQL"
+  - name: "pattern_metrics"
+    description: "Update rolling window metrics for pattern learning feedback"
+  - name: "session_outcome"
+    description: "Record and track session success/failure outcomes"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  tags:
+    - effect
+    - pattern-learning
+    - feedback
+    - rolling-window
+    - postgresql
+  references:
+    - ticket: "OMN-1678"
+      url: "https://linear.app/omninode/issue/OMN-1678"
+      description: "Rolling window metric updates for session outcomes"
