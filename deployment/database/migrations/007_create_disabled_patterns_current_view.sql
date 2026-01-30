@@ -14,8 +14,9 @@
 --   1. Each unique (pattern_id, pattern_class) combination is tracked independently
 --   2. The latest event_at timestamp wins for determining current state
 --   3. Only 'disabled' events appear in the view; 're_enabled' events remove patterns
---   4. COALESCE(pattern_id::text, pattern_class) creates a unique partition key
---      ensuring patterns with pattern_id are distinct from class-only disables
+--   4. Partition key uses namespace prefixes ('id:' or 'class:') to prevent
+--      collisions between pattern_id UUIDs and pattern_class strings
+--   5. Tie-breakers (created_at, id) ensure deterministic ordering on timestamp ties
 --
 -- Refresh Strategy:
 --   - This view must be refreshed by application code after inserting events
@@ -46,8 +47,8 @@ WITH ranked_events AS (
         actor,
         created_at,
         ROW_NUMBER() OVER (
-            PARTITION BY COALESCE(pattern_id::text, pattern_class)
-            ORDER BY event_at DESC
+            PARTITION BY COALESCE('id:' || pattern_id::text, 'class:' || pattern_class)
+            ORDER BY event_at DESC, created_at DESC, id DESC
         ) AS rn
     FROM pattern_disable_events
 )
@@ -70,7 +71,7 @@ WHERE rn = 1
 -- ============================================================================
 -- REFRESH MATERIALIZED VIEW CONCURRENTLY requires at least one unique index.
 -- Since (pattern_id, pattern_class) can have NULL values and we partition by
--- COALESCE(pattern_id::text, pattern_class), we need two partial indexes:
+-- COALESCE('id:' || pattern_id::text, 'class:' || pattern_class), we need two partial indexes:
 
 -- Unique index for pattern_id-based disables (pattern_id is NOT NULL)
 -- This covers disables targeting specific patterns
