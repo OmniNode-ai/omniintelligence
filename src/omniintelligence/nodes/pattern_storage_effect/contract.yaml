@@ -1,0 +1,358 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternStorageEffect
+#
+# This contract defines the interface for the pattern storage effect node.
+# The node receives pattern-learned events and persists patterns to storage,
+# emitting pattern-stored and pattern-promoted events.
+#
+# Reference: OMN-1668 - Pattern Storage Effect Node
+
+# Contract identifiers
+name: "pattern_storage_effect"
+contract_name: "pattern_storage_effect"
+node_name: "pattern_storage_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node for persisting learned patterns to storage. Receives pattern-learned events from the pattern
+  learning pipeline, validates patterns, and persists them to the pattern store. Supports pattern promotion
+  from candidate to active status based on confidence thresholds and validation criteria. Emits pattern-stored
+  events for successful persistence and pattern-promoted events when patterns are promoted to active status.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelPatternStorageInput"
+  module: "omniintelligence.nodes.pattern_storage_effect.models"
+  description: "Input model containing learned pattern data for storage operations."
+
+# Output model routing:
+#   - store_pattern operation  -> ModelPatternStoredEvent (pattern-stored.v1)
+#   - promote_pattern operation -> ModelPatternPromotedEvent (pattern-promoted.v1)
+# The primary output_model is ModelPatternStoredEvent (default handler).
+# See io_operations and publish_topic_metadata for operation-specific schemas.
+output_model:
+  name: "ModelPatternStoredEvent"
+  module: "omniintelligence.nodes.pattern_storage_effect.models"
+  description: "Primary output model for store operations. Promote operations return ModelPatternPromotedEvent
+    instead."
+output_models:
+  - name: "ModelPatternStoredEvent"
+    module: "omniintelligence.nodes.pattern_storage_effect.models"
+    operation: "store_pattern"
+    topic: "onex.evt.omniintelligence.pattern-stored.v1"
+    description: "Emitted when a pattern is successfully stored."
+  - name: "ModelPatternPromotedEvent"
+    module: "omniintelligence.nodes.pattern_storage_effect.models"
+    operation: "promote_pattern"
+    topic: "onex.evt.omniintelligence.pattern-promoted.v1"
+    description: "Emitted when a pattern is promoted to a new state."
+
+# =============================================================================
+# HANDLER ROUTING (Operation-Based Dispatch)
+# =============================================================================
+# Routes operations based on the storage action type. Implements two main
+# operations: store (persist new patterns) and promote (upgrade candidate
+# patterns to active status).
+#
+# Execution Flow:
+#   1. Receive ModelPatternStorageInput from Kafka event
+#   2. Validate pattern data and storage requirements
+#   3. Route to appropriate handler (store or promote)
+#   4. Persist to pattern store
+#   5. Emit appropriate result event to Kafka:
+#      - store_pattern  -> ModelPatternStoredEvent (pattern-stored.v1)
+#      - promote_pattern -> ModelPatternPromotedEvent (pattern-promoted.v1)
+#   6. Return operation-specific output model
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "route_storage_operation"
+    module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage"
+    type: "async"
+    description: "Main entry point that routes storage operations to appropriate handlers"
+  handlers:
+    # Store pattern - persist new pattern to storage
+    - operation: "store_pattern"
+      handler:
+        function: "handle_store_pattern"
+        module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern"
+        type: "async"
+      description: "Persist a learned pattern to storage"
+      actions:
+        - "validate pattern data"
+        - "persist to pattern store"
+        - "emit pattern-stored event"
+
+    # Promote pattern - upgrade from candidate to active
+    - operation: "promote_pattern"
+      handler:
+        function: "handle_promote_pattern"
+        module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern"
+        type: "async"
+      description: "Promote a candidate pattern to active status"
+      actions:
+        - "validate promotion criteria"
+        - "update pattern status"
+        - "emit pattern-promoted event"
+
+  # Default handler for unrecognized operations
+  default_handler:
+    function: "handle_store_pattern"
+    module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage"
+    type: "async"
+    description: "Default to store operation for pattern-learned events"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "store_pattern"
+    description: "Persist a learned pattern to the pattern store"
+    input_model: "ModelPatternStorageInput"
+    output_model: "ModelPatternStoredEvent"
+    output_topic: "onex.evt.omniintelligence.pattern-stored.v1"
+    input_fields:
+      - pattern_id
+      - signature
+      - signature_hash
+      - domain
+      - confidence
+      - correlation_id
+      - version
+      - metadata
+      - learned_at
+    output_fields:
+      - pattern_id
+      - signature
+      - signature_hash
+      - domain
+      - version
+      - confidence
+      - state
+      - stored_at
+      - actor
+      - source_run_id
+      - correlation_id
+
+  - operation: "promote_pattern"
+    description: "Promote a candidate pattern to active status"
+    input_model: "ModelPatternStorageInput"
+    output_model: "ModelPatternPromotedEvent"
+    output_topic: "onex.evt.omniintelligence.pattern-promoted.v1"
+    input_fields:
+      - pattern_id
+      - correlation_id
+    output_fields:
+      - pattern_id
+      - from_state
+      - to_state
+      - reason
+      - metrics_snapshot
+      - promoted_at
+      - correlation_id
+      - actor
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+# PURPOSE: Human-readable documentation of WHAT events this node produces.
+#
+# This section provides rich metadata for:
+#   - IntentTypeExtractor (capability inference)
+#   - Contract validation and diff computation
+#   - Human understanding of node behavior
+#
+# Contains: event_type, trigger conditions, descriptions, full topic patterns.
+#
+# NOTE: This is intentionally separate from event_bus (below) which handles
+# WHERE events are routed. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Topic naming: onex.{kind}.{producer}.{event-name}.v{n}
+#   - kind=cmd for commands/inputs
+#   - kind=evt for events/outputs
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omniintelligence.pattern-stored.v1"
+    full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-stored.v1"
+    event_type: "PatternStored"
+    trigger: "Pattern successfully persisted to storage"
+    description: "Emitted when a learned pattern is successfully stored. Contains pattern ID, storage
+      location, and persistence metadata."
+
+  - topic_suffix: "onex.evt.omniintelligence.pattern-promoted.v1"
+    full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
+    event_type: "PatternPromoted"
+    trigger: "Candidate pattern promoted to active status"
+    description: "Emitted when a candidate pattern meets promotion criteria and is upgraded to active
+      status. Contains pattern ID and status transition details."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# Contains: topic suffixes (simple strings) + optional schema references.
+#
+# NOTE: This is intentionally separate from published_events (above) which
+# documents WHAT events this node produces. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Added by OMN-1668 for pattern storage event handling.
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  subscribe_topics:
+    - "onex.evt.omniintelligence.pattern-learned.v1"
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "onex.evt.omniintelligence.pattern-stored.v1"
+    - "onex.evt.omniintelligence.pattern-promoted.v1"
+
+  # Metadata for subscribed topics
+  # Note: consumer_group is NOT specified here - it's runtime configuration
+  # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
+  subscribe_topic_metadata:
+    "onex.evt.omniintelligence.pattern-learned.v1":
+      schema_ref: "omniintelligence.nodes.pattern_storage_effect.models.ModelPatternStorageInput"
+      description: "Learned pattern events from pattern_learning_compute pipeline. Contains pattern data,
+        confidence scores, and learning metadata."
+      content_type: "application/json"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.pattern-stored.v1":
+      schema_ref: "omniintelligence.nodes.pattern_storage_effect.models.ModelPatternStoredEvent"
+      description: "Pattern storage confirmation with storage location and metadata"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.pattern-promoted.v1":
+      schema_ref: "omniintelligence.nodes.pattern_storage_effect.models.ModelPatternPromotedEvent"
+      description: "Pattern promotion confirmation with status transition details"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "pattern_store"
+    type: "protocol"
+    class_name: "ProtocolPatternStore"
+    module: "omniintelligence.protocols.protocol_pattern_store"
+    description: "Pattern storage protocol for persisting and retrieving patterns"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaProducer"
+    module: "omnibase_infra.protocols.protocol_kafka_producer"
+    description: "Kafka producer for emitting pattern storage events"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "StorageUnavailableError"
+
+  error_types:
+    - name: "PatternStorageError"
+      error_code: "PATSTOR_001"
+      description: "Failed to persist pattern to storage"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "PatternValidationError"
+      error_code: "PATSTOR_002"
+      description: "Pattern data failed validation"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternPromotionError"
+      error_code: "PATSTOR_003"
+      description: "Failed to promote pattern to active status"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "KafkaPublishError"
+      error_code: "PATSTOR_004"
+      description: "Failed to publish storage event to Kafka"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "pattern_storage.store"
+    description: "Persist learned patterns to storage"
+    version: "1.0.0"
+  - name: "pattern_storage.promote"
+    description: "Promote candidate patterns to active status"
+    version: "1.0.0"
+  - name: "pattern_storage.kafka_emission"
+    description: "Emit pattern storage events to Kafka for downstream consumers"
+    version: "1.0.0"
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  tags:
+    - effect
+    - pattern-storage
+    - kafka
+    - persistence
+  references:
+    - ticket: "OMN-1668"
+      url: "https://linear.app/omninode/issue/OMN-1668"
+      description: "Pattern Storage Effect Node"
