@@ -40,3 +40,6 @@ class ModelPromotionCheckRequest(BaseModel):
         default=None,
         description="Optional correlation ID for tracing",
     )
+
+
+__all__ = ["ModelPromotionCheckRequest"]

@@ -175,6 +175,7 @@ class NodePatternPromotionEffect(NodeEffect):
                 patterns_eligible=0,
                 patterns_promoted=[],
                 correlation_id=correlation_id,
+                error_message="Repository not configured",
             )
 
         try:
@@ -228,6 +229,7 @@ class NodePatternPromotionEffect(NodeEffect):
                 patterns_eligible=0,
                 patterns_promoted=[],
                 correlation_id=correlation_id,
+                error_message=f"Recoverable infrastructure error: {e!s}",
             )
         except Exception as e:
             # Unexpected error (programming error, data corruption, etc.).
@@ -244,6 +246,7 @@ class NodePatternPromotionEffect(NodeEffect):
                 patterns_eligible=0,
                 patterns_promoted=[],
                 correlation_id=correlation_id,
+                error_message=f"Unexpected error: {e!s}",
             )
 
 

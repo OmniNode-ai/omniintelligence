@@ -493,6 +493,18 @@ async def promote_pattern(
                 "pattern_id": str(pattern_id),
             },
         )
+        # Return early without emitting event - pattern wasn't actually promoted
+        # Build gate snapshot for diagnostic purposes only
+        return ModelPromotionResult(
+            pattern_id=pattern_id,
+            pattern_signature=pattern_signature,
+            from_status="provisional",
+            to_status="validated",
+            promoted_at=None,  # None indicates no actual promotion occurred
+            reason="already_promoted_or_status_changed",
+            gate_snapshot=build_gate_snapshot(pattern_data),
+            dry_run=False,
+        )
 
     # Step 2: Build gate snapshot
     gate_snapshot = build_gate_snapshot(pattern_data)

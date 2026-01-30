@@ -118,6 +118,10 @@ class ModelPromotionCheckResult(BaseModel):
         default=None,
         description="Correlation ID for tracing, if provided in request",
     )
+    error_message: str | None = Field(
+        default=None,
+        description="Error message if an error occurred during promotion check",
+    )
 
 
 class ModelPatternPromotedEvent(BaseModel):
