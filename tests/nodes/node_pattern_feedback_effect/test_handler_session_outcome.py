@@ -1457,3 +1457,266 @@ class TestParseUpdateCount:
     def test_whitespace_handling(self) -> None:
         """Handles various whitespace patterns."""
         assert _parse_update_count("  UPDATE  5  ") == 5
+
+
+# =============================================================================
+# Test Class: Error Handling Tests
+# =============================================================================
+
+
+class MockErrorRepository:
+    """Mock repository that raises exceptions for testing error paths.
+
+    This mock allows configuring whether fetch() or execute() should raise
+    exceptions, enabling tests for error propagation in record_session_outcome.
+    """
+
+    def __init__(
+        self,
+        fetch_error: Exception | None = None,
+        execute_error: Exception | None = None,
+    ) -> None:
+        """Initialize with optional errors to raise.
+
+        Args:
+            fetch_error: Exception to raise on fetch() calls, or None for success
+            execute_error: Exception to raise on execute() calls, or None for success
+        """
+        self._fetch_error = fetch_error
+        self._execute_error = execute_error
+        self._fetch_results: list[MockRecord] = []
+
+    def set_fetch_results(self, results: list[MockRecord]) -> None:
+        """Set the results to return from fetch() if no error configured."""
+        self._fetch_results = results
+
+    async def fetch(self, _query: str, *_args: Any) -> list[MockRecord]:
+        """Execute fetch, raising configured error if present."""
+        if self._fetch_error is not None:
+            raise self._fetch_error
+        return self._fetch_results
+
+    async def execute(self, _query: str, *_args: Any) -> str:
+        """Execute query, raising configured error if present."""
+        if self._execute_error is not None:
+            raise self._execute_error
+        return "UPDATE 1"
+
+
+@pytest.mark.unit
+class TestErrorHandling:
+    """Tests for error propagation from repository failures.
+
+    These tests verify that exceptions from the repository layer
+    properly propagate through record_session_outcome().
+    """
+
+    @pytest.mark.asyncio
+    async def test_repository_fetch_error_propagates(
+        self,
+        sample_session_id: UUID,
+    ) -> None:
+        """Repository fetch() exception propagates to caller.
+
+        When the repository raises an exception during fetch(), the error
+        should propagate up to the caller rather than being silently caught.
+        """
+        # Arrange: Repository that raises on fetch
+        error_message = "Database connection failed"
+        error_repo = MockErrorRepository(fetch_error=ConnectionError(error_message))
+
+        # Act & Assert: Exception propagates
+        with pytest.raises(ConnectionError, match=error_message):
+            await record_session_outcome(
+                session_id=sample_session_id,
+                success=True,
+                repository=error_repo,
+            )
+
+    @pytest.mark.asyncio
+    async def test_repository_execute_error_propagates(
+        self,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Repository execute() exception propagates to caller.
+
+        When the repository raises an exception during execute() (after
+        a successful fetch), the error should propagate up to the caller.
+        """
+        # Arrange: Repository that succeeds on fetch but raises on execute
+        error_message = "Failed to update patterns"
+        error_repo = MockErrorRepository(execute_error=RuntimeError(error_message))
+        # Configure fetch to return injections so we proceed to execute
+        error_repo.set_fetch_results(
+            [
+                MockRecord(
+                    {
+                        "injection_id": uuid4(),
+                        "pattern_ids": [sample_pattern_id],
+                    }
+                )
+            ]
+        )
+
+        # Act & Assert: Exception propagates
+        with pytest.raises(RuntimeError, match=error_message):
+            await record_session_outcome(
+                session_id=sample_session_id,
+                success=True,
+                repository=error_repo,
+            )
+
+
+# =============================================================================
+# Test Class: NodePatternFeedbackEffect Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestNodePatternFeedbackEffect:
+    """Tests for the NodePatternFeedbackEffect node class.
+
+    These tests verify the node's execute() method behavior including:
+    - Error handling when no repository is configured
+    - Error handling when repository raises exceptions
+    - Successful delegation to the handler
+    """
+
+    @pytest.mark.asyncio
+    async def test_execute_without_repository_returns_error(
+        self,
+        sample_session_id: UUID,
+    ) -> None:
+        """Node without repository returns ERROR status with descriptive message.
+
+        When execute() is called before set_repository(), the node should
+        return an error result rather than raising an exception.
+        """
+        from unittest.mock import MagicMock
+
+        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
+            ModelSessionOutcomeRequest,
+        )
+        from omniintelligence.nodes.node_pattern_feedback_effect.node import (
+            NodePatternFeedbackEffect,
+        )
+
+        # Arrange: Node without repository
+        container = MagicMock()
+        node = NodePatternFeedbackEffect(container)
+
+        request = ModelSessionOutcomeRequest(
+            session_id=sample_session_id,
+            success=True,
+        )
+
+        # Act
+        result = await node.execute(request)
+
+        # Assert
+        assert result.status == EnumOutcomeRecordingStatus.ERROR
+        assert result.session_id == sample_session_id
+        assert result.error_message == "Repository not configured"
+        assert node.has_repository is False
+
+    @pytest.mark.asyncio
+    async def test_execute_with_repository_exception_returns_error(
+        self,
+        sample_session_id: UUID,
+    ) -> None:
+        """Node with failing repository returns ERROR status with exception message.
+
+        When the repository raises an exception during processing, the node
+        should catch it and return an error result with the exception message.
+        """
+        from unittest.mock import MagicMock
+
+        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
+            ModelSessionOutcomeRequest,
+        )
+        from omniintelligence.nodes.node_pattern_feedback_effect.node import (
+            NodePatternFeedbackEffect,
+        )
+
+        # Arrange: Node with repository that raises
+        container = MagicMock()
+        node = NodePatternFeedbackEffect(container)
+
+        error_message = "Database connection lost"
+        error_repo = MockErrorRepository(fetch_error=ConnectionError(error_message))
+        node.set_repository(error_repo)
+
+        request = ModelSessionOutcomeRequest(
+            session_id=sample_session_id,
+            success=True,
+        )
+
+        # Act
+        result = await node.execute(request)
+
+        # Assert
+        assert result.status == EnumOutcomeRecordingStatus.ERROR
+        assert result.session_id == sample_session_id
+        assert error_message in result.error_message
+        assert node.has_repository is True
+
+    @pytest.mark.asyncio
+    async def test_execute_success_delegates_to_handler(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Node with working repository delegates to handler and returns SUCCESS.
+
+        When repository is properly configured and injections exist, the node
+        should successfully delegate to record_session_outcome and return
+        the handler's result.
+        """
+        from unittest.mock import MagicMock
+
+        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
+            ModelSessionOutcomeRequest,
+        )
+        from omniintelligence.nodes.node_pattern_feedback_effect.node import (
+            NodePatternFeedbackEffect,
+        )
+
+        # Arrange: Node with working repository
+        container = MagicMock()
+        node = NodePatternFeedbackEffect(container)
+        node.set_repository(mock_repository)
+
+        # Add pattern and injection to repository
+        mock_repository.add_pattern(
+            PatternState(
+                id=sample_pattern_id,
+                injection_count_rolling_20=5,
+                success_count_rolling_20=3,
+                failure_count_rolling_20=2,
+            )
+        )
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        request = ModelSessionOutcomeRequest(
+            session_id=sample_session_id,
+            success=True,
+        )
+
+        # Act
+        result = await node.execute(request)
+
+        # Assert
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert result.session_id == sample_session_id
+        assert result.patterns_updated == 1
+        assert sample_pattern_id in result.pattern_ids
+        assert result.error_message is None
+        assert node.has_repository is True

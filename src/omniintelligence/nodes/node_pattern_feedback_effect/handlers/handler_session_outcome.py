@@ -8,15 +8,15 @@ that were injected during that session.
 
 Rolling Window Decay Approximation:
 -----------------------------------
-We maintain rolling_20 counters that approximate the last 20 injections.
-Since true sliding windows require storing per-injection timestamps, we use
-a decay approximation:
+We maintain rolling_20 counters that approximate the last ROLLING_WINDOW_SIZE
+injections. Since true sliding windows require storing per-injection timestamps,
+we use a decay approximation:
 
 - When adding a success: increment success_count, decrement failure_count if at cap
 - When adding a failure: increment failure_count, decrement success_count if at cap
 
 This ensures:
-1. Counters never exceed 20 (the window size)
+1. Counters never exceed ROLLING_WINDOW_SIZE (the window size)
 2. The ratio reflects recent performance, not all-time performance
 3. Old outcomes are "forgotten" as new ones arrive
 
@@ -41,6 +41,29 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
     ModelSessionOutcomeResult,
 )
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+ROLLING_WINDOW_SIZE: int = 20
+"""The number of recent injections tracked for rolling window metrics.
+
+This constant defines the size of the rolling window used for pattern
+performance metrics. The rolling window approximates tracking the last
+N injections per pattern using a decay algorithm rather than storing
+individual timestamps.
+
+When metrics reach this cap:
+- New outcomes increment their respective counter (success/failure)
+- The opposite counter is decremented to approximate "forgetting" old data
+- Total injection count is capped at this value
+
+Database columns (injection_count_rolling_20, success_count_rolling_20,
+failure_count_rolling_20) use this value in their naming convention.
+Changing this constant requires a corresponding database migration.
+"""
 
 
 # =============================================================================
@@ -115,17 +138,17 @@ WHERE session_id = $1
 """
 
 # SQL for updating rolling metrics on SUCCESS
-# - Increment injection_count (cap at 20)
-# - Increment success_count (cap at 20)
+# - Increment injection_count (cap at ROLLING_WINDOW_SIZE)
+# - Increment success_count (cap at ROLLING_WINDOW_SIZE)
 # - Decay failure_count if at cap (approximates sliding window)
 # - Reset failure_streak to 0
-SQL_UPDATE_METRICS_SUCCESS = """
+SQL_UPDATE_METRICS_SUCCESS = f"""
 UPDATE learned_patterns
 SET
-    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, 20),
-    success_count_rolling_20 = LEAST(success_count_rolling_20 + 1, 20),
+    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
+    success_count_rolling_20 = LEAST(success_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
     failure_count_rolling_20 = CASE
-        WHEN injection_count_rolling_20 >= 20 AND failure_count_rolling_20 > 0
+        WHEN injection_count_rolling_20 >= {ROLLING_WINDOW_SIZE} AND failure_count_rolling_20 > 0
         THEN failure_count_rolling_20 - 1
         ELSE failure_count_rolling_20
     END,
@@ -135,17 +158,17 @@ WHERE id = ANY($1)
 """
 
 # SQL for updating rolling metrics on FAILURE
-# - Increment injection_count (cap at 20)
-# - Increment failure_count (cap at 20)
+# - Increment injection_count (cap at ROLLING_WINDOW_SIZE)
+# - Increment failure_count (cap at ROLLING_WINDOW_SIZE)
 # - Decay success_count if at cap (approximates sliding window)
 # - Increment failure_streak
-SQL_UPDATE_METRICS_FAILURE = """
+SQL_UPDATE_METRICS_FAILURE = f"""
 UPDATE learned_patterns
 SET
-    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, 20),
-    failure_count_rolling_20 = LEAST(failure_count_rolling_20 + 1, 20),
+    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
+    failure_count_rolling_20 = LEAST(failure_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
     success_count_rolling_20 = CASE
-        WHEN injection_count_rolling_20 >= 20 AND success_count_rolling_20 > 0
+        WHEN injection_count_rolling_20 >= {ROLLING_WINDOW_SIZE} AND success_count_rolling_20 > 0
         THEN success_count_rolling_20 - 1
         ELSE success_count_rolling_20
     END,
@@ -284,17 +307,17 @@ async def update_pattern_rolling_metrics(
 
     This function implements the decay approximation for rolling windows.
     Instead of tracking per-injection timestamps, we maintain counters that
-    decay the opposite bucket when at capacity.
+    decay the opposite bucket when at capacity (ROLLING_WINDOW_SIZE).
 
     For SUCCESS:
-        - injection_count_rolling_20 = min(current + 1, 20)
-        - success_count_rolling_20 = min(current + 1, 20)
+        - injection_count_rolling_20 = min(current + 1, ROLLING_WINDOW_SIZE)
+        - success_count_rolling_20 = min(current + 1, ROLLING_WINDOW_SIZE)
         - failure_count_rolling_20 = current - 1 (if at cap and > 0)
         - failure_streak = 0
 
     For FAILURE:
-        - injection_count_rolling_20 = min(current + 1, 20)
-        - failure_count_rolling_20 = min(current + 1, 20)
+        - injection_count_rolling_20 = min(current + 1, ROLLING_WINDOW_SIZE)
+        - failure_count_rolling_20 = min(current + 1, ROLLING_WINDOW_SIZE)
         - success_count_rolling_20 = current - 1 (if at cap and > 0)
         - failure_streak = current + 1
 
@@ -355,6 +378,7 @@ def _parse_update_count(status: str) -> int:
 
 
 __all__ = [
+    "ROLLING_WINDOW_SIZE",
     "ProtocolPatternRepository",
     "record_session_outcome",
     "update_pattern_rolling_metrics",

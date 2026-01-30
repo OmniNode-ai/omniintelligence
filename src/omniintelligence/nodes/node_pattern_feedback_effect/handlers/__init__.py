@@ -35,12 +35,14 @@ Reference:
 """
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
+    ROLLING_WINDOW_SIZE,
     ProtocolPatternRepository,
     record_session_outcome,
     update_pattern_rolling_metrics,
 )
 
 __all__ = [
+    "ROLLING_WINDOW_SIZE",
     "ProtocolPatternRepository",
     "record_session_outcome",
     "update_pattern_rolling_metrics",

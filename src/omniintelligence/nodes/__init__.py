@@ -59,6 +59,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "update_pattern_rolling_metrics",
     ),
+    "ROLLING_WINDOW_SIZE": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "ROLLING_WINDOW_SIZE",
+    ),
     # Computes (7)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.execution_trace_parser_compute.node",
@@ -144,6 +148,7 @@ if TYPE_CHECKING:
     )
 
     from omniintelligence.nodes.node_pattern_feedback_effect import (
+        ROLLING_WINDOW_SIZE as ROLLING_WINDOW_SIZE,
         EnumOutcomeRecordingStatus as EnumOutcomeRecordingStatus,
         ModelSessionOutcomeRequest as ModelSessionOutcomeRequest,
         ModelSessionOutcomeResult as ModelSessionOutcomeResult,
@@ -158,6 +163,7 @@ __all__ = [
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeRequest",
     "ModelSessionOutcomeResult",
+    "ROLLING_WINDOW_SIZE",
     "NodeExecutionTraceParserCompute",
     "NodeIntelligenceOrchestrator",
     "NodeIntelligenceReducer",
