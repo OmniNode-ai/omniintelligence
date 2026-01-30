@@ -42,10 +42,28 @@ input_model:
   name: "ModelPatternStorageInput"
   module: "omniintelligence.nodes.pattern_storage_effect.models"
   description: "Input model containing learned pattern data for storage operations."
+
+# Output model routing:
+#   - store_pattern operation  -> ModelPatternStoredEvent (pattern-stored.v1)
+#   - promote_pattern operation -> ModelPatternPromotedEvent (pattern-promoted.v1)
+# The primary output_model is ModelPatternStoredEvent (default handler).
+# See io_operations and publish_topic_metadata for operation-specific schemas.
 output_model:
   name: "ModelPatternStoredEvent"
   module: "omniintelligence.nodes.pattern_storage_effect.models"
-  description: "Output model containing storage operation results and pattern status."
+  description: "Primary output model for store operations. Promote operations return ModelPatternPromotedEvent
+    instead."
+output_models:
+  - name: "ModelPatternStoredEvent"
+    module: "omniintelligence.nodes.pattern_storage_effect.models"
+    operation: "store_pattern"
+    topic: "onex.evt.omniintelligence.pattern-stored.v1"
+    description: "Emitted when a pattern is successfully stored."
+  - name: "ModelPatternPromotedEvent"
+    module: "omniintelligence.nodes.pattern_storage_effect.models"
+    operation: "promote_pattern"
+    topic: "onex.evt.omniintelligence.pattern-promoted.v1"
+    description: "Emitted when a pattern is promoted to a new state."
 
 # =============================================================================
 # HANDLER ROUTING (Operation-Based Dispatch)
@@ -59,8 +77,10 @@ output_model:
 #   2. Validate pattern data and storage requirements
 #   3. Route to appropriate handler (store or promote)
 #   4. Persist to pattern store
-#   5. Emit appropriate result event (stored or promoted)
-#   6. Return ModelPatternStoredEvent with operation outcome
+#   5. Emit appropriate result event to Kafka:
+#      - store_pattern  -> ModelPatternStoredEvent (pattern-stored.v1)
+#      - promote_pattern -> ModelPatternPromotedEvent (pattern-promoted.v1)
+#   6. Return operation-specific output model
 # =============================================================================
 handler_routing:
   routing_strategy: "operation_match"
@@ -107,34 +127,49 @@ handler_routing:
 io_operations:
   - operation: "store_pattern"
     description: "Persist a learned pattern to the pattern store"
+    input_model: "ModelPatternStorageInput"
+    output_model: "ModelPatternStoredEvent"
+    output_topic: "onex.evt.omniintelligence.pattern-stored.v1"
     input_fields:
       - pattern_id
-      - pattern_data
-      - confidence_score
+      - signature
+      - signature_hash
+      - domain
+      - confidence
       - correlation_id
-      - timestamp_utc
+      - version
       - metadata
+      - learned_at
     output_fields:
-      - status
       - pattern_id
-      - storage_location
+      - signature
+      - signature_hash
+      - domain
+      - version
+      - confidence
+      - state
       - stored_at
-      - error_message
+      - actor
+      - source_run_id
+      - correlation_id
 
   - operation: "promote_pattern"
     description: "Promote a candidate pattern to active status"
+    input_model: "ModelPatternStorageInput"
+    output_model: "ModelPatternPromotedEvent"
+    output_topic: "onex.evt.omniintelligence.pattern-promoted.v1"
     input_fields:
       - pattern_id
-      - promotion_criteria
       - correlation_id
-      - timestamp_utc
     output_fields:
-      - status
       - pattern_id
-      - previous_status
-      - new_status
+      - from_state
+      - to_state
+      - reason
+      - metrics_snapshot
       - promoted_at
-      - error_message
+      - correlation_id
+      - actor
 
 # =============================================================================
 # PUBLISHED EVENTS (Kafka) - Documentation Layer

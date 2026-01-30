@@ -607,17 +607,3 @@ class TestEventValidTransition:
         )
 
         assert event.is_valid_transition() is True
-
-
-__all__ = [
-    "TestActorAndCorrelation",
-    "TestDryRunMode",
-    "TestEventValidTransition",
-    "TestGetValidTargets",
-    "TestInvalidStateTransitions",
-    "TestIsValidTransition",
-    "TestMetricsSnapshot",
-    "TestPatternNotFound",
-    "TestStateTransitionConstants",
-    "TestValidStateTransitions",
-]

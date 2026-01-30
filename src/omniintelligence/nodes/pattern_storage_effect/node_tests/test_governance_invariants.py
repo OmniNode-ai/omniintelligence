@@ -596,17 +596,3 @@ class TestCurrentVersionTracking:
         # Second should be current
         stored2 = mock_pattern_store.patterns[input2.pattern_id]
         assert stored2["is_current"] is True
-
-
-__all__ = [
-    "TestConfidenceRejection",
-    "TestCurrentVersionTracking",
-    "TestEmptyDomainRejection",
-    "TestEmptySignatureRejection",
-    "TestGovernanceConstants",
-    "TestHandlerGovernanceIntegration",
-    "TestLowConfidenceRejection",
-    "TestMinimumConfidenceAcceptance",
-    "TestUniquenessInvariant",
-    "TestValidateGovernance",
-]

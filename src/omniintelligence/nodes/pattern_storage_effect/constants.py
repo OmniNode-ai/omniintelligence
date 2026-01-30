@@ -76,6 +76,11 @@ def is_valid_transition(
 ) -> bool:
     """Check if a state transition is valid.
 
+    CANONICAL SOURCE OF TRUTH: This function (and VALID_TRANSITIONS constant)
+    is the single authoritative source for state transition validation.
+    All handlers and models MUST delegate to this function rather than
+    implementing duplicate validation logic to prevent drift.
+
     Valid transitions are defined by the VALID_TRANSITIONS constant:
         - CANDIDATE -> PROVISIONAL
         - PROVISIONAL -> VALIDATED

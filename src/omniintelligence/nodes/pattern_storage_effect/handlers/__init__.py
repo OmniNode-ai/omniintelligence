@@ -49,37 +49,74 @@ Reference:
     - OMN-1668: Pattern storage effect node implementation
 """
 
-from omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage import (
-    OPERATION_PROMOTE_PATTERN,
-    OPERATION_STORE_PATTERN,
-    PatternStorageRouter,
-    StorageOperationResult,
-    route_storage_operation,
-)
+# =============================================================================
+# Import Error Handling
+# =============================================================================
+# Wrap imports with contextual error messages to help diagnose dependency issues.
+# This is particularly important for complex node packages with multiple handlers.
+
+try:
+    from omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage import (
+        OPERATION_PROMOTE_PATTERN,
+        OPERATION_STORE_PATTERN,
+        PatternStorageRouter,
+        StorageOperationResult,
+        route_storage_operation,
+    )
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import handler_pattern_storage: {e}. "
+        "This handler provides the main routing logic for pattern storage operations. "
+        "Ensure all dependencies (models, constants) are properly installed."
+    ) from e
+
 # State transition constants and validation (canonical source: constants.py)
-from omniintelligence.nodes.pattern_storage_effect.constants import (
-    VALID_TRANSITIONS,
-    get_valid_targets,
-    is_valid_transition,
-)
-from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
-    DEFAULT_ACTOR,
-    ModelStateTransition,
-    PatternNotFoundError,
-    PatternStateTransitionError,
-    ProtocolPatternStateManager,
-    handle_promote_pattern,
-)
-from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
-    GovernanceResult,
-    GovernanceViolation,
-    PatternStateTransition,
-    ProtocolPatternStore,
-    StorePatternResult,
-    create_initial_storage_transition,
-    handle_store_pattern,
-    validate_governance,
-)
+try:
+    from omniintelligence.nodes.pattern_storage_effect.constants import (
+        VALID_TRANSITIONS,
+        get_valid_targets,
+        is_valid_transition,
+    )
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import constants: {e}. "
+        "The constants module defines state transition rules (VALID_TRANSITIONS). "
+        "This is a core dependency required for state validation."
+    ) from e
+
+try:
+    from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
+        DEFAULT_ACTOR,
+        ModelStateTransition,
+        PatternNotFoundError,
+        PatternStateTransitionError,
+        ProtocolPatternStateManager,
+        handle_promote_pattern,
+    )
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import handler_promote_pattern: {e}. "
+        "This handler provides pattern state promotion with audit trail. "
+        "Ensure the models module (EnumPatternState, ModelPatternPromotedEvent) is available."
+    ) from e
+
+try:
+    from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
+        GovernanceResult,
+        GovernanceViolation,
+        PatternStateTransition,
+        ProtocolPatternStore,
+        StorePatternResult,
+        create_initial_storage_transition,
+        handle_store_pattern,
+        validate_governance,
+    )
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import handler_store_pattern: {e}. "
+        "This handler provides pattern storage with governance enforcement. "
+        "Ensure the models module (ModelPatternStorageInput, ModelPatternStoredEvent) is available."
+    ) from e
 
 __all__ = [
     # Constants

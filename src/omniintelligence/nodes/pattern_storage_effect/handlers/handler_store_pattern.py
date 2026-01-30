@@ -528,10 +528,33 @@ async def handle_store_pattern(
     )
 
     if existing_id is not None:
-        # Try to get the original stored_at timestamp for consistency
-        # Fall back to current time if not available (backward compatibility)
+        # Idempotent Return Timestamp Policy:
+        # ----------------------------------
+        # For idempotent returns, we MUST use the original stored_at timestamp to
+        # ensure consistency across retries. The get_stored_at() method retrieves
+        # the timestamp from when the pattern was first stored.
+        #
+        # Fallback Behavior:
+        # If get_stored_at() returns None, this indicates the storage backend does
+        # not support timestamp retrieval (e.g., legacy implementations or in-memory
+        # stores). In this case only, we fall back to the current invocation time.
+        # This fallback is logged for observability so operators can identify
+        # backends that need upgrading.
         original_stored_at = await pattern_store.get_stored_at(existing_id)
-        idempotent_timestamp = original_stored_at if original_stored_at else stored_at
+        if original_stored_at is not None:
+            idempotent_timestamp = original_stored_at
+        else:
+            # Fallback: storage backend does not support timestamp retrieval
+            idempotent_timestamp = stored_at
+            logger.warning(
+                "Idempotent return using fallback timestamp: get_stored_at() returned None. "
+                "Consider upgrading storage backend to support timestamp retrieval for "
+                "consistent idempotent responses.",
+                extra={
+                    "pattern_id": str(input_data.pattern_id),
+                    "existing_id": str(existing_id),
+                },
+            )
 
         logger.info(
             "Idempotent return: pattern already exists",
@@ -541,6 +564,7 @@ async def handle_store_pattern(
                 "domain": input_data.domain,
                 "signature_hash": input_data.signature_hash,
                 "used_original_timestamp": original_stored_at is not None,
+                "timestamp_source": "original" if original_stored_at else "fallback",
                 "correlation_id": (
                     str(input_data.correlation_id)
                     if input_data.correlation_id
@@ -598,8 +622,36 @@ async def handle_store_pattern(
         )
 
     # -------------------------------------------------------------------------
-    # Step 5: Set previous versions as not current
+    # Step 5 & 6: Version management and storage (MUST BE ATOMIC)
     # -------------------------------------------------------------------------
+    # ATOMICITY REQUIREMENT (CRITICAL):
+    #
+    # The following two operations MUST be executed within a single database
+    # transaction by the ProtocolPatternStore implementation:
+    #
+    #   1. set_previous_not_current() - marks existing versions as not current
+    #   2. store_pattern() - inserts new pattern with is_current=true
+    #
+    # INVARIANT AT RISK:
+    #   UNIQUE(domain, signature_hash) WHERE is_current = true
+    #   (Exactly one current version per lineage)
+    #
+    # FAILURE SCENARIO WITHOUT ATOMICITY:
+    #   If set_previous_not_current() succeeds but store_pattern() fails:
+    #   - All previous versions have is_current=false
+    #   - No new version is inserted
+    #   - RESULT: Lineage has ZERO current versions (invariant violated)
+    #   - IMPACT: Pattern lookups for "current" version return nothing
+    #
+    # The handler cannot enforce transaction boundaries at the protocol level.
+    # Implementations of ProtocolPatternStore are REQUIRED to wrap these
+    # operations in a database transaction. See ProtocolPatternStore docstring.
+    #
+    # TODO(OMN-1668): Consider adding a combined atomic_store_with_version_update()
+    # method to the protocol that makes atomicity explicit at the API level.
+    # -------------------------------------------------------------------------
+
+    # Step 5a: Set previous versions as not current
     # This maintains the invariant: UNIQUE(domain, signature_hash) WHERE is_current = true
     updated_count = await pattern_store.set_previous_not_current(
         domain=input_data.domain,
@@ -616,9 +668,9 @@ async def handle_store_pattern(
             },
         )
 
-    # -------------------------------------------------------------------------
-    # Step 6: Store the new pattern with is_current = true
-    # -------------------------------------------------------------------------
+    # Step 5b: Store the new pattern with is_current = true
+    # WARNING: This MUST succeed if set_previous_not_current succeeded,
+    # otherwise the lineage will have no current version. See atomicity note above.
     initial_state = EnumPatternState.CANDIDATE
 
     stored_id = await pattern_store.store_pattern(

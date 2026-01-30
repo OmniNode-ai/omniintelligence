@@ -558,14 +558,3 @@ class TestIdempotencyEdgeCases:
         # Original confidence should be preserved
         stored = mock_pattern_store.patterns[pattern_id]
         assert stored["confidence"] == 0.7
-
-
-__all__ = [
-    "TestIdempotencyEdgeCases",
-    "TestIdempotentStorage",
-    "TestImmutableHistory",
-    "TestIsCurrentFlag",
-    "TestLineageKey",
-    "TestMetadataPreservation",
-    "TestNewVersionCreation",
-]

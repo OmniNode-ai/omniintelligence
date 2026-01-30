@@ -71,6 +71,26 @@ from omniintelligence.nodes.pattern_storage_effect.models.model_pattern_storage_
 DEFAULT_ACTOR: Final[str] = "system"
 """Default actor for state transitions when not specified."""
 
+# Metrics Snapshot Design Decision:
+# ---------------------------------
+# The metrics_snapshot parameter in handle_promote_pattern can be None.
+# This is intentional and has specific semantics:
+#
+#   - None = "metrics were not captured at promotion time"
+#             (e.g., manual promotion, legacy data, or unavailable metrics)
+#
+#   - Empty ModelPatternMetricsSnapshot (all zeros) = "metrics were captured
+#             and they are all zero" (semantically different from "not captured")
+#
+# Audit Trail Implications:
+#   When metrics_snapshot=None appears in audit records, it clearly indicates
+#   that no metrics justification was provided for the promotion. This is
+#   acceptable for certain workflows (e.g., administrative promotions) but
+#   should be reviewed during audits. Callers who have metrics available
+#   should always provide them for better traceability.
+#
+# See: handle_promote_pattern docstring for usage guidance.
+
 
 # =============================================================================
 # Exceptions
@@ -449,11 +469,42 @@ async def handle_promote_pattern(
         )
 
     # Step 3 & 4: Update state and record transition (if state_manager provided)
+    # -------------------------------------------------------------------------
+    # ATOMICITY REQUIREMENT (CRITICAL):
+    #
+    # The following two operations MUST be executed within a single database
+    # transaction by the ProtocolPatternStateManager implementation:
+    #
+    #   1. update_state() - updates the pattern's state in the patterns table
+    #   2. record_transition() - inserts audit record in pattern_state_transitions
+    #
+    # INVARIANT AT RISK:
+    #   All state transitions MUST have a corresponding audit trail record
+    #   (Governance compliance requirement)
+    #
+    # FAILURE SCENARIO WITHOUT ATOMICITY:
+    #   If update_state() succeeds but record_transition() fails:
+    #   - Pattern state is changed to the new state
+    #   - No audit trail record exists for this transition
+    #   - RESULT: State change without audit trail (governance violation)
+    #   - IMPACT: Compliance audits cannot verify transition history;
+    #             debugging state issues becomes impossible
+    #
+    # The handler cannot enforce transaction boundaries at the protocol level.
+    # Implementations of ProtocolPatternStateManager are REQUIRED to wrap these
+    # operations in a database transaction. See ProtocolPatternStateManager docstring.
+    #
+    # TODO(OMN-1668): Consider adding a combined atomic_promote() method to the
+    # protocol that accepts both state and transition data, making atomicity
+    # explicit at the API level.
+    # -------------------------------------------------------------------------
     if state_manager is not None:
-        # Update state in database
+        # Step 3: Update state in database
         await state_manager.update_state(pattern_id, to_state)
 
-        # Record transition in audit table
+        # Step 4: Record transition in audit table
+        # WARNING: This MUST succeed if update_state succeeded, otherwise
+        # the state change will not have an audit trail. See atomicity note above.
         transition = ModelStateTransition(
             pattern_id=pattern_id,
             domain=domain,

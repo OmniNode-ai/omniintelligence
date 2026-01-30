@@ -131,6 +131,15 @@ class ContractLoader:
     Attributes:
         contract_path: Path to the contract.yaml file (optional).
 
+    Thread-Safety:
+        Instance-level caches (_handler_cache, _entry_point_cache) use a
+        check-then-set pattern that is safe for concurrent access because:
+        - Cached values are immutable function references
+        - Duplicate imports are handled safely by Python's import system
+        - Worst case is minor wasted work (duplicate import)
+        For strict thread-safety, use separate ContractLoader instances
+        per thread or wrap method calls in external synchronization.
+
     Example:
         # Using pre-loaded content (ONEX compliant)
         loader = ContractLoader(content=yaml_string)
@@ -448,6 +457,17 @@ class ContractLoader:
 
 
 # Module-level cached loader instance
+#
+# Thread-Safety Note: This cache uses a benign check-then-set pattern.
+# In multi-threaded scenarios, two threads may both create loaders before
+# one sets the cache. This is acceptable because:
+# 1. Both loaders would be equivalent (same contract content)
+# 2. The cache is write-once with immutable values
+# 3. Worst case is minor wasted work (duplicate loader creation)
+# 4. No data corruption or inconsistency can occur
+#
+# For strict thread-safety requirements, wrap get_contract_loader() calls
+# in application-level synchronization (e.g., threading.Lock).
 _cached_loader: ContractLoader | None = None
 
 

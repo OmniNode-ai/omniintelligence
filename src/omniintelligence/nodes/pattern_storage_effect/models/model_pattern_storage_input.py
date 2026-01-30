@@ -150,6 +150,12 @@ class ModelPatternStorageInput(BaseModel):
     def validate_confidence_threshold(cls, v: float) -> float:
         """Validate confidence meets minimum governance threshold.
 
+        NOTE: This validator intentionally duplicates the Pydantic `ge` constraint
+        on the confidence field. The duplication serves governance purposes:
+        1. Provides explicit, governance-specific error messages for audit trails
+        2. Makes the governance rule visible at validation layer (not just schema)
+        3. Ensures consistent error messaging across all validation contexts
+
         The MIN_CONFIDENCE threshold is a governance constant that cannot
         be overridden. This ensures all stored patterns meet quality standards.
 

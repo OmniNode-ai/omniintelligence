@@ -271,8 +271,29 @@ class NodePatternStorageEffect(NodeEffect):
                 - success: Whether the operation succeeded
                 - event_type: "pattern_stored" or "pattern_promoted"
                 - event: Serialized event data
-                - error_message: Error message if failed
-                - error_code: Error code if failed
+                - error_message: Error message if failed (governance violations,
+                  invalid transitions, pattern not found)
+                - error_code: Error code if failed (GOVERNANCE_VIOLATION,
+                  INVALID_TRANSITION, PATTERN_NOT_FOUND, VALIDATION_ERROR)
+
+        Raises:
+            pydantic.ValidationError: If input_data cannot be validated against
+                the expected Pydantic model schema (e.g., missing required fields,
+                invalid field types). This indicates malformed input that cannot
+                be processed.
+
+        Note:
+            Expected business errors (governance violations, invalid state
+            transitions, pattern not found) are NOT raised as exceptions.
+            Instead, they are returned in the result dict with success=False
+            and appropriate error_code/error_message fields. This design allows
+            callers to handle expected failures without try/except blocks.
+
+            Handler exceptions that are caught and converted to error results:
+                - ValueError: Governance validation failures (e.g., confidence
+                  below MIN_CONFIDENCE threshold)
+                - PatternNotFoundError: Pattern does not exist for promotion
+                - PatternStateTransitionError: Invalid state transition attempt
         """
         return await route_storage_operation(
             operation=operation,
