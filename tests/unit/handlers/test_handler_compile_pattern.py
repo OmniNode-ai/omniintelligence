@@ -21,7 +21,7 @@ Reference:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 import pytest
 
@@ -104,9 +104,9 @@ class TestCompilePatternValidInput:
         """CompilationResult contains UTC timestamp."""
         from omniintelligence.handlers.handler_compile_pattern import compile_pattern
 
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         result = compile_pattern(**valid_pattern_data)
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         assert result is not None
         assert isinstance(result.compiled_at, datetime)
@@ -587,7 +587,7 @@ class TestCompilationResult:
         result = CompilationResult(
             snippet="test",
             token_count=10,
-            compiled_at=datetime.now(timezone.utc),
+            compiled_at=datetime.now(UTC),
             compiler_version="1.0.0",
         )
 
@@ -601,7 +601,7 @@ class TestCompilationResult:
         result = CompilationResult(
             snippet="test",
             token_count=10,
-            compiled_at=datetime.now(timezone.utc),
+            compiled_at=datetime.now(UTC),
             compiler_version="1.0.0",
         )
 
