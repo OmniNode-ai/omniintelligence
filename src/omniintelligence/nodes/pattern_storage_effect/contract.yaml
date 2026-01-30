@@ -32,11 +32,10 @@ status: "active"
 
 # Description
 description: >
-  Effect node for persisting learned patterns to storage. Receives pattern-learned events from the
-  pattern learning pipeline, validates patterns, and persists them to the pattern store. Supports
-  pattern promotion from candidate to active status based on confidence thresholds and validation
-  criteria. Emits pattern-stored events for successful persistence and pattern-promoted events when
-  patterns are promoted to active status.
+  Effect node for persisting learned patterns to storage. Receives pattern-learned events from the pattern
+  learning pipeline, validates patterns, and persists them to the pattern store. Supports pattern promotion
+  from candidate to active status based on confidence thresholds and validation criteria. Emits pattern-stored
+  events for successful persistence and pattern-promoted events when patterns are promoted to active status.
 
 # Strongly typed I/O models
 input_model:
@@ -163,15 +162,15 @@ published_events:
     full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-stored.v1"
     event_type: "PatternStored"
     trigger: "Pattern successfully persisted to storage"
-    description: "Emitted when a learned pattern is successfully stored. Contains pattern ID,
-      storage location, and persistence metadata."
+    description: "Emitted when a learned pattern is successfully stored. Contains pattern ID, storage
+      location, and persistence metadata."
 
   - topic_suffix: "onex.evt.omniintelligence.pattern-promoted.v1"
     full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
     event_type: "PatternPromoted"
     trigger: "Candidate pattern promoted to active status"
-    description: "Emitted when a candidate pattern meets promotion criteria and is upgraded
-      to active status. Contains pattern ID and status transition details."
+    description: "Emitted when a candidate pattern meets promotion criteria and is upgraded to active
+      status. Contains pattern ID and status transition details."
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
@@ -214,8 +213,8 @@ event_bus:
   subscribe_topic_metadata:
     "onex.evt.omniintelligence.pattern-learned.v1":
       schema_ref: "omniintelligence.nodes.pattern_storage_effect.models.ModelPatternStorageInput"
-      description: "Learned pattern events from pattern_learning_compute pipeline. Contains
-        pattern data, confidence scores, and learning metadata."
+      description: "Learned pattern events from pattern_learning_compute pipeline. Contains pattern data,
+        confidence scores, and learning metadata."
       content_type: "application/json"
 
   # Metadata for published topics

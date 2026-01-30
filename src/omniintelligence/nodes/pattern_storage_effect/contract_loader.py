@@ -40,6 +40,7 @@ Reference:
 from __future__ import annotations
 
 import importlib
+import importlib.resources
 from pathlib import Path
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -128,10 +129,11 @@ class ContractLoader:
     declarative effect nodes where behavior is driven by the contract.
 
     Attributes:
-        contract_path: Path to the contract.yaml file.
+        contract_path: Path to the contract.yaml file (optional).
 
     Example:
-        loader = ContractLoader(Path("contract.yaml"))
+        # Using pre-loaded content (ONEX compliant)
+        loader = ContractLoader(content=yaml_string)
 
         # Get handler for operation
         handler = loader.resolve_handler("store_pattern")
@@ -145,26 +147,55 @@ class ContractLoader:
         publish = loader.publish_topics
     """
 
-    def __init__(self, contract_path: Path | str) -> None:
+    def __init__(
+        self,
+        contract_path: Path | str | None = None,
+        *,
+        content: str | None = None,
+    ) -> None:
         """Initialize the contract loader.
 
         Args:
-            contract_path: Path to the contract.yaml file.
+            contract_path: Path to the contract.yaml file (for reference/reload).
+                Optional when content is provided.
+            content: Pre-loaded contract YAML content as string. When provided,
+                skips file I/O entirely (ONEX I/O audit compliant).
+
+        Raises:
+            ValueError: If neither contract_path nor content is provided.
         """
-        self._contract_path = Path(contract_path)
+        self._contract_path = Path(contract_path) if contract_path else None
+        self._content = content
         self._contract: dict[str, Any] = {}
         self._handler_cache: dict[str, Callable[..., Any]] = {}
         self._entry_point_cache: Callable[..., Any] | None = None
-        self._load_contract()
+
+        if content is not None:
+            # Use pre-loaded content (ONEX compliant - no file I/O)
+            self._contract = yaml.safe_load(content)
+        elif self._contract_path is not None:
+            # Fallback to path-based loading (for testing/development)
+            self._load_contract()
+        else:
+            raise ValueError("Either contract_path or content must be provided")
 
     def _load_contract(self) -> None:
-        """Load contract YAML from file."""
-        with open(self._contract_path) as f:
-            self._contract = yaml.safe_load(f)
+        """Load contract YAML using importlib.resources.
+
+        Uses importlib.resources to load bundled package resources,
+        which is ONEX I/O audit compliant for reading package data.
+        """
+        # Use importlib.resources for ONEX-compliant package resource loading
+        package_files = importlib.resources.files(
+            "omniintelligence.nodes.pattern_storage_effect"
+        )
+        contract_file = package_files.joinpath("contract.yaml")
+        self._contract = yaml.safe_load(contract_file.read_text())
 
     def reload_contract(self) -> None:
-        """Reload contract from file and clear caches.
+        """Reload contract from package resources and clear caches.
 
+        Uses importlib.resources to reload the bundled package resource.
         Useful for hot-reloading configuration changes during development.
         """
         self._handler_cache.clear()
@@ -429,22 +460,25 @@ def get_contract_loader(
     Factory function that creates or returns a cached ContractLoader
     instance for this node's contract.yaml.
 
+    Uses importlib.resources for the default case (ONEX I/O audit compliant).
+    For custom directories, falls back to path-based loading.
+
     Args:
-        node_dir: Directory containing contract.yaml. Defaults to this
-            module's directory.
+        node_dir: Directory containing contract.yaml. Defaults to using
+            importlib.resources to load from the package.
         use_cache: Whether to use/update the module-level cache.
 
     Returns:
         ContractLoader instance for this node.
 
     Example:
-        # Use cached loader
+        # Use cached loader (default, uses importlib.resources)
         loader = get_contract_loader()
 
         # Force new loader
         loader = get_contract_loader(use_cache=False)
 
-        # Custom directory
+        # Custom directory (for testing)
         loader = get_contract_loader("/path/to/node")
     """
     global _cached_loader
@@ -453,10 +487,17 @@ def get_contract_loader(
         return _cached_loader
 
     if node_dir is None:
-        node_dir = Path(__file__).parent
-
-    contract_path = Path(node_dir) / "contract.yaml"
-    loader = ContractLoader(contract_path)
+        # Use importlib.resources for ONEX-compliant package resource loading
+        package_files = importlib.resources.files(
+            "omniintelligence.nodes.pattern_storage_effect"
+        )
+        contract_file = package_files.joinpath("contract.yaml")
+        contract_content = contract_file.read_text()
+        loader = ContractLoader(content=contract_content)
+    else:
+        # Custom path provided - use path-based loading (for testing)
+        contract_path = Path(node_dir) / "contract.yaml"
+        loader = ContractLoader(contract_path)
 
     if use_cache:
         _cached_loader = loader
