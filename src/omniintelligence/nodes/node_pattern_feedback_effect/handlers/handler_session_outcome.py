@@ -32,6 +32,7 @@ Design Principles:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
@@ -41,6 +42,8 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
     ModelSessionOutcomeResult,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -221,8 +224,15 @@ async def record_session_outcome(
         succeeds), data may be left in an inconsistent state where injections
         are marked as recorded but pattern metrics are not updated.
     """
-    # correlation_id is available for future tracing/logging enhancements
-    _ = correlation_id  # Acknowledge parameter to avoid unused variable warnings
+    logger.debug(
+        "Recording session outcome",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "success": success,
+        },
+    )
+
     # Step 1: Find unrecorded injections for this session
     injection_rows = await repository.fetch(
         SQL_FIND_UNRECORDED_INJECTIONS,
@@ -241,6 +251,13 @@ async def record_session_outcome(
 
         if has_any:
             # Injections exist but all already recorded
+            logger.info(
+                "Session outcome already recorded",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "session_id": str(session_id),
+                },
+            )
             return ModelSessionOutcomeResult(
                 status=EnumOutcomeRecordingStatus.ALREADY_RECORDED,
                 session_id=session_id,
@@ -252,6 +269,13 @@ async def record_session_outcome(
             )
         else:
             # No injections for this session at all
+            logger.info(
+                "No pattern injections found for session",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "session_id": str(session_id),
+                },
+            )
             return ModelSessionOutcomeResult(
                 status=EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND,
                 session_id=session_id,
@@ -281,6 +305,16 @@ async def record_session_outcome(
     # Parse number of updated rows from status string (e.g., "UPDATE 5")
     injections_updated = _parse_update_count(update_status)
 
+    logger.debug(
+        "Marked injections as recorded",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "injections_updated": injections_updated,
+            "pattern_count": len(pattern_ids),
+        },
+    )
+
     # Step 4: Update rolling metrics for all patterns
     patterns_updated = 0
     if pattern_ids:
@@ -289,6 +323,16 @@ async def record_session_outcome(
             success=success,
             repository=repository,
         )
+
+    logger.debug(
+        "Updated pattern rolling metrics",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "patterns_updated": patterns_updated,
+            "success": success,
+        },
+    )
 
     return ModelSessionOutcomeResult(
         status=EnumOutcomeRecordingStatus.SUCCESS,
@@ -345,7 +389,7 @@ async def update_pattern_rolling_metrics(
     return _parse_update_count(status)
 
 
-def _parse_update_count(status: str) -> int:
+def _parse_update_count(status: str | None) -> int:
     """Parse the row count from a PostgreSQL status string.
 
     PostgreSQL returns status strings like:
@@ -354,10 +398,10 @@ def _parse_update_count(status: str) -> int:
         - "DELETE 3" (3 rows deleted)
 
     Args:
-        status: PostgreSQL status string from execute().
+        status: PostgreSQL status string from execute(), or None.
 
     Returns:
-        Number of affected rows, or 0 if parsing fails.
+        Number of affected rows, or 0 if status is None or parsing fails.
 
     Examples:
         >>> _parse_update_count("UPDATE 5")
@@ -365,6 +409,8 @@ def _parse_update_count(status: str) -> int:
         >>> _parse_update_count("INSERT 0 1")
         1
         >>> _parse_update_count("DELETE 0")
+        0
+        >>> _parse_update_count(None)
         0
     """
     if not status:

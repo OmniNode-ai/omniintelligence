@@ -1441,8 +1441,7 @@ class TestParseUpdateCount:
 
     def test_none_returns_zero(self) -> None:
         """None value returns 0."""
-        # The function signature says str, but we handle falsy values
-        assert _parse_update_count(None) == 0  # type: ignore[arg-type]
+        assert _parse_update_count(None) == 0
 
     def test_single_word_returns_zero(self) -> None:
         """Single word (no count) returns 0."""
