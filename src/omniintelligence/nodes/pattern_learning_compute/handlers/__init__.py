@@ -79,6 +79,8 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.handler_deduplicat
     generate_pattern_signature,
 )
 from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_learning import (
+    HANDLER_ID_PATTERN_LEARNING,
+    HandlerPatternLearning,
     aggregate_patterns,
 )
 from omniintelligence.nodes.pattern_learning_compute.handlers.replay import (
@@ -93,6 +95,8 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.union_find import 
 
 __all__ = [
     "DEFAULT_SIMILARITY_WEIGHTS",
+    "HANDLER_ID_PATTERN_LEARNING",
+    "HandlerPatternLearning",
     "NULL_EMITTER",
     "SIGNATURE_NORMALIZATION",
     "SIGNATURE_VERSION",

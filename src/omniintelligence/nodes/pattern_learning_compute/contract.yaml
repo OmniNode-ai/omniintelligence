@@ -28,7 +28,55 @@ output_model:
   module: "omniintelligence.nodes.pattern_learning_compute.models"
   description: >-
     Output containing candidate/learned patterns, metrics, and metadata. Uses contract models from omnibase_core.
-dependencies: []
+# Capability declaration (capability-oriented naming)
+capabilities:
+  - name: "pattern_learning.aggregate"
+    description: "Orchestrate 4-phase pattern aggregation pipeline"
+    version: "1.0.0"
+  - name: "pattern_learning.feature_extraction"
+    description: "Extract AST-based features from training data items"
+  - name: "pattern_learning.clustering"
+    description: "Cluster similar patterns using single-linkage algorithm"
+  - name: "pattern_learning.confidence_scoring"
+    description: "Compute decomposed confidence scores for clusters"
+  - name: "pattern_learning.deduplication"
+    description: "Remove overlapping patterns with versioned signatures"
+# Handler routing for pattern learning operations
+# Main handler orchestrates 4-phase pipeline: extract -> cluster -> score -> dedupe
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "pattern_learning.aggregate"
+      handler_class: "HandlerPatternLearning"
+      handler_module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_learning"
+      description: "Orchestrates 4-phase pattern aggregation pipeline (feature extraction, clustering, confidence scoring, deduplication)"
+# Dependencies (handlers and sub-handlers for pipeline phases)
+dependencies:
+  - name: "handler_pattern_learning"
+    type: "handler"
+    class_name: "HandlerPatternLearning"
+    module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_learning"
+    description: "Main orchestration handler for pattern learning pipeline"
+  - name: "handler_feature_extraction"
+    type: "handler"
+    class_name: "extract_features_batch"
+    module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_feature_extraction"
+    description: "AST-based feature extraction from training data items"
+  - name: "handler_pattern_clustering"
+    type: "handler"
+    class_name: "cluster_patterns"
+    module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_clustering"
+    description: "Single-linkage clustering with 5-component weighted similarity"
+  - name: "handler_confidence_scoring"
+    type: "handler"
+    class_name: "compute_cluster_scores"
+    module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_confidence_scoring"
+    description: "Decomposed confidence scoring (label_agreement, cohesion, frequency)"
+  - name: "handler_deduplication"
+    type: "handler"
+    class_name: "deduplicate_patterns"
+    module: "omniintelligence.nodes.pattern_learning_compute.handlers.handler_deduplication"
+    description: "Pattern deduplication with versioned signatures and policy transparency"
 # Error Handling Configuration
 # =============================================
 error_handling:

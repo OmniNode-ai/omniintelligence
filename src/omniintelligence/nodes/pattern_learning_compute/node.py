@@ -1,13 +1,16 @@
 """Pattern Learning Compute - Thin declarative COMPUTE node shell.
 
-This node follows the ONEX declarative pattern where the node is a thin shell
-that delegates ALL business logic to handler functions. The node contains
-no custom routing, iteration, or computation logic.
+This node follows the ONEX declarative pattern:
+    - 100% Contract-Driven: All capabilities in YAML, not Python
+    - Zero Custom Methods: Base class handles everything
+    - Declarative Execution: Handler wired externally via registry
 
-Pattern: "Thin shell, fat handler"
+Core Principle:
+    "I'm interested in what you do, not what you are"
 
-All aggregation logic is implemented in:
-    handlers/handler_pattern_learning.py
+All aggregation logic is implemented in handlers and declared in contract.yaml.
+The node shell contains NO business logic - it is purely a type anchor for the
+ONEX node registry.
 
 SEMANTIC NOTE:
     This node AGGREGATES and SUMMARIZES observed patterns.
@@ -19,123 +22,45 @@ Ticket: OMN-1663
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from omnibase_core.enums.pattern_learning import EnumPatternLearningStatus
-from omnibase_core.models.container import ModelONEXContainer
-from omnibase_core.models.pattern_learning import (
-    ModelPatternLearningMetadata,
-    ModelPatternLearningMetrics,
-)
-from omnibase_core.models.primitives import ModelSemVer
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.pattern_learning_compute.handlers import (
-    PatternLearningComputeError,
-    PatternLearningValidationError,
-    aggregate_patterns,
-)
-from omniintelligence.nodes.pattern_learning_compute.models import (
-    ModelPatternLearningInput,
-    ModelPatternLearningOutput,
-)
+if TYPE_CHECKING:
+    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 
-class NodePatternLearningCompute(
-    NodeCompute[ModelPatternLearningInput, ModelPatternLearningOutput]
-):
+class NodePatternLearningCompute(NodeCompute):
     """Thin declarative shell for pattern aggregation.
 
-    All business logic is delegated to the aggregate_patterns handler.
-    This node only provides the ONEX container interface.
+    Capability: pattern_learning.compute
 
-    SEMANTIC NOTE:
-        This node aggregates and summarizes observed patterns.
-        It does NOT perform statistical learning. See handler docstrings.
+    Provides a capability-oriented interface for pattern learning operations.
+    This node aggregates and summarizes observed patterns into candidate and
+    learned pattern sets.
+
+    This node is declarative - all behavior is defined in contract.yaml and
+    implemented through the handler. No custom computation logic exists in
+    this class.
+
+    Attributes:
+        container: ONEX dependency injection container
+
+    Example:
+        >>> from omnibase_core.models.container import ModelONEXContainer
+        >>> container = ModelONEXContainer()
+        >>> node = NodePatternLearningCompute(container)
+        >>> # Handler must be wired externally via registry
     """
 
     def __init__(self, container: ModelONEXContainer) -> None:
-        """Initialize the compute node with ONEX container."""
-        super().__init__(container)
-
-    async def compute(
-        self, input_data: ModelPatternLearningInput
-    ) -> ModelPatternLearningOutput:
-        """Aggregate patterns by delegating to handler.
+        """Initialize the pattern learning compute node.
 
         Args:
-            input_data: Training data and learning parameters.
-
-        Returns:
-            Pattern learning output with candidate and learned patterns,
-            or an error response if validation/computation fails.
+            container: ONEX dependency injection container for resolving
+                dependencies defined in contract.yaml.
         """
-        try:
-            result = aggregate_patterns(
-                training_data=list(input_data.training_data),
-                parameters=input_data.learning_parameters,
-            )
-            return ModelPatternLearningOutput(
-                success=result["success"],
-                candidate_patterns=result["candidate_patterns"],
-                learned_patterns=result["learned_patterns"],
-                metrics=result["metrics"],
-                metadata=result["metadata"],
-                warnings=result.get("warnings", []),
-            )
-        except PatternLearningValidationError as e:
-            return _build_error_response("validation_error", str(e))
-        except PatternLearningComputeError as e:
-            return _build_error_response("compute_error", str(e))
-
-
-def _build_error_response(
-    error_type: str,
-    error_message: str,
-) -> ModelPatternLearningOutput:
-    """Build an error response for failed pattern learning.
-
-    Args:
-        error_type: Type of error (validation_error or compute_error).
-        error_message: Human-readable error message.
-
-    Returns:
-        ModelPatternLearningOutput with success=False and error details.
-    """
-    metrics = ModelPatternLearningMetrics(
-        input_count=0,
-        cluster_count=0,
-        candidate_count=0,
-        learned_count=0,
-        discarded_count=0,
-        merged_count=0,
-        mean_confidence=0.0,
-        mean_label_agreement=0.0,
-        mean_cluster_cohesion=0.0,
-        processing_time_ms=0.0,
-    )
-
-    metadata = ModelPatternLearningMetadata(
-        status=EnumPatternLearningStatus.FAILED,
-        model_version=ModelSemVer(major=1, minor=0, patch=0),
-        timestamp=datetime.now(UTC),
-        deduplication_threshold_used=0.0,
-        promotion_threshold_used=0.0,
-        training_samples=0,
-        validation_samples=0,
-        convergence_achieved=False,
-        early_stopped=True,
-        final_epoch=0,
-    )
-
-    return ModelPatternLearningOutput(
-        success=False,
-        candidate_patterns=[],
-        learned_patterns=[],
-        metrics=metrics,
-        metadata=metadata,
-        warnings=[f"{error_type}: {error_message}"],
-    )
+        super().__init__(container)
 
 
 __all__ = ["NodePatternLearningCompute"]

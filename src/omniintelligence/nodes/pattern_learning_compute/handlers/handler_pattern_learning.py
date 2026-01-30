@@ -33,7 +33,21 @@ Output Contract:
     - metadata: Processing context
     - warnings: Near-threshold and other warnings
 
-Usage:
+Usage (class-based - recommended):
+    from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_learning import (
+        HandlerPatternLearning,
+    )
+
+    handler = HandlerPatternLearning()
+    result = handler.execute({
+        "operation": "pattern.aggregate",
+        "payload": {
+            "training_data": training_items,
+            "promotion_threshold": 0.7,
+        },
+    })
+
+Usage (function-based - backward compatibility):
     from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_learning import (
         aggregate_patterns,
         split_by_promotion_threshold,
@@ -54,10 +68,17 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from uuid import uuid4
+
+from omnibase_infra.enums import (
+    EnumHandlerType,
+    EnumHandlerTypeCategory,
+)
 
 from omnibase_core.enums.pattern_learning import (
     EnumPatternLearningStatus,
@@ -107,9 +128,14 @@ from omniintelligence.nodes.pattern_learning_compute.models import (
     TrainingDataItemDict,
 )
 
+logger = logging.getLogger(__name__)
+
 # =============================================================================
 # Constants
 # =============================================================================
+
+# Handler ID for ModelHandlerOutput
+HANDLER_ID_PATTERN_LEARNING: str = "pattern-learning-handler"
 
 # Model version for metadata tracking
 _MODEL_VERSION = ModelSemVer(major=1, minor=0, patch=0)
@@ -141,23 +167,23 @@ _PATTERN_TYPE_MAP: dict[str, EnumPatternType] = {
 }
 
 # =============================================================================
-# Public API
+# Handler Class
 # =============================================================================
 
 
-def aggregate_patterns(
-    training_data: Sequence[TrainingDataItemDict],
-    parameters: LearningParametersDict | None = None,
-    similarity_weights: SimilarityWeightsDict | None = None,
-    promotion_threshold: float = DEFAULT_PROMOTION_THRESHOLD,
-) -> PatternLearningResult:
-    """Orchestrate the full pattern learning pipeline.
+class HandlerPatternLearning:
+    """Handler for pattern learning pipeline orchestration.
 
-    This function coordinates the complete pipeline from raw training data
-    to aggregated patterns ready for use or further validation.
+    This handler implements the pattern learning compute operation following the
+    ONEX declarative handler pattern. It provides:
+
+    - Pure computation (no side effects)
+    - Type-safe input/output with Pydantic models
+    - Discoverable by the handler registry
+    - Standard execute() interface for contract-driven invocation
 
     SEMANTIC FRAMING (CRITICAL):
-        This function describes STRUCTURE. It does NOT decide IMPORTANCE.
+        This handler describes STRUCTURE. It does NOT decide IMPORTANCE.
 
         EXPLICITLY BANNED:
         - Model training or weight updates
@@ -167,45 +193,195 @@ def aggregate_patterns(
 
         All thresholds and weights are INPUTS, not decisions made here.
 
-    Pipeline Steps:
-        1. Validate inputs (fail-fast on first invalid item)
-        2. Extract features from all training items
-        3. Cluster similar patterns together
-        4. Score each cluster for confidence
-        5. Deduplicate overlapping patterns
-        6. Split by promotion threshold
-        7. Compute aggregation metrics
+    Attributes:
+        handler_type: EnumHandlerType.COMPUTE_HANDLER
+        handler_category: EnumHandlerTypeCategory.COMPUTE
+
+    Example:
+        >>> handler = HandlerPatternLearning()
+        >>> result = handler.execute({
+        ...     "operation": "pattern.aggregate",
+        ...     "payload": {
+        ...         "training_data": training_items,
+        ...         "promotion_threshold": 0.7,
+        ...     },
+        ... })
+        >>> if result.result.success:
+        ...     print(f"Learned: {len(result.result.learned_patterns)}")
+    """
+
+    def __init__(self) -> None:
+        """Initialize the pattern learning handler.
+
+        This handler is stateless and requires no external dependencies,
+        following the pure compute pattern.
+        """
+        self._initialized: bool = False
+
+    @property
+    def handler_type(self) -> EnumHandlerType:
+        """Return the architectural role of this handler."""
+        return EnumHandlerType.COMPUTE_HANDLER
+
+    @property
+    def handler_category(self) -> EnumHandlerTypeCategory:
+        """Return the behavioral classification of this handler."""
+        return EnumHandlerTypeCategory.COMPUTE
+
+    def initialize(self, config: dict[str, object] | None = None) -> None:
+        """Initialize the handler.
+
+        Since this is a pure compute handler with no external dependencies,
+        initialization is trivial.
+
+        Args:
+            config: Configuration dict (currently unused).
+        """
+        _ = config  # Reserved for future extensions
+        self._initialized = True
+        logger.info(
+            "%s initialized successfully",
+            self.__class__.__name__,
+            extra={"handler": self.__class__.__name__},
+        )
+
+    def shutdown(self) -> None:
+        """Shutdown the handler.
+
+        Since this is a stateless compute handler, shutdown is trivial.
+        """
+        self._initialized = False
+        logger.info("HandlerPatternLearning shutdown complete")
+
+    def handle(
+        self,
+        training_data: Sequence[TrainingDataItemDict],
+        parameters: LearningParametersDict | None = None,
+        similarity_weights: SimilarityWeightsDict | None = None,
+        promotion_threshold: float = DEFAULT_PROMOTION_THRESHOLD,
+    ) -> PatternLearningResult:
+        """Execute the pattern learning pipeline.
+
+        This is the primary execution method that orchestrates the full pipeline.
+        It provides the same functionality as the module-level aggregate_patterns()
+        function but in the class-based handler pattern.
+
+        Args:
+            training_data: Sequence of training items containing code snippets
+                and metadata. Must not be empty.
+            parameters: Optional learning parameters. Not used for thresholds
+                (those are explicit args) but available for future extensions.
+            similarity_weights: Optional custom similarity weights. If None,
+                uses DEFAULT_SIMILARITY_WEIGHTS.
+            promotion_threshold: Confidence threshold for promotion. Patterns
+                with confidence >= threshold become learned_patterns with
+                lifecycle_state=VALIDATED. Below threshold become candidates
+                with lifecycle_state=CANDIDATE. Defaults to 0.70.
+
+        Returns:
+            PatternLearningResult containing:
+            - success: True if pipeline completed without errors
+            - learned_patterns: Patterns meeting promotion threshold
+            - candidate_patterns: Patterns below threshold
+            - metrics: Aggregation metrics for monitoring
+            - metadata: Processing context and thresholds used
+            - warnings: Near-threshold and other warnings
+
+        Raises:
+            PatternLearningValidationError: If training_data is empty or
+                contains invalid items.
+        """
+        return _execute_pipeline(
+            training_data=training_data,
+            parameters=parameters,
+            similarity_weights=similarity_weights,
+            promotion_threshold=promotion_threshold,
+        )
+
+    def execute(
+        self,
+        envelope: dict[str, object],
+    ) -> PatternLearningResult:
+        """Execute pattern learning from envelope (ProtocolHandler interface).
+
+        This method provides the standard handler interface for contract-driven
+        invocation. It extracts the payload from the envelope and delegates to
+        the handle() method.
+
+        Args:
+            envelope: Request envelope containing:
+                - operation: "pattern.aggregate"
+                - payload: Dict with training_data, promotion_threshold, etc.
+                - correlation_id: Optional correlation ID
+
+        Returns:
+            PatternLearningResult with pipeline outputs.
+
+        Raises:
+            PatternLearningValidationError: If payload is invalid.
+        """
+        correlation_id_raw = envelope.get("correlation_id")
+        correlation_id = (
+            uuid.UUID(str(correlation_id_raw)) if correlation_id_raw else uuid4()
+        )
+
+        logger.debug(
+            "Executing pattern learning pipeline",
+            extra={
+                "correlation_id": str(correlation_id),
+                "operation": envelope.get("operation"),
+            },
+        )
+
+        payload_raw = envelope.get("payload")
+        if not isinstance(payload_raw, dict):
+            raise PatternLearningValidationError(
+                "Missing or invalid 'payload' in envelope"
+            )
+
+        # Extract parameters from payload
+        training_data = payload_raw.get("training_data", [])
+        parameters = payload_raw.get("parameters")
+        similarity_weights = payload_raw.get("similarity_weights")
+        promotion_threshold = payload_raw.get(
+            "promotion_threshold", DEFAULT_PROMOTION_THRESHOLD
+        )
+
+        return self.handle(
+            training_data=training_data,
+            parameters=parameters,
+            similarity_weights=similarity_weights,
+            promotion_threshold=promotion_threshold,
+        )
+
+
+# =============================================================================
+# Pipeline Implementation (Private)
+# =============================================================================
+
+
+def _execute_pipeline(
+    training_data: Sequence[TrainingDataItemDict],
+    parameters: LearningParametersDict | None = None,
+    similarity_weights: SimilarityWeightsDict | None = None,
+    promotion_threshold: float = DEFAULT_PROMOTION_THRESHOLD,
+) -> PatternLearningResult:
+    """Execute the full pattern learning pipeline.
+
+    This is the shared implementation used by both the HandlerPatternLearning
+    class and the aggregate_patterns() convenience function.
 
     Args:
-        training_data: Sequence of training items containing code snippets
-            and metadata. Must not be empty.
-        parameters: Optional learning parameters. Not used for thresholds
-            (those are explicit args) but available for future extensions.
-        similarity_weights: Optional custom similarity weights. If None,
-            uses DEFAULT_SIMILARITY_WEIGHTS.
-        promotion_threshold: Confidence threshold for promotion. Patterns
-            with confidence >= threshold become learned_patterns with
-            lifecycle_state=VALIDATED. Below threshold become candidates
-            with lifecycle_state=CANDIDATE. Defaults to 0.70.
+        training_data: Sequence of training items containing code snippets.
+        parameters: Optional learning parameters (reserved for future use).
+        similarity_weights: Optional custom similarity weights.
+        promotion_threshold: Confidence threshold for promotion.
 
     Returns:
-        PatternLearningResult containing:
-        - success: True if pipeline completed without errors
-        - learned_patterns: Patterns meeting promotion threshold
-        - candidate_patterns: Patterns below threshold
-        - metrics: Aggregation metrics for monitoring
-        - metadata: Processing context and thresholds used
-        - warnings: Near-threshold and other warnings
+        PatternLearningResult with pipeline outputs.
 
     Raises:
-        PatternLearningValidationError: If training_data is empty or
-            contains invalid items. Fail-fast on first invalid input.
-
-    Examples:
-        >>> result = aggregate_patterns(training_data, promotion_threshold=0.7)
-        >>> if result["success"]:
-        ...     print(f"Learned: {len(result['learned_patterns'])}")
-        ...     print(f"Candidates: {len(result['candidate_patterns'])}")
+        PatternLearningValidationError: If training_data is empty or invalid.
     """
     start_time_ms = time.perf_counter() * 1000
 
@@ -310,6 +486,84 @@ def aggregate_patterns(
         metrics=metrics,
         metadata=metadata,
         warnings=warnings,
+    )
+
+
+# =============================================================================
+# Public API
+# =============================================================================
+
+
+def aggregate_patterns(
+    training_data: Sequence[TrainingDataItemDict],
+    parameters: LearningParametersDict | None = None,
+    similarity_weights: SimilarityWeightsDict | None = None,
+    promotion_threshold: float = DEFAULT_PROMOTION_THRESHOLD,
+) -> PatternLearningResult:
+    """Orchestrate the full pattern learning pipeline.
+
+    This is the backward-compatible module-level convenience function.
+    For new code, prefer using the HandlerPatternLearning class directly.
+
+    This function coordinates the complete pipeline from raw training data
+    to aggregated patterns ready for use or further validation.
+
+    SEMANTIC FRAMING (CRITICAL):
+        This function describes STRUCTURE. It does NOT decide IMPORTANCE.
+
+        EXPLICITLY BANNED:
+        - Model training or weight updates
+        - Adaptive threshold changes
+        - Persistence decisions
+        - Importance/promotion scoring
+
+        All thresholds and weights are INPUTS, not decisions made here.
+
+    Pipeline Steps:
+        1. Validate inputs (fail-fast on first invalid item)
+        2. Extract features from all training items
+        3. Cluster similar patterns together
+        4. Score each cluster for confidence
+        5. Deduplicate overlapping patterns
+        6. Split by promotion threshold
+        7. Compute aggregation metrics
+
+    Args:
+        training_data: Sequence of training items containing code snippets
+            and metadata. Must not be empty.
+        parameters: Optional learning parameters. Not used for thresholds
+            (those are explicit args) but available for future extensions.
+        similarity_weights: Optional custom similarity weights. If None,
+            uses DEFAULT_SIMILARITY_WEIGHTS.
+        promotion_threshold: Confidence threshold for promotion. Patterns
+            with confidence >= threshold become learned_patterns with
+            lifecycle_state=VALIDATED. Below threshold become candidates
+            with lifecycle_state=CANDIDATE. Defaults to 0.70.
+
+    Returns:
+        PatternLearningResult containing:
+        - success: True if pipeline completed without errors
+        - learned_patterns: Patterns meeting promotion threshold
+        - candidate_patterns: Patterns below threshold
+        - metrics: Aggregation metrics for monitoring
+        - metadata: Processing context and thresholds used
+        - warnings: Near-threshold and other warnings
+
+    Raises:
+        PatternLearningValidationError: If training_data is empty or
+            contains invalid items. Fail-fast on first invalid input.
+
+    Examples:
+        >>> result = aggregate_patterns(training_data, promotion_threshold=0.7)
+        >>> if result["success"]:
+        ...     print(f"Learned: {len(result['learned_patterns'])}")
+        ...     print(f"Candidates: {len(result['candidate_patterns'])}")
+    """
+    return _execute_pipeline(
+        training_data=training_data,
+        parameters=parameters,
+        similarity_weights=similarity_weights,
+        promotion_threshold=promotion_threshold,
     )
 
 
@@ -663,6 +917,8 @@ def _derive_category(pattern_type: EnumPatternType) -> str:
 
 
 __all__ = [
+    "HANDLER_ID_PATTERN_LEARNING",
+    "HandlerPatternLearning",
     "aggregate_patterns",
     "compute_learning_metrics",
     "split_by_promotion_threshold",
