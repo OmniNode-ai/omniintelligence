@@ -55,6 +55,10 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.protocols import (
     SimilarityWeightsDict,
     StructuralFeaturesDict,
 )
+from omniintelligence.nodes.pattern_learning_compute.handlers.handler_feature_extraction import (
+    extract_features,
+    extract_features_batch,
+)
 from omniintelligence.nodes.pattern_learning_compute.handlers.utils import (
     jaccard_similarity,
     normalize_identifier,
@@ -96,6 +100,8 @@ __all__ = [
     "assert_json_safe",
     "cluster_patterns",
     "compute_similarity",
+    "extract_features",
+    "extract_features_batch",
     "jaccard_similarity",
     "normalize_identifier",
     "normalize_identifiers",
