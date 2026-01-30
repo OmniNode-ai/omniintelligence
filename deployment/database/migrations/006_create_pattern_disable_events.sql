@@ -49,10 +49,8 @@ CREATE TABLE IF NOT EXISTS pattern_disable_events (
 -- ============================================================================
 -- Indexes for Runtime Queries
 -- ============================================================================
-
--- Index on event_id for idempotency lookups (fast duplicate detection)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_disable_events_event_id
-    ON pattern_disable_events(event_id);
+-- Note: event_id already has a UNIQUE constraint (line 21) which PostgreSQL
+-- automatically indexes, so no explicit index is needed for idempotency lookups.
 
 -- Composite index for latest event per pattern_id (event_at DESC for efficient MAX query)
 -- Used by runtime kill switch to get current state of specific patterns
