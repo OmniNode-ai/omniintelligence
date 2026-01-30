@@ -356,6 +356,7 @@ async def handle_user_prompt_submit(
             emitted_to_kafka = True
             metadata["kafka_emission"] = "success"
             metadata["kafka_topic_suffix"] = publish_topic_suffix
+            metadata["kafka_topic_full"] = f"{topic_env_prefix}.{publish_topic_suffix}"
         except Exception as e:
             metadata["kafka_emission_error"] = str(e)
             metadata["kafka_emission"] = "failed"

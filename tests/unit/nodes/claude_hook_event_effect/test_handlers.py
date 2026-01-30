@@ -23,9 +23,7 @@ from omniintelligence.nodes.claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
 )
-from tests.integration.nodes.claude_hook_event_effect.conftest import (
-    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
-)
+from tests.fixtures.topic_constants import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 
 pytestmark = pytest.mark.unit
 
