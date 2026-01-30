@@ -1,0 +1,46 @@
+"""Input models for pattern_promotion_effect.
+
+This module defines the request models for the pattern promotion effect node,
+which checks and promotes eligible provisional patterns to validated status.
+"""
+
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+
+class ModelPromotionCheckRequest(BaseModel):
+    """Request to check and promote eligible patterns.
+
+    This model triggers a scan of all provisional patterns to identify those
+    meeting the promotion criteria based on rolling window success rates.
+    """
+
+    dry_run: bool = Field(
+        default=False,
+        description="If True, return what WOULD be promoted without mutating",
+    )
+    min_success_count: int = Field(
+        default=10,
+        ge=1,
+        description="Minimum rolling_20_success_count required for promotion",
+    )
+    min_success_rate: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Minimum rolling_20 success rate (0.0-1.0) required for promotion",
+    )
+    min_sample_size: int = Field(
+        default=5,
+        ge=1,
+        description="Minimum total outcomes recorded for pattern to be eligible",
+    )
+    pattern_ids: list[UUID] | None = Field(
+        default=None,
+        description="Optional list of specific pattern IDs to check; if None, check all provisional",
+    )
+    correlation_id: UUID | None = Field(
+        default=None,
+        description="Optional correlation ID for tracing",
+    )

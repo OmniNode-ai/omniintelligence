@@ -81,6 +81,18 @@ omnimemory consumes for graph storage.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_PATTERN_PROMOTED_V1: str = "onex.evt.omniintelligence.pattern-promoted.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for pattern promotion events (OUTPUT).
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-promoted.v1
+
+NodePatternFeedbackEffect publishes when a candidate pattern is promoted
+to confirmed status based on accumulated positive feedback.
+
+Deletion ticket: OMN-1546
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -90,4 +102,5 @@ __all__ = [
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
+    "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
 ]
