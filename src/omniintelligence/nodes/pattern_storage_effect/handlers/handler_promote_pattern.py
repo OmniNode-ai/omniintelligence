@@ -50,6 +50,11 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.nodes.pattern_storage_effect.constants import (
+    VALID_TRANSITIONS,
+    get_valid_targets,
+    is_valid_transition,
+)
 from omniintelligence.nodes.pattern_storage_effect.models.model_pattern_state import (
     EnumPatternState,
 )
@@ -61,22 +66,6 @@ from omniintelligence.nodes.pattern_storage_effect.models.model_pattern_storage_
 # =============================================================================
 # Constants
 # =============================================================================
-
-VALID_TRANSITIONS: Final[dict[EnumPatternState, list[EnumPatternState]]] = {
-    EnumPatternState.CANDIDATE: [EnumPatternState.PROVISIONAL],
-    EnumPatternState.PROVISIONAL: [EnumPatternState.VALIDATED],
-    EnumPatternState.VALIDATED: [],  # Terminal state - no further transitions
-}
-"""Valid state transitions for pattern lifecycle.
-
-This is a governance constant - not configurable to ensure consistent state
-management across all pattern storage operations.
-
-Transitions:
-    CANDIDATE -> PROVISIONAL: Pattern passes initial verification
-    PROVISIONAL -> VALIDATED: Pattern meets all validation criteria
-    VALIDATED -> (none): Terminal state, pattern is production-ready
-"""
 
 DEFAULT_ACTOR: Final[str] = "system"
 """Default actor for state transitions when not specified."""
@@ -336,59 +325,6 @@ class ProtocolPatternStateManager(Protocol):
             Exception: If the insert fails (e.g., duplicate event_id).
         """
         ...
-
-
-# =============================================================================
-# Validation Functions
-# =============================================================================
-
-
-def is_valid_transition(
-    from_state: EnumPatternState,
-    to_state: EnumPatternState,
-) -> bool:
-    """Check if a state transition is valid.
-
-    Valid transitions are defined by the VALID_TRANSITIONS constant:
-        - CANDIDATE -> PROVISIONAL
-        - PROVISIONAL -> VALIDATED
-        - VALIDATED -> (none, terminal state)
-
-    Args:
-        from_state: The current state.
-        to_state: The requested target state.
-
-    Returns:
-        True if the transition is valid, False otherwise.
-
-    Example:
-        >>> is_valid_transition(EnumPatternState.CANDIDATE, EnumPatternState.PROVISIONAL)
-        True
-        >>> is_valid_transition(EnumPatternState.CANDIDATE, EnumPatternState.VALIDATED)
-        False
-        >>> is_valid_transition(EnumPatternState.VALIDATED, EnumPatternState.CANDIDATE)
-        False
-    """
-    valid_targets = VALID_TRANSITIONS.get(from_state, [])
-    return to_state in valid_targets
-
-
-def get_valid_targets(from_state: EnumPatternState) -> list[EnumPatternState]:
-    """Get the valid target states for a given state.
-
-    Args:
-        from_state: The current state.
-
-    Returns:
-        List of valid target states (empty for terminal states).
-
-    Example:
-        >>> get_valid_targets(EnumPatternState.CANDIDATE)
-        [<EnumPatternState.PROVISIONAL: 'provisional'>]
-        >>> get_valid_targets(EnumPatternState.VALIDATED)
-        []
-    """
-    return list(VALID_TRANSITIONS.get(from_state, []))
 
 
 # =============================================================================

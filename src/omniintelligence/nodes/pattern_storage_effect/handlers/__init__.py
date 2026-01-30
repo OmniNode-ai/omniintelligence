@@ -56,16 +56,19 @@ from omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_stor
     StorageOperationResult,
     route_storage_operation,
 )
+# State transition constants and validation (canonical source: constants.py)
+from omniintelligence.nodes.pattern_storage_effect.constants import (
+    VALID_TRANSITIONS,
+    get_valid_targets,
+    is_valid_transition,
+)
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
     ModelStateTransition,
     PatternNotFoundError,
     PatternStateTransitionError,
     ProtocolPatternStateManager,
-    VALID_TRANSITIONS,
-    get_valid_targets,
     handle_promote_pattern,
-    is_valid_transition,
 )
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
     GovernanceResult,

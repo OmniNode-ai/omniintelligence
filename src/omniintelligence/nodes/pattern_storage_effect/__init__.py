@@ -61,6 +61,12 @@ Reference:
     - OMN-1668: Pattern storage effect node implementation
 """
 
+# State transition constants and validation (canonical source: constants.py)
+from omniintelligence.nodes.pattern_storage_effect.constants import (
+    VALID_TRANSITIONS,
+    get_valid_targets,
+    is_valid_transition,
+)
 from omniintelligence.nodes.pattern_storage_effect.contract_loader import (
     ContractLoader,
     EventBusConfig,
@@ -81,11 +87,8 @@ from omniintelligence.nodes.pattern_storage_effect.handlers import (
     ProtocolPatternStateManager,
     ProtocolPatternStore,
     StorePatternResult,
-    VALID_TRANSITIONS,
-    get_valid_targets,
     handle_promote_pattern,
     handle_store_pattern,
-    is_valid_transition,
     validate_governance,
 )
 from omniintelligence.nodes.pattern_storage_effect.models import (

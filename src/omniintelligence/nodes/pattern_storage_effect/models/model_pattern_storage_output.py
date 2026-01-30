@@ -249,6 +249,7 @@ class ModelPatternPromotedEvent(BaseModel):
     def is_valid_transition(self) -> bool:
         """Check if the state transition is valid.
 
+        Delegates to the shared transition validation function in constants module.
         Valid transitions are:
         - CANDIDATE → PROVISIONAL
         - PROVISIONAL → VALIDATED
@@ -256,11 +257,13 @@ class ModelPatternPromotedEvent(BaseModel):
         Returns:
             True if the transition is valid, False otherwise.
         """
-        valid_transitions = {
-            (EnumPatternState.CANDIDATE, EnumPatternState.PROVISIONAL),
-            (EnumPatternState.PROVISIONAL, EnumPatternState.VALIDATED),
-        }
-        return (self.from_state, self.to_state) in valid_transitions
+        # Local import to avoid circular dependency (constants imports model_pattern_state,
+        # which is a sibling of this module, but models/__init__.py imports this file)
+        from omniintelligence.nodes.pattern_storage_effect.constants import (
+            is_valid_transition as _is_valid_transition,
+        )
+
+        return _is_valid_transition(self.from_state, self.to_state)
 
 
 __all__ = [

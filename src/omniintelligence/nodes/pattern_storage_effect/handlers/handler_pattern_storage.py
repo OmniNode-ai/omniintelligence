@@ -34,7 +34,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Final
+from typing import Any, Final
 from uuid import UUID
 
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
@@ -53,10 +53,6 @@ from omniintelligence.nodes.pattern_storage_effect.models import (
     ModelPatternStorageInput,
     ModelPatternStoredEvent,
 )
-
-if TYPE_CHECKING:
-    pass
-
 
 # =============================================================================
 # Logging Configuration
