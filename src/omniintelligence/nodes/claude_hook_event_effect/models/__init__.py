@@ -16,6 +16,7 @@ from omniintelligence.nodes.claude_hook_event_effect.models.model_input import (
 )
 from omniintelligence.nodes.claude_hook_event_effect.models.model_output import (
     EnumHookProcessingStatus,
+    EnumKafkaEmissionStatus,
     ModelClaudeHookResult,
     ModelIntentResult,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "EnumClaudeCodeHookEventType",
     # Output models (local to omniintelligence)
     "EnumHookProcessingStatus",
+    "EnumKafkaEmissionStatus",
     "ModelClaudeCodeHookEvent",
     "ModelClaudeCodeHookEventPayload",
     "ModelClaudeHookResult",

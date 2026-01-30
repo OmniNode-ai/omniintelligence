@@ -26,6 +26,7 @@ from uuid import UUID
 from omniintelligence.nodes.claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
+    EnumKafkaEmissionStatus,
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
     ModelClaudeHookResult,
@@ -264,6 +265,49 @@ def _extract_prompt_from_payload(
     return "", "not_found"
 
 
+def _determine_processing_status(
+    emitted_to_kafka: bool,
+    kafka_producer: ProtocolKafkaPublisher | None,
+    publish_topic_suffix: str | None,
+) -> EnumHookProcessingStatus:
+    """Determine the overall processing status based on Kafka emission outcome.
+
+    This helper encapsulates the status determination logic which has three
+    possible outcomes based on the Kafka emission state and configuration.
+
+    Status Logic:
+    -------------
+    - SUCCESS: Either Kafka emission succeeded, OR Kafka was not configured
+      (no producer or no topic suffix). In the latter case, we successfully
+      completed everything that was configured to run.
+
+    - PARTIAL: Kafka emission failed despite having both a producer AND topic
+      suffix configured. This indicates the handler partially succeeded
+      (intent classification worked) but the downstream emission failed.
+
+    Args:
+        emitted_to_kafka: Whether the event was successfully emitted to Kafka.
+        kafka_producer: The Kafka producer, or None if not configured.
+        publish_topic_suffix: The topic suffix, or None if not configured.
+
+    Returns:
+        EnumHookProcessingStatus.SUCCESS if emission succeeded or was not
+        configured, EnumHookProcessingStatus.PARTIAL if emission was
+        configured but failed.
+    """
+    # If we successfully emitted, always return success
+    if emitted_to_kafka:
+        return EnumHookProcessingStatus.SUCCESS
+
+    # If emission failed but Kafka was fully configured (both producer and topic),
+    # mark as partial - we completed classification but failed on emission
+    if kafka_producer is not None and publish_topic_suffix is not None:
+        return EnumHookProcessingStatus.PARTIAL
+
+    # Kafka was not fully configured, so we successfully completed what was asked
+    return EnumHookProcessingStatus.SUCCESS
+
+
 async def handle_user_prompt_submit(
     event: ModelClaudeCodeHookEvent,
     *,
@@ -354,16 +398,16 @@ async def handle_user_prompt_submit(
                 topic_suffix=publish_topic_suffix,
             )
             emitted_to_kafka = True
-            metadata["kafka_emission"] = "success"
+            metadata["kafka_emission"] = EnumKafkaEmissionStatus.SUCCESS.value
             metadata["kafka_topic_suffix"] = publish_topic_suffix
             metadata["kafka_topic_full"] = f"{topic_env_prefix}.{publish_topic_suffix}"
         except Exception as e:
             metadata["kafka_emission_error"] = str(e)
-            metadata["kafka_emission"] = "failed"
+            metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
     elif kafka_producer is None:
-        metadata["kafka_emission"] = "no_producer_available"
+        metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value
     else:
-        metadata["kafka_emission"] = "no_topic_suffix_configured"
+        metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_TOPIC_SUFFIX.value
 
     # Build intent result
     intent_result = ModelIntentResult(
@@ -373,11 +417,12 @@ async def handle_user_prompt_submit(
         emitted_to_kafka=emitted_to_kafka,
     )
 
-    # Determine overall status
-    status = EnumHookProcessingStatus.SUCCESS
-    if not emitted_to_kafka and kafka_producer is not None and publish_topic_suffix is not None:
-        # Only mark as partial if we had both producer and topic but still failed
-        status = EnumHookProcessingStatus.PARTIAL
+    # Determine overall status using helper for clarity
+    status = _determine_processing_status(
+        emitted_to_kafka=emitted_to_kafka,
+        kafka_producer=kafka_producer,
+        publish_topic_suffix=publish_topic_suffix,
+    )
 
     return ModelClaudeHookResult(
         status=status,

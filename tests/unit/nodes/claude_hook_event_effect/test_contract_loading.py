@@ -164,3 +164,158 @@ class TestLoadPublishTopicFromContract:
 
         # Assert: publish_topic_suffix should be the override value
         assert node.publish_topic_suffix == override_topic
+
+
+class TestValidateTopicSuffix:
+    """Tests for _validate_topic_suffix method."""
+
+    @patch(
+        "omniintelligence.nodes.claude_hook_event_effect.node.load_event_bus_subcontract"
+    )
+    def test_valid_evt_topic_returns_true(
+        self, mock_load_subcontract: MagicMock, mock_onex_container: MagicMock
+    ) -> None:
+        """Test that valid event topic suffix returns True.
+
+        Format: onex.{type}.{domain}.{event-name}.{version}
+        """
+        # Arrange: Bypass contract loading
+        mock_load_subcontract.return_value = None
+
+        from omniintelligence.nodes.claude_hook_event_effect.node import (
+            NodeClaudeHookEventEffect,
+        )
+
+        node = NodeClaudeHookEventEffect(mock_onex_container)
+
+        # Act & Assert
+        assert node._validate_topic_suffix("onex.evt.omniintelligence.intent-classified.v1") is True
+
+    @patch(
+        "omniintelligence.nodes.claude_hook_event_effect.node.load_event_bus_subcontract"
+    )
+    def test_valid_cmd_topic_returns_true(
+        self, mock_load_subcontract: MagicMock, mock_onex_container: MagicMock
+    ) -> None:
+        """Test that valid command topic suffix returns True.
+
+        Format: onex.{type}.{domain}.{event-name}.{version}
+        """
+        # Arrange: Bypass contract loading
+        mock_load_subcontract.return_value = None
+
+        from omniintelligence.nodes.claude_hook_event_effect.node import (
+            NodeClaudeHookEventEffect,
+        )
+
+        node = NodeClaudeHookEventEffect(mock_onex_container)
+
+        # Act & Assert
+        assert node._validate_topic_suffix("onex.cmd.omniintelligence.analyze-code.v1") is True
+
+    @patch(
+        "omniintelligence.nodes.claude_hook_event_effect.node.load_event_bus_subcontract"
+    )
+    def test_invalid_prefix_returns_false(
+        self, mock_load_subcontract: MagicMock, mock_onex_container: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that topic without 'onex.' prefix returns False.
+
+        Should log a warning when prefix is missing.
+        """
+        # Arrange: Bypass contract loading
+        mock_load_subcontract.return_value = None
+
+        from omniintelligence.nodes.claude_hook_event_effect.node import (
+            NodeClaudeHookEventEffect,
+        )
+
+        node = NodeClaudeHookEventEffect(mock_onex_container)
+
+        # Act
+        result = node._validate_topic_suffix("dev.evt.omniintelligence.intent-classified.v1")
+
+        # Assert
+        assert result is False
+        assert "does not start with 'onex.' prefix" in caplog.text
+
+    @patch(
+        "omniintelligence.nodes.claude_hook_event_effect.node.load_event_bus_subcontract"
+    )
+    def test_invalid_type_returns_false(
+        self, mock_load_subcontract: MagicMock, mock_onex_container: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that topic with invalid type returns False.
+
+        Type must be 'cmd' or 'evt'. Should log a warning for invalid types.
+        """
+        # Arrange: Bypass contract loading
+        mock_load_subcontract.return_value = None
+
+        from omniintelligence.nodes.claude_hook_event_effect.node import (
+            NodeClaudeHookEventEffect,
+        )
+
+        node = NodeClaudeHookEventEffect(mock_onex_container)
+
+        # Act
+        result = node._validate_topic_suffix("onex.event.omniintelligence.intent-classified.v1")
+
+        # Assert
+        assert result is False
+        assert "invalid type 'event'" in caplog.text
+
+    @patch(
+        "omniintelligence.nodes.claude_hook_event_effect.node.load_event_bus_subcontract"
+    )
+    def test_too_few_parts_returns_false(
+        self, mock_load_subcontract: MagicMock, mock_onex_container: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that topic with fewer than 5 parts returns False.
+
+        Required: onex.{type}.{domain}.{event-name}.{version} = 5 parts minimum.
+        """
+        # Arrange: Bypass contract loading
+        mock_load_subcontract.return_value = None
+
+        from omniintelligence.nodes.claude_hook_event_effect.node import (
+            NodeClaudeHookEventEffect,
+        )
+
+        node = NodeClaudeHookEventEffect(mock_onex_container)
+
+        # Act
+        result = node._validate_topic_suffix("onex.evt.domain.v1")
+
+        # Assert
+        assert result is False
+        assert "fewer than 5 parts" in caplog.text
+
+    @patch(
+        "omniintelligence.nodes.claude_hook_event_effect.node.load_event_bus_subcontract"
+    )
+    def test_validation_called_during_contract_loading(
+        self, mock_load_subcontract: MagicMock, mock_onex_container: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that validation is called when loading topic from contract.
+
+        Invalid topics loaded from contract should trigger a warning but
+        still return the topic (don't break functionality).
+        """
+        # Arrange: Simulate contract with invalid topic
+        invalid_topic = "bad.topic.format"
+        mock_subcontract = MagicMock()
+        mock_subcontract.publish_topics = [invalid_topic]
+        mock_load_subcontract.return_value = mock_subcontract
+
+        # Act: Import and instantiate the node
+        from omniintelligence.nodes.claude_hook_event_effect.node import (
+            NodeClaudeHookEventEffect,
+        )
+
+        node = NodeClaudeHookEventEffect(mock_onex_container)
+
+        # Assert: Topic is still returned (don't break functionality)
+        assert node.publish_topic_suffix == invalid_topic
+        # But a warning should have been logged
+        assert "fewer than 5 parts" in caplog.text

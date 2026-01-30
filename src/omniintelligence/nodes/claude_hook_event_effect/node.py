@@ -121,6 +121,51 @@ class NodeClaudeHookEventEffect(NodeEffect):
         # Load publish topic suffix from contract (OMN-1551: contract-driven topic resolution)
         self._publish_topic_suffix: str | None = self._load_publish_topic_from_contract()
 
+    def _validate_topic_suffix(self, suffix: str) -> bool:
+        """Validate that a topic suffix follows ONEX naming convention.
+
+        ONEX topic format: onex.{type}.{domain}.{event-name}.{version}
+        - Must start with "onex."
+        - Must have at least 4 parts when split by "."
+        - Type must be either "cmd" (command) or "evt" (event)
+
+        Args:
+            suffix: The topic suffix to validate.
+
+        Returns:
+            True if the topic suffix is valid, False otherwise.
+        """
+        parts = suffix.split(".")
+
+        # Check minimum parts: onex.{type}.{domain}.{event-name}.{version}
+        if len(parts) < 5:
+            logger.warning(
+                "Topic suffix '%s' has fewer than 5 parts (expected: "
+                "onex.{type}.{domain}.{event-name}.{version})",
+                suffix,
+            )
+            return False
+
+        # Check prefix
+        if parts[0] != "onex":
+            logger.warning(
+                "Topic suffix '%s' does not start with 'onex.' prefix",
+                suffix,
+            )
+            return False
+
+        # Check type is cmd or evt
+        topic_type = parts[1]
+        if topic_type not in ("cmd", "evt"):
+            logger.warning(
+                "Topic suffix '%s' has invalid type '%s' (expected: 'cmd' or 'evt')",
+                suffix,
+                topic_type,
+            )
+            return False
+
+        return True
+
     def _load_publish_topic_from_contract(self) -> str | None:
         """Load the first publish topic suffix from contract.yaml.
 
@@ -158,6 +203,10 @@ class NodeClaudeHookEventEffect(NodeEffect):
                 topic_suffix,
                 len(subcontract.publish_topics) - 1,
             )
+
+        # Validate topic suffix format (OMN-1551: contract-driven topic validation)
+        self._validate_topic_suffix(topic_suffix)
+
         logger.debug(
             "Loaded publish topic suffix from contract: %s",
             topic_suffix,
