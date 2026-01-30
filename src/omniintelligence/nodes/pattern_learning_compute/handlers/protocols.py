@@ -265,6 +265,32 @@ class DeduplicationResultDict(TypedDict):
     near_threshold_warnings: list[NearThresholdWarningDict]
 
 
+class PatternSignatureDict(TypedDict):
+    """Versioned signature for pattern identity and change detection.
+
+    STABILITY CONTRACT:
+        - Inputs: pattern_type + sorted(keywords[:20]) + sorted(pattern_indicators)
+        - Normalization: lowercase, sort, dedupe
+        - Version stored alongside signature for migration
+
+    Versioning enables:
+        - Migration path when algorithm changes
+        - Comparison of signatures across versions
+        - Debugging "why did this pattern change?" questions
+
+    Attributes:
+        signature: SHA256 hex digest of canonical serialization.
+        signature_version: Version of the signature algorithm (e.g., "v1.0.0").
+        signature_inputs: Tuple of inputs used (for debugging/audit).
+        normalization_applied: Normalization method used (e.g., "lowercase_sort_dedupe").
+    """
+
+    signature: str
+    signature_version: str
+    signature_inputs: tuple[str, ...]
+    normalization_applied: str
+
+
 class PatternLearningResult(TypedDict):
     """Final result from the pattern learning (aggregation) handler.
 
@@ -294,6 +320,7 @@ __all__ = [
     "PatternClusterDict",
     "PatternLearningResult",
     "PatternScoreComponentsDict",
+    "PatternSignatureDict",
     "SimilarityResultDict",
     "SimilarityWeightsDict",
     "StructuralFeaturesDict",
