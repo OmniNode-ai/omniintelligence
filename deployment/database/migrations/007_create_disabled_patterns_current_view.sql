@@ -11,12 +11,13 @@
 -- latest event is 'disabled' appear in this view.
 --
 -- Precedence Rules:
---   1. Each unique (pattern_id, pattern_class) combination is tracked independently
---   2. The latest event_at timestamp wins for determining current state
---   3. Only 'disabled' events appear in the view; 're_enabled' events remove patterns
---   4. Partition key uses namespace prefixes ('id:' or 'class:') to prevent
+--   1. When pattern_id is set, it takes precedence (pattern_class is ignored for partitioning)
+--   2. When pattern_id is NULL, pattern_class is used for class-wide targeting
+--   3. The latest event_at timestamp wins for determining current state
+--   4. Only 'disabled' events appear in the view; 're_enabled' events remove patterns
+--   5. Partition key uses namespace prefixes ('id:' or 'class:') to prevent
 --      collisions between pattern_id UUIDs and pattern_class strings
---   5. Tie-breakers (created_at, id) ensure deterministic ordering on timestamp ties
+--   6. Tie-breakers (created_at, id) ensure deterministic ordering on timestamp ties
 --
 -- Refresh Strategy:
 --   - This view must be refreshed by application code after inserting events
@@ -86,14 +87,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_disabled_patterns_current_pattern_class_un
     WHERE pattern_id IS NULL;
 
 -- ============================================================================
--- Regular Indexes for Fast Lookups
+-- Additional Index for Fast Lookups
 -- ============================================================================
-
--- Index for fast lookup by pattern_id (most common query)
--- Used by: "Is pattern X currently disabled?"
-CREATE INDEX IF NOT EXISTS idx_disabled_patterns_current_pattern_id
-    ON disabled_patterns_current(pattern_id)
-    WHERE pattern_id IS NOT NULL;
+-- Note: pattern_id lookups use idx_disabled_patterns_current_pattern_id_unique above.
+-- Only pattern_class needs a separate non-unique index since its unique index
+-- is conditional (WHERE pattern_id IS NULL) and won't cover all pattern_class lookups.
 
 -- Index for fast lookup by pattern_class
 -- Used by: "Is pattern class Y currently disabled?"
