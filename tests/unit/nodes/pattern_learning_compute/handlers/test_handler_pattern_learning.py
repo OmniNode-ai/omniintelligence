@@ -38,36 +38,9 @@ from omniintelligence.nodes.pattern_learning_compute.models import (
     LearningParametersDict,
     TrainingDataItemDict,
 )
-
-
-# =============================================================================
-# Test Fixtures
-# =============================================================================
-
-
-def make_training_item(
-    item_id: str,
-    code_snippet: str,
-    pattern_type: str = "compute",
-    confidence: float = 0.9,
-) -> TrainingDataItemDict:
-    """Factory for minimal training items.
-
-    Creates deterministic training items with consistent language and framework
-    to ensure reproducible clustering behavior.
-    """
-    return TrainingDataItemDict(
-        item_id=item_id,
-        source_file=f"{item_id}.py",
-        language="python",
-        code_snippet=code_snippet,
-        pattern_type=pattern_type,
-        pattern_name="test_pattern",
-        labels=[pattern_type, "test"],
-        confidence=confidence,
-        context="test",
-        framework="onex",
-    )
+from tests.unit.nodes.pattern_learning_compute.handlers.conftest import (
+    make_training_item,
+)
 
 
 # =============================================================================
@@ -385,3 +358,79 @@ class TestPipelinePatternOutput:
         for p1, p2 in zip(patterns1, patterns2, strict=True):
             assert p1.pattern_id == p2.pattern_id
             assert p1.signature_info.signature == p2.signature_info.signature
+
+
+@pytest.mark.unit
+class TestPromotionThresholdEdgeCases:
+    """Edge case tests for promotion threshold boundaries."""
+
+    def test_zero_threshold_promotes_all_patterns(self) -> None:
+        """With threshold=0.0, all patterns should become learned."""
+        training_data: list[TrainingDataItemDict] = [
+            make_training_item(
+                item_id="zero-001",
+                code_snippet="class ZeroTest:\n    pass",
+            ),
+        ]
+
+        result = aggregate_patterns(
+            training_data=training_data,
+            parameters={},
+            promotion_threshold=0.0,  # Edge case: zero threshold
+        )
+
+        assert result["success"] is True
+        # All patterns should be learned (none should be candidates)
+        assert len(result["learned_patterns"]) >= 1
+        assert len(result["candidate_patterns"]) == 0
+
+    def test_one_threshold_makes_all_candidates(self) -> None:
+        """With threshold=1.0, all patterns should become candidates."""
+        training_data: list[TrainingDataItemDict] = [
+            make_training_item(
+                item_id="one-001",
+                code_snippet="class OneTest:\n    pass",
+            ),
+        ]
+
+        result = aggregate_patterns(
+            training_data=training_data,
+            parameters={},
+            promotion_threshold=1.0,  # Edge case: maximum threshold
+        )
+
+        assert result["success"] is True
+        # All patterns should be candidates (confidence can't reach 1.0)
+        assert len(result["candidate_patterns"]) >= 1
+        assert len(result["learned_patterns"]) == 0
+
+    def test_mixed_pattern_types_in_batch(self) -> None:
+        """Different pattern types should cluster separately."""
+        training_data: list[TrainingDataItemDict] = [
+            make_training_item(
+                item_id="compute-001",
+                code_snippet="class ComputeNode:\n    pass",
+                pattern_type="compute",
+            ),
+            make_training_item(
+                item_id="effect-001",
+                code_snippet="class EffectNode:\n    pass",
+                pattern_type="effect",
+            ),
+            make_training_item(
+                item_id="workflow-001",
+                code_snippet="class WorkflowNode:\n    pass",
+                pattern_type="workflow",
+            ),
+        ]
+
+        result = aggregate_patterns(
+            training_data=training_data,
+            parameters={},
+            promotion_threshold=0.5,
+        )
+
+        assert result["success"] is True
+        all_patterns = result["candidate_patterns"] + result["learned_patterns"]
+        # Should have at least one pattern (possibly separate clusters)
+        assert len(all_patterns) >= 1

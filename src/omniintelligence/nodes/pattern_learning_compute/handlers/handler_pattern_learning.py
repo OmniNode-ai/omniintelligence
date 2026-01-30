@@ -90,6 +90,7 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.handler_pattern_cl
     cluster_patterns,
 )
 from omniintelligence.nodes.pattern_learning_compute.handlers.presets import (
+    DEFAULT_DEDUPLICATION_THRESHOLD,
     DEFAULT_PROMOTION_THRESHOLD,
     DEFAULT_SIMILARITY_WEIGHTS,
     SIGNATURE_VERSION,
@@ -132,6 +133,11 @@ _PATTERN_TYPE_MAP: dict[str, EnumPatternType] = {
     "nodereducer": EnumPatternType.CODE_PATTERN,
     "nodeorchestrator": EnumPatternType.WORKFLOW_PATTERN,
     "basemodel": EnumPatternType.CODE_PATTERN,
+    # Short forms commonly used in tests and elsewhere
+    "compute": EnumPatternType.CODE_PATTERN,
+    "effect": EnumPatternType.CODE_PATTERN,
+    "reducer": EnumPatternType.CODE_PATTERN,
+    "orchestrator": EnumPatternType.WORKFLOW_PATTERN,
 }
 
 # =============================================================================
@@ -279,20 +285,8 @@ def aggregate_patterns(
         confidence_scores=confidence_scores,
         dedup_result=dedup_result,
         processing_time_ms=processing_time_ms,
-    )
-
-    # Update metrics with actual learned/candidate counts
-    metrics = ModelPatternLearningMetrics(
-        input_count=metrics.input_count,
-        cluster_count=metrics.cluster_count,
-        candidate_count=len(candidate_patterns),
         learned_count=len(learned_patterns),
-        discarded_count=metrics.discarded_count,
-        merged_count=metrics.merged_count,
-        mean_confidence=metrics.mean_confidence,
-        mean_label_agreement=metrics.mean_label_agreement,
-        mean_cluster_cohesion=metrics.mean_cluster_cohesion,
-        processing_time_ms=metrics.processing_time_ms,
+        candidate_count=len(candidate_patterns),
     )
 
     # Build metadata
@@ -405,6 +399,8 @@ def compute_learning_metrics(
     confidence_scores: dict[str, PatternScoreComponentsDict],
     dedup_result: DeduplicationResultDict,
     processing_time_ms: float,
+    learned_count: int,
+    candidate_count: int,
 ) -> ModelPatternLearningMetrics:
     """Compute aggregation metrics from handler outputs.
 
@@ -417,6 +413,10 @@ def compute_learning_metrics(
         confidence_scores: Mapping of cluster_id to score components.
         dedup_result: Result from deduplication handler.
         processing_time_ms: Total processing time in milliseconds.
+        learned_count: Number of patterns that met the promotion threshold
+            (lifecycle_state=VALIDATED).
+        candidate_count: Number of patterns below the promotion threshold
+            (lifecycle_state=CANDIDATE).
 
     Returns:
         ModelPatternLearningMetrics with computed values.
@@ -428,6 +428,8 @@ def compute_learning_metrics(
         ...     confidence_scores=scores,
         ...     dedup_result=dedup_result,
         ...     processing_time_ms=150.0,
+        ...     learned_count=5,
+        ...     candidate_count=10,
         ... )
         >>> print(f"Mean confidence: {metrics.mean_confidence:.3f}")
     """
@@ -457,10 +459,6 @@ def compute_learning_metrics(
         mean_confidence = 0.0
         mean_label_agreement = 0.0
         mean_cluster_cohesion = 0.0
-
-    # Count patterns (candidate_count and learned_count will be updated by caller)
-    candidate_count = len(final_clusters)
-    learned_count = 0
 
     return ModelPatternLearningMetrics(
         input_count=input_count,
@@ -533,7 +531,7 @@ def _create_empty_result(
         status=EnumPatternLearningStatus.COMPLETED,
         model_version=_MODEL_VERSION,
         timestamp=datetime.now(UTC),
-        deduplication_threshold_used=0.85,  # Default
+        deduplication_threshold_used=DEFAULT_DEDUPLICATION_THRESHOLD,
         promotion_threshold_used=promotion_threshold,
         training_samples=input_count,
         validation_samples=0,
