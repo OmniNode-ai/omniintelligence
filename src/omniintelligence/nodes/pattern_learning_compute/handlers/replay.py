@@ -58,11 +58,13 @@ class NullEmitter:
         emitters would also succeed.
     """
 
-    def emit(self, name: str, payload: dict[str, object]) -> None:
+    __slots__ = ()
+
+    def emit(self, _name: str, payload: dict[str, object]) -> None:
         """Validate payload is JSON-safe, then discard.
 
         Args:
-            name: Artifact name (unused but validated for protocol compliance).
+            _name: Artifact name (unused but validated for protocol compliance).
             payload: JSON-serializable dict - validated then discarded.
 
         Raises:

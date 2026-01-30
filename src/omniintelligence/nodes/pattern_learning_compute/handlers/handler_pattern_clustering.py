@@ -45,6 +45,8 @@ Usage:
 
 from __future__ import annotations
 
+from collections import Counter
+
 from omniintelligence.nodes.pattern_learning_compute.handlers.exceptions import (
     PatternLearningValidationError,
 )
@@ -99,6 +101,12 @@ _STRUCTURAL_WEIGHTS: dict[str, float] = {
     "has_type_hints": 0.05,
     "has_docstrings": 0.05,
 }
+
+# Validate weights sum to 1.0 at module load time
+_structural_weights_sum = sum(_STRUCTURAL_WEIGHTS.values())
+assert abs(_structural_weights_sum - 1.0) < 1e-9, (
+    f"_STRUCTURAL_WEIGHTS must sum to 1.0, got {_structural_weights_sum}"
+)
 
 
 # =============================================================================
@@ -358,6 +366,7 @@ def _compute_intra_cluster_similarity(
             total_sim += result["similarity"]
             count += 1
 
+    # Single-member cluster has perfect self-similarity
     return total_sim / count if count > 0 else 1.0
 
 
@@ -614,9 +623,7 @@ def cluster_patterns(
             # Most common pattern indicator
             # Tie-break: alphabetically ascending (smallest string wins)
             # This matches the item_id determinism pattern used elsewhere
-            pattern_counts: dict[str, int] = {}
-            for p in all_patterns:
-                pattern_counts[p] = pattern_counts.get(p, 0) + 1
+            pattern_counts = Counter(all_patterns)
             # Sort by count descending, then alphabetically ascending for ties
             sorted_patterns = sorted(
                 pattern_counts.keys(),
