@@ -25,9 +25,8 @@ Reference:
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -716,15 +715,15 @@ class TestNodePatternStorageEffectIntegration:
         assert result["event"]["pattern_id"] == str(input_data.pattern_id)
         assert result["event"]["state"] == "candidate"
 
-    async def test_node_store_pattern_typed_method(
+    async def test_node_store_pattern_via_execute_returns_typed_result(
         self,
         mock_pattern_store: MockPatternStore,
     ) -> None:
-        """Test storing a pattern via the typed store_pattern() method.
+        """Test storing a pattern via execute() returns proper envelope.
 
         Verifies:
-        - Returns ModelPatternStoredEvent
-        - Fields are correctly typed
+        - execute() returns success envelope
+        - event contains expected fields
         """
         from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
@@ -734,21 +733,25 @@ class TestNodePatternStorageEffectIntegration:
 
         input_data = create_valid_input()
 
-        result = await node.store_pattern(input_data)
+        result = await node.execute(
+            operation="store_pattern",
+            input_data=input_data.model_dump(mode="json"),
+        )
 
-        assert result.pattern_id == input_data.pattern_id
-        assert result.state == EnumPatternState.CANDIDATE
-        assert isinstance(result.stored_at, datetime)
+        assert result["success"] is True
+        assert result["event_type"] == "pattern_stored"
+        assert result["event"]["pattern_id"] == str(input_data.pattern_id)
+        assert result["event"]["state"] == "candidate"
 
-    async def test_node_promote_pattern_typed_method(
+    async def test_node_promote_pattern_via_execute_returns_typed_result(
         self,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
-        """Test promoting a pattern via the typed promote_pattern() method.
+        """Test promoting a pattern via execute() returns proper envelope.
 
         Verifies:
-        - Returns ModelPatternPromotedEvent
-        - State transition occurs correctly
+        - execute() returns success envelope
+        - event contains expected fields
         """
         from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
@@ -759,15 +762,20 @@ class TestNodePatternStorageEffectIntegration:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        result = await node.promote_pattern(
-            pattern_id=pattern_id,
-            to_state=EnumPatternState.PROVISIONAL,
-            reason="Test promotion",
+        result = await node.execute(
+            operation="promote_pattern",
+            input_data={
+                "pattern_id": str(pattern_id),
+                "to_state": "provisional",
+                "reason": "Test promotion",
+            },
         )
 
-        assert result.pattern_id == pattern_id
-        assert result.from_state == EnumPatternState.CANDIDATE
-        assert result.to_state == EnumPatternState.PROVISIONAL
+        assert result["success"] is True
+        assert result["event_type"] == "pattern_promoted"
+        assert result["event"]["pattern_id"] == str(pattern_id)
+        assert result["event"]["from_state"] == "candidate"
+        assert result["event"]["to_state"] == "provisional"
 
     async def test_node_introspection_properties(self) -> None:
         """Test that node introspection properties are accessible.
@@ -810,9 +818,9 @@ class TestEndToEndWorkflow:
         """Test full pattern lifecycle: store -> promote to provisional -> promote to validated.
 
         Verifies:
-        - Pattern can be stored as CANDIDATE
-        - Pattern can be promoted to PROVISIONAL
-        - Pattern can be promoted to VALIDATED
+        - Pattern can be stored as CANDIDATE via execute()
+        - Pattern can be promoted to PROVISIONAL via execute()
+        - Pattern can be promoted to VALIDATED via execute()
         - All states are tracked correctly
         """
         from omnibase_core.models.container.model_onex_container import ModelONEXContainer
@@ -827,45 +835,61 @@ class TestEndToEndWorkflow:
             confidence=0.85,
             domain="lifecycle_test",
         )
-        store_result = await node.store_pattern(input_data)
+        store_result = await node.execute(
+            operation="store_pattern",
+            input_data=input_data.model_dump(mode="json"),
+        )
 
-        assert store_result.state == EnumPatternState.CANDIDATE
+        assert store_result["success"] is True
+        assert store_result["event"]["state"] == "candidate"
 
-        # Set up state manager for promotion
-        mock_state_manager.set_state(store_result.pattern_id, EnumPatternState.CANDIDATE)
+        # Extract pattern_id from result for subsequent operations
+        pattern_id_str = store_result["event"]["pattern_id"]
+
+        # Set up state manager for promotion (need UUID for state manager)
+        pattern_id = UUID(pattern_id_str)
+        mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
         # Step 2: Promote to PROVISIONAL
-        promote_result_1 = await node.promote_pattern(
-            pattern_id=store_result.pattern_id,
-            to_state=EnumPatternState.PROVISIONAL,
-            reason="Passed initial verification",
-            metrics_snapshot=ModelPatternMetricsSnapshot(
-                confidence=0.87,
-                match_count=25,
-                success_rate=0.92,
-            ),
+        promote_result_1 = await node.execute(
+            operation="promote_pattern",
+            input_data={
+                "pattern_id": pattern_id_str,
+                "to_state": "provisional",
+                "reason": "Passed initial verification",
+                "metrics_snapshot": {
+                    "confidence": 0.87,
+                    "match_count": 25,
+                    "success_rate": 0.92,
+                },
+            },
         )
 
-        assert promote_result_1.from_state == EnumPatternState.CANDIDATE
-        assert promote_result_1.to_state == EnumPatternState.PROVISIONAL
+        assert promote_result_1["success"] is True
+        assert promote_result_1["event"]["from_state"] == "candidate"
+        assert promote_result_1["event"]["to_state"] == "provisional"
 
         # Step 3: Promote to VALIDATED
-        promote_result_2 = await node.promote_pattern(
-            pattern_id=store_result.pattern_id,
-            to_state=EnumPatternState.VALIDATED,
-            reason="Met all validation criteria",
-            metrics_snapshot=ModelPatternMetricsSnapshot(
-                confidence=0.95,
-                match_count=100,
-                success_rate=0.98,
-            ),
+        promote_result_2 = await node.execute(
+            operation="promote_pattern",
+            input_data={
+                "pattern_id": pattern_id_str,
+                "to_state": "validated",
+                "reason": "Met all validation criteria",
+                "metrics_snapshot": {
+                    "confidence": 0.95,
+                    "match_count": 100,
+                    "success_rate": 0.98,
+                },
+            },
         )
 
-        assert promote_result_2.from_state == EnumPatternState.PROVISIONAL
-        assert promote_result_2.to_state == EnumPatternState.VALIDATED
+        assert promote_result_2["success"] is True
+        assert promote_result_2["event"]["from_state"] == "provisional"
+        assert promote_result_2["event"]["to_state"] == "validated"
 
         # Verify final state
-        assert mock_state_manager.states[store_result.pattern_id] == EnumPatternState.VALIDATED
+        assert mock_state_manager.states[pattern_id] == EnumPatternState.VALIDATED
 
         # Verify all transitions recorded
         assert len(mock_state_manager.transitions) == 2

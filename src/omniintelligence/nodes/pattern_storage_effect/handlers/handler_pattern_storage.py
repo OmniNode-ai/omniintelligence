@@ -39,6 +39,8 @@ from uuid import UUID
 
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
+    PatternNotFoundError,
+    PatternStateTransitionError,
     ProtocolPatternStateManager,
     handle_promote_pattern,
 )
@@ -68,6 +70,12 @@ logger = logging.getLogger(__name__)
 OPERATION_STORE_PATTERN: Final[str] = "store_pattern"
 OPERATION_PROMOTE_PATTERN: Final[str] = "promote_pattern"
 
+# Error codes for programmatic exception routing (avoid fragile string matching)
+ERROR_CODE_PATTERN_NOT_FOUND: Final[str] = "PATTERN_NOT_FOUND"
+ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
+ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
+ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
+
 
 # =============================================================================
 # Result Types
@@ -86,7 +94,13 @@ class StorageOperationResult:
         success: Whether the operation succeeded.
         stored_event: The stored event (if store_pattern operation).
         promoted_event: The promoted event (if promote_pattern operation).
-        error_message: Error message if operation failed.
+        error_code: Machine-readable error code for programmatic handling.
+            Standard codes:
+            - "PATTERN_NOT_FOUND": Pattern does not exist
+            - "INVALID_TRANSITION": State transition not allowed
+            - "GOVERNANCE_VIOLATION": Governance rules violated (e.g., low confidence)
+            - "VALIDATION_ERROR": Input validation failed
+        error_message: Human-readable error message if operation failed.
     """
 
     def __init__(
@@ -95,6 +109,7 @@ class StorageOperationResult:
         success: bool = True,
         stored_event: ModelPatternStoredEvent | None = None,
         promoted_event: ModelPatternPromotedEvent | None = None,
+        error_code: str | None = None,
         error_message: str | None = None,
     ) -> None:
         """Initialize the result.
@@ -104,12 +119,14 @@ class StorageOperationResult:
             success: Whether the operation succeeded.
             stored_event: The stored event (if store_pattern operation).
             promoted_event: The promoted event (if promote_pattern operation).
-            error_message: Error message if operation failed.
+            error_code: Machine-readable error code for programmatic handling.
+            error_message: Human-readable error message if operation failed.
         """
         self.operation = operation
         self.success = success
         self.stored_event = stored_event
         self.promoted_event = promoted_event
+        self.error_code = error_code
         self.error_message = error_message
 
     def to_dict(self) -> dict[str, Any]:
@@ -129,6 +146,9 @@ class StorageOperationResult:
         elif self.promoted_event is not None:
             result["event_type"] = "pattern_promoted"
             result["event"] = self.promoted_event.model_dump(mode="json")
+
+        if self.error_code is not None:
+            result["error_code"] = self.error_code
 
         if self.error_message is not None:
             result["error_message"] = self.error_message
@@ -272,14 +292,23 @@ class PatternStorageRouter:
             )
 
         except ValueError as e:
+            error_msg = str(e)
+            # Determine error code based on error type
+            # Governance failures contain "Governance validation failed"
+            if "governance" in error_msg.lower():
+                error_code = ERROR_CODE_GOVERNANCE_VIOLATION
+            else:
+                error_code = ERROR_CODE_VALIDATION_ERROR
+
             logger.warning(
                 "Store pattern validation failed",
-                extra={"error": str(e)},
+                extra={"error": error_msg, "error_code": error_code},
             )
             return StorageOperationResult(
                 operation=OPERATION_STORE_PATTERN,
                 success=False,
-                error_message=str(e),
+                error_code=error_code,
+                error_message=error_msg,
             )
 
     async def _handle_promote(
@@ -387,6 +416,35 @@ class PatternStorageRouter:
                 promoted_event=promoted_event,
             )
 
+        except PatternNotFoundError as e:
+            logger.warning(
+                "Promote pattern failed: pattern not found",
+                extra={"error": str(e), "pattern_id": str(e.pattern_id)},
+            )
+            return StorageOperationResult(
+                operation=OPERATION_PROMOTE_PATTERN,
+                success=False,
+                error_code=ERROR_CODE_PATTERN_NOT_FOUND,
+                error_message=str(e),
+            )
+
+        except PatternStateTransitionError as e:
+            logger.warning(
+                "Promote pattern failed: invalid transition",
+                extra={
+                    "error": str(e),
+                    "pattern_id": str(e.pattern_id),
+                    "from_state": e.from_state.value if e.from_state else None,
+                    "to_state": e.to_state.value,
+                },
+            )
+            return StorageOperationResult(
+                operation=OPERATION_PROMOTE_PATTERN,
+                success=False,
+                error_code=ERROR_CODE_INVALID_TRANSITION,
+                error_message=str(e),
+            )
+
         except ValueError as e:
             logger.warning(
                 "Promote pattern validation failed",
@@ -395,6 +453,7 @@ class PatternStorageRouter:
             return StorageOperationResult(
                 operation=OPERATION_PROMOTE_PATTERN,
                 success=False,
+                error_code=ERROR_CODE_VALIDATION_ERROR,
                 error_message=str(e),
             )
 
@@ -498,6 +557,10 @@ async def route_storage_operation(
 
 
 __all__ = [
+    "ERROR_CODE_GOVERNANCE_VIOLATION",
+    "ERROR_CODE_INVALID_TRANSITION",
+    "ERROR_CODE_PATTERN_NOT_FOUND",
+    "ERROR_CODE_VALIDATION_ERROR",
     "OPERATION_PROMOTE_PATTERN",
     "OPERATION_STORE_PATTERN",
     "PatternStorageRouter",

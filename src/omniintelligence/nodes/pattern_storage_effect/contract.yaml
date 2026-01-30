@@ -74,7 +74,7 @@ handler_routing:
     - operation: "store_pattern"
       handler:
         function: "handle_store_pattern"
-        module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage"
+        module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern"
         type: "async"
       description: "Persist a learned pattern to storage"
       actions:
@@ -86,7 +86,7 @@ handler_routing:
     - operation: "promote_pattern"
       handler:
         function: "handle_promote_pattern"
-        module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_pattern_storage"
+        module: "omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern"
         type: "async"
       description: "Promote a candidate pattern to active status"
       actions:

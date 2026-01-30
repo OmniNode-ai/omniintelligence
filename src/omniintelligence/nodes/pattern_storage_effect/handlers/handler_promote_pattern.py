@@ -27,8 +27,10 @@ Reference:
 Usage:
     from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
         handle_promote_pattern,
-        is_valid_transition,
+    )
+    from omniintelligence.nodes.pattern_storage_effect.constants import (
         VALID_TRANSITIONS,
+        is_valid_transition,
     )
 
     # Promote a pattern
@@ -52,7 +54,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.nodes.pattern_storage_effect.constants import (
     VALID_TRANSITIONS,
-    get_valid_targets,
     is_valid_transition,
 )
 from omniintelligence.nodes.pattern_storage_effect.models.model_pattern_state import (
@@ -134,6 +135,15 @@ class PatternStateTransitionError(Exception):
 
         super().__init__(message)
 
+    def __repr__(self) -> str:
+        """Return a detailed representation for debugging."""
+        return (
+            f"{self.__class__.__name__}("
+            f"pattern_id={self.pattern_id!r}, "
+            f"from_state={self.from_state!r}, "
+            f"to_state={self.to_state!r})"
+        )
+
 
 class PatternNotFoundError(Exception):
     """Raised when a pattern is not found for state transition.
@@ -158,6 +168,10 @@ class PatternNotFoundError(Exception):
         """
         self.pattern_id = pattern_id
         super().__init__(f"Pattern {pattern_id} not found")
+
+    def __repr__(self) -> str:
+        """Return a detailed representation for debugging."""
+        return f"{self.__class__.__name__}(pattern_id={self.pattern_id!r})"
 
 
 # =============================================================================
@@ -470,12 +484,9 @@ async def handle_promote_pattern(
 
 __all__ = [
     "DEFAULT_ACTOR",
-    "VALID_TRANSITIONS",
     "ModelStateTransition",
     "PatternNotFoundError",
     "PatternStateTransitionError",
     "ProtocolPatternStateManager",
-    "get_valid_targets",
     "handle_promote_pattern",
-    "is_valid_transition",
 ]
