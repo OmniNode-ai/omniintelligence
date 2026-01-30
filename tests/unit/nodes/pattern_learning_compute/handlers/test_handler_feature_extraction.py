@@ -266,6 +266,14 @@ def cached_property(self):
 
         assert result["extraction_quality"] == "full"
 
+    def test_python2_language_variant(self) -> None:
+        """Python2 language variant is recognized."""
+        item = make_training_item("py2_test", "x = 1", "python2")
+
+        result = extract_features(item)
+
+        assert result["extraction_quality"] == "full"
+
 
 # =============================================================================
 # extract_features - Non-Python Handling Tests

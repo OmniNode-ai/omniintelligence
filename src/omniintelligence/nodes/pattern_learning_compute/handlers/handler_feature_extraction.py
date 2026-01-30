@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
-from typing import Any
 
 from omniintelligence.nodes.pattern_learning_compute.handlers.presets import (
     ONEX_BASE_CLASSES,
@@ -155,7 +154,7 @@ def extract_features_batch(
 # =============================================================================
 
 
-def _normalize_labels(labels: Any) -> tuple[str, ...]:
+def _normalize_labels(labels: tuple[str, ...] | list[str] | str | None) -> tuple[str, ...]:
     """Normalize labels to an immutable tuple.
 
     Handles:
@@ -405,6 +404,9 @@ def _extract_pattern_indicators(tree: ast.AST, _content: str) -> tuple[str, ...]
         1. Inheritance from ONEX base classes (NodeCompute, NodeEffect, etc.)
         2. Presence of ONEX pattern keywords (frozen, extra, forbid, etc.)
 
+    Implementation Note:
+        Uses a single AST walk to collect both base classes and keywords for efficiency.
+
     Args:
         tree: Parsed AST.
         _content: Original source code (reserved for future text-based detection).
@@ -414,17 +416,16 @@ def _extract_pattern_indicators(tree: ast.AST, _content: str) -> tuple[str, ...]
     """
     indicators: list[str] = []
 
-    # Extract base classes that match ONEX patterns
-    base_classes = set(_extract_base_classes(tree))
-    for base in base_classes:
-        # Check lowercase version against ONEX_BASE_CLASSES
-        if base in ONEX_BASE_CLASSES:
-            indicators.append(base)
-
-    # Extract keywords that match ONEX patterns
+    # Single walk to collect both base classes and keywords
     for node in ast.walk(tree):
+        # Extract base classes from ClassDef nodes that match ONEX patterns
+        if isinstance(node, ast.ClassDef):
+            for base in node.bases:
+                name = _get_name(base)
+                if name and name in ONEX_BASE_CLASSES:
+                    indicators.append(name)
         # Check identifiers against ONEX_PATTERN_KEYWORDS
-        if isinstance(node, ast.Name):
+        elif isinstance(node, ast.Name):
             if node.id in ONEX_PATTERN_KEYWORDS:
                 indicators.append(node.id)
         elif isinstance(node, ast.Attribute):
