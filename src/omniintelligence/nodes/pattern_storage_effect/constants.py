@@ -38,11 +38,52 @@ Usage:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Final
 
 from omniintelligence.nodes.pattern_storage_effect.models.model_pattern_state import (
     EnumPatternState,
 )
+
+
+# =============================================================================
+# Validation Result Model
+# =============================================================================
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionValidationResult:
+    """Result of a state transition validation (dry-run).
+
+    This dataclass provides detailed information about whether a state
+    transition is valid, including error details and valid alternatives
+    when the transition is invalid.
+
+    Attributes:
+        is_valid: Whether the transition is allowed.
+        from_state: The source state being validated.
+        to_state: The target state being validated.
+        error_message: Human-readable error message if invalid, None if valid.
+        valid_targets: List of valid target states from the source state.
+
+    Example:
+        >>> result = validate_promotion_transition(
+        ...     from_state=EnumPatternState.CANDIDATE,
+        ...     to_state=EnumPatternState.VALIDATED,
+        ... )
+        >>> result.is_valid
+        False
+        >>> result.error_message
+        'Invalid transition: candidate -> validated. Valid targets: provisional'
+        >>> result.valid_targets
+        [<EnumPatternState.PROVISIONAL: 'provisional'>]
+    """
+
+    is_valid: bool
+    from_state: EnumPatternState
+    to_state: EnumPatternState
+    error_message: str | None
+    valid_targets: list[EnumPatternState]
 
 # =============================================================================
 # Constants
@@ -123,8 +164,93 @@ def get_valid_targets(from_state: EnumPatternState) -> list[EnumPatternState]:
     return list(VALID_TRANSITIONS.get(from_state, []))
 
 
+def validate_promotion_transition(
+    from_state: EnumPatternState,
+    to_state: EnumPatternState,
+) -> TransitionValidationResult:
+    """Validate a state transition without performing it (dry-run).
+
+    This function provides a dry-run validation capability that allows callers
+    to check whether a transition would be valid before attempting it. Unlike
+    is_valid_transition() which returns a simple boolean, this function returns
+    a rich result with detailed error information and valid alternatives.
+
+    Use Cases:
+        - Pre-flight validation in UI/API before submitting promotion request
+        - Debugging why a transition was rejected
+        - Building suggestion systems (e.g., "Did you mean PROVISIONAL?")
+
+    Args:
+        from_state: The current state of the pattern.
+        to_state: The desired target state.
+
+    Returns:
+        TransitionValidationResult with:
+            - is_valid: True if transition is allowed, False otherwise
+            - from_state: Echo of the source state
+            - to_state: Echo of the target state
+            - error_message: Human-readable error if invalid, None if valid
+            - valid_targets: List of valid target states from source
+
+    Example:
+        >>> result = validate_promotion_transition(
+        ...     from_state=EnumPatternState.CANDIDATE,
+        ...     to_state=EnumPatternState.PROVISIONAL,
+        ... )
+        >>> result.is_valid
+        True
+        >>> result.error_message is None
+        True
+
+        >>> result = validate_promotion_transition(
+        ...     from_state=EnumPatternState.CANDIDATE,
+        ...     to_state=EnumPatternState.VALIDATED,
+        ... )
+        >>> result.is_valid
+        False
+        >>> 'provisional' in result.error_message.lower()
+        True
+    """
+    valid_targets = get_valid_targets(from_state)
+    is_valid = to_state in valid_targets
+
+    if is_valid:
+        return TransitionValidationResult(
+            is_valid=True,
+            from_state=from_state,
+            to_state=to_state,
+            error_message=None,
+            valid_targets=valid_targets,
+        )
+
+    # Build informative error message
+    if not valid_targets:
+        # Terminal state - no valid targets
+        error_message = (
+            f"Invalid transition: {from_state.value} -> {to_state.value}. "
+            f"{from_state.value.upper()} is a terminal state with no valid transitions."
+        )
+    else:
+        # Has valid targets, but requested target is not among them
+        valid_str = ", ".join(s.value for s in valid_targets)
+        error_message = (
+            f"Invalid transition: {from_state.value} -> {to_state.value}. "
+            f"Valid targets from {from_state.value}: {valid_str}"
+        )
+
+    return TransitionValidationResult(
+        is_valid=False,
+        from_state=from_state,
+        to_state=to_state,
+        error_message=error_message,
+        valid_targets=valid_targets,
+    )
+
+
 __all__ = [
+    "TransitionValidationResult",
     "VALID_TRANSITIONS",
     "get_valid_targets",
     "is_valid_transition",
+    "validate_promotion_transition",
 ]

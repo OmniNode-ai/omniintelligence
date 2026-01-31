@@ -240,7 +240,6 @@ class PatternStorageRouter:
                 "operation": operation,
                 "has_pattern_store": self._pattern_store is not None,
                 "has_state_manager": self._state_manager is not None,
-                "has_conn": conn is not None,
             },
         )
 
@@ -564,20 +563,13 @@ async def route_storage_operation(
         "route_storage_operation called",
         extra={
             "operation": operation,
-            "has_pattern_store": pattern_store is not None,
-            "has_state_manager": state_manager is not None,
-            "has_conn": conn is not None,
         },
     )
 
-    # Create router with provided dependencies
+    # Create router with provided dependencies (all required)
     router = PatternStorageRouter()
-
-    if pattern_store is not None:
-        router.set_pattern_store(pattern_store)
-
-    if state_manager is not None:
-        router.set_state_manager(state_manager)
+    router.set_pattern_store(pattern_store)
+    router.set_state_manager(state_manager)
 
     # Route operation and return serialized result
     result = await router.route(operation=operation, input_data=input_data, conn=conn)

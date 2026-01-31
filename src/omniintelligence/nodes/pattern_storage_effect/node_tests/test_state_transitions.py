@@ -24,8 +24,10 @@ import pytest
 
 from omniintelligence.nodes.pattern_storage_effect.constants import (
     VALID_TRANSITIONS,
+    TransitionValidationResult,
     get_valid_targets,
     is_valid_transition,
+    validate_promotion_transition,
 )
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
@@ -599,3 +601,162 @@ class TestEventValidTransition:
         )
 
         assert event.is_valid_transition() is True
+
+
+# =============================================================================
+# validate_promotion_transition Function Tests (Dry-Run Validation)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestValidatePromotionTransition:
+    """Tests for pure validation function (no database required).
+
+    The validate_promotion_transition function provides dry-run validation
+    capability, returning detailed results about whether a transition would
+    be valid without actually performing it.
+    """
+
+    def test_valid_candidate_to_provisional(self) -> None:
+        """CANDIDATE -> PROVISIONAL should be valid."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.PROVISIONAL,
+        )
+        assert result.is_valid is True
+        assert result.error_message is None
+        assert result.from_state == EnumPatternState.CANDIDATE
+        assert result.to_state == EnumPatternState.PROVISIONAL
+
+    def test_valid_provisional_to_validated(self) -> None:
+        """PROVISIONAL -> VALIDATED should be valid."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.PROVISIONAL,
+            to_state=EnumPatternState.VALIDATED,
+        )
+        assert result.is_valid is True
+        assert result.error_message is None
+        assert result.from_state == EnumPatternState.PROVISIONAL
+        assert result.to_state == EnumPatternState.VALIDATED
+
+    def test_invalid_candidate_to_validated(self) -> None:
+        """CANDIDATE -> VALIDATED (skipping PROVISIONAL) should be invalid."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.VALIDATED,
+        )
+        assert result.is_valid is False
+        assert result.error_message is not None
+        # Error message should mention the valid target
+        assert "provisional" in result.error_message.lower()
+        # Valid targets should include PROVISIONAL
+        assert EnumPatternState.PROVISIONAL in result.valid_targets
+
+    def test_invalid_from_terminal_state(self) -> None:
+        """VALIDATED -> any should be invalid (terminal state)."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.VALIDATED,
+            to_state=EnumPatternState.PROVISIONAL,
+        )
+        assert result.is_valid is False
+        assert result.error_message is not None
+        # Error message should indicate terminal state
+        assert "terminal" in result.error_message.lower()
+        # Terminal state has no valid targets
+        assert result.valid_targets == []
+
+    def test_invalid_validated_to_candidate(self) -> None:
+        """VALIDATED -> CANDIDATE should be invalid (terminal + reverse)."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.VALIDATED,
+            to_state=EnumPatternState.CANDIDATE,
+        )
+        assert result.is_valid is False
+        assert result.valid_targets == []
+        assert result.from_state == EnumPatternState.VALIDATED
+        assert result.to_state == EnumPatternState.CANDIDATE
+
+    def test_invalid_reverse_provisional_to_candidate(self) -> None:
+        """PROVISIONAL -> CANDIDATE (reverse) should be invalid."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.PROVISIONAL,
+            to_state=EnumPatternState.CANDIDATE,
+        )
+        assert result.is_valid is False
+        assert result.error_message is not None
+        # Should mention the only valid target (VALIDATED)
+        assert "validated" in result.error_message.lower()
+        assert EnumPatternState.VALIDATED in result.valid_targets
+
+    def test_result_includes_from_and_to_state(self) -> None:
+        """Result should echo from_state and to_state correctly."""
+        # Valid transition
+        valid_result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.PROVISIONAL,
+        )
+        assert valid_result.from_state == EnumPatternState.CANDIDATE
+        assert valid_result.to_state == EnumPatternState.PROVISIONAL
+
+        # Invalid transition
+        invalid_result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.VALIDATED,
+        )
+        assert invalid_result.from_state == EnumPatternState.CANDIDATE
+        assert invalid_result.to_state == EnumPatternState.VALIDATED
+
+    def test_valid_targets_for_candidate(self) -> None:
+        """CANDIDATE should have PROVISIONAL as only valid target."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.PROVISIONAL,
+        )
+        assert result.valid_targets == [EnumPatternState.PROVISIONAL]
+
+    def test_valid_targets_for_provisional(self) -> None:
+        """PROVISIONAL should have VALIDATED as only valid target."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.PROVISIONAL,
+            to_state=EnumPatternState.VALIDATED,
+        )
+        assert result.valid_targets == [EnumPatternState.VALIDATED]
+
+    def test_valid_targets_included_in_invalid_result(self) -> None:
+        """Invalid result should still include valid_targets for guidance."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.VALIDATED,
+        )
+        # Even though the transition is invalid, valid_targets should be populated
+        assert result.is_valid is False
+        assert result.valid_targets == [EnumPatternState.PROVISIONAL]
+
+    def test_self_transition_invalid(self) -> None:
+        """Self-transitions should be invalid for all states."""
+        for state in EnumPatternState:
+            result = validate_promotion_transition(
+                from_state=state,
+                to_state=state,
+            )
+            assert result.is_valid is False
+            assert result.error_message is not None
+            assert result.from_state == state
+            assert result.to_state == state
+
+    def test_result_is_frozen_dataclass(self) -> None:
+        """Result should be immutable (frozen dataclass)."""
+        result = validate_promotion_transition(
+            from_state=EnumPatternState.CANDIDATE,
+            to_state=EnumPatternState.PROVISIONAL,
+        )
+        # Verify it's a TransitionValidationResult
+        assert isinstance(result, TransitionValidationResult)
+
+        # Frozen dataclass should raise on attribute modification
+        import dataclasses
+
+        assert dataclasses.is_dataclass(result)
+        # Try to modify - should raise FrozenInstanceError
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            result.is_valid = False  # type: ignore[misc]

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -390,7 +390,20 @@ def correlation_id() -> UUID:
 def mock_conn() -> MagicMock:
     """Provide a mock database connection for testing.
 
-    Returns a MagicMock that satisfies the AsyncConnection type hint
-    without requiring a real database connection.
+    Returns a MagicMock configured with common AsyncConnection methods.
+    This enables testing handlers without a real database connection
+    while maintaining realistic async behavior.
+
+    The mock includes:
+    - execute: AsyncMock for query execution
+    - cursor: MagicMock for cursor operations
+
+    Note: This is intentionally minimal - add methods as needed
+    for specific test scenarios.
     """
-    return MagicMock()
+    mock = MagicMock()
+    mock.execute = AsyncMock()
+    mock.cursor = MagicMock()
+    mock.cursor.return_value.__aenter__ = AsyncMock()
+    mock.cursor.return_value.__aexit__ = AsyncMock()
+    return mock

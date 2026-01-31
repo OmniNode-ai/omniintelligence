@@ -14,6 +14,7 @@ Handlers:
     - handle_store_pattern: Store learned patterns with governance enforcement
     - handle_promote_pattern: Promote pattern state with audit trail
     - validate_governance: Validate inputs against governance invariants
+    - validate_promotion_transition: Pure validation for state transitions (no DB required)
     - is_valid_transition: Validate state transitions
     - get_valid_targets: Get valid target states
 
@@ -26,6 +27,7 @@ Models:
     - GovernanceViolation: Single governance rule violation
     - PatternStateTransition: Audit record for state transitions (store)
     - ModelStateTransition: Audit record for state transitions (promote)
+    - PromotionValidationResult: Result of pure transition validation (no DB)
     - StorePatternResult: Internal result from store operation
     - StorageOperationResult: Result wrapper for router dispatch
 
@@ -90,8 +92,10 @@ try:
         ModelStateTransition,
         PatternNotFoundError,
         PatternStateTransitionError,
+        PromotionValidationResult,
         ProtocolPatternStateManager,
         handle_promote_pattern,
+        validate_promotion_transition,
     )
 except ImportError as e:
     raise ImportError(
@@ -135,6 +139,7 @@ __all__ = [
     "PatternStateTransitionError",
     # Router
     "PatternStorageRouter",
+    "PromotionValidationResult",
     # Protocols
     "ProtocolPatternStateManager",
     "ProtocolPatternStore",
@@ -150,4 +155,5 @@ __all__ = [
     # Functions (router - entry point)
     "route_storage_operation",
     "validate_governance",
+    "validate_promotion_transition",
 ]
