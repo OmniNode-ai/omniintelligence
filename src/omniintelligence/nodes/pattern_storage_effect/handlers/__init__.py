@@ -14,6 +14,7 @@ Handlers:
     - handle_store_pattern: Store learned patterns with governance enforcement
     - handle_promote_pattern: Promote pattern state with audit trail
     - validate_governance: Validate inputs against governance invariants
+    - validate_promotion_transition: Pure validation for state transitions (no DB required)
     - is_valid_transition: Validate state transitions
     - get_valid_targets: Get valid target states
 
@@ -26,6 +27,8 @@ Models:
     - GovernanceViolation: Single governance rule violation
     - PatternStateTransition: Audit record for state transitions (store)
     - ModelStateTransition: Audit record for state transitions (promote)
+    - TransitionValidationResult: Result of pure transition validation (canonical)
+    - PromotionValidationResult: Backwards compatibility alias for TransitionValidationResult
     - StorePatternResult: Internal result from store operation
     - StorageOperationResult: Result wrapper for router dispatch
 
@@ -74,8 +77,10 @@ except ImportError as e:
 try:
     from omniintelligence.nodes.pattern_storage_effect.constants import (
         VALID_TRANSITIONS,
+        TransitionValidationResult,
         get_valid_targets,
         is_valid_transition,
+        validate_promotion_transition,
     )
 except ImportError as e:
     raise ImportError(
@@ -99,6 +104,9 @@ except ImportError as e:
         "This handler provides pattern state promotion with audit trail. "
         "Ensure the models module (EnumPatternState, ModelPatternPromotedEvent) is available."
     ) from e
+
+# Backwards compatibility alias (deprecated, use TransitionValidationResult)
+PromotionValidationResult = TransitionValidationResult
 
 try:
     from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
@@ -135,6 +143,9 @@ __all__ = [
     "PatternStateTransitionError",
     # Router
     "PatternStorageRouter",
+    # Validation result types (TransitionValidationResult is canonical)
+    "TransitionValidationResult",
+    "PromotionValidationResult",  # Backwards compat alias for TransitionValidationResult
     # Protocols
     "ProtocolPatternStateManager",
     "ProtocolPatternStore",
@@ -150,4 +161,5 @@ __all__ = [
     # Functions (router - entry point)
     "route_storage_operation",
     "validate_governance",
+    "validate_promotion_transition",
 ]

@@ -15,6 +15,7 @@ Reference:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
@@ -27,6 +28,9 @@ from omniintelligence.nodes.pattern_storage_effect.node_tests.conftest import (
     MockPatternStore,
     create_valid_input,
 )
+
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
 
 
 # =============================================================================
@@ -42,6 +46,7 @@ class TestIdempotentStorage:
     async def test_same_event_id_returns_same_result(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Same (pattern_id, signature_hash) should return same result."""
         pattern_id = uuid4()
@@ -53,10 +58,14 @@ class TestIdempotentStorage:
         )
 
         # First call
-        result1 = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Second call with same input
-        result2 = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Should return same pattern_id
         assert result1.pattern_id == result2.pattern_id
@@ -66,6 +75,7 @@ class TestIdempotentStorage:
     async def test_idempotent_call_no_duplicate_storage(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Idempotent call should not create duplicate pattern in store."""
         pattern_id = uuid4()
@@ -77,8 +87,12 @@ class TestIdempotentStorage:
         )
 
         # Store pattern twice
-        await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
-        await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+        await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Should only have one pattern stored
         assert len(mock_pattern_store.patterns) == 1
@@ -87,6 +101,7 @@ class TestIdempotentStorage:
     async def test_idempotent_maintains_original_state(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Idempotent return should maintain original storage state."""
         pattern_id = uuid4()
@@ -98,11 +113,15 @@ class TestIdempotentStorage:
         )
 
         # First storage
-        result1 = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
         original_stored_at = mock_pattern_store.patterns[pattern_id]["stored_at"]
 
         # Second call (idempotent)
-        result2 = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Original stored_at should not change
         assert mock_pattern_store.patterns[pattern_id]["stored_at"] == original_stored_at
@@ -111,13 +130,18 @@ class TestIdempotentStorage:
     async def test_idempotent_returns_candidate_state(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Idempotent return should show CANDIDATE state for newly stored patterns."""
         pattern_id = uuid4()
         input_data = create_valid_input(pattern_id=pattern_id)
 
-        result1 = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
-        result2 = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+        result2 = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Both should show CANDIDATE state
         assert result1.state == EnumPatternState.CANDIDATE
@@ -137,6 +161,7 @@ class TestNewVersionCreation:
     async def test_different_pattern_id_creates_new_version(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Different pattern_id for same lineage should create new version."""
         signature_hash = f"hash_{uuid4().hex[:16]}"
@@ -148,7 +173,9 @@ class TestNewVersionCreation:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Second pattern in same lineage (same domain + signature_hash)
         input2 = create_valid_input(
@@ -156,7 +183,9 @@ class TestNewVersionCreation:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Should have incremented version
         assert result1.version == 1
@@ -166,6 +195,7 @@ class TestNewVersionCreation:
     async def test_version_auto_increment(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Versions should auto-increment for same lineage."""
         signature_hash = f"hash_{uuid4().hex[:16]}"
@@ -178,7 +208,9 @@ class TestNewVersionCreation:
                 signature_hash=signature_hash,
                 domain=domain,
             )
-            result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            result = await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
             versions_created.append(result.version)
 
         # Versions should be 1, 2, 3, 4, 5
@@ -188,6 +220,7 @@ class TestNewVersionCreation:
     async def test_different_lineages_independent_versions(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Different lineages should have independent version tracking."""
         # First lineage
@@ -196,14 +229,18 @@ class TestNewVersionCreation:
             signature_hash="lineage_a_hash",
             domain="domain_a",
         )
-        result1a = await handle_store_pattern(input1a, pattern_store=mock_pattern_store)
+        result1a = await handle_store_pattern(
+            input1a, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         input1b = create_valid_input(
             pattern_id=uuid4(),
             signature_hash="lineage_a_hash",
             domain="domain_a",
         )
-        result1b = await handle_store_pattern(input1b, pattern_store=mock_pattern_store)
+        result1b = await handle_store_pattern(
+            input1b, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Second lineage
         input2a = create_valid_input(
@@ -211,7 +248,9 @@ class TestNewVersionCreation:
             signature_hash="lineage_b_hash",
             domain="domain_b",
         )
-        result2a = await handle_store_pattern(input2a, pattern_store=mock_pattern_store)
+        result2a = await handle_store_pattern(
+            input2a, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Each lineage should have independent versioning
         assert result1a.version == 1
@@ -232,6 +271,7 @@ class TestImmutableHistory:
     async def test_never_overwrite_existing(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """New version should not overwrite existing pattern data."""
         signature_hash = f"hash_{uuid4().hex[:16]}"
@@ -245,7 +285,9 @@ class TestImmutableHistory:
             confidence=0.7,
             signature="original_signature",
         )
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Second version with different data
         input2 = create_valid_input(
@@ -255,7 +297,9 @@ class TestImmutableHistory:
             confidence=0.9,
             signature="updated_signature",
         )
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Both patterns should exist with original data
         stored1 = mock_pattern_store.patterns[result1.pattern_id]
@@ -270,6 +314,7 @@ class TestImmutableHistory:
     async def test_all_versions_preserved(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """All versions should be preserved (not deleted)."""
         signature_hash = f"hash_{uuid4().hex[:16]}"
@@ -283,7 +328,9 @@ class TestImmutableHistory:
                 domain=domain,
                 confidence=0.5 + (i * 0.1),  # 0.5, 0.6, 0.7
             )
-            result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            result = await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
             pattern_ids.append(result.pattern_id)
 
         # All three patterns should exist
@@ -305,11 +352,14 @@ class TestIsCurrentFlag:
     async def test_first_version_is_current(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """First version should have is_current = True."""
         input_data = create_valid_input()
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         stored = mock_pattern_store.patterns[result.pattern_id]
         assert stored["is_current"] is True
@@ -318,6 +368,7 @@ class TestIsCurrentFlag:
     async def test_only_latest_is_current(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Only the latest version should be current."""
         signature_hash = f"hash_{uuid4().hex[:16]}"
@@ -331,7 +382,9 @@ class TestIsCurrentFlag:
                 signature_hash=signature_hash,
                 domain=domain,
             )
-            result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            result = await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
             pattern_ids.append(result.pattern_id)
 
         # Check is_current flags
@@ -348,6 +401,7 @@ class TestIsCurrentFlag:
     async def test_previous_version_marked_not_current(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """When new version is stored, previous is marked not current."""
         signature_hash = f"hash_{uuid4().hex[:16]}"
@@ -359,7 +413,9 @@ class TestIsCurrentFlag:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Verify first is current
         assert mock_pattern_store.patterns[result1.pattern_id]["is_current"] is True
@@ -370,7 +426,9 @@ class TestIsCurrentFlag:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # First should no longer be current
         assert mock_pattern_store.patterns[result1.pattern_id]["is_current"] is False
@@ -391,6 +449,7 @@ class TestLineageKey:
     async def test_lineage_key_uniquely_identifies_lineage(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Same lineage key should increment version, different key starts fresh."""
         # Same lineage
@@ -399,14 +458,18 @@ class TestLineageKey:
             domain="domain_a",
             signature_hash="hash_x",
         )
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         input2 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
             signature_hash="hash_x",
         )
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Different domain, same hash
         input3 = create_valid_input(
@@ -414,7 +477,9 @@ class TestLineageKey:
             domain="domain_b",
             signature_hash="hash_x",
         )
-        result3 = await handle_store_pattern(input3, pattern_store=mock_pattern_store)
+        result3 = await handle_store_pattern(
+            input3, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Different hash, same domain
         input4 = create_valid_input(
@@ -422,7 +487,9 @@ class TestLineageKey:
             domain="domain_a",
             signature_hash="hash_y",
         )
-        result4 = await handle_store_pattern(input4, pattern_store=mock_pattern_store)
+        result4 = await handle_store_pattern(
+            input4, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Same lineage increments
         assert result1.version == 1
@@ -458,6 +525,7 @@ class TestMetadataPreservation:
     async def test_metadata_stored_correctly(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Pattern metadata should be stored correctly."""
         input_data = create_valid_input(
@@ -467,7 +535,9 @@ class TestMetadataPreservation:
             learning_context="unit_test_context",
         )
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         stored = mock_pattern_store.patterns[result.pattern_id]
         assert stored["actor"] == "test_actor"
@@ -479,12 +549,15 @@ class TestMetadataPreservation:
     async def test_correlation_id_stored(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Correlation ID should be stored for tracing."""
         correlation_id = uuid4()
         input_data = create_valid_input(correlation_id=correlation_id)
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         stored = mock_pattern_store.patterns[result.pattern_id]
         assert stored["correlation_id"] == correlation_id
@@ -493,12 +566,15 @@ class TestMetadataPreservation:
     async def test_correlation_id_in_result(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Correlation ID should be included in result event."""
         correlation_id = uuid4()
         input_data = create_valid_input(correlation_id=correlation_id)
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         assert result.correlation_id == correlation_id
 
@@ -516,13 +592,16 @@ class TestIdempotencyEdgeCases:
     async def test_rapid_sequential_calls(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Rapid sequential calls with same input should be idempotent."""
         input_data = create_valid_input()
 
         results = []
         for _ in range(10):
-            result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            result = await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
             results.append(result.pattern_id)
 
         # All should return same pattern_id
@@ -534,6 +613,7 @@ class TestIdempotencyEdgeCases:
     async def test_same_signature_different_confidence(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Same pattern_id but different confidence should still be idempotent."""
         pattern_id = uuid4()
@@ -550,8 +630,12 @@ class TestIdempotencyEdgeCases:
             confidence=0.9,  # Different confidence
         )
 
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Should be idempotent based on (pattern_id, signature_hash)
         assert result1.pattern_id == result2.pattern_id

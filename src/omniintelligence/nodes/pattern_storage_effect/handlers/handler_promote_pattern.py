@@ -47,8 +47,11 @@ Usage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Final, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from psycopg import AsyncConnection
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -70,6 +73,34 @@ from omniintelligence.nodes.pattern_storage_effect.models.model_pattern_storage_
 
 DEFAULT_ACTOR: Final[str] = "system"
 """Default actor for state transitions when not specified."""
+
+
+# =============================================================================
+# Pure Validation (Database-Free) - CONSOLIDATED
+# =============================================================================
+#
+# The canonical validate_promotion_transition() function and TransitionValidationResult
+# are defined in constants.py as the single source of truth.
+#
+# For backwards compatibility, we re-export them here and provide an alias
+# for PromotionValidationResult (deprecated, use TransitionValidationResult).
+#
+# Reference: OMN-1668 consolidation task
+# =============================================================================
+
+from omniintelligence.nodes.pattern_storage_effect.constants import (
+    TransitionValidationResult,
+    validate_promotion_transition,
+)
+
+# Backwards compatibility alias (deprecated)
+# Use TransitionValidationResult from constants.py instead
+PromotionValidationResult = TransitionValidationResult
+"""Deprecated alias for TransitionValidationResult.
+
+This alias is provided for backwards compatibility. New code should use
+TransitionValidationResult from constants.py directly.
+"""
 
 # Metrics Snapshot Design Decision:
 # ---------------------------------
@@ -304,17 +335,31 @@ class ProtocolPatternStateManager(Protocol):
     fails after update_state succeeds, the pattern state would be updated without an
     audit trail, violating governance compliance requirements.
 
+    Transaction Control:
+        All methods require a `conn` parameter for transaction control. The caller
+        (e.g., infra wiring) owns the transaction spanning idempotency checks and
+        pattern state operations. This ensures atomic operations.
+
     Usage:
         class PostgresPatternStateManager:
-            async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
+            async def get_current_state(
+                self, pattern_id: UUID, conn: AsyncConnection
+            ) -> EnumPatternState | None:
                 # Query database for current state
                 ...
 
-            async def update_state(self, pattern_id: UUID, new_state: EnumPatternState) -> None:
+            async def update_state(
+                self,
+                pattern_id: UUID,
+                new_state: EnumPatternState,
+                conn: AsyncConnection,
+            ) -> None:
                 # Update pattern state in database
                 ...
 
-            async def record_transition(self, transition: ModelStateTransition) -> None:
+            async def record_transition(
+                self, transition: ModelStateTransition, conn: AsyncConnection
+            ) -> None:
                 # Insert transition record into audit table
                 ...
 
@@ -322,11 +367,16 @@ class ProtocolPatternStateManager(Protocol):
         assert isinstance(state_manager, ProtocolPatternStateManager)
     """
 
-    async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
+    async def get_current_state(
+        self,
+        pattern_id: UUID,
+        conn: AsyncConnection,
+    ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
         Args:
             pattern_id: The pattern to query.
+            conn: Database connection for transaction control.
 
         Returns:
             The current state of the pattern, or None if not found.
@@ -337,23 +387,30 @@ class ProtocolPatternStateManager(Protocol):
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
+        conn: AsyncConnection,
     ) -> None:
         """Update the state of a pattern.
 
         Args:
             pattern_id: The pattern to update.
             new_state: The new state to set.
+            conn: Database connection for transaction control.
 
         Raises:
             PatternNotFoundError: If the pattern does not exist.
         """
         ...
 
-    async def record_transition(self, transition: ModelStateTransition) -> None:
+    async def record_transition(
+        self,
+        transition: ModelStateTransition,
+        conn: AsyncConnection,
+    ) -> None:
         """Record a state transition in the audit table.
 
         Args:
             transition: The transition record to insert.
+            conn: Database connection for transaction control.
 
         Raises:
             Exception: If the insert fails (e.g., duplicate event_id).
@@ -372,7 +429,8 @@ async def handle_promote_pattern(
     reason: str,
     metrics_snapshot: ModelPatternMetricsSnapshot | None = None,
     *,
-    state_manager: ProtocolPatternStateManager | None = None,
+    state_manager: ProtocolPatternStateManager,
+    conn: AsyncConnection,
     actor: str = DEFAULT_ACTOR,
     correlation_id: UUID | None = None,
     domain: str | None = None,
@@ -395,14 +453,16 @@ async def handle_promote_pattern(
         metrics_snapshot: Optional metrics snapshot at promotion time.
             If not provided, the event will have metrics_snapshot=None,
             clearly indicating "no metrics captured" in the audit trail.
-        state_manager: Optional state manager for database operations.
-            If not provided, only validation is performed (dry-run mode).
+        state_manager: State manager for database operations (required).
+            Must be provided to perform actual state transitions.
         actor: Identifier of the entity triggering the promotion.
             Defaults to "system".
         correlation_id: Optional correlation ID for distributed tracing.
         domain: Optional domain of the pattern (for audit context).
         signature_hash: Optional signature hash (for audit context).
         metadata: Optional additional context for the audit record.
+        conn: Database connection for transaction control. All operations use
+            this connection for atomic idempotency + state update.
 
     Returns:
         ModelPatternPromotedEvent ready for Kafka broadcast.
@@ -422,43 +482,21 @@ async def handle_promote_pattern(
         ...         success_rate=0.9,
         ...     ),
         ...     state_manager=state_manager,
+        ...     conn=conn,
         ...     actor="verification_workflow",
         ... )
         >>> event.from_state
         <EnumPatternState.CANDIDATE: 'candidate'>
         >>> event.to_state
         <EnumPatternState.PROVISIONAL: 'provisional'>
-
-    Note:
-        If state_manager is None, the function performs validation only
-        (dry-run mode). This is useful for testing validation logic without
-        a database connection.
     """
     promoted_at = datetime.now(UTC)
     event_id = uuid4()
 
     # Step 1: Get current state
-    from_state: EnumPatternState | None = None
-    if state_manager is not None:
-        from_state = await state_manager.get_current_state(pattern_id)
-        if from_state is None:
-            raise PatternNotFoundError(pattern_id)
-    else:
-        # Dry-run mode: infer from_state based on to_state
-        # This allows validation testing without a state manager
-        if to_state == EnumPatternState.PROVISIONAL:
-            from_state = EnumPatternState.CANDIDATE
-        elif to_state == EnumPatternState.VALIDATED:
-            from_state = EnumPatternState.PROVISIONAL
-        else:
-            # to_state is CANDIDATE - this is only valid as initial state
-            # which is not a promotion, so we reject it
-            raise PatternStateTransitionError(
-                pattern_id=pattern_id,
-                from_state=None,
-                to_state=to_state,
-                message=f"Cannot promote to {to_state.value} - this is an initial state, not a promotion target",
-            )
+    from_state = await state_manager.get_current_state(pattern_id, conn=conn)
+    if from_state is None:
+        raise PatternNotFoundError(pattern_id)
 
     # Step 2: Validate transition
     if not is_valid_transition(from_state, to_state):
@@ -498,26 +536,26 @@ async def handle_promote_pattern(
     # protocol that accepts both state and transition data, making atomicity
     # explicit at the API level.
     # -------------------------------------------------------------------------
-    if state_manager is not None:
-        # Step 3: Update state in database
-        await state_manager.update_state(pattern_id, to_state)
 
-        # Step 4: Record transition in audit table
-        # WARNING: This MUST succeed if update_state succeeded, otherwise
-        # the state change will not have an audit trail. See atomicity note above.
-        transition = ModelStateTransition(
-            pattern_id=pattern_id,
-            domain=domain,
-            signature_hash=signature_hash,
-            from_state=from_state,
-            to_state=to_state,
-            reason=reason,
-            actor=actor,
-            event_id=event_id,
-            metadata=metadata or {},
-            created_at=promoted_at,
-        )
-        await state_manager.record_transition(transition)
+    # Step 3: Update state in database
+    await state_manager.update_state(pattern_id, to_state, conn=conn)
+
+    # Step 4: Record transition in audit table
+    # WARNING: This MUST succeed if update_state succeeded, otherwise
+    # the state change will not have an audit trail. See atomicity note above.
+    transition = ModelStateTransition(
+        pattern_id=pattern_id,
+        domain=domain,
+        signature_hash=signature_hash,
+        from_state=from_state,
+        to_state=to_state,
+        reason=reason,
+        actor=actor,
+        event_id=event_id,
+        metadata=metadata or {},
+        created_at=promoted_at,
+    )
+    await state_manager.record_transition(transition, conn=conn)
 
     # Step 5: Return event for Kafka broadcast
     # Pass metrics_snapshot as-is (None indicates "no metrics captured")
@@ -538,6 +576,11 @@ __all__ = [
     "ModelStateTransition",
     "PatternNotFoundError",
     "PatternStateTransitionError",
+    # Backwards compatibility alias (deprecated, use TransitionValidationResult)
+    "PromotionValidationResult",
     "ProtocolPatternStateManager",
+    # Re-exported from constants.py (canonical source)
+    "TransitionValidationResult",
     "handle_promote_pattern",
+    "validate_promotion_transition",
 ]
