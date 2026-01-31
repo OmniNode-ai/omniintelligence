@@ -20,7 +20,7 @@ from uuid import UUID, uuid4
 import pytest
 
 if TYPE_CHECKING:
-    from asyncpg import Connection as AsyncConnection
+    from psycopg import AsyncConnection
 
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     ModelStateTransition,

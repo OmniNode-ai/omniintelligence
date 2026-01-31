@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from asyncpg import Connection as AsyncConnection
+    from psycopg import AsyncConnection
 from uuid import UUID
 
 from omniintelligence.nodes.pattern_storage_effect.models import (

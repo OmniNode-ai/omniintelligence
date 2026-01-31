@@ -51,7 +51,7 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
-    from asyncpg import Connection as AsyncConnection
+    from psycopg import AsyncConnection
 
 from pydantic import BaseModel, ConfigDict, Field
 

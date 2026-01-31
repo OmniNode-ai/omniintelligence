@@ -224,9 +224,8 @@ class PatternStorageRouter:
         Args:
             operation: The operation to perform (store_pattern, promote_pattern).
             input_data: The input data dictionary for the operation.
-            conn: Optional database connection for transactional operations.
-                When provided, operations use this connection instead of
-                creating a new one, enabling transaction coordination.
+            conn: Database connection for transaction control. All operations
+                use this connection for atomic idempotency + storage.
 
         Returns:
             StorageOperationResult with the operation outcome.
@@ -270,9 +269,8 @@ class PatternStorageRouter:
 
         Args:
             input_data: Dictionary containing pattern storage input fields.
-            conn: Optional database connection for transactional operations.
-                When provided, operations use this connection instead of
-                creating a new one, enabling transaction coordination.
+            conn: Database connection for transaction control. All operations
+                use this connection for atomic idempotency + storage.
 
         Returns:
             StorageOperationResult with stored event.
