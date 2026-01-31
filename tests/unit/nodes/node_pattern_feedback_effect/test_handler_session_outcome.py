@@ -1654,8 +1654,8 @@ class TestNodePatternFeedbackEffect:
         # Assert: Registry reports no repository
         assert RegistryPatternFeedbackEffect.has_repository() is False
 
-        # Act & Assert: Raises error due to None repository
-        with pytest.raises((TypeError, AttributeError)):
+        # Act & Assert: Raises RuntimeError when repository not registered
+        with pytest.raises(RuntimeError, match="Pattern repository not registered"):
             await node.execute(request)
 
     @pytest.mark.asyncio

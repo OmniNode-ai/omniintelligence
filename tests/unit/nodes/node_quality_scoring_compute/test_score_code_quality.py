@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     ANALYSIS_VERSION,
     score_code_quality,

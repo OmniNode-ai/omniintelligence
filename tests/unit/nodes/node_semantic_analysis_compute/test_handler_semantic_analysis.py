@@ -12,6 +12,11 @@ This module tests the core semantic analysis interface including:
 
 from __future__ import annotations
 
+import pytest
+
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
     ANALYSIS_VERSION_STR,

@@ -177,10 +177,6 @@ class RegistryPatternPromotionEffect:
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
             check_and_promote_patterns,
         )
-        from omniintelligence.nodes.node_pattern_promotion_effect.models import (
-            ModelPromotionCheckRequest,
-            ModelPromotionCheckResult,
-        )
 
         # Validate dependencies (fail-fast)
         if repository is None:

@@ -388,7 +388,10 @@ async def check_and_promote_patterns(
     )
 
     # Step 3: Promote eligible patterns (if not dry_run)
+    # Each pattern is processed independently - one failure does not block others
     promotion_results: list[ModelPromotionResult] = []
+    failed_count: int = 0
+    skipped_noop_count: int = 0
 
     for pattern in eligible_patterns:
         pattern_id = pattern["id"]
@@ -408,23 +411,74 @@ async def check_and_promote_patterns(
             )
             promotion_results.append(result)
         else:
-            # Actual promotion
-            result = await promote_pattern(
-                repository=repository,
-                producer=producer,
-                pattern_id=pattern_id,
-                pattern_data=pattern,
-                correlation_id=correlation_id,
-                topic_env_prefix=topic_env_prefix,
-            )
-            promotion_results.append(result)
+            # Actual promotion - isolated per-pattern error handling
+            try:
+                result = await promote_pattern(
+                    repository=repository,
+                    producer=producer,
+                    pattern_id=pattern_id,
+                    pattern_data=pattern,
+                    correlation_id=correlation_id,
+                    topic_env_prefix=topic_env_prefix,
+                )
+
+                # Check for no-op (pattern was already promoted or status changed)
+                if result.promoted_at is None and not result.dry_run:
+                    skipped_noop_count += 1
+                    logger.debug(
+                        "Skipped no-op promotion",
+                        extra={
+                            "correlation_id": str(correlation_id) if correlation_id else None,
+                            "pattern_id": str(pattern_id),
+                            "pattern_signature": pattern_signature,
+                            "reason": result.reason,
+                        },
+                    )
+
+                promotion_results.append(result)
+
+            except Exception as exc:
+                # Isolate per-pattern failures - continue processing other patterns
+                failed_count += 1
+                logger.error(
+                    "Failed to promote pattern - continuing with remaining patterns",
+                    extra={
+                        "correlation_id": str(correlation_id) if correlation_id else None,
+                        "pattern_id": str(pattern_id),
+                        "pattern_signature": pattern_signature,
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    },
+                    exc_info=True,
+                )
+                # Record the failed promotion attempt with error reason
+                failed_result = ModelPromotionResult(
+                    pattern_id=pattern_id,
+                    pattern_signature=pattern_signature,
+                    from_status="provisional",
+                    to_status="validated",
+                    promoted_at=None,
+                    reason=f"promotion_failed: {type(exc).__name__}: {exc!s}",
+                    gate_snapshot=build_gate_snapshot(pattern),
+                    dry_run=False,
+                )
+                promotion_results.append(failed_result)
+
+    # Calculate actual promotions (excluding no-ops and failures)
+    actual_promotions = sum(
+        1 for r in promotion_results
+        if r.promoted_at is not None and not r.dry_run
+    )
 
     logger.info(
         "Promotion check complete",
         extra={
             "correlation_id": str(correlation_id) if correlation_id else None,
             "patterns_checked": len(patterns),
-            "patterns_promoted": len(promotion_results),
+            "patterns_eligible": len(eligible_patterns),
+            "patterns_promoted": actual_promotions,
+            "patterns_skipped_noop": skipped_noop_count,
+            "patterns_failed": failed_count,
             "dry_run": dry_run,
         },
     )

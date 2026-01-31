@@ -32,6 +32,7 @@ Example:
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Final
 
@@ -52,6 +53,9 @@ from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_sc
     ModelQualityScoringMetadata,
     ModelQualityScoringOutput,
 )
+
+# Module logger for exception tracking
+logger = logging.getLogger(__name__)
 
 # Status constants for metadata
 STATUS_COMPLETED: Final[str] = "completed"
@@ -97,7 +101,17 @@ def handle_quality_scoring_compute(
         return _create_compute_error_output(str(e), processing_time)
 
     except Exception as e:
+        # Log unhandled exceptions with full traceback for debugging
+        # This ensures we have diagnostic information while still honoring
+        # the no-exception contract by returning an error response
         processing_time = (time.perf_counter() - start_time) * 1000
+        logger.exception(
+            "Unhandled exception in quality scoring compute. "
+            "source_path=%s, language=%s, processing_time_ms=%.2f",
+            input_data.source_path,
+            input_data.language,
+            processing_time,
+        )
         return _create_compute_error_output(f"Unhandled error: {e}", processing_time)
 
 

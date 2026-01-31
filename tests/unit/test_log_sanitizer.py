@@ -14,6 +14,11 @@ Tests cover:
 import os
 from unittest.mock import patch
 
+import pytest
+
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.utils.log_sanitizer import (
     LogSanitizer,
     get_log_sanitizer,

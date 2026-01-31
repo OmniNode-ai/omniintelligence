@@ -16,11 +16,13 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models.model_promotion
 )
 
 __all__ = [
-    # Output models
+    # Output models (node response components)
     "ModelGateSnapshot",
+    # Event models (Kafka payloads)
     "ModelPatternPromotedEvent",
+    # Input models (node request)
+    "ModelPromotionCheckRequest",
+    # Output models (node response aggregates)
     "ModelPromotionCheckResult",
     "ModelPromotionResult",
-    # Input models
-    "ModelPromotionCheckRequest",
 ]

@@ -1079,6 +1079,11 @@ def _round_dimension_scores(dimensions: DimensionScores, decimals: int = 4) -> D
 def _validate_weights(weights: dict[str, float]) -> None:
     """Validate that weights sum to approximately 1.0.
 
+    Note: This validation is defensive for direct API calls to score_code_quality().
+    When using the node through ModelQualityScoringInput, the Pydantic model
+    (ModelDimensionWeights) already validates these constraints. This function
+    ensures consistent error handling for callers who bypass the model layer.
+
     Args:
         weights: Dictionary of dimension weights.
 

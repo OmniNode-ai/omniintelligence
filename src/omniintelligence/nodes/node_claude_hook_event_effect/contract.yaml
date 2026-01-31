@@ -36,11 +36,11 @@ description: >
 # Strongly typed I/O models
 input_model:
   name: "ModelClaudeCodeHookEvent"
-  module: "omniintelligence.nodes.claude_hook_event_effect.models"
+  module: "omniintelligence.nodes.node_claude_hook_event_effect.models"
   description: "Unified input model for all Claude Code hook events."
 output_model:
   name: "ModelClaudeHookResult"
-  module: "omniintelligence.nodes.claude_hook_event_effect.models"
+  module: "omniintelligence.nodes.node_claude_hook_event_effect.models"
   description: "Output model containing processing status and intent classification results."
 
 # =============================================================================
@@ -67,7 +67,7 @@ handler_routing:
   routing_strategy: "event_type_match"
   entry_point:
     function: "route_hook_event"
-    module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+    module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
     type: "async"
     description: "Main entry point that routes events to appropriate handler functions"
   handlers:
@@ -75,7 +75,7 @@ handler_routing:
     - event_type: "UserPromptSubmit"
       handler:
         function: "handle_user_prompt_submit"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "async"
       description: "Classify user prompt intent"
       actions:
@@ -86,7 +86,7 @@ handler_routing:
     - event_type: "SessionStart"
       handler:
         function: "handle_no_op"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "sync"
       description: "Session start event (no-op, future: session tracking)"
 
@@ -94,7 +94,7 @@ handler_routing:
     - event_type: "SessionEnd"
       handler:
         function: "handle_no_op"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "sync"
       description: "Session end event (no-op, future: session summary)"
 
@@ -102,7 +102,7 @@ handler_routing:
     - event_type: "PreToolUse"
       handler:
         function: "handle_no_op"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "sync"
       description: "Pre-tool-use event (no-op, future: tool validation)"
 
@@ -110,7 +110,7 @@ handler_routing:
     - event_type: "PostToolUse"
       handler:
         function: "handle_no_op"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "sync"
       description: "Post-tool-use event (no-op, future: result capture)"
 
@@ -118,7 +118,7 @@ handler_routing:
     - event_type: "Stop"
       handler:
         function: "handle_no_op"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "sync"
       description: "Stop event (no-op, future: completion tracking)"
 
@@ -126,14 +126,14 @@ handler_routing:
     - event_type: "Notification"
       handler:
         function: "handle_no_op"
-        module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
         type: "sync"
       description: "Notification event (no-op, future: async handling)"
 
   # Default handler for unrecognized event types
   default_handler:
     function: "handle_no_op"
-    module: "omniintelligence.nodes.claude_hook_event_effect.handlers.handler_claude_event"
+    module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
     type: "sync"
     description: "Default no-op handler for unrecognized event types"
 
@@ -228,14 +228,14 @@ event_bus:
   # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.claude-hook-event.v1":
-      schema_ref: "omniintelligence.nodes.claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
 
   # Metadata for published topics
   publish_topic_metadata:
     "onex.evt.omniintelligence.intent-classified.v1":
-      schema_ref: "omniintelligence.nodes.claude_hook_event_effect.models.ModelClaudeHookResult"
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
 
 # =============================================================================

@@ -46,8 +46,16 @@ class NodePatternFeedbackEffect(NodeEffect):
         """Execute the effect node to record session outcome.
 
         Delegates to record_session_outcome handler with registry-wired repository.
+
+        Raises:
+            RuntimeError: If repository is not registered.
         """
         repository = RegistryPatternFeedbackEffect.get_repository()
+        if repository is None:
+            raise RuntimeError(
+                "Pattern repository not registered. "
+                "Call RegistryPatternFeedbackEffect.register_repository() before executing node."
+            )
         return await record_session_outcome(
             session_id=request.session_id,
             success=request.success,

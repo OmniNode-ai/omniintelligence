@@ -35,6 +35,9 @@ from pathlib import Path
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 
 # =========================================================================
 # Constants and Configuration

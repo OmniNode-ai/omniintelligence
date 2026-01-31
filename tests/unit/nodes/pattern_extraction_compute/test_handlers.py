@@ -17,6 +17,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.nodes.pattern_extraction_compute.handlers import (
     extract_all_patterns,
     extract_architecture_patterns,
@@ -914,7 +917,6 @@ class TestDeterminism:
 # =============================================================================
 
 
-@pytest.mark.unit
 class TestExtractToolFailurePatterns:
     """Tests for tool failure pattern extraction handler."""
 
@@ -1237,7 +1239,6 @@ class TestExtractToolFailurePatterns:
 # =============================================================================
 
 
-@pytest.mark.unit
 class TestWithinTimeBound:
     """Unit tests for _within_time_bound helper function.
 

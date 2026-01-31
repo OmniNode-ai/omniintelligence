@@ -33,8 +33,9 @@ class ModelPromotionCheckRequest(BaseModel):
     )
     max_failure_streak: int = Field(
         default=3,
-        ge=1,
-        description="Maximum consecutive failures allowed for promotion eligibility",
+        ge=0,
+        description="Maximum consecutive failures allowed for promotion eligibility. "
+        "Set to 0 for zero-tolerance configurations where any failure prevents promotion.",
     )
     correlation_id: UUID | None = Field(
         default=None,

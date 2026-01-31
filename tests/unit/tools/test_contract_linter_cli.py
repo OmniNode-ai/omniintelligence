@@ -22,6 +22,9 @@ pytest.importorskip(
     "omnibase_core", reason="omnibase_core required for contract linter tests"
 )
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.tools.contract_linter import (
     ContractLinter,
     _watch_and_validate,

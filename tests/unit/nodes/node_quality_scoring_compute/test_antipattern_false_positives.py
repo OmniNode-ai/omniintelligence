@@ -13,6 +13,13 @@ The fix uses:
 
 from __future__ import annotations
 
+import ast
+
+import pytest
+
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     score_code_quality,
 )
@@ -20,7 +27,6 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_qualit
     _count_mutable_default_arguments,
     _strip_comments_and_strings,
 )
-import ast
 
 
 class TestAntiPatternFalsePositives:

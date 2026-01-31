@@ -11,6 +11,11 @@ This module tests the recommendation generation system:
 
 from __future__ import annotations
 
+import pytest
+
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     score_code_quality,
 )

@@ -67,10 +67,10 @@ output_model:
 # =============================================================================
 # All four gates must pass for a pattern to be promoted:
 #
-#   Gate 1: Injection Count Gate
+#   Gate 1: Injection Count Gate (Rolling Window)
 #     - Parameter: min_injection_count (default: 5)
-#     - Condition: pattern.injection_count >= min_injection_count
-#     - Purpose: Ensures pattern has been used enough times to evaluate
+#     - Condition: pattern.injection_count_rolling_20 >= min_injection_count
+#     - Purpose: Ensures pattern has been used enough times in rolling window to evaluate
 #
 #   Gate 2: Success Rate Gate
 #     - Parameter: min_success_rate (default: 0.6)
@@ -79,7 +79,7 @@ output_model:
 #
 #   Gate 3: Failure Streak Gate
 #     - Parameter: max_failure_streak (default: 3)
-#     - Condition: current_failure_streak < max_failure_streak
+#     - Condition: failure_streak < max_failure_streak
 #     - Purpose: Prevents promotion if pattern is currently failing repeatedly
 #
 #   Gate 4: Not Disabled Gate
@@ -122,18 +122,40 @@ io_operations:
   - operation: "check_and_promote_patterns"
     description: "Check provisional patterns and promote those meeting all four promotion gates"
     input_fields:
-      - dry_run
-      - min_injection_count
-      - min_success_rate
-      - max_failure_streak
-      - correlation_id
+      - name: dry_run
+        type: bool
+        description: "If True, return what WOULD be promoted without mutating"
+      - name: min_injection_count
+        type: int
+        description: "Minimum injection count in rolling window (default: 5)"
+      - name: min_success_rate
+        type: float
+        description: "Minimum success rate required for promotion (default: 0.6)"
+      - name: max_failure_streak
+        type: int
+        description: "Maximum consecutive failures allowed (default: 3)"
+      - name: correlation_id
+        type: UUID | None
+        description: "Optional correlation ID for distributed tracing"
     output_fields:
-      - dry_run
-      - patterns_checked
-      - patterns_eligible
-      - patterns_promoted
-      - correlation_id
-      - error_message
+      - name: dry_run
+        type: bool
+        description: "Whether this was a dry run"
+      - name: patterns_checked
+        type: int
+        description: "Total number of provisional patterns checked"
+      - name: patterns_eligible
+        type: int
+        description: "Number of patterns meeting promotion criteria"
+      - name: patterns_promoted
+        type: list[ModelPromotionResult]
+        description: "List of individual promotion results"
+      - name: correlation_id
+        type: UUID | None
+        description: "Correlation ID for tracing, if provided in request"
+      - name: error_message
+        type: str | None
+        description: "Error message if an error occurred during promotion check"
 
 # =============================================================================
 # PUBLISHED EVENTS (Kafka) - Documentation Layer

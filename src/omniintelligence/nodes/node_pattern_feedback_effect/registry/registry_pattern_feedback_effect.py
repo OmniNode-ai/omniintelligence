@@ -35,7 +35,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
@@ -158,15 +158,15 @@ class RegistryPatternFeedbackEffect:
             >>> repository = RegistryPatternFeedbackEffect.get_repository()
             >>> if repository:
             ...     result = await repository.fetch(query, *args)
-        """
-        from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-            ProtocolPatternRepository,
-        )
 
+        Note:
+            Validation occurs at registration time via protocol method checks
+            (see register_repository). We use cast() here since isinstance()
+            with Protocol doesn't work for duck-typed objects.
+        """
         result = _HANDLER_STORAGE.get(RegistryPatternFeedbackEffect.REPOSITORY_KEY)
-        if result is not None and isinstance(result, ProtocolPatternRepository):
-            return result
-        return result  # May be None or a duck-typed object
+        # Cast to protocol type - validation occurred at registration time
+        return cast("ProtocolPatternRepository | None", result)
 
     @staticmethod
     def has_repository() -> bool:

@@ -178,25 +178,33 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "ROLLING_WINDOW_SIZE",
-    "EnumOutcomeRecordingStatus",
-    "ModelSessionOutcomeRequest",
-    "ModelSessionOutcomeResult",
-    "NodeExecutionTraceParserCompute",
+    # Orchestrators (2)
     "NodeIntelligenceOrchestrator",
-    "NodeIntelligenceReducer",
-    "NodeIntentClassifierCompute",
     "NodePatternAssemblerOrchestrator",
-    "NodePatternExtractionCompute",
+    # Reducers (1)
+    "NodeIntelligenceReducer",
+    # Effects (2) + registries
     "NodePatternFeedbackEffect",
-    "NodePatternMatchingCompute",
     "NodePatternPromotionEffect",
     "RegistryPatternPromotionEffect",
     "ServiceHandlerRegistry",
+    # Computes (7)
+    "NodeExecutionTraceParserCompute",
+    "NodeIntentClassifierCompute",
+    "NodePatternExtractionCompute",
+    "NodePatternMatchingCompute",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
+    # Models and enums (from node_pattern_feedback_effect)
+    "EnumOutcomeRecordingStatus",
+    "ModelSessionOutcomeRequest",
+    "ModelSessionOutcomeResult",
+    # Protocols
     "ProtocolPatternRepository",
+    # Handler functions
     "record_session_outcome",
     "update_pattern_rolling_metrics",
+    # Constants
+    "ROLLING_WINDOW_SIZE",
 ]
