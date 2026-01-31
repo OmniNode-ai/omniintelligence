@@ -93,6 +93,18 @@ to validated status based on rolling window success metrics.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_PATTERN_DEPRECATED_V1: str = "onex.evt.omniintelligence.pattern-deprecated.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for pattern deprecation events (OUTPUT).
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-deprecated.v1
+
+NodePatternDemotionEffect publishes when a validated pattern is deprecated
+due to declining success metrics in the rolling window.
+
+Deletion ticket: OMN-1546
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -102,5 +114,6 @@ __all__ = [
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
+    "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
 ]
