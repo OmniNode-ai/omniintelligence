@@ -9,8 +9,8 @@ This module tests the factory method that splits patterns by lifecycle_state:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from uuid import UUID, uuid4, uuid5
+from datetime import datetime, UTC
+from uuid import UUID, uuid5
 
 import pytest
 
@@ -85,7 +85,7 @@ def sample_metadata() -> ModelPatternLearningMetadata:
     return ModelPatternLearningMetadata(
         status="completed",
         model_version=ModelSemVer(major=1, minor=0, patch=0),
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         deduplication_threshold_used=0.85,
         promotion_threshold_used=0.70,
         training_samples=80,
@@ -118,7 +118,7 @@ def create_pattern(
     Returns:
         A ModelLearnedPattern with a deterministic UUID based on pattern_name_id.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     pattern_uuid = make_test_uuid(pattern_name_id)
     return ModelLearnedPattern(
         pattern_id=pattern_uuid,

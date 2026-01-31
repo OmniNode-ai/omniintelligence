@@ -86,6 +86,7 @@ llama-index = ">=0.12.0"
 sentence-transformers = ">=4.1.0"
 torch = ">=2.0.0"
 transformers = ">=4.30.0"
+tiktoken = ">=0.5.0"
 # Utilities
 cachetools = ">=5.3.0"
 redis = {extras = ["hiredis"], version = ">=5.0.0"}
@@ -167,6 +168,7 @@ core = [
     "sentence-transformers>=4.1.0",
     "torch>=2.0.0",
     "transformers>=4.30.0",
+    "tiktoken>=0.5.0",
     # Utilities
     "tenacity>=8.2.0",
     "cachetools>=5.3.0",
@@ -226,8 +228,13 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # AST visitor methods must use PascalCase (visit_Import, visit_Call, etc.)
 "src/omniintelligence/audit/io_audit.py" = ["N802"]
+"tests/unit/test_node_purity.py" = ["N802"]
+# BaseHTTPRequestHandler requires do_GET method name
+"src/omniintelligence/nodes/*/__main__.py" = ["N802"]
 # __init__.py files re-export for public API
 "src/omniintelligence/tools/__init__.py" = ["F401"]
+# Test intentionally catches broad exceptions for validation error testing
+"tests/nodes/pattern_extraction_compute/test_handlers.py" = ["B017"]
 
 [tool.ruff.format]
 quote-style = "double"

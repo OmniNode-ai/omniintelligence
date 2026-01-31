@@ -96,12 +96,12 @@ from omniintelligence.nodes.pattern_learning_compute.handlers.union_find import 
 __all__ = [
     "DEFAULT_SIMILARITY_WEIGHTS",
     "HANDLER_ID_PATTERN_LEARNING",
-    "HandlerPatternLearning",
     "NULL_EMITTER",
     "SIGNATURE_NORMALIZATION",
     "SIGNATURE_VERSION",
     "DeduplicationResultDict",
     "ExtractedFeaturesDict",
+    "HandlerPatternLearning",
     "NearThresholdWarningDict",
     "NullEmitter",
     "PatternClusterDict",
