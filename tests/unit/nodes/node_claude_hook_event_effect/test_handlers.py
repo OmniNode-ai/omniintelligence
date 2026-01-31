@@ -23,6 +23,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
 )
+from tests.fixtures.topic_constants import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 
 pytestmark = pytest.mark.unit
 
@@ -168,6 +169,7 @@ class TestHandleUserPromptSubmit:
         result = await handle_user_prompt_submit(
             event=sample_user_prompt_event,
             kafka_producer=mock_producer,
+            publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
         )
 
         assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -186,6 +188,7 @@ class TestHandleUserPromptSubmit:
         result = await handle_user_prompt_submit(
             event=sample_user_prompt_event,
             kafka_producer=mock_producer,
+            publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
         )
 
         assert result.status == EnumHookProcessingStatus.PARTIAL

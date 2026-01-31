@@ -70,9 +70,6 @@ __all__ = [
     "ModelPromotionResult",
     # Node
     "NodePatternPromotionEffect",
-    # Registry
-    "RegistryPatternPromotionEffect",
-    "ServiceHandlerRegistry",
     # Introspection
     "PatternPromotionErrorCode",
     "PatternPromotionIntrospection",
@@ -80,5 +77,8 @@ __all__ = [
     # Protocols (re-exported from handlers)
     "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",
+    # Registry
+    "RegistryPatternPromotionEffect",
+    "ServiceHandlerRegistry",
     "get_introspection_response",
 ]

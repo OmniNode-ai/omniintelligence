@@ -19,8 +19,8 @@ __all__ = [
     # Output models
     "ModelGateSnapshot",
     "ModelPatternPromotedEvent",
-    # Input models
-    "ModelPromotionCheckRequest",
     "ModelPromotionCheckResult",
     "ModelPromotionResult",
+    # Input models
+    "ModelPromotionCheckRequest",
 ]

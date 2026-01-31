@@ -87,8 +87,8 @@ TEMP_BOOTSTRAP: Topic suffix for pattern promotion events (OUTPUT).
 
 Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-promoted.v1
 
-NodePatternFeedbackEffect publishes when a candidate pattern is promoted
-to confirmed status based on accumulated positive feedback.
+NodePatternPromotionEffect publishes when a provisional pattern is promoted
+to validated status based on rolling window success metrics.
 
 Deletion ticket: OMN-1546
 """

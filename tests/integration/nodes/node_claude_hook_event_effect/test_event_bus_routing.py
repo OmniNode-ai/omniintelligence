@@ -23,6 +23,7 @@ from omnibase_core.models.hooks.claude_code import (
 )
 from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_infra.event_bus.models import ModelEventMessage
+from omnibase_infra.models import ModelNodeIdentity
 
 from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
     ProtocolKafkaPublisher,
@@ -32,16 +33,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumHookProcessingStatus,
 )
 
-
-# =============================================================================
-# Test Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def test_group_id() -> str:
-    """Create a test consumer group ID for subscriptions."""
-    return "test.omniintelligence.claude_hook_event_effect.v1"
+from .conftest import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 
 
 # =============================================================================
@@ -57,7 +49,7 @@ class TestEventBusPublishSubscribe:
     async def test_publish_subscribe_roundtrip(
         self,
         event_bus: EventBusInmemory,
-        test_group_id: str,
+        test_node_identity: ModelNodeIdentity,
     ) -> None:
         """Test basic EventBusInmemory pub/sub works.
 
@@ -79,7 +71,7 @@ class TestEventBusPublishSubscribe:
             # Subscribe to the test topic
             unsubscribe = await event_bus.subscribe(
                 test_topic,
-                test_group_id,
+                test_node_identity,
                 message_handler,
             )
 
@@ -119,7 +111,7 @@ class TestUserPromptSubmitFullFlow:
         output_topic: str,
         sample_user_prompt_event: ModelClaudeCodeHookEvent,
         kafka_publisher_adapter: ProtocolKafkaPublisher,
-        test_group_id: str,
+        test_node_identity: ModelNodeIdentity,
     ) -> None:
         """Test full flow: publish -> process -> output event.
 
@@ -139,7 +131,7 @@ class TestUserPromptSubmitFullFlow:
             # Subscribe to output topic
             unsubscribe = await event_bus.subscribe(
                 output_topic,
-                test_group_id,
+                test_node_identity,
                 output_handler,
             )
 
@@ -148,6 +140,7 @@ class TestUserPromptSubmitFullFlow:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify handler succeeded
@@ -173,7 +166,7 @@ class TestUserPromptSubmitFullFlow:
         output_topic: str,
         sample_user_prompt_event: ModelClaudeCodeHookEvent,
         kafka_publisher_adapter: ProtocolKafkaPublisher,
-        test_group_id: str,
+        test_node_identity: ModelNodeIdentity,
     ) -> None:
         """Test intent-classified event has correct structure.
 
@@ -195,7 +188,7 @@ class TestUserPromptSubmitFullFlow:
         try:
             unsubscribe = await event_bus.subscribe(
                 output_topic,
-                test_group_id,
+                test_node_identity,
                 output_handler,
             )
 
@@ -204,6 +197,7 @@ class TestUserPromptSubmitFullFlow:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -254,7 +248,7 @@ class TestNoOpEventTypes:
         output_topic: str,
         sample_session_start_event: ModelClaudeCodeHookEvent,
         kafka_publisher_adapter: ProtocolKafkaPublisher,
-        test_group_id: str,
+        test_node_identity: ModelNodeIdentity,
     ) -> None:
         """Test SessionStart event doesn't publish output event.
 
@@ -273,7 +267,7 @@ class TestNoOpEventTypes:
         try:
             unsubscribe = await event_bus.subscribe(
                 output_topic,
-                test_group_id,
+                test_node_identity,
                 output_handler,
             )
 
@@ -282,6 +276,7 @@ class TestNoOpEventTypes:
                 event=sample_session_start_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify handler returned success without intent
@@ -344,6 +339,7 @@ class TestAllEventTypesHandled:
                     event=event,
                     kafka_producer=kafka_publisher_adapter,
                     topic_env_prefix="test",
+                    publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                 )
 
                 # Verify all return SUCCESS or PARTIAL (not FAILED)
@@ -378,7 +374,7 @@ class TestEventHistoryDebugging:
         output_topic: str,
         sample_user_prompt_event: ModelClaudeCodeHookEvent,
         kafka_publisher_adapter: ProtocolKafkaPublisher,
-        test_group_id: str,
+        test_node_identity: ModelNodeIdentity,
     ) -> None:
         """Test event history captures published events for debugging.
 
@@ -393,7 +389,7 @@ class TestEventHistoryDebugging:
             # Subscribe (even if we don't use the handler, we test history separately)
             unsubscribe = await event_bus.subscribe(
                 output_topic,
-                test_group_id,
+                test_node_identity,
                 lambda _: None,  # No-op handler
             )
 
@@ -402,6 +398,7 @@ class TestEventHistoryDebugging:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -443,6 +440,7 @@ class TestEventHistoryDebugging:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify history has the event
@@ -461,6 +459,7 @@ class TestEventHistoryDebugging:
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify only the new event is in history
@@ -481,7 +480,7 @@ class TestEdgeCases:
         event_bus: EventBusInmemory,
         output_topic: str,
         kafka_publisher_adapter: ProtocolKafkaPublisher,
-        test_group_id: str,
+        test_node_identity: ModelNodeIdentity,
     ) -> None:
         """Test UserPromptSubmit with empty prompt returns FAILED.
 
@@ -509,7 +508,7 @@ class TestEdgeCases:
         try:
             unsubscribe = await event_bus.subscribe(
                 output_topic,
-                test_group_id,
+                test_node_identity,
                 output_handler,
             )
 
@@ -517,6 +516,7 @@ class TestEdgeCases:
                 event=event,
                 kafka_producer=kafka_publisher_adapter,
                 topic_env_prefix="test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
             # Verify handler failed gracefully

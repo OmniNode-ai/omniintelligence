@@ -120,7 +120,7 @@ handler_routing:
 # =============================================================================
 io_operations:
   - operation: "check_and_promote_patterns"
-    description: "Check provisional patterns and promote those meeting all three promotion gates"
+    description: "Check provisional patterns and promote those meeting all four promotion gates"
     input_fields:
       - dry_run
       - min_injection_count
@@ -128,13 +128,11 @@ io_operations:
       - max_failure_streak
       - correlation_id
     output_fields:
-      - status
       - dry_run
       - patterns_checked
+      - patterns_eligible
       - patterns_promoted
-      - promoted_patterns
-      - promotion_summary
-      - checked_at
+      - correlation_id
       - error_message
 
 # =============================================================================
@@ -219,8 +217,8 @@ dependencies:
 
   - name: "kafka_producer"
     type: "protocol"
-    class_name: "ProtocolKafkaProducer"
-    module: "omnibase_infra.protocols.protocol_kafka_producer"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
     description: "Kafka producer for emitting pattern-promoted events"
     required: false
 

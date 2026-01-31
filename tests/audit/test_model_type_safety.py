@@ -220,7 +220,7 @@ class TestEnumDocumentation:
         )
 
         # Get all enum values
-        enum_values = set(e.name for e in EnumIntelligenceOperationType)
+        enum_values = {e.name for e in EnumIntelligenceOperationType}
 
         # Get field description
         field_info = ModelIntelligenceInput.model_fields["operation_type"]

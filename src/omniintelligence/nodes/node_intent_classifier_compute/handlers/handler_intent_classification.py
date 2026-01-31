@@ -383,7 +383,7 @@ def classify_intent(
             content = str(content) if content is not None else ""
 
         if confidence_threshold is not None and not isinstance(
-            confidence_threshold, (int, float)
+            confidence_threshold, int | float
         ):
             logger.warning(  # type: ignore[unreachable]
                 "Invalid confidence_threshold type %s, using default.",

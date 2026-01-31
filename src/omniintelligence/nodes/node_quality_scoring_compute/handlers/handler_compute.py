@@ -96,6 +96,10 @@ def handle_quality_scoring_compute(
         processing_time = (time.perf_counter() - start_time) * 1000
         return _create_compute_error_output(str(e), processing_time)
 
+    except Exception as e:
+        processing_time = (time.perf_counter() - start_time) * 1000
+        return _create_compute_error_output(f"Unhandled error: {e}", processing_time)
+
 
 def _execute_scoring(
     input_data: ModelQualityScoringInput,

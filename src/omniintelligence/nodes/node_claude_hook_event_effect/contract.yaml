@@ -231,14 +231,12 @@ event_bus:
       schema_ref: "omniintelligence.nodes.claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
-      content_type: "application/json"
 
   # Metadata for published topics
   publish_topic_metadata:
     "onex.evt.omniintelligence.intent-classified.v1":
       schema_ref: "omniintelligence.nodes.claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
-      content_type: "application/json"
 
 # =============================================================================
 # DEPENDENCIES

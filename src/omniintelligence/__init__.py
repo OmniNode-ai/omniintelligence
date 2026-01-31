@@ -29,15 +29,15 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
 __version__ = "0.1.0"
 
 __all__ = [
-    # Main API
-    "score_code_quality",
-    "OnexStrictnessLevel",
-    # Types
-    "QualityScoringResult",
-    "DimensionScores",
     # Configuration
     "DEFAULT_WEIGHTS",
+    "DimensionScores",
+    "OnexStrictnessLevel",
+    "QualityScoringComputeError",
+    # Types
+    "QualityScoringResult",
     # Exceptions
     "QualityScoringValidationError",
-    "QualityScoringComputeError",
+    # Main API
+    "score_code_quality",
 ]
