@@ -47,8 +47,11 @@ Usage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Final, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from asyncpg import Connection as AsyncConnection
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -304,17 +307,33 @@ class ProtocolPatternStateManager(Protocol):
     fails after update_state succeeds, the pattern state would be updated without an
     audit trail, violating governance compliance requirements.
 
+    Transaction Control:
+        All methods accept an optional `conn` parameter for external transaction control.
+        When `conn` is provided, operations use that connection, enabling the caller
+        (e.g., Kafka consumer) to own the transaction spanning idempotency checks and
+        pattern state operations. When None, implementations use their own connection
+        management.
+
     Usage:
         class PostgresPatternStateManager:
-            async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
+            async def get_current_state(
+                self, pattern_id: UUID, conn: AsyncConnection | None = None
+            ) -> EnumPatternState | None:
                 # Query database for current state
                 ...
 
-            async def update_state(self, pattern_id: UUID, new_state: EnumPatternState) -> None:
+            async def update_state(
+                self,
+                pattern_id: UUID,
+                new_state: EnumPatternState,
+                conn: AsyncConnection | None = None,
+            ) -> None:
                 # Update pattern state in database
                 ...
 
-            async def record_transition(self, transition: ModelStateTransition) -> None:
+            async def record_transition(
+                self, transition: ModelStateTransition, conn: AsyncConnection | None = None
+            ) -> None:
                 # Insert transition record into audit table
                 ...
 
@@ -322,11 +341,19 @@ class ProtocolPatternStateManager(Protocol):
         assert isinstance(state_manager, ProtocolPatternStateManager)
     """
 
-    async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
+    async def get_current_state(
+        self,
+        pattern_id: UUID,
+        conn: AsyncConnection | None = None,
+    ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
         Args:
             pattern_id: The pattern to query.
+            conn: Optional database connection for external transaction control.
+                When provided, the operation uses this connection (enabling the
+                caller to own the transaction). When None, implementations may
+                use their own connection management.
 
         Returns:
             The current state of the pattern, or None if not found.
@@ -337,23 +364,36 @@ class ProtocolPatternStateManager(Protocol):
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
+        conn: AsyncConnection | None = None,
     ) -> None:
         """Update the state of a pattern.
 
         Args:
             pattern_id: The pattern to update.
             new_state: The new state to set.
+            conn: Optional database connection for external transaction control.
+                When provided, the operation uses this connection (enabling the
+                caller to own the transaction). When None, implementations may
+                use their own connection management.
 
         Raises:
             PatternNotFoundError: If the pattern does not exist.
         """
         ...
 
-    async def record_transition(self, transition: ModelStateTransition) -> None:
+    async def record_transition(
+        self,
+        transition: ModelStateTransition,
+        conn: AsyncConnection | None = None,
+    ) -> None:
         """Record a state transition in the audit table.
 
         Args:
             transition: The transition record to insert.
+            conn: Optional database connection for external transaction control.
+                When provided, the operation uses this connection (enabling the
+                caller to own the transaction). When None, implementations may
+                use their own connection management.
 
         Raises:
             Exception: If the insert fails (e.g., duplicate event_id).
@@ -378,6 +418,7 @@ async def handle_promote_pattern(
     domain: str | None = None,
     signature_hash: str | None = None,
     metadata: dict[str, Any] | None = None,
+    conn: AsyncConnection | None = None,
 ) -> ModelPatternPromotedEvent:
     """Handle pattern state promotion with audit trail.
 
@@ -403,6 +444,9 @@ async def handle_promote_pattern(
         domain: Optional domain of the pattern (for audit context).
         signature_hash: Optional signature hash (for audit context).
         metadata: Optional additional context for the audit record.
+        conn: Optional database connection for external transaction control.
+            When provided, all database operations use this connection,
+            enabling the caller to manage the transaction boundary.
 
     Returns:
         ModelPatternPromotedEvent ready for Kafka broadcast.
@@ -440,7 +484,7 @@ async def handle_promote_pattern(
     # Step 1: Get current state
     from_state: EnumPatternState | None = None
     if state_manager is not None:
-        from_state = await state_manager.get_current_state(pattern_id)
+        from_state = await state_manager.get_current_state(pattern_id, conn=conn)
         if from_state is None:
             raise PatternNotFoundError(pattern_id)
     else:
@@ -500,7 +544,7 @@ async def handle_promote_pattern(
     # -------------------------------------------------------------------------
     if state_manager is not None:
         # Step 3: Update state in database
-        await state_manager.update_state(pattern_id, to_state)
+        await state_manager.update_state(pattern_id, to_state, conn=conn)
 
         # Step 4: Record transition in audit table
         # WARNING: This MUST succeed if update_state succeeded, otherwise
@@ -517,7 +561,7 @@ async def handle_promote_pattern(
             metadata=metadata or {},
             created_at=promoted_at,
         )
-        await state_manager.record_transition(transition)
+        await state_manager.record_transition(transition, conn=conn)
 
     # Step 5: Return event for Kafka broadcast
     # Pass metrics_snapshot as-is (None indicates "no metrics captured")
