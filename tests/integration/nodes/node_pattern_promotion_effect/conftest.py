@@ -2,71 +2,36 @@
 # Copyright (c) 2025 OmniNode Team
 """Fixtures for pattern_promotion_effect integration tests.
 
-Provides asyncpg connections and test data management for
-testing against real PostgreSQL (192.168.86.200:5436).
+Provides test data management for testing pattern promotion against real
+PostgreSQL (192.168.86.200:5436).
+
+Inherits from tests/integration/conftest.py:
+    - db_conn, db_pool: Database connection fixtures
+    - kafka_producer, kafka_consumer: Kafka fixtures
+    - MockKafkaPublisher, mock_kafka_publisher: Mock publisher for testing
+    - TEST_DOMAIN_ID, TEST_DOMAIN_VERSION: Test data constants
+    - requires_postgres, requires_kafka, requires_password: Skip markers
+
+This module adds test-specific data fixtures for pattern promotion testing.
 """
 
 from __future__ import annotations
 
-import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID, uuid4
 
 import asyncpg
-import pytest
 import pytest_asyncio
 
-# =============================================================================
-# Database Configuration
-# =============================================================================
-
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "192.168.86.200")
-POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5436"))
-POSTGRES_DATABASE = os.getenv("POSTGRES_DATABASE", "omninode_bridge")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
-
-# Test data constants
-TEST_DOMAIN_ID = "code_generation"  # Pre-seeded domain from migrations
-TEST_DOMAIN_VERSION = "1.0"
-
-
-# =============================================================================
-# Database Connection Fixtures
-# =============================================================================
-
-
-@pytest_asyncio.fixture
-async def db_conn() -> AsyncGenerator[asyncpg.Connection, None]:
-    """Create a connection for integration tests.
-
-    Yields:
-        asyncpg.Connection connected to the test database.
-
-    Raises:
-        pytest.skip: If database is not available or password not set.
-    """
-    if not POSTGRES_PASSWORD:
-        pytest.skip("POSTGRES_PASSWORD not set - skipping integration tests")
-
-    try:
-        conn = await asyncpg.connect(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
-            timeout=30,
-        )
-    except (OSError, asyncpg.PostgresError) as e:
-        pytest.skip(f"Database not available: {e}")
-
-    try:
-        yield conn
-    finally:
-        await conn.close()
+# Import shared fixtures and constants from parent conftest
+# These are automatically available via pytest's conftest discovery,
+# but explicit import makes the dependencies clear.
+from tests.integration.conftest import (
+    TEST_DOMAIN_ID,
+    TEST_DOMAIN_VERSION,
+    MockKafkaPublisher,
+)
 
 
 # =============================================================================
@@ -85,6 +50,9 @@ async def test_pattern_ids(
     2. Eligible for promotion (at thresholds)
     3. Not eligible (low injection count)
     4. Not eligible (high failure streak)
+
+    Args:
+        db_conn: Database connection from shared conftest.
 
     Yields:
         List of created pattern UUIDs.
@@ -114,9 +82,9 @@ async def test_pattern_ids(
         [session_id],
         datetime.now(UTC),  # provisional requires promoted_at
         10,  # injection_count
-        8,   # success_count (80%)
-        2,   # failure_count
-        0,   # failure_streak
+        8,  # success_count (80%)
+        2,  # failure_count
+        0,  # failure_streak
     )
 
     # Pattern 2: Eligible - At exact thresholds
@@ -140,10 +108,10 @@ async def test_pattern_ids(
         "provisional",
         [session_id],
         datetime.now(UTC),
-        5,   # injection_count (at minimum)
-        3,   # success_count (60%)
-        2,   # failure_count
-        2,   # failure_streak (below max)
+        5,  # injection_count (at minimum)
+        3,  # success_count (60%)
+        2,  # failure_count
+        2,  # failure_streak (below max)
     )
 
     # Pattern 3: Not eligible - Low injection count
@@ -167,10 +135,10 @@ async def test_pattern_ids(
         "provisional",
         [session_id],
         datetime.now(UTC),
-        4,   # injection_count (BELOW minimum)
-        4,   # success_count (100%)
-        0,   # failure_count
-        0,   # failure_streak
+        4,  # injection_count (BELOW minimum)
+        4,  # success_count (100%)
+        0,  # failure_count
+        0,  # failure_streak
     )
 
     # Pattern 4: Not eligible - High failure streak
@@ -195,9 +163,9 @@ async def test_pattern_ids(
         [session_id],
         datetime.now(UTC),
         10,  # injection_count
-        7,   # success_count (70%)
-        3,   # failure_count
-        3,   # failure_streak (AT maximum - blocks promotion)
+        7,  # success_count (70%)
+        3,  # failure_count
+        3,  # failure_streak (AT maximum - blocks promotion)
     )
 
     try:
@@ -211,34 +179,16 @@ async def test_pattern_ids(
             )
 
 
-@pytest.fixture
-def sample_correlation_id() -> UUID:
-    """Fixed correlation ID for tracing tests."""
-    return UUID("12345678-1234-5678-1234-567812345678")
-
-
 # =============================================================================
-# Mock Kafka Publisher (for tests that don't need real Kafka)
+# Exports
 # =============================================================================
 
+# Note: sample_correlation_id and mock_kafka_publisher fixtures are inherited
+# from tests/integration/conftest.py and automatically available via pytest.
 
-class MockKafkaPublisher:
-    """Mock Kafka publisher that records events without publishing."""
-
-    def __init__(self) -> None:
-        self.published_events: list[tuple[str, str, dict[str, Any]]] = []
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, Any],
-    ) -> None:
-        """Record the event instead of publishing."""
-        self.published_events.append((topic, key, value))
-
-
-@pytest.fixture
-def mock_kafka_publisher() -> MockKafkaPublisher:
-    """Create a mock Kafka publisher."""
-    return MockKafkaPublisher()
+__all__ = [
+    "TEST_DOMAIN_ID",
+    "TEST_DOMAIN_VERSION",
+    "MockKafkaPublisher",
+    "test_pattern_ids",
+]
