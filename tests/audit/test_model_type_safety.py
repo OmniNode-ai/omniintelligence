@@ -20,7 +20,7 @@ import pytest
 # Model files to audit
 MODEL_FILES = [
     "src/omniintelligence/nodes/intelligence_reducer/models/model_reducer_input.py",
-    "src/omniintelligence/nodes/intent_classifier_compute/models/model_intent_classification_input.py",
+    "src/omniintelligence/nodes/node_intent_classifier_compute/models/model_intent_classification_input.py",
     "src/omniintelligence/nodes/pattern_matching_compute/models/model_pattern_matching_input.py",
     "src/omniintelligence/models/model_intelligence_input.py",
     "src/omniintelligence/models/model_intelligence_output.py",
@@ -107,7 +107,7 @@ class TestTypedDictUsage:
 
     def test_intent_classification_uses_typeddict_for_context(self) -> None:
         """Verify context uses typed dict structure."""
-        from omniintelligence.nodes.intent_classifier_compute.models.model_intent_classification_input import (
+        from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
             IntentContextDict,
             ModelIntentClassificationInput,
         )

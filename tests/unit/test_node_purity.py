@@ -35,6 +35,9 @@ from pathlib import Path
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 
 # =========================================================================
 # Constants and Configuration
@@ -235,6 +238,12 @@ class PurityVisitor(ast.NodeVisitor):
                 base_names.append(base.id)
             elif isinstance(base, ast.Attribute):
                 base_names.append(base.attr)
+            elif isinstance(base, ast.Subscript):
+                # Handle generic types like NodeReducer[T, U]
+                if isinstance(base.value, ast.Name):
+                    base_names.append(base.value.id)
+                elif isinstance(base.value, ast.Attribute):
+                    base_names.append(base.value.attr)
 
         # Check if this is a node class:
         # 1. Inherits from valid base class, OR
@@ -902,9 +911,9 @@ class TestRealNodeFiles:
         """Stub nodes should be detected and skipped from purity checks."""
         # Known stub nodes
         stub_nodes = [
-            "quality_scoring_compute",
-            "intent_classifier_compute",
-            "semantic_analysis_compute",
+            "node_quality_scoring_compute",
+            "node_intent_classifier_compute",
+            "node_semantic_analysis_compute",
         ]
 
         for node_name in stub_nodes:

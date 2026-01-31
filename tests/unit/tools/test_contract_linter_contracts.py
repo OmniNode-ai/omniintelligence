@@ -13,6 +13,9 @@ from typing import Union
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 
 def _safe_relative_path(path: Path, base: Path) -> Union[Path, str]:
     """Safely compute relative path, falling back to absolute path if not possible.

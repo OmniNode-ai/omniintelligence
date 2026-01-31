@@ -1,0 +1,319 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternPromotionEffect
+#
+# This contract defines the interface for the pattern promotion effect node.
+# The node promotes patterns from provisional to validated status based on
+# rolling window metrics and configurable thresholds.
+#
+# Reference: OMN-1680 - Auto-promote logic for patterns
+
+# Contract identifiers
+name: "pattern_promotion_effect"
+contract_name: "pattern_promotion_effect"
+node_name: "pattern_promotion_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node for promoting patterns from provisional to validated status. Evaluates patterns based on
+  rolling window metrics (rolling_20 success rate from pattern_feedback_effect) and configurable thresholds.
+  Supports dry_run mode for previewing promotions without committing. Publishes pattern-promoted events
+  to Kafka for downstream consumers to update their caches.
+# Strongly typed I/O models
+input_model:
+  name: "ModelPromotionCheckRequest"
+  module: "omniintelligence.nodes.node_pattern_promotion_effect.models"
+  description: >
+    Input model for pattern promotion check requests. Supports optional dry_run flag for previewing promotions
+    without committing. All threshold parameters are configurable:
+      - min_injection_count: Minimum injection count in rolling window (default: 5)
+      - min_success_rate: Minimum success rate required for promotion (default: 0.6)
+      - max_failure_streak: Maximum consecutive failures allowed (default: 3)
+output_model:
+  name: "ModelPromotionCheckResult"
+  module: "omniintelligence.nodes.node_pattern_promotion_effect.models"
+  description: "Output model containing list of promoted patterns and promotion summary."
+
+# =============================================================================
+# HANDLER ROUTING (Single Entry Point)
+# =============================================================================
+# This node has a single primary operation: check and promote eligible patterns.
+# Future versions may add handlers for bulk promotion or promotion rollback.
+#
+# Implementation Note:
+#   The main entry point is `check_and_promote_patterns()` which:
+#     - Queries learned_patterns table for provisional patterns
+#     - Evaluates each pattern against promotion thresholds
+#     - Updates status to 'validated' for patterns meeting criteria
+#     - Publishes promotion events to Kafka
+#     - Returns summary of promoted patterns
+#
+# =============================================================================
+# PROMOTION GATES (Configurable Thresholds)
+# =============================================================================
+# All four gates must pass for a pattern to be promoted:
+#
+#   Gate 1: Injection Count Gate (Rolling Window)
+#     - Parameter: min_injection_count (default: 5)
+#     - Condition: pattern.injection_count_rolling_20 >= min_injection_count
+#     - Purpose: Ensures pattern has been used enough times in rolling window to evaluate
+#
+#   Gate 2: Success Rate Gate
+#     - Parameter: min_success_rate (default: 0.6)
+#     - Condition: rolling_20_success_rate >= min_success_rate
+#     - Purpose: Ensures pattern achieves minimum 60% success rate
+#
+#   Gate 3: Failure Streak Gate
+#     - Parameter: max_failure_streak (default: 3)
+#     - Condition: failure_streak < max_failure_streak
+#     - Purpose: Prevents promotion if pattern is currently failing repeatedly
+#
+#   Gate 4: Not Disabled Gate
+#     - Condition: pattern_id NOT IN disabled_patterns_current
+#     - Purpose: Prevents promotion of patterns that have been manually disabled
+#
+# Implementation Note:
+#   Gates 1-3 are evaluated in the meets_promotion_criteria() pure function.
+#   Gate 4 (Not Disabled) is enforced at the SQL query level via LEFT JOIN
+#   with the disabled_patterns_current table. This separation is intentional
+#   for performance - disabled patterns are filtered BEFORE being fetched
+#   for evaluation, reducing memory usage and processing time.
+#
+# Default Threshold Summary:
+#   - min_injection_count: 5 (pattern must have 5+ injections in rolling window)
+#   - min_success_rate: 0.6 (60% success rate required)
+#   - max_failure_streak: 3 (less than 3 consecutive failures allowed)
+#
+# =============================================================================
+# Execution Flow:
+#   1. Receive ModelPromotionCheckRequest with optional dry_run flag and thresholds
+#   2. Query all provisional patterns with their rolling_20 metrics
+#   3. Evaluate each pattern against the four promotion gates
+#   4. If dry_run=False, update pattern status to 'validated'
+#   5. Publish pattern-promoted event to Kafka (if not dry_run)
+#   6. Return ModelPromotionCheckResult with promoted pattern details
+# =============================================================================
+handler_routing:
+  routing_strategy: "single_entry"
+  entry_point:
+    function: "check_and_promote_patterns"
+    module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
+    type: "async"
+    description: "Main entry point for checking and promoting eligible patterns"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "check_and_promote_patterns"
+    description: "Check provisional patterns and promote those meeting all four promotion gates"
+    input_fields:
+      - name: dry_run
+        type: bool
+        description: "If True, return what WOULD be promoted without mutating"
+      - name: min_injection_count
+        type: int
+        description: "Minimum injection count in rolling window (default: 5)"
+      - name: min_success_rate
+        type: float
+        description: "Minimum success rate required for promotion (default: 0.6)"
+      - name: max_failure_streak
+        type: int
+        description: "Maximum consecutive failures allowed (default: 3)"
+      - name: correlation_id
+        type: UUID | None
+        description: "Optional correlation ID for distributed tracing"
+    output_fields:
+      - name: dry_run
+        type: bool
+        description: "Whether this was a dry run"
+      - name: patterns_checked
+        type: int
+        description: "Total number of provisional patterns checked"
+      - name: patterns_eligible
+        type: int
+        description: "Number of patterns meeting promotion criteria"
+      - name: patterns_promoted
+        type: list[ModelPromotionResult]
+        description: "List of individual promotion results"
+      - name: correlation_id
+        type: UUID | None
+        description: "Correlation ID for tracing, if provided in request"
+      - name: error_message
+        type: str | None
+        description: "Error message if an error occurred during promotion check"
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+# PURPOSE: Human-readable documentation of WHAT events this node produces.
+#
+# This section provides rich metadata for:
+#   - IntentTypeExtractor (capability inference)
+#   - Contract validation and diff computation
+#   - Human understanding of node behavior
+#
+# Contains: event_type, trigger conditions, descriptions, full topic patterns.
+#
+# NOTE: This is intentionally separate from event_bus (below) which handles
+# WHERE events are routed. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Topic naming: onex.{kind}.{producer}.{event-name}.v{n}
+#   - kind=cmd for commands/inputs
+#   - kind=evt for events/outputs
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omniintelligence.pattern-promoted.v1"
+    full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
+    event_type: "PatternPromoted"
+    trigger: "Pattern successfully promoted from provisional to validated"
+    description: "Emitted when a pattern is promoted. Contains pattern_id, old_status, new_status, and
+      promotion metrics. Consumed by downstream caches for invalidation."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# Contains: topic suffixes (simple strings) + optional schema references.
+#
+# NOTE: This is intentionally separate from published_events (above) which
+# documents WHAT events this node produces. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  # Note: This node can be triggered via direct API call or scheduled job
+  subscribe_topics: []
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "onex.evt.omniintelligence.pattern-promoted.v1"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.pattern-promoted.v1":
+      schema_ref: "omniintelligence.nodes.node_pattern_promotion_effect.models.ModelPatternPromotedEvent"
+      description: "Pattern promotion events for cache invalidation and downstream processing"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "pattern_repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
+    description: "Pattern repository protocol for database operations (fetch provisional patterns, update
+      status, read rolling metrics)"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
+    description: "Kafka producer for emitting pattern-promoted events"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "IntegrityError"
+
+  error_types:
+    - name: "PatternNotFoundError"
+      description: "Referenced pattern_id does not exist in patterns table"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DatabaseWriteError"
+      description: "Failed to update pattern status in PostgreSQL"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "InsufficientMetricsError"
+      description: "Pattern does not have enough metrics for promotion evaluation"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ValidationError"
+      description: "Invalid promotion request data or thresholds"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "KafkaPublishError"
+      description: "Failed to publish pattern-promoted event to Kafka"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "pattern_promotion"
+    description: "Promote patterns from provisional to validated status"
+  - name: "threshold_evaluation"
+    description: "Evaluate patterns against configurable success thresholds"
+  - name: "dry_run_mode"
+    description: "Preview promotions without committing changes"
+  - name: "kafka_emission"
+    description: "Emit pattern-promoted events for downstream cache invalidation"
+  - name: "batch_promotion"
+    description: "Process multiple patterns in a single promotion check"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  tags:
+    - effect
+    - pattern-learning
+    - promotion
+    - rolling-window
+    - postgresql
+    - kafka
+  references:
+    - ticket: "OMN-1680"
+      url: "https://linear.app/omninode/issue/OMN-1680"
+      description: "Auto-promote logic for patterns based on rolling window metrics"
+    - ticket: "OMN-1678"
+      url: "https://linear.app/omninode/issue/OMN-1678"
+      description: "Rolling window metric updates (dependency for promotion evaluation)"

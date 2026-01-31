@@ -45,10 +45,62 @@ Used in:
 """
 
 # =============================================================================
+# Kafka Topic Suffixes (TEMP_BOOTSTRAP)
+# =============================================================================
+# TEMP_BOOTSTRAP: These constants are temporary until runtime injection from
+# contract.yaml is wired. Delete when OMN-1546 completes.
+#
+# Topic naming follows ONEX convention:
+#   {env}.onex.{type}.{domain}.{event-name}.{version}
+#
+# These constants define the SUFFIX (everything after env prefix).
+# Full topic is constructed as: f"{env_prefix}.{suffix}"
+# =============================================================================
+
+TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = "onex.cmd.omniintelligence.claude-hook-event.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for Claude Code hook events (INPUT).
+
+Full topic at runtime: {env}.onex.cmd.omniintelligence.claude-hook-event.v1
+
+omniclaude publishes Claude Code hook events to this topic.
+RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
+
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for intent classification events (OUTPUT).
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.intent-classified.v1
+
+NodeClaudeHookEventEffect publishes classified intents to this topic.
+omnimemory consumes for graph storage.
+
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_SUFFIX_PATTERN_PROMOTED_V1: str = "onex.evt.omniintelligence.pattern-promoted.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for pattern promotion events (OUTPUT).
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-promoted.v1
+
+NodePatternPromotionEffect publishes when a provisional pattern is promoted
+to validated status based on rolling window success metrics.
+
+Deletion ticket: OMN-1546
+"""
+
+# =============================================================================
 # Exports
 # =============================================================================
 
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
+    "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
+    "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
+    "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
 ]

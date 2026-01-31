@@ -46,9 +46,9 @@ class TestGetNodeType:
 
     def test_compute_type(self):
         """Test detection of compute node type."""
-        assert get_node_type("quality_scoring_compute") == "compute"
+        assert get_node_type("node_quality_scoring_compute") == "compute"
         assert get_node_type("pattern_learning_compute") == "compute"
-        assert get_node_type("intent_classifier_compute") == "compute"
+        assert get_node_type("node_intent_classifier_compute") == "compute"
 
     def test_effect_type(self):
         """Test detection of effect node type."""

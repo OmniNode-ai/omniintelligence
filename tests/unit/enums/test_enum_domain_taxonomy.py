@@ -12,6 +12,9 @@ from pathlib import Path
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.enums import DOMAIN_TAXONOMY_VERSION, EnumDomainTaxonomy
 
 

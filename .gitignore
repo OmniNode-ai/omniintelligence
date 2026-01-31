@@ -51,6 +51,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 .cache
+test_validation_summary.json
 
 # IDEs
 .vscode/

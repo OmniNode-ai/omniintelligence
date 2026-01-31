@@ -146,7 +146,7 @@ def extract_all_patterns(
         PatternExtractionComputeError: On unrecoverable extraction failures.
     """
     start_time = time.perf_counter()
-    config = input_data.config
+    config = input_data.options
 
     try:
         # Validate input

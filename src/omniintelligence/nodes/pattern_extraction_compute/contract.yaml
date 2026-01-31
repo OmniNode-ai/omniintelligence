@@ -31,7 +31,7 @@ operations:
     input_fields:
       - session_snapshots
       - existing_insights
-      - config
+      - options
       - correlation_id
     output_fields:
       - success
@@ -43,7 +43,7 @@ operations:
     description: "Extract file access patterns (co-access, entry points, modification clusters)"
     input_fields:
       - session_snapshots
-      - config
+      - options
     output_fields:
       - file_patterns
       - confidence_scores
@@ -51,7 +51,7 @@ operations:
     description: "Extract error patterns (error-prone files, fix sequences, tool failures)"
     input_fields:
       - session_snapshots
-      - config
+      - options
     output_fields:
       - error_patterns
       - confidence_scores
@@ -59,7 +59,7 @@ operations:
     description: "Extract architecture patterns (module boundaries, layers, dependency chains)"
     input_fields:
       - session_snapshots
-      - config
+      - options
     output_fields:
       - architecture_patterns
       - confidence_scores
@@ -67,7 +67,7 @@ operations:
     description: "Extract tool usage patterns (sequences, preferences, success rates)"
     input_fields:
       - session_snapshots
-      - config
+      - options
     output_fields:
       - tool_patterns
       - confidence_scores

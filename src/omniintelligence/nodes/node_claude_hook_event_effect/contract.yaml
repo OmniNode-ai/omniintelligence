@@ -1,0 +1,313 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeClaudeHookEventEffect
+#
+# This contract defines the interface for the unified Claude Code hook event
+# handler. The node receives all Claude Code hook events and routes them to
+# appropriate compute nodes based on event_type.
+#
+# Reference: OMN-1456 - Unified Claude Code hook endpoint
+
+# Contract identifiers
+name: "claude_hook_event_effect"
+contract_name: "claude_hook_event_effect"
+node_name: "claude_hook_event_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Unified Effect node for handling all Claude Code hook events. Receives events from SessionStart, UserPromptSubmit,
+  PreToolUse, PostToolUse, Stop, and other hook types, routing them to appropriate handlers. For UserPromptSubmit,
+  routes to node_intent_classifier_compute for classification. Emits classified intents to Kafka for downstream
+  consumers (graph storage handled by omnimemory).
+# Strongly typed I/O models
+input_model:
+  name: "ModelClaudeCodeHookEvent"
+  module: "omniintelligence.nodes.node_claude_hook_event_effect.models"
+  description: "Unified input model for all Claude Code hook events."
+output_model:
+  name: "ModelClaudeHookResult"
+  module: "omniintelligence.nodes.node_claude_hook_event_effect.models"
+  description: "Output model containing processing status and intent classification results."
+
+# =============================================================================
+# HANDLER ROUTING (Event Type Based Dispatch)
+# =============================================================================
+# Routes events to handlers based on event_type field. Currently implements
+# UserPromptSubmit routing to intent classification. Other event types return
+# success (no-op) and are ready for future handler implementations.
+#
+# Implementation Note:
+#   Handlers are implemented as async/sync functions, not classes.
+#   The main entry point is `route_hook_event()` which dispatches to:
+#     - `handle_user_prompt_submit()` for UserPromptSubmit events
+#     - `handle_no_op()` for all other event types
+#
+# Execution Flow:
+#   1. Receive ModelClaudeCodeHookEvent with event_type
+#   2. Route to handler function based on event_type
+#   3. For UserPromptSubmit: classify intent, emit to Kafka
+#   4. For other types: return success (no-op)
+#   5. Return ModelClaudeHookResult with processing outcome
+# =============================================================================
+handler_routing:
+  routing_strategy: "event_type_match"
+  entry_point:
+    function: "route_hook_event"
+    module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+    type: "async"
+    description: "Main entry point that routes events to appropriate handler functions"
+  handlers:
+    # UserPromptSubmit - Intent Classification
+    - event_type: "UserPromptSubmit"
+      handler:
+        function: "handle_user_prompt_submit"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "async"
+      description: "Classify user prompt intent"
+      actions:
+        - "call node_intent_classifier_compute"
+        - "emit to Kafka"
+
+    # SessionStart - No-op (future: session tracking)
+    - event_type: "SessionStart"
+      handler:
+        function: "handle_no_op"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
+      description: "Session start event (no-op, future: session tracking)"
+
+    # SessionEnd - No-op (future: session summary)
+    - event_type: "SessionEnd"
+      handler:
+        function: "handle_no_op"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
+      description: "Session end event (no-op, future: session summary)"
+
+    # PreToolUse - No-op (future: tool validation)
+    - event_type: "PreToolUse"
+      handler:
+        function: "handle_no_op"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
+      description: "Pre-tool-use event (no-op, future: tool validation)"
+
+    # PostToolUse - No-op (future: result capture)
+    - event_type: "PostToolUse"
+      handler:
+        function: "handle_no_op"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
+      description: "Post-tool-use event (no-op, future: result capture)"
+
+    # Stop - No-op (future: completion tracking)
+    - event_type: "Stop"
+      handler:
+        function: "handle_no_op"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
+      description: "Stop event (no-op, future: completion tracking)"
+
+    # Notification - No-op (future: async notification handling)
+    - event_type: "Notification"
+      handler:
+        function: "handle_no_op"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "sync"
+      description: "Notification event (no-op, future: async handling)"
+
+  # Default handler for unrecognized event types
+  default_handler:
+    function: "handle_no_op"
+    module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+    type: "sync"
+    description: "Default no-op handler for unrecognized event types"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "process_hook_event"
+    description: "Process a Claude Code hook event and route to appropriate handler"
+    input_fields:
+      - event_type
+      - session_id
+      - correlation_id
+      - timestamp_utc
+      - payload
+    output_fields:
+      - status
+      - event_type
+      - session_id
+      - correlation_id
+      - intent_result
+      - processing_time_ms
+      - processed_at
+      - error_message
+      - metadata
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+# PURPOSE: Human-readable documentation of WHAT events this node produces.
+#
+# This section provides rich metadata for:
+#   - IntentTypeExtractor (capability inference)
+#   - Contract validation and diff computation
+#   - Human understanding of node behavior
+#
+# Contains: event_type, trigger conditions, descriptions, full topic patterns.
+#
+# NOTE: This is intentionally separate from event_bus (below) which handles
+# WHERE events are routed. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Topic naming: onex.{kind}.{producer}.{event-name}.v{n}
+#   - kind=cmd for commands/inputs
+#   - kind=evt for events/outputs
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omniintelligence.intent-classified.v1"
+    full_topic_pattern: "{env}.onex.evt.omniintelligence.intent-classified.v1"
+    event_type: "IntentClassified"
+    trigger: "UserPromptSubmit processed successfully"
+    description: "Emitted when a user prompt intent is successfully classified. Consumed by omnimemory
+      for graph storage."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# Contains: topic suffixes (simple strings) + optional schema references.
+#
+# NOTE: This is intentionally separate from published_events (above) which
+# documents WHAT events this node produces. Both are needed for Effect nodes:
+#   - published_events = documentation layer (WHAT)
+#   - event_bus = runtime routing layer (WHERE)
+#
+# Added by OMN-1537 for topic-based routing configuration.
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.claude-hook-event.v1"
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "onex.evt.omniintelligence.intent-classified.v1"
+
+  # Metadata for subscribed topics
+  # Note: consumer_group is NOT specified here - it's runtime configuration
+  # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.claude-hook-event.v1":
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
+      description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
+        PostToolUse, Stop, etc.)"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.intent-classified.v1":
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
+      description: "Classified intent results from UserPromptSubmit processing"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "node_intent_classifier_compute"
+    type: "node"
+    node_name: "node_intent_classifier_compute"
+    module: "omniintelligence.nodes.node_intent_classifier_compute"
+    description: "Compute node for classifying user prompt intents"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaProducer"
+    module: "omnibase_infra.protocols.protocol_kafka_producer"
+    description: "Kafka producer for emitting classified intent events"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 2
+    initial_delay_ms: 100
+    max_delay_ms: 1000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "IntentClassificationError"
+      description: "Failed to classify user prompt intent"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "KafkaPublishError"
+      description: "Failed to publish to Kafka"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "unified_hook_handling"
+    description: "Handle all Claude Code hook event types through single endpoint"
+  - name: "intent_classification_routing"
+    description: "Route UserPromptSubmit events to intent classification"
+  - name: "kafka_emission"
+    description: "Emit classified intents to Kafka for downstream consumers (graph storage handled by
+      omnimemory consuming these events)"
+  - name: "no_op_handlers"
+    description: "Return success for event types not yet implemented"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-01-23"
+  updated: "2026-01-23"
+  tags:
+    - effect
+    - claude-code
+    - hooks
+    - intent-classification
+    - kafka
+  references:
+    - ticket: "OMN-1456"
+      url: "https://linear.app/omninode/issue/OMN-1456"
+      description: "Unified Claude Code hook endpoint"
