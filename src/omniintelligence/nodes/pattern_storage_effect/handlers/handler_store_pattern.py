@@ -101,7 +101,7 @@ class ProtocolPatternStore(Protocol):
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: dict[str, Any] | None = None,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> UUID:
         """Store a pattern in the pattern database.
 
@@ -119,10 +119,8 @@ class ProtocolPatternStore(Protocol):
             source_run_id: ID of the run that produced this pattern.
             correlation_id: Correlation ID for distributed tracing.
             metadata: Additional metadata as key-value pairs.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses that connection (enabling
-                external transaction control). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control. Required to ensure
+                all operations participate in the caller's transaction boundary.
 
         Returns:
             UUID of the stored pattern (may be same as pattern_id).
@@ -137,7 +135,7 @@ class ProtocolPatternStore(Protocol):
         domain: str,
         signature_hash: str,
         version: int,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> bool:
         """Check if a pattern already exists for the given lineage and version.
 
@@ -147,10 +145,7 @@ class ProtocolPatternStore(Protocol):
             domain: Domain of the pattern (part of lineage key).
             signature_hash: Hash of the signature (part of lineage key).
             version: Version number to check.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses that connection (enabling
-                external transaction control). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Returns:
             True if a pattern exists for (domain, signature_hash, version).
@@ -161,7 +156,7 @@ class ProtocolPatternStore(Protocol):
         self,
         pattern_id: UUID,
         signature_hash: str,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key.
 
@@ -172,10 +167,7 @@ class ProtocolPatternStore(Protocol):
         Args:
             pattern_id: The pattern_id from the incoming event.
             signature_hash: Hash of the signature.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses that connection (enabling
-                external transaction control). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Returns:
             UUID of existing pattern if found, None otherwise.
@@ -186,7 +178,7 @@ class ProtocolPatternStore(Protocol):
         self,
         domain: str,
         signature_hash: str,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions of this lineage.
 
@@ -196,10 +188,7 @@ class ProtocolPatternStore(Protocol):
         Args:
             domain: Domain of the pattern (part of lineage key).
             signature_hash: Hash of the signature (part of lineage key).
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses that connection (enabling
-                external transaction control). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Returns:
             Number of rows updated (0 if no previous versions existed).
@@ -210,7 +199,7 @@ class ProtocolPatternStore(Protocol):
         self,
         domain: str,
         signature_hash: str,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
@@ -219,10 +208,7 @@ class ProtocolPatternStore(Protocol):
         Args:
             domain: Domain of the pattern (part of lineage key).
             signature_hash: Hash of the signature (part of lineage key).
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses that connection (enabling
-                external transaction control). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Returns:
             Latest version number, or None if no versions exist.
@@ -232,7 +218,7 @@ class ProtocolPatternStore(Protocol):
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -243,10 +229,7 @@ class ProtocolPatternStore(Protocol):
 
         Args:
             pattern_id: The pattern to query.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses that connection (enabling
-                external transaction control). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Returns:
             The original stored_at timestamp, or None if not found or
@@ -454,8 +437,8 @@ class StorePatternResult:
 async def handle_store_pattern(
     input_data: ModelPatternStorageInput,
     *,
-    pattern_store: ProtocolPatternStore | None = None,
-    conn: AsyncConnection | None = None,
+    pattern_store: ProtocolPatternStore,
+    conn: AsyncConnection,
 ) -> ModelPatternStoredEvent:
     """Store a learned pattern with governance enforcement.
 
@@ -472,11 +455,10 @@ async def handle_store_pattern(
 
     Args:
         input_data: The pattern to store, validated against governance rules.
-        pattern_store: Optional pattern store implementing ProtocolPatternStore.
-            If not provided, a mock response is returned for testing.
-        conn: Optional database connection for external transaction control.
-            When provided, all database operations use this connection,
-            enabling the caller to manage the transaction boundary.
+        pattern_store: Pattern store implementing ProtocolPatternStore.
+        conn: Database connection for transaction control. All database
+            operations use this connection, enabling the caller to manage
+            the transaction boundary for atomic idempotency + storage.
 
     Returns:
         ModelPatternStoredEvent with storage confirmation.
@@ -496,7 +478,7 @@ async def handle_store_pattern(
         ...     domain="code_patterns",
         ...     confidence=0.85,
         ... )
-        >>> event = await handle_store_pattern(input_data, pattern_store=store)
+        >>> event = await handle_store_pattern(input_data, pattern_store=store, conn=conn)
         >>> print(f"Stored pattern {event.pattern_id} version {event.version}")
     """
     # -------------------------------------------------------------------------
@@ -535,35 +517,10 @@ async def handle_store_pattern(
     )
 
     # -------------------------------------------------------------------------
-    # Step 2: Handle case where no pattern_store is provided (testing mode)
+    # Step 2: Check idempotency (same event_id + signature_hash = same result)
     # -------------------------------------------------------------------------
     stored_at = datetime.now(UTC)
 
-    if pattern_store is None:
-        logger.info(
-            "No pattern_store provided, returning mock event",
-            extra={
-                "pattern_id": str(input_data.pattern_id),
-                "domain": input_data.domain,
-            },
-        )
-        return ModelPatternStoredEvent(
-            pattern_id=input_data.pattern_id,
-            signature=input_data.signature,
-            signature_hash=input_data.signature_hash,
-            domain=input_data.domain,
-            version=input_data.version,
-            confidence=input_data.confidence,
-            state=EnumPatternState.CANDIDATE,
-            stored_at=stored_at,
-            actor=input_data.metadata.actor,
-            source_run_id=input_data.metadata.source_run_id,
-            correlation_id=input_data.correlation_id,
-        )
-
-    # -------------------------------------------------------------------------
-    # Step 3: Check idempotency (same event_id + signature_hash = same result)
-    # -------------------------------------------------------------------------
     existing_id = await pattern_store.check_exists_by_id(
         pattern_id=input_data.pattern_id,
         signature_hash=input_data.signature_hash,

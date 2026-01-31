@@ -18,6 +18,7 @@ Reference:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -168,11 +169,14 @@ class TestMinimumConfidenceAcceptance:
     async def test_handler_accepts_minimum_confidence(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Handler should accept patterns at exactly MIN_CONFIDENCE."""
         input_data = create_valid_input(confidence=0.5)
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         assert result.pattern_id is not None
         assert result.confidence == 0.5
@@ -219,6 +223,7 @@ class TestEmptySignatureRejection:
     async def test_handler_rejects_whitespace_signature(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Handler should reject patterns with whitespace-only signature."""
         input_data = ModelPatternStorageInput(
@@ -230,7 +235,9 @@ class TestEmptySignatureRejection:
         )
 
         with pytest.raises(ValueError, match="Governance validation failed"):
-            await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
 
 
 # =============================================================================
@@ -272,6 +279,7 @@ class TestEmptyDomainRejection:
     async def test_handler_rejects_whitespace_domain(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Handler should reject patterns with whitespace-only domain."""
         input_data = ModelPatternStorageInput(
@@ -283,7 +291,9 @@ class TestEmptyDomainRejection:
         )
 
         with pytest.raises(ValueError, match="Governance validation failed"):
-            await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
 
 
 # =============================================================================
@@ -392,33 +402,24 @@ class TestHandlerGovernanceIntegration:
     async def test_handler_passes_valid_input(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Handler should process valid input without errors."""
         input_data = create_valid_input()
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         assert result is not None
         assert result.pattern_id == input_data.pattern_id
         assert result.state == EnumPatternState.CANDIDATE
-
-    @pytest.mark.asyncio
-    async def test_handler_returns_mock_when_no_store(self) -> None:
-        """Handler should return mock event when no pattern_store provided."""
-        input_data = create_valid_input()
-
-        result = await handle_store_pattern(input_data, pattern_store=None)
-
-        assert result is not None
-        assert result.pattern_id == input_data.pattern_id
-        # Mock mode should still return valid event structure
-        assert result.state == EnumPatternState.CANDIDATE
-        assert result.stored_at is not None
 
     @pytest.mark.asyncio
     async def test_handler_logs_governance_violation(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Handler should log governance violations before rejecting."""
@@ -436,7 +437,9 @@ class TestHandlerGovernanceIntegration:
         )
 
         with pytest.raises(ValueError):
-            await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+            await handle_store_pattern(
+                input_data, pattern_store=mock_pattern_store, conn=mock_conn
+            )
 
         # Check that violation was logged (at INFO level since rejection is expected business logic)
         assert any("governance" in record.message.lower() for record in caplog.records)
@@ -445,6 +448,7 @@ class TestHandlerGovernanceIntegration:
     async def test_handler_returns_stored_pattern_details(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Handler should return complete pattern details after storage."""
         input_data = create_valid_input(
@@ -453,7 +457,9 @@ class TestHandlerGovernanceIntegration:
             signature="test_signature_pattern",
         )
 
-        result = await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         assert result.domain == "test_domain"
         assert result.confidence == 0.75
@@ -517,13 +523,18 @@ class TestUniquenessInvariant:
     async def test_different_domains_coexist(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Patterns with same signature_hash but different domains should coexist."""
         input1 = create_valid_input(domain="domain_a", signature_hash="shared_hash")
         input2 = create_valid_input(domain="domain_b", signature_hash="shared_hash")
 
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         assert result1.pattern_id != result2.pattern_id
         assert result1.domain == "domain_a"
@@ -533,13 +544,18 @@ class TestUniquenessInvariant:
     async def test_different_signature_hashes_coexist(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """Patterns with same domain but different signature_hash should coexist."""
         input1 = create_valid_input(domain="shared_domain", signature_hash="hash_a")
         input2 = create_valid_input(domain="shared_domain", signature_hash="hash_b")
 
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         assert result1.pattern_id != result2.pattern_id
 
@@ -557,11 +573,14 @@ class TestCurrentVersionTracking:
     async def test_first_version_is_current(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """First version of a pattern should be marked as current."""
         input_data = create_valid_input()
 
-        await handle_store_pattern(input_data, pattern_store=mock_pattern_store)
+        await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Check the stored pattern has is_current = True
         stored = mock_pattern_store.patterns[input_data.pattern_id]
@@ -571,6 +590,7 @@ class TestCurrentVersionTracking:
     async def test_new_version_becomes_current(
         self,
         mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
     ) -> None:
         """New version should become current and previous should not be current."""
         # Store first version
@@ -579,7 +599,9 @@ class TestCurrentVersionTracking:
             domain="test_domain",
             signature_hash="same_hash",
         )
-        await handle_store_pattern(input1, pattern_store=mock_pattern_store)
+        await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # Store second version (same lineage key)
         input2 = create_valid_input(
@@ -587,7 +609,9 @@ class TestCurrentVersionTracking:
             domain="test_domain",
             signature_hash="same_hash",
         )
-        await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=mock_conn
+        )
 
         # First should no longer be current
         stored1 = mock_pattern_store.patterns[input1.pattern_id]

@@ -13,10 +13,14 @@ Reference:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
+
+if TYPE_CHECKING:
+    from asyncpg import Connection as AsyncConnection
 
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     ModelStateTransition,
@@ -72,6 +76,7 @@ class MockPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: dict[str, Any] | None = None,
+        conn: AsyncConnection,
     ) -> UUID:
         """Store a pattern in the mock database."""
         self.patterns[pattern_id] = {
@@ -101,6 +106,7 @@ class MockPatternStore:
         domain: str,
         signature_hash: str,
         version: int,
+        conn: AsyncConnection,
     ) -> bool:
         """Check if a pattern exists for the given lineage and version."""
         for pattern in self.patterns.values():
@@ -116,6 +122,7 @@ class MockPatternStore:
         self,
         pattern_id: UUID,
         signature_hash: str,
+        conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key."""
         return self.idempotency_map.get((pattern_id, signature_hash))
@@ -124,6 +131,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
+        conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions."""
         updated_count = 0
@@ -141,6 +149,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
+        conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage."""
         return self._version_tracker.get((domain, signature_hash))
@@ -148,6 +157,7 @@ class MockPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
+        conn: AsyncConnection,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -155,6 +165,7 @@ class MockPatternStore:
 
         Args:
             pattern_id: The pattern to query.
+            conn: Database connection (unused in mock).
 
         Returns:
             The original stored_at timestamp, or None if not found.
@@ -187,7 +198,9 @@ class MockPatternStateManager:
         self.states: dict[UUID, EnumPatternState] = {}
         self.transitions: list[ModelStateTransition] = []
 
-    async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
+    async def get_current_state(
+        self, pattern_id: UUID, conn: AsyncConnection
+    ) -> EnumPatternState | None:
         """Get the current state of a pattern."""
         return self.states.get(pattern_id)
 
@@ -195,11 +208,14 @@ class MockPatternStateManager:
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
+        conn: AsyncConnection,
     ) -> None:
         """Update the state of a pattern."""
         self.states[pattern_id] = new_state
 
-    async def record_transition(self, transition: ModelStateTransition) -> None:
+    async def record_transition(
+        self, transition: ModelStateTransition, conn: AsyncConnection
+    ) -> None:
         """Record a state transition in the audit table."""
         self.transitions.append(transition)
 
@@ -368,3 +384,13 @@ def sample_pattern_id() -> UUID:
 def correlation_id() -> UUID:
     """Provide a correlation ID for distributed tracing tests."""
     return uuid4()
+
+
+@pytest.fixture
+def mock_conn() -> MagicMock:
+    """Provide a mock database connection for testing.
+
+    Returns a MagicMock that satisfies the AsyncConnection type hint
+    without requiring a real database connection.
+    """
+    return MagicMock()

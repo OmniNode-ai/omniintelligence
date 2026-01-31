@@ -212,7 +212,7 @@ class PatternStorageRouter:
         operation: str,
         input_data: dict[str, Any],
         *,
-        conn: AsyncConnection[Any] | None = None,
+        conn: AsyncConnection[Any],
     ) -> StorageOperationResult:
         """Route operation to the appropriate handler.
 
@@ -261,7 +261,7 @@ class PatternStorageRouter:
         self,
         input_data: dict[str, Any],
         *,
-        conn: AsyncConnection[Any] | None = None,
+        conn: AsyncConnection[Any],
     ) -> StorageOperationResult:
         """Handle store_pattern operation.
 
@@ -330,7 +330,7 @@ class PatternStorageRouter:
         self,
         input_data: dict[str, Any],
         *,
-        conn: AsyncConnection[Any] | None = None,
+        conn: AsyncConnection[Any],
     ) -> StorageOperationResult:
         """Handle promote_pattern operation.
 
@@ -348,9 +348,7 @@ class PatternStorageRouter:
                 - domain (optional): Pattern domain
                 - signature_hash (optional): Pattern signature hash
                 - metadata (optional): Additional metadata
-            conn: Optional database connection for transactional operations.
-                When provided, operations use this connection instead of
-                creating a new one, enabling transaction coordination.
+            conn: Database connection for transaction control.
 
         Returns:
             StorageOperationResult with promoted event.
@@ -488,9 +486,9 @@ async def route_storage_operation(
     operation: str,
     input_data: dict[str, Any],
     *,
-    pattern_store: ProtocolPatternStore | None = None,
-    state_manager: ProtocolPatternStateManager | None = None,
-    conn: AsyncConnection[Any] | None = None,
+    pattern_store: ProtocolPatternStore,
+    state_manager: ProtocolPatternStateManager,
+    conn: AsyncConnection[Any],
 ) -> dict[str, Any]:
     """Entry point for contract-driven handler routing.
 
@@ -509,14 +507,10 @@ async def route_storage_operation(
         input_data: Dictionary containing operation-specific input fields.
             For store_pattern: ModelPatternStorageInput fields
             For promote_pattern: pattern_id, to_state, reason, etc.
-        pattern_store: Optional pattern store for storage operations.
-            If not provided, store operations return mock results.
-        state_manager: Optional state manager for promotion operations.
-            If not provided, promotion validates only (dry-run mode).
-        conn: Optional database connection for transactional operations.
-            When provided, operations use this connection instead of
-            creating a new one, enabling transaction coordination across
-            multiple storage operations within a single transaction.
+        pattern_store: Pattern store for storage operations.
+        state_manager: State manager for promotion operations.
+        conn: Database connection for transaction control. All operations
+            use this connection for atomic idempotency + storage.
 
     Returns:
         Dictionary containing operation result with fields:

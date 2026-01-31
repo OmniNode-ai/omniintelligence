@@ -17,6 +17,7 @@ Reference:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -180,6 +181,7 @@ class TestValidStateTransitions:
     async def test_candidate_to_provisional(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Valid transition: CANDIDATE -> PROVISIONAL."""
         pattern_id = uuid4()
@@ -190,6 +192,7 @@ class TestValidStateTransitions:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Pattern passed initial verification",
             state_manager=mock_state_manager,
+            conn=mock_conn,
         )
 
         assert event.from_state == EnumPatternState.CANDIDATE
@@ -201,6 +204,7 @@ class TestValidStateTransitions:
     async def test_provisional_to_validated(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Valid transition: PROVISIONAL -> VALIDATED."""
         pattern_id = uuid4()
@@ -211,6 +215,7 @@ class TestValidStateTransitions:
             to_state=EnumPatternState.VALIDATED,
             reason="Pattern met all validation criteria",
             state_manager=mock_state_manager,
+            conn=mock_conn,
         )
 
         assert event.from_state == EnumPatternState.PROVISIONAL
@@ -221,6 +226,7 @@ class TestValidStateTransitions:
     async def test_state_manager_updated(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """State manager should reflect new state after promotion."""
         pattern_id = uuid4()
@@ -231,15 +237,17 @@ class TestValidStateTransitions:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
             state_manager=mock_state_manager,
+            conn=mock_conn,
         )
 
         # State should be updated in the manager
-        assert await mock_state_manager.get_current_state(pattern_id) == EnumPatternState.PROVISIONAL
+        assert await mock_state_manager.get_current_state(pattern_id, mock_conn) == EnumPatternState.PROVISIONAL
 
     @pytest.mark.asyncio
     async def test_transition_recorded_in_audit(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """State transition should be recorded in audit trail."""
         pattern_id = uuid4()
@@ -250,6 +258,7 @@ class TestValidStateTransitions:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
             state_manager=mock_state_manager,
+            conn=mock_conn,
             actor="test_workflow",
         )
 
@@ -275,6 +284,7 @@ class TestInvalidStateTransitions:
     async def test_candidate_to_validated_rejected(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Invalid transition: CANDIDATE -> VALIDATED must be rejected."""
         pattern_id = uuid4()
@@ -286,6 +296,7 @@ class TestInvalidStateTransitions:
                 to_state=EnumPatternState.VALIDATED,  # Skips PROVISIONAL
                 reason="Attempting invalid skip",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
         assert exc_info.value.pattern_id == pattern_id
@@ -296,6 +307,7 @@ class TestInvalidStateTransitions:
     async def test_validated_to_any_rejected(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Invalid transition: VALIDATED -> any state must be rejected."""
         pattern_id = uuid4()
@@ -308,6 +320,7 @@ class TestInvalidStateTransitions:
                 to_state=EnumPatternState.CANDIDATE,
                 reason="Attempting to demote validated pattern",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
         # Try VALIDATED -> PROVISIONAL
@@ -317,12 +330,14 @@ class TestInvalidStateTransitions:
                 to_state=EnumPatternState.PROVISIONAL,
                 reason="Attempting to demote validated pattern",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
     @pytest.mark.asyncio
     async def test_provisional_to_candidate_rejected(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Invalid transition: PROVISIONAL -> CANDIDATE must be rejected."""
         pattern_id = uuid4()
@@ -334,12 +349,14 @@ class TestInvalidStateTransitions:
                 to_state=EnumPatternState.CANDIDATE,  # Reverse transition
                 reason="Attempting reverse transition",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
     @pytest.mark.asyncio
     async def test_error_message_contains_valid_targets(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Error message should include valid target states."""
         pattern_id = uuid4()
@@ -351,6 +368,7 @@ class TestInvalidStateTransitions:
                 to_state=EnumPatternState.VALIDATED,
                 reason="Invalid skip",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
         error_message = str(exc_info.value)
@@ -371,6 +389,7 @@ class TestPatternNotFound:
     async def test_not_found_raises_error(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Promoting non-existent pattern should raise PatternNotFoundError."""
         non_existent_id = uuid4()
@@ -382,6 +401,7 @@ class TestPatternNotFound:
                 to_state=EnumPatternState.PROVISIONAL,
                 reason="Attempting to promote non-existent pattern",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
         assert exc_info.value.pattern_id == non_existent_id
@@ -390,6 +410,7 @@ class TestPatternNotFound:
     async def test_not_found_error_message(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """PatternNotFoundError should have informative message."""
         non_existent_id = uuid4()
@@ -400,51 +421,10 @@ class TestPatternNotFound:
                 to_state=EnumPatternState.PROVISIONAL,
                 reason="Test",
                 state_manager=mock_state_manager,
+                conn=mock_conn,
             )
 
         assert str(non_existent_id) in str(exc_info.value)
-
-
-# =============================================================================
-# Dry-Run Mode Tests (No State Manager)
-# =============================================================================
-
-
-@pytest.mark.unit
-class TestDryRunMode:
-    """Tests for validation-only mode without state manager."""
-
-    @pytest.mark.asyncio
-    async def test_valid_transition_dry_run(self) -> None:
-        """Valid transition should succeed in dry-run mode."""
-        pattern_id = uuid4()
-
-        event = await handle_promote_pattern(
-            pattern_id=pattern_id,
-            to_state=EnumPatternState.PROVISIONAL,
-            reason="Dry run test",
-            state_manager=None,  # Dry-run mode
-        )
-
-        # Should infer from_state as CANDIDATE
-        assert event.from_state == EnumPatternState.CANDIDATE
-        assert event.to_state == EnumPatternState.PROVISIONAL
-
-    @pytest.mark.asyncio
-    async def test_invalid_initial_state_dry_run(self) -> None:
-        """Promoting to CANDIDATE should fail (not a promotion target)."""
-        pattern_id = uuid4()
-
-        with pytest.raises(PatternStateTransitionError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.CANDIDATE,  # Not a promotion target
-                reason="Invalid target",
-                state_manager=None,
-            )
-
-        # Error message should explain CANDIDATE is initial state
-        assert "initial state" in str(exc_info.value).lower()
 
 
 # =============================================================================
@@ -460,6 +440,7 @@ class TestMetricsSnapshot:
     async def test_metrics_included_in_event(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Metrics snapshot should be included in promotion event."""
         pattern_id = uuid4()
@@ -478,6 +459,7 @@ class TestMetricsSnapshot:
             reason="Verification passed",
             metrics_snapshot=metrics,
             state_manager=mock_state_manager,
+            conn=mock_conn,
         )
 
         # metrics_snapshot should be present when explicitly provided
@@ -491,6 +473,7 @@ class TestMetricsSnapshot:
     async def test_default_metrics_when_not_provided(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """No metrics should be returned when none specified.
 
@@ -506,6 +489,7 @@ class TestMetricsSnapshot:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
             state_manager=mock_state_manager,
+            conn=mock_conn,
             # No metrics_snapshot provided
         )
 
@@ -527,6 +511,7 @@ class TestActorAndCorrelation:
     async def test_actor_recorded_in_event(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Actor should be recorded in promotion event."""
         pattern_id = uuid4()
@@ -537,6 +522,7 @@ class TestActorAndCorrelation:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
             state_manager=mock_state_manager,
+            conn=mock_conn,
             actor="verification_workflow",
         )
 
@@ -546,6 +532,7 @@ class TestActorAndCorrelation:
     async def test_default_actor_when_not_provided(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Default actor should be used when not specified."""
         pattern_id = uuid4()
@@ -556,6 +543,7 @@ class TestActorAndCorrelation:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
             state_manager=mock_state_manager,
+            conn=mock_conn,
         )
 
         assert event.actor == DEFAULT_ACTOR
@@ -564,6 +552,7 @@ class TestActorAndCorrelation:
     async def test_correlation_id_propagated(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Correlation ID should be propagated to event."""
         pattern_id = uuid4()
@@ -575,6 +564,7 @@ class TestActorAndCorrelation:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
             state_manager=mock_state_manager,
+            conn=mock_conn,
             correlation_id=correlation_id,
         )
 
@@ -594,6 +584,7 @@ class TestEventValidTransition:
     async def test_event_is_valid_transition_true(
         self,
         mock_state_manager: MockPatternStateManager,
+        mock_conn: MagicMock,
     ) -> None:
         """Event should report is_valid_transition() = True for valid transitions."""
         pattern_id = uuid4()
@@ -604,6 +595,7 @@ class TestEventValidTransition:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
             state_manager=mock_state_manager,
+            conn=mock_conn,
         )
 
         assert event.is_valid_transition() is True

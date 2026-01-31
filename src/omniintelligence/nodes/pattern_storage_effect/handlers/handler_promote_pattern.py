@@ -308,16 +308,14 @@ class ProtocolPatternStateManager(Protocol):
     audit trail, violating governance compliance requirements.
 
     Transaction Control:
-        All methods accept an optional `conn` parameter for external transaction control.
-        When `conn` is provided, operations use that connection, enabling the caller
-        (e.g., Kafka consumer) to own the transaction spanning idempotency checks and
-        pattern state operations. When None, implementations use their own connection
-        management.
+        All methods require a `conn` parameter for transaction control. The caller
+        (e.g., infra wiring) owns the transaction spanning idempotency checks and
+        pattern state operations. This ensures atomic operations.
 
     Usage:
         class PostgresPatternStateManager:
             async def get_current_state(
-                self, pattern_id: UUID, conn: AsyncConnection | None = None
+                self, pattern_id: UUID, conn: AsyncConnection
             ) -> EnumPatternState | None:
                 # Query database for current state
                 ...
@@ -326,13 +324,13 @@ class ProtocolPatternStateManager(Protocol):
                 self,
                 pattern_id: UUID,
                 new_state: EnumPatternState,
-                conn: AsyncConnection | None = None,
+                conn: AsyncConnection,
             ) -> None:
                 # Update pattern state in database
                 ...
 
             async def record_transition(
-                self, transition: ModelStateTransition, conn: AsyncConnection | None = None
+                self, transition: ModelStateTransition, conn: AsyncConnection
             ) -> None:
                 # Insert transition record into audit table
                 ...
@@ -344,16 +342,13 @@ class ProtocolPatternStateManager(Protocol):
     async def get_current_state(
         self,
         pattern_id: UUID,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
         Args:
             pattern_id: The pattern to query.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses this connection (enabling the
-                caller to own the transaction). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Returns:
             The current state of the pattern, or None if not found.
@@ -364,17 +359,14 @@ class ProtocolPatternStateManager(Protocol):
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> None:
         """Update the state of a pattern.
 
         Args:
             pattern_id: The pattern to update.
             new_state: The new state to set.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses this connection (enabling the
-                caller to own the transaction). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Raises:
             PatternNotFoundError: If the pattern does not exist.
@@ -384,16 +376,13 @@ class ProtocolPatternStateManager(Protocol):
     async def record_transition(
         self,
         transition: ModelStateTransition,
-        conn: AsyncConnection | None = None,
+        conn: AsyncConnection,
     ) -> None:
         """Record a state transition in the audit table.
 
         Args:
             transition: The transition record to insert.
-            conn: Optional database connection for external transaction control.
-                When provided, the operation uses this connection (enabling the
-                caller to own the transaction). When None, implementations may
-                use their own connection management.
+            conn: Database connection for transaction control.
 
         Raises:
             Exception: If the insert fails (e.g., duplicate event_id).
@@ -412,13 +401,13 @@ async def handle_promote_pattern(
     reason: str,
     metrics_snapshot: ModelPatternMetricsSnapshot | None = None,
     *,
-    state_manager: ProtocolPatternStateManager | None = None,
+    state_manager: ProtocolPatternStateManager,
+    conn: AsyncConnection,
     actor: str = DEFAULT_ACTOR,
     correlation_id: UUID | None = None,
     domain: str | None = None,
     signature_hash: str | None = None,
     metadata: dict[str, Any] | None = None,
-    conn: AsyncConnection | None = None,
 ) -> ModelPatternPromotedEvent:
     """Handle pattern state promotion with audit trail.
 
@@ -436,7 +425,7 @@ async def handle_promote_pattern(
         metrics_snapshot: Optional metrics snapshot at promotion time.
             If not provided, the event will have metrics_snapshot=None,
             clearly indicating "no metrics captured" in the audit trail.
-        state_manager: Optional state manager for database operations.
+        state_manager: State manager for database operations.
             If not provided, only validation is performed (dry-run mode).
         actor: Identifier of the entity triggering the promotion.
             Defaults to "system".
@@ -444,9 +433,8 @@ async def handle_promote_pattern(
         domain: Optional domain of the pattern (for audit context).
         signature_hash: Optional signature hash (for audit context).
         metadata: Optional additional context for the audit record.
-        conn: Optional database connection for external transaction control.
-            When provided, all database operations use this connection,
-            enabling the caller to manage the transaction boundary.
+        conn: Database connection for transaction control. All operations use
+            this connection for atomic idempotency + state update.
 
     Returns:
         ModelPatternPromotedEvent ready for Kafka broadcast.
@@ -466,43 +454,21 @@ async def handle_promote_pattern(
         ...         success_rate=0.9,
         ...     ),
         ...     state_manager=state_manager,
+        ...     conn=conn,
         ...     actor="verification_workflow",
         ... )
         >>> event.from_state
         <EnumPatternState.CANDIDATE: 'candidate'>
         >>> event.to_state
         <EnumPatternState.PROVISIONAL: 'provisional'>
-
-    Note:
-        If state_manager is None, the function performs validation only
-        (dry-run mode). This is useful for testing validation logic without
-        a database connection.
     """
     promoted_at = datetime.now(UTC)
     event_id = uuid4()
 
     # Step 1: Get current state
-    from_state: EnumPatternState | None = None
-    if state_manager is not None:
-        from_state = await state_manager.get_current_state(pattern_id, conn=conn)
-        if from_state is None:
-            raise PatternNotFoundError(pattern_id)
-    else:
-        # Dry-run mode: infer from_state based on to_state
-        # This allows validation testing without a state manager
-        if to_state == EnumPatternState.PROVISIONAL:
-            from_state = EnumPatternState.CANDIDATE
-        elif to_state == EnumPatternState.VALIDATED:
-            from_state = EnumPatternState.PROVISIONAL
-        else:
-            # to_state is CANDIDATE - this is only valid as initial state
-            # which is not a promotion, so we reject it
-            raise PatternStateTransitionError(
-                pattern_id=pattern_id,
-                from_state=None,
-                to_state=to_state,
-                message=f"Cannot promote to {to_state.value} - this is an initial state, not a promotion target",
-            )
+    from_state = await state_manager.get_current_state(pattern_id, conn=conn)
+    if from_state is None:
+        raise PatternNotFoundError(pattern_id)
 
     # Step 2: Validate transition
     if not is_valid_transition(from_state, to_state):
@@ -542,26 +508,26 @@ async def handle_promote_pattern(
     # protocol that accepts both state and transition data, making atomicity
     # explicit at the API level.
     # -------------------------------------------------------------------------
-    if state_manager is not None:
-        # Step 3: Update state in database
-        await state_manager.update_state(pattern_id, to_state, conn=conn)
 
-        # Step 4: Record transition in audit table
-        # WARNING: This MUST succeed if update_state succeeded, otherwise
-        # the state change will not have an audit trail. See atomicity note above.
-        transition = ModelStateTransition(
-            pattern_id=pattern_id,
-            domain=domain,
-            signature_hash=signature_hash,
-            from_state=from_state,
-            to_state=to_state,
-            reason=reason,
-            actor=actor,
-            event_id=event_id,
-            metadata=metadata or {},
-            created_at=promoted_at,
-        )
-        await state_manager.record_transition(transition, conn=conn)
+    # Step 3: Update state in database
+    await state_manager.update_state(pattern_id, to_state, conn=conn)
+
+    # Step 4: Record transition in audit table
+    # WARNING: This MUST succeed if update_state succeeded, otherwise
+    # the state change will not have an audit trail. See atomicity note above.
+    transition = ModelStateTransition(
+        pattern_id=pattern_id,
+        domain=domain,
+        signature_hash=signature_hash,
+        from_state=from_state,
+        to_state=to_state,
+        reason=reason,
+        actor=actor,
+        event_id=event_id,
+        metadata=metadata or {},
+        created_at=promoted_at,
+    )
+    await state_manager.record_transition(transition, conn=conn)
 
     # Step 5: Return event for Kafka broadcast
     # Pass metrics_snapshot as-is (None indicates "no metrics captured")
