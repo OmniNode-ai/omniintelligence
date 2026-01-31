@@ -23,11 +23,51 @@ All four gates must pass for a pattern to be promoted:
 4. Disabled Gate: Pattern must not be in disabled_patterns_current table
    - Already filtered in SQL query (LEFT JOIN ... IS NULL)
 
+Kafka Publisher Optionality:
+----------------------------
+The ``kafka_producer`` dependency is OPTIONAL (contract marks it as ``required: false``).
+When the Kafka publisher is unavailable (None), promotions still occur in the database,
+but ``PatternPromoted`` events are NOT emitted to Kafka.
+
+**Implications of running without Kafka:**
+
+1. **Downstream Cache Staleness**: Services that cache validated patterns and rely on
+   Kafka events for cache invalidation will NOT receive promotion notifications.
+   Their caches may serve stale data until the next scheduled refresh or manual
+   invalidation.
+
+2. **Event Audit Trail**: The Kafka event stream serves as an audit log of promotions.
+   Without Kafka, this audit trail is incomplete. Database ``promoted_at`` timestamps
+   remain the only promotion record.
+
+3. **Real-time Consumers**: Any real-time consumers subscribed to the
+   ``{env}.pattern-promoted.v1`` topic will not receive promotion events.
+
+**When to run without Kafka:**
+
+- **Testing**: Unit and integration tests may skip Kafka for isolation and speed.
+  Pass ``producer=None`` to test promotion logic without Kafka infrastructure.
+
+- **Database-only migrations**: When migrating or backfilling promotion status,
+  Kafka events may be intentionally skipped to avoid flooding consumers.
+
+- **Degraded mode**: If Kafka is temporarily unavailable, the system can continue
+  promoting patterns (database updates succeed) with eventual Kafka reconciliation.
+
+- **Local development**: Developers may not have Kafka running locally. The
+  promotion logic works correctly without it.
+
+**Reconciliation Strategy**: When Kafka becomes available after running in
+degraded mode, consumers should query the ``learned_patterns`` table for patterns
+where ``status = 'validated'`` and ``promoted_at > last_known_event_timestamp``
+to reconcile any missed promotions.
+
 Design Principles:
     - Pure functions for criteria evaluation (no I/O)
     - Protocol-based dependency injection for testability
     - Per-pattern transactions (not batch) for reliability
-    - Kafka event emission for downstream cache invalidation
+    - Kafka event emission for downstream cache invalidation (when available)
+    - Graceful degradation when Kafka is unavailable
     - asyncpg-style positional parameters ($1, $2, etc.)
 
 Reference:
@@ -337,7 +377,9 @@ async def check_and_promote_patterns(
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
         producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
-            If None, Kafka events are not emitted.
+            If None, Kafka events are not emitted but database promotions still
+            occur. See "Kafka Optionality" section in module docstring for
+            implications on downstream cache invalidation.
         dry_run: If True, return what WOULD be promoted without mutating.
         min_injection_count: Minimum number of injections required for promotion.
             Defaults to MIN_INJECTION_COUNT (5).
@@ -348,6 +390,7 @@ async def check_and_promote_patterns(
             where any failure blocks promotion, or 1 to block on a single failure.
         correlation_id: Optional correlation ID for distributed tracing.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
+            Only used when producer is not None.
 
     Returns:
         ModelPromotionCheckResult with counts and individual promotion results.
@@ -355,6 +398,11 @@ async def check_and_promote_patterns(
     Note:
         Each pattern is promoted in its own transaction (not batch).
         If one promotion fails, others can still succeed.
+
+    Warning:
+        When ``producer`` is None, downstream services relying on Kafka events
+        for cache invalidation will not be notified. Their pattern caches may
+        become stale until manually refreshed or until the next scheduled sync.
     """
     logger.info(
         "Starting promotion check",
@@ -530,23 +578,41 @@ async def promote_pattern(
 
     This function:
     1. Updates the pattern status in the database
-    2. Emits a pattern-promoted event to Kafka
+    2. Emits a pattern-promoted event to Kafka (if producer available)
     3. Returns the promotion result with gate snapshot
+
+    The database update and Kafka event are NOT transactionally coupled.
+    The database update succeeds independently of Kafka availability.
 
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
         producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
+            When None, the promotion succeeds in the database but no Kafka event
+            is emitted. This is intentional to support:
+            - Testing without Kafka infrastructure
+            - Degraded operation when Kafka is unavailable
+            - Database-only migrations/backfills
+            See module docstring "Kafka Publisher Optionality" for cache
+            invalidation implications.
         pattern_id: The pattern ID to promote.
         pattern_data: Pattern record from SQL query (for gate snapshot).
         correlation_id: Optional correlation ID for tracing.
-        topic_env_prefix: Environment prefix for Kafka topic.
+        topic_env_prefix: Environment prefix for Kafka topic. Only used when
+            producer is not None.
 
     Returns:
         ModelPromotionResult with promotion details and gate snapshot.
+        The ``promoted_at`` field is set regardless of Kafka availability.
 
     Note:
         Transaction handling is the caller's responsibility. This function
         executes a single UPDATE statement.
+
+    Warning:
+        When ``producer`` is None, downstream pattern caches will NOT receive
+        invalidation events. The promotion is "silent" from the perspective
+        of Kafka consumers. Services should implement periodic reconciliation
+        by querying ``learned_patterns`` for recently promoted patterns.
     """
     pattern_signature = pattern_data.get("pattern_signature", "")
     promoted_at = datetime.now(UTC)
@@ -589,6 +655,10 @@ async def promote_pattern(
     gate_snapshot = build_gate_snapshot(pattern_data)
 
     # Step 3: Emit Kafka event (if producer available)
+    # NOTE: Kafka is OPTIONAL (contract: required=false). When producer is None,
+    # promotions succeed silently without notifying downstream caches. This is
+    # intentional for testing, degraded mode, and database-only migrations.
+    # See module docstring "Kafka Publisher Optionality" for implications.
     if producer is not None:
         await _emit_promotion_event(
             producer=producer,

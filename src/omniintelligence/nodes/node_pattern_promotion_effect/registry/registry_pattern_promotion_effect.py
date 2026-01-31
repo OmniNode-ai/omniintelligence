@@ -12,12 +12,40 @@ Architecture:
     - Validates dependencies at registry creation time (fail-fast)
     - Returns a frozen registry that cannot be modified
 
+Kafka Optionality:
+    The node contract marks ``kafka_producer`` as ``required: false``, meaning
+    the node can operate without Kafka. However, the registry factory method
+    requires a producer to ensure registry-based usage always has Kafka
+    capability.
+
+    **When Kafka is unavailable**, use the handler functions directly instead
+    of the registry:
+
+    .. code-block:: python
+
+        from omniintelligence.nodes.node_pattern_promotion_effect.handlers import (
+            check_and_promote_patterns,
+        )
+
+        # Direct handler call - producer=None is explicitly allowed
+        result = await check_and_promote_patterns(
+            repository=db_connection,
+            producer=None,  # Promotions succeed, Kafka events skipped
+            dry_run=False,
+        )
+
+    **Implications of running without Kafka:**
+    - Database promotions succeed normally
+    - No ``PatternPromoted`` events are emitted to Kafka
+    - Downstream caches relying on Kafka for invalidation become stale
+    - See ``handler_promotion.py`` module docstring for reconciliation strategy
+
 Usage:
     >>> from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
     ...     RegistryPatternPromotionEffect,
     ... )
     >>>
-    >>> # Create registry with dependencies
+    >>> # Create registry with dependencies (requires Kafka producer)
     >>> registry = RegistryPatternPromotionEffect.create_registry(
     ...     repository=db_connection,
     ...     producer=kafka_producer,
@@ -41,6 +69,9 @@ Testing:
             RegistryPatternPromotionEffect.clear()
             yield
             RegistryPatternPromotionEffect.clear()
+
+    **For testing without Kafka**, call handlers directly with ``producer=None``
+    rather than using the registry.
 
 Related:
     - NodePatternPromotionEffect: Effect node that uses these dependencies
@@ -162,7 +193,11 @@ class RegistryPatternPromotionEffect:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
             producer: Kafka producer implementing ProtocolKafkaPublisher.
-                Required for emitting pattern-promoted events.
+                Required at the registry level to ensure registry-based usage
+                always has full Kafka capability. While the underlying handler
+                accepts None (contract marks kafka_producer as required=false),
+                the registry enforces Kafka availability to guarantee event
+                emission in production deployments.
             topic_env_prefix: Environment prefix for Kafka topics.
                 Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
@@ -172,6 +207,11 @@ class RegistryPatternPromotionEffect:
         Raises:
             ValueError: If repository or producer is None.
             ValueError: If topic_env_prefix is invalid.
+
+        Note:
+            To run promotions without Kafka (testing, migrations, degraded mode),
+            call the handler functions directly with ``producer=None`` instead of
+            using the registry. See module docstring "Kafka Optionality" section.
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
