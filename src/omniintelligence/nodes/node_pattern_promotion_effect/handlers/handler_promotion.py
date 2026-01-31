@@ -82,12 +82,19 @@ patterns through while filtering out unreliable ones.
 MAX_FAILURE_STREAK: int = 3
 """Maximum consecutive failures allowed for promotion eligibility.
 
-If a pattern has failed 3 or more times in a row (failure_streak >= 3),
+If a pattern has failed this many or more times in a row (failure_streak >= max),
 it is NOT eligible for promotion regardless of overall success rate.
 This prevents promoting patterns that are currently in a failure spiral.
 
-Note: The check is failure_streak < MAX_FAILURE_STREAK, so exactly 3
-consecutive failures BLOCKS promotion.
+Threshold Behavior:
+    - 0 (zero-tolerance): ANY failure blocks promotion (failure_streak >= 0 always true
+      if failure_streak > 0, so a single failure blocks)
+    - 1: A single consecutive failure blocks promotion
+    - 2: Two consecutive failures block promotion
+    - 3 (default): Three consecutive failures block promotion
+
+Note: The check is failure_streak < max_failure_streak, so with the default of 3,
+exactly 3 consecutive failures BLOCKS promotion.
 """
 
 
@@ -224,7 +231,8 @@ def meets_promotion_criteria(
         min_success_rate: Minimum success rate required for promotion (0.0-1.0).
             Defaults to MIN_SUCCESS_RATE (0.6).
         max_failure_streak: Maximum consecutive failures allowed for promotion.
-            Defaults to MAX_FAILURE_STREAK (3).
+            Defaults to MAX_FAILURE_STREAK (3). Set to 0 for zero-tolerance mode
+            where any failure blocks promotion, or 1 to block on a single failure.
 
     Returns:
         True if pattern meets ALL four promotion gates:
@@ -336,7 +344,8 @@ async def check_and_promote_patterns(
         min_success_rate: Minimum success rate required for promotion (0.0-1.0).
             Defaults to MIN_SUCCESS_RATE (0.6).
         max_failure_streak: Maximum consecutive failures allowed for promotion.
-            Defaults to MAX_FAILURE_STREAK (3).
+            Defaults to MAX_FAILURE_STREAK (3). Set to 0 for zero-tolerance mode
+            where any failure blocks promotion, or 1 to block on a single failure.
         correlation_id: Optional correlation ID for distributed tracing.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
 
@@ -376,6 +385,22 @@ async def check_and_promote_patterns(
             max_failure_streak=max_failure_streak,
         ):
             eligible_patterns.append(pattern)
+        else:
+            # Check for data inconsistency edge case: pattern has injections but no outcomes
+            injection_count = pattern.get("injection_count_rolling_20", 0) or 0
+            success_count = pattern.get("success_count_rolling_20", 0) or 0
+            failure_count = pattern.get("failure_count_rolling_20", 0) or 0
+            total_outcomes = success_count + failure_count
+
+            if injection_count >= min_injection_count and total_outcomes == 0:
+                logger.debug(
+                    "Pattern has injections but no outcomes - possible data inconsistency",
+                    extra={
+                        "correlation_id": str(correlation_id) if correlation_id else None,
+                        "pattern_id": str(pattern["id"]),
+                        "injection_count": injection_count,
+                    },
+                )
 
     logger.info(
         "Evaluated promotion criteria",
