@@ -320,17 +320,23 @@ def calculate_success_rate(pattern: Mapping[str, Any]) -> float:
             and failure_count_rolling_20.
 
     Returns:
-        Success rate as a float between 0.0 and 1.0.
-        Returns 0.0 if no outcomes are recorded.
+        Success rate as a float clamped to [0.0, 1.0].
+        Returns 0.0 if no outcomes are recorded or if calculation
+        would produce an invalid result.
+
+    Note:
+        Defensive bounds checking ensures invalid input data (negative
+        counts) cannot produce rates outside [0.0, 1.0].
     """
     success_count = pattern.get("success_count_rolling_20", 0) or 0
     failure_count = pattern.get("failure_count_rolling_20", 0) or 0
     total = success_count + failure_count
 
-    if total == 0:
+    if total <= 0:
         return 0.0
 
-    return success_count / total
+    rate = success_count / total
+    return max(0.0, min(1.0, rate))  # Clamp to [0.0, 1.0]
 
 
 def build_gate_snapshot(pattern: Mapping[str, Any]) -> ModelGateSnapshot:

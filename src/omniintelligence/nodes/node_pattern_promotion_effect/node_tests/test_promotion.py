@@ -1831,10 +1831,11 @@ class TestEdgeCasesNumerical:
         assert meets_promotion_criteria(pattern) is False
 
     def test_negative_failure_count_inflates_success_rate(self) -> None:
-        """Pattern with negative failure count could inflate success rate.
+        """Pattern with negative failure count is clamped to valid range.
 
         With negative failure count, success_rate = success / (success + negative)
-        could exceed 1.0 or produce invalid results. Test behavior.
+        would exceed 1.0 without defensive bounds checking. The function now
+        clamps the result to [0.0, 1.0].
         """
         pattern = MockRecord({
             "injection_count_rolling_20": 10,
@@ -1842,11 +1843,10 @@ class TestEdgeCasesNumerical:
             "failure_count_rolling_20": -2,
             "failure_streak": 0,
         })
-        # success_rate = 5 / (5 + -2) = 5/3 ≈ 1.67 >= 0.6, Gate 2 passes (but invalid)
-        # The function doesn't validate this, it just calculates
-        # This test documents current behavior (defensive check could be added)
+        # success_rate = 5 / (5 + -2) = 5/3 ≈ 1.67, but clamped to 1.0
+        # Defensive bounds checking ensures invalid data cannot produce rates > 1.0
         rate = calculate_success_rate(pattern)
-        assert rate > 1.0  # Documents that invalid data produces invalid results
+        assert rate == 1.0  # Clamped to maximum valid rate
 
     def test_negative_failure_streak_passes_gate(self) -> None:
         """Pattern with negative failure streak passes Gate 3.
@@ -2112,18 +2112,19 @@ class TestCalculateSuccessRateEdgeCases:
         assert calculate_success_rate(pattern) == 0.0
 
     def test_negative_total_from_negative_failure(self) -> None:
-        """Documents behavior when negative failure creates positive total < success.
+        """Verifies clamping when negative failure creates positive total < success.
 
-        This is an edge case that produces a success rate > 1.0.
+        Without defensive bounds checking, this would produce rate > 1.0.
+        The function now clamps to the valid [0.0, 1.0] range.
         """
         pattern = MockRecord({
             "success_count_rolling_20": 10,
             "failure_count_rolling_20": -5,
         })
         # total = 10 + (-5) = 5
-        # rate = 10 / 5 = 2.0
+        # rate = 10 / 5 = 2.0, but clamped to 1.0
         result = calculate_success_rate(pattern)
-        assert result == 2.0  # Invalid but documents behavior
+        assert result == 1.0  # Clamped to maximum valid rate
 
     def test_equal_positive_and_negative_creates_zero_total(self) -> None:
         """When success and failure cancel out to zero total.
