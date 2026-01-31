@@ -30,10 +30,22 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (1)
+    # Effects (2)
     "NodePatternFeedbackEffect": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "NodePatternFeedbackEffect",
+    ),
+    "NodePatternPromotionEffect": (
+        "omniintelligence.nodes.node_pattern_promotion_effect",
+        "NodePatternPromotionEffect",
+    ),
+    "RegistryPatternPromotionEffect": (
+        "omniintelligence.nodes.node_pattern_promotion_effect",
+        "RegistryPatternPromotionEffect",
+    ),
+    "ServiceHandlerRegistry": (
+        "omniintelligence.nodes.node_pattern_promotion_effect",
+        "ServiceHandlerRegistry",
     ),
     "ModelSessionOutcomeRequest": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
@@ -69,7 +81,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodeExecutionTraceParserCompute",
     ),
     "NodeIntentClassifierCompute": (
-        "omniintelligence.nodes.intent_classifier_compute.node",
+        "omniintelligence.nodes.node_intent_classifier_compute.node",
         "NodeIntentClassifierCompute",
     ),
     "NodePatternExtractionCompute": (
@@ -81,11 +93,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodePatternMatchingCompute",
     ),
     "NodeQualityScoringCompute": (
-        "omniintelligence.nodes.quality_scoring_compute.node",
+        "omniintelligence.nodes.node_quality_scoring_compute.node",
         "NodeQualityScoringCompute",
     ),
     "NodeSemanticAnalysisCompute": (
-        "omniintelligence.nodes.semantic_analysis_compute.node",
+        "omniintelligence.nodes.node_semantic_analysis_compute.node",
         "NodeSemanticAnalysisCompute",
     ),
     "NodeSuccessCriteriaMatcherCompute": (
@@ -125,7 +137,7 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.intelligence_reducer.node import (
         NodeIntelligenceReducer as NodeIntelligenceReducer,
     )
-    from omniintelligence.nodes.intent_classifier_compute.node import (
+    from omniintelligence.nodes.node_intent_classifier_compute.node import (
         NodeIntentClassifierCompute as NodeIntentClassifierCompute,
     )
     from omniintelligence.nodes.pattern_assembler_orchestrator.node import (
@@ -137,10 +149,10 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.pattern_matching_compute.node import (
         NodePatternMatchingCompute as NodePatternMatchingCompute,
     )
-    from omniintelligence.nodes.quality_scoring_compute.node import (
+    from omniintelligence.nodes.node_quality_scoring_compute.node import (
         NodeQualityScoringCompute as NodeQualityScoringCompute,
     )
-    from omniintelligence.nodes.semantic_analysis_compute.node import (
+    from omniintelligence.nodes.node_semantic_analysis_compute.node import (
         NodeSemanticAnalysisCompute as NodeSemanticAnalysisCompute,
     )
     from omniintelligence.nodes.success_criteria_matcher_compute.node import (
@@ -158,6 +170,12 @@ if TYPE_CHECKING:
         update_pattern_rolling_metrics as update_pattern_rolling_metrics,
     )
 
+    from omniintelligence.nodes.node_pattern_promotion_effect import (
+        NodePatternPromotionEffect as NodePatternPromotionEffect,
+        RegistryPatternPromotionEffect as RegistryPatternPromotionEffect,
+        ServiceHandlerRegistry as ServiceHandlerRegistry,
+    )
+
 
 __all__ = [
     "EnumOutcomeRecordingStatus",
@@ -172,6 +190,9 @@ __all__ = [
     "NodePatternExtractionCompute",
     "NodePatternFeedbackEffect",
     "NodePatternMatchingCompute",
+    "NodePatternPromotionEffect",
+    "RegistryPatternPromotionEffect",
+    "ServiceHandlerRegistry",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",

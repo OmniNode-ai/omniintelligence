@@ -122,8 +122,8 @@ class ArchitecturePatternResult(TypedDict):
         ...     "pattern_type": "module_boundary",
         ...     "directory_prefix": "src/omniintelligence/nodes",
         ...     "member_files": (
-        ...         "src/omniintelligence/nodes/quality_scoring_compute/node.py",
-        ...         "src/omniintelligence/nodes/quality_scoring_compute/handlers/handler.py",
+        ...         "src/omniintelligence/nodes/node_quality_scoring_compute/node.py",
+        ...         "src/omniintelligence/nodes/node_quality_scoring_compute/handlers/handler.py",
         ...     ),
         ...     "occurrences": 15,
         ...     "confidence": 0.85,

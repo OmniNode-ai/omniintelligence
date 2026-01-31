@@ -418,9 +418,9 @@ class TestRealNodeStubDetection:
         # context_keyword_extractor_compute, relationship_detection_compute)
         # Note: quality_scoring_compute was implemented in PR #16
         # Note: semantic_analysis_compute was implemented in OMN-1422
+        # Note: node_intent_classifier_compute was refactored to thin shell in declarative refactor
+        # Note: pattern_learning_compute was implemented
         known_stubs = [
-            "intent_classifier_compute",
-            "pattern_learning_compute",
             "execution_trace_parser_compute",
             "success_criteria_matcher_compute",
             "pattern_matching_compute",
@@ -439,11 +439,15 @@ class TestRealNodeStubDetection:
         # Note: vectorization_compute was removed in PR #12
         # Note: quality_scoring_compute was implemented in PR #16
         # Note: semantic_analysis_compute was implemented in OMN-1422
+        # Note: Folder renames in declarative refactor (node_* prefix)
+        # Note: pattern_learning_compute was implemented
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
-            "quality_scoring_compute",
-            "semantic_analysis_compute",
+            "node_quality_scoring_compute",
+            "node_semantic_analysis_compute",
+            "node_intent_classifier_compute",
+            "pattern_learning_compute",
         ]
 
         for node_name in known_non_stubs:

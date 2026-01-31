@@ -16,7 +16,7 @@ Quick Start - Quality Scoring:
     0.65
 """
 
-from omniintelligence.nodes.quality_scoring_compute.handlers import (
+from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     DEFAULT_WEIGHTS,
     DimensionScores,
     OnexStrictnessLevel,

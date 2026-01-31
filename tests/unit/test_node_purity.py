@@ -902,9 +902,9 @@ class TestRealNodeFiles:
         """Stub nodes should be detected and skipped from purity checks."""
         # Known stub nodes
         stub_nodes = [
-            "quality_scoring_compute",
-            "intent_classifier_compute",
-            "semantic_analysis_compute",
+            "node_quality_scoring_compute",
+            "node_intent_classifier_compute",
+            "node_semantic_analysis_compute",
         ]
 
         for node_name in stub_nodes:

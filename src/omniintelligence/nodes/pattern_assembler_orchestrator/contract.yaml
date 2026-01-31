@@ -44,7 +44,7 @@ workflow_coordination:
           description: "Classify user intent"
           depends_on: ["parse_traces"]
           step_config:
-            compute_node: "intent_classifier_compute"
+            compute_node: "node_intent_classifier_compute"
         - node_id: "match_criteria"
           node_type: COMPUTE_GENERIC
           description: "Match success criteria"
@@ -69,9 +69,9 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.execution_trace_parser_compute"
     description: "Trace parsing compute node"
-  - name: "intent_classifier_compute"
+  - name: "node_intent_classifier_compute"
     type: "node"
-    module: "omniintelligence.nodes.intent_classifier_compute"
+    module: "omniintelligence.nodes.node_intent_classifier_compute"
     description: "Intent classification compute node"
   - name: "success_criteria_matcher_compute"
     type: "node"

@@ -84,6 +84,39 @@ nodes/
         └── node_tests/          # Node-specific tests
 ```
 
+### Declarative Node Pattern (CRITICAL)
+
+**All nodes MUST be declarative, not imperative.** The node class is a thin shell that:
+1. Declares its dependencies via the container (not setter methods)
+2. Delegates ALL logic to handler functions
+3. Contains NO error handling, logging, or validation logic
+
+**Declarative node.py** (~20-30 lines max):
+```python
+class NodeExampleEffect(NodeEffect[ModelInput, ModelOutput]):
+    """Thin shell - delegates to handler."""
+
+    async def execute(self, request: ModelInput) -> ModelOutput:
+        return await handler_function(
+            request=request,
+            repository=self.container.get(ProtocolRepository),
+            producer=self.container.get(ProtocolKafkaPublisher),
+        )
+```
+
+**Anti-patterns to AVOID:**
+- ❌ Setter methods for dependency injection (`set_repository()`, `set_kafka_producer()`)
+- ❌ Error handling in the node (`try/except` blocks)
+- ❌ Logging statements in the node
+- ❌ Validation logic in the node (`if self._repository is None`)
+- ❌ Any logic beyond a single handler delegation
+
+**Where logic belongs:**
+- **Handlers**: Business logic, error handling, logging
+- **Container**: Dependency resolution and injection
+- **Middleware**: Cross-cutting concerns (tracing, metrics)
+- **Contract**: Declares what the node does (not how)
+
 ### Naming Conventions
 
 - **Effect nodes**: `Node{Name}Effect` (e.g., `NodeIntelligenceAdapterEffect`)

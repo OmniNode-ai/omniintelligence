@@ -1600,20 +1600,35 @@ class TestNodePatternFeedbackEffect:
     """Tests for the NodePatternFeedbackEffect node class.
 
     These tests verify the node's execute() method behavior including:
-    - Error handling when no repository is configured
-    - Error handling when repository raises exceptions
+    - Error propagation when no repository is configured
+    - Error propagation when repository raises exceptions
     - Successful delegation to the handler
+
+    Note:
+        The node now uses registry-based dependency injection.
+        Tests must clear the registry in setup/teardown for isolation.
     """
 
+    @pytest.fixture(autouse=True)
+    def clear_registry(self) -> None:
+        """Clear registry before and after each test for isolation."""
+        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
+            RegistryPatternFeedbackEffect,
+        )
+
+        RegistryPatternFeedbackEffect.clear()
+        yield
+        RegistryPatternFeedbackEffect.clear()
+
     @pytest.mark.asyncio
-    async def test_execute_without_repository_returns_error(
+    async def test_execute_without_repository_raises_typeerror(
         self,
         sample_session_id: UUID,
     ) -> None:
-        """Node without repository returns ERROR status with descriptive message.
+        """Node without repository raises TypeError when execute is called.
 
-        When execute() is called before set_repository(), the node should
-        return an error result rather than raising an exception.
+        With declarative pattern, missing repository causes handler to fail
+        with TypeError (None passed to handler expecting repository protocol).
         """
         from unittest.mock import MagicMock
 
@@ -1623,8 +1638,11 @@ class TestNodePatternFeedbackEffect:
         from omniintelligence.nodes.node_pattern_feedback_effect.node import (
             NodePatternFeedbackEffect,
         )
+        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
+            RegistryPatternFeedbackEffect,
+        )
 
-        # Arrange: Node without repository
+        # Arrange: Node without repository registered
         container = MagicMock()
         node = NodePatternFeedbackEffect(container)
 
@@ -1633,24 +1651,21 @@ class TestNodePatternFeedbackEffect:
             success=True,
         )
 
-        # Act
-        result = await node.execute(request)
+        # Assert: Registry reports no repository
+        assert RegistryPatternFeedbackEffect.has_repository() is False
 
-        # Assert
-        assert result.status == EnumOutcomeRecordingStatus.ERROR
-        assert result.session_id == sample_session_id
-        assert result.error_message == "Repository not configured"
-        assert node.has_repository is False
+        # Act & Assert: Raises error due to None repository
+        with pytest.raises((TypeError, AttributeError)):
+            await node.execute(request)
 
     @pytest.mark.asyncio
-    async def test_execute_with_repository_exception_returns_error(
+    async def test_execute_with_repository_exception_propagates(
         self,
         sample_session_id: UUID,
     ) -> None:
-        """Node with failing repository returns ERROR status with exception message.
+        """Node with failing repository propagates exception to caller.
 
-        When the repository raises an exception during processing, the node
-        should catch it and return an error result with the exception message.
+        With declarative pattern, exceptions propagate rather than being caught.
         """
         from unittest.mock import MagicMock
 
@@ -1659,29 +1674,28 @@ class TestNodePatternFeedbackEffect:
         )
         from omniintelligence.nodes.node_pattern_feedback_effect.node import (
             NodePatternFeedbackEffect,
+        )
+        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
+            RegistryPatternFeedbackEffect,
         )
 
         # Arrange: Node with repository that raises
         container = MagicMock()
-        node = NodePatternFeedbackEffect(container)
 
         error_message = "Database connection lost"
         error_repo = MockErrorRepository(fetch_error=ConnectionError(error_message))
-        node.set_repository(error_repo)
+        RegistryPatternFeedbackEffect.register_repository(error_repo)
+
+        node = NodePatternFeedbackEffect(container)
 
         request = ModelSessionOutcomeRequest(
             session_id=sample_session_id,
             success=True,
         )
 
-        # Act
-        result = await node.execute(request)
-
-        # Assert
-        assert result.status == EnumOutcomeRecordingStatus.ERROR
-        assert result.session_id == sample_session_id
-        assert error_message in result.error_message
-        assert node.has_repository is True
+        # Act & Assert: Exception propagates
+        with pytest.raises(ConnectionError, match=error_message):
+            await node.execute(request)
 
     @pytest.mark.asyncio
     async def test_execute_success_delegates_to_handler(
@@ -1692,7 +1706,7 @@ class TestNodePatternFeedbackEffect:
     ) -> None:
         """Node with working repository delegates to handler and returns SUCCESS.
 
-        When repository is properly configured and injections exist, the node
+        When repository is properly registered and injections exist, the node
         should successfully delegate to record_session_outcome and return
         the handler's result.
         """
@@ -1704,11 +1718,15 @@ class TestNodePatternFeedbackEffect:
         from omniintelligence.nodes.node_pattern_feedback_effect.node import (
             NodePatternFeedbackEffect,
         )
+        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
+            RegistryPatternFeedbackEffect,
+        )
 
-        # Arrange: Node with working repository
+        # Arrange: Register repository with registry
+        RegistryPatternFeedbackEffect.register_repository(mock_repository)
+
         container = MagicMock()
         node = NodePatternFeedbackEffect(container)
-        node.set_repository(mock_repository)
 
         # Add pattern and injection to repository
         mock_repository.add_pattern(
@@ -1741,7 +1759,7 @@ class TestNodePatternFeedbackEffect:
         assert result.patterns_updated == 1
         assert sample_pattern_id in result.pattern_ids
         assert result.error_message is None
-        assert node.has_repository is True
+        assert RegistryPatternFeedbackEffect.has_repository() is True
 
 
 # =============================================================================

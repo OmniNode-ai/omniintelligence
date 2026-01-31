@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Pattern Feedback Effect node - OMN-1678."""
+"""Pattern Feedback Effect node - OMN-1678.
+
+This node records session outcomes and updates rolling window metrics
+for pattern learning feedback loops.
+
+Architecture:
+    - Thin shell effect node (declarative pattern)
+    - Registry-based dependency injection
+    - Handler functions with explicit dependencies
+"""
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     ROLLING_WINDOW_SIZE,
@@ -16,6 +25,9 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
+from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
+    RegistryPatternFeedbackEffect,
+)
 
 __all__ = [
     # Constants
@@ -26,6 +38,8 @@ __all__ = [
     "ModelSessionOutcomeResult",
     # Node
     "NodePatternFeedbackEffect",
+    # Registry
+    "RegistryPatternFeedbackEffect",
     # Handlers
     "ProtocolPatternRepository",
     "record_session_outcome",
