@@ -46,7 +46,6 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
@@ -77,132 +76,31 @@ DEFAULT_ACTOR: Final[str] = "system"
 
 
 # =============================================================================
-# Pure Validation (Database-Free)
+# Pure Validation (Database-Free) - CONSOLIDATED
+# =============================================================================
+#
+# The canonical validate_promotion_transition() function and TransitionValidationResult
+# are defined in constants.py as the single source of truth.
+#
+# For backwards compatibility, we re-export them here and provide an alias
+# for PromotionValidationResult (deprecated, use TransitionValidationResult).
+#
+# Reference: OMN-1668 consolidation task
 # =============================================================================
 
+from omniintelligence.nodes.pattern_storage_effect.constants import (
+    TransitionValidationResult,
+    validate_promotion_transition,
+)
 
-@dataclass(frozen=True, slots=True)
-class PromotionValidationResult:
-    """Result of validating a promotion transition without database access.
+# Backwards compatibility alias (deprecated)
+# Use TransitionValidationResult from constants.py instead
+PromotionValidationResult = TransitionValidationResult
+"""Deprecated alias for TransitionValidationResult.
 
-    This is a pure validation result useful for:
-    - CI validation without database setup
-    - State machine documentation and testing
-    - Pre-flight checks before database operations
-    - Debugging state machine logic
-
-    Attributes:
-        is_valid: True if the transition is allowed by governance rules.
-        from_state: The source state for the transition.
-        to_state: The requested target state.
-        error_message: Human-readable error message (None if valid).
-        valid_targets: List of valid target states from from_state (None if valid).
-
-    Example:
-        >>> result = validate_promotion_transition(
-        ...     EnumPatternState.CANDIDATE,
-        ...     EnumPatternState.PROVISIONAL,
-        ... )
-        >>> result.is_valid
-        True
-        >>> result.error_message is None
-        True
-
-        >>> result = validate_promotion_transition(
-        ...     EnumPatternState.CANDIDATE,
-        ...     EnumPatternState.VALIDATED,
-        ... )
-        >>> result.is_valid
-        False
-        >>> result.valid_targets
-        [<EnumPatternState.PROVISIONAL: 'provisional'>]
-    """
-
-    is_valid: bool
-    from_state: EnumPatternState
-    to_state: EnumPatternState
-    error_message: str | None = None
-    valid_targets: list[EnumPatternState] | None = None
-
-
-def validate_promotion_transition(
-    from_state: EnumPatternState,
-    to_state: EnumPatternState,
-) -> PromotionValidationResult:
-    """Validate a promotion transition without database access.
-
-    This is a pure validation function useful for:
-    - CI validation without database setup
-    - State machine documentation and testing
-    - Pre-flight checks before database operations
-    - Debugging state machine logic
-
-    The function reuses the canonical is_valid_transition() logic from constants.py
-    to ensure consistent validation across all code paths.
-
-    Args:
-        from_state: Current state of the pattern.
-        to_state: Target state for promotion.
-
-    Returns:
-        PromotionValidationResult with validation outcome.
-        - If valid: is_valid=True, error_message=None, valid_targets=None
-        - If invalid: is_valid=False, error_message describes the issue,
-          valid_targets lists allowed transitions from from_state
-
-    Example:
-        >>> # Valid transition
-        >>> result = validate_promotion_transition(
-        ...     EnumPatternState.CANDIDATE,
-        ...     EnumPatternState.PROVISIONAL,
-        ... )
-        >>> assert result.is_valid
-        >>> assert result.error_message is None
-
-        >>> # Invalid transition (skipping PROVISIONAL)
-        >>> result = validate_promotion_transition(
-        ...     EnumPatternState.CANDIDATE,
-        ...     EnumPatternState.VALIDATED,
-        ... )
-        >>> assert not result.is_valid
-        >>> assert EnumPatternState.PROVISIONAL in result.valid_targets
-
-        >>> # Invalid transition (from terminal state)
-        >>> result = validate_promotion_transition(
-        ...     EnumPatternState.VALIDATED,
-        ...     EnumPatternState.CANDIDATE,
-        ... )
-        >>> assert not result.is_valid
-        >>> assert result.valid_targets == []  # Terminal state has no valid targets
-    """
-    # Delegate to canonical validation logic in constants.py
-    if is_valid_transition(from_state, to_state):
-        return PromotionValidationResult(
-            is_valid=True,
-            from_state=from_state,
-            to_state=to_state,
-            error_message=None,
-            valid_targets=None,
-        )
-
-    # Invalid transition - build helpful error message
-    valid_targets = VALID_TRANSITIONS.get(from_state, [])
-    valid_str = (
-        ", ".join(s.value for s in valid_targets) if valid_targets else "none (terminal state)"
-    )
-    error_message = (
-        f"Invalid transition: {from_state.value} -> {to_state.value}. "
-        f"Valid targets from {from_state.value}: {valid_str}"
-    )
-
-    return PromotionValidationResult(
-        is_valid=False,
-        from_state=from_state,
-        to_state=to_state,
-        error_message=error_message,
-        valid_targets=list(valid_targets),
-    )
-
+This alias is provided for backwards compatibility. New code should use
+TransitionValidationResult from constants.py directly.
+"""
 
 # Metrics Snapshot Design Decision:
 # ---------------------------------
@@ -555,8 +453,8 @@ async def handle_promote_pattern(
         metrics_snapshot: Optional metrics snapshot at promotion time.
             If not provided, the event will have metrics_snapshot=None,
             clearly indicating "no metrics captured" in the audit trail.
-        state_manager: State manager for database operations.
-            If not provided, only validation is performed (dry-run mode).
+        state_manager: State manager for database operations (required).
+            Must be provided to perform actual state transitions.
         actor: Identifier of the entity triggering the promotion.
             Defaults to "system".
         correlation_id: Optional correlation ID for distributed tracing.
@@ -678,8 +576,11 @@ __all__ = [
     "ModelStateTransition",
     "PatternNotFoundError",
     "PatternStateTransitionError",
+    # Backwards compatibility alias (deprecated, use TransitionValidationResult)
     "PromotionValidationResult",
     "ProtocolPatternStateManager",
+    # Re-exported from constants.py (canonical source)
+    "TransitionValidationResult",
     "handle_promote_pattern",
     "validate_promotion_transition",
 ]

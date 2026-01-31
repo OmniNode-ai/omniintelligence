@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
+
 from uuid import UUID
 
 from omniintelligence.nodes.pattern_storage_effect.models import (
