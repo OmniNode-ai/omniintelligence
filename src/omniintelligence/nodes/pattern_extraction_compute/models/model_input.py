@@ -154,9 +154,9 @@ class ModelPatternExtractionInput(BaseModel):
         min_length=1,
         description="Session snapshots to analyze for patterns",
     )
-    config: ModelExtractionConfig = Field(
+    options: ModelExtractionConfig = Field(
         default_factory=ModelExtractionConfig,
-        description="Extraction configuration",
+        description="Extraction configuration options",
     )
     existing_insights: tuple[ModelCodebaseInsight, ...] = Field(
         default=(),

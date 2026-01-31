@@ -1535,6 +1535,68 @@ class TestEdgeCases:
         })
         assert meets_promotion_criteria(pattern) is True
 
+    @pytest.mark.asyncio
+    async def test_noop_promotion_skipped_from_results(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """Concurrent promotion (UPDATE returns 0) is skipped from results.
+
+        This tests the scenario where:
+        1. Pattern is fetched as 'provisional' (eligible for promotion)
+        2. Between fetch and UPDATE, another process promotes it
+        3. The UPDATE returns 0 rows (no-op)
+        4. The no-op should NOT be included in patterns_promoted list
+        5. No Kafka event should be emitted for the no-op
+        """
+        # Arrange: Create a pattern that looks eligible but simulate concurrent promotion
+        pattern_id = uuid4()
+        mock_repository.add_pattern(
+            PromotablePattern(
+                id=pattern_id,
+                status="provisional",
+                injection_count_rolling_20=10,
+                success_count_rolling_20=8,
+                failure_count_rolling_20=2,
+                failure_streak=0,
+            )
+        )
+
+        # Simulate concurrent promotion: change status after fetch but before UPDATE
+        # by setting the pattern's status to 'validated' so execute returns UPDATE 0
+        original_execute = mock_repository.execute
+
+        async def execute_with_concurrent_promotion(query: str, *args: Any) -> str:
+            # Simulate that between fetch and UPDATE, the pattern was promoted
+            # by another process - execute will return UPDATE 0
+            if "UPDATE" in query and len(args) > 0:
+                pid = args[0]
+                if pid in mock_repository.patterns:
+                    # Simulate concurrent promotion - status already changed
+                    mock_repository.patterns[pid].status = "validated"
+            return await original_execute(query, *args)
+
+        mock_repository.execute = execute_with_concurrent_promotion
+
+        # Act
+        result = await check_and_promote_patterns(
+            repository=mock_repository,
+            producer=mock_producer,
+            dry_run=False,
+        )
+
+        # Assert
+        # Pattern was checked and found eligible
+        assert result.patterns_checked == 1
+        assert result.patterns_eligible == 1
+
+        # No-op should NOT be in patterns_promoted list
+        assert len(result.patterns_promoted) == 0
+
+        # No Kafka event should be emitted for no-op
+        assert len(mock_producer.published_events) == 0
+
 
 # =============================================================================
 # Test Class: Configurable Thresholds

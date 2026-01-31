@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: MIT
-# Copyright (c) 2025 OmniNode Team
+# SPDX-FileCopyrightText: 2025 OmniNode Team
+# SPDX-License-Identifier: Apache-2.0
 """Comprehensive unit tests for session outcome recording and rolling metric updates.
 
 This module tests the pattern feedback loop handlers:
@@ -28,6 +28,9 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (

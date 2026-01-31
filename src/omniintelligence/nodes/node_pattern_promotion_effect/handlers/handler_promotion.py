@@ -513,6 +513,9 @@ async def check_and_promote_patterns(
                             "reason": result.reason,
                         },
                     )
+                    # Do not append no-op results to promotion_results
+                    # (no Kafka event was emitted, so don't record as promotion)
+                    continue
 
                 promotion_results.append(result)
 

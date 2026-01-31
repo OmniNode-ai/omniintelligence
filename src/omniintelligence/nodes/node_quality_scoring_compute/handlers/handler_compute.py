@@ -32,6 +32,7 @@ Example:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from typing import Final
@@ -101,18 +102,29 @@ def handle_quality_scoring_compute(
         return _create_compute_error_output(str(e), processing_time)
 
     except Exception as e:
-        # Log unhandled exceptions with full traceback for debugging
-        # This ensures we have diagnostic information while still honoring
-        # the no-exception contract by returning an error response
-        processing_time = (time.perf_counter() - start_time) * 1000
-        logger.exception(
-            "Unhandled exception in quality scoring compute. "
-            "source_path=%s, language=%s, processing_time_ms=%.2f",
-            input_data.source_path,
-            input_data.language,
+        # Catch-all for any unhandled exceptions.
+        # This block MUST NOT raise - use nested try/except for all operations.
+        processing_time = _safe_elapsed_time_ms(start_time)
+
+        # Safe logging - failures here must not propagate
+        try:
+            logger.exception(
+                "Unhandled exception in quality scoring compute. "
+                "source_path=%s, language=%s, processing_time_ms=%.2f",
+                getattr(input_data, "source_path", "<unknown>"),
+                getattr(input_data, "language", "<unknown>"),
+                processing_time,
+            )
+        except Exception:
+            # If logging itself fails, try minimal logging
+            with contextlib.suppress(Exception):
+                logger.error("Quality scoring compute failed: %s", e)
+
+        # Safe error response creation
+        return _create_safe_error_output(
+            f"Unhandled error: {e}",
             processing_time,
         )
-        return _create_compute_error_output(f"Unhandled error: {e}", processing_time)
 
 
 def _execute_scoring(
@@ -249,6 +261,89 @@ def _create_compute_error_output(
             processing_time_ms=processing_time_ms,
         ),
     )
+
+
+def _safe_elapsed_time_ms(start_time: float) -> float:
+    """Safely calculate elapsed time in milliseconds.
+
+    Never raises - returns 0.0 if calculation fails.
+
+    Args:
+        start_time: Performance counter start time.
+
+    Returns:
+        Elapsed time in milliseconds, or 0.0 on any error.
+    """
+    try:
+        return (time.perf_counter() - start_time) * 1000
+    except Exception:
+        return 0.0
+
+
+def _create_safe_error_output(
+    error_message: str,
+    processing_time_ms: float,
+) -> ModelQualityScoringOutput:
+    """Create error output that is guaranteed not to raise exceptions.
+
+    This is the last-resort error creator used in the catch-all exception handler.
+    It uses nested try/except to ensure we always return a valid output object,
+    even if model creation fails for some reason.
+
+    Args:
+        error_message: The error message to include.
+        processing_time_ms: Time spent before the error occurred.
+
+    Returns:
+        ModelQualityScoringOutput indicating failure. Always succeeds.
+    """
+    try:
+        return _create_compute_error_output(error_message, processing_time_ms)
+    except Exception:
+        # If normal error output creation fails, create minimal output
+        # This should never happen, but ensures the no-exception contract
+        try:
+            return ModelQualityScoringOutput(
+                success=False,
+                quality_score=0.0,
+                dimensions={
+                    "complexity": 0.0,
+                    "maintainability": 0.0,
+                    "documentation": 0.0,
+                    "temporal_relevance": 0.0,
+                    "patterns": 0.0,
+                    "architectural": 0.0,
+                },
+                onex_compliant=False,
+                recommendations=[],
+                metadata=ModelQualityScoringMetadata(
+                    status=STATUS_COMPUTE_ERROR,
+                    message="Error output creation failed",
+                    processing_time_ms=0.0,
+                ),
+            )
+        except Exception:
+            # Absolute last resort - return minimal valid object
+            # This uses dict literals directly to avoid any helper function calls
+            return ModelQualityScoringOutput(
+                success=False,
+                quality_score=0.0,
+                dimensions={
+                    "complexity": 0.0,
+                    "maintainability": 0.0,
+                    "documentation": 0.0,
+                    "temporal_relevance": 0.0,
+                    "patterns": 0.0,
+                    "architectural": 0.0,
+                },
+                onex_compliant=False,
+                recommendations=[],
+                metadata=ModelQualityScoringMetadata(
+                    status="error",
+                    message="Critical error in error handling",
+                    processing_time_ms=0.0,
+                ),
+            )
 
 
 __all__ = ["handle_quality_scoring_compute"]

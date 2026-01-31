@@ -70,7 +70,7 @@ __all__ = [
     "ModelPromotionResult",
     # Node
     "NodePatternPromotionEffect",
-    # Introspection
+    # Introspection (classes)
     "PatternPromotionErrorCode",
     "PatternPromotionIntrospection",
     "PatternPromotionMetadataLoader",
@@ -80,5 +80,6 @@ __all__ = [
     # Registry
     "RegistryPatternPromotionEffect",
     "ServiceHandlerRegistry",
+    # Introspection (functions)
     "get_introspection_response",
 ]

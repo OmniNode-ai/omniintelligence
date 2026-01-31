@@ -399,6 +399,7 @@ class TestGetNodeType:
 # =========================================================================
 
 
+@pytest.mark.integration
 class TestRealNodeStubDetection:
     """Integration tests against real node files in the codebase."""
 

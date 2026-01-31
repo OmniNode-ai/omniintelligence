@@ -514,7 +514,7 @@ def full_extraction_input(
     )
     return ModelPatternExtractionInput(
         session_snapshots=multiple_sessions,
-        config=config_with_time,
+        options=config_with_time,
         existing_insights=(),
         correlation_id="test-correlation-001",
     )

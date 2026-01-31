@@ -188,10 +188,14 @@ class TestPromotionIntegration:
                 dry_run=False,
             )
 
-            # Assert: No patterns were found or promoted
+            # Assert: Our validated pattern should not appear in promoted list
             # (The query only looks at provisional patterns)
-            assert result.patterns_eligible == 0
-            assert len(result.patterns_promoted) == 0
+            # Note: Filter to our fixture pattern rather than asserting global counts,
+            # as other tests may leave residual provisional patterns
+            promoted_ids = {p.pattern_id for p in result.patterns_promoted}
+            assert pattern_id not in promoted_ids, (
+                "Already-validated pattern should not be promoted again"
+            )
 
         finally:
             # Cleanup
@@ -692,6 +696,8 @@ class TestPromotionGate4DisabledPatterns:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@pytest.mark.slow
+@pytest.mark.performance
 class TestPromotionLargeBatch:
     """Tests for large batch promotion scenarios."""
 
@@ -1031,17 +1037,17 @@ class TestPromotionMetricsAccuracy:
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestPromotionZeroToleranceMode:
-    """Tests for zero-tolerance failure streak mode (max_failure_streak=0)."""
+    """Tests for strict failure streak mode (max_failure_streak=1)."""
 
     async def test_zero_tolerance_blocks_any_failure_streak(
         self,
         db_conn: asyncpg.Connection,
         mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
-        """With max_failure_streak=0, any failure streak blocks promotion.
+        """With max_failure_streak=1, any failure streak >= 1 blocks promotion.
 
-        Zero-tolerance mode: failure_streak >= 0 check means even 1 failure blocks.
-        Only patterns with exactly 0 failure_streak pass.
+        Strict mode: failure_streak >= 1 check blocks patterns with any recent failures.
+        Only patterns with exactly 0 failure_streak pass when max_failure_streak=1.
         """
         from datetime import UTC, datetime
         from uuid import uuid4

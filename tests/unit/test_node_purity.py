@@ -238,6 +238,12 @@ class PurityVisitor(ast.NodeVisitor):
                 base_names.append(base.id)
             elif isinstance(base, ast.Attribute):
                 base_names.append(base.attr)
+            elif isinstance(base, ast.Subscript):
+                # Handle generic types like NodeReducer[T, U]
+                if isinstance(base.value, ast.Name):
+                    base_names.append(base.value.id)
+                elif isinstance(base.value, ast.Attribute):
+                    base_names.append(base.value.attr)
 
         # Check if this is a node class:
         # 1. Inherits from valid base class, OR

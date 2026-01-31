@@ -601,7 +601,7 @@ class TestExtractAllPatterns:
 
         input_data = ModelPatternExtractionInput(
             session_snapshots=multiple_sessions,
-            config=config,
+            options=config,
         )
 
         output = extract_all_patterns(input_data)
@@ -627,7 +627,7 @@ class TestExtractAllPatterns:
 
         input_data = ModelPatternExtractionInput(
             session_snapshots=multiple_sessions,
-            config=config,
+            options=config,
         )
 
         output = extract_all_patterns(input_data)
@@ -651,7 +651,7 @@ class TestExtractAllPatterns:
 
         input_data = ModelPatternExtractionInput(
             session_snapshots=multiple_sessions,
-            config=config,
+            options=config,
             existing_insights=existing_insights,
         )
 
@@ -682,7 +682,7 @@ class TestExtractAllPatterns:
         with pytest.raises(Exception):  # Pydantic ValidationError
             ModelPatternExtractionInput(
                 session_snapshots=(),  # Empty - should fail validation
-                config=ModelExtractionConfig(reference_time=reference_time),
+                options=ModelExtractionConfig(reference_time=reference_time),
             )
 
     def test_returns_correct_output_structure(
@@ -737,7 +737,7 @@ class TestExtractAllPatterns:
 
         input_data = ModelPatternExtractionInput(
             session_snapshots=multiple_sessions,
-            config=config,
+            options=config,
         )
 
         output = extract_all_patterns(input_data)
@@ -767,7 +767,7 @@ class TestExtractAllPatterns:
 
         input_data = ModelPatternExtractionInput(
             session_snapshots=multiple_sessions,
-            config=config,
+            options=config,
         )
 
         output = extract_all_patterns(input_data)
