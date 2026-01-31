@@ -34,8 +34,11 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from psycopg import AsyncConnection
 
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
@@ -208,6 +211,8 @@ class PatternStorageRouter:
         self,
         operation: str,
         input_data: dict[str, Any],
+        *,
+        conn: AsyncConnection[Any] | None = None,
     ) -> StorageOperationResult:
         """Route operation to the appropriate handler.
 
@@ -219,6 +224,9 @@ class PatternStorageRouter:
         Args:
             operation: The operation to perform (store_pattern, promote_pattern).
             input_data: The input data dictionary for the operation.
+            conn: Optional database connection for transactional operations.
+                When provided, operations use this connection instead of
+                creating a new one, enabling transaction coordination.
 
         Returns:
             StorageOperationResult with the operation outcome.
@@ -233,24 +241,27 @@ class PatternStorageRouter:
                 "operation": operation,
                 "has_pattern_store": self._pattern_store is not None,
                 "has_state_manager": self._state_manager is not None,
+                "has_conn": conn is not None,
             },
         )
 
         if operation == OPERATION_STORE_PATTERN:
-            return await self._handle_store(input_data)
+            return await self._handle_store(input_data, conn=conn)
         elif operation == OPERATION_PROMOTE_PATTERN:
-            return await self._handle_promote(input_data)
+            return await self._handle_promote(input_data, conn=conn)
         else:
             # Default to store_pattern per contract.yaml default_handler
             logger.info(
                 "Unknown operation, defaulting to store_pattern",
                 extra={"operation": operation},
             )
-            return await self._handle_store(input_data)
+            return await self._handle_store(input_data, conn=conn)
 
     async def _handle_store(
         self,
         input_data: dict[str, Any],
+        *,
+        conn: AsyncConnection[Any] | None = None,
     ) -> StorageOperationResult:
         """Handle store_pattern operation.
 
@@ -259,6 +270,9 @@ class PatternStorageRouter:
 
         Args:
             input_data: Dictionary containing pattern storage input fields.
+            conn: Optional database connection for transactional operations.
+                When provided, operations use this connection instead of
+                creating a new one, enabling transaction coordination.
 
         Returns:
             StorageOperationResult with stored event.
@@ -274,6 +288,7 @@ class PatternStorageRouter:
             stored_event = await handle_store_pattern(
                 input_data=storage_input,
                 pattern_store=self._pattern_store,
+                conn=conn,
             )
 
             logger.info(
@@ -314,6 +329,8 @@ class PatternStorageRouter:
     async def _handle_promote(
         self,
         input_data: dict[str, Any],
+        *,
+        conn: AsyncConnection[Any] | None = None,
     ) -> StorageOperationResult:
         """Handle promote_pattern operation.
 
@@ -331,6 +348,9 @@ class PatternStorageRouter:
                 - domain (optional): Pattern domain
                 - signature_hash (optional): Pattern signature hash
                 - metadata (optional): Additional metadata
+            conn: Optional database connection for transactional operations.
+                When provided, operations use this connection instead of
+                creating a new one, enabling transaction coordination.
 
         Returns:
             StorageOperationResult with promoted event.
@@ -397,6 +417,7 @@ class PatternStorageRouter:
                 domain=input_data.get("domain"),
                 signature_hash=input_data.get("signature_hash"),
                 metadata=input_data.get("metadata"),
+                conn=conn,
             )
 
             logger.info(
@@ -469,6 +490,7 @@ async def route_storage_operation(
     *,
     pattern_store: ProtocolPatternStore | None = None,
     state_manager: ProtocolPatternStateManager | None = None,
+    conn: AsyncConnection[Any] | None = None,
 ) -> dict[str, Any]:
     """Entry point for contract-driven handler routing.
 
@@ -491,6 +513,10 @@ async def route_storage_operation(
             If not provided, store operations return mock results.
         state_manager: Optional state manager for promotion operations.
             If not provided, promotion validates only (dry-run mode).
+        conn: Optional database connection for transactional operations.
+            When provided, operations use this connection instead of
+            creating a new one, enabling transaction coordination across
+            multiple storage operations within a single transaction.
 
     Returns:
         Dictionary containing operation result with fields:
@@ -532,6 +558,15 @@ async def route_storage_operation(
         True
         >>> result["event_type"]
         'pattern_promoted'
+
+        >>> # Transactional operation with shared connection
+        >>> async with pool.connection() as conn:
+        ...     result = await route_storage_operation(
+        ...         operation="store_pattern",
+        ...         input_data={...},
+        ...         pattern_store=store_impl,
+        ...         conn=conn,
+        ...     )
     """
     logger.debug(
         "route_storage_operation called",
@@ -539,6 +574,7 @@ async def route_storage_operation(
             "operation": operation,
             "has_pattern_store": pattern_store is not None,
             "has_state_manager": state_manager is not None,
+            "has_conn": conn is not None,
         },
     )
 
@@ -552,7 +588,7 @@ async def route_storage_operation(
         router.set_state_manager(state_manager)
 
     # Route operation and return serialized result
-    result = await router.route(operation=operation, input_data=input_data)
+    result = await router.route(operation=operation, input_data=input_data, conn=conn)
     return result.to_dict()
 
 
