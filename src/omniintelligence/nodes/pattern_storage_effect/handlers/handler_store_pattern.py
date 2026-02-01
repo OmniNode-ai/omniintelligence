@@ -240,6 +240,87 @@ class ProtocolPatternStore(Protocol):
         """
         ...
 
+    async def store_with_version_transition(
+        self,
+        *,
+        pattern_id: UUID,
+        signature: str,
+        signature_hash: str,
+        domain: str,
+        version: int,
+        confidence: float,
+        state: EnumPatternState,
+        is_current: bool,
+        stored_at: datetime,
+        actor: str | None = None,
+        source_run_id: str | None = None,
+        correlation_id: UUID | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
+        conn: AsyncConnection,
+    ) -> UUID:
+        """Atomically transition previous version(s) and store new pattern.
+
+        This is the PREFERRED method for storing new versions of existing patterns.
+        It combines set_previous_not_current and store_pattern into a single atomic
+        SQL operation, preventing the invariant violation where a lineage has ZERO
+        current versions.
+
+        Atomicity Guarantee
+        -------------------
+        This method guarantees that either:
+        - Both the UPDATE (set previous versions non-current) AND INSERT succeed, OR
+        - Neither operation takes effect (full rollback)
+
+        This is achieved by using a CTE (Common Table Expression) that performs
+        both operations in a single SQL statement within the database's implicit
+        transaction boundary.
+
+        CRITICAL INVARIANT PROTECTED:
+            UNIQUE(domain, signature) WHERE is_current = true
+            (Exactly one current version per lineage)
+
+        FAILURE SCENARIO WITHOUT THIS METHOD:
+            If set_previous_not_current() succeeds but store_pattern() fails:
+            - All previous versions have is_current=false
+            - No new version is inserted
+            - RESULT: Lineage has ZERO current versions (invariant violated)
+            - IMPACT: Pattern lookups for "current" version return nothing
+
+        When to Use This Method
+        -----------------------
+        Use this method when:
+        - Storing a new version of an existing pattern (version > 1)
+        - Atomicity is critical (production workloads)
+        - You cannot guarantee external transaction wrapping
+
+        Use store_pattern instead when:
+        - Storing a brand new pattern (first version, no previous versions exist)
+        - You have already wrapped operations in an external transaction
+
+        Args:
+            pattern_id: Unique identifier for this pattern instance.
+            signature: The pattern signature (behavioral/structural fingerprint).
+            signature_hash: Hash of the signature for efficient lookup.
+            domain: Domain where the pattern was learned.
+            version: Version number (MUST be > latest existing version).
+            confidence: Confidence score at storage time.
+            state: Initial state of the pattern.
+            is_current: Ignored by atomic operation - always stored as TRUE.
+            stored_at: Timestamp when the pattern was stored.
+            actor: Identifier of the entity that stored the pattern.
+            source_run_id: ID of the run that produced this pattern.
+            correlation_id: Correlation ID for distributed tracing.
+            metadata: Additional pattern metadata (tags, learning_context).
+            conn: Database connection for transaction control.
+
+        Returns:
+            UUID of the stored pattern (same as pattern_id).
+
+        Raises:
+            PatternStorageError: If storage operation fails.
+        """
+        ...
+
 
 # =============================================================================
 # Governance Validation

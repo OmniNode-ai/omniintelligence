@@ -662,3 +662,135 @@ db_repository:
       returns:
         model_ref: TimestampResult
         many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Atomic version transition + store (PREFERRED FOR VERSION UPDATES)
+    # -------------------------------------------------------------------------
+    store_with_version_transition:
+      mode: write
+      description: |
+        Atomically transition previous version(s) to non-current and insert new pattern.
+        Uses CTE to guarantee both UPDATE and INSERT succeed or neither takes effect.
+        Prevents invariant violation where lineage has no current version.
+        PREFERRED method for storing new versions. Use store_pattern for first version only.
+      sql: |
+        WITH deactivated AS (
+          UPDATE learned_patterns
+          SET is_current = FALSE,
+              superseded_by = :id
+          WHERE pattern_signature = :signature
+            AND domain_id = :domain_id
+            AND is_current = TRUE
+          RETURNING id
+        )
+        INSERT INTO learned_patterns (
+          id,
+          pattern_signature,
+          domain_id,
+          domain_version,
+          domain_candidates,
+          keywords,
+          confidence,
+          quality_score,
+          status,
+          source_session_ids,
+          recurrence_count,
+          version,
+          is_current,
+          supersedes
+        ) VALUES (
+          :id,
+          :signature,
+          :domain_id,
+          :domain_version,
+          :domain_candidates,
+          :keywords,
+          :confidence,
+          :quality_score,
+          :status,
+          :source_session_ids,
+          :recurrence_count,
+          :version,
+          TRUE,
+          (SELECT id FROM deactivated LIMIT 1)
+        )
+        RETURNING id
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Pattern UUID for the new version
+        signature:
+          name: signature
+          param_type: string
+          required: true
+          description: Pattern signature text (used for lineage lookup)
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+          description: Domain identifier (used for lineage lookup)
+        domain_version:
+          name: domain_version
+          param_type: string
+          required: false
+          default: "1.0"
+          min_length: 1
+          max_length: 20
+          description: |
+            Schema version within a domain. Tracks domain schema evolution,
+            not individual pattern versions (use `version` field for that).
+            Defaults to "1.0" for new patterns.
+        domain_candidates:
+          name: domain_candidates
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of domain candidates
+        keywords:
+          name: keywords
+          param_type: string
+          required: false
+          description: PostgreSQL array literal for keywords
+        confidence:
+          name: confidence
+          param_type: number
+          required: true
+          ge: 0.5
+          le: 1.0
+        quality_score:
+          name: quality_score
+          param_type: number
+          required: false
+          default: 0.5
+          ge: 0.0
+          le: 1.0
+          description: Initial quality score for the pattern
+        status:
+          name: status
+          param_type: string
+          required: false
+          default: "candidate"
+        source_session_ids:
+          name: source_session_ids
+          param_type: string
+          required: true
+          description: PostgreSQL array literal for session UUIDs
+        recurrence_count:
+          name: recurrence_count
+          param_type: integer
+          required: false
+          default: 1
+          ge: 1
+        version:
+          name: version
+          param_type: integer
+          required: true
+          ge: 1
+          description: Version number for this pattern (must be > latest existing)
+      returns:
+        model_ref: IdResult
+        many: false

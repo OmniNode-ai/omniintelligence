@@ -3,6 +3,14 @@
 Maps all columns from the learned_patterns table for complete
 pattern data access. Used by repository operations that need
 the full pattern state.
+
+Note on Defaults:
+    Default values in this model are for Python-side instantiation and
+    validation (e.g., creating instances in tests or application code).
+    The contract YAML (`learned_patterns.repository.yaml`) is the source
+    of truth for database operations - the repository uses contract-defined
+    defaults when inserting rows. Model defaults should be kept in sync
+    with contract defaults, but contract takes precedence for persistence.
 """
 
 from datetime import datetime

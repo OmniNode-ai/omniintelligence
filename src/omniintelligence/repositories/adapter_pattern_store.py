@@ -216,8 +216,8 @@ class AdapterPatternStore:
         if result and isinstance(result, dict) and "id" in result:
             return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
 
-        # Defensive: warn if result is empty/invalid to help diagnose INSERT failures
-        logger.warning(
+        # Defensive: log if result is empty/invalid to help diagnose INSERT failures
+        logger.debug(
             "store_pattern returned unexpected result, using provided pattern_id. "
             "Result: %s, pattern_id: %s",
             result,
@@ -352,6 +352,111 @@ class AdapterPatternStore:
         if result and isinstance(result, dict) and "created_at" in result:
             return result["created_at"]
         return None
+
+    async def store_with_version_transition(
+        self,
+        *,
+        pattern_id: UUID,
+        signature: str,
+        signature_hash: str,
+        domain: str,
+        version: int,
+        confidence: float,
+        state: EnumPatternState,
+        is_current: bool,
+        stored_at: datetime,
+        actor: str | None = None,
+        source_run_id: str | None = None,
+        correlation_id: UUID | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
+        conn: AsyncConnection,  # interface compat only, see class docstring
+    ) -> UUID:
+        """Atomically transition previous version(s) and store new pattern.
+
+        This is the PREFERRED method for storing new versions of existing patterns.
+        It combines set_previous_not_current and store_pattern into a single atomic
+        SQL operation using a CTE (Common Table Expression).
+
+        Atomicity Guarantee
+        -------------------
+        This method guarantees that either:
+        - Both the UPDATE (set previous versions non-current) AND INSERT succeed, OR
+        - Neither operation takes effect (full rollback)
+
+        This prevents the critical invariant violation where a lineage has ZERO
+        current versions (which occurs if set_previous_not_current succeeds but
+        store_pattern fails in separate calls).
+
+        When to Use This Method
+        -----------------------
+        Use this method when:
+        - Storing a new version of an existing pattern (version > 1)
+        - You need atomicity guarantees for version transitions
+        - You want to avoid the race condition between UPDATE and INSERT
+
+        Use store_pattern instead when:
+        - Storing a brand new pattern (first version, no previous versions exist)
+        - You have already called set_previous_not_current within a transaction
+
+        Unused Parameters (Interface Compatibility)
+        --------------------------------------------
+        Same as store_pattern - see that method's docstring for details on
+        signature_hash, is_current, stored_at, actor, source_run_id, and metadata.
+
+        Args:
+            pattern_id: Unique identifier for this pattern instance.
+            signature: The pattern signature (behavioral/structural fingerprint).
+            signature_hash: Hash of the signature (unused, see docstring).
+            domain: Domain where the pattern was learned.
+            version: Version number (MUST be > latest existing version).
+            confidence: Confidence score at storage time.
+            state: Initial state of the pattern.
+            is_current: Ignored - always stored as TRUE.
+            stored_at: Ignored - uses database NOW() default.
+            actor: Reserved for future audit trail.
+            source_run_id: Reserved for future audit trail.
+            correlation_id: Correlation ID for distributed tracing.
+            metadata: Reserved for future extensibility.
+            conn: Interface compatibility only (see class docstring).
+
+        Returns:
+            UUID of the stored pattern.
+
+        Raises:
+            ValueError: If required parameters are missing.
+        """
+        # Build positional args - contract defaults apply for omitted optional params
+        args = self._build_positional_args(
+            "store_with_version_transition",
+            {
+                "id": str(pattern_id),
+                "signature": signature,
+                "domain_id": domain,
+                # domain_version: omitted - uses contract default "1.0"
+                # domain_candidates: omitted - uses contract default "[]"
+                # keywords: omitted - optional with no default, will be None
+                "confidence": confidence,
+                "status": state.value,
+                "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
+                # recurrence_count: omitted - uses contract default 1
+                "version": version,
+            },
+        )
+
+        result = await self._runtime.call("store_with_version_transition", *args)
+
+        # Return the stored pattern ID
+        if result and isinstance(result, dict) and "id" in result:
+            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+
+        # Defensive: log if result is empty/invalid to help diagnose INSERT failures
+        logger.debug(
+            "store_with_version_transition returned unexpected result, using provided pattern_id. "
+            "Result: %s, pattern_id: %s",
+            result,
+            pattern_id,
+        )
+        return pattern_id
 
 
 def _convert_defaults_to_schema_value(contract_dict: dict[str, Any]) -> dict[str, Any]:

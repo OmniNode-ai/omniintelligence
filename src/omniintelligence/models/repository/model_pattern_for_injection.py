@@ -2,6 +2,14 @@
 
 Lightweight model containing only the fields needed for injecting
 learned patterns into Claude Code sessions via the manifest injector.
+
+Note on Defaults:
+    Default values in this model are for Python-side instantiation and
+    validation (e.g., creating instances in tests or application code).
+    The contract YAML (`learned_patterns.repository.yaml`) is the source
+    of truth for database operations - the repository uses contract-defined
+    defaults when inserting rows. Model defaults should be kept in sync
+    with contract defaults, but contract takes precedence for persistence.
 """
 
 from uuid import UUID
