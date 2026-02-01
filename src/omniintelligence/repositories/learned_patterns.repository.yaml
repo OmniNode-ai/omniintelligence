@@ -524,3 +524,114 @@ db_repository:
       returns:
         model_ref: PatternRow
         many: false
+
+    # =========================================================================
+    # IDEMPOTENCY & VERSION SUPPORT OPERATIONS
+    # =========================================================================
+    # These operations support the ProtocolPatternStore interface for
+    # idempotent storage, version management, and lineage tracking.
+
+    # -------------------------------------------------------------------------
+    # READ: Check if pattern exists by lineage and version
+    # -------------------------------------------------------------------------
+    check_exists:
+      mode: read
+      description: |
+        Check if a pattern already exists for the given lineage and version.
+        Used for idempotency checking before storage.
+      sql: |
+        SELECT EXISTS(
+          SELECT 1 FROM learned_patterns
+          WHERE domain_id = :domain_id
+            AND pattern_signature = :signature
+            AND version = :version
+        ) AS exists
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+        signature:
+          name: signature
+          param_type: string
+          required: true
+        version:
+          name: version
+          param_type: integer
+          required: true
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Check if pattern exists by ID (idempotency key)
+    # -------------------------------------------------------------------------
+    check_exists_by_id:
+      mode: read
+      description: |
+        Check if a pattern exists by idempotency key (pattern_id, signature).
+        If found, returns the stored pattern ID for idempotent response.
+      sql: |
+        SELECT id
+        FROM learned_patterns
+        WHERE id = :pattern_id
+          AND pattern_signature = :signature
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+        signature:
+          name: signature
+          param_type: string
+          required: true
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get latest version number for lineage
+    # -------------------------------------------------------------------------
+    get_latest_version:
+      mode: read
+      description: |
+        Get the latest version number for a pattern lineage.
+        Used to determine the next version number when storing a new pattern.
+      sql: |
+        SELECT MAX(version) AS version
+        FROM learned_patterns
+        WHERE domain_id = :domain_id
+          AND pattern_signature = :signature
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+        signature:
+          name: signature
+          param_type: string
+          required: true
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get stored_at timestamp for idempotent returns
+    # -------------------------------------------------------------------------
+    get_stored_at:
+      mode: read
+      description: |
+        Get the original stored_at timestamp for a pattern.
+        Used for idempotent returns to provide consistent timestamps.
+      sql: |
+        SELECT created_at
+        FROM learned_patterns
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+      returns:
+        model_ref: PatternRow
+        many: false
