@@ -46,6 +46,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_sessio
     ROLLING_WINDOW_SIZE,
     ProtocolPatternRepository,
     compute_and_store_heuristics,
+    event_to_handler_args,
     record_session_outcome,
     update_pattern_rolling_metrics,
 )
@@ -66,6 +67,7 @@ __all__ = [
     "compute_equal_split",
     "compute_first_match",
     "compute_recency_weighted",
+    "event_to_handler_args",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]

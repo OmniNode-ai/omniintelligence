@@ -1691,9 +1691,15 @@ class TestNodePatternFeedbackEffect:
 
         node = NodePatternFeedbackEffect(container)
 
-        request = ModelSessionOutcomeRequest(
+        # Use ClaudeSessionOutcome as the node's new input type
+        from omnibase_core.integrations.claude_code import (
+            ClaudeCodeSessionOutcome,
+            ClaudeSessionOutcome,
+        )
+
+        request = ClaudeSessionOutcome(
             session_id=sample_session_id,
-            success=True,
+            outcome=ClaudeCodeSessionOutcome.SUCCESS,
         )
 
         # Act & Assert: Exception propagates
@@ -1715,9 +1721,11 @@ class TestNodePatternFeedbackEffect:
         """
         from unittest.mock import MagicMock
 
-        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
-            ModelSessionOutcomeRequest,
+        from omnibase_core.integrations.claude_code import (
+            ClaudeCodeSessionOutcome,
+            ClaudeSessionOutcome,
         )
+
         from omniintelligence.nodes.node_pattern_feedback_effect.node import (
             NodePatternFeedbackEffect,
         )
@@ -1748,9 +1756,10 @@ class TestNodePatternFeedbackEffect:
             )
         )
 
-        request = ModelSessionOutcomeRequest(
+        # Use ClaudeSessionOutcome as the node's new input type
+        request = ClaudeSessionOutcome(
             session_id=sample_session_id,
-            success=True,
+            outcome=ClaudeCodeSessionOutcome.SUCCESS,
         )
 
         # Act

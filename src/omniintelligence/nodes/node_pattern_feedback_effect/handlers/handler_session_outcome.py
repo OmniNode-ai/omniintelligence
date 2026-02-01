@@ -54,6 +54,11 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
+from omnibase_core.integrations.claude_code import (
+    ClaudeCodeSessionOutcome,
+    ClaudeSessionOutcome,
+)
+
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
     apply_heuristic,
@@ -215,6 +220,50 @@ SET
 WHERE injection_id = $1
   AND contribution_heuristic IS NULL
 """
+
+
+# =============================================================================
+# Boundary Mapping Functions
+# =============================================================================
+
+
+def _outcome_to_success(outcome: ClaudeCodeSessionOutcome) -> bool:
+    """Map outcome enum to success boolean for metrics.
+
+    Deterministic mapping:
+    - SUCCESS -> True
+    - FAILED, ABANDONED, UNKNOWN -> False
+    """
+    return outcome == ClaudeCodeSessionOutcome.SUCCESS
+
+
+def _extract_failure_reason(event: ClaudeSessionOutcome) -> str | None:
+    """Extract failure reason from event error details.
+
+    Returns None if no error, otherwise a stable summary string.
+    """
+    if event.error is None:
+        return None
+    # Prefer message, fallback to code
+    if hasattr(event.error, "message") and event.error.message:
+        return event.error.message
+    if hasattr(event.error, "code") and event.error.code:
+        return str(event.error.code)
+    return "Unknown error"
+
+
+def event_to_handler_args(event: ClaudeSessionOutcome) -> dict:
+    """Convert ClaudeSessionOutcome event to handler arguments.
+
+    This is the boundary mapping that keeps the handler stable
+    while accepting the new enum-based input model.
+    """
+    return {
+        "session_id": event.session_id,
+        "success": _outcome_to_success(event.outcome),
+        "failure_reason": _extract_failure_reason(event),
+        "correlation_id": event.correlation_id,
+    }
 
 
 # =============================================================================
@@ -564,6 +613,7 @@ __all__ = [
     "ROLLING_WINDOW_SIZE",
     "ProtocolPatternRepository",
     "compute_and_store_heuristics",
+    "event_to_handler_args",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]

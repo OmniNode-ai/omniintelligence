@@ -38,10 +38,10 @@ __all__ = [
     "ModelSessionOutcomeResult",
     # Node
     "NodePatternFeedbackEffect",
-    # Registry
-    "RegistryPatternFeedbackEffect",
     # Handlers
     "ProtocolPatternRepository",
+    # Registry
+    "RegistryPatternFeedbackEffect",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]

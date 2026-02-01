@@ -137,6 +137,26 @@ error_handling:
       retry_strategy: "none"
 
 # =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.session-outcome.v1"
+
+  publish_topics: []
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.session-outcome.v1":
+      schema_ref: "omnibase_core.integrations.claude_code.ClaudeSessionOutcome"
+      description: "Session outcome events from omniclaude SessionEnd hook"
+
+# =============================================================================
 # CAPABILITIES
 # =============================================================================
 capabilities:
