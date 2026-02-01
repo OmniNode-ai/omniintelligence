@@ -28,6 +28,7 @@ db_repository:
   # Model aliases -> fully qualified import paths
   models:
     PatternRow: omniintelligence.models.repository:ModelLearnedPatternRow
+    PatternSummary: omniintelligence.models.repository:ModelPatternSummary
     PatternInjection: omniintelligence.models.repository:ModelPatternForInjection
     ExistsResult: omniintelligence.models.repository:ModelExistsResult
     IdResult: omniintelligence.models.repository:ModelIdResult
@@ -178,7 +179,7 @@ db_repository:
           default: 0
           ge: 0
       returns:
-        model_ref: PatternRow
+        model_ref: PatternSummary
         many: true
 
     # -------------------------------------------------------------------------
@@ -391,7 +392,7 @@ db_repository:
           required: false
           description: UUID of pattern this supersedes
       returns:
-        model_ref: PatternRow
+        model_ref: IdResult
         many: false
 
     # -------------------------------------------------------------------------
@@ -409,6 +410,7 @@ db_repository:
         WHERE pattern_signature = :signature
           AND domain_id = :domain_id
           AND is_current = TRUE
+        RETURNING id
       params:
         signature:
           name: signature
@@ -424,8 +426,8 @@ db_repository:
           required: false
           description: UUID of new pattern version. Null when called before new version ID is known.
       returns:
-        model_ref: PatternRow
-        many: false
+        model_ref: IdResult
+        many: true
 
     # -------------------------------------------------------------------------
     # WRITE: Update pattern status (promote/demote)
@@ -440,6 +442,7 @@ db_repository:
             deprecated_at = CASE WHEN :new_status = 'deprecated' THEN NOW() ELSE deprecated_at END,
             deprecation_reason = :deprecation_reason
         WHERE id = :pattern_id
+        RETURNING id
       params:
         pattern_id:
           name: pattern_id
@@ -455,7 +458,7 @@ db_repository:
           required: false
           description: Reason for deprecation (null for non-deprecated)
       returns:
-        model_ref: PatternRow
+        model_ref: IdResult
         many: false
 
     # -------------------------------------------------------------------------
@@ -483,6 +486,7 @@ db_repository:
             END,
             last_seen_at = NOW()
         WHERE id = :pattern_id
+        RETURNING id
       params:
         pattern_id:
           name: pattern_id
@@ -494,7 +498,7 @@ db_repository:
           required: true
           description: Whether the injection was successful
       returns:
-        model_ref: PatternRow
+        model_ref: IdResult
         many: false
 
     # -------------------------------------------------------------------------
@@ -509,6 +513,7 @@ db_repository:
             compiled_token_count = :token_count,
             compiled_at = NOW()
         WHERE id = :pattern_id
+        RETURNING id
       params:
         pattern_id:
           name: pattern_id
@@ -526,7 +531,7 @@ db_repository:
           ge: 1
           description: Token count of compiled snippet
       returns:
-        model_ref: PatternRow
+        model_ref: IdResult
         many: false
 
     # =========================================================================

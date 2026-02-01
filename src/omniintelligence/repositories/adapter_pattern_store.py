@@ -116,7 +116,7 @@ class AdapterPatternStore:
     async def check_exists(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         version: int,
         conn: AsyncConnection,
     ) -> bool:
@@ -124,7 +124,7 @@ class AdapterPatternStore:
         result = await self._runtime.call(
             "check_exists",
             domain_id=domain,
-            signature=signature_hash,
+            signature=signature,
             version=version,
             conn=conn,
         )
@@ -137,14 +137,14 @@ class AdapterPatternStore:
     async def check_exists_by_id(
         self,
         pattern_id: UUID,
-        signature_hash: str,
+        signature: str,
         conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key."""
         result = await self._runtime.call(
             "check_exists_by_id",
             pattern_id=str(pattern_id),
-            signature=signature_hash,
+            signature=signature,
             conn=conn,
         )
 
@@ -155,13 +155,13 @@ class AdapterPatternStore:
     async def set_previous_not_current(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions of this lineage."""
         result = await self._runtime.call(
             "set_not_current",
-            signature=signature_hash,
+            signature=signature,
             domain_id=domain,
             superseded_by=None,  # Will be set by subsequent store
             conn=conn,
@@ -175,14 +175,14 @@ class AdapterPatternStore:
     async def get_latest_version(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage."""
         result = await self._runtime.call(
             "get_latest_version",
             domain_id=domain,
-            signature=signature_hash,
+            signature=signature,
             conn=conn,
         )
 
@@ -235,8 +235,9 @@ def _convert_defaults_to_schema_value(contract_dict: dict[str, Any]) -> dict[str
     for op_name, op in ops.items():
         params = op.get("params", {})
         for param_name, param in params.items():
-            if "default" in param and param["default"] is not None:
+            if "default" in param:
                 # Convert plain value to ModelSchemaValue format
+                # Handles both non-null values and explicit null defaults
                 plain_value = param["default"]
                 param["default"] = convert_value(plain_value)
 

@@ -451,12 +451,16 @@ class TestLineageKey:
         mock_pattern_store: MockPatternStore,
         mock_conn: MagicMock,
     ) -> None:
-        """Same lineage key should increment version, different key starts fresh."""
-        # Same lineage
+        """Same lineage key should increment version, different key starts fresh.
+
+        Note: The lineage key is (domain, signature). Different signature_hash
+        values with the same signature belong to the same lineage.
+        """
+        # Same lineage (same domain + same signature)
         input1 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
-            signature_hash="hash_x",
+            signature="pattern_x",
         )
         result1 = await handle_store_pattern(
             input1, pattern_store=mock_pattern_store, conn=mock_conn
@@ -465,27 +469,27 @@ class TestLineageKey:
         input2 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
-            signature_hash="hash_x",
+            signature="pattern_x",
         )
         result2 = await handle_store_pattern(
             input2, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Different domain, same hash
+        # Different domain, same signature
         input3 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_b",
-            signature_hash="hash_x",
+            signature="pattern_x",
         )
         result3 = await handle_store_pattern(
             input3, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Different hash, same domain
+        # Different signature, same domain
         input4 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
-            signature_hash="hash_y",
+            signature="pattern_y",
         )
         result4 = await handle_store_pattern(
             input4, pattern_store=mock_pattern_store, conn=mock_conn
@@ -501,15 +505,19 @@ class TestLineageKey:
 
     @pytest.mark.asyncio
     async def test_input_lineage_key_property(self) -> None:
-        """ModelPatternStorageInput should expose lineage_key property."""
+        """ModelPatternStorageInput should expose lineage_key property.
+
+        The lineage_key is (domain, signature), not (domain, signature_hash).
+        This allows readable pattern identification and debugging.
+        """
         input_data = create_valid_input(
             domain="test_domain",
-            signature_hash="test_hash",
+            signature="test_signature",
         )
 
         lineage_key = input_data.lineage_key
 
-        assert lineage_key == ("test_domain", "test_hash")
+        assert lineage_key == ("test_domain", "test_signature")
 
 
 # =============================================================================

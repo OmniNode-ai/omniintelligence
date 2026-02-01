@@ -134,7 +134,7 @@ class ProtocolPatternStore(Protocol):
     async def check_exists(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         version: int,
         conn: AsyncConnection,
     ) -> bool:
@@ -144,30 +144,30 @@ class ProtocolPatternStore(Protocol):
 
         Args:
             domain: Domain of the pattern (part of lineage key).
-            signature_hash: Hash of the signature (part of lineage key).
+            signature: The pattern signature text (part of lineage key).
             version: Version number to check.
             conn: Database connection for transaction control.
 
         Returns:
-            True if a pattern exists for (domain, signature_hash, version).
+            True if a pattern exists for (domain, signature, version).
         """
         ...
 
     async def check_exists_by_id(
         self,
         pattern_id: UUID,
-        signature_hash: str,
+        signature: str,
         conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key.
 
-        The idempotency key is (pattern_id, signature_hash). If a pattern
+        The idempotency key is (pattern_id, signature). If a pattern
         was previously stored with the same idempotency key, return its
         stored ID for idempotent response.
 
         Args:
             pattern_id: The pattern_id from the incoming event.
-            signature_hash: Hash of the signature.
+            signature: The pattern signature text.
             conn: Database connection for transaction control.
 
         Returns:
@@ -178,17 +178,17 @@ class ProtocolPatternStore(Protocol):
     async def set_previous_not_current(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions of this lineage.
 
         This must be called before inserting a new current version to maintain
-        the invariant: UNIQUE(domain, signature_hash) WHERE is_current = true.
+        the invariant: UNIQUE(domain, signature) WHERE is_current = true.
 
         Args:
             domain: Domain of the pattern (part of lineage key).
-            signature_hash: Hash of the signature (part of lineage key).
+            signature: The pattern signature text (part of lineage key).
             conn: Database connection for transaction control.
 
         Returns:
@@ -199,7 +199,7 @@ class ProtocolPatternStore(Protocol):
     async def get_latest_version(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
@@ -208,7 +208,7 @@ class ProtocolPatternStore(Protocol):
 
         Args:
             domain: Domain of the pattern (part of lineage key).
-            signature_hash: Hash of the signature (part of lineage key).
+            signature: The pattern signature text (part of lineage key).
             conn: Database connection for transaction control.
 
         Returns:
@@ -524,7 +524,7 @@ async def handle_store_pattern(
 
     existing_id = await pattern_store.check_exists_by_id(
         pattern_id=input_data.pattern_id,
-        signature_hash=input_data.signature_hash,
+        signature=input_data.signature,
         conn=conn,
     )
 
@@ -595,7 +595,7 @@ async def handle_store_pattern(
     # Otherwise, auto-increment from latest version
     latest_version = await pattern_store.get_latest_version(
         domain=input_data.domain,
-        signature_hash=input_data.signature_hash,
+        signature=input_data.signature,
         conn=conn,
     )
 
@@ -657,7 +657,7 @@ async def handle_store_pattern(
     # This maintains the invariant: UNIQUE(domain, signature_hash) WHERE is_current = true
     updated_count = await pattern_store.set_previous_not_current(
         domain=input_data.domain,
-        signature_hash=input_data.signature_hash,
+        signature=input_data.signature,
         conn=conn,
     )
 
