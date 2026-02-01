@@ -77,16 +77,16 @@ mypy src                   # Type check
 
 ## Architecture
 
-### Node Types (16 Total)
+### Node Types
 
 The system decomposes intelligence operations into specialized ONEX nodes:
 
-| Type | Count | Purpose | Base Class |
-|------|-------|---------|------------|
-| **Orchestrator** | 2 | Coordinate workflows, route operations | `NodeOrchestrator` |
-| **Reducer** | 1 | Manage FSM state transitions | `NodeReducer` |
-| **Compute** | 8 | Pure data processing, no side effects | `NodeCompute` |
-| **Effect** | 5 | External I/O (Kafka, PostgreSQL) | `NodeEffect` |
+| Type | Purpose | Base Class |
+|------|---------|------------|
+| **Orchestrator** | Coordinate workflows, route operations | `NodeOrchestrator` |
+| **Reducer** | Manage FSM state transitions | `NodeReducer` |
+| **Compute** | Pure data processing, no side effects | `NodeCompute` |
+| **Effect** | External I/O (Kafka, PostgreSQL) | `NodeEffect` |
 
 ### Complete Node Inventory
 
@@ -359,11 +359,11 @@ OmniIntelligence processes Claude Code hooks via `NodeClaudeHookEventEffect`.
 | Hook Type | Handler | Status | Purpose |
 |-----------|---------|--------|---------|
 | `UserPromptSubmit` | `handle_user_prompt_submit()` | **ACTIVE** | Classify user intent, emit to Kafka |
-| `SessionStart` | `handle_no_op()` | DEFERRED | Session tracking (planned Q2) |
-| `SessionEnd` | `handle_no_op()` | DEFERRED | Session summary (planned Q2) |
-| `PreToolUse` | `handle_no_op()` | DEFERRED | Tool validation (planned Q3) |
-| `PostToolUse` | `handle_no_op()` | DEFERRED | Result capture (planned Q3) |
-| `Stop` | `handle_no_op()` | DEFERRED | Completion tracking (planned Q2) |
+| `SessionStart` | `handle_no_op()` | DEFERRED | Session tracking |
+| `SessionEnd` | `handle_no_op()` | DEFERRED | Session summary |
+| `PreToolUse` | `handle_no_op()` | DEFERRED | Tool validation |
+| `PostToolUse` | `handle_no_op()` | DEFERRED | Result capture |
+| `Stop` | `handle_no_op()` | DEFERRED | Completion tracking |
 | `Notification` | `handle_no_op()` | IGNORED | No current use case |
 
 **Status Legend**:
@@ -587,7 +587,7 @@ idempotency:
 
 ## Models and Enums
 
-### Intelligence Operations (37 Total)
+### Intelligence Operations
 
 Defined in `EnumIntelligenceOperationType`:
 
@@ -692,11 +692,3 @@ assert isinstance(MockPatternStore(), ProtocolPatternStore)
 | `omnibase_infra` | Kafka, PostgreSQL infrastructure |
 | `asyncpg` | PostgreSQL async driver |
 
----
-
-## Migration Context
-
-Legacy source code is preserved in `migration_sources/omniarchon/` for reference:
-- `docs/migrations/omniarchon_to_omniintelligence.md` - Migration guide
-- `docs/migrations/NODE_MAPPING_REFERENCE.md` - Node mapping reference
-- `docs/migrations/CONTRACT_CORRECTIONS.md` - Contract corrections
