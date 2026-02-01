@@ -187,6 +187,10 @@ class AdapterPatternStore:
         - **metadata**: Reserved for future extensibility (arbitrary key-value data).
         - **conn**: See class docstring. Runtime manages its own connection pool.
         """
+        # TODO(OMN-XXXX): Implement metadata persistence when contract supports JSONB
+        # TODO(OMN-XXXX): Evaluate if signature_hash should replace signature in contract
+        # TODO(OMN-XXXX): Add actor/source_run_id for audit trail when lineage tracking is complete
+
         # Build positional args - contract defaults apply for omitted optional params
         args = self._build_positional_args(
             "store_pattern",
@@ -211,6 +215,14 @@ class AdapterPatternStore:
         # Return the stored pattern ID
         if result and isinstance(result, dict) and "id" in result:
             return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+
+        # Defensive: warn if result is empty/invalid to help diagnose INSERT failures
+        logger.warning(
+            "store_pattern returned unexpected result, using provided pattern_id. "
+            "Result: %s, pattern_id: %s",
+            result,
+            pattern_id,
+        )
         return pattern_id
 
     async def check_exists(

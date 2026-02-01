@@ -293,6 +293,9 @@ db_repository:
         Insert a new pattern into the store.
         Sets is_current=TRUE by default. Caller should first call
         set_not_current if this is a new version of existing pattern.
+
+        Note: created_at and updated_at columns rely on database defaults
+        (DEFAULT NOW()) and are not explicitly set by this operation.
       sql: |
         INSERT INTO learned_patterns (
           id,
@@ -302,6 +305,7 @@ db_repository:
           domain_candidates,
           keywords,
           confidence,
+          quality_score,
           status,
           source_session_ids,
           recurrence_count,
@@ -316,6 +320,7 @@ db_repository:
           :domain_candidates,
           :keywords,
           :confidence,
+          :quality_score,
           :status,
           :source_session_ids,
           :recurrence_count,
@@ -369,6 +374,14 @@ db_repository:
           required: true
           ge: 0.5
           le: 1.0
+        quality_score:
+          name: quality_score
+          param_type: number
+          required: false
+          default: 0.5
+          ge: 0.0
+          le: 1.0
+          description: Initial quality score for the pattern
         status:
           name: status
           param_type: string
