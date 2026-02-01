@@ -18,6 +18,9 @@ from pathlib import Path
 
 import pytest
 
+# Apply audit marker to all tests in this module
+pytestmark = pytest.mark.audit
+
 from omniintelligence.audit.io_audit import (
     EnumIOAuditRule,
     IOAuditVisitor,
@@ -1524,12 +1527,11 @@ class TestEnumIOAuditRule:
 # =========================================================================
 
 
-@pytest.mark.audit
 class TestMainAudit:
     """Main audit test that runs against actual node directories.
 
-    This test is marked with @pytest.mark.audit for selective execution.
-    It scans the configured IO_AUDIT_TARGETS directories.
+    This test is marked with @pytest.mark.audit via module-level pytestmark
+    for selective execution. It scans the configured IO_AUDIT_TARGETS directories.
     """
 
     def test_nodes_directory_has_no_violations(self) -> None:

@@ -351,10 +351,11 @@ async def kafka_producer() -> AsyncGenerator[Any, None]:
     if not KAFKA_AVAILABLE:
         pytest.skip(f"Kafka not reachable at {KAFKA_BOOTSTRAP_SERVERS}")
 
+    # Note: AIOKafkaProducer does not support max_block_ms parameter
+    # (that's a Java Kafka client parameter). We use request_timeout_ms instead.
     producer = AIOKafkaProducer(
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
         request_timeout_ms=KAFKA_REQUEST_TIMEOUT_MS,
-        max_block_ms=KAFKA_MAX_BLOCK_MS,
     )
 
     try:

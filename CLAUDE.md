@@ -585,6 +585,134 @@ idempotency:
 
 ---
 
+## Running Nodes
+
+Nodes in this repository are **not standalone executables**. They are discovered and executed by `RuntimeHostProcess` from `omnibase_infra`.
+
+### Why No `__main__.py`?
+
+Nodes are thin shells that delegate to handlers. Infrastructure concerns (Kafka consumption, health checks, graceful shutdown, drain timeout) belong to the **runtime**, not individual nodes.
+
+| Anti-Pattern | Why Wrong | Correct Approach |
+|--------------|-----------|------------------|
+| `__main__.py` in node directory | Nodes shouldn't own infrastructure | Use `RuntimeHostProcess` |
+| Ad-hoc Kafka consumer loops | Duplicates runtime logic | Declare topics in `contract.yaml` |
+| Manual health check endpoints | Cross-cutting concern | `RuntimeHostProcess` handles |
+| Custom shutdown handlers | Inconsistent drain behavior | Runtime manages gracefully |
+
+### Correct Pattern: RuntimeHostProcess
+
+`RuntimeHostProcess` from `omnibase_infra.runtime` is the correct way to run effect nodes:
+
+```python
+import asyncio
+import signal
+
+from omnibase_infra.runtime import RuntimeHostProcess
+from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+
+shutdown_event = asyncio.Event()
+
+
+def handle_shutdown(sig, frame):
+    """Signal handler to trigger graceful shutdown."""
+    shutdown_event.set()
+
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
+
+
+async def main():
+    # RuntimeHostProcess discovers nodes and wires them automatically
+    process = RuntimeHostProcess(
+        event_bus=EventBusKafka.default(),
+        contract_paths=["src/omniintelligence/nodes/"],
+    )
+    await process.start()
+
+    # RuntimeHostProcess handles:
+    #   - Kafka subscription from contract.yaml event_bus config
+    #   - Handler routing based on handler_routing config
+    #   - Health checks at /health endpoint
+    #   - Graceful shutdown with configurable drain timeout
+    #   - DLQ routing for failed messages
+
+    await shutdown_event.wait()
+    await process.stop()
+```
+
+### Contract Configuration for Event Bus
+
+Each node's `contract.yaml` declares its event bus configuration (see Contract YAML Structure above):
+
+```yaml
+event_bus:
+  event_bus_enabled: true
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.claude-hook-event.v1"
+  publish_topics:
+    - "onex.evt.omniintelligence.intent-classified.v1"
+
+handler_routing:
+  routing_strategy: "event_type_match"
+  handlers:
+    - operation: "UserPromptSubmit"
+      handler:
+        function: "handle_user_prompt_submit"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+        type: "async"
+```
+
+`RuntimeHostProcess` reads this configuration to:
+1. Subscribe to declared `subscribe_topics`
+2. Route incoming messages to handlers based on `handler_routing`
+3. Publish output events to `publish_topics`
+
+### Node Discovery
+
+`RuntimeHostProcess` discovers nodes by scanning `contract_paths` for `contract.yaml` files:
+
+```
+src/omniintelligence/nodes/
+├── node_claude_hook_event_effect/
+│   ├── contract.yaml          # Discovered by RuntimeHostProcess
+│   ├── node.py                # Thin shell
+│   └── handlers/              # Business logic
+├── node_pattern_feedback_effect/
+│   ├── contract.yaml          # Discovered by RuntimeHostProcess
+│   └── ...
+```
+
+Only nodes with `event_bus.event_bus_enabled: true` are wired to Kafka.
+
+### Testing Without RuntimeHostProcess
+
+For unit tests, instantiate nodes directly with mock dependencies:
+
+```python
+# Unit test - no RuntimeHostProcess needed
+async def test_handler():
+    handler = HandlerClaudeHookEvent(
+        intent_classifier=mock_classifier,
+        kafka_producer=mock_producer,
+    )
+    result = await handler.handle(sample_event)
+    assert result.success
+```
+
+For integration tests that need Kafka, use `EventBusInmemory` or the full `RuntimeHostProcess`:
+
+```python
+# Integration test with in-memory event bus
+process = RuntimeHostProcess(
+    event_bus=EventBusInmemory(),
+    contract_paths=["src/omniintelligence/nodes/"],
+)
+```
+
+---
+
 ## Models and Enums
 
 ### Intelligence Operations
