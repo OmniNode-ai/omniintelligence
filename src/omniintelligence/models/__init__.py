@@ -48,6 +48,10 @@ from omniintelligence.models.model_search_result import (
     PatternMatchMetadataDict,
     SearchResultMetadataDict,
 )
+from omniintelligence.models.repository import (
+    ModelLearnedPatternRow,
+    ModelPatternForInjection,
+)
 
 __all__ = [
     "AnalysisResultsDict",
@@ -59,6 +63,8 @@ __all__ = [
     "ModelEntity",
     "ModelIntelligenceInput",
     "ModelIntelligenceOutput",
+    "ModelLearnedPatternRow",
+    "ModelPatternForInjection",
     "ModelPatternMatch",
     "ModelRelationship",
     "ModelSearchResult",

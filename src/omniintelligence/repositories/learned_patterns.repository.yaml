@@ -1,0 +1,526 @@
+---
+# =============================================================================
+# LEARNED PATTERNS REPOSITORY CONTRACT
+# =============================================================================
+#
+# Contract for the learned_patterns table. Defines all read/write operations
+# for pattern storage, retrieval, and lifecycle management.
+#
+# Validators (OMN-1782):
+#   - validator_db_structural: Required fields, unique op names
+#   - validator_db_sql_safety: read->SELECT only, no DROP/ALTER
+#   - validator_db_table_access: SQL only touches declared tables
+#   - validator_db_deterministic: many:true requires ORDER BY
+#   - validator_db_params: All :params defined, no unused
+
+db_repository:
+  name: learned_patterns
+  engine: postgres
+  database_ref: omninode_bridge
+  description: |
+    Repository for accessing learned patterns from the pattern store.
+    Used by the pattern learning pipeline and manifest injection system.
+
+  # Tables this contract is allowed to access
+  tables:
+    - learned_patterns
+
+  # Model aliases -> fully qualified import paths
+  models:
+    PatternRow: omniintelligence.models.repository:ModelLearnedPatternRow
+    PatternInjection: omniintelligence.models.repository:ModelPatternForInjection
+
+  # =============================================================================
+  # OPERATIONS
+  # =============================================================================
+  ops:
+    # -------------------------------------------------------------------------
+    # READ: List validated patterns for injection
+    # -------------------------------------------------------------------------
+    list_validated_patterns:
+      mode: read
+      description: |
+        Retrieve validated patterns ready for injection into Claude sessions.
+        Only returns patterns that are:
+        - status = 'validated'
+        - is_current = TRUE (latest version)
+        - compiled_snippet IS NOT NULL (has compiled form)
+        Ordered by quality_score DESC for best patterns first.
+      sql: |
+        SELECT
+          id,
+          pattern_signature,
+          domain_id,
+          compiled_snippet,
+          quality_score,
+          confidence,
+          status,
+          is_current,
+          version,
+          compiled_token_count
+        FROM learned_patterns
+        WHERE status = 'validated'
+          AND is_current = TRUE
+          AND compiled_snippet IS NOT NULL
+        ORDER BY quality_score DESC, id ASC
+        LIMIT :limit
+      params:
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 10
+          ge: 1
+          le: 200
+          description: Maximum number of patterns to return
+      returns:
+        model_ref: PatternInjection
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get single pattern by ID
+    # -------------------------------------------------------------------------
+    get_pattern:
+      mode: read
+      description: Retrieve a single pattern by its UUID
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get current pattern for lineage (same signature)
+    # -------------------------------------------------------------------------
+    get_latest_by_lineage:
+      mode: read
+      description: |
+        Get the current (latest) version of a pattern by its signature.
+        Used to check if a pattern already exists before storing.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE pattern_signature = :signature
+          AND domain_id = :domain_id
+          AND is_current = TRUE
+      params:
+        signature:
+          name: signature
+          param_type: string
+          required: true
+          description: Pattern signature text
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+          description: Domain identifier
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: List patterns by domain
+    # -------------------------------------------------------------------------
+    list_by_domain:
+      mode: read
+      description: |
+        List patterns filtered by domain with pagination.
+        Only returns current versions.
+      sql: |
+        SELECT
+          id,
+          pattern_signature,
+          domain_id,
+          quality_score,
+          confidence,
+          status,
+          is_current,
+          version,
+          created_at
+        FROM learned_patterns
+        WHERE domain_id = :domain_id
+          AND is_current = TRUE
+        ORDER BY quality_score DESC, id ASC
+        LIMIT :limit
+        OFFSET :offset
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+        offset:
+          name: offset
+          param_type: integer
+          required: false
+          default: 0
+          ge: 0
+      returns:
+        model_ref: PatternRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get promotion candidates
+    # -------------------------------------------------------------------------
+    list_promotion_candidates:
+      mode: read
+      description: |
+        Find patterns eligible for promotion from candidate/provisional to validated.
+        Returns patterns meeting minimum quality and recurrence thresholds.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE status IN ('candidate', 'provisional')
+          AND is_current = TRUE
+          AND quality_score >= :min_quality
+          AND distinct_days_seen >= :min_days
+          AND recurrence_count >= :min_recurrence
+        ORDER BY quality_score DESC, distinct_days_seen DESC, id ASC
+        LIMIT :limit
+      params:
+        min_quality:
+          name: min_quality
+          param_type: number
+          required: false
+          default: 0.7
+          ge: 0.0
+          le: 1.0
+        min_days:
+          name: min_days
+          param_type: integer
+          required: false
+          default: 3
+          ge: 1
+        min_recurrence:
+          name: min_recurrence
+          param_type: integer
+          required: false
+          default: 5
+          ge: 1
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+      returns:
+        model_ref: PatternRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get demotion candidates (failing patterns)
+    # -------------------------------------------------------------------------
+    list_demotion_candidates:
+      mode: read
+      description: |
+        Find validated patterns that may need demotion due to poor performance.
+        Returns patterns with high failure streaks or low rolling success rates.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE status = 'validated'
+          AND is_current = TRUE
+          AND (
+            failure_streak >= :max_failure_streak
+            OR (
+              injection_count_rolling_20 >= :min_injections
+              AND failure_count_rolling_20::float / NULLIF(injection_count_rolling_20, 0) >= :max_failure_rate
+            )
+          )
+        ORDER BY failure_streak DESC, quality_score ASC, id ASC
+        LIMIT :limit
+      params:
+        max_failure_streak:
+          name: max_failure_streak
+          param_type: integer
+          required: false
+          default: 3
+          ge: 1
+        min_injections:
+          name: min_injections
+          param_type: integer
+          required: false
+          default: 5
+          ge: 1
+        max_failure_rate:
+          name: max_failure_rate
+          param_type: number
+          required: false
+          default: 0.5
+          ge: 0.0
+          le: 1.0
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+      returns:
+        model_ref: PatternRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # WRITE: Store new pattern
+    # -------------------------------------------------------------------------
+    store_pattern:
+      mode: write
+      description: |
+        Insert a new pattern into the store.
+        Sets is_current=TRUE by default. Caller should first call
+        set_not_current if this is a new version of existing pattern.
+      sql: |
+        INSERT INTO learned_patterns (
+          id,
+          pattern_signature,
+          domain_id,
+          domain_version,
+          domain_candidates,
+          keywords,
+          confidence,
+          status,
+          source_session_ids,
+          recurrence_count,
+          version,
+          is_current,
+          supersedes
+        ) VALUES (
+          :id,
+          :signature,
+          :domain_id,
+          :domain_version,
+          :domain_candidates,
+          :keywords,
+          :confidence,
+          :status,
+          :source_session_ids,
+          :recurrence_count,
+          :version,
+          TRUE,
+          :supersedes
+        )
+        RETURNING id
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Pattern UUID
+        signature:
+          name: signature
+          param_type: string
+          required: true
+          description: Pattern signature text
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+        domain_version:
+          name: domain_version
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 20
+        domain_candidates:
+          name: domain_candidates
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of domain candidates
+        keywords:
+          name: keywords
+          param_type: string
+          required: false
+          description: PostgreSQL array literal for keywords
+        confidence:
+          name: confidence
+          param_type: number
+          required: true
+          ge: 0.5
+          le: 1.0
+        status:
+          name: status
+          param_type: string
+          required: false
+          default: "candidate"
+        source_session_ids:
+          name: source_session_ids
+          param_type: string
+          required: true
+          description: PostgreSQL array literal for session UUIDs
+        recurrence_count:
+          name: recurrence_count
+          param_type: integer
+          required: false
+          default: 1
+          ge: 1
+        version:
+          name: version
+          param_type: integer
+          required: false
+          default: 1
+          ge: 1
+        supersedes:
+          name: supersedes
+          param_type: string
+          required: false
+          description: UUID of pattern this supersedes
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Set previous version not current
+    # -------------------------------------------------------------------------
+    set_not_current:
+      mode: write
+      description: |
+        Mark existing versions as not current before inserting new version.
+        Called before store_pattern when updating an existing pattern.
+      sql: |
+        UPDATE learned_patterns
+        SET is_current = FALSE,
+            superseded_by = :superseded_by
+        WHERE pattern_signature = :signature
+          AND domain_id = :domain_id
+          AND is_current = TRUE
+      params:
+        signature:
+          name: signature
+          param_type: string
+          required: true
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+        superseded_by:
+          name: superseded_by
+          param_type: string
+          required: true
+          description: UUID of new pattern version
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Update pattern status (promote/demote)
+    # -------------------------------------------------------------------------
+    update_status:
+      mode: write
+      description: Update pattern status and related timestamps
+      sql: |
+        UPDATE learned_patterns
+        SET status = :new_status,
+            promoted_at = CASE WHEN :new_status = 'validated' THEN NOW() ELSE promoted_at END,
+            deprecated_at = CASE WHEN :new_status = 'deprecated' THEN NOW() ELSE deprecated_at END,
+            deprecation_reason = :deprecation_reason
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+        new_status:
+          name: new_status
+          param_type: string
+          required: true
+        deprecation_reason:
+          name: deprecation_reason
+          param_type: string
+          required: false
+          description: Reason for deprecation (null for non-deprecated)
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Update rolling metrics after injection
+    # -------------------------------------------------------------------------
+    record_injection_outcome:
+      mode: write
+      description: |
+        Update rolling metrics after a pattern is used in a session.
+        Increments injection count and success/failure counts.
+      sql: |
+        UPDATE learned_patterns
+        SET injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, 20),
+            success_count_rolling_20 = CASE
+              WHEN :success THEN LEAST(success_count_rolling_20 + 1, 20)
+              ELSE success_count_rolling_20
+            END,
+            failure_count_rolling_20 = CASE
+              WHEN NOT :success THEN LEAST(failure_count_rolling_20 + 1, 20)
+              ELSE failure_count_rolling_20
+            END,
+            failure_streak = CASE
+              WHEN :success THEN 0
+              ELSE failure_streak + 1
+            END,
+            last_seen_at = NOW()
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+        success:
+          name: success
+          param_type: boolean
+          required: true
+          description: Whether the injection was successful
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Store compiled snippet
+    # -------------------------------------------------------------------------
+    store_compiled:
+      mode: write
+      description: Store the compiled snippet after pattern compilation
+      sql: |
+        UPDATE learned_patterns
+        SET compiled_snippet = :snippet,
+            compiled_token_count = :token_count,
+            compiled_at = NOW()
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+        snippet:
+          name: snippet
+          param_type: string
+          required: true
+          description: Compiled pattern snippet for injection
+        token_count:
+          name: token_count
+          param_type: integer
+          required: true
+          ge: 1
+          description: Token count of compiled snippet
+      returns:
+        model_ref: PatternRow
+        many: false
