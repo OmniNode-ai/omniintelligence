@@ -432,7 +432,12 @@ class TestContractModelReferences:
     def test_model_names_follow_convention(
         self, all_contract_data: list[tuple[Path, dict]]
     ) -> None:
-        """Verify model names follow Model* naming convention."""
+        """Verify model names follow Model* naming convention.
+
+        Note: External models (from packages outside omniintelligence.*) are
+        exempt from this check. External packages have their own naming
+        conventions that we should not enforce.
+        """
         errors = []
         for contract_path, data in all_contract_data:
             node_name = contract_path.parent.name
@@ -440,6 +445,12 @@ class TestContractModelReferences:
             for model_key in ["input_model", "output_model"]:
                 model_info = data.get(model_key, {})
                 model_name = model_info.get("name", "")
+                module_path = model_info.get("module", "")
+
+                # Skip external models - they follow their own naming conventions
+                # External = module does NOT start with "omniintelligence."
+                if module_path and not module_path.startswith("omniintelligence."):
+                    continue
 
                 if model_name and not model_name.startswith("Model"):
                     errors.append(
