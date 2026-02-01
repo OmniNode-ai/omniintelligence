@@ -147,9 +147,13 @@ IO_AUDIT_TARGETS: list[str] = [
 DEFAULT_WHITELIST_PATH: str = "tests/audit/io_audit_whitelist.yaml"
 
 # Forbidden network/DB client imports (prefix match)
+# Note: Kafka libraries (aiokafka, confluent_kafka, kafka) are forbidden because
+# nodes must use ProtocolKafkaPublisher abstractions. See ARCH-002.
 FORBIDDEN_IMPORTS: frozenset[str] = frozenset(
     {
+        "aiokafka",
         "confluent_kafka",
+        "kafka",
         "qdrant_client",
         "neo4j",
         "asyncpg",
