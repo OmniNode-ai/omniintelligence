@@ -37,6 +37,36 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 
 
 # =============================================================================
+# Path Constants
+# =============================================================================
+
+
+def _get_contract_path() -> Path:
+    """Get contract.yaml path relative to test file location.
+
+    Structure:
+        tests/integration/nodes/node_pattern_feedback_effect/test_event_consumption.py
+        src/omniintelligence/nodes/node_pattern_feedback_effect/contract.yaml
+
+    From test file, navigate to repo root (4 levels up), then into src.
+    """
+    test_dir = Path(__file__).parent  # node_pattern_feedback_effect/
+    # Navigate: node_pattern_feedback_effect -> nodes -> integration -> tests -> repo_root
+    repo_root = test_dir.parent.parent.parent.parent
+    return (
+        repo_root
+        / "src"
+        / "omniintelligence"
+        / "nodes"
+        / "node_pattern_feedback_effect"
+        / "contract.yaml"
+    )
+
+
+CONTRACT_PATH: Path = _get_contract_path()
+
+
+# =============================================================================
 # Topic Constants
 # =============================================================================
 
@@ -117,16 +147,7 @@ class TestContractConfiguration:
 
     def test_contract_declares_event_bus_subscription(self) -> None:
         """Verify contract.yaml declares the subscription topic."""
-        contract_path = (
-            Path(__file__).parents[4]
-            / "src"
-            / "omniintelligence"
-            / "nodes"
-            / "node_pattern_feedback_effect"
-            / "contract.yaml"
-        )
-
-        with open(contract_path) as f:
+        with open(CONTRACT_PATH) as f:
             contract = yaml.safe_load(f)
 
         assert "event_bus" in contract, "Missing event_bus section"
@@ -139,16 +160,7 @@ class TestContractConfiguration:
 
     def test_contract_schema_ref_is_valid_alias(self) -> None:
         """Verify schema_ref uses stable import alias."""
-        contract_path = (
-            Path(__file__).parents[4]
-            / "src"
-            / "omniintelligence"
-            / "nodes"
-            / "node_pattern_feedback_effect"
-            / "contract.yaml"
-        )
-
-        with open(contract_path) as f:
+        with open(CONTRACT_PATH) as f:
             contract = yaml.safe_load(f)
 
         topic = "onex.cmd.omniintelligence.session-outcome.v1"
@@ -162,16 +174,7 @@ class TestContractConfiguration:
 
     def test_contract_has_required_handler_routing(self) -> None:
         """Verify contract declares handler routing for event processing."""
-        contract_path = (
-            Path(__file__).parents[4]
-            / "src"
-            / "omniintelligence"
-            / "nodes"
-            / "node_pattern_feedback_effect"
-            / "contract.yaml"
-        )
-
-        with open(contract_path) as f:
+        with open(CONTRACT_PATH) as f:
             contract = yaml.safe_load(f)
 
         assert "handler_routing" in contract, "Missing handler_routing section"

@@ -111,69 +111,64 @@ class TestExtractFailureReason:
 
     def test_error_with_message_returns_message(self) -> None:
         """Error with message returns the message."""
-        # Create event with mock error that has message
-        event = ClaudeSessionOutcome(
+        # Use model_construct to bypass validation and set mock error
+        # The function uses hasattr, so mock with message/code attributes works
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,  # Real error extraction tested via mock below
+            error=MockErrorDetails(message="Connection timeout"),
+            correlation_id=None,
         )
-        # Override error for test
-        event_dict = event.__dict__.copy()
-        event_dict["error"] = MockErrorDetails(message="Connection timeout")
-        event.__dict__.update(event_dict)
-        # The function uses hasattr, so mock works
         assert _extract_failure_reason(event) == "Connection timeout"
 
     def test_error_with_code_only_returns_code(self) -> None:
         """Error with code but no message returns code."""
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=MockErrorDetails(code="ERR_TIMEOUT"),
+            correlation_id=None,
         )
-        event.__dict__["error"] = MockErrorDetails(code="ERR_TIMEOUT")
         assert _extract_failure_reason(event) == "ERR_TIMEOUT"
 
     def test_error_with_both_message_and_code_prefers_message(self) -> None:
         """Error with both message and code prefers message."""
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
-        )
-        event.__dict__["error"] = MockErrorDetails(
-            message="Connection timeout", code="ERR_TIMEOUT"
+            error=MockErrorDetails(message="Connection timeout", code="ERR_TIMEOUT"),
+            correlation_id=None,
         )
         assert _extract_failure_reason(event) == "Connection timeout"
 
     def test_error_with_empty_message_returns_code(self) -> None:
         """Error with empty message string falls back to code."""
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=MockErrorDetails(message="", code="ERR_EMPTY"),
+            correlation_id=None,
         )
-        event.__dict__["error"] = MockErrorDetails(message="", code="ERR_EMPTY")
         assert _extract_failure_reason(event) == "ERR_EMPTY"
 
     def test_error_with_neither_message_nor_code_returns_unknown(self) -> None:
         """Error object without message or code returns 'Unknown error'."""
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=MockErrorDetails(),
+            correlation_id=None,
         )
-        event.__dict__["error"] = MockErrorDetails()
         assert _extract_failure_reason(event) == "Unknown error"
 
     def test_error_with_none_message_and_none_code_returns_unknown(self) -> None:
         """Explicit None values return 'Unknown error'."""
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=MockErrorDetails(message=None, code=None),
+            correlation_id=None,
         )
-        event.__dict__["error"] = MockErrorDetails(message=None, code=None)
         assert _extract_failure_reason(event) == "Unknown error"
 
     def test_error_without_message_attribute_uses_code(self) -> None:
@@ -182,12 +177,12 @@ class TestExtractFailureReason:
         class ErrorWithCodeOnly:
             code = "MISSING_MESSAGE"
 
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=ErrorWithCodeOnly(),
+            correlation_id=None,
         )
-        event.__dict__["error"] = ErrorWithCodeOnly()
         assert _extract_failure_reason(event) == "MISSING_MESSAGE"
 
     def test_error_without_code_attribute_uses_message(self) -> None:
@@ -196,12 +191,12 @@ class TestExtractFailureReason:
         class ErrorWithMessageOnly:
             message = "Only message"
 
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=ErrorWithMessageOnly(),
+            correlation_id=None,
         )
-        event.__dict__["error"] = ErrorWithMessageOnly()
         assert _extract_failure_reason(event) == "Only message"
 
 
@@ -252,13 +247,12 @@ class TestEventToHandlerArgs:
     def test_failed_event_with_error_mapping(self) -> None:
         """Failed event with error details extracts failure reason."""
         session_id = uuid4()
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=session_id,
             outcome=ClaudeCodeSessionOutcome.FAILED,
-            error=None,
+            error=MockErrorDetails(message="Database connection failed"),
             correlation_id=None,
         )
-        event.__dict__["error"] = MockErrorDetails(message="Database connection failed")
 
         args = event_to_handler_args(event)
 
@@ -378,12 +372,12 @@ class TestBoundaryMappingEdgeCases:
 
     def test_success_event_with_error_still_extracts_reason(self) -> None:
         """Success event with error field still extracts failure_reason."""
-        event = ClaudeSessionOutcome(
+        event = ClaudeSessionOutcome.model_construct(
             session_id=uuid4(),
             outcome=ClaudeCodeSessionOutcome.SUCCESS,
-            error=None,
+            error=MockErrorDetails(message="Unexpected error attached"),
+            correlation_id=None,
         )
-        event.__dict__["error"] = MockErrorDetails(message="Unexpected error attached")
 
         args = event_to_handler_args(event)
 

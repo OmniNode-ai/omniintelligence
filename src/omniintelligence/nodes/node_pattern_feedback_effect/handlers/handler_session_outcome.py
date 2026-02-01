@@ -51,7 +51,7 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypedDict, runtime_checkable
 from uuid import UUID
 
 from omnibase_core.integrations.claude_code import (
@@ -223,6 +223,24 @@ WHERE injection_id = $1
 
 
 # =============================================================================
+# Type Definitions
+# =============================================================================
+
+
+class HandlerArgs(TypedDict):
+    """Typed dictionary for session outcome handler arguments.
+
+    This provides type safety for the boundary mapping from
+    ClaudeSessionOutcome events to handler function parameters.
+    """
+
+    session_id: UUID
+    success: bool
+    failure_reason: str | None
+    correlation_id: UUID | None
+
+
+# =============================================================================
 # Boundary Mapping Functions
 # =============================================================================
 
@@ -234,7 +252,7 @@ def _outcome_to_success(outcome: ClaudeCodeSessionOutcome) -> bool:
     - SUCCESS -> True
     - FAILED, ABANDONED, UNKNOWN -> False
     """
-    return outcome == ClaudeCodeSessionOutcome.SUCCESS
+    return bool(outcome == ClaudeCodeSessionOutcome.SUCCESS)
 
 
 def _extract_failure_reason(event: ClaudeSessionOutcome) -> str | None:
@@ -246,13 +264,13 @@ def _extract_failure_reason(event: ClaudeSessionOutcome) -> str | None:
         return None
     # Prefer message, fallback to code
     if hasattr(event.error, "message") and event.error.message:
-        return event.error.message
+        return str(event.error.message)
     if hasattr(event.error, "code") and event.error.code:
         return str(event.error.code)
     return "Unknown error"
 
 
-def event_to_handler_args(event: ClaudeSessionOutcome) -> dict:
+def event_to_handler_args(event: ClaudeSessionOutcome) -> HandlerArgs:
     """Convert ClaudeSessionOutcome event to handler arguments.
 
     This is the boundary mapping that keeps the handler stable
@@ -610,6 +628,7 @@ def _parse_update_count(status: str | None) -> int:
 
 
 __all__ = [
+    "HandlerArgs",
     "ROLLING_WINDOW_SIZE",
     "ProtocolPatternRepository",
     "compute_and_store_heuristics",
