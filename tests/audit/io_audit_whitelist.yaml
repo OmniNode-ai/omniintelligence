@@ -54,12 +54,13 @@ files:
       - "file-io"
 
   # Node entry points (__main__.py) - these are CLI runners, not pure nodes
-  # They legitimately read env vars (LOG_LEVEL, HEALTH_PORT) to configure
-  # the node before instantiation. This is standard entrypoint behavior.
+  # They legitimately read env vars (LOG_LEVEL, KAFKA_*, POSTGRES_*) to configure
+  # the node before instantiation and create infrastructure connections.
   - path: "src/omniintelligence/nodes/*/__main__.py"
-    reason: "Entry point scripts bootstrap nodes and require env var configuration"
+    reason: "Entry point scripts bootstrap nodes, require env vars and infrastructure clients"
     allowed_rules:
       - "env-access"
+      - "net-client"
 
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
