@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 from uuid import UUID
 
+from omnibase_core.types import TypedDictPatternStorageMetadata
+
 from omniintelligence.nodes.pattern_storage_effect.models import (
     EnumPatternState,
     ModelPatternStorageInput,
@@ -101,7 +103,7 @@ class ProtocolPatternStore(Protocol):
         actor: str | None = None,
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
         conn: AsyncConnection,
     ) -> UUID:
         """Store a pattern in the pattern database.
@@ -119,7 +121,7 @@ class ProtocolPatternStore(Protocol):
             actor: Identifier of the entity that stored the pattern.
             source_run_id: ID of the run that produced this pattern.
             correlation_id: Correlation ID for distributed tracing.
-            metadata: Additional metadata as key-value pairs.
+            metadata: Additional pattern metadata (tags, learning_context).
             conn: Database connection for transaction control. Required to ensure
                 all operations participate in the caller's transaction boundary.
 
@@ -676,6 +678,13 @@ async def handle_store_pattern(
     # otherwise the lineage will have no current version. See atomicity note above.
     initial_state = EnumPatternState.CANDIDATE
 
+    # Construct typed metadata for storage
+    pattern_metadata: TypedDictPatternStorageMetadata = {
+        "tags": input_data.metadata.tags,
+        "learning_context": input_data.metadata.learning_context,
+        "additional_attributes": input_data.metadata.additional_attributes,
+    }
+
     stored_id = await pattern_store.store_pattern(
         pattern_id=input_data.pattern_id,
         signature=input_data.signature,
@@ -689,11 +698,7 @@ async def handle_store_pattern(
         actor=input_data.metadata.actor,
         source_run_id=input_data.metadata.source_run_id,
         correlation_id=input_data.correlation_id,
-        metadata={
-            "tags": input_data.metadata.tags,
-            "learning_context": input_data.metadata.learning_context,
-            **input_data.metadata.additional_attributes,
-        },
+        metadata=pattern_metadata,
         conn=conn,
     )
 

@@ -344,9 +344,14 @@ db_repository:
         domain_version:
           name: domain_version
           param_type: string
-          required: true
+          required: false
+          default: "1.0"
           min_length: 1
           max_length: 20
+          description: |
+            Schema version within a domain. Tracks domain schema evolution,
+            not individual pattern versions (use `version` field for that).
+            Defaults to "1.0" for new patterns.
         domain_candidates:
           name: domain_candidates
           param_type: string

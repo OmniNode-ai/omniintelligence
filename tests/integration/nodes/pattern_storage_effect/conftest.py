@@ -24,6 +24,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omnibase_core.types import TypedDictPatternStorageMetadata
+
 from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
     ModelStateTransition,
     ProtocolPatternStateManager,
@@ -126,7 +128,7 @@ class MockPatternStore:
         actor: str | None = None,
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
     ) -> UUID:
         """Store a pattern in the mock database."""
         self.patterns[pattern_id] = {

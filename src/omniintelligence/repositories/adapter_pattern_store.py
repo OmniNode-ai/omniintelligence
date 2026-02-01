@@ -1,3 +1,5 @@
+# ruff: noqa: ARG002
+# ARG002 disabled: Protocol adapter has unused params required by interface contract
 """Adapter bridging PostgresRepositoryRuntime to ProtocolPatternStore.
 
 This adapter implements the ProtocolPatternStore interface using the
@@ -6,8 +8,12 @@ calls to contract operation invocations.
 
 Pattern:
     - Handler expects: ProtocolPatternStore
-    - Runtime provides: PostgresRepositoryRuntime.call(op_name, **params)
-    - This adapter: Implements protocol, delegates to runtime
+    - Runtime provides: PostgresRepositoryRuntime.call(op_name, *args)
+    - This adapter: Implements protocol, delegates to runtime with positional args
+
+The runtime expects positional arguments in the order defined by the contract's
+params dict. This adapter builds positional args from kwargs, applying contract
+defaults for any omitted optional params.
 
 Usage:
     >>> from omniintelligence.repositories import create_pattern_store_adapter
@@ -28,6 +34,7 @@ from uuid import UUID
 import yaml
 
 from omnibase_core.models.contracts import ModelDbRepositoryContract
+from omnibase_core.types import TypedDictPatternStorageMetadata
 from omnibase_infra.runtime.db import PostgresRepositoryRuntime
 
 from omniintelligence.nodes.pattern_storage_effect.models import EnumPatternState
@@ -50,7 +57,8 @@ class AdapterPatternStore:
     - The new PostgresRepositoryRuntime (contract-driven execution)
 
     All database operations are delegated to the runtime, which executes
-    the SQL defined in the contract YAML.
+    the SQL defined in the contract YAML. Contract defaults are applied
+    automatically for optional params not explicitly provided.
     """
 
     def __init__(self, runtime: PostgresRepositoryRuntime) -> None:
@@ -61,6 +69,51 @@ class AdapterPatternStore:
                 learned_patterns contract.
         """
         self._runtime = runtime
+
+    def _build_positional_args(
+        self,
+        op_name: str,
+        provided: dict[str, Any],
+    ) -> tuple[Any, ...]:
+        """Build positional args for runtime.call() from provided kwargs.
+
+        The runtime expects positional arguments in the order defined by
+        the contract's params dict. This method:
+        1. Looks up the operation's param definitions in the contract
+        2. For each param (in order), uses provided value or contract default
+        3. Returns tuple of args in correct positional order
+
+        Args:
+            op_name: Operation name in the contract.
+            provided: Dict of param_name -> value for explicitly provided params.
+
+        Returns:
+            Tuple of positional args in contract param order.
+
+        Raises:
+            ValueError: If required param missing and has no default.
+        """
+        contract = self._runtime.contract
+        operation = contract.ops.get(op_name)
+        if operation is None:
+            msg = f"Unknown operation: {op_name}"
+            raise ValueError(msg)
+
+        args = []
+        for param_name, param_spec in operation.params.items():
+            if param_name in provided:
+                args.append(provided[param_name])
+            elif param_spec.default is not None:
+                # Use contract default - extract the actual value
+                args.append(param_spec.default.to_value())
+            elif not param_spec.required:
+                # Optional with no default - use None
+                args.append(None)
+            else:
+                msg = f"Required param '{param_name}' not provided for operation '{op_name}'"
+                raise ValueError(msg)
+
+        return tuple(args)
 
     async def store_pattern(
         self,
@@ -77,40 +130,42 @@ class AdapterPatternStore:
         actor: str | None = None,
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
         conn: AsyncConnection,
     ) -> UUID:
         """Store a pattern using the contract runtime.
 
         Delegates to the 'store_pattern' operation in the contract.
+        Contract defaults are applied for optional params not explicitly provided:
+        - domain_version: defaults to "1.0" (schema version, not pattern version)
+        - domain_candidates: defaults to "[]"
+        - status: defaults to "candidate" (overridden by state param here)
+        - recurrence_count: defaults to 1
         """
-        # The contract's store_pattern operation uses different param names
-        # Map protocol params to contract params
-        result = await self._runtime.call(
+        # Build positional args - contract defaults apply for omitted optional params
+        args = self._build_positional_args(
             "store_pattern",
-            id=str(pattern_id),
-            signature=signature,
-            domain_id=domain,
-            # Default domain version for new patterns. The domain_version field tracks
-            # schema evolution within a domain, not pattern versioning. Individual pattern
-            # versions are tracked via the `version` field.
-            domain_version="1.0",
-            # Empty JSON array - domain candidates are populated during pattern
-            # matching/classification, not at initial storage time.
-            domain_candidates="[]",
-            keywords=None,
-            confidence=confidence,
-            status=state.value,
-            source_session_ids=f"{{{correlation_id}}}" if correlation_id else "{}",
-            recurrence_count=1,
-            version=version,
-            supersedes=None,
-            conn=conn,
+            {
+                "id": str(pattern_id),
+                "signature": signature,
+                "domain_id": domain,
+                # domain_version: omitted - uses contract default "1.0"
+                # domain_candidates: omitted - uses contract default "[]"
+                # keywords: omitted - optional with no default, will be None
+                "confidence": confidence,
+                "status": state.value,
+                "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
+                # recurrence_count: omitted - uses contract default 1
+                "version": version,
+                # supersedes: omitted - optional with no default, will be None
+            },
         )
 
+        result = await self._runtime.call("store_pattern", *args)
+
         # Return the stored pattern ID
-        if result and hasattr(result, "id"):
-            return result.id
+        if result and isinstance(result, dict) and "id" in result:
+            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
         return pattern_id
 
     async def check_exists(
@@ -121,17 +176,19 @@ class AdapterPatternStore:
         conn: AsyncConnection,
     ) -> bool:
         """Check if a pattern exists for the given lineage and version."""
-        result = await self._runtime.call(
+        args = self._build_positional_args(
             "check_exists",
-            domain_id=domain,
-            signature=signature,
-            version=version,
-            conn=conn,
+            {
+                "domain_id": domain,
+                "signature": signature,
+                "version": version,
+            },
         )
+        result = await self._runtime.call("check_exists", *args)
 
         # The query returns EXISTS which maps to a boolean-like result
-        if result and hasattr(result, "exists"):
-            return bool(result.exists)
+        if result and isinstance(result, dict) and "exists" in result:
+            return bool(result["exists"])
         return False
 
     async def check_exists_by_id(
@@ -141,15 +198,17 @@ class AdapterPatternStore:
         conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key."""
-        result = await self._runtime.call(
+        args = self._build_positional_args(
             "check_exists_by_id",
-            pattern_id=str(pattern_id),
-            signature=signature,
-            conn=conn,
+            {
+                "pattern_id": str(pattern_id),
+                "signature": signature,
+            },
         )
+        result = await self._runtime.call("check_exists_by_id", *args)
 
-        if result and hasattr(result, "id"):
-            return result.id
+        if result and isinstance(result, dict) and "id" in result:
+            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
         return None
 
     async def set_previous_not_current(
@@ -159,17 +218,19 @@ class AdapterPatternStore:
         conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions of this lineage."""
-        result = await self._runtime.call(
+        args = self._build_positional_args(
             "set_not_current",
-            signature=signature,
-            domain_id=domain,
-            superseded_by=None,  # Will be set by subsequent store
-            conn=conn,
+            {
+                "signature": signature,
+                "domain_id": domain,
+                # superseded_by: omitted - optional, will be None
+            },
         )
+        result = await self._runtime.call("set_not_current", *args)
 
-        # Return rows affected
-        if result and hasattr(result, "rows_affected"):
-            return result.rows_affected
+        # For write operations returning multiple rows, count results
+        if isinstance(result, list):
+            return len(result)
         return 0
 
     async def get_latest_version(
@@ -179,15 +240,17 @@ class AdapterPatternStore:
         conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage."""
-        result = await self._runtime.call(
+        args = self._build_positional_args(
             "get_latest_version",
-            domain_id=domain,
-            signature=signature,
-            conn=conn,
+            {
+                "domain_id": domain,
+                "signature": signature,
+            },
         )
+        result = await self._runtime.call("get_latest_version", *args)
 
-        if result and hasattr(result, "version"):
-            return result.version
+        if result and isinstance(result, dict) and "version" in result:
+            return result["version"]
         return None
 
     async def get_stored_at(
@@ -196,14 +259,16 @@ class AdapterPatternStore:
         conn: AsyncConnection,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern."""
-        result = await self._runtime.call(
+        args = self._build_positional_args(
             "get_stored_at",
-            pattern_id=str(pattern_id),
-            conn=conn,
+            {
+                "pattern_id": str(pattern_id),
+            },
         )
+        result = await self._runtime.call("get_stored_at", *args)
 
-        if result and hasattr(result, "created_at"):
-            return result.created_at
+        if result and isinstance(result, dict) and "created_at" in result:
+            return result["created_at"]
         return None
 
 
