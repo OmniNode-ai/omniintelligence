@@ -31,6 +31,7 @@ These rules are non-negotiable. Violations will cause production issues or archi
 | All event schemas are **frozen** (`frozen=True`) | Events are immutable after emission |
 | Handlers must **return structured errors**, not raise | Domain errors are data, not exceptions |
 | `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
+| **No hardcoded environment variables** | All config via `.env` or Pydantic Settings; see `~/.claude/CLAUDE.md` |
 
 ---
 
