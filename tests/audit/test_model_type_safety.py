@@ -16,6 +16,9 @@ from pathlib import Path
 
 import pytest
 
+# Apply audit marker to all tests in this module
+pytestmark = pytest.mark.audit
+
 
 # Model files to audit
 MODEL_FILES = [
