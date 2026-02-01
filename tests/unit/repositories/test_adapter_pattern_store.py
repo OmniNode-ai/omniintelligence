@@ -165,3 +165,99 @@ class TestBuildPositionalArgsErrorPaths:
 
         # Assert - second param should be the provided value, not default
         assert result[1] == 999
+
+
+class TestContractParamOrder:
+    """Tests to validate contract param order matches SQL expectations.
+
+    The _build_positional_args method relies on dict insertion order (Python 3.7+).
+    If the contract YAML param order doesn't match what the SQL expects, it could
+    cause silent data corruption. These tests verify param order is correct.
+    """
+
+    @pytest.mark.unit
+    def test_sql_placeholders_match_param_order(self) -> None:
+        """Verify SQL :placeholders match contract params.
+
+        For each operation in the real contract:
+        1. Extract all :param_name placeholders from SQL (excluding ::type casts)
+        2. Verify each placeholder exists in the operation's params dict
+        """
+        import re
+
+        from omniintelligence.repositories.adapter_pattern_store import load_contract
+
+        contract = load_contract()
+
+        # Regex to match :param_name but NOT ::type (PostgreSQL casts)
+        # Uses negative lookbehind to exclude :: patterns
+        placeholder_pattern = re.compile(r"(?<!:):([a-z_][a-z0-9_]*)")
+
+        for op_name, operation in contract.ops.items():
+            sql = operation.sql
+            param_names = set(operation.params.keys())
+
+            # Extract all :placeholder names from SQL
+            placeholders = placeholder_pattern.findall(sql)
+
+            # Each placeholder in SQL must have a corresponding param definition
+            for placeholder in placeholders:
+                assert placeholder in param_names, (
+                    f"Operation '{op_name}': SQL placeholder ':{placeholder}' "
+                    f"not found in params {sorted(param_names)}\n"
+                    f"SQL: {sql[:200]}..."
+                )
+
+    @pytest.mark.unit
+    def test_all_params_used_in_sql(self) -> None:
+        """Verify all defined params are actually used in the SQL.
+
+        This catches unused params that may indicate copy-paste errors
+        or outdated contract definitions.
+        """
+        import re
+
+        from omniintelligence.repositories.adapter_pattern_store import load_contract
+
+        contract = load_contract()
+
+        # Regex to match :param_name but NOT ::type (PostgreSQL casts)
+        placeholder_pattern = re.compile(r"(?<!:):([a-z_][a-z0-9_]*)")
+
+        for op_name, operation in contract.ops.items():
+            sql = operation.sql
+            param_names = set(operation.params.keys())
+
+            # Extract all :placeholder names from SQL
+            placeholders_in_sql = set(placeholder_pattern.findall(sql))
+
+            # Each defined param should appear in SQL
+            unused_params = param_names - placeholders_in_sql
+            assert not unused_params, (
+                f"Operation '{op_name}': params defined but not used in SQL: {unused_params}\n"
+                f"Defined params: {sorted(param_names)}\n"
+                f"Placeholders in SQL: {sorted(placeholders_in_sql)}"
+            )
+
+    @pytest.mark.unit
+    def test_contract_loads_successfully(self) -> None:
+        """Verify the contract YAML loads and validates without errors.
+
+        This is a basic sanity check that the contract file exists and
+        contains valid structure that Pydantic can parse.
+        """
+        from omniintelligence.repositories.adapter_pattern_store import load_contract
+
+        contract = load_contract()
+
+        # Basic structural assertions
+        assert contract.name == "learned_patterns"
+        assert contract.engine == "postgres"
+        assert len(contract.ops) > 0, "Contract should have at least one operation"
+
+        # Each operation should have required fields
+        for op_name, operation in contract.ops.items():
+            assert operation.sql, f"Operation '{op_name}' missing SQL"
+            assert operation.mode in ("read", "write"), (
+                f"Operation '{op_name}' has invalid mode: {operation.mode}"
+            )

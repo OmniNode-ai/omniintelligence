@@ -151,6 +151,7 @@ class AdapterPatternStore:
         domain: str,
         version: int,
         confidence: float,
+        quality_score: float = 0.5,
         state: EnumPatternState,
         is_current: bool,
         stored_at: datetime,
@@ -170,6 +171,11 @@ class AdapterPatternStore:
         - status: defaults to "candidate" (overridden by state param here)
         - recurrence_count: defaults to 1
 
+        Args:
+            quality_score: Initial quality score for the pattern (0.0-1.0).
+                Defaults to 0.5 (neutral). Used for quality-weighted searches
+                and pattern ranking.
+
         Unused Parameters (Interface Compatibility)
         --------------------------------------------
         The following parameters are accepted for ProtocolPatternStore interface
@@ -187,6 +193,12 @@ class AdapterPatternStore:
         - **metadata**: Reserved for future extensibility (arbitrary key-value data).
         - **conn**: See class docstring. Runtime manages its own connection pool.
         """
+        if conn is not None:
+            logger.warning(
+                "conn parameter ignored by AdapterPatternStore - this adapter manages "
+                "its own connections. See class docstring for transaction semantics."
+            )
+
         # TODO(OMN-XXXX): Implement metadata persistence when contract supports JSONB
         # TODO(OMN-XXXX): Evaluate if signature_hash should replace signature in contract
         # TODO(OMN-XXXX): Add actor/source_run_id for audit trail when lineage tracking is complete
@@ -202,6 +214,7 @@ class AdapterPatternStore:
                 # domain_candidates: omitted - uses contract default "[]"
                 # keywords: omitted - optional with no default, will be None
                 "confidence": confidence,
+                "quality_score": quality_score,
                 "status": state.value,
                 "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
                 # recurrence_count: omitted - uses contract default 1
@@ -217,7 +230,7 @@ class AdapterPatternStore:
             return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
 
         # Defensive: log if result is empty/invalid to help diagnose INSERT failures
-        logger.debug(
+        logger.warning(
             "store_pattern returned unexpected result, using provided pattern_id. "
             "Result: %s, pattern_id: %s",
             result,
@@ -427,6 +440,12 @@ class AdapterPatternStore:
         Raises:
             ValueError: If required parameters are missing.
         """
+        if conn is not None:
+            logger.warning(
+                "conn parameter ignored by AdapterPatternStore - this adapter manages "
+                "its own connections. See class docstring for transaction semantics."
+            )
+
         # Build positional args - contract defaults apply for omitted optional params
         args = self._build_positional_args(
             "store_with_version_transition",
@@ -453,7 +472,7 @@ class AdapterPatternStore:
             return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
 
         # Defensive: log if result is empty/invalid to help diagnose INSERT failures
-        logger.debug(
+        logger.warning(
             "store_with_version_transition returned unexpected result, using provided pattern_id. "
             "Result: %s, pattern_id: %s",
             result,
