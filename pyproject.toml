@@ -80,9 +80,8 @@ pypdf2 = ">=3.0.1"
 pdfplumber = ">=0.11.6"
 python-docx = ">=1.1.2"
 markdown = ">=3.8"
-# AI/ML and Workflow Orchestration
+# AI/ML
 openai = ">=1.71.0"
-llama-index = ">=0.12.0"
 sentence-transformers = ">=4.1.0"
 torch = ">=2.0.0"
 transformers = ">=4.30.0"
@@ -162,9 +161,8 @@ core = [
     "pdfplumber>=0.11.6",
     "python-docx>=1.1.2",
     "markdown>=3.8",
-    # AI/ML and Workflow Orchestration
+    # AI/ML
     "openai>=1.71.0",
-    "llama-index>=0.12.0",
     "sentence-transformers>=4.1.0",
     "torch>=2.0.0",
     "transformers>=4.30.0",
