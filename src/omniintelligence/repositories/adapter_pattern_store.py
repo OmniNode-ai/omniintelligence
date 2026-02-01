@@ -96,6 +96,7 @@ class AdapterPatternStore:
                 learned_patterns contract.
         """
         self._runtime = runtime
+        self._conn_warning_logged = False
 
     def _build_positional_args(
         self,
@@ -193,11 +194,12 @@ class AdapterPatternStore:
         - **metadata**: Reserved for future extensibility (arbitrary key-value data).
         - **conn**: See class docstring. Runtime manages its own connection pool.
         """
-        if conn is not None:
+        if conn is not None and not self._conn_warning_logged:
             logger.warning(
                 "conn parameter ignored by AdapterPatternStore - this adapter manages "
                 "its own connections. See class docstring for transaction semantics."
             )
+            self._conn_warning_logged = True
 
         # TODO(OMN-XXXX): Implement metadata persistence when contract supports JSONB
         # TODO(OMN-XXXX): Evaluate if signature_hash should replace signature in contract
@@ -440,11 +442,12 @@ class AdapterPatternStore:
         Raises:
             ValueError: If required parameters are missing.
         """
-        if conn is not None:
+        if conn is not None and not self._conn_warning_logged:
             logger.warning(
                 "conn parameter ignored by AdapterPatternStore - this adapter manages "
                 "its own connections. See class docstring for transaction semantics."
             )
+            self._conn_warning_logged = True
 
         # Build positional args - contract defaults apply for omitted optional params
         args = self._build_positional_args(
