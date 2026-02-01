@@ -70,7 +70,7 @@ class PatternDemotionMetadataLoader:
     node_description: str = (
         "Effect node that demotes validated patterns to deprecated status based on "
         "rolling window failure metrics. Evaluates patterns against configurable "
-        "demotion gates (injection count, failure rate, success streak absence) and "
+        "demotion gates (injection count, failure rate, failure streak) and "
         "publishes Kafka events for demoted patterns. Supports dry_run mode for "
         "previewing demotions without committing changes."
     )
@@ -168,8 +168,8 @@ class PatternDemotionIntrospection(MixinNodeIntrospection):
             "Evaluate patterns against rolling window metrics (last 20 injections)",
             "Publish Kafka events for pattern state transitions",
             "Support dry_run mode for demotion previews",
-            "Gate demotions on injection count, failure rate, and success streak",
-            "Prevent demotion of disabled patterns",
+            "Gate demotions on injection count, failure rate, and failure streak",
+            "Immediately demote manually disabled patterns (hard trigger bypasses cooldown)",
         ]
 
     @classmethod

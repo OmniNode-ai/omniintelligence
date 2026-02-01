@@ -99,8 +99,9 @@ TEMP_BOOTSTRAP: Topic suffix for pattern deprecation events (OUTPUT).
 
 Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-deprecated.v1
 
-NodePatternDemotionEffect publishes when a validated pattern is deprecated
-due to declining success metrics in the rolling window.
+NodePatternDemotionEffect publishes when a validated pattern is deprecated,
+e.g., due to rolling-window success metrics, failure streaks, or manual disable,
+subject to cooldown/threshold gates.
 
 Deletion ticket: OMN-1546
 """

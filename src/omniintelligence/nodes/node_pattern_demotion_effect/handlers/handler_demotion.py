@@ -127,7 +127,7 @@ MAX_SUCCESS_RATE_FOR_DEMOTION: float = 0.40
 
 Calculated as: success_count_rolling_20 / (success_count_rolling_20 + failure_count_rolling_20)
 
-A pattern with success rate AT OR BELOW this threshold is eligible for demotion.
+A pattern with success rate BELOW this threshold is eligible for demotion.
 This is significantly below the promotion threshold (60%) to create a buffer zone
 that prevents oscillation.
 

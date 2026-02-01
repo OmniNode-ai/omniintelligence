@@ -120,7 +120,7 @@ class ModelDemotionResult(BaseModel):
         description="The reason for demotion. Valid formats: "
         "'manual_disable' (pattern explicitly disabled), "
         "'failure_streak: N consecutive failures' (exceeded failure threshold), "
-        "'low_success_rate: X.X%' (below success rate threshold), "
+        "'low_success_rate: 35.0%' (below success rate threshold), "
         "'already_demoted_or_status_changed' (no-op, pattern state changed), "
         "'demotion_failed: ErrorType: message' (error during demotion)",
     )
