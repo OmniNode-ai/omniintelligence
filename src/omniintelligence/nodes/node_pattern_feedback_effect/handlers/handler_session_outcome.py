@@ -263,10 +263,12 @@ def _extract_failure_reason(event: ClaudeSessionOutcome) -> str | None:
     if event.error is None:
         return None
     # Prefer message, fallback to code
-    if hasattr(event.error, "message") and event.error.message:
-        return str(event.error.message)
-    if hasattr(event.error, "code") and event.error.code:
-        return str(event.error.code)
+    message = getattr(event.error, "message", None)
+    if message:
+        return str(message)
+    code = getattr(event.error, "code", None)
+    if code:
+        return str(code)
     return "Unknown error"
 
 
