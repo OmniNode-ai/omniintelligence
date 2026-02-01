@@ -45,8 +45,8 @@ __all__ = [
     "NodePatternFeedbackEffect",
     # Handlers
     "ProtocolPatternRepository",
-    # Registry
-    "RegistryPatternFeedbackEffect",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
+    # Registry
+    "RegistryPatternFeedbackEffect",
 ]

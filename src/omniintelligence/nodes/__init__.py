@@ -47,9 +47,17 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_promotion_effect",
         "ServiceHandlerRegistry",
     ),
-    "ModelSessionOutcomeRequest": (
+    "ClaudeSessionOutcome": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
-        "ModelSessionOutcomeRequest",
+        "ClaudeSessionOutcome",
+    ),
+    "ClaudeCodeSessionOutcome": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "ClaudeCodeSessionOutcome",
+    ),
+    "SessionOutcomeInput": (
+        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "SessionOutcomeInput",
     ),
     "ModelSessionOutcomeResult": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
@@ -161,11 +169,13 @@ if TYPE_CHECKING:
 
     from omniintelligence.nodes.node_pattern_feedback_effect import (
         ROLLING_WINDOW_SIZE as ROLLING_WINDOW_SIZE,
+        ClaudeCodeSessionOutcome as ClaudeCodeSessionOutcome,
+        ClaudeSessionOutcome as ClaudeSessionOutcome,
         EnumOutcomeRecordingStatus as EnumOutcomeRecordingStatus,
-        ModelSessionOutcomeRequest as ModelSessionOutcomeRequest,
         ModelSessionOutcomeResult as ModelSessionOutcomeResult,
         NodePatternFeedbackEffect as NodePatternFeedbackEffect,
         ProtocolPatternRepository as ProtocolPatternRepository,
+        SessionOutcomeInput as SessionOutcomeInput,
         record_session_outcome as record_session_outcome,
         update_pattern_rolling_metrics as update_pattern_rolling_metrics,
     )
@@ -197,8 +207,10 @@ __all__ = [
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
     # Models and enums (from node_pattern_feedback_effect)
+    "ClaudeCodeSessionOutcome",
+    "ClaudeSessionOutcome",
+    "SessionOutcomeInput",
     "EnumOutcomeRecordingStatus",
-    "ModelSessionOutcomeRequest",
     "ModelSessionOutcomeResult",
     # Protocols
     "ProtocolPatternRepository",
