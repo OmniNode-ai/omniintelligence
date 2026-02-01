@@ -605,8 +605,23 @@ Nodes are thin shells that delegate to handlers. Infrastructure concerns (Kafka 
 `RuntimeHostProcess` from `omnibase_infra.runtime` is the correct way to run effect nodes:
 
 ```python
+import asyncio
+import signal
+
 from omnibase_infra.runtime import RuntimeHostProcess
 from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+
+shutdown_event = asyncio.Event()
+
+
+def handle_shutdown(sig, frame):
+    """Signal handler to trigger graceful shutdown."""
+    shutdown_event.set()
+
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
+
 
 async def main():
     # RuntimeHostProcess discovers nodes and wires them automatically
