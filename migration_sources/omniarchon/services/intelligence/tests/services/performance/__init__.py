@@ -1,3 +1,0 @@
-"""
-Performance service tests
-"""
