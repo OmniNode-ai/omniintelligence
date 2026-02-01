@@ -36,9 +36,9 @@ description: >
   data for pattern learning and confidence scoring nodes.
 # Strongly typed I/O models
 input_model:
-  name: "ModelSessionOutcomeRequest"
-  module: "omniintelligence.nodes.node_pattern_feedback_effect.models"
-  description: "Input model for session outcome recording requests."
+  name: "ClaudeSessionOutcome"
+  module: "omnibase_core.integrations.claude_code"
+  description: "Session outcome event from Claude Code sessions."
 output_model:
   name: "ModelSessionOutcomeResult"
   module: "omniintelligence.nodes.node_pattern_feedback_effect.models"
@@ -58,7 +58,7 @@ output_model:
 #     - Returns counts of updated records
 #
 # Execution Flow:
-#   1. Receive ModelSessionOutcomeRequest with session_id, success, failure_reason
+#   1. Receive ClaudeSessionOutcome event with session_id, outcome, error
 #   2. Find all pattern_injections for this session that haven't been processed
 #   3. Mark injections as recorded with the outcome
 #   4. Update rolling_20 metrics for all unique patterns involved (decay approximation)
