@@ -10,8 +10,18 @@ from omniintelligence.models.repository.model_learned_pattern_row import (
 from omniintelligence.models.repository.model_pattern_for_injection import (
     ModelPatternForInjection,
 )
+from omniintelligence.models.repository.model_scalar_results import (
+    ModelExistsResult,
+    ModelIdResult,
+    ModelTimestampResult,
+    ModelVersionResult,
+)
 
 __all__ = [
+    "ModelExistsResult",
+    "ModelIdResult",
     "ModelLearnedPatternRow",
     "ModelPatternForInjection",
+    "ModelTimestampResult",
+    "ModelVersionResult",
 ]

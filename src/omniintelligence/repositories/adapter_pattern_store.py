@@ -18,6 +18,7 @@ Usage:
 
 from __future__ import annotations
 
+import copy
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -90,8 +91,13 @@ class AdapterPatternStore:
             id=str(pattern_id),
             signature=signature,
             domain_id=domain,
-            domain_version="1.0",  # Default version
-            domain_candidates="[]",  # Empty JSON array
+            # Default domain version for new patterns. The domain_version field tracks
+            # schema evolution within a domain, not pattern versioning. Individual pattern
+            # versions are tracked via the `version` field.
+            domain_version="1.0",
+            # Empty JSON array - domain candidates are populated during pattern
+            # matching/classification, not at initial storage time.
+            domain_candidates="[]",
             keywords=None,
             confidence=confidence,
             status=state.value,
@@ -222,8 +228,6 @@ def _convert_defaults_to_schema_value(contract_dict: dict[str, Any]) -> dict[str
         return schema_value.model_dump()
 
     # Deep copy to avoid mutating input
-    import copy
-
     result = copy.deepcopy(contract_dict)
 
     # Process each operation's params

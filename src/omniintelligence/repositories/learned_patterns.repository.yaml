@@ -29,6 +29,10 @@ db_repository:
   models:
     PatternRow: omniintelligence.models.repository:ModelLearnedPatternRow
     PatternInjection: omniintelligence.models.repository:ModelPatternForInjection
+    ExistsResult: omniintelligence.models.repository:ModelExistsResult
+    IdResult: omniintelligence.models.repository:ModelIdResult
+    VersionResult: omniintelligence.models.repository:ModelVersionResult
+    TimestampResult: omniintelligence.models.repository:ModelTimestampResult
 
   # =============================================================================
   # OPERATIONS
@@ -417,8 +421,8 @@ db_repository:
         superseded_by:
           name: superseded_by
           param_type: string
-          required: true
-          description: UUID of new pattern version
+          required: false
+          description: UUID of new pattern version. Null when called before new version ID is known.
       returns:
         model_ref: PatternRow
         many: false
@@ -560,7 +564,7 @@ db_repository:
           param_type: integer
           required: true
       returns:
-        model_ref: PatternRow
+        model_ref: ExistsResult
         many: false
 
     # -------------------------------------------------------------------------
@@ -586,7 +590,7 @@ db_repository:
           param_type: string
           required: true
       returns:
-        model_ref: PatternRow
+        model_ref: IdResult
         many: false
 
     # -------------------------------------------------------------------------
@@ -612,7 +616,7 @@ db_repository:
           param_type: string
           required: true
       returns:
-        model_ref: PatternRow
+        model_ref: VersionResult
         many: false
 
     # -------------------------------------------------------------------------
@@ -633,5 +637,5 @@ db_repository:
           param_type: string
           required: true
       returns:
-        model_ref: PatternRow
+        model_ref: TimestampResult
         many: false
