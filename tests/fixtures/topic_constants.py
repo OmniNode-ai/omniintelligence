@@ -34,7 +34,19 @@ TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-class
 Full topic: {env}.onex.evt.omniintelligence.intent-classified.v1
 """
 
+TOPIC_SUFFIX_SESSION_OUTCOME_V1: str = "onex.cmd.omniintelligence.session-outcome.v1"
+"""Topic suffix for session outcome events (INPUT).
+
+Full topic: {env}.onex.cmd.omniintelligence.session-outcome.v1
+
+This topic receives outcome events when Claude Code sessions complete.
+Consumed by node_pattern_feedback_effect for rolling metric updates.
+
+Reference: OMN-1763
+"""
+
 __all__ = [
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
+    "TOPIC_SUFFIX_SESSION_OUTCOME_V1",
 ]

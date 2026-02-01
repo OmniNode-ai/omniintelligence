@@ -275,4 +275,5 @@ markers = [
     "integration: marks tests as integration tests",
     "performance: marks tests as performance benchmarks",
     "unit: marks tests as unit tests",
+    "audit: marks tests as I/O audit enforcement tests",
 ]
