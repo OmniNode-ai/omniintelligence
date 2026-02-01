@@ -7,13 +7,13 @@ to storage with governance invariants, idempotency, and version tracking.
 
 Key Invariants:
     - Governance: Confidence must be >= 0.5 (MIN_CONFIDENCE)
-    - Uniqueness: UNIQUE(domain, signature_hash, version)
-    - Current Tracking: UNIQUE(domain, signature_hash) WHERE is_current = true
+    - Uniqueness: UNIQUE(domain, signature, version)
+    - Current Tracking: UNIQUE(domain, signature) WHERE is_current = true
     - Immutable History: Never overwrite existing patterns, create new version
-    - Idempotency: Same (event_id, signature_hash) returns same result
+    - Idempotency: Same (pattern_id, signature) returns same result
 
 Lineage Key:
-    Patterns are uniquely identified by (domain, signature_hash) for
+    Patterns are uniquely identified by (domain, signature) for
     deduplication and version tracking across pattern versions.
 
 Reference:
@@ -66,12 +66,12 @@ class ProtocolPatternStore(Protocol):
     the is_current flag for lineage management.
 
     Database Schema Requirements:
-        - UNIQUE(domain, signature_hash, version): No duplicate versions
-        - UNIQUE(domain, signature_hash) WHERE is_current = true: Only one current
+        - UNIQUE(domain, signature, version): No duplicate versions
+        - UNIQUE(domain, signature) WHERE is_current = true: Only one current
         - pattern_state_transitions table: Audit trail (future)
 
     Implementations should handle:
-        - Idempotent storage (same pattern_id + signature_hash returns existing)
+        - Idempotent storage (same pattern_id + signature returns existing)
         - Version management (is_current flag transitions)
         - Atomic operations (set_previous_not_current + store_pattern)
 
@@ -447,13 +447,13 @@ async def handle_store_pattern(
 
     This handler implements the following invariants:
         1. Governance: Reject if confidence < MIN_CONFIDENCE (0.5)
-        2. Idempotency: If (pattern_id, signature_hash) exists, return existing
+        2. Idempotency: If (pattern_id, signature) exists, return existing
         3. Version Management: Set previous is_current = false
         4. Storage: Insert new pattern with is_current = true
         5. Audit: Log state transition for governance trail
 
     The handler is designed to be idempotent - calling with the same
-    (pattern_id, signature_hash) will return the same result without
+    (pattern_id, signature) will return the same result without
     side effects.
 
     Args:
@@ -520,7 +520,7 @@ async def handle_store_pattern(
     )
 
     # -------------------------------------------------------------------------
-    # Step 2: Check idempotency (same event_id + signature_hash = same result)
+    # Step 2: Check idempotency (same pattern_id + signature = same result)
     # -------------------------------------------------------------------------
     stored_at = datetime.now(UTC)
 
@@ -637,7 +637,7 @@ async def handle_store_pattern(
     #   2. store_pattern() - inserts new pattern with is_current=true
     #
     # INVARIANT AT RISK:
-    #   UNIQUE(domain, signature_hash) WHERE is_current = true
+    #   UNIQUE(domain, signature) WHERE is_current = true
     #   (Exactly one current version per lineage)
     #
     # FAILURE SCENARIO WITHOUT ATOMICITY:
@@ -656,7 +656,7 @@ async def handle_store_pattern(
     # -------------------------------------------------------------------------
 
     # Step 5a: Set previous versions as not current
-    # This maintains the invariant: UNIQUE(domain, signature_hash) WHERE is_current = true
+    # This maintains the invariant: UNIQUE(domain, signature) WHERE is_current = true
     updated_count = await pattern_store.set_previous_not_current(
         domain=input_data.domain,
         signature=input_data.signature,

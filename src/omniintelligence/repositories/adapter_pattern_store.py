@@ -1,5 +1,6 @@
 # ruff: noqa: ARG002
-# ARG002 disabled: Protocol adapter has unused params required by interface contract
+# ARG002 disabled: Protocol adapter accepts params required by ProtocolPatternStore
+# interface but doesn't use them. See class docstring for transaction semantics.
 """Adapter bridging PostgresRepositoryRuntime to ProtocolPatternStore.
 
 This adapter implements the ProtocolPatternStore interface using the
@@ -59,6 +60,32 @@ class AdapterPatternStore:
     All database operations are delegated to the runtime, which executes
     the SQL defined in the contract YAML. Contract defaults are applied
     automatically for optional params not explicitly provided.
+
+    Transaction Semantics
+    ---------------------
+    **IMPORTANT**: This adapter manages its own connections via the
+    PostgresRepositoryRuntime's connection pool. The `conn` parameters
+    on all methods exist ONLY for interface compatibility with
+    ProtocolPatternStore and are NOT used.
+
+    The runtime acquires connections from its pool per-operation and
+    commits/releases them automatically. This means:
+
+    - Callers CANNOT control transaction boundaries with this adapter
+    - Each method call is an independent transaction
+    - External transaction control (BEGIN/COMMIT/ROLLBACK) is not supported
+    - If you need external transaction control, use a different
+      ProtocolPatternStore implementation that honors the `conn` parameter
+
+    This design trades external transaction control for:
+    - Simpler connection management (no connection passing)
+    - Automatic connection pooling and release
+    - Contract-driven operation execution
+
+    See Also:
+        This file has `# ruff: noqa: ARG002` at the top to suppress
+        "unused argument" linter warnings for all interface-compatibility
+        parameters (conn, signature_hash, is_current, stored_at, etc.).
     """
 
     def __init__(self, runtime: PostgresRepositoryRuntime) -> None:
@@ -131,16 +158,34 @@ class AdapterPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: AsyncConnection,
+        conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> UUID:
         """Store a pattern using the contract runtime.
 
         Delegates to the 'store_pattern' operation in the contract.
         Contract defaults are applied for optional params not explicitly provided:
+
         - domain_version: defaults to "1.0" (schema version, not pattern version)
         - domain_candidates: defaults to "[]"
         - status: defaults to "candidate" (overridden by state param here)
         - recurrence_count: defaults to 1
+
+        Unused Parameters (Interface Compatibility)
+        --------------------------------------------
+        The following parameters are accepted for ProtocolPatternStore interface
+        compatibility but are NOT used by this adapter:
+
+        - **signature_hash**: Not stored. The contract uses ``signature`` directly
+          for lineage tracking. The hash was originally intended for fast lookups,
+          but the contract schema indexes on signature text instead.
+        - **is_current**: Not passed to contract. Version currency is managed by
+          calling ``set_previous_not_current()`` before storing new versions.
+        - **stored_at**: Not used. The database schema uses ``created_at`` with a
+          server-side ``NOW()`` default for timestamp consistency.
+        - **actor**: Reserved for future audit trail features (who stored pattern).
+        - **source_run_id**: Reserved for future audit trail (originating CI run).
+        - **metadata**: Reserved for future extensibility (arbitrary key-value data).
+        - **conn**: See class docstring. Runtime manages its own connection pool.
         """
         # Build positional args - contract defaults apply for omitted optional params
         args = self._build_positional_args(
@@ -173,9 +218,14 @@ class AdapterPatternStore:
         domain: str,
         signature: str,
         version: int,
-        conn: AsyncConnection,
+        conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> bool:
-        """Check if a pattern exists for the given lineage and version."""
+        """Check if a pattern exists for the given lineage and version.
+
+        Note:
+            The ``conn`` parameter is accepted for interface compatibility
+            but is NOT used. See class docstring for transaction semantics.
+        """
         args = self._build_positional_args(
             "check_exists",
             {
@@ -195,9 +245,14 @@ class AdapterPatternStore:
         self,
         pattern_id: UUID,
         signature: str,
-        conn: AsyncConnection,
+        conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> UUID | None:
-        """Check if a pattern exists by idempotency key."""
+        """Check if a pattern exists by idempotency key.
+
+        Note:
+            The ``conn`` parameter is accepted for interface compatibility
+            but is NOT used. See class docstring for transaction semantics.
+        """
         args = self._build_positional_args(
             "check_exists_by_id",
             {
@@ -215,9 +270,14 @@ class AdapterPatternStore:
         self,
         domain: str,
         signature: str,
-        conn: AsyncConnection,
+        conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> int:
-        """Set is_current = false for all previous versions of this lineage."""
+        """Set is_current = false for all previous versions of this lineage.
+
+        Note:
+            The ``conn`` parameter is accepted for interface compatibility
+            but is NOT used. See class docstring for transaction semantics.
+        """
         args = self._build_positional_args(
             "set_not_current",
             {
@@ -237,9 +297,14 @@ class AdapterPatternStore:
         self,
         domain: str,
         signature: str,
-        conn: AsyncConnection,
+        conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> int | None:
-        """Get the latest version number for a pattern lineage."""
+        """Get the latest version number for a pattern lineage.
+
+        Note:
+            The ``conn`` parameter is accepted for interface compatibility
+            but is NOT used. See class docstring for transaction semantics.
+        """
         args = self._build_positional_args(
             "get_latest_version",
             {
@@ -256,9 +321,14 @@ class AdapterPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        conn: AsyncConnection,
+        conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> datetime | None:
-        """Get the original stored_at timestamp for a pattern."""
+        """Get the original stored_at timestamp for a pattern.
+
+        Note:
+            The ``conn`` parameter is accepted for interface compatibility
+            but is NOT used. See class docstring for transaction semantics.
+        """
         args = self._build_positional_args(
             "get_stored_at",
             {

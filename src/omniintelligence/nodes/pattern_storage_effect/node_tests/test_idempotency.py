@@ -3,9 +3,12 @@
 """Unit tests for pattern storage idempotency and versioning.
 
 Tests the idempotency invariants:
-    - Same (pattern_id, signature_hash) returns same result without side effects
+    - Same (pattern_id, signature) returns same result without side effects
     - Different pattern_id for same lineage creates new version
     - Immutable history: Never overwrite existing patterns
+
+Lineage is defined by (domain, signature), not signature_hash.
+Idempotency key is (pattern_id, signature).
 
 These tests verify the handler's idempotent behavior and version tracking.
 
@@ -48,7 +51,7 @@ class TestIdempotentStorage:
         mock_pattern_store: MockPatternStore,
         mock_conn: MagicMock,
     ) -> None:
-        """Same (pattern_id, signature_hash) should return same result."""
+        """Same (pattern_id, signature) should return same result."""
         pattern_id = uuid4()
         signature_hash = f"hash_{uuid4().hex[:16]}"
 
@@ -177,7 +180,7 @@ class TestNewVersionCreation:
             input1, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Second pattern in same lineage (same domain + signature_hash)
+        # Second pattern in same lineage (same domain + signature)
         input2 = create_valid_input(
             pattern_id=uuid4(),  # Different pattern_id
             signature_hash=signature_hash,
@@ -443,7 +446,7 @@ class TestIsCurrentFlag:
 
 @pytest.mark.unit
 class TestLineageKey:
-    """Tests for lineage key (domain, signature_hash) behavior."""
+    """Tests for lineage key (domain, signature) behavior."""
 
     @pytest.mark.asyncio
     async def test_lineage_key_uniquely_identifies_lineage(
@@ -645,7 +648,7 @@ class TestIdempotencyEdgeCases:
             input2, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Should be idempotent based on (pattern_id, signature_hash)
+        # Should be idempotent based on (pattern_id, signature)
         assert result1.pattern_id == result2.pattern_id
         # Original confidence should be preserved
         stored = mock_pattern_store.patterns[pattern_id]
