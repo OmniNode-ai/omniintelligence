@@ -112,6 +112,7 @@ class MockPatternStore:
         self.patterns: dict[UUID, dict[str, Any]] = {}
         self.idempotency_map: dict[tuple[UUID, str], UUID] = {}
         self._version_tracker: dict[tuple[str, str], int] = {}
+        self._atomic_transitions_count: int = 0
 
     async def store_pattern(
         self,
@@ -129,6 +130,7 @@ class MockPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
+        conn: Any = None,
     ) -> UUID:
         """Store a pattern in the mock database."""
         self.patterns[pattern_id] = {
@@ -146,22 +148,25 @@ class MockPatternStore:
             "correlation_id": correlation_id,
             "metadata": metadata or {},
         }
-        self.idempotency_map[(pattern_id, signature_hash)] = pattern_id
-        lineage_key = (domain, signature_hash)
+        # Track idempotency key (using signature text, not hash)
+        self.idempotency_map[(pattern_id, signature)] = pattern_id
+        # Track version (using signature text, not hash)
+        lineage_key = (domain, signature)
         self._version_tracker[lineage_key] = version
         return pattern_id
 
     async def check_exists(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
         version: int,
+        conn: Any = None,
     ) -> bool:
         """Check if a pattern exists for the given lineage and version."""
         for pattern in self.patterns.values():
             if (
                 pattern["domain"] == domain
-                and pattern["signature_hash"] == signature_hash
+                and pattern["signature"] == signature
                 and pattern["version"] == version
             ):
                 return True
@@ -170,22 +175,24 @@ class MockPatternStore:
     async def check_exists_by_id(
         self,
         pattern_id: UUID,
-        signature_hash: str,
+        signature: str,
+        conn: Any = None,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key."""
-        return self.idempotency_map.get((pattern_id, signature_hash))
+        return self.idempotency_map.get((pattern_id, signature))
 
     async def set_previous_not_current(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
+        conn: Any = None,
     ) -> int:
         """Set is_current = false for all previous versions."""
         updated_count = 0
         for pattern in self.patterns.values():
             if (
                 pattern["domain"] == domain
-                and pattern["signature_hash"] == signature_hash
+                and pattern["signature"] == signature
                 and pattern["is_current"]
             ):
                 pattern["is_current"] = False
@@ -195,14 +202,16 @@ class MockPatternStore:
     async def get_latest_version(
         self,
         domain: str,
-        signature_hash: str,
+        signature: str,
+        conn: Any = None,
     ) -> int | None:
         """Get the latest version number for a pattern lineage."""
-        return self._version_tracker.get((domain, signature_hash))
+        return self._version_tracker.get((domain, signature))
 
     async def get_stored_at(
         self,
         pattern_id: UUID,
+        conn: Any = None,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern."""
         pattern = self.patterns.get(pattern_id)
@@ -210,11 +219,72 @@ class MockPatternStore:
             return pattern.get("stored_at")
         return None
 
+    async def store_with_version_transition(
+        self,
+        *,
+        pattern_id: UUID,
+        signature: str,
+        signature_hash: str,
+        domain: str,
+        version: int,
+        confidence: float,
+        quality_score: float = 0.5,
+        state: EnumPatternState,
+        is_current: bool,
+        stored_at: datetime,
+        actor: str | None = None,
+        source_run_id: str | None = None,
+        correlation_id: UUID | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
+        conn: Any = None,
+    ) -> UUID:
+        """Atomically transition previous version(s) and store new pattern.
+
+        This method combines set_previous_not_current and store_pattern into
+        a single atomic operation. For testing, we track that this method was
+        called via the atomic_transitions_count attribute.
+        """
+        # Track that atomic operation was used (for test verification)
+        self._atomic_transitions_count += 1
+
+        # Atomically: set previous not current + store new pattern
+        for pattern in self.patterns.values():
+            if (
+                pattern["domain"] == domain
+                and pattern["signature"] == signature
+                and pattern["is_current"]
+            ):
+                pattern["is_current"] = False
+
+        # Store the new pattern (always with is_current=True)
+        self.patterns[pattern_id] = {
+            "pattern_id": pattern_id,
+            "signature": signature,
+            "signature_hash": signature_hash,
+            "domain": domain,
+            "version": version,
+            "confidence": confidence,
+            "state": state,
+            "is_current": True,  # Always true for atomic transition
+            "stored_at": stored_at,
+            "actor": actor,
+            "source_run_id": source_run_id,
+            "correlation_id": correlation_id,
+            "metadata": metadata or {},
+        }
+        # Track idempotency key
+        self.idempotency_map[(pattern_id, signature)] = pattern_id
+        # Track version
+        lineage_key = (domain, signature)
+        self._version_tracker[lineage_key] = version
+        return pattern_id
+
     def reset(self) -> None:
         """Reset all storage for test isolation."""
         self.patterns.clear()
         self.idempotency_map.clear()
         self._version_tracker.clear()
+        self._atomic_transitions_count = 0
 
 
 class MockPatternStateManager:
@@ -225,7 +295,9 @@ class MockPatternStateManager:
         self.states: dict[UUID, EnumPatternState] = {}
         self.transitions: list[ModelStateTransition] = []
 
-    async def get_current_state(self, pattern_id: UUID) -> EnumPatternState | None:
+    async def get_current_state(
+        self, pattern_id: UUID, conn: Any = None
+    ) -> EnumPatternState | None:
         """Get the current state of a pattern."""
         return self.states.get(pattern_id)
 
@@ -233,11 +305,14 @@ class MockPatternStateManager:
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
+        conn: Any = None,
     ) -> None:
         """Update the state of a pattern."""
         self.states[pattern_id] = new_state
 
-    async def record_transition(self, transition: ModelStateTransition) -> None:
+    async def record_transition(
+        self, transition: ModelStateTransition, conn: Any = None
+    ) -> None:
         """Record a state transition in the audit table."""
         self.transitions.append(transition)
 

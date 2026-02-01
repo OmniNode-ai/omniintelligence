@@ -76,9 +76,25 @@ class ProtocolPatternStore(Protocol):
         - Atomic operations (set_previous_not_current + store_pattern)
 
     Transaction Support:
-        All methods accept an optional `conn` parameter. When `conn` is provided,
+        All methods accept a `conn` parameter. When `conn` is provided,
         the operation uses that connection (enabling external transaction control).
         When None, implementations may use their own connection management.
+
+    Transaction Semantics (Implementation-Specific):
+        The `conn` parameter is provided for external transaction control.
+        However, implementation behavior varies:
+
+        - Some implementations honor `conn` and participate in caller-managed
+          transactions (e.g., test mocks, direct psycopg adapters)
+        - Some implementations manage their own connections (e.g., pool-based
+          adapters like AdapterPatternStore) and may ignore the `conn` parameter
+
+        Callers should verify implementation behavior if transaction atomicity
+        is critical for their use case.
+
+        For guaranteed atomicity in version transitions, prefer using
+        `store_with_version_transition()` which uses a single SQL CTE and
+        does not depend on external transaction management.
 
     IMPORTANT: Implementations MUST ensure that set_previous_not_current() and
     store_pattern() are executed atomically (within a single database transaction).
@@ -249,6 +265,7 @@ class ProtocolPatternStore(Protocol):
         domain: str,
         version: int,
         confidence: float,
+        quality_score: float = 0.5,
         state: EnumPatternState,
         is_current: bool,
         stored_at: datetime,
@@ -707,56 +724,26 @@ async def handle_store_pattern(
         )
 
     # -------------------------------------------------------------------------
-    # Step 5 & 6: Version management and storage (MUST BE ATOMIC)
+    # Step 5 & 6: Version management and storage
     # -------------------------------------------------------------------------
-    # ATOMICITY REQUIREMENT (CRITICAL):
+    # ATOMICITY STRATEGY:
     #
-    # The following two operations MUST be executed within a single database
-    # transaction by the ProtocolPatternStore implementation:
+    # For version > 1 (existing lineage):
+    #   Use store_with_version_transition() which atomically:
+    #   1. Sets all previous versions as not current (is_current=false)
+    #   2. Inserts new pattern with is_current=true
+    #   This prevents the invariant violation where a lineage has ZERO current
+    #   versions if the insert fails after the update.
     #
-    #   1. set_previous_not_current() - marks existing versions as not current
-    #   2. store_pattern() - inserts new pattern with is_current=true
+    # For version == 1 (new lineage):
+    #   Use store_pattern() directly since there are no previous versions to
+    #   transition. This is simpler and equally correct.
     #
-    # INVARIANT AT RISK:
+    # INVARIANT PROTECTED:
     #   UNIQUE(domain, signature) WHERE is_current = true
     #   (Exactly one current version per lineage)
-    #
-    # FAILURE SCENARIO WITHOUT ATOMICITY:
-    #   If set_previous_not_current() succeeds but store_pattern() fails:
-    #   - All previous versions have is_current=false
-    #   - No new version is inserted
-    #   - RESULT: Lineage has ZERO current versions (invariant violated)
-    #   - IMPACT: Pattern lookups for "current" version return nothing
-    #
-    # The handler cannot enforce transaction boundaries at the protocol level.
-    # Implementations of ProtocolPatternStore are REQUIRED to wrap these
-    # operations in a database transaction. See ProtocolPatternStore docstring.
-    #
-    # TODO(OMN-1668): Consider adding a combined atomic_store_with_version_update()
-    # method to the protocol that makes atomicity explicit at the API level.
     # -------------------------------------------------------------------------
 
-    # Step 5a: Set previous versions as not current
-    # This maintains the invariant: UNIQUE(domain, signature) WHERE is_current = true
-    updated_count = await pattern_store.set_previous_not_current(
-        domain=input_data.domain,
-        signature=input_data.signature,
-        conn=conn,
-    )
-
-    if updated_count > 0:
-        logger.debug(
-            "Set previous versions as not current",
-            extra={
-                "domain": input_data.domain,
-                "signature_hash": input_data.signature_hash,
-                "updated_count": updated_count,
-            },
-        )
-
-    # Step 5b: Store the new pattern with is_current = true
-    # WARNING: This MUST succeed if set_previous_not_current succeeded,
-    # otherwise the lineage will have no current version. See atomicity note above.
     initial_state = EnumPatternState.CANDIDATE
 
     # Construct typed metadata for storage
@@ -766,22 +753,59 @@ async def handle_store_pattern(
         "additional_attributes": input_data.metadata.additional_attributes,
     }
 
-    stored_id = await pattern_store.store_pattern(
-        pattern_id=input_data.pattern_id,
-        signature=input_data.signature,
-        signature_hash=input_data.signature_hash,
-        domain=input_data.domain,
-        version=version,
-        confidence=input_data.confidence,
-        state=initial_state,
-        is_current=True,
-        stored_at=stored_at,
-        actor=input_data.metadata.actor,
-        source_run_id=input_data.metadata.source_run_id,
-        correlation_id=input_data.correlation_id,
-        metadata=pattern_metadata,
-        conn=conn,
-    )
+    if version > 1:
+        # Use atomic operation for version transitions to prevent race condition
+        # where set_previous_not_current succeeds but store_pattern fails
+        logger.debug(
+            "Using atomic store_with_version_transition for version > 1",
+            extra={
+                "domain": input_data.domain,
+                "signature_hash": input_data.signature_hash,
+                "version": version,
+            },
+        )
+        stored_id = await pattern_store.store_with_version_transition(
+            pattern_id=input_data.pattern_id,
+            signature=input_data.signature,
+            signature_hash=input_data.signature_hash,
+            domain=input_data.domain,
+            version=version,
+            confidence=input_data.confidence,
+            state=initial_state,
+            is_current=True,
+            stored_at=stored_at,
+            actor=input_data.metadata.actor,
+            source_run_id=input_data.metadata.source_run_id,
+            correlation_id=input_data.correlation_id,
+            metadata=pattern_metadata,
+            conn=conn,
+        )
+    else:
+        # First version in lineage - no previous versions to transition
+        logger.debug(
+            "Using store_pattern for first version",
+            extra={
+                "domain": input_data.domain,
+                "signature_hash": input_data.signature_hash,
+                "version": version,
+            },
+        )
+        stored_id = await pattern_store.store_pattern(
+            pattern_id=input_data.pattern_id,
+            signature=input_data.signature,
+            signature_hash=input_data.signature_hash,
+            domain=input_data.domain,
+            version=version,
+            confidence=input_data.confidence,
+            state=initial_state,
+            is_current=True,
+            stored_at=stored_at,
+            actor=input_data.metadata.actor,
+            source_run_id=input_data.metadata.source_run_id,
+            correlation_id=input_data.correlation_id,
+            metadata=pattern_metadata,
+            conn=conn,
+        )
 
     logger.info(
         "Pattern stored successfully",

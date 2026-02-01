@@ -362,6 +362,7 @@ class AdapterPatternStore:
         domain: str,
         version: int,
         confidence: float,
+        quality_score: float = 0.5,
         state: EnumPatternState,
         is_current: bool,
         stored_at: datetime,
@@ -410,6 +411,7 @@ class AdapterPatternStore:
             domain: Domain where the pattern was learned.
             version: Version number (MUST be > latest existing version).
             confidence: Confidence score at storage time.
+            quality_score: Initial quality score (0.0-1.0, default 0.5).
             state: Initial state of the pattern.
             is_current: Ignored - always stored as TRUE.
             stored_at: Ignored - uses database NOW() default.
@@ -436,6 +438,7 @@ class AdapterPatternStore:
                 # domain_candidates: omitted - uses contract default "[]"
                 # keywords: omitted - optional with no default, will be None
                 "confidence": confidence,
+                "quality_score": quality_score,
                 "status": state.value,
                 "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
                 # recurrence_count: omitted - uses contract default 1

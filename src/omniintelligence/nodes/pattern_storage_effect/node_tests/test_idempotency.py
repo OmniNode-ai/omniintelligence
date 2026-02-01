@@ -653,3 +653,354 @@ class TestIdempotencyEdgeCases:
         # Original confidence should be preserved
         stored = mock_pattern_store.patterns[pattern_id]
         assert stored["confidence"] == 0.7
+
+
+# =============================================================================
+# Atomic Version Transition Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestAtomicVersionTransition:
+    """Tests for atomic version transition via store_with_version_transition.
+
+    The store_with_version_transition method combines set_previous_not_current
+    and store_pattern into a single atomic operation, preventing the invariant
+    violation where a lineage has ZERO current versions.
+
+    These tests verify the MockPatternStore implementation which serves as:
+    1. A test double for unit testing
+    2. A specification for production implementations
+    """
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_sets_previous_not_current(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should set previous versions as not current."""
+        from datetime import UTC, datetime
+
+        domain = "code_patterns"
+        signature = "def.*return.*None"
+        signature_hash = f"hash_{uuid4().hex[:16]}"
+
+        # Store first version using store_pattern (version 1)
+        v1_id = uuid4()
+        await mock_pattern_store.store_pattern(
+            pattern_id=v1_id,
+            signature=signature,
+            signature_hash=signature_hash,
+            domain=domain,
+            version=1,
+            confidence=0.7,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Verify v1 is current
+        assert mock_pattern_store.patterns[v1_id]["is_current"] is True
+
+        # Store second version using atomic transition
+        v2_id = uuid4()
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=v2_id,
+            signature=signature,
+            signature_hash=signature_hash,
+            domain=domain,
+            version=2,
+            confidence=0.8,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,  # Ignored by atomic operation
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Verify v1 is NO LONGER current (atomic transition updated it)
+        assert mock_pattern_store.patterns[v1_id]["is_current"] is False
+        # Verify v2 IS current
+        assert mock_pattern_store.patterns[v2_id]["is_current"] is True
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_returns_correct_pattern_id(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should return the correct pattern_id."""
+        from datetime import UTC, datetime
+
+        pattern_id = uuid4()
+
+        result_id = await mock_pattern_store.store_with_version_transition(
+            pattern_id=pattern_id,
+            signature="test_signature",
+            signature_hash="test_hash",
+            domain="test_domain",
+            version=2,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Should return the same pattern_id that was passed in
+        assert result_id == pattern_id
+        # Pattern should be stored with that ID
+        assert pattern_id in mock_pattern_store.patterns
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_tracks_operation_count(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should track that it was called (for test verification)."""
+        from datetime import UTC, datetime
+
+        # Initially zero atomic transitions
+        assert mock_pattern_store._atomic_transitions_count == 0
+
+        # Perform atomic transition
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=uuid4(),
+            signature="test_signature",
+            signature_hash="test_hash",
+            domain="test_domain",
+            version=2,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Should have tracked one atomic transition
+        assert mock_pattern_store._atomic_transitions_count == 1
+
+        # Perform another atomic transition
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=uuid4(),
+            signature="test_signature_2",
+            signature_hash="test_hash_2",
+            domain="test_domain",
+            version=2,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Should have tracked two atomic transitions
+        assert mock_pattern_store._atomic_transitions_count == 2
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_updates_version_tracker(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should update the version tracker."""
+        from datetime import UTC, datetime
+
+        domain = "code_patterns"
+        signature = "def.*return.*None"
+
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=uuid4(),
+            signature=signature,
+            signature_hash="test_hash",
+            domain=domain,
+            version=5,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Version tracker should be updated
+        latest = await mock_pattern_store.get_latest_version(
+            domain=domain,
+            signature=signature,
+            conn=mock_conn,
+        )
+        assert latest == 5
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_updates_idempotency_map(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should update idempotency map for future checks."""
+        from datetime import UTC, datetime
+
+        pattern_id = uuid4()
+        signature = "test_signature"
+
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=pattern_id,
+            signature=signature,
+            signature_hash="test_hash",
+            domain="test_domain",
+            version=2,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # Idempotency check should find it
+        existing = await mock_pattern_store.check_exists_by_id(
+            pattern_id=pattern_id,
+            signature=signature,
+            conn=mock_conn,
+        )
+        assert existing == pattern_id
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_handles_multiple_previous_versions(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should set ALL previous versions as not current."""
+        from datetime import UTC, datetime
+
+        domain = "code_patterns"
+        signature = "def.*return.*None"
+        signature_hash = "test_hash"
+
+        # Store versions 1, 2, 3 using store_pattern
+        # (simulating a scenario where is_current wasn't managed correctly)
+        v_ids = []
+        for v in range(1, 4):
+            v_id = uuid4()
+            await mock_pattern_store.store_pattern(
+                pattern_id=v_id,
+                signature=signature,
+                signature_hash=signature_hash,
+                domain=domain,
+                version=v,
+                confidence=0.7,
+                state=EnumPatternState.CANDIDATE,
+                is_current=True,  # Intentionally set all to current (incorrect state)
+                stored_at=datetime.now(UTC),
+                conn=mock_conn,
+            )
+            v_ids.append(v_id)
+
+        # All three are marked current (bad state for testing)
+        for v_id in v_ids:
+            assert mock_pattern_store.patterns[v_id]["is_current"] is True
+
+        # Now store version 4 using atomic transition
+        v4_id = uuid4()
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=v4_id,
+            signature=signature,
+            signature_hash=signature_hash,
+            domain=domain,
+            version=4,
+            confidence=0.9,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        # ALL previous versions should now be not current
+        for v_id in v_ids:
+            assert (
+                mock_pattern_store.patterns[v_id]["is_current"] is False
+            ), f"Version {mock_pattern_store.patterns[v_id]['version']} should not be current"
+
+        # Only v4 should be current
+        assert mock_pattern_store.patterns[v4_id]["is_current"] is True
+
+    @pytest.mark.asyncio
+    async def test_atomic_transition_preserves_pattern_data(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Atomic transition should store all pattern data correctly."""
+        from datetime import UTC, datetime
+
+        pattern_id = uuid4()
+        correlation_id = uuid4()
+        stored_at = datetime.now(UTC)
+        metadata = {
+            "tags": ["test", "unit"],
+            "learning_context": "unit_test",
+            "additional_attributes": {"key": "value"},
+        }
+
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=pattern_id,
+            signature="test_signature",
+            signature_hash="test_hash",
+            domain="test_domain",
+            version=2,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=stored_at,
+            actor="test_actor",
+            source_run_id="run_123",
+            correlation_id=correlation_id,
+            metadata=metadata,
+            conn=mock_conn,
+        )
+
+        stored = mock_pattern_store.patterns[pattern_id]
+        assert stored["signature"] == "test_signature"
+        assert stored["signature_hash"] == "test_hash"
+        assert stored["domain"] == "test_domain"
+        assert stored["version"] == 2
+        assert stored["confidence"] == 0.85
+        assert stored["state"] == EnumPatternState.CANDIDATE
+        assert stored["is_current"] is True
+        assert stored["stored_at"] == stored_at
+        assert stored["actor"] == "test_actor"
+        assert stored["source_run_id"] == "run_123"
+        assert stored["correlation_id"] == correlation_id
+        assert stored["metadata"] == metadata
+
+    @pytest.mark.asyncio
+    async def test_reset_clears_atomic_transition_count(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_conn: MagicMock,
+    ) -> None:
+        """Reset should clear the atomic transition count."""
+        from datetime import UTC, datetime
+
+        # Perform an atomic transition
+        await mock_pattern_store.store_with_version_transition(
+            pattern_id=uuid4(),
+            signature="test_signature",
+            signature_hash="test_hash",
+            domain="test_domain",
+            version=2,
+            confidence=0.85,
+            state=EnumPatternState.CANDIDATE,
+            is_current=True,
+            stored_at=datetime.now(UTC),
+            conn=mock_conn,
+        )
+
+        assert mock_pattern_store._atomic_transitions_count == 1
+
+        # Reset should clear it
+        mock_pattern_store.reset()
+
+        assert mock_pattern_store._atomic_transitions_count == 0
+        assert len(mock_pattern_store.patterns) == 0

@@ -61,6 +61,7 @@ class MockPatternStore:
         self.patterns: dict[UUID, dict[str, Any]] = {}
         self.idempotency_map: dict[tuple[UUID, str], UUID] = {}
         self._version_tracker: dict[tuple[str, str], int] = {}
+        self._atomic_transitions_count: int = 0
 
     async def store_pattern(
         self,
@@ -177,11 +178,92 @@ class MockPatternStore:
             return pattern.get("stored_at")
         return None
 
+    async def store_with_version_transition(
+        self,
+        *,
+        pattern_id: UUID,
+        signature: str,
+        signature_hash: str,
+        domain: str,
+        version: int,
+        confidence: float,
+        quality_score: float = 0.5,
+        state: EnumPatternState,
+        is_current: bool,
+        stored_at: datetime,
+        actor: str | None = None,
+        source_run_id: str | None = None,
+        correlation_id: UUID | None = None,
+        metadata: TypedDictPatternStorageMetadata | None = None,
+        conn: AsyncConnection,
+    ) -> UUID:
+        """Atomically transition previous version(s) and store new pattern.
+
+        This method combines set_previous_not_current and store_pattern into
+        a single atomic operation. For testing, we track that this method was
+        called via the atomic_transitions_count attribute.
+
+        Args:
+            pattern_id: Unique identifier for this pattern instance.
+            signature: The pattern signature.
+            signature_hash: Hash of the signature.
+            domain: Domain where the pattern was learned.
+            version: Version number (should be > 1 for existing lineage).
+            confidence: Confidence score.
+            state: Initial state of the pattern.
+            is_current: Ignored - always stored as TRUE.
+            stored_at: Timestamp when stored.
+            actor: Entity that stored the pattern.
+            source_run_id: Run that produced the pattern.
+            correlation_id: Correlation ID for tracing.
+            metadata: Additional pattern metadata.
+            conn: Database connection (unused in mock).
+
+        Returns:
+            UUID of the stored pattern.
+        """
+        # Track that atomic operation was used (for test verification)
+        self._atomic_transitions_count += 1
+
+        # Atomically: set previous not current + store new pattern
+        # In a real implementation, this would be a single CTE SQL statement
+        for pattern in self.patterns.values():
+            if (
+                pattern["domain"] == domain
+                and pattern["signature"] == signature
+                and pattern["is_current"]
+            ):
+                pattern["is_current"] = False
+
+        # Store the new pattern (always with is_current=True)
+        self.patterns[pattern_id] = {
+            "pattern_id": pattern_id,
+            "signature": signature,
+            "signature_hash": signature_hash,
+            "domain": domain,
+            "version": version,
+            "confidence": confidence,
+            "state": state,
+            "is_current": True,  # Always true for atomic transition
+            "stored_at": stored_at,
+            "actor": actor,
+            "source_run_id": source_run_id,
+            "correlation_id": correlation_id,
+            "metadata": metadata or {},
+        }
+        # Track idempotency key
+        self.idempotency_map[(pattern_id, signature)] = pattern_id
+        # Track version
+        lineage_key = (domain, signature)
+        self._version_tracker[lineage_key] = version
+        return pattern_id
+
     def reset(self) -> None:
         """Reset all storage for test isolation."""
         self.patterns.clear()
         self.idempotency_map.clear()
         self._version_tracker.clear()
+        self._atomic_transitions_count = 0
 
 
 class MockPatternStateManager:
