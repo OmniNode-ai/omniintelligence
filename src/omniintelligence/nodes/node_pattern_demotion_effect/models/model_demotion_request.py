@@ -28,7 +28,7 @@ class ModelDemotionCheckRequest(BaseModel):
         default=0.4,
         ge=0.10,
         le=0.60,
-        description="Patterns with success rate at or below this threshold are eligible "
+        description="Patterns with success rate below this threshold are eligible "
         "for demotion. Bounded 0.10..0.60 to prevent overly aggressive or lenient thresholds.",
     )
     min_failure_streak: int = Field(

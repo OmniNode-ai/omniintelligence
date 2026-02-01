@@ -1007,30 +1007,3 @@ def _parse_update_count(status: str | None) -> int:
         except ValueError:
             return 0
     return 0
-
-
-__all__ = [
-    # Constants
-    "DEFAULT_COOLDOWN_HOURS",
-    "FAILURE_STREAK_THRESHOLD_MAX",
-    "FAILURE_STREAK_THRESHOLD_MIN",
-    "MAX_SUCCESS_RATE_FOR_DEMOTION",
-    "MIN_FAILURE_STREAK_FOR_DEMOTION",
-    "MIN_INJECTION_COUNT_FOR_DEMOTION",
-    "SUCCESS_RATE_THRESHOLD_MAX",
-    "SUCCESS_RATE_THRESHOLD_MIN",
-    # Protocols
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
-    # Pure functions
-    "build_effective_thresholds",
-    "build_gate_snapshot",
-    "calculate_hours_since_promotion",
-    "calculate_success_rate",
-    # Handler functions
-    "check_and_demote_patterns",
-    "demote_pattern",
-    "get_demotion_reason",
-    "is_cooldown_active",
-    "validate_threshold_overrides",
-]
