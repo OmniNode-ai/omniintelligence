@@ -18,6 +18,22 @@ OmniIntelligence is the intelligence platform for the ONEX ecosystem, providing 
 
 ---
 
+## Repository Invariants
+
+These rules are non-negotiable. Violations will cause production issues or architectural drift.
+
+**No backwards compatibility**: This repository has no external consumers. Schemas, APIs, and interfaces may change without deprecation periods. If something needs to change, change it.
+
+| Invariant | Rationale |
+|-----------|-----------|
+| Node classes must be **thin shells** (<100 lines) | Declarative pattern; logic belongs in handlers |
+| Effect nodes must **never block** on Kafka | Kafka is optional; operations must succeed without it |
+| All event schemas are **frozen** (`frozen=True`) | Events are immutable after emission |
+| Handlers must **return structured errors**, not raise | Domain errors are data, not exceptions |
+| `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
+
+---
+
 ## Non-Goals
 
 This system explicitly does NOT optimize for:
@@ -26,7 +42,7 @@ This system explicitly does NOT optimize for:
 - **Framework agnosticism** - This is ONEX-native. No abstraction layers for hypothetical portability.
 - **Flexibility** - Determinism and predictability over configurability. One way to do things.
 - **Minimal code** - Explicit is better than clever. Verbose handlers over magic.
-- **Backwards compatibility with legacy** - Migration sources exist for reference only. No shims.
+- **Backwards compatibility** - See Repository Invariants above. No deprecation periods, no shims.
 
 ---
 
