@@ -117,8 +117,12 @@ class ModelDemotionResult(BaseModel):
     )
     reason: str = Field(
         ...,
-        description="The reason for demotion: 'failure_streak', 'low_success_rate', "
-        "'manual_disable', or 'cooldown_active'",
+        description="The reason for demotion. Valid formats: "
+        "'manual_disable' (pattern explicitly disabled), "
+        "'failure_streak: N consecutive failures' (exceeded failure threshold), "
+        "'low_success_rate: X.X%' (below success rate threshold), "
+        "'already_demoted_or_status_changed' (no-op, pattern state changed), "
+        "'demotion_failed: ErrorType: message' (error during demotion)",
     )
     gate_snapshot: ModelDemotionGateSnapshot = Field(
         ...,
