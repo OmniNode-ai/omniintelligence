@@ -18,9 +18,11 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     update_pattern_rolling_metrics,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
+    ClaudeCodeSessionOutcome,
+    ClaudeSessionOutcome,
     EnumOutcomeRecordingStatus,
-    ModelSessionOutcomeRequest,
     ModelSessionOutcomeResult,
+    SessionOutcomeInput,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
@@ -32,16 +34,19 @@ from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
 __all__ = [
     # Constants
     "ROLLING_WINDOW_SIZE",
-    # Models
+    # Models (input re-exported from omnibase_core)
+    "ClaudeCodeSessionOutcome",
+    "ClaudeSessionOutcome",
+    "SessionOutcomeInput",
+    # Models (output)
     "EnumOutcomeRecordingStatus",
-    "ModelSessionOutcomeRequest",
     "ModelSessionOutcomeResult",
     # Node
     "NodePatternFeedbackEffect",
-    # Registry
-    "RegistryPatternFeedbackEffect",
     # Handlers
     "ProtocolPatternRepository",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
+    # Registry
+    "RegistryPatternFeedbackEffect",
 ]

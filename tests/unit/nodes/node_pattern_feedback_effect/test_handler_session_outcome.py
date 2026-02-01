@@ -25,9 +25,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
+
+from omnibase_core.integrations.claude_code import (
+    ClaudeCodeSessionOutcome,
+    ClaudeSessionOutcome,
+)
 
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
@@ -44,6 +50,12 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_sessio
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
+)
+from omniintelligence.nodes.node_pattern_feedback_effect.node import (
+    NodePatternFeedbackEffect,
+)
+from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
+    RegistryPatternFeedbackEffect,
 )
 
 
@@ -1615,10 +1627,6 @@ class TestNodePatternFeedbackEffect:
     @pytest.fixture(autouse=True)
     def clear_registry(self) -> None:
         """Clear registry before and after each test for isolation."""
-        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-            RegistryPatternFeedbackEffect,
-        )
-
         RegistryPatternFeedbackEffect.clear()
         yield
         RegistryPatternFeedbackEffect.clear()
@@ -1633,25 +1641,13 @@ class TestNodePatternFeedbackEffect:
         With declarative pattern, missing repository causes handler to fail
         with TypeError (None passed to handler expecting repository protocol).
         """
-        from unittest.mock import MagicMock
-
-        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
-            ModelSessionOutcomeRequest,
-        )
-        from omniintelligence.nodes.node_pattern_feedback_effect.node import (
-            NodePatternFeedbackEffect,
-        )
-        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-            RegistryPatternFeedbackEffect,
-        )
-
         # Arrange: Node without repository registered
         container = MagicMock()
         node = NodePatternFeedbackEffect(container)
 
-        request = ModelSessionOutcomeRequest(
+        request = ClaudeSessionOutcome(
             session_id=sample_session_id,
-            success=True,
+            outcome=ClaudeCodeSessionOutcome.SUCCESS,
         )
 
         # Assert: Registry reports no repository
@@ -1670,18 +1666,6 @@ class TestNodePatternFeedbackEffect:
 
         With declarative pattern, exceptions propagate rather than being caught.
         """
-        from unittest.mock import MagicMock
-
-        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
-            ModelSessionOutcomeRequest,
-        )
-        from omniintelligence.nodes.node_pattern_feedback_effect.node import (
-            NodePatternFeedbackEffect,
-        )
-        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-            RegistryPatternFeedbackEffect,
-        )
-
         # Arrange: Node with repository that raises
         container = MagicMock()
 
@@ -1691,9 +1675,9 @@ class TestNodePatternFeedbackEffect:
 
         node = NodePatternFeedbackEffect(container)
 
-        request = ModelSessionOutcomeRequest(
+        request = ClaudeSessionOutcome(
             session_id=sample_session_id,
-            success=True,
+            outcome=ClaudeCodeSessionOutcome.SUCCESS,
         )
 
         # Act & Assert: Exception propagates
@@ -1713,18 +1697,6 @@ class TestNodePatternFeedbackEffect:
         should successfully delegate to record_session_outcome and return
         the handler's result.
         """
-        from unittest.mock import MagicMock
-
-        from omniintelligence.nodes.node_pattern_feedback_effect.models import (
-            ModelSessionOutcomeRequest,
-        )
-        from omniintelligence.nodes.node_pattern_feedback_effect.node import (
-            NodePatternFeedbackEffect,
-        )
-        from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-            RegistryPatternFeedbackEffect,
-        )
-
         # Arrange: Register repository with registry
         RegistryPatternFeedbackEffect.register_repository(mock_repository)
 
@@ -1748,9 +1720,10 @@ class TestNodePatternFeedbackEffect:
             )
         )
 
-        request = ModelSessionOutcomeRequest(
+        # Use ClaudeSessionOutcome as the node's new input type
+        request = ClaudeSessionOutcome(
             session_id=sample_session_id,
-            success=True,
+            outcome=ClaudeCodeSessionOutcome.SUCCESS,
         )
 
         # Act

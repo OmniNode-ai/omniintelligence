@@ -691,4 +691,3 @@ assert isinstance(MockPatternStore(), ProtocolPatternStore)
 | `omnibase_spi` | Service Provider Interface protocols |
 | `omnibase_infra` | Kafka, PostgreSQL infrastructure |
 | `asyncpg` | PostgreSQL async driver |
-

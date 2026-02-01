@@ -51,8 +51,13 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypedDict, runtime_checkable
 from uuid import UUID
+
+from omnibase_core.integrations.claude_code import (
+    ClaudeCodeSessionOutcome,
+    ClaudeSessionOutcome,
+)
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
@@ -215,6 +220,70 @@ SET
 WHERE injection_id = $1
   AND contribution_heuristic IS NULL
 """
+
+
+# =============================================================================
+# Type Definitions
+# =============================================================================
+
+
+class HandlerArgs(TypedDict):
+    """Typed dictionary for session outcome handler arguments.
+
+    This provides type safety for the boundary mapping from
+    ClaudeSessionOutcome events to handler function parameters.
+    """
+
+    session_id: UUID
+    success: bool
+    failure_reason: str | None
+    correlation_id: UUID | None
+
+
+# =============================================================================
+# Boundary Mapping Functions
+# =============================================================================
+
+
+def _outcome_to_success(outcome: ClaudeCodeSessionOutcome) -> bool:
+    """Map outcome enum to success boolean for metrics.
+
+    Deterministic mapping:
+    - SUCCESS -> True
+    - FAILED, ABANDONED, UNKNOWN -> False
+    """
+    return bool(outcome == ClaudeCodeSessionOutcome.SUCCESS)
+
+
+def _extract_failure_reason(event: ClaudeSessionOutcome) -> str | None:
+    """Extract failure reason from event error details.
+
+    Returns None if no error, otherwise a stable summary string.
+    """
+    if event.error is None:
+        return None
+    # Prefer message, fallback to code
+    message = getattr(event.error, "message", None)
+    if message:
+        return str(message)
+    code = getattr(event.error, "code", None)
+    if code:
+        return str(code)
+    return "Unknown error"
+
+
+def event_to_handler_args(event: ClaudeSessionOutcome) -> HandlerArgs:
+    """Convert ClaudeSessionOutcome event to handler arguments.
+
+    This is the boundary mapping that keeps the handler stable
+    while accepting the new enum-based input model.
+    """
+    return {
+        "session_id": event.session_id,
+        "success": _outcome_to_success(event.outcome),
+        "failure_reason": _extract_failure_reason(event),
+        "correlation_id": event.correlation_id,
+    }
 
 
 # =============================================================================
@@ -561,9 +630,11 @@ def _parse_update_count(status: str | None) -> int:
 
 
 __all__ = [
+    "HandlerArgs",
     "ROLLING_WINDOW_SIZE",
     "ProtocolPatternRepository",
     "compute_and_store_heuristics",
+    "event_to_handler_args",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]

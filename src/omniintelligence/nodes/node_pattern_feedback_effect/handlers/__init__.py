@@ -43,9 +43,10 @@ Reference:
 """
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
-    ROLLING_WINDOW_SIZE,
     ProtocolPatternRepository,
+    ROLLING_WINDOW_SIZE,
     compute_and_store_heuristics,
+    event_to_handler_args,
     record_session_outcome,
     update_pattern_rolling_metrics,
 )
@@ -58,14 +59,15 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics imp
 )
 
 __all__ = [
-    "ROLLING_WINDOW_SIZE",
     "ContributionWeights",
     "ProtocolPatternRepository",
+    "ROLLING_WINDOW_SIZE",
     "apply_heuristic",
     "compute_and_store_heuristics",
     "compute_equal_split",
     "compute_first_match",
     "compute_recency_weighted",
+    "event_to_handler_args",
     "record_session_outcome",
     "update_pattern_rolling_metrics",
 ]
