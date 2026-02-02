@@ -493,14 +493,3 @@ class TestTC1EdgeCases:
             f"fewer or equal learned patterns than low threshold "
             f"({len(result_low['learned_patterns'])})"
         )
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "TestTC1EdgeCases",
-    "TestTC1MetricsVerification",
-    "TestTC1SuccessfulPatternExtraction",
-]

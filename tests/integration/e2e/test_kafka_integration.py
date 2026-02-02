@@ -21,16 +21,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
 
 import pytest
 
 from tests.integration.conftest import RealKafkaPublisher
 from tests.integration.e2e.conftest import requires_e2e_kafka
-
-if TYPE_CHECKING:
-    pass
 
 
 # =============================================================================
@@ -526,23 +523,3 @@ async def test_kafka_key_is_used_for_partitioning_documentation(
     # This guarantees in Kafka:
     # - All 3 messages go to the same partition
     # - Consumer receives them in order: step 1, 2, 3
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "test_kafka_consumer_can_verify_published_events",
-    "test_kafka_key_is_used_for_partitioning_documentation",
-    "test_kafka_message_key_is_required",
-    "test_kafka_message_key_with_uuid_format",
-    "test_kafka_multiple_events_preserve_individual_keys",
-    "test_kafka_publisher_allows_empty_key_but_documents_behavior",
-    "test_publisher_implements_protocol",
-    "test_real_kafka_publisher_multiple_events",
-    "test_real_kafka_publisher_publishes_events",
-    "test_real_kafka_publisher_reset",
-    "test_topic_prefix_provides_isolation",
-    "wait_for_message",
-]

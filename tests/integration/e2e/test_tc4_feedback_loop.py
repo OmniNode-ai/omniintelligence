@@ -890,22 +890,3 @@ async def test_already_recorded_returns_correct_status(e2e_db_conn: Any) -> None
     # Assert 2: Second attempt should return ALREADY_RECORDED
     assert result_2.status == EnumOutcomeRecordingStatus.ALREADY_RECORDED
     assert result_2.patterns_updated == 0
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "create_test_injection",
-    "create_test_pattern",
-    "get_pattern_metrics",
-    "test_already_recorded_returns_correct_status",
-    "test_failure_increments_failure_streak",
-    "test_failure_outcome_increments_failure_count",
-    "test_multiple_patterns_updated_on_single_session",
-    "test_no_injections_returns_correct_status",
-    "test_rolling_window_cap_at_20",
-    "test_success_outcome_increments_success_count",
-    "test_success_resets_failure_streak",
-]

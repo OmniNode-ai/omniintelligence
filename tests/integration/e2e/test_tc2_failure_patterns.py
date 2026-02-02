@@ -494,15 +494,3 @@ class TestTC2FailureSessionMetrics:
             f"Expected {len(training_data)} training samples, "
             f"got {metadata.training_samples}"
         )
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "TestTC2FailedSessionPatternsExtraction",
-    "TestTC2FailurePatternsHaveDebuggingDomain",
-    "TestTC2FailurePatternsIncludeErrorContext",
-    "TestTC2FailureSessionMetrics",
-]

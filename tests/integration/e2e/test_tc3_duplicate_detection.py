@@ -625,14 +625,3 @@ class TestTC3DeterminismGuarantees:
         assert sigs_1 == sigs_2, (
             "Different orderings should produce same signatures"
         )
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "TestTC3DeterminismGuarantees",
-    "TestTC3DuplicateDetection",
-    "TestTC3SignatureStability",
-]

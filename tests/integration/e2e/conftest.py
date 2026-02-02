@@ -418,7 +418,7 @@ async def e2e_db_conn(
             await _cleanup_e2e_test_data(conn, signature_hash_available)
         except Exception as cleanup_error:
             # Log but don't fail the test on cleanup error
-            print(f"Warning: E2E cleanup failed: {cleanup_error}")
+            _cleanup_logger.warning("E2E cleanup failed: %s", cleanup_error)
         finally:
             await conn.close()
 
