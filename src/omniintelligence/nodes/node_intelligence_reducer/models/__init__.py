@@ -22,6 +22,7 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
     ModelReducerInput,
     ModelReducerInputIngestion,
     ModelReducerInputPatternLearning,
+    ModelReducerInputPatternLifecycle,
     ModelReducerInputQualityAssessment,
     ReducerPayload,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "ModelReducerInput",
     "ModelReducerInputIngestion",
     "ModelReducerInputPatternLearning",
+    "ModelReducerInputPatternLifecycle",
     "ModelReducerInputQualityAssessment",
     "ModelReducerIntent",
     "ModelReducerIntentPayload",

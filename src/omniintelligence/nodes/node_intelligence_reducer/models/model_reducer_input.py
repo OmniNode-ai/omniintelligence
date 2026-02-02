@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.nodes.intelligence_reducer.models.model_pattern_lifecycle_reducer_input import (
+from omniintelligence.nodes.node_intelligence_reducer.models.model_pattern_lifecycle_reducer_input import (
     ModelPatternLifecycleReducerInput,
 )
 
