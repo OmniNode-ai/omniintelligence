@@ -53,6 +53,14 @@ files:
       - "env-access"
       - "file-io"
 
+  # This is the proper location for bootstrap configuration - values are then
+  # passed to nodes via constructor injection, maintaining node purity.
+  - path: "src/omniintelligence/nodes/*/__main__.py"
+    # Entry point files (__main__.py) are allowed to read environment variables.
+    reason: "Entry point files bootstrap configuration from environment variables"
+    allowed_rules:
+      - "env-access"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"
