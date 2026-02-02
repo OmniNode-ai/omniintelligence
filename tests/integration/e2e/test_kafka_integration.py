@@ -253,8 +253,29 @@ async def test_kafka_consumer_can_verify_published_events(
     # Subscribe consumer to topic BEFORE publishing (critical for catching the message)
     e2e_kafka_consumer.subscribe([topic])
 
-    # Wait for subscription to be established with the broker
-    # This is necessary because subscribe() is async and partition assignment takes time
+    # -------------------------------------------------------------------------
+    # KAFKA CONSUMER GROUP PROTOCOL: Why we need this sleep
+    # -------------------------------------------------------------------------
+    # Kafka's subscribe() initiates partition assignment but does NOT block until
+    # partitions are assigned. The consumer group protocol requires multiple
+    # broker round-trips:
+    #
+    # 1. JoinGroup request  -> Consumer announces intent to join group
+    # 2. SyncGroup request  -> Group coordinator assigns partitions
+    # 3. Heartbeat begins   -> Consumer starts heartbeat loop
+    # 4. Fetch begins       -> Consumer can now receive messages
+    #
+    # This typically takes 200-500ms depending on network latency and broker load.
+    # We use 1.0s as a pragmatic buffer for CI environments with variable timing.
+    #
+    # PRODUCTION ALTERNATIVES (not suitable for tests):
+    # - Use assign() for explicit partition assignment (bypasses group protocol)
+    # - Use seek() to position at specific offset after assignment callback
+    # - Poll in a loop until assignment() returns non-empty (adds complexity)
+    #
+    # For test reliability, a simple sleep is the clearest and most maintainable
+    # approach. The 10s timeout in wait_for_message() provides the safety net.
+    # -------------------------------------------------------------------------
     await asyncio.sleep(1.0)
 
     # Act: Publish event

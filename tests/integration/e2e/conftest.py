@@ -4,8 +4,8 @@
 
 This module provides pytest fixtures for end-to-end testing of the pattern
 learning pipeline using:
-- Real PostgreSQL (192.168.86.200:5436, database: omninode_bridge) for data integrity
-- Real Kafka/Redpanda (192.168.86.200:29092) for event emission and verification
+- Real PostgreSQL (configured via POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DATABASE) for data integrity
+- Real Kafka/Redpanda (configured via KAFKA_BOOTSTRAP_SERVERS) for event emission and verification
 
 Test Coverage:
     - Pattern learning compute (TC1-TC3)
@@ -14,8 +14,8 @@ Test Coverage:
     - Kafka event emission and verification
 
 Infrastructure Configuration (from .env):
-    - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
-    - Kafka/Redpanda: 192.168.86.200:29092 (external port for host access)
+    - PostgreSQL: ${POSTGRES_HOST}:${POSTGRES_PORT} (database: ${POSTGRES_DATABASE})
+    - Kafka/Redpanda: ${KAFKA_BOOTSTRAP_SERVERS} (external port for host access)
 
 Kafka Integration:
     The module provides real Kafka integration via the `e2e_kafka_publisher` fixture.
@@ -383,7 +383,7 @@ async def e2e_db_conn(
     """Create a dedicated asyncpg connection for E2E tests with automatic cleanup.
 
     This fixture provides:
-    - Real PostgreSQL connection to 192.168.86.200:5436
+    - Real PostgreSQL connection (configured via POSTGRES_HOST:POSTGRES_PORT env vars)
     - Test isolation via E2E-prefixed signature_hash values
     - Automatic cleanup of test data after each test
     - Schema version detection via session-scoped signature_hash_available fixture

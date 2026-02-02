@@ -10,7 +10,7 @@ learning workflow:
 
 Test Strategy:
     - Real PostgreSQL: Data integrity verification
-    - Mock Kafka: Event assertion without infrastructure dependency
+    - Real Kafka/Redpanda: Event emission and consumption verification
 
 Reference:
     - OMN-1800: E2E integration tests for pattern learning pipeline
