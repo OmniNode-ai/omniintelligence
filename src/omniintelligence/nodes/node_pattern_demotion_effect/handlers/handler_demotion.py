@@ -306,20 +306,6 @@ WHERE lp.status = 'validated'
   AND lp.is_current = TRUE
 """
 
-# Query to demote a single pattern
-# DEPRECATED (OMN-1805): This query is no longer used by demote_pattern().
-# Status changes now go through the reducer via lifecycle events.
-# Retained for reference and potential use by NodePatternLifecycleEffect.
-SQL_DEMOTE_PATTERN = """
-UPDATE learned_patterns
-SET status = 'deprecated',
-    deprecated_at = NOW(),
-    deprecation_reason = $2,
-    updated_at = NOW()
-WHERE id = $1
-  AND status = 'validated'
-"""
-
 
 # =============================================================================
 # Pure Functions

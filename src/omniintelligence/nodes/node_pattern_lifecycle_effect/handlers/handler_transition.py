@@ -59,6 +59,7 @@ Reference:
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 from datetime import datetime
@@ -234,7 +235,7 @@ INSERT INTO pattern_lifecycle_transitions (
     actor,
     reason,
     gate_snapshot,
-    transitioned_at,
+    transition_at,
     request_id,
     correlation_id
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -427,8 +428,6 @@ async def apply_transition(
 
         # Insert audit record
         # Convert gate_snapshot dict to JSON string if present
-        import json
-
         gate_snapshot_json = json.dumps(gate_snapshot) if gate_snapshot else None
 
         await repository.execute(
