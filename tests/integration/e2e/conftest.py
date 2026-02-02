@@ -517,15 +517,23 @@ async def _cleanup_e2e_test_data(
         # Use signature_hash (preferred - migration 008 applied)
         # signature_hash values start with E2E_SIGNATURE_PREFIX
         # (e.g., 'test_e2e_<hash>')
+        #
+        # IMPORTANT: Also handle NULL signature_hash case by falling back to
+        # pattern_signature matching. This catches patterns that were created
+        # without a signature_hash (e.g., by direct SQL or older code paths).
+        # NULL LIKE 'pattern%' evaluates to NULL (not TRUE), so we need the OR.
         select_query = """
             SELECT id FROM learned_patterns
             WHERE signature_hash LIKE $1
+               OR (signature_hash IS NULL AND pattern_signature LIKE $2)
         """
         delete_query = """
             DELETE FROM learned_patterns
             WHERE signature_hash LIKE $1
+               OR (signature_hash IS NULL AND pattern_signature LIKE $2)
         """
         like_pattern = f"{E2E_SIGNATURE_PREFIX}%"
+        fallback_pattern = f"%{E2E_SIGNATURE_CONTAINS}%"
     else:
         # Fallback: use pattern_signature (migration 008 not applied)
         # pattern_signature values contain E2E_SIGNATURE_CONTAINS
@@ -540,12 +548,22 @@ async def _cleanup_e2e_test_data(
             WHERE pattern_signature LIKE $1
         """
         like_pattern = f"%{E2E_SIGNATURE_CONTAINS}%"
+        fallback_pattern = None  # Not used in this branch
 
     # First, get the IDs of patterns we're going to delete
-    pattern_ids = await conn.fetch(
-        select_query,
-        like_pattern,
-    )
+    if fallback_pattern is not None:
+        # Two parameters: signature_hash and pattern_signature fallback
+        pattern_ids = await conn.fetch(
+            select_query,
+            like_pattern,
+            fallback_pattern,
+        )
+    else:
+        # Single parameter: pattern_signature only
+        pattern_ids = await conn.fetch(
+            select_query,
+            like_pattern,
+        )
 
     # Delete pattern_injections that reference these patterns
     # Uses array overlap (&&) to find injections containing these patterns
@@ -560,10 +578,19 @@ async def _cleanup_e2e_test_data(
         )
 
     # Delete the E2E test patterns
-    result = await conn.execute(
-        delete_query,
-        like_pattern,
-    )
+    if fallback_pattern is not None:
+        # Two parameters: signature_hash and pattern_signature fallback
+        result = await conn.execute(
+            delete_query,
+            like_pattern,
+            fallback_pattern,
+        )
+    else:
+        # Single parameter: pattern_signature only
+        result = await conn.execute(
+            delete_query,
+            like_pattern,
+        )
     # Parse "DELETE N" to get count
     if result and result.startswith("DELETE "):
         return int(result.split()[1])
@@ -599,6 +626,29 @@ def mock_kafka() -> MockKafkaPublisher:
 # =============================================================================
 # Real Kafka Fixtures
 # =============================================================================
+
+# Design Note: Why RealKafkaPublisher instead of EventBusKafka?
+#
+# PR #58 reviewer suggested considering EventBusInmemory/EventBusKafka here.
+# After evaluation, RealKafkaPublisher is the correct choice for E2E tests because:
+#
+# 1. Interface Match: ONEX effect node handlers accept ProtocolKafkaPublisher
+#    (publish(topic, key, value: dict)), not ProtocolEventBus (publish with bytes).
+#    Using EventBus would require an adapter layer (as in node_claude_hook_event_effect).
+#
+# 2. Publish-Only Scope: E2E tests only need publish + verify. RealKafkaPublisher
+#    provides get_events_for_topic() for verification. Full pub/sub semantics
+#    (subscribe callbacks, event routing) are not needed here.
+#
+# 3. Pattern Already Available: For tests that need full pub/sub (like node
+#    integration tests), EventBusInmemory + EventBusKafkaPublisherAdapter is
+#    already used in tests/integration/nodes/node_claude_hook_event_effect/.
+#
+# 4. Direct Dependency Injection: Handlers receive ProtocolKafkaPublisher directly.
+#    No adapter indirection means simpler test setup and clearer error messages.
+#
+# When to use EventBus instead: Tests requiring subscribe callbacks, event routing
+# between nodes, or consumer group behavior testing.
 
 
 @pytest.fixture(scope="session")
@@ -959,10 +1009,11 @@ async def pattern_storage_handler(
 
     Note:
         This fixture uses MockPatternStore (in-memory) rather than
-        AdapterPatternStore because AdapterPatternStore requires a
-        PostgresRepositoryRuntime which is complex to wire. For tests
-        that need real database storage, use the e2e_db_conn fixture
-        directly with SQL queries (see create_test_pattern in TC4 tests).
+        AdapterPatternStore (from omniintelligence.repositories) because
+        AdapterPatternStore requires a PostgresRepositoryRuntime which is
+        complex to wire. For tests that need real database storage, use the
+        e2e_db_conn fixture directly with SQL queries (see create_test_pattern
+        in TC4 tests).
 
     Args:
         e2e_db_conn: The E2E database connection fixture. Passed to

@@ -374,30 +374,27 @@ class TestTC3DuplicateDetection:
             f"Original: {len(clusters)}, After 0.99 threshold: {high_cluster_count}"
         )
 
-        # CRITICAL: Verify threshold sensitivity - thresholds must actually
-        # affect behavior. If all values are equal, the test passes vacuously
-        # without verifying the threshold logic works. We need at least ONE
-        # difference between extreme thresholds.
-        cluster_sensitivity = low_cluster_count < high_cluster_count
-        merge_sensitivity = result_low["merged_count"] > result_high["merged_count"]
-
-        if not cluster_sensitivity and not merge_sensitivity:
-            # All thresholds produced identical results - this indicates either:
-            # 1. Test data doesn't have enough similarity variance to trigger
-            #    threshold effects
-            # 2. Bug in threshold logic (threshold is being ignored)
-            pytest.fail(
-                f"THRESHOLD SENSITIVITY FAILURE: Extreme thresholds (0.3 vs "
-                f"0.99) produced identical results.\n"
-                f"  Cluster counts: low={low_cluster_count}, "
-                f"default={default_cluster_count}, high={high_cluster_count}\n"
-                f"  Merged counts: low={result_low['merged_count']}, "
-                f"default={result_default['merged_count']}, "
-                f"high={result_high['merged_count']}\n"
-                f"  Original clusters: {len(clusters)}\n"
-                f"Either the test data lacks sufficient similarity variance, "
-                f"or the threshold logic has a regression."
-            )
+        # CRITICAL: Verify threshold sensitivity - extreme thresholds (0.3 vs 0.99)
+        # MUST produce different behavior. If all values are equal, the test passes
+        # vacuously without verifying threshold logic actually works.
+        # At least ONE of these conditions must be true:
+        #   - Low threshold produces fewer clusters than high threshold, OR
+        #   - Low threshold produces more merges than high threshold
+        assert (
+            low_cluster_count < high_cluster_count
+            or result_low["merged_count"] > result_high["merged_count"]
+        ), (
+            f"THRESHOLD SENSITIVITY FAILURE: Extreme thresholds (0.3 vs 0.99) "
+            f"produced identical results.\n"
+            f"  Cluster counts: low={low_cluster_count}, "
+            f"default={default_cluster_count}, high={high_cluster_count}\n"
+            f"  Merged counts: low={result_low['merged_count']}, "
+            f"default={result_default['merged_count']}, "
+            f"high={result_high['merged_count']}\n"
+            f"  Original clusters: {len(clusters)}\n"
+            f"Either the test data lacks sufficient similarity variance, "
+            f"or the threshold logic has a regression."
+        )
 
         # Log metrics for debugging
         logger.debug(

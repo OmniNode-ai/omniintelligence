@@ -18,15 +18,24 @@ Infrastructure Requirements:
     - Tables: learned_patterns, pattern_injections
 
 Safety Measures:
-    The cleanup_test_data helper implements defense-in-depth to prevent
+    The cleanup_test_data helper implements 7-layer defense-in-depth to prevent
     accidental deletion of production patterns:
-    1. Explicit pattern ID tracking - cleanup requires explicit list of created IDs
-    2. Existence verification - all pattern IDs must exist in the database
-    3. NULL signature_hash rejection - patterns with NULL signature_hash are flagged
-    4. Signature prefix verification - validates all patterns have E2E prefix
-    5. Dual-condition deletion - patterns must match BOTH ID list AND signature prefix
 
-    Any violation raises ValueError and aborts cleanup without deleting anything.
+    1. TYPE ENFORCEMENT - pattern_ids must be list of UUID objects (not strings)
+    2. WHITELIST APPROACH - only explicitly provided IDs can be deleted
+    3. EXISTENCE VERIFICATION - all IDs must exist in database
+    4. NULL REJECTION - patterns with NULL signature_hash are flagged
+    5. PREFIX VERIFICATION - signature_hash must start with 'test_e2e_'
+    6. DUAL-CONDITION DELETE - DELETE query re-validates both ID AND prefix
+    7. POST-DELETE VERIFICATION - confirms exact count match (detects race conditions)
+
+    TOCTOU (Time-of-Check to Time-of-Use) mitigation is provided by Layer 6:
+    even if a pattern's signature_hash is modified between verification and
+    deletion, the DELETE query itself requires the E2E prefix, so production
+    patterns cannot be deleted.
+
+    Any violation raises ValueError/TypeError and aborts cleanup without
+    deleting anything. A count mismatch after deletion also raises ValueError.
 
     Note: Tests primarily use the e2e_db_conn fixture from conftest.py which has
     automatic cleanup. The cleanup_test_data helper is for manual/explicit cleanup
@@ -323,47 +332,102 @@ async def cleanup_test_data(
 ) -> int:
     """Clean up test data from pattern_injections and learned_patterns.
 
-    SAFETY LAYERS:
-    This function implements defense-in-depth to prevent accidental deletion
-    of production patterns. It will ONLY delete a pattern if ALL conditions are met:
+    SAFETY ARCHITECTURE (Defense-in-Depth):
+    ===========================================
 
-    1. Pattern ID is explicitly provided in pattern_ids (whitelist approach)
-    2. Pattern exists in the database (non-existent IDs are flagged)
-    3. Pattern has a non-NULL signature_hash (NULL values are flagged as violations)
-    4. Pattern's signature_hash starts with E2E_SIGNATURE_PREFIX ('test_e2e_')
+    This function implements 6 safety layers to prevent accidental deletion
+    of production patterns. A pattern is ONLY deleted if ALL conditions are met:
+
+    Layer 1 - TYPE ENFORCEMENT:
+        pattern_ids must be a list of UUID objects (validated at runtime).
+        Prevents string injection or malformed IDs from bypassing checks.
+
+    Layer 2 - WHITELIST APPROACH:
+        Pattern ID must be explicitly provided in pattern_ids.
+        No implicit deletion based on queries or patterns.
+
+    Layer 3 - EXISTENCE VERIFICATION:
+        All requested pattern IDs must exist in the database.
+        Missing IDs indicate test bugs and abort cleanup.
+
+    Layer 4 - SIGNATURE VALIDATION:
+        All patterns must have non-NULL signature_hash.
+        Production patterns typically have NULL signature_hash.
+        Test patterns always have signature_hash set via create_e2e_signature_hash().
+
+    Layer 5 - PREFIX VERIFICATION:
+        All signature_hash values must start with E2E_SIGNATURE_PREFIX ('test_e2e_').
+        This prefix is ONLY applied by E2E test infrastructure.
+
+    Layer 6 - DUAL-CONDITION DELETE (TOCTOU Mitigation):
+        The DELETE query requires BOTH:
+          - ID in the explicit list (pattern_ids), AND
+          - signature_hash starts with E2E prefix
+        Even if a race condition modifies patterns between verification and deletion,
+        the DELETE query itself re-validates both conditions.
+
+    Layer 7 - POST-DELETE VERIFICATION:
+        After deletion, verifies that exactly the expected number of patterns
+        were deleted. A mismatch indicates a race condition or bug.
+
+    TOCTOU (Time-of-Check to Time-of-Use) MITIGATION:
+    ==================================================
+
+    The verification queries (Layers 3-5) run BEFORE the DELETE, creating a
+    potential TOCTOU window. This is mitigated by:
+
+    1. The DELETE query itself includes the signature_hash check (Layer 6), so
+       even if a pattern's signature_hash is modified between verification and
+       deletion, it won't be deleted unless it STILL has the E2E prefix.
+
+    2. UUIDs are used for pattern IDs, making collision essentially impossible.
+       A production pattern cannot "take over" a test pattern's ID.
+
+    3. Post-delete verification (Layer 7) detects any discrepancy and raises
+       ValueError, ensuring no silent partial deletions.
 
     FAILURE MODES (all result in ValueError, no deletion occurs):
-    - Any pattern_id refers to a pattern with NULL signature_hash
-    - Any pattern_id refers to a pattern without the E2E prefix
-    - Any pattern_id does not exist in the database (indicates test bug)
-
-    Note: The dual-condition deletion query (ID in list AND prefix match) provides
-    an additional safety layer even if verification is bypassed.
+    ==============================================================
+    - pattern_ids contains non-UUID types
+    - Any pattern_id does not exist in the database
+    - Any pattern_id has NULL signature_hash
+    - Any pattern_id has signature_hash not starting with E2E_SIGNATURE_PREFIX
+    - Deleted count does not match requested count (race condition detected)
 
     Args:
         conn: asyncpg connection.
         session_ids: Session IDs to clean up injections for.
         pattern_ids: Explicit list of pattern IDs created during this test.
             REQUIRED for pattern cleanup - if None or empty, no patterns are deleted.
+            Must be a list of UUID objects (not strings).
 
     Returns:
         Number of patterns deleted.
 
     Raises:
-        ValueError: If any of the following occur:
-            - Any pattern_id does not exist in the database
-            - Any pattern_id has NULL signature_hash
-            - Any pattern_id has signature_hash not starting with E2E_SIGNATURE_PREFIX
+        ValueError: If any safety check fails (see FAILURE MODES above).
+        TypeError: If pattern_ids contains non-UUID elements.
     """
     # Clean up injections first (due to potential references)
     if session_ids:
         await conn.execute(SQL_CLEANUP_TEST_INJECTIONS, session_ids)
 
-    # SAFETY: Only clean up patterns if explicit IDs are provided
+    # SAFETY LAYER 1 & 2: Only clean up patterns if explicit IDs are provided
     if not pattern_ids:
         return 0
 
-    # SAFETY CHECK 1: Verify all pattern IDs exist in the database
+    # SAFETY LAYER 1: Type enforcement - ensure all elements are UUIDs
+    # Prevents string injection attacks or malformed IDs
+    for i, pid in enumerate(pattern_ids):
+        if not isinstance(pid, UUID):
+            raise TypeError(
+                f"SAFETY VIOLATION: pattern_ids[{i}] is not a UUID. "
+                f"Got {type(pid).__name__}: {pid!r}. "
+                f"All pattern IDs must be UUID objects, not strings. "
+                f"Cleanup aborted."
+            )
+
+    # SAFETY LAYER 3: Verify all pattern IDs exist in the database
     # Non-existent IDs could indicate test bugs or race conditions
     existing_ids = await conn.fetch(SQL_VERIFY_IDS_EXIST, pattern_ids)
     existing_id_set = {row["id"] for row in existing_ids}
@@ -378,11 +442,11 @@ async def cleanup_test_data(
             f"Cleanup aborted."
         )
 
-    # SAFETY CHECK 2: Verify ALL patterns have the E2E signature prefix
+    # SAFETY LAYER 4 & 5: Verify ALL patterns have the E2E signature prefix
     # Query catches both NULL signature_hash AND non-matching prefixes
     # NULL signature_hash is explicitly flagged because it indicates a production
     # pattern. Test patterns always have signature_hash set via
-    # create_e2e_signature_hash.
+    # create_e2e_signature_hash().
     non_test_patterns = await conn.fetch(
         SQL_VERIFY_PATTERNS_ARE_TEST_PATTERNS,
         pattern_ids,
@@ -406,9 +470,10 @@ async def cleanup_test_data(
             f"Cleanup aborted to protect production data."
         )
 
-    # SAFETY: Delete only patterns that match BOTH criteria:
+    # SAFETY LAYER 6: Delete only patterns that match BOTH criteria:
     # 1. ID is in the explicit list (pattern_ids)
     # 2. signature_hash starts with E2E prefix (NOT NULL due to LIKE semantics)
+    # This dual-condition DELETE mitigates TOCTOU by re-validating at delete time.
     result = await conn.execute(
         SQL_CLEANUP_TEST_PATTERNS,
         f"{E2E_SIGNATURE_PREFIX}%",
@@ -416,9 +481,26 @@ async def cleanup_test_data(
     )
 
     # Parse "DELETE N" to get count
+    deleted_count = 0
     if result and result.startswith("DELETE "):
-        return int(result.split()[1])
-    return 0
+        deleted_count = int(result.split()[1])
+
+    # SAFETY LAYER 7: Post-delete verification
+    # If fewer patterns were deleted than requested, a race condition may have
+    # modified a pattern's signature_hash between verification and deletion.
+    # This is a safety net - the pattern was NOT deleted (which is correct),
+    # but we raise an error to alert the caller to the anomaly.
+    expected_count = len(pattern_ids)
+    if deleted_count != expected_count:
+        raise ValueError(
+            f"SAFETY ANOMALY: Deleted {deleted_count} patterns but expected "
+            f"{expected_count}. This may indicate a race condition where a "
+            f"pattern's signature_hash was modified between verification and "
+            f"deletion. The patterns that were NOT deleted still exist in the "
+            f"database. Investigate before proceeding."
+        )
+
+    return deleted_count
 
 
 # =============================================================================
