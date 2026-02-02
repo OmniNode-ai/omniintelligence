@@ -420,7 +420,6 @@ db_repository:
           default: 1
           ge: 1
           description: Version number for this pattern within its lineage
-          description: Version number for this pattern within its lineage
         supersedes:
           name: supersedes
           param_type: string

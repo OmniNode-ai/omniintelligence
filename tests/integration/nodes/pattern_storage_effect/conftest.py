@@ -264,6 +264,7 @@ class MockPatternStore:
             "domain": domain,
             "version": version,
             "confidence": confidence,
+            "quality_score": quality_score,
             "state": state,
             "is_current": True,  # Always true for atomic transition
             "stored_at": stored_at,
