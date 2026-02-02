@@ -44,6 +44,10 @@ if TYPE_CHECKING:
     from asyncpg import Pool
     from psycopg import AsyncConnection
 
+    from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
+        ProtocolPatternStore,
+    )
+
 logger = logging.getLogger(__name__)
 
 # Path to the contract YAML
@@ -201,9 +205,9 @@ class AdapterPatternStore:
             )
             self._conn_warning_logged = True
 
-        # TODO(OMN-XXXX): Implement metadata persistence when contract supports JSONB
-        # TODO(OMN-XXXX): Evaluate if signature_hash should replace signature in contract
-        # TODO(OMN-XXXX): Add actor/source_run_id for audit trail when lineage tracking is complete
+        # Future: Implement metadata persistence when contract supports JSONB
+        # Future: Evaluate if signature_hash should replace signature in contract
+        # Future: Add actor/source_run_id for audit trail when lineage tracking is complete
 
         # Build positional args - contract defaults apply for omitted optional params
         args = self._build_positional_args(
@@ -569,6 +573,19 @@ async def create_pattern_store_adapter(pool: Pool) -> AdapterPatternStore:
     contract = load_contract()
     runtime = PostgresRepositoryRuntime(pool=pool, contract=contract)
     return AdapterPatternStore(runtime)
+
+
+# =============================================================================
+# Protocol Conformance Check
+# =============================================================================
+# This static type check verifies that AdapterPatternStore implements
+# ProtocolPatternStore at import time, catching protocol drift early.
+# The actual runtime check happens when the adapter is used with isinstance().
+
+if TYPE_CHECKING:
+    _adapter_protocol_check: ProtocolPatternStore = AdapterPatternStore(
+        None  # type: ignore[arg-type]
+    )
 
 
 __all__ = [

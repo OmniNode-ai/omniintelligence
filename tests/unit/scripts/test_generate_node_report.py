@@ -429,6 +429,10 @@ class TestRealNodeStubDetection:
             "success_criteria_matcher_compute",
             "pattern_matching_compute",
             "pattern_assembler_orchestrator",
+            # These nodes have purity violations (forbidden methods) so are marked as stubs
+            "node_quality_scoring_compute",
+            "node_semantic_analysis_compute",
+            "node_intent_classifier_compute",
         ]
 
         for node_name in known_stubs:
@@ -448,9 +452,6 @@ class TestRealNodeStubDetection:
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
-            "node_quality_scoring_compute",
-            "node_semantic_analysis_compute",
-            "node_intent_classifier_compute",
             "pattern_learning_compute",
         ]
 

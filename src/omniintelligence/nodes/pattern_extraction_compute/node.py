@@ -14,6 +14,8 @@ Ticket: OMN-1402
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from omnibase_core.models.container import ModelONEXContainer
 from omnibase_core.nodes.node_compute import NodeCompute
 
@@ -34,6 +36,8 @@ class NodePatternExtractionCompute(
     All business logic is delegated to the extract_all_patterns handler.
     This node only provides the ONEX container interface.
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         """Initialize the compute node with ONEX container."""

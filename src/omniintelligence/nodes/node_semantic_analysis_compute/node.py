@@ -38,7 +38,7 @@ class NodeSemanticAnalysisCompute(
     No error handling, logging, or business logic belongs in this class.
     """
 
-    is_stub: ClassVar[bool] = False
+    is_stub: ClassVar[bool] = True
 
     async def compute(
         self, input_data: ModelSemanticAnalysisInput

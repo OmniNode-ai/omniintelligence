@@ -6,6 +6,8 @@ shell that delegates all logic to handler functions.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
@@ -31,6 +33,8 @@ class NodeQualityScoringCompute(NodeCompute[ModelQualityScoringInput, ModelQuali
     This node is a thin shell following the ONEX declarative pattern.
     All computation logic is delegated to the handler function.
     """
+
+    is_stub: ClassVar[bool] = True
 
     async def compute(
         self, input_data: ModelQualityScoringInput

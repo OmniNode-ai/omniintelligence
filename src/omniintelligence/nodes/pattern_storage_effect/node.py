@@ -34,7 +34,7 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
@@ -125,6 +125,8 @@ class NodePatternStorageEffect(NodeEffect):
         assert result["event_type"] == "pattern_promoted"
         ```
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         """Initialize the pattern storage effect node.

@@ -19,7 +19,7 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
@@ -63,6 +63,8 @@ class NodePatternPromotionEffect(NodeEffect):
         >>> request = ModelPromotionCheckRequest(dry_run=False)
         >>> result = await node.execute(request)
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(
         self,

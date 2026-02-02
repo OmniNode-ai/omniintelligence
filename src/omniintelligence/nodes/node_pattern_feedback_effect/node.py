@@ -11,7 +11,7 @@ This node follows the ONEX declarative pattern:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
@@ -36,6 +36,8 @@ class NodePatternFeedbackEffect(NodeEffect):
     Thin shell that delegates to record_session_outcome handler.
     Repository dependency is retrieved from RegistryPatternFeedbackEffect.
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         super().__init__(container)
