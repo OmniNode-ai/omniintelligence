@@ -18,11 +18,15 @@ Infrastructure Requirements:
     - Tables: learned_patterns, pattern_injections
 
 Safety Measures:
-    The cleanup_test_data helper implements multiple safety layers to prevent
+    The cleanup_test_data helper implements defense-in-depth to prevent
     accidental deletion of production patterns:
     1. Explicit pattern ID tracking - cleanup requires explicit list of created IDs
-    2. Signature prefix verification - validates all patterns have E2E prefix
-    3. Dual-condition deletion - patterns must match BOTH ID list AND signature prefix
+    2. Existence verification - all pattern IDs must exist in the database
+    3. NULL signature_hash rejection - patterns with NULL signature_hash are flagged
+    4. Signature prefix verification - validates all patterns have E2E prefix
+    5. Dual-condition deletion - patterns must match BOTH ID list AND signature prefix
+
+    Any violation raises ValueError and aborts cleanup without deleting anything.
 
     Note: Tests primarily use the e2e_db_conn fixture from conftest.py which has
     automatic cleanup. The cleanup_test_data helper is for manual/explicit cleanup
@@ -151,7 +155,12 @@ WHERE signature_hash LIKE $1
 SQL_VERIFY_PATTERNS_ARE_TEST_PATTERNS = """
 SELECT id, signature_hash FROM learned_patterns
 WHERE id = ANY($1)
-  AND signature_hash NOT LIKE $2
+  AND (signature_hash IS NULL OR signature_hash NOT LIKE $2)
+"""
+
+SQL_VERIFY_IDS_EXIST = """
+SELECT id FROM learned_patterns
+WHERE id = ANY($1)
 """
 
 
@@ -314,11 +323,22 @@ async def cleanup_test_data(
 ) -> int:
     """Clean up test data from pattern_injections and learned_patterns.
 
-    SAFETY: This function only deletes patterns that:
-    1. Have IDs explicitly provided in pattern_ids (created during the test)
-    2. Have signature_hash starting with E2E_SIGNATURE_PREFIX
+    SAFETY LAYERS:
+    This function implements defense-in-depth to prevent accidental deletion
+    of production patterns. It will ONLY delete a pattern if ALL conditions are met:
 
-    This prevents accidental deletion of production patterns.
+    1. Pattern ID is explicitly provided in pattern_ids (whitelist approach)
+    2. Pattern exists in the database (non-existent IDs are flagged)
+    3. Pattern has a non-NULL signature_hash (NULL values are flagged as violations)
+    4. Pattern's signature_hash starts with E2E_SIGNATURE_PREFIX ('test_e2e_')
+
+    FAILURE MODES (all result in ValueError, no deletion occurs):
+    - Any pattern_id refers to a pattern with NULL signature_hash
+    - Any pattern_id refers to a pattern without the E2E prefix
+    - Any pattern_id does not exist in the database (indicates test bug)
+
+    Note: The dual-condition deletion query (ID in list AND prefix match) provides
+    an additional safety layer even if verification is bypassed.
 
     Args:
         conn: asyncpg connection.
@@ -330,8 +350,10 @@ async def cleanup_test_data(
         Number of patterns deleted.
 
     Raises:
-        ValueError: If any pattern_id does not have the expected E2E signature prefix,
-            indicating a potential attempt to delete production data.
+        ValueError: If any of the following occur:
+            - Any pattern_id does not exist in the database
+            - Any pattern_id has NULL signature_hash
+            - Any pattern_id has signature_hash not starting with E2E_SIGNATURE_PREFIX
     """
     # Clean up injections first (due to potential references)
     if session_ids:
@@ -341,8 +363,26 @@ async def cleanup_test_data(
     if not pattern_ids:
         return 0
 
-    # SAFETY: Verify ALL patterns have the E2E signature prefix before deletion
-    # This prevents deletion of production patterns even if their ID was accidentally passed
+    # SAFETY CHECK 1: Verify all pattern IDs exist in the database
+    # Non-existent IDs could indicate test bugs or race conditions
+    existing_ids = await conn.fetch(SQL_VERIFY_IDS_EXIST, pattern_ids)
+    existing_id_set = {row["id"] for row in existing_ids}
+    requested_id_set = set(pattern_ids)
+    missing_ids = requested_id_set - existing_id_set
+
+    if missing_ids:
+        raise ValueError(
+            f"SAFETY VIOLATION: Attempted to delete non-existent patterns. "
+            f"Pattern IDs not found in database: {[str(uid) for uid in missing_ids]}. "
+            f"This may indicate a test setup bug or race condition. "
+            f"Cleanup aborted."
+        )
+
+    # SAFETY CHECK 2: Verify ALL patterns have the E2E signature prefix
+    # Query catches both NULL signature_hash AND non-matching prefixes
+    # NULL signature_hash is explicitly flagged because it indicates a production
+    # pattern. Test patterns always have signature_hash set via
+    # create_e2e_signature_hash.
     non_test_patterns = await conn.fetch(
         SQL_VERIFY_PATTERNS_ARE_TEST_PATTERNS,
         pattern_ids,
@@ -350,17 +390,25 @@ async def cleanup_test_data(
     )
 
     if non_test_patterns:
-        non_test_ids = [str(row["id"]) for row in non_test_patterns]
+        violations = []
+        for row in non_test_patterns:
+            sig_hash = row["signature_hash"]
+            if sig_hash is None:
+                violations.append(f"{row['id']} (signature_hash=NULL)")
+            else:
+                violations.append(f"{row['id']} (signature_hash={sig_hash!r})")
+
         raise ValueError(
             f"SAFETY VIOLATION: Attempted to delete non-test patterns. "
-            f"Pattern IDs without E2E signature prefix: {non_test_ids}. "
+            f"Pattern IDs with invalid signature_hash: {violations}. "
             f"Expected signature_hash to start with '{E2E_SIGNATURE_PREFIX}'. "
+            f"Patterns with NULL signature_hash are also rejected. "
             f"Cleanup aborted to protect production data."
         )
 
     # SAFETY: Delete only patterns that match BOTH criteria:
     # 1. ID is in the explicit list (pattern_ids)
-    # 2. signature_hash starts with E2E prefix
+    # 2. signature_hash starts with E2E prefix (NOT NULL due to LIKE semantics)
     result = await conn.execute(
         SQL_CLEANUP_TEST_PATTERNS,
         f"{E2E_SIGNATURE_PREFIX}%",

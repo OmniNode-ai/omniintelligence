@@ -78,8 +78,19 @@ E2E_TEST_PREFIX: str = "e2e_test_"
 E2E_SIGNATURE_PREFIX: str = "test_e2e_"
 """Prefix for signature_hash values created during E2E tests."""
 
+E2E_SIGNATURE_CONTAINS: str = "e2e_test"
+"""Substring to match in pattern_signature for fallback cleanup.
+
+Used when signature_hash column doesn't exist. The fallback cleanup uses
+LIKE '%e2e_test%' to match patterns created by create_test_pattern(),
+which generates signatures like 'def e2e_test_pattern_<uuid>(): pass'.
+"""
+
 E2E_DOMAIN: str = "code_generation"
-"""Domain used for E2E test patterns. Uses existing domain from domain_taxonomy to satisfy FK."""
+"""Domain used for E2E test patterns.
+
+Uses existing domain from domain_taxonomy to satisfy FK.
+"""
 
 
 # =============================================================================
@@ -141,10 +152,8 @@ async def delete_kafka_topics(
         )
         await admin.start()
 
-        # Get existing topics to avoid deleting non-existent ones
-        cluster_metadata = await admin.describe_cluster()
-        # Note: describe_cluster returns broker info, we need list_topics for topic names
-        # AIOKafkaAdminClient doesn't have list_topics, so we try to delete and handle errors
+        # Note: AIOKafkaAdminClient doesn't have list_topics, so we try to
+        # delete topics and handle "not found" errors gracefully.
 
         # Delete topics one by one for better error handling
         for topic in topics_list:
@@ -155,14 +164,21 @@ async def delete_kafka_topics(
             except Exception as e:
                 error_msg = str(e)
                 # Check for common "topic not found" patterns
-                if "UnknownTopicOrPartition" in error_msg or "does not exist" in error_msg.lower():
+                is_not_found = (
+                    "UnknownTopicOrPartition" in error_msg
+                    or "does not exist" in error_msg.lower()
+                )
+                if is_not_found:
                     _cleanup_logger.debug(
-                        "Topic %s does not exist (already deleted or never created)", topic
+                        "Topic %s does not exist (already deleted or never created)",
+                        topic,
                     )
                     # Consider this a success - the topic is gone
                     deleted.append(topic)
                 else:
-                    _cleanup_logger.warning("Failed to delete topic %s: %s", topic, error_msg)
+                    _cleanup_logger.warning(
+                        "Failed to delete topic %s: %s", topic, error_msg
+                    )
                     failed.append((topic, error_msg))
 
     except Exception as e:
@@ -292,7 +308,10 @@ async def _check_signature_hash_column_exists(conn: Any) -> bool:
 
 requires_e2e_postgres = pytest.mark.skipif(
     not POSTGRES_AVAILABLE or not POSTGRES_PASSWORD,
-    reason=f"PostgreSQL not available at {POSTGRES_HOST}:{POSTGRES_PORT} or password not set",
+    reason=(
+        f"PostgreSQL not available at {POSTGRES_HOST}:{POSTGRES_PORT} "
+        "or password not set"
+    ),
 )
 """Skip marker for E2E tests requiring real PostgreSQL connectivity."""
 
@@ -465,13 +484,19 @@ async def _cleanup_e2e_test_data(
     1. pattern_injections where pattern_ids reference E2E test patterns
     2. Patterns created during E2E testing by matching:
        - signature_hash LIKE 'test_e2e_%' (if column exists)
-       - pattern_signature LIKE 'test_e2e_%' (fallback)
+       - pattern_signature LIKE '%e2e_test%' (fallback - contains match)
 
-    Note: Uses signature prefix ONLY for cleanup - does NOT delete by domain_id
+    Note: Uses signature patterns ONLY for cleanup - does NOT delete by domain_id
     since E2E tests use existing production domains (e.g., code_generation).
 
     The function is backward compatible with databases that don't have the
     signature_hash column (migration 008 not applied).
+
+    **Fallback Pattern Matching**:
+    When signature_hash column doesn't exist, the fallback uses a "contains" match
+    (LIKE '%e2e_test%') rather than "starts with" because create_test_pattern()
+    generates signatures like 'def e2e_test_pattern_<uuid>(): pass' where the
+    E2E marker is in the middle of the string, not at the start.
 
     Args:
         conn: asyncpg.Connection to the database.
@@ -487,9 +512,11 @@ async def _cleanup_e2e_test_data(
         use_signature_hash = await _check_signature_hash_column_exists(conn)
 
     # Build the appropriate query based on schema version
-    # Note: Only uses signature prefix for cleanup to avoid deleting production data
+    # Note: Only uses signature patterns for cleanup to avoid deleting production data
     if use_signature_hash:
         # Use signature_hash (preferred - migration 008 applied)
+        # signature_hash values start with E2E_SIGNATURE_PREFIX
+        # (e.g., 'test_e2e_<hash>')
         select_query = """
             SELECT id FROM learned_patterns
             WHERE signature_hash LIKE $1
@@ -498,8 +525,12 @@ async def _cleanup_e2e_test_data(
             DELETE FROM learned_patterns
             WHERE signature_hash LIKE $1
         """
+        like_pattern = f"{E2E_SIGNATURE_PREFIX}%"
     else:
         # Fallback: use pattern_signature (migration 008 not applied)
+        # pattern_signature values contain E2E_SIGNATURE_CONTAINS
+        # (e.g., 'def e2e_test_pattern_...')
+        # Uses "contains" match since the E2E marker is in the middle
         select_query = """
             SELECT id FROM learned_patterns
             WHERE pattern_signature LIKE $1
@@ -508,15 +539,16 @@ async def _cleanup_e2e_test_data(
             DELETE FROM learned_patterns
             WHERE pattern_signature LIKE $1
         """
+        like_pattern = f"%{E2E_SIGNATURE_CONTAINS}%"
 
     # First, get the IDs of patterns we're going to delete
     pattern_ids = await conn.fetch(
         select_query,
-        f"{E2E_SIGNATURE_PREFIX}%",
+        like_pattern,
     )
 
     # Delete pattern_injections that reference these patterns
-    # Uses array overlap operator (&&) to find injections containing any of these patterns
+    # Uses array overlap (&&) to find injections containing these patterns
     if pattern_ids:
         ids_list = [row["id"] for row in pattern_ids]
         await conn.execute(
@@ -530,7 +562,7 @@ async def _cleanup_e2e_test_data(
     # Delete the E2E test patterns
     result = await conn.execute(
         delete_query,
-        f"{E2E_SIGNATURE_PREFIX}%",
+        like_pattern,
     )
     # Parse "DELETE N" to get count
     if result and result.startswith("DELETE "):
@@ -919,13 +951,23 @@ def pattern_learning_node() -> Any:
 async def pattern_storage_handler(
     e2e_db_conn: Any,
 ) -> AsyncGenerator[Any, None]:
-    """Create a pattern storage handler with real PostgreSQL for E2E testing.
+    """Create a pattern storage handler for E2E testing.
 
-    This fixture provides access to the handle_store_pattern function wired
-    to the real PostgreSQL database for storing patterns.
+    This fixture provides access to the handle_store_pattern function with a
+    MockPatternStore for protocol compliance. The MockPatternStore provides
+    in-memory storage that implements ProtocolPatternStore.
+
+    Note:
+        This fixture uses MockPatternStore (in-memory) rather than
+        AdapterPatternStore because AdapterPatternStore requires a
+        PostgresRepositoryRuntime which is complex to wire. For tests
+        that need real database storage, use the e2e_db_conn fixture
+        directly with SQL queries (see create_test_pattern in TC4 tests).
 
     Args:
-        e2e_db_conn: The E2E database connection fixture.
+        e2e_db_conn: The E2E database connection fixture. Passed to
+            handle_store_pattern for transaction control, though
+            MockPatternStore ignores it.
 
     Yields:
         A callable that wraps handle_store_pattern with the connection.
@@ -941,17 +983,10 @@ async def pattern_storage_handler(
     )
     from omniintelligence.testing import MockPatternStore
 
-    # Create adapter that uses real DB operations
-    # For E2E we use the actual AdapterPatternStore if available,
-    # otherwise fall back to MockPatternStore for the protocol
-    try:
-        from omniintelligence.repositories.adapter_pattern_store import AdapterPatternStore
-
-        # AdapterPatternStore manages its own connection pool
-        pattern_store = AdapterPatternStore()
-    except ImportError:
-        # Fallback to mock if adapter not available
-        pattern_store = MockPatternStore()
+    # MockPatternStore provides in-memory storage implementing ProtocolPatternStore.
+    # For real database storage in E2E tests, use direct SQL with e2e_db_conn
+    # (see create_test_pattern in test_tc4_feedback_loop.py).
+    pattern_store = MockPatternStore()
 
     async def _handle(input_data: Any) -> Any:
         """Wrapper that provides the connection to handle_store_pattern."""
@@ -1288,6 +1323,7 @@ async def e2e_kafka_session_cleanup() -> AsyncGenerator[None, None]:
 __all__ = [
     # Constants
     "E2E_DOMAIN",
+    "E2E_SIGNATURE_CONTAINS",
     "E2E_SIGNATURE_PREFIX",
     "E2E_TEST_PREFIX",
     # Utility functions

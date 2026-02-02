@@ -137,7 +137,16 @@ class TestTC2FailedSessionPatternsExtraction:
         metrics = result["metrics"]
         # Note: mean_confidence is computed from deduplicated clusters
         # For failed sessions, this should be lower than success sessions
-        # We don't assert an exact value since clustering affects the mean
+        # We don't assert an exact value since clustering affects the mean,
+        # but we DO verify it's within valid bounds and reflects low confidence
+        assert metrics.mean_confidence >= 0.0, (
+            f"Mean confidence should be non-negative, got {metrics.mean_confidence:.3f}"
+        )
+        assert metrics.mean_confidence < 0.7, (
+            f"Failed session mean confidence {metrics.mean_confidence:.3f} "
+            "should be below threshold 0.7 "
+            "(fixture patterns have confidence 0.28-0.42)"
+        )
 
     def test_failed_session_respects_low_threshold(
         self,

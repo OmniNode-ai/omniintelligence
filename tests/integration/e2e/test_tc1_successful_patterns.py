@@ -18,7 +18,7 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -83,7 +83,9 @@ class TestTC1SuccessfulPatternExtraction:
         )
 
         # Assert: At least some patterns were extracted
-        total_patterns = len(result["learned_patterns"]) + len(result["candidate_patterns"])
+        learned_count = len(result["learned_patterns"])
+        candidate_count = len(result["candidate_patterns"])
+        total_patterns = learned_count + candidate_count
         assert total_patterns >= MIN_EXPECTED_PATTERNS, (
             f"Expected at least {MIN_EXPECTED_PATTERNS} patterns, "
             f"got {total_patterns} (learned={len(result['learned_patterns'])}, "
@@ -120,7 +122,9 @@ class TestTC1SuccessfulPatternExtraction:
         assert result["success"] is True
 
         # Collect all patterns
-        all_patterns = list(result["learned_patterns"]) + list(result["candidate_patterns"])
+        learned = list(result["learned_patterns"])
+        candidates = list(result["candidate_patterns"])
+        all_patterns = learned + candidates
         assert len(all_patterns) >= MIN_EXPECTED_PATTERNS, (
             "Should have at least one pattern to verify confidence"
         )
@@ -129,16 +133,16 @@ class TestTC1SuccessfulPatternExtraction:
         for pattern in all_patterns:
             confidence = pattern.score_components.confidence
             assert confidence > 0, (
-                f"Pattern '{pattern.pattern_name}' has confidence {confidence:.3f}, "
-                f"expected > 0 (positive confidence)"
+                f"Pattern '{pattern.pattern_name}' has confidence "
+                f"{confidence:.3f}, expected > 0 (positive confidence)"
             )
 
         # Assert: Learned patterns have confidence >= threshold (default 0.7)
         for pattern in result["learned_patterns"]:
             confidence = pattern.score_components.confidence
             assert confidence >= MIN_CONFIDENCE_THRESHOLD, (
-                f"Learned pattern '{pattern.pattern_name}' has confidence {confidence:.3f}, "
-                f"expected >= {MIN_CONFIDENCE_THRESHOLD} for learned patterns"
+                f"Learned pattern '{pattern.pattern_name}' has confidence "
+                f"{confidence:.3f}, expected >= {MIN_CONFIDENCE_THRESHOLD}"
             )
 
         # Assert: Mean confidence from metrics is positive
@@ -174,7 +178,9 @@ class TestTC1SuccessfulPatternExtraction:
         assert result["success"] is True
 
         # Collect all patterns
-        all_patterns = list(result["learned_patterns"]) + list(result["candidate_patterns"])
+        learned = list(result["learned_patterns"])
+        candidates = list(result["candidate_patterns"])
+        all_patterns = learned + candidates
         assert len(all_patterns) >= MIN_EXPECTED_PATTERNS, (
             "Should have at least one pattern to verify structure"
         )
@@ -208,10 +214,10 @@ class TestTC1SuccessfulPatternExtraction:
                 f"Confidence {pattern.score_components.confidence} should be in [0, 1]"
             )
             assert 0.0 <= pattern.score_components.label_agreement <= 1.0, (
-                f"label_agreement should be in [0, 1]"
+                "label_agreement should be in [0, 1]"
             )
             assert 0.0 <= pattern.score_components.cluster_cohesion <= 1.0, (
-                f"cluster_cohesion should be in [0, 1]"
+                "cluster_cohesion should be in [0, 1]"
             )
 
             # Lifecycle state
@@ -290,8 +296,8 @@ class TestTC1SuccessfulPatternExtraction:
         # Assert: All candidate_patterns are NOT VALIDATED
         for pattern in result["candidate_patterns"]:
             assert pattern.lifecycle_state != EnumPatternLifecycleState.VALIDATED, (
-                f"Pattern '{pattern.pattern_name}' in candidate_patterns should NOT have "
-                f"lifecycle_state=VALIDATED, got {pattern.lifecycle_state}"
+                f"Pattern '{pattern.pattern_name}' in candidate_patterns should "
+                f"NOT have lifecycle_state=VALIDATED, got {pattern.lifecycle_state}"
             )
 
     def test_metadata_contains_processing_info(
@@ -488,8 +494,9 @@ class TestTC1EdgeCases:
         assert result_high["success"] is True
 
         # Assert: High threshold should have fewer or equal learned patterns
-        assert len(result_high["learned_patterns"]) <= len(result_low["learned_patterns"]), (
-            f"High threshold ({len(result_high['learned_patterns'])}) should produce "
-            f"fewer or equal learned patterns than low threshold "
-            f"({len(result_low['learned_patterns'])})"
+        high_count = len(result_high["learned_patterns"])
+        low_count = len(result_low["learned_patterns"])
+        assert high_count <= low_count, (
+            f"High threshold ({high_count}) should produce fewer or equal "
+            f"learned patterns than low threshold ({low_count})"
         )

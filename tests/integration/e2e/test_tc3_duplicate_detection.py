@@ -102,9 +102,9 @@ class TestTC3DuplicateDetection:
         # Assert - Deduplication should reduce pattern count
         # When similar patterns are processed together, they should be merged
         assert combined_pattern_count <= individual_pattern_count, (
-            f"Combined processing should produce fewer or equal patterns due to deduplication. "
-            f"Individual runs produced {individual_pattern_count} total patterns, "
-            f"but combined run produced {combined_pattern_count}"
+            f"Combined processing should produce fewer or equal patterns due to "
+            f"deduplication. Individual runs produced {individual_pattern_count} "
+            f"total patterns, but combined run produced {combined_pattern_count}"
         )
 
         # Assert - Verify metrics show merging occurred
@@ -171,7 +171,8 @@ class TestTC3DuplicateDetection:
             sig_info = pattern.signature_info
             # Signature should be a 64-character SHA256 hex string
             assert len(sig_info.signature) == 64, (
-                f"Signature should be 64-character SHA256 hex, got {len(sig_info.signature)}"
+                f"Signature should be 64-character SHA256 hex, "
+                f"got {len(sig_info.signature)}"
             )
             assert all(c in "0123456789abcdef" for c in sig_info.signature), (
                 "Signature should only contain hex characters"
@@ -215,7 +216,11 @@ class TestTC3DuplicateDetection:
         result_combined = pattern_learning_handler.handle(combined_data)
 
         # Assert - All should succeed
-        assert result_a["success"] and result_b["success"] and result_combined["success"]
+        assert (
+            result_a["success"]
+            and result_b["success"]
+            and result_combined["success"]
+        )
 
         # Get all patterns
         patterns_a = result_a["learned_patterns"] + result_a["candidate_patterns"]
@@ -228,18 +233,24 @@ class TestTC3DuplicateDetection:
         # than the maximum from individual sessions
         if patterns_combined:
             max_combined_source = max(p.source_count for p in patterns_combined)
-            max_individual_source_a = max(p.source_count for p in patterns_a) if patterns_a else 0
-            max_individual_source_b = max(p.source_count for p in patterns_b) if patterns_b else 0
+            max_individual_source_a = (
+                max(p.source_count for p in patterns_a) if patterns_a else 0
+            )
+            max_individual_source_b = (
+                max(p.source_count for p in patterns_b) if patterns_b else 0
+            )
 
             # Combined processing should aggregate sources from both sessions
             # (at minimum, the combined max should be >= individual maxes)
             assert max_combined_source >= max_individual_source_a, (
-                f"Combined patterns should have at least as many sources as session A "
-                f"(combined: {max_combined_source}, session A: {max_individual_source_a})"
+                f"Combined patterns should have at least as many sources as "
+                f"session A (combined: {max_combined_source}, "
+                f"session A: {max_individual_source_a})"
             )
             assert max_combined_source >= max_individual_source_b, (
-                f"Combined patterns should have at least as many sources as session B "
-                f"(combined: {max_combined_source}, session B: {max_individual_source_b})"
+                f"Combined patterns should have at least as many sources as "
+                f"session B (combined: {max_combined_source}, "
+                f"session B: {max_individual_source_b})"
             )
 
         # Verify input tracking in metrics
@@ -256,54 +267,50 @@ class TestTC3DuplicateDetection:
 
         This test verifies threshold sensitivity by calling deduplicate_patterns
         directly with different threshold values:
-        1. Very low threshold (0.3) should merge aggressively (more clusters merged)
+        1. Very low threshold (0.3) should merge aggressively (more merged)
         2. Default threshold (0.85) should merge moderately
-        3. Very high threshold (0.99) should preserve most distinct patterns (few merges)
+        3. Very high threshold (0.99) should preserve most distinct patterns
 
         The test ensures that changing the threshold actually changes behavior,
         which would catch regressions in threshold logic.
         """
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
-            compute_cluster_scores,
-        )
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
-            deduplicate_patterns,
-        )
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
-            extract_features_batch,
-        )
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
-            cluster_patterns,
-        )
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets import (
-            DEFAULT_DEDUPLICATION_THRESHOLD,
-            DEFAULT_SIMILARITY_WEIGHTS,
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+            handler_confidence_scoring,
+            handler_deduplication,
+            handler_feature_extraction,
+            handler_pattern_clustering,
+            presets,
         )
 
-        # Arrange - Get combined data and run through feature extraction and clustering
+        DEFAULT_DEDUPLICATION_THRESHOLD = presets.DEFAULT_DEDUPLICATION_THRESHOLD
+        DEFAULT_SIMILARITY_WEIGHTS = presets.DEFAULT_SIMILARITY_WEIGHTS
+
+        # Arrange - Get combined data and run through extraction and clustering
         session_a_data, session_b_data = sample_duplicate_session_data()
         combined_data = list(session_a_data + session_b_data)
 
         # Extract features and cluster patterns
-        features_list = extract_features_batch(combined_data)
-        clusters = cluster_patterns(
+        features_list = handler_feature_extraction.extract_features_batch(
+            combined_data
+        )
+        clusters = handler_pattern_clustering.cluster_patterns(
             features_list=features_list,
             weights=DEFAULT_SIMILARITY_WEIGHTS,
         )
 
         # Skip if not enough clusters for meaningful threshold testing
         if len(clusters) < 2:
-            pytest.skip("Not enough clusters formed for threshold sensitivity testing")
+            pytest.skip("Not enough clusters for threshold sensitivity testing")
 
         # Compute confidence scores for deduplication
         confidence_scores: dict[str, float] = {}
         for cluster in clusters:
-            scores = compute_cluster_scores(cluster)
+            scores = handler_confidence_scoring.compute_cluster_scores(cluster)
             confidence_scores[cluster["cluster_id"]] = scores["confidence"]
 
         # Act - Test with different thresholds
         # Very low threshold (0.3) - should merge very aggressively
-        result_low = deduplicate_patterns(
+        result_low = handler_deduplication.deduplicate_patterns(
             clusters=clusters,
             confidence_scores=confidence_scores,
             similarity_threshold=0.3,
@@ -311,7 +318,7 @@ class TestTC3DuplicateDetection:
         )
 
         # Default threshold (0.85) - moderate merging
-        result_default = deduplicate_patterns(
+        result_default = handler_deduplication.deduplicate_patterns(
             clusters=clusters,
             confidence_scores=confidence_scores,
             similarity_threshold=DEFAULT_DEDUPLICATION_THRESHOLD,
@@ -319,7 +326,7 @@ class TestTC3DuplicateDetection:
         )
 
         # Very high threshold (0.99) - almost no merging
-        result_high = deduplicate_patterns(
+        result_high = handler_deduplication.deduplicate_patterns(
             clusters=clusters,
             confidence_scores=confidence_scores,
             similarity_threshold=0.99,
@@ -338,32 +345,59 @@ class TestTC3DuplicateDetection:
         high_cluster_count = len(result_high["deduplicated_clusters"])
 
         # Core threshold sensitivity assertion:
-        # As threshold increases, surviving cluster count should increase (or stay same)
+        # As threshold increases, cluster count should increase (or stay same)
         assert low_cluster_count <= default_cluster_count, (
-            f"Lower threshold (0.3) should produce same or fewer clusters than default. "
-            f"Low: {low_cluster_count}, Default: {default_cluster_count}"
+            f"Lower threshold (0.3) should produce same or fewer clusters than "
+            f"default. Low: {low_cluster_count}, Default: {default_cluster_count}"
         )
         assert default_cluster_count <= high_cluster_count, (
-            f"Default threshold should produce same or fewer clusters than high (0.99). "
-            f"Default: {default_cluster_count}, High: {high_cluster_count}"
+            f"Default threshold should produce same or fewer clusters than high "
+            f"(0.99). Default: {default_cluster_count}, High: {high_cluster_count}"
         )
 
         # Assert - Merged count should reflect threshold sensitivity
         # Lower threshold = more merges, higher threshold = fewer merges
         assert result_low["merged_count"] >= result_default["merged_count"], (
             f"Lower threshold should merge same or more patterns. "
-            f"Low merged: {result_low['merged_count']}, Default merged: {result_default['merged_count']}"
+            f"Low merged: {result_low['merged_count']}, "
+            f"Default merged: {result_default['merged_count']}"
         )
         assert result_default["merged_count"] >= result_high["merged_count"], (
             f"Default threshold should merge same or more than high threshold. "
-            f"Default merged: {result_default['merged_count']}, High merged: {result_high['merged_count']}"
+            f"Default merged: {result_default['merged_count']}, "
+            f"High merged: {result_high['merged_count']}"
         )
 
-        # Assert - High threshold should preserve original cluster count (or close to it)
+        # Assert - High threshold should preserve original cluster count
         assert high_cluster_count >= len(clusters) - 1, (
             f"Very high threshold (0.99) should preserve most clusters. "
             f"Original: {len(clusters)}, After 0.99 threshold: {high_cluster_count}"
         )
+
+        # CRITICAL: Verify threshold sensitivity - thresholds must actually
+        # affect behavior. If all values are equal, the test passes vacuously
+        # without verifying the threshold logic works. We need at least ONE
+        # difference between extreme thresholds.
+        cluster_sensitivity = low_cluster_count < high_cluster_count
+        merge_sensitivity = result_low["merged_count"] > result_high["merged_count"]
+
+        if not cluster_sensitivity and not merge_sensitivity:
+            # All thresholds produced identical results - this indicates either:
+            # 1. Test data doesn't have enough similarity variance to trigger
+            #    threshold effects
+            # 2. Bug in threshold logic (threshold is being ignored)
+            pytest.fail(
+                f"THRESHOLD SENSITIVITY FAILURE: Extreme thresholds (0.3 vs "
+                f"0.99) produced identical results.\n"
+                f"  Cluster counts: low={low_cluster_count}, "
+                f"default={default_cluster_count}, high={high_cluster_count}\n"
+                f"  Merged counts: low={result_low['merged_count']}, "
+                f"default={result_default['merged_count']}, "
+                f"high={result_high['merged_count']}\n"
+                f"  Original clusters: {len(clusters)}\n"
+                f"Either the test data lacks sufficient similarity variance, "
+                f"or the threshold logic has a regression."
+            )
 
         # Log metrics for debugging
         logger.debug(
@@ -420,7 +454,9 @@ class TestTC3DuplicateDetection:
 
         # Log warnings for debugging
         if near_threshold_warnings:
-            logger.debug("Near-threshold warnings found: %d", len(near_threshold_warnings))
+            logger.debug(
+                "Near-threshold warnings found: %d", len(near_threshold_warnings)
+            )
             for w in near_threshold_warnings:
                 logger.debug("  - %s", w)
 
@@ -460,7 +496,8 @@ class TestTC3SignatureStability:
 
             # Major version should be at least 1 (we're post-v1.0.0)
             assert sig_info.signature_version.major >= 1, (
-                f"Signature version major should be >= 1, got {sig_info.signature_version}"
+                f"Signature version major should be >= 1, "
+                f"got {sig_info.signature_version}"
             )
 
             # Normalization should be documented
@@ -509,7 +546,8 @@ class TestTC3SignatureStability:
             # First input should be pattern_type (lowercased)
             first_input = sig_info.signature_inputs[0]
             assert first_input.islower(), (
-                f"First signature input (pattern_type) should be lowercase, got '{first_input}'"
+                f"First signature input (pattern_type) should be lowercase, "
+                f"got '{first_input}'"
             )
 
             # All inputs should be lowercase (normalization)
@@ -603,8 +641,12 @@ class TestTC3DeterminismGuarantees:
         assert result_1["success"] and result_2["success"] and result_3["success"]
 
         # Same pattern count
-        count_1 = len(result_1["learned_patterns"]) + len(result_1["candidate_patterns"])
-        count_2 = len(result_2["learned_patterns"]) + len(result_2["candidate_patterns"])
+        count_1 = (
+            len(result_1["learned_patterns"]) + len(result_1["candidate_patterns"])
+        )
+        count_2 = (
+            len(result_2["learned_patterns"]) + len(result_2["candidate_patterns"])
+        )
 
         # ordering_3 may have different count since it's a subset
         # but ordering_1 and ordering_2 should match

@@ -432,7 +432,7 @@ config = read_config("/nonexistent/config.json")''',
 def sample_duplicate_session_data() -> (
     tuple[list[TrainingDataItemDict], list[TrainingDataItemDict]]
 ):
-    """Return two lists of training data items with similar patterns for deduplication testing.
+    """Return two lists of training data for deduplication testing.
 
     This fixture provides two sets of training data that contain semantically
     similar patterns. The pattern learning pipeline should detect these as

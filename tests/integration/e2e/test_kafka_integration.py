@@ -68,7 +68,8 @@ async def test_real_kafka_publisher_publishes_events(
     # Assert: Event is recorded
     assert len(e2e_kafka_publisher.published_events) == 1
 
-    recorded_topic, recorded_key, recorded_value = e2e_kafka_publisher.published_events[0]
+    recorded = e2e_kafka_publisher.published_events[0]
+    recorded_topic, recorded_key, recorded_value = recorded
     assert recorded_topic == f"{e2e_topic_prefix}{topic}"
     assert recorded_key == key
     assert recorded_value == value
@@ -240,7 +241,11 @@ async def test_kafka_consumer_can_verify_published_events(
     test_id = uuid4().hex[:8]
     topic = f"{e2e_topic_prefix}verification-test-{test_id}"
     key = f"test-key-{test_id}"
-    value = {"event_type": "verification", "test_id": test_id, "timestamp": str(uuid4())}
+    value = {
+        "event_type": "verification",
+        "test_id": test_id,
+        "timestamp": str(uuid4()),
+    }
 
     # Create publisher directly (not via fixture, to control topic naming)
     publisher = RealKafkaPublisher(e2e_kafka_producer, topic_prefix="")
@@ -256,8 +261,9 @@ async def test_kafka_consumer_can_verify_published_events(
     await publisher.publish(topic, key, value)
 
     # Verify: Publisher recorded the event locally
-    assert len(publisher.published_events) == 1, (
-        f"Publisher should have recorded exactly 1 event, got {len(publisher.published_events)}"
+    event_count = len(publisher.published_events)
+    assert event_count == 1, (
+        f"Publisher should have recorded exactly 1 event, got {event_count}"
     )
 
     # Assert: Consumer receives the event from Kafka broker
