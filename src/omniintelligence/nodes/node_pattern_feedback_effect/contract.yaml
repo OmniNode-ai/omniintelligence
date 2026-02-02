@@ -12,9 +12,9 @@
 # Reference: OMN-1678 - Rolling window metric updates for session outcomes
 
 # Contract identifiers
-name: "pattern_feedback_effect"
-contract_name: "pattern_feedback_effect"
-node_name: "pattern_feedback_effect"
+name: "node_pattern_feedback_effect"
+contract_name: "node_pattern_feedback_effect"
+node_name: "node_pattern_feedback_effect"
 contract_version:
   major: 1
   minor: 0

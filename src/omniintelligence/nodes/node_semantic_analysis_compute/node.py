@@ -16,8 +16,6 @@ is delegated to the handler.
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
@@ -37,8 +35,6 @@ class NodeSemanticAnalysisCompute(
     This is a thin shell that delegates all business logic to the handler.
     No error handling, logging, or business logic belongs in this class.
     """
-
-    is_stub: ClassVar[bool] = False
 
     async def compute(
         self, input_data: ModelSemanticAnalysisInput

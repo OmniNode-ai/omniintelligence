@@ -135,9 +135,9 @@ dev = [
 
 # Core node system dependencies
 # Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
-#   ^0.9.10 = >=0.9.10,<0.10.0  (compatible releases within 0.9.x)
-#   ^0.6.3 = >=0.6.3,<0.7.0  (compatible releases within 0.6.x)
-#   ^0.2.7 = >=0.2.7,<0.3.0  (compatible releases within 0.2.x)
+#   ^0.12.0 = >=0.12.0,<0.13.0  (compatible releases within 0.12.x)
+#   ^0.6.4 = >=0.6.4,<0.7.0  (compatible releases within 0.6.x)
+#   ^0.3.0 = >=0.3.0,<0.4.0  (compatible releases within 0.3.x)
 core = [
     # ONEX ecosystem dependencies (version bounds match Poetry caret syntax)
     "omnibase-core>=0.12.0,<0.13.0",

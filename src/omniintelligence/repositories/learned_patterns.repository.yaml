@@ -1,0 +1,879 @@
+---
+# =============================================================================
+# LEARNED PATTERNS REPOSITORY CONTRACT
+# =============================================================================
+#
+# Contract for the learned_patterns table. Defines all read/write operations
+# for pattern storage, retrieval, and lifecycle management.
+#
+# Validators (OMN-1782):
+#   - validator_db_structural: Required fields, unique op names
+#   - validator_db_sql_safety: read->SELECT only, no DROP/ALTER
+#   - validator_db_table_access: SQL only touches declared tables
+#   - validator_db_deterministic: many:true requires ORDER BY
+#   - validator_db_params: All :params defined, no unused
+#
+# =============================================================================
+# SIGNATURE FIELDS
+# =============================================================================
+#
+# This table uses TWO signature-related fields for different purposes:
+#
+#   pattern_signature (TEXT):
+#     - Raw, human-readable signature text
+#     - Used for debugging, display, and auditing
+#     - May contain whitespace variations, formatting differences
+#     - NOT suitable for lineage identity (can vary for same logical pattern)
+#
+#   signature_hash (VARCHAR(64)):
+#     - SHA256 hash of canonicalized signature
+#     - Stable identity key for pattern lineage
+#     - Used in WHERE clauses for version lookups, existence checks
+#     - Guarantees consistent lineage even if raw signature formatting varies
+#
+# Rule: All lineage operations (version transitions, existence checks, lineage
+# lookups) MUST use signature_hash. Use pattern_signature only for display.
+#
+
+db_repository:
+  name: learned_patterns
+  engine: postgres
+  database_ref: omninode_bridge
+  description: |
+    Repository for accessing learned patterns from the pattern store.
+    Used by the pattern learning pipeline and manifest injection system.
+
+  # Tables this contract is allowed to access
+  tables:
+    - learned_patterns
+
+  # Model aliases -> fully qualified import paths
+  models:
+    PatternRow: omniintelligence.models.repository:ModelLearnedPatternRow
+    PatternSummary: omniintelligence.models.repository:ModelPatternSummary
+    PatternInjection: omniintelligence.models.repository:ModelPatternForInjection
+    ExistsResult: omniintelligence.models.repository:ModelExistsResult
+    IdResult: omniintelligence.models.repository:ModelIdResult
+    VersionResult: omniintelligence.models.repository:ModelVersionResult
+    TimestampResult: omniintelligence.models.repository:ModelTimestampResult
+
+  # =============================================================================
+  # OPERATIONS
+  # =============================================================================
+  ops:
+    # -------------------------------------------------------------------------
+    # READ: List validated patterns for injection
+    # -------------------------------------------------------------------------
+    list_validated_patterns:
+      mode: read
+      description: |
+        Retrieve validated patterns ready for injection into Claude sessions.
+        Only returns patterns that are:
+        - status = 'validated'
+        - is_current = TRUE (latest version)
+        - compiled_snippet IS NOT NULL (has compiled form)
+        Ordered by quality_score DESC for best patterns first.
+      sql: |
+        SELECT
+          id,
+          pattern_signature,
+          signature_hash,
+          domain_id,
+          compiled_snippet,
+          quality_score,
+          confidence,
+          status,
+          is_current,
+          version,
+          compiled_token_count
+        FROM learned_patterns
+        WHERE status = 'validated'
+          AND is_current = TRUE
+          AND compiled_snippet IS NOT NULL
+        ORDER BY quality_score DESC, id ASC
+        LIMIT :limit
+      params:
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 10
+          ge: 1
+          le: 200
+          description: Maximum number of patterns to return
+      returns:
+        model_ref: PatternInjection
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get single pattern by ID
+    # -------------------------------------------------------------------------
+    get_pattern:
+      mode: read
+      description: Retrieve a single pattern by its UUID
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get current pattern for lineage (same signature_hash)
+    # -------------------------------------------------------------------------
+    get_latest_by_lineage:
+      mode: read
+      description: |
+        Get the current (latest) version of a pattern by its signature hash.
+        Used to check if a pattern already exists before storing.
+        Uses signature_hash for stable lineage identity.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE signature_hash = :signature_hash
+          AND domain_id = :domain_id
+          AND is_current = TRUE
+      params:
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+          description: Domain identifier
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: List patterns by domain
+    # -------------------------------------------------------------------------
+    list_by_domain:
+      mode: read
+      description: |
+        List patterns filtered by domain with pagination.
+        Only returns current versions.
+      sql: |
+        SELECT
+          id,
+          pattern_signature,
+          signature_hash,
+          domain_id,
+          quality_score,
+          confidence,
+          status,
+          is_current,
+          version,
+          created_at
+        FROM learned_patterns
+        WHERE domain_id = :domain_id
+          AND is_current = TRUE
+        ORDER BY quality_score DESC, id ASC
+        LIMIT :limit
+        OFFSET :offset
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+          description: Domain identifier to filter patterns by
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+          description: Maximum number of patterns to return
+        offset:
+          name: offset
+          param_type: integer
+          required: false
+          default: 0
+          ge: 0
+          description: Number of patterns to skip for pagination
+      returns:
+        model_ref: PatternSummary
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get promotion candidates
+    # -------------------------------------------------------------------------
+    list_promotion_candidates:
+      mode: read
+      description: |
+        Find patterns eligible for promotion from candidate/provisional to validated.
+        Returns patterns meeting minimum quality and recurrence thresholds.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE status IN ('candidate', 'provisional')
+          AND is_current = TRUE
+          AND quality_score >= :min_quality
+          AND distinct_days_seen >= :min_days
+          AND recurrence_count >= :min_recurrence
+        ORDER BY quality_score DESC, distinct_days_seen DESC, id ASC
+        LIMIT :limit
+      params:
+        min_quality:
+          name: min_quality
+          param_type: number
+          required: false
+          default: 0.7
+          ge: 0.0
+          le: 1.0
+          description: Minimum quality score threshold for promotion eligibility
+        min_days:
+          name: min_days
+          param_type: integer
+          required: false
+          default: 3
+          ge: 1
+          description: Minimum distinct days the pattern must have been seen
+        min_recurrence:
+          name: min_recurrence
+          param_type: integer
+          required: false
+          default: 5
+          ge: 1
+          description: Minimum number of times the pattern must have recurred
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+          description: Maximum number of candidates to return
+      returns:
+        model_ref: PatternRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get demotion candidates (failing patterns)
+    # -------------------------------------------------------------------------
+    list_demotion_candidates:
+      mode: read
+      description: |
+        Find validated patterns that may need demotion due to poor performance.
+        Returns patterns with high failure streaks or low rolling success rates.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE status = 'validated'
+          AND is_current = TRUE
+          AND (
+            failure_streak >= :max_failure_streak
+            OR (
+              injection_count_rolling_20 >= :min_injections
+              AND failure_count_rolling_20::float / NULLIF(injection_count_rolling_20, 0) >= :max_failure_rate
+            )
+          )
+        ORDER BY failure_streak DESC, quality_score ASC, id ASC
+        LIMIT :limit
+      params:
+        max_failure_streak:
+          name: max_failure_streak
+          param_type: integer
+          required: false
+          default: 3
+          ge: 1
+          description: Failure streak threshold that triggers demotion consideration
+        min_injections:
+          name: min_injections
+          param_type: integer
+          required: false
+          default: 5
+          ge: 1
+          description: Minimum injection count required to evaluate failure rate
+        max_failure_rate:
+          name: max_failure_rate
+          param_type: number
+          required: false
+          default: 0.5
+          ge: 0.0
+          le: 1.0
+          description: Maximum allowed failure rate before demotion consideration
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+          description: Maximum number of candidates to return
+      returns:
+        model_ref: PatternRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # WRITE: Store new pattern
+    # -------------------------------------------------------------------------
+    store_pattern:
+      mode: write
+      description: |
+        Insert a new pattern into the store.
+        Sets is_current=TRUE by default. Caller should first call
+        set_not_current if this is a new version of existing pattern.
+
+        Note: created_at and updated_at columns rely on database defaults
+        (DEFAULT NOW()) and are not explicitly set by this operation.
+
+        Stores both pattern_signature (raw text) and signature_hash (SHA256)
+        for lineage tracking. The signature_hash is used for lineage lookups.
+      sql: |
+        INSERT INTO learned_patterns (
+          id,
+          pattern_signature,
+          signature_hash,
+          domain_id,
+          domain_version,
+          domain_candidates,
+          keywords,
+          confidence,
+          quality_score,
+          status,
+          source_session_ids,
+          recurrence_count,
+          version,
+          is_current,
+          supersedes
+        ) VALUES (
+          :id,
+          :signature,
+          :signature_hash,
+          :domain_id,
+          :domain_version,
+          :domain_candidates,
+          :keywords,
+          :confidence,
+          :quality_score,
+          :status,
+          :source_session_ids,
+          :recurrence_count,
+          :version,
+          TRUE,
+          :supersedes
+        )
+        RETURNING id
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Pattern UUID
+        signature:
+          name: signature
+          param_type: string
+          required: true
+          description: Pattern signature text (raw, human-readable)
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+          description: Domain identifier for the pattern
+        domain_version:
+          name: domain_version
+          param_type: string
+          required: false
+          default: "1.0"
+          min_length: 1
+          max_length: 20
+          description: |
+            Schema version within a domain. Tracks domain schema evolution,
+            not individual pattern versions (use `version` field for that).
+            Defaults to "1.0" for new patterns.
+        domain_candidates:
+          name: domain_candidates
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of domain candidates
+        keywords:
+          name: keywords
+          param_type: string
+          required: false
+          description: PostgreSQL array literal for keywords
+        confidence:
+          name: confidence
+          param_type: number
+          required: true
+          ge: 0.5
+          le: 1.0
+          description: Confidence score for the pattern (0.5-1.0)
+        quality_score:
+          name: quality_score
+          param_type: number
+          required: false
+          default: 0.5
+          ge: 0.0
+          le: 1.0
+          description: Initial quality score for the pattern
+        status:
+          name: status
+          param_type: string
+          required: false
+          default: "candidate"
+          description: Initial lifecycle status for the pattern
+        source_session_ids:
+          name: source_session_ids
+          param_type: string
+          required: true
+          description: PostgreSQL array literal for session UUIDs
+        recurrence_count:
+          name: recurrence_count
+          param_type: integer
+          required: false
+          default: 1
+          ge: 1
+          description: Number of times this pattern has been observed
+        version:
+          name: version
+          param_type: integer
+          required: false
+          default: 1
+          ge: 1
+          description: Version number for this pattern within its lineage
+        supersedes:
+          name: supersedes
+          param_type: string
+          required: false
+          description: UUID of pattern this supersedes
+      returns:
+        model_ref: IdResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Set previous version not current
+    # -------------------------------------------------------------------------
+    set_not_current:
+      mode: write
+      description: |
+        Mark existing versions as not current before inserting new version.
+        Called before store_pattern when updating an existing pattern.
+        Uses signature_hash for stable lineage identity lookup.
+      sql: |
+        UPDATE learned_patterns
+        SET is_current = FALSE,
+            superseded_by = :superseded_by
+        WHERE signature_hash = :signature_hash
+          AND domain_id = :domain_id
+          AND is_current = TRUE
+        RETURNING id
+      params:
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          description: Domain identifier to match
+        superseded_by:
+          name: superseded_by
+          param_type: string
+          required: false
+          description: UUID of new pattern version. Null when called before new version ID is known.
+      returns:
+        model_ref: IdResult
+        many: true
+
+    # -------------------------------------------------------------------------
+    # WRITE: Update pattern status (promote/demote)
+    # -------------------------------------------------------------------------
+    update_status:
+      mode: write
+      description: Update pattern status and related timestamps
+      sql: |
+        UPDATE learned_patterns
+        SET status = :new_status,
+            promoted_at = CASE WHEN :new_status = 'validated' THEN NOW() ELSE promoted_at END,
+            deprecated_at = CASE WHEN :new_status = 'deprecated' THEN NOW() ELSE deprecated_at END,
+            deprecation_reason = :deprecation_reason
+        WHERE id = :pattern_id
+        RETURNING id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID to update
+        new_status:
+          name: new_status
+          param_type: string
+          required: true
+          description: New lifecycle status for the pattern
+        deprecation_reason:
+          name: deprecation_reason
+          param_type: string
+          required: false
+          description: Reason for deprecation (null for non-deprecated)
+      returns:
+        model_ref: IdResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Update rolling metrics after injection
+    # -------------------------------------------------------------------------
+    record_injection_outcome:
+      mode: write
+      description: |
+        Update rolling metrics after a pattern is used in a session.
+        Increments injection count and success/failure counts.
+      sql: |
+        UPDATE learned_patterns
+        SET injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, 20),
+            success_count_rolling_20 = CASE
+              WHEN :success THEN LEAST(success_count_rolling_20 + 1, 20)
+              ELSE success_count_rolling_20
+            END,
+            failure_count_rolling_20 = CASE
+              WHEN NOT :success THEN LEAST(failure_count_rolling_20 + 1, 20)
+              ELSE failure_count_rolling_20
+            END,
+            failure_streak = CASE
+              WHEN :success THEN 0
+              ELSE failure_streak + 1
+            END,
+            last_seen_at = NOW()
+        WHERE id = :pattern_id
+        RETURNING id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID to record outcome for
+        success:
+          name: success
+          param_type: boolean
+          required: true
+          description: Whether the injection was successful
+      returns:
+        model_ref: IdResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Store compiled snippet
+    # -------------------------------------------------------------------------
+    store_compiled:
+      mode: write
+      description: Store the compiled snippet after pattern compilation
+      sql: |
+        UPDATE learned_patterns
+        SET compiled_snippet = :snippet,
+            compiled_token_count = :token_count,
+            compiled_at = NOW()
+        WHERE id = :pattern_id
+        RETURNING id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID to store compiled snippet for
+        snippet:
+          name: snippet
+          param_type: string
+          required: true
+          description: Compiled pattern snippet for injection
+        token_count:
+          name: token_count
+          param_type: integer
+          required: true
+          ge: 1
+          description: Token count of compiled snippet
+      returns:
+        model_ref: IdResult
+        many: false
+
+    # =========================================================================
+    # IDEMPOTENCY & VERSION SUPPORT OPERATIONS
+    # =========================================================================
+    # These operations support the ProtocolPatternStore interface for
+    # idempotent storage, version management, and lineage tracking.
+    # All lineage operations use signature_hash for stable identity.
+
+    # -------------------------------------------------------------------------
+    # READ: Check if pattern exists by lineage and version
+    # -------------------------------------------------------------------------
+    check_exists:
+      mode: read
+      description: |
+        Check if a pattern already exists for the given lineage and version.
+        Used for idempotency checking before storage.
+        Uses signature_hash for stable lineage identity lookup.
+      sql: |
+        SELECT EXISTS(
+          SELECT 1 FROM learned_patterns
+          WHERE domain_id = :domain_id
+            AND signature_hash = :signature_hash
+            AND version = :version
+        ) AS exists
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          description: Domain identifier for lineage lookup
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+        version:
+          name: version
+          param_type: integer
+          required: true
+          description: Version number to check existence for
+      returns:
+        model_ref: ExistsResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Check if pattern exists by ID (idempotency key)
+    # -------------------------------------------------------------------------
+    check_exists_by_id:
+      mode: read
+      description: |
+        Check if a pattern exists by idempotency key (pattern_id, signature_hash).
+        If found, returns the stored pattern ID for idempotent response.
+        Uses signature_hash for stable lineage identity verification.
+      sql: |
+        SELECT id
+        FROM learned_patterns
+        WHERE id = :pattern_id
+          AND signature_hash = :signature_hash
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID to check existence for
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+      returns:
+        model_ref: IdResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get latest version number for lineage
+    # -------------------------------------------------------------------------
+    get_latest_version:
+      mode: read
+      description: |
+        Get the latest version number for a pattern lineage.
+        Used to determine the next version number when storing a new pattern.
+        Uses signature_hash for stable lineage identity lookup.
+      sql: |
+        SELECT MAX(version) AS version
+        FROM learned_patterns
+        WHERE domain_id = :domain_id
+          AND signature_hash = :signature_hash
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          description: Domain identifier for lineage lookup
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+      returns:
+        model_ref: VersionResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get stored_at timestamp for idempotent returns
+    # -------------------------------------------------------------------------
+    get_stored_at:
+      mode: read
+      description: |
+        Get the original stored_at timestamp for a pattern.
+        Used for idempotent returns to provide consistent timestamps.
+      sql: |
+        SELECT created_at
+        FROM learned_patterns
+        WHERE id = :pattern_id
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID to get timestamp for
+      returns:
+        model_ref: TimestampResult
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Atomic version transition + store (PREFERRED FOR VERSION UPDATES)
+    # -------------------------------------------------------------------------
+    store_with_version_transition:
+      mode: write
+      description: |
+        Atomically transition previous version(s) to non-current and insert new pattern.
+        Uses CTE to guarantee both UPDATE and INSERT succeed or neither takes effect.
+        Prevents invariant violation where lineage has no current version.
+        PREFERRED method for storing new versions. Use store_pattern for first version only.
+
+        Uses signature_hash for stable lineage identity in the CTE WHERE clause.
+        Stores both pattern_signature (raw text) and signature_hash (SHA256).
+      sql: |
+        WITH deactivated AS (
+          UPDATE learned_patterns
+          SET is_current = FALSE,
+              superseded_by = :id
+          WHERE signature_hash = :signature_hash
+            AND domain_id = :domain_id
+            AND is_current = TRUE
+          RETURNING id
+        )
+        INSERT INTO learned_patterns (
+          id,
+          pattern_signature,
+          signature_hash,
+          domain_id,
+          domain_version,
+          domain_candidates,
+          keywords,
+          confidence,
+          quality_score,
+          status,
+          source_session_ids,
+          recurrence_count,
+          version,
+          is_current,
+          supersedes
+        ) VALUES (
+          :id,
+          :signature,
+          :signature_hash,
+          :domain_id,
+          :domain_version,
+          :domain_candidates,
+          :keywords,
+          :confidence,
+          :quality_score,
+          :status,
+          :source_session_ids,
+          :recurrence_count,
+          :version,
+          TRUE,
+          (SELECT id FROM deactivated LIMIT 1)
+        )
+        RETURNING id
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Pattern UUID for the new version
+        signature:
+          name: signature
+          param_type: string
+          required: true
+          description: Pattern signature text (raw, human-readable)
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature for stable lineage identity
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 50
+          description: Domain identifier (used for lineage lookup)
+        domain_version:
+          name: domain_version
+          param_type: string
+          required: false
+          default: "1.0"
+          min_length: 1
+          max_length: 20
+          description: |
+            Schema version within a domain. Tracks domain schema evolution,
+            not individual pattern versions (use `version` field for that).
+            Defaults to "1.0" for new patterns.
+        domain_candidates:
+          name: domain_candidates
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of domain candidates
+        keywords:
+          name: keywords
+          param_type: string
+          required: false
+          description: PostgreSQL array literal for keywords
+        confidence:
+          name: confidence
+          param_type: number
+          required: true
+          ge: 0.5
+          le: 1.0
+          description: Confidence score for the pattern (0.5-1.0)
+        quality_score:
+          name: quality_score
+          param_type: number
+          required: false
+          default: 0.5
+          ge: 0.0
+          le: 1.0
+          description: Initial quality score for the pattern
+        status:
+          name: status
+          param_type: string
+          required: false
+          default: "candidate"
+          description: Initial lifecycle status for the pattern
+        source_session_ids:
+          name: source_session_ids
+          param_type: string
+          required: true
+          description: PostgreSQL array literal for session UUIDs
+        recurrence_count:
+          name: recurrence_count
+          param_type: integer
+          required: false
+          default: 1
+          ge: 1
+          description: Number of times this pattern has been observed
+        version:
+          name: version
+          param_type: integer
+          required: true
+          ge: 1
+          description: Version number for this pattern (must be > latest existing)
+      returns:
+        model_ref: IdResult
+        many: false

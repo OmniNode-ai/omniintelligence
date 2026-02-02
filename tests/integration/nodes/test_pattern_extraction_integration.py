@@ -33,8 +33,8 @@ pytestmark = pytest.mark.skip(
 # The old import path (pattern_extraction.node_pattern_assembler_orchestrator) no longer exists.
 # When implementing, use the following imports:
 #
-# from omniintelligence.nodes.pattern_assembler_orchestrator import NodePatternAssemblerOrchestrator
-# from omniintelligence.nodes.pattern_assembler_orchestrator.models import ModelPatternAssemblyInput
+# from omniintelligence.nodes.node_pattern_assembler_orchestrator import NodePatternAssemblerOrchestrator
+# from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import ModelPatternAssemblyInput
 #
 # The test models (ModelPatternExtractionInput) need to be created or the tests rewritten
 # to use the canonical ModelPatternAssemblyInput model.

@@ -18,16 +18,16 @@ from typing import TYPE_CHECKING, Any
 _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     # Orchestrators (2)
     "NodeIntelligenceOrchestrator": (
-        "omniintelligence.nodes.intelligence_orchestrator.node",
+        "omniintelligence.nodes.node_intelligence_orchestrator.node",
         "NodeIntelligenceOrchestrator",
     ),
     "NodePatternAssemblerOrchestrator": (
-        "omniintelligence.nodes.pattern_assembler_orchestrator.node",
+        "omniintelligence.nodes.node_pattern_assembler_orchestrator.node",
         "NodePatternAssemblerOrchestrator",
     ),
     # Reducers (1)
     "NodeIntelligenceReducer": (
-        "omniintelligence.nodes.intelligence_reducer.node",
+        "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
     # Effects (2)
@@ -85,7 +85,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     ),
     # Computes (7)
     "NodeExecutionTraceParserCompute": (
-        "omniintelligence.nodes.execution_trace_parser_compute.node",
+        "omniintelligence.nodes.node_execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
     ),
     "NodeIntentClassifierCompute": (
@@ -93,11 +93,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodeIntentClassifierCompute",
     ),
     "NodePatternExtractionCompute": (
-        "omniintelligence.nodes.pattern_extraction_compute.node",
+        "omniintelligence.nodes.node_pattern_extraction_compute.node",
         "NodePatternExtractionCompute",
     ),
     "NodePatternMatchingCompute": (
-        "omniintelligence.nodes.pattern_matching_compute.node",
+        "omniintelligence.nodes.node_pattern_matching_compute.node",
         "NodePatternMatchingCompute",
     ),
     "NodeQualityScoringCompute": (
@@ -109,7 +109,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodeSemanticAnalysisCompute",
     ),
     "NodeSuccessCriteriaMatcherCompute": (
-        "omniintelligence.nodes.success_criteria_matcher_compute.node",
+        "omniintelligence.nodes.node_success_criteria_matcher_compute.node",
         "NodeSuccessCriteriaMatcherCompute",
     ),
 }
@@ -136,25 +136,25 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
-    from omniintelligence.nodes.execution_trace_parser_compute.node import (
+    from omniintelligence.nodes.node_execution_trace_parser_compute.node import (
         NodeExecutionTraceParserCompute as NodeExecutionTraceParserCompute,
     )
-    from omniintelligence.nodes.intelligence_orchestrator.node import (
+    from omniintelligence.nodes.node_intelligence_orchestrator.node import (
         NodeIntelligenceOrchestrator as NodeIntelligenceOrchestrator,
     )
-    from omniintelligence.nodes.intelligence_reducer.node import (
+    from omniintelligence.nodes.node_intelligence_reducer.node import (
         NodeIntelligenceReducer as NodeIntelligenceReducer,
     )
     from omniintelligence.nodes.node_intent_classifier_compute.node import (
         NodeIntentClassifierCompute as NodeIntentClassifierCompute,
     )
-    from omniintelligence.nodes.pattern_assembler_orchestrator.node import (
+    from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
     )
-    from omniintelligence.nodes.pattern_extraction_compute.node import (
+    from omniintelligence.nodes.node_pattern_extraction_compute.node import (
         NodePatternExtractionCompute as NodePatternExtractionCompute,
     )
-    from omniintelligence.nodes.pattern_matching_compute.node import (
+    from omniintelligence.nodes.node_pattern_matching_compute.node import (
         NodePatternMatchingCompute as NodePatternMatchingCompute,
     )
     from omniintelligence.nodes.node_quality_scoring_compute.node import (
@@ -163,7 +163,7 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_semantic_analysis_compute.node import (
         NodeSemanticAnalysisCompute as NodeSemanticAnalysisCompute,
     )
-    from omniintelligence.nodes.success_criteria_matcher_compute.node import (
+    from omniintelligence.nodes.node_success_criteria_matcher_compute.node import (
         NodeSuccessCriteriaMatcherCompute as NodeSuccessCriteriaMatcherCompute,
     )
 

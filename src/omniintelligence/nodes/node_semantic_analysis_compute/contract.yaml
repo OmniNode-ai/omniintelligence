@@ -8,7 +8,7 @@ node_version:
   major: 1
   minor: 0
   patch: 0
-name: "semantic_analysis_compute"
+name: "node_semantic_analysis_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node for semantic analysis of code. Analyzes meaning, intent, and semantic relationships in
