@@ -443,6 +443,116 @@ def integration_test_prefix() -> str:
 
 
 # =============================================================================
+# Real Kafka Publisher Adapter
+# =============================================================================
+
+
+class RealKafkaPublisher:
+    """Real Kafka publisher that adapts AIOKafkaProducer to ProtocolKafkaPublisher.
+
+    This adapter bridges the gap between the AIOKafkaProducer interface
+    (send_and_wait) and the ProtocolKafkaPublisher interface (publish) used
+    by ONEX effect node handlers.
+
+    The adapter also tracks published events for assertion in tests, providing
+    the same interface as MockKafkaPublisher for verification.
+
+    Attributes:
+        producer: The underlying AIOKafkaProducer instance.
+        published_events: List of (topic, key, value) tuples for assertion.
+        topic_prefix: Optional prefix added to all topics for isolation.
+        created_topics: Set of unique topics that were published to.
+
+    Example:
+        >>> async def test_real_kafka_publishing(kafka_producer):
+        ...     publisher = RealKafkaPublisher(kafka_producer)
+        ...     await publisher.publish("test-topic", "key", {"data": "value"})
+        ...     assert len(publisher.published_events) == 1
+    """
+
+    def __init__(
+        self,
+        producer: Any,
+        *,
+        topic_prefix: str = "",
+    ) -> None:
+        """Initialize the real Kafka publisher adapter.
+
+        Args:
+            producer: AIOKafkaProducer instance (already started).
+            topic_prefix: Optional prefix for topic isolation.
+        """
+        self._producer = producer
+        self._topic_prefix = topic_prefix
+        self.published_events: list[tuple[str, str, dict[str, Any]]] = []
+        self.created_topics: set[str] = set()
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        value: dict[str, Any],
+    ) -> None:
+        """Publish an event to Kafka.
+
+        Implements the ProtocolKafkaPublisher interface by adapting to
+        AIOKafkaProducer.send_and_wait().
+
+        Args:
+            topic: Target Kafka topic name (prefix will be prepended if set).
+            key: Message key for partitioning.
+            value: Event payload as a dictionary (will be JSON serialized).
+        """
+        import json
+
+        # Apply topic prefix for test isolation
+        full_topic = f"{self._topic_prefix}{topic}" if self._topic_prefix else topic
+
+        # Serialize value to JSON bytes
+        value_bytes = json.dumps(value).encode("utf-8")
+        key_bytes = key.encode("utf-8") if key else None
+
+        # Publish to Kafka
+        await self._producer.send_and_wait(
+            full_topic,
+            value=value_bytes,
+            key=key_bytes,
+        )
+
+        # Track the topic for cleanup
+        self.created_topics.add(full_topic)
+
+        # Record for assertion (store with full topic for verification)
+        self.published_events.append((full_topic, key, value))
+
+    def reset(self) -> None:
+        """Clear all recorded events and topics."""
+        self.published_events.clear()
+        self.created_topics.clear()
+
+    def get_created_topics(self) -> set[str]:
+        """Get all unique topics that were published to.
+
+        Returns:
+            Set of full topic names (including prefix) that received messages.
+        """
+        return self.created_topics.copy()
+
+    def get_events_for_topic(self, topic: str) -> list[tuple[str, str, dict[str, Any]]]:
+        """Get all events published to a specific topic.
+
+        Args:
+            topic: The topic to filter by (will match full topic including prefix).
+
+        Returns:
+            List of (topic, key, value) tuples for the specified topic.
+        """
+        # Match with or without prefix
+        full_topic = f"{self._topic_prefix}{topic}" if self._topic_prefix else topic
+        return [e for e in self.published_events if e[0] == full_topic or e[0] == topic]
+
+
+# =============================================================================
 # Mock Kafka Publisher
 # =============================================================================
 
@@ -528,8 +638,9 @@ __all__ = [
     "POSTGRES_USER",
     "TEST_DOMAIN_ID",
     "TEST_DOMAIN_VERSION",
-    # Mock classes
+    # Publisher classes
     "MockKafkaPublisher",
+    "RealKafkaPublisher",
     # Fixtures
     "db_conn",
     "db_pool",

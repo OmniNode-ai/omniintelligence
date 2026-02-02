@@ -5,15 +5,28 @@
 This module provides pytest fixtures for end-to-end testing of the pattern
 learning pipeline using:
 - Real PostgreSQL (192.168.86.200:5436, database: omninode_bridge) for data integrity
-- MockKafkaPublisher for event assertions (no real Kafka needed)
+- Real Kafka/Redpanda (192.168.86.200:29092) for event emission and verification
 
 Test Coverage:
     - Pattern learning compute (TC1-TC3)
     - Pattern storage to learned_patterns table
     - Feedback loop updates (TC4)
+    - Kafka event emission and verification
 
 Infrastructure Configuration (from .env):
     - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
+    - Kafka/Redpanda: 192.168.86.200:29092 (external port for host access)
+
+Kafka Integration:
+    The module provides real Kafka integration via the `e2e_kafka_publisher` fixture.
+    This publisher implements the `ProtocolKafkaPublisher` interface and wraps
+    `AIOKafkaProducer` for actual event emission.
+
+    For tests requiring event verification, use the `e2e_kafka_consumer` fixture
+    which can subscribe to topics and verify published events.
+
+    Tests are isolated via unique topic prefixes (e2e_test_{uuid}_) to prevent
+    pollution between test runs.
 
 Reference:
     - OMN-1800: E2E integration tests for pattern learning pipeline
@@ -22,7 +35,9 @@ Reference:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import logging
 import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -32,8 +47,14 @@ from uuid import UUID, uuid4
 import pytest
 import pytest_asyncio
 
+# Logger for cleanup operations
+_cleanup_logger = logging.getLogger(__name__)
+
 # Import shared fixtures and utilities from root integration conftest
 from tests.integration.conftest import (
+    KAFKA_AVAILABLE,
+    KAFKA_BOOTSTRAP_SERVERS,
+    KAFKA_REQUEST_TIMEOUT_MS,
     POSTGRES_AVAILABLE,
     POSTGRES_COMMAND_TIMEOUT,
     POSTGRES_DATABASE,
@@ -42,6 +63,7 @@ from tests.integration.conftest import (
     POSTGRES_PORT,
     POSTGRES_USER,
     MockKafkaPublisher,
+    RealKafkaPublisher,
 )
 
 if TYPE_CHECKING:
@@ -59,6 +81,172 @@ E2E_SIGNATURE_PREFIX: str = "test_e2e_"
 
 E2E_DOMAIN: str = "code_generation"
 """Domain used for E2E test patterns. Uses existing domain from domain_taxonomy to satisfy FK."""
+
+
+# =============================================================================
+# Kafka Topic Cleanup Utilities
+# =============================================================================
+
+
+async def delete_kafka_topics(
+    topics: set[str] | list[str],
+    *,
+    bootstrap_servers: str | None = None,
+    timeout_ms: int = 30000,
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Delete Kafka topics using the admin client.
+
+    This function provides graceful cleanup of test topics. It handles errors
+    gracefully and logs the results for debugging.
+
+    Args:
+        topics: Set or list of topic names to delete.
+        bootstrap_servers: Kafka bootstrap servers. Defaults to KAFKA_BOOTSTRAP_SERVERS.
+        timeout_ms: Timeout for admin operations in milliseconds.
+
+    Returns:
+        A tuple of (deleted_topics, failed_topics) where:
+        - deleted_topics: List of topic names that were successfully deleted.
+        - failed_topics: List of (topic_name, error_message) tuples for failures.
+
+    Note:
+        This function is designed to be safe - it will not raise exceptions
+        for missing topics or other expected errors. All errors are logged
+        and returned in the failed_topics list.
+    """
+    if not topics:
+        return [], []
+
+    if bootstrap_servers is None:
+        bootstrap_servers = KAFKA_BOOTSTRAP_SERVERS
+
+    deleted: list[str] = []
+    failed: list[tuple[str, str]] = []
+    topics_list = list(topics)
+
+    try:
+        from aiokafka.admin import AIOKafkaAdminClient
+    except ImportError:
+        _cleanup_logger.warning(
+            "aiokafka.admin not available - cannot delete topics. "
+            "Topics to delete: %s",
+            topics_list,
+        )
+        return [], [(t, "aiokafka.admin not available") for t in topics_list]
+
+    admin: AIOKafkaAdminClient | None = None
+    try:
+        admin = AIOKafkaAdminClient(
+            bootstrap_servers=bootstrap_servers,
+            request_timeout_ms=timeout_ms,
+        )
+        await admin.start()
+
+        # Get existing topics to avoid deleting non-existent ones
+        cluster_metadata = await admin.describe_cluster()
+        # Note: describe_cluster returns broker info, we need list_topics for topic names
+        # AIOKafkaAdminClient doesn't have list_topics, so we try to delete and handle errors
+
+        # Delete topics one by one for better error handling
+        for topic in topics_list:
+            try:
+                await admin.delete_topics([topic])
+                deleted.append(topic)
+                _cleanup_logger.debug("Deleted Kafka topic: %s", topic)
+            except Exception as e:
+                error_msg = str(e)
+                # Check for common "topic not found" patterns
+                if "UnknownTopicOrPartition" in error_msg or "does not exist" in error_msg.lower():
+                    _cleanup_logger.debug(
+                        "Topic %s does not exist (already deleted or never created)", topic
+                    )
+                    # Consider this a success - the topic is gone
+                    deleted.append(topic)
+                else:
+                    _cleanup_logger.warning("Failed to delete topic %s: %s", topic, error_msg)
+                    failed.append((topic, error_msg))
+
+    except Exception as e:
+        _cleanup_logger.warning(
+            "Kafka admin client error during topic cleanup: %s. Topics: %s",
+            e,
+            topics_list,
+        )
+        # Mark all remaining topics as failed
+        already_processed = set(deleted) | {t for t, _ in failed}
+        for topic in topics_list:
+            if topic not in already_processed:
+                failed.append((topic, f"Admin client error: {e}"))
+
+    finally:
+        if admin is not None:
+            try:
+                await admin.close()
+            except Exception as e:
+                _cleanup_logger.debug("Error closing admin client: %s", e)
+
+    if deleted:
+        _cleanup_logger.info(
+            "E2E Kafka cleanup: deleted %d topics: %s",
+            len(deleted),
+            deleted,
+        )
+    if failed:
+        _cleanup_logger.warning(
+            "E2E Kafka cleanup: failed to delete %d topics: %s",
+            len(failed),
+            failed,
+        )
+
+    return deleted, failed
+
+
+async def list_e2e_test_topics(
+    prefix: str = "e2e_test_",
+    *,
+    bootstrap_servers: str | None = None,
+    timeout_ms: int = 30000,
+) -> list[str]:
+    """List all Kafka topics matching the E2E test prefix.
+
+    Args:
+        prefix: Topic prefix to match. Defaults to "e2e_test_".
+        bootstrap_servers: Kafka bootstrap servers. Defaults to KAFKA_BOOTSTRAP_SERVERS.
+        timeout_ms: Timeout for admin operations in milliseconds.
+
+    Returns:
+        List of topic names matching the prefix.
+    """
+    if bootstrap_servers is None:
+        bootstrap_servers = KAFKA_BOOTSTRAP_SERVERS
+
+    try:
+        from aiokafka import AIOKafkaConsumer
+    except ImportError:
+        _cleanup_logger.warning("aiokafka not available - cannot list topics")
+        return []
+
+    consumer: AIOKafkaConsumer | None = None
+    try:
+        # Use a consumer to get topic list (more reliable than admin client)
+        consumer = AIOKafkaConsumer(
+            bootstrap_servers=bootstrap_servers,
+            request_timeout_ms=timeout_ms,
+        )
+        await consumer.start()
+        all_topics = await consumer.topics()
+        return [t for t in all_topics if t.startswith(prefix)]
+
+    except Exception as e:
+        _cleanup_logger.warning("Failed to list topics: %s", e)
+        return []
+
+    finally:
+        if consumer is not None:
+            try:
+                await consumer.stop()
+            except Exception as e:
+                _cleanup_logger.debug("Error stopping consumer: %s", e)
 
 
 # =============================================================================
@@ -108,6 +296,12 @@ requires_e2e_postgres = pytest.mark.skipif(
     reason=f"PostgreSQL not available at {POSTGRES_HOST}:{POSTGRES_PORT} or password not set",
 )
 """Skip marker for E2E tests requiring real PostgreSQL connectivity."""
+
+requires_e2e_kafka = pytest.mark.skipif(
+    not KAFKA_AVAILABLE,
+    reason=f"Kafka not available at {KAFKA_BOOTSTRAP_SERVERS}",
+)
+"""Skip marker for E2E tests requiring real Kafka connectivity."""
 
 
 # =============================================================================
@@ -346,7 +540,7 @@ async def _cleanup_e2e_test_data(
 
 
 # =============================================================================
-# Mock Kafka Fixture
+# Mock Kafka Fixture (for backward compatibility)
 # =============================================================================
 
 
@@ -356,6 +550,8 @@ def mock_kafka() -> MockKafkaPublisher:
 
     The mock records all published events for assertion in tests.
     Events are stored as (topic, key, value) tuples.
+
+    Note: For E2E tests that need real Kafka, use e2e_kafka_publisher instead.
 
     Returns:
         MockKafkaPublisher instance with empty event list.
@@ -367,6 +563,302 @@ def mock_kafka() -> MockKafkaPublisher:
         ...     assert len(events) == 1
     """
     return MockKafkaPublisher()
+
+
+# =============================================================================
+# Real Kafka Fixtures
+# =============================================================================
+
+
+@pytest.fixture(scope="session")
+def e2e_topic_prefix() -> str:
+    """Generate a unique topic prefix for E2E test isolation.
+
+    Each test session gets a unique prefix to prevent topic pollution
+    between concurrent test runs or leftover messages from previous runs.
+
+    Returns:
+        A unique prefix string like "e2e_test_abc123_".
+
+    Note:
+        Topics with this prefix can be safely deleted after tests.
+        The prefix format is: e2e_test_{short_uuid}_
+    """
+    short_uuid = uuid4().hex[:8]
+    return f"e2e_test_{short_uuid}_"
+
+
+@pytest_asyncio.fixture
+async def e2e_kafka_producer() -> AsyncGenerator[Any, None]:
+    """Create an AIOKafka producer for E2E tests.
+
+    Auto-configures from .env file. Skips test gracefully if Kafka
+    is not available.
+
+    Yields:
+        AIOKafkaProducer connected to the configured bootstrap servers.
+    """
+    try:
+        from aiokafka import AIOKafkaProducer
+    except ImportError:
+        pytest.skip("aiokafka not installed - add to core dependencies")
+
+    if not KAFKA_AVAILABLE:
+        pytest.skip(f"Kafka not reachable at {KAFKA_BOOTSTRAP_SERVERS}")
+
+    producer = AIOKafkaProducer(
+        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        request_timeout_ms=KAFKA_REQUEST_TIMEOUT_MS,
+    )
+
+    try:
+        await producer.start()
+    except Exception as e:
+        pytest.skip(f"Kafka producer start failed: {e}")
+
+    try:
+        yield producer
+    finally:
+        await producer.stop()
+
+
+@pytest_asyncio.fixture
+async def e2e_kafka_publisher(
+    e2e_kafka_producer: Any,
+    e2e_topic_prefix: str,
+) -> AsyncGenerator[RealKafkaPublisher, None]:
+    """Create a real Kafka publisher for E2E tests.
+
+    This fixture provides a publisher that implements ProtocolKafkaPublisher
+    and wraps the actual AIOKafkaProducer. Events are published to real Kafka
+    with a test-specific topic prefix for isolation.
+
+    The publisher also tracks published events for assertion, matching the
+    MockKafkaPublisher interface.
+
+    **Topic Cleanup**: Topics created during the test are automatically deleted
+    in the teardown phase to prevent broker pollution. Cleanup is graceful -
+    failures are logged but do not cause test failures.
+
+    Args:
+        e2e_kafka_producer: The underlying AIOKafkaProducer fixture.
+        e2e_topic_prefix: Unique topic prefix for test isolation.
+
+    Yields:
+        RealKafkaPublisher instance connected to real Kafka.
+
+    Example:
+        >>> @pytest.mark.asyncio
+        >>> @requires_e2e_kafka
+        >>> async def test_pattern_promotion_emits_event(
+        ...     e2e_kafka_publisher,
+        ...     e2e_db_conn,
+        ... ):
+        ...     # Run promotion handler with real Kafka
+        ...     result = await check_and_promote_patterns(
+        ...         repository=e2e_db_conn,
+        ...         producer=e2e_kafka_publisher,
+        ...     )
+        ...     # Verify events were published
+        ...     events = e2e_kafka_publisher.get_events_for_topic("pattern-promoted")
+        ...     assert len(events) == result.patterns_promoted
+    """
+    publisher = RealKafkaPublisher(
+        e2e_kafka_producer,
+        topic_prefix=e2e_topic_prefix,
+    )
+
+    try:
+        yield publisher
+    finally:
+        # Cleanup: Delete topics created during the test
+        created_topics = publisher.get_created_topics()
+        if created_topics:
+            _cleanup_logger.debug(
+                "E2E test cleanup: attempting to delete %d topics with prefix %s",
+                len(created_topics),
+                e2e_topic_prefix,
+            )
+            try:
+                deleted, failed = await delete_kafka_topics(created_topics)
+                if deleted:
+                    _cleanup_logger.debug(
+                        "E2E test cleanup: successfully deleted topics: %s", deleted
+                    )
+                if failed:
+                    _cleanup_logger.warning(
+                        "E2E test cleanup: some topics could not be deleted: %s", failed
+                    )
+            except Exception as e:
+                # Graceful degradation - log but don't fail the test
+                _cleanup_logger.warning(
+                    "E2E test cleanup: topic deletion failed: %s. Topics: %s",
+                    e,
+                    created_topics,
+                )
+
+
+@pytest_asyncio.fixture
+async def e2e_kafka_consumer(
+    e2e_topic_prefix: str,
+) -> AsyncGenerator[Any, None]:
+    """Create an AIOKafka consumer for E2E event verification.
+
+    This fixture provides a consumer that can subscribe to topics and verify
+    that events were actually published to Kafka. Useful for end-to-end
+    verification beyond just checking the publisher's recorded events.
+
+    The consumer uses the test-specific topic prefix for isolation.
+
+    Args:
+        e2e_topic_prefix: Unique topic prefix for test isolation.
+
+    Yields:
+        AIOKafkaConsumer connected to the configured bootstrap servers.
+
+    Example:
+        >>> @pytest.mark.asyncio
+        >>> @requires_e2e_kafka
+        >>> async def test_verify_events_via_consumer(
+        ...     e2e_kafka_publisher,
+        ...     e2e_kafka_consumer,
+        ...     e2e_topic_prefix,
+        ... ):
+        ...     topic = f"{e2e_topic_prefix}test-topic"
+        ...     await e2e_kafka_publisher.publish("test-topic", "key", {"data": 1})
+        ...
+        ...     e2e_kafka_consumer.subscribe([topic])
+        ...     async for msg in e2e_kafka_consumer:
+        ...         assert msg.value == b'{"data": 1}'
+        ...         break
+    """
+    try:
+        from aiokafka import AIOKafkaConsumer
+    except ImportError:
+        pytest.skip("aiokafka not installed - add to core dependencies")
+
+    if not KAFKA_AVAILABLE:
+        pytest.skip(f"Kafka not reachable at {KAFKA_BOOTSTRAP_SERVERS}")
+
+    import os
+
+    # Use unique consumer group per test run to avoid offset issues
+    group_id = f"e2e_consumer_{e2e_topic_prefix}_{os.getpid()}"
+
+    consumer = AIOKafkaConsumer(
+        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        group_id=group_id,
+        auto_offset_reset="earliest",
+        enable_auto_commit=False,
+        consumer_timeout_ms=5000,  # 5 second timeout for polling
+    )
+
+    try:
+        await consumer.start()
+    except Exception as e:
+        pytest.skip(f"Kafka consumer start failed: {e}")
+
+    try:
+        yield consumer
+    finally:
+        await consumer.stop()
+
+
+# =============================================================================
+# Kafka-Enabled Handler Fixtures
+# =============================================================================
+
+
+@pytest_asyncio.fixture
+async def promotion_handler_with_kafka(
+    e2e_db_conn: Any,
+    e2e_kafka_publisher: RealKafkaPublisher,
+) -> AsyncGenerator[Any, None]:
+    """Create a pattern promotion handler wired to real Kafka for E2E testing.
+
+    This fixture provides the check_and_promote_patterns function with real
+    PostgreSQL for database operations and real Kafka for event emission.
+
+    Args:
+        e2e_db_conn: The E2E database connection fixture.
+        e2e_kafka_publisher: Real Kafka publisher fixture.
+
+    Yields:
+        A callable that wraps check_and_promote_patterns with dependencies.
+
+    Example:
+        >>> @pytest.mark.asyncio
+        >>> @requires_e2e_postgres
+        >>> @requires_e2e_kafka
+        >>> async def test_promotion_with_real_kafka(
+        ...     promotion_handler_with_kafka,
+        ...     e2e_kafka_publisher,
+        ... ):
+        ...     # Set up provisional patterns first...
+        ...     result = await promotion_handler_with_kafka()
+        ...     # Verify events were published
+        ...     events = e2e_kafka_publisher.published_events
+        ...     assert len(events) > 0
+    """
+    from omniintelligence.nodes.node_pattern_promotion_effect.handlers import (
+        check_and_promote_patterns,
+    )
+
+    async def _handle(
+        *,
+        dry_run: bool = False,
+        correlation_id: UUID | None = None,
+        topic_env_prefix: str = "",
+    ) -> Any:
+        """Wrapper that provides dependencies to check_and_promote_patterns."""
+        return await check_and_promote_patterns(
+            repository=e2e_db_conn,
+            producer=e2e_kafka_publisher,
+            dry_run=dry_run,
+            correlation_id=correlation_id,
+            topic_env_prefix=topic_env_prefix,
+        )
+
+    yield _handle
+
+
+@pytest_asyncio.fixture
+async def demotion_handler_with_kafka(
+    e2e_db_conn: Any,
+    e2e_kafka_publisher: RealKafkaPublisher,
+) -> AsyncGenerator[Any, None]:
+    """Create a pattern demotion handler wired to real Kafka for E2E testing.
+
+    This fixture provides the check_and_demote_patterns function with real
+    PostgreSQL for database operations and real Kafka for event emission.
+
+    Args:
+        e2e_db_conn: The E2E database connection fixture.
+        e2e_kafka_publisher: Real Kafka publisher fixture.
+
+    Yields:
+        A callable that wraps check_and_demote_patterns with dependencies.
+    """
+    from omniintelligence.nodes.node_pattern_demotion_effect.handlers import (
+        check_and_demote_patterns,
+    )
+
+    async def _handle(
+        *,
+        dry_run: bool = False,
+        correlation_id: UUID | None = None,
+        topic_env_prefix: str = "",
+    ) -> Any:
+        """Wrapper that provides dependencies to check_and_demote_patterns."""
+        return await check_and_demote_patterns(
+            repository=e2e_db_conn,
+            producer=e2e_kafka_publisher,
+            dry_run=dry_run,
+            correlation_id=correlation_id,
+            topic_env_prefix=topic_env_prefix,
+        )
+
+    yield _handle
 
 
 # =============================================================================
@@ -729,6 +1221,98 @@ def e2e_timestamp() -> datetime:
 
 
 # =============================================================================
+# Session-Scoped Kafka Topic Cleanup
+# =============================================================================
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def e2e_kafka_session_cleanup() -> AsyncGenerator[None, None]:
+    """Session-scoped fixture that cleans up orphaned E2E Kafka topics.
+
+    This fixture runs AUTOMATICALLY at the END of the test session (autouse=True)
+    and deletes ALL topics matching the E2E test prefix pattern (e2e_test_*).
+    This catches:
+    - Topics from tests that crashed before cleanup
+    - Topics from previous test runs that were never cleaned up
+    - Topics created by tests that didn't use e2e_kafka_publisher
+
+    The cleanup is graceful - failures are logged but do not cause test failures.
+
+    Note:
+        This fixture yields immediately and only performs cleanup on teardown.
+        It's safe to run even if no Kafka operations occur in the test session.
+    """
+    # Yield immediately - cleanup happens on teardown
+    yield
+
+    # Session teardown: clean up ALL orphaned E2E test topics
+    if not KAFKA_AVAILABLE:
+        _cleanup_logger.debug(
+            "E2E session cleanup: Kafka not available, skipping topic cleanup"
+        )
+        return
+
+    _cleanup_logger.info("E2E session cleanup: scanning for orphaned test topics...")
+
+    try:
+        orphaned_topics = await list_e2e_test_topics(prefix="e2e_test_")
+        if orphaned_topics:
+            _cleanup_logger.info(
+                "E2E session cleanup: found %d orphaned topics: %s",
+                len(orphaned_topics),
+                orphaned_topics,
+            )
+            deleted, failed = await delete_kafka_topics(orphaned_topics)
+            _cleanup_logger.info(
+                "E2E session cleanup complete: deleted=%d, failed=%d",
+                len(deleted),
+                len(failed),
+            )
+        else:
+            _cleanup_logger.info("E2E session cleanup: no orphaned topics found")
+    except Exception as e:
+        # Graceful degradation - log but don't fail
+        _cleanup_logger.warning(
+            "E2E session cleanup: error during orphan topic cleanup: %s", e
+        )
+
+
+@pytest.fixture(scope="session")
+def e2e_cleanup_on_session_end(request: pytest.FixtureRequest) -> None:
+    """Synchronous session fixture that schedules Kafka cleanup at session end.
+
+    This fixture uses pytest's request.addfinalizer to schedule cleanup
+    that runs even if async fixtures have issues. It's a safety net for
+    the async cleanup mechanism.
+
+    Note:
+        This runs synchronously, so it uses a new event loop for async cleanup.
+    """
+    def _sync_cleanup() -> None:
+        """Synchronous wrapper for async cleanup."""
+        if not KAFKA_AVAILABLE:
+            return
+
+        try:
+            # Create a new event loop for cleanup
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                orphaned = loop.run_until_complete(list_e2e_test_topics())
+                if orphaned:
+                    _cleanup_logger.info(
+                        "Session finalizer: cleaning %d orphaned topics", len(orphaned)
+                    )
+                    loop.run_until_complete(delete_kafka_topics(orphaned))
+            finally:
+                loop.close()
+        except Exception as e:
+            _cleanup_logger.warning("Session finalizer cleanup error: %s", e)
+
+    request.addfinalizer(_sync_cleanup)
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -736,21 +1320,33 @@ __all__ = [
     "E2E_DOMAIN",
     "E2E_SIGNATURE_PREFIX",
     "E2E_TEST_PREFIX",
+    "RealKafkaPublisher",
     "_check_signature_hash_column_exists",
     "cleanup_e2e_patterns",
     "create_e2e_pattern_input",
     "create_e2e_signature_hash",
     "create_e2e_training_data",
+    "delete_kafka_topics",
+    "demotion_handler_with_kafka",
+    "e2e_cleanup_on_session_end",
     "e2e_correlation_id",
     "e2e_db_conn",
     "e2e_db_conn_with_signature_hash",
+    "e2e_kafka_consumer",
+    "e2e_kafka_producer",
+    "e2e_kafka_publisher",
+    "e2e_kafka_session_cleanup",
     "e2e_session_id",
     "e2e_timestamp",
+    "e2e_topic_prefix",
     "feedback_handler",
+    "list_e2e_test_topics",
     "mock_kafka",
     "pattern_learning_handler",
     "pattern_learning_node",
     "pattern_storage_handler",
+    "promotion_handler_with_kafka",
+    "requires_e2e_kafka",
     "requires_e2e_postgres",
     "signature_hash_available",
 ]
