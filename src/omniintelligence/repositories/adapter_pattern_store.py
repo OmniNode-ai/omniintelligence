@@ -1,6 +1,5 @@
-# ruff: noqa: ARG002
-# ARG002 disabled: Protocol adapter accepts params required by ProtocolPatternStore
-# interface but doesn't use them. See class docstring for transaction semantics.
+# Note: Methods in this module use noqa: ARG002 on individual parameters
+# for interface compatibility with ProtocolPatternStore. See class docstring.
 """Adapter bridging PostgresRepositoryRuntime to ProtocolPatternStore.
 
 This adapter implements the ProtocolPatternStore interface using the
@@ -87,8 +86,8 @@ class AdapterPatternStore:
     - Contract-driven operation execution
 
     See Also:
-        This file has `# ruff: noqa: ARG002` at the top to suppress
-        "unused argument" linter warnings for all interface-compatibility
+        Methods use `# noqa: ARG002` on individual parameters to suppress
+        "unused argument" linter warnings for interface-compatibility
         parameters (conn, signature_hash, is_current, stored_at, etc.).
     """
 
@@ -152,19 +151,19 @@ class AdapterPatternStore:
         *,
         pattern_id: UUID,
         signature: str,
-        signature_hash: str,
+        signature_hash: str,  # noqa: ARG002 - interface compat, see class docstring
         domain: str,
         version: int,
         confidence: float,
         quality_score: float = 0.5,
         state: EnumPatternState,
-        is_current: bool,
-        stored_at: datetime,
-        actor: str | None = None,
-        source_run_id: str | None = None,
+        is_current: bool,  # noqa: ARG002 - interface compat, see class docstring
+        stored_at: datetime,  # noqa: ARG002 - interface compat, see class docstring
+        actor: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
+        source_run_id: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
         correlation_id: UUID | None = None,
-        metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        metadata: TypedDictPatternStorageMetadata | None = None,  # noqa: ARG002
+        conn: AsyncConnection,
     ) -> UUID:
         """Store a pattern using the contract runtime.
 
@@ -249,7 +248,7 @@ class AdapterPatternStore:
         domain: str,
         signature_hash: str,
         version: int,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
     ) -> bool:
         """Check if a pattern exists for the given lineage and version.
 
@@ -289,7 +288,7 @@ class AdapterPatternStore:
         self,
         pattern_id: UUID,
         signature_hash: str,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key (pattern_id + signature_hash).
 
@@ -326,7 +325,7 @@ class AdapterPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
     ) -> int:
         """Set is_current = false for all previous versions of this lineage.
 
@@ -365,7 +364,7 @@ class AdapterPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
@@ -401,7 +400,7 @@ class AdapterPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -426,19 +425,19 @@ class AdapterPatternStore:
         *,
         pattern_id: UUID,
         signature: str,
-        signature_hash: str,
+        signature_hash: str,  # noqa: ARG002 - interface compat, see class docstring
         domain: str,
         version: int,
         confidence: float,
         quality_score: float = 0.5,
         state: EnumPatternState,
-        is_current: bool,
-        stored_at: datetime,
-        actor: str | None = None,
-        source_run_id: str | None = None,
+        is_current: bool,  # noqa: ARG002 - interface compat, see class docstring
+        stored_at: datetime,  # noqa: ARG002 - interface compat, see class docstring
+        actor: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
+        source_run_id: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
         correlation_id: UUID | None = None,
-        metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: AsyncConnection,  # interface compat only, see class docstring
+        metadata: TypedDictPatternStorageMetadata | None = None,  # noqa: ARG002
+        conn: AsyncConnection,
     ) -> UUID:
         """Atomically transition previous version(s) and store new pattern.
 
