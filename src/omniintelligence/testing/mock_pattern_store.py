@@ -30,14 +30,14 @@ from omnibase_core.types import TypedDictPatternStorageMetadata
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
-from omniintelligence.nodes.pattern_storage_effect.handlers.handler_promote_pattern import (
+from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
     ModelStateTransition,
     ProtocolPatternStateManager,
 )
-from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
+from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     ProtocolPatternStore,
 )
-from omniintelligence.nodes.pattern_storage_effect.models import (
+from omniintelligence.nodes.node_pattern_storage_effect.models import (
     EnumPatternState,
     ModelPatternStorageInput,
     ModelPatternStorageMetadata,

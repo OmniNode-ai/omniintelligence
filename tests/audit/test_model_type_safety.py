@@ -21,7 +21,7 @@ import pytest
 MODEL_FILES = [
     "src/omniintelligence/nodes/intelligence_reducer/models/model_reducer_input.py",
     "src/omniintelligence/nodes/node_intent_classifier_compute/models/model_intent_classification_input.py",
-    "src/omniintelligence/nodes/pattern_matching_compute/models/model_pattern_matching_input.py",
+    "src/omniintelligence/nodes/node_pattern_matching_compute/models/model_pattern_matching_input.py",
     "src/omniintelligence/models/model_intelligence_input.py",
     "src/omniintelligence/models/model_intelligence_output.py",
     "src/omniintelligence/models/model_search_result.py",
@@ -136,7 +136,7 @@ class TestDiscriminatedUnions:
         """Verify INGESTION FSM type uses typed payload."""
         from uuid import uuid4
 
-        from omniintelligence.nodes.intelligence_reducer.models.model_reducer_input import (
+        from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
             ModelIngestionPayload,
             ModelReducerInputIngestion,
         )
@@ -159,7 +159,7 @@ class TestDiscriminatedUnions:
         """Verify PATTERN_LEARNING FSM type uses typed payload."""
         from uuid import uuid4
 
-        from omniintelligence.nodes.intelligence_reducer.models.model_reducer_input import (
+        from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
             ModelPatternLearningPayload,
             ModelReducerInputPatternLearning,
         )
@@ -186,7 +186,7 @@ class TestPatternContextModel:
         """Verify context uses Pydantic model instead of dict."""
         from pydantic import BaseModel
 
-        from omniintelligence.nodes.pattern_matching_compute.models.model_pattern_matching_input import (
+        from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_matching_input import (
             ModelPatternContext,
             ModelPatternMatchingInput,
         )
@@ -296,7 +296,7 @@ class TestScoreFieldValidation:
         """Verify success criteria match_score validates 0.0-1.0 range."""
         from pydantic import ValidationError
 
-        from omniintelligence.nodes.success_criteria_matcher_compute.models.model_success_criteria_output import (
+        from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_success_criteria_output import (
             ModelSuccessCriteriaOutput,
         )
 
@@ -354,7 +354,7 @@ class TestCorrelationIdValidation:
         """Verify reducer input correlation_id uses UUID type."""
         from uuid import UUID, uuid4
 
-        from omniintelligence.nodes.intelligence_reducer.models.model_reducer_input import (
+        from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
             ModelReducerInputIngestion,
         )
 

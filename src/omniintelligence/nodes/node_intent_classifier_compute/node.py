@@ -18,8 +18,6 @@ ONEX Compliance:
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
@@ -41,8 +39,6 @@ class NodeIntentClassifierCompute(
     This node follows the ONEX thin shell pattern - it contains no logic,
     no error handling, no logging. All computation is delegated to the handler.
     """
-
-    is_stub: ClassVar[bool] = True
 
     _classification_config: ModelClassificationConfig = DEFAULT_CLASSIFICATION_CONFIG
 

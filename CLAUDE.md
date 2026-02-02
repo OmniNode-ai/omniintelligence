@@ -88,6 +88,18 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 | **Compute** | Pure data processing, no side effects | `NodeCompute` |
 | **Effect** | External I/O (Kafka, PostgreSQL) | `NodeEffect` |
 
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|---------|
+| **Directory** | `node_{type}_{category}` | `node_pattern_storage_effect` |
+| **Class** | `Node{Type}{Category}` | `NodePatternStorageEffect` |
+| **Input Model** | `Model{NodeName}Input` | `ModelPatternStorageInput` |
+| **Output Model** | `Model{NodeName}Output` | `ModelPatternStorageOutput` |
+| **Handler** | `handle_{operation}` or `Handler{Domain}` | `handle_store_pattern` |
+
+**Directory naming is MANDATORY**: All node directories MUST start with `node_` prefix for consistency.
+
 ### Complete Node Inventory
 
 **Orchestrators**:

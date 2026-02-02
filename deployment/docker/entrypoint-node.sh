@@ -29,11 +29,11 @@ NODE_TYPE="${1:-}"
 case "$NODE_TYPE" in
     orchestrator)
         echo "Starting Intelligence Orchestrator Node..."
-        exec python -m omniintelligence.nodes.intelligence_orchestrator
+        exec python -m omniintelligence.nodes.node_intelligence_orchestrator
         ;;
     reducer)
         echo "Starting Intelligence Reducer Node..."
-        exec python -m omniintelligence.nodes.intelligence_reducer
+        exec python -m omniintelligence.nodes.node_intelligence_reducer
         ;;
     compute|effect)
         if [ -z "$NODE_NAME" ]; then

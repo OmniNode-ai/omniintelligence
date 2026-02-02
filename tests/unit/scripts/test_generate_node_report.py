@@ -425,14 +425,10 @@ class TestRealNodeStubDetection:
         # Note: node_intent_classifier_compute was refactored to thin shell in declarative refactor
         # Note: pattern_learning_compute was implemented
         known_stubs = [
-            "execution_trace_parser_compute",
-            "success_criteria_matcher_compute",
-            "pattern_matching_compute",
-            "pattern_assembler_orchestrator",
-            # These nodes have purity violations (forbidden methods) so are marked as stubs
-            "node_quality_scoring_compute",
-            "node_semantic_analysis_compute",
-            "node_intent_classifier_compute",
+            "node_execution_trace_parser_compute",
+            "node_success_criteria_matcher_compute",
+            "node_pattern_matching_compute",
+            "node_pattern_assembler_orchestrator",
         ]
 
         for node_name in known_stubs:
@@ -453,6 +449,9 @@ class TestRealNodeStubDetection:
             "intelligence_orchestrator",
             "intelligence_reducer",
             "pattern_learning_compute",
+            "node_quality_scoring_compute",
+            "node_semantic_analysis_compute",
+            "node_intent_classifier_compute",
         ]
 
         for node_name in known_non_stubs:

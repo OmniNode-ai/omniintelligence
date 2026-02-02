@@ -11,7 +11,7 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
@@ -41,8 +41,6 @@ class NodeClaudeHookEventEffect(NodeEffect):
         >>> node = NodeClaudeHookEventEffect(container, handler)
         >>> result = await node.execute(event)
     """
-
-    is_stub: ClassVar[bool] = True
 
     def __init__(
         self,

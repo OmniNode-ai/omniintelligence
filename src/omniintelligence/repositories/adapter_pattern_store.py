@@ -37,13 +37,13 @@ from omnibase_core.models.contracts import ModelDbRepositoryContract
 from omnibase_core.types import TypedDictPatternStorageMetadata
 from omnibase_infra.runtime.db import PostgresRepositoryRuntime
 
-from omniintelligence.nodes.pattern_storage_effect.models import EnumPatternState
+from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState
 
 if TYPE_CHECKING:
     from asyncpg import Pool
     from psycopg import AsyncConnection
 
-    from omniintelligence.nodes.pattern_storage_effect.handlers.handler_store_pattern import (
+    from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
         ProtocolPatternStore,
     )
 

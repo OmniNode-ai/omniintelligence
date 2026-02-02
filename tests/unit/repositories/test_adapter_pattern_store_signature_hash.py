@@ -19,7 +19,7 @@ from uuid import UUID
 
 import pytest
 
-from omniintelligence.nodes.pattern_storage_effect.models import EnumPatternState
+from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState
 from omniintelligence.repositories.adapter_pattern_store import AdapterPatternStore
 
 

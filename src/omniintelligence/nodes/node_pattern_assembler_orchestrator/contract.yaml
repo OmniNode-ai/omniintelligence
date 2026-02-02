@@ -1,0 +1,154 @@
+---
+# ONEX Node Contract - Pattern Assembler Orchestrator Node
+#
+# Part of pattern_extraction split (Track 2 Intelligence Hook System)
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_pattern_assembler_orchestrator"
+node_type: "ORCHESTRATOR_GENERIC"
+description: >-
+  Orchestrator node for assembling patterns from extracted components. Coordinates trace parsing, keyword
+  extraction, intent classification, and success criteria matching.
+input_model:
+  name: "ModelPatternAssemblyInput"
+  module: "omniintelligence.nodes.node_pattern_assembler_orchestrator.models"
+  description: "Input containing raw data and assembly parameters."
+output_model:
+  name: "ModelPatternAssemblyOutput"
+  module: "omniintelligence.nodes.node_pattern_assembler_orchestrator.models"
+  description: "Output containing assembled pattern and metadata."
+workflow_coordination:
+  workflow_definition:
+    workflow_metadata:
+      workflow_name: "pattern_assembly_workflow"
+      workflow_version:
+        major: 1
+        minor: 0
+        patch: 0
+      description: "Coordinates pattern assembly from component nodes"
+    execution_graph:
+      nodes:
+        - node_id: "parse_traces"
+          node_type: COMPUTE_GENERIC
+          description: "Parse execution traces"
+          step_config:
+            compute_node: "execution_trace_parser_compute"
+        - node_id: "classify_intent"
+          node_type: COMPUTE_GENERIC
+          description: "Classify user intent"
+          depends_on: ["parse_traces"]
+          step_config:
+            compute_node: "node_intent_classifier_compute"
+        - node_id: "match_criteria"
+          node_type: COMPUTE_GENERIC
+          description: "Match success criteria"
+          depends_on: ["classify_intent"]
+          step_config:
+            compute_node: "success_criteria_matcher_compute"
+        - node_id: "assemble_pattern"
+          node_type: COMPUTE_GENERIC
+          description: "Assemble final pattern from parsed traces and matched criteria"
+          depends_on: ["match_criteria"]
+          step_config:
+            compute_node: "pattern_assembler_compute"
+    coordination_rules:
+      execution_mode: parallel
+      parallel_execution_allowed: true
+      max_parallel_branches: 4
+      failure_recovery_strategy: retry
+      max_retries: 3
+      timeout_ms: 120000
+dependencies:
+  - name: "execution_trace_parser_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_execution_trace_parser_compute"
+    description: "Trace parsing compute node"
+  - name: "node_intent_classifier_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_intent_classifier_compute"
+    description: "Intent classification compute node"
+  - name: "success_criteria_matcher_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_success_criteria_matcher_compute"
+    description: "Success criteria matching compute node"
+  - name: "pattern_assembler_compute"
+    type: "node"
+    module: "omniintelligence.nodes.pattern_assembler_compute"
+    description: "Pattern assembly compute node - assembles final pattern from components"
+# Error Handling Configuration
+# ============================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 1000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      - "ComputeExecutionError"
+      - "ConnectionError"
+      - "TimeoutError"
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    reset_timeout_ms: 60000
+  error_types:
+    - name: "TraceParsingError"
+      error_code: "PAO_001"
+      description: "Error during execution trace parsing"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "KeywordExtractionError"
+      error_code: "PAO_002"
+      description: "Error during keyword extraction"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "IntentClassificationError"
+      error_code: "PAO_003"
+      description: "Error during intent classification"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "CriteriaMatchingError"
+      error_code: "PAO_004"
+      description: "Error during success criteria matching"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "PatternAssemblyError"
+      error_code: "PAO_005"
+      description: "Error during pattern assembly"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "WorkflowTimeoutError"
+      error_code: "PAO_006"
+      description: "Workflow execution exceeded timeout"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DependencyResolutionError"
+      error_code: "PAO_007"
+      description: "Error resolving workflow dependencies"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "InvalidInputError"
+      error_code: "PAO_008"
+      description: "Input validation failed"
+      recoverable: false
+      retry_strategy: "none"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2025-10-02"
+  updated: "2026-01-18"
+  tags:
+    - "ONEX"
+    - "orchestrator"
+    - "pattern"
+    - "assembly"
+    - "pattern-extraction"

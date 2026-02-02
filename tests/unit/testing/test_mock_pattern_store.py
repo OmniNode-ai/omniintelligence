@@ -18,7 +18,7 @@ from uuid import uuid4
 
 import pytest
 
-from omniintelligence.nodes.pattern_storage_effect.models import EnumPatternState
+from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState
 from omniintelligence.testing import MockPatternStore
 
 
