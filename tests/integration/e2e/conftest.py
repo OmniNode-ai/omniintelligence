@@ -99,10 +99,6 @@ async def _check_signature_hash_column_exists(conn: Any) -> bool:
     return bool(result)
 
 
-# Module-level flag for signature_hash availability (set during first connection)
-_SIGNATURE_HASH_AVAILABLE: bool | None = None
-
-
 # =============================================================================
 # Skip Markers
 # =============================================================================
@@ -114,21 +110,53 @@ requires_e2e_postgres = pytest.mark.skipif(
 """Skip marker for E2E tests requiring real PostgreSQL connectivity."""
 
 
-def requires_signature_hash_column() -> pytest.MarkDecorator:
-    """Skip marker for tests requiring the signature_hash column.
+# =============================================================================
+# Session-Scoped Schema Detection
+# =============================================================================
 
-    This marker is evaluated at test collection time by checking the database
-    schema. If the signature_hash column doesn't exist (migration 008 not applied),
-    tests will be skipped.
+
+@pytest_asyncio.fixture(scope="session")
+async def signature_hash_available() -> bool:
+    """Session-scoped fixture that checks if signature_hash column exists.
+
+    This fixture establishes a temporary connection to check the database schema
+    once per test session. The result is cached for the duration of the session,
+    avoiding repeated schema checks and eliminating global state mutation.
 
     Returns:
-        pytest.mark.skipif decorator.
+        True if signature_hash column exists in learned_patterns table,
+        False otherwise.
+
+    Note:
+        If PostgreSQL is not available, returns False (tests will skip via
+        other mechanisms like requires_e2e_postgres marker).
     """
-    # At collection time, we can't async check. Tests will check at runtime.
-    return pytest.mark.skipif(
-        False,  # Evaluated at runtime in the fixture
-        reason="signature_hash column not found (migration 008 not applied)",
-    )
+    if not POSTGRES_PASSWORD:
+        return False
+
+    try:
+        import asyncpg
+    except ImportError:
+        return False
+
+    try:
+        conn: asyncpg.Connection = await asyncpg.connect(
+            host=POSTGRES_HOST,
+            port=POSTGRES_PORT,
+            database=POSTGRES_DATABASE,
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
+            timeout=30,
+            command_timeout=POSTGRES_COMMAND_TIMEOUT,
+        )
+    except (OSError, Exception):
+        return False
+
+    try:
+        result = await _check_signature_hash_column_exists(conn)
+        return result
+    finally:
+        await conn.close()
 
 
 # =============================================================================
@@ -137,17 +165,23 @@ def requires_signature_hash_column() -> pytest.MarkDecorator:
 
 
 @pytest_asyncio.fixture
-async def e2e_db_conn() -> AsyncGenerator[Any, None]:
+async def e2e_db_conn(
+    signature_hash_available: bool,
+) -> AsyncGenerator[Any, None]:
     """Create a dedicated asyncpg connection for E2E tests with automatic cleanup.
 
     This fixture provides:
     - Real PostgreSQL connection to 192.168.86.200:5436
     - Test isolation via E2E-prefixed signature_hash values
     - Automatic cleanup of test data after each test
-    - Schema version detection for signature_hash column
+    - Schema version detection via session-scoped signature_hash_available fixture
 
     The cleanup ensures no test pollution by removing patterns where
     signature_hash LIKE 'test_e2e_%' after each test.
+
+    Args:
+        signature_hash_available: Session-scoped fixture indicating if signature_hash
+            column exists in the database schema.
 
     Yields:
         asyncpg.Connection connected to the test database.
@@ -156,8 +190,6 @@ async def e2e_db_conn() -> AsyncGenerator[Any, None]:
         Tests MUST use signature_hash values starting with 'test_e2e_' to ensure
         proper cleanup. Use the create_e2e_signature_hash() helper for this.
     """
-    global _SIGNATURE_HASH_AVAILABLE
-
     if not POSTGRES_PASSWORD:
         pytest.skip(
             "POSTGRES_PASSWORD not set - add to .env file or environment. "
@@ -185,16 +217,12 @@ async def e2e_db_conn() -> AsyncGenerator[Any, None]:
             f"Target: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
         )
 
-    # Check schema version (signature_hash column availability)
-    if _SIGNATURE_HASH_AVAILABLE is None:
-        _SIGNATURE_HASH_AVAILABLE = await _check_signature_hash_column_exists(conn)
-
     try:
         yield conn
     finally:
         # Cleanup: Remove all E2E test patterns
         try:
-            await _cleanup_e2e_test_data(conn)
+            await _cleanup_e2e_test_data(conn, signature_hash_available)
         except Exception as cleanup_error:
             # Log but don't fail the test on cleanup error
             print(f"Warning: E2E cleanup failed: {cleanup_error}")
@@ -205,6 +233,7 @@ async def e2e_db_conn() -> AsyncGenerator[Any, None]:
 @pytest_asyncio.fixture
 async def e2e_db_conn_with_signature_hash(
     e2e_db_conn: Any,
+    signature_hash_available: bool,
 ) -> AsyncGenerator[Any, None]:
     """Database connection fixture that requires signature_hash column.
 
@@ -213,20 +242,18 @@ async def e2e_db_conn_with_signature_hash(
 
     Use this fixture for tests that depend on the signature_hash column.
 
+    Args:
+        e2e_db_conn: The E2E database connection fixture.
+        signature_hash_available: Session-scoped fixture indicating if signature_hash
+            column exists in the database schema.
+
     Yields:
         asyncpg.Connection connected to the test database.
 
     Raises:
         pytest.skip: If signature_hash column doesn't exist.
     """
-    global _SIGNATURE_HASH_AVAILABLE
-
-    if _SIGNATURE_HASH_AVAILABLE is None:
-        _SIGNATURE_HASH_AVAILABLE = await _check_signature_hash_column_exists(
-            e2e_db_conn
-        )
-
-    if not _SIGNATURE_HASH_AVAILABLE:
+    if not signature_hash_available:
         pytest.skip(
             "signature_hash column not found in learned_patterns table. "
             "Run migration 008_add_signature_hash.sql first."
@@ -235,7 +262,10 @@ async def e2e_db_conn_with_signature_hash(
     yield e2e_db_conn
 
 
-async def _cleanup_e2e_test_data(conn: Any) -> int:
+async def _cleanup_e2e_test_data(
+    conn: Any,
+    signature_hash_available: bool | None = None,
+) -> int:
     """Remove all E2E test data from learned_patterns and pattern_injections tables.
 
     This function removes:
@@ -252,19 +282,20 @@ async def _cleanup_e2e_test_data(conn: Any) -> int:
 
     Args:
         conn: asyncpg.Connection to the database.
+        signature_hash_available: Whether the signature_hash column exists.
+            If None, will check the schema dynamically (for backward compatibility).
 
     Returns:
         Number of learned_patterns rows deleted.
     """
-    global _SIGNATURE_HASH_AVAILABLE
-
-    # Check schema version if not already known
-    if _SIGNATURE_HASH_AVAILABLE is None:
-        _SIGNATURE_HASH_AVAILABLE = await _check_signature_hash_column_exists(conn)
+    # Check schema version if not provided (backward compatibility)
+    use_signature_hash = signature_hash_available
+    if use_signature_hash is None:
+        use_signature_hash = await _check_signature_hash_column_exists(conn)
 
     # Build the appropriate query based on schema version
     # Note: Only uses signature prefix for cleanup to avoid deleting production data
-    if _SIGNATURE_HASH_AVAILABLE:
+    if use_signature_hash:
         # Use signature_hash (preferred - migration 008 applied)
         select_query = """
             SELECT id FROM learned_patterns
@@ -635,23 +666,31 @@ def create_e2e_training_data() -> Any:
 
 
 @pytest_asyncio.fixture
-async def cleanup_e2e_patterns(e2e_db_conn: Any) -> AsyncGenerator[None, None]:
+async def cleanup_e2e_patterns(
+    e2e_db_conn: Any,
+    signature_hash_available: bool,
+) -> AsyncGenerator[None, None]:
     """Explicit cleanup fixture that removes E2E test patterns before and after test.
 
     Use this fixture when you need guaranteed cleanup even if the main fixture
     fails. It runs cleanup both before (to handle leftover data from failed tests)
     and after the test.
 
+    Args:
+        e2e_db_conn: The E2E database connection fixture.
+        signature_hash_available: Session-scoped fixture indicating if signature_hash
+            column exists in the database schema.
+
     Yields:
         None - cleanup happens as side effect.
     """
     # Pre-test cleanup (in case previous test failed)
-    await _cleanup_e2e_test_data(e2e_db_conn)
+    await _cleanup_e2e_test_data(e2e_db_conn, signature_hash_available)
 
     yield
 
     # Post-test cleanup
-    await _cleanup_e2e_test_data(e2e_db_conn)
+    await _cleanup_e2e_test_data(e2e_db_conn, signature_hash_available)
 
 
 # =============================================================================
@@ -697,7 +736,6 @@ __all__ = [
     "E2E_DOMAIN",
     "E2E_SIGNATURE_PREFIX",
     "E2E_TEST_PREFIX",
-    "_SIGNATURE_HASH_AVAILABLE",
     "_check_signature_hash_column_exists",
     "cleanup_e2e_patterns",
     "create_e2e_pattern_input",
@@ -714,5 +752,5 @@ __all__ = [
     "pattern_learning_node",
     "pattern_storage_handler",
     "requires_e2e_postgres",
-    "requires_signature_hash_column",
+    "signature_hash_available",
 ]

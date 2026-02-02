@@ -25,9 +25,12 @@ Reference:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest
+
+logger = logging.getLogger(__name__)
 
 from tests.integration.e2e.fixtures import (
     sample_duplicate_session_data,
@@ -278,10 +281,11 @@ class TestTC3DuplicateDetection:
         default_pattern_count = (
             len(result_default["learned_patterns"]) + len(result_default["candidate_patterns"])
         )
-        print(
-            f"Default threshold ({result_default['metadata'].deduplication_threshold_used}): "
-            f"{default_pattern_count} patterns, "
-            f"{result_default['metrics'].merged_count} merged"
+        logger.debug(
+            "Default threshold (%s): %d patterns, %d merged",
+            result_default["metadata"].deduplication_threshold_used,
+            default_pattern_count,
+            result_default["metrics"].merged_count,
         )
 
     def test_near_threshold_warnings_emitted(
@@ -322,9 +326,9 @@ class TestTC3DuplicateDetection:
 
         # Log warnings for debugging
         if near_threshold_warnings:
-            print(f"Near-threshold warnings found: {len(near_threshold_warnings)}")
+            logger.debug("Near-threshold warnings found: %d", len(near_threshold_warnings))
             for w in near_threshold_warnings:
-                print(f"  - {w}")
+                logger.debug("  - %s", w)
 
 
 @pytest.mark.integration
