@@ -72,6 +72,7 @@ class MockPatternStore:
         domain: str,
         version: int,
         confidence: float,
+        quality_score: float = 0.5,
         state: EnumPatternState,
         is_current: bool,
         stored_at: datetime,
@@ -89,6 +90,7 @@ class MockPatternStore:
             "domain": domain,
             "version": version,
             "confidence": confidence,
+            "quality_score": quality_score,
             "state": state,
             "is_current": is_current,
             "stored_at": stored_at,
@@ -243,6 +245,7 @@ class MockPatternStore:
             "domain": domain,
             "version": version,
             "confidence": confidence,
+            "quality_score": quality_score,
             "state": state,
             "is_current": True,  # Always true for atomic transition
             "stored_at": stored_at,
