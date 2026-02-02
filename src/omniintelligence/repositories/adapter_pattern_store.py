@@ -88,7 +88,7 @@ class AdapterPatternStore:
     See Also:
         Methods use `# noqa: ARG002` on individual parameters to suppress
         "unused argument" linter warnings for interface-compatibility
-        parameters (conn, signature_hash, is_current, stored_at, etc.).
+        parameters (conn, is_current, stored_at, actor, source_run_id, metadata).
     """
 
     def __init__(self, runtime: PostgresRepositoryRuntime) -> None:
@@ -151,7 +151,7 @@ class AdapterPatternStore:
         *,
         pattern_id: UUID,
         signature: str,
-        signature_hash: str,  # noqa: ARG002 - interface compat, see class docstring
+        signature_hash: str,
         domain: str,
         version: int,
         confidence: float,
@@ -176,6 +176,8 @@ class AdapterPatternStore:
         - recurrence_count: defaults to 1
 
         Args:
+            signature: The pattern signature text (stored in pattern_signature column).
+            signature_hash: SHA256 hash of the signature for identity lookups.
             quality_score: Initial quality score for the pattern (0.0-1.0).
                 Defaults to 0.5 (neutral). Used for quality-weighted searches
                 and pattern ranking.
@@ -185,9 +187,6 @@ class AdapterPatternStore:
         The following parameters are accepted for ProtocolPatternStore interface
         compatibility but are NOT used by this adapter:
 
-        - **signature_hash**: Not stored. The contract uses ``signature`` directly
-          for lineage tracking. The hash was originally intended for fast lookups,
-          but the contract schema indexes on signature text instead.
         - **is_current**: Not passed to contract. Version currency is managed by
           calling ``set_previous_not_current()`` before storing new versions.
         - **stored_at**: Not used. The database schema uses ``created_at`` with a
@@ -205,7 +204,6 @@ class AdapterPatternStore:
             self._conn_warning_logged = True
 
         # Future: Implement metadata persistence when contract supports JSONB
-        # Future: Evaluate if signature_hash should replace signature in contract
         # Future: Add actor/source_run_id for audit trail when lineage tracking is complete
 
         # Build positional args - contract defaults apply for omitted optional params
@@ -214,6 +212,7 @@ class AdapterPatternStore:
             {
                 "id": str(pattern_id),
                 "signature": signature,
+                "signature_hash": signature_hash,
                 "domain_id": domain,
                 # domain_version: omitted - uses contract default "1.0"
                 # domain_candidates: omitted - uses contract default "[]"
@@ -254,7 +253,7 @@ class AdapterPatternStore:
 
         Args:
             domain: Domain identifier for the pattern.
-            signature_hash: Hash of the pattern signature for lineage lookup.
+            signature_hash: SHA256 hash of the pattern signature for lineage lookup.
             version: Version number to check for existence.
             conn: Interface compatibility only (see class docstring).
 
@@ -264,16 +263,12 @@ class AdapterPatternStore:
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
-
-        TODO: The contract stores values in ``pattern_signature`` column, but we're
-            now passing signature_hash values. Consider renaming the column to
-            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "check_exists",
             {
                 "domain_id": domain,
-                "signature": signature_hash,  # Maps to pattern_signature column in contract
+                "signature_hash": signature_hash,
                 "version": version,
             },
         )
@@ -294,7 +289,7 @@ class AdapterPatternStore:
 
         Args:
             pattern_id: UUID of the pattern to check.
-            signature_hash: Hash of the pattern signature for lineage verification.
+            signature_hash: SHA256 hash of the pattern signature for idempotency verification.
             conn: Interface compatibility only (see class docstring).
 
         Returns:
@@ -303,16 +298,12 @@ class AdapterPatternStore:
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
-
-        TODO: The contract stores values in ``pattern_signature`` column, but we're
-            now passing signature_hash values. Consider renaming the column to
-            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "check_exists_by_id",
             {
                 "pattern_id": str(pattern_id),
-                "signature": signature_hash,  # Maps to pattern_signature column in contract
+                "signature_hash": signature_hash,
             },
         )
         result = await self._runtime.call("check_exists_by_id", *args)
@@ -331,7 +322,7 @@ class AdapterPatternStore:
 
         Args:
             domain: Domain identifier for the pattern lineage.
-            signature_hash: Hash of the pattern signature identifying the lineage.
+            signature_hash: SHA256 hash of the pattern signature identifying the lineage.
             conn: Interface compatibility only (see class docstring).
 
         Returns:
@@ -340,15 +331,11 @@ class AdapterPatternStore:
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
-
-        TODO: The contract stores values in ``pattern_signature`` column, but we're
-            now passing signature_hash values. Consider renaming the column to
-            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "set_not_current",
             {
-                "signature": signature_hash,  # Maps to pattern_signature column in contract
+                "signature_hash": signature_hash,
                 "domain_id": domain,
                 # superseded_by: omitted - optional, will be None
             },
@@ -370,7 +357,7 @@ class AdapterPatternStore:
 
         Args:
             domain: Domain identifier for the pattern lineage.
-            signature_hash: Hash of the pattern signature identifying the lineage.
+            signature_hash: SHA256 hash of the pattern signature identifying the lineage.
             conn: Interface compatibility only (see class docstring).
 
         Returns:
@@ -379,16 +366,12 @@ class AdapterPatternStore:
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
-
-        TODO: The contract stores values in ``pattern_signature`` column, but we're
-            now passing signature_hash values. Consider renaming the column to
-            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "get_latest_version",
             {
                 "domain_id": domain,
-                "signature": signature_hash,  # Maps to pattern_signature column in contract
+                "signature_hash": signature_hash,
             },
         )
         result = await self._runtime.call("get_latest_version", *args)
@@ -425,7 +408,7 @@ class AdapterPatternStore:
         *,
         pattern_id: UUID,
         signature: str,
-        signature_hash: str,  # noqa: ARG002 - interface compat, see class docstring
+        signature_hash: str,
         domain: str,
         version: int,
         confidence: float,
@@ -469,12 +452,12 @@ class AdapterPatternStore:
         Unused Parameters (Interface Compatibility)
         --------------------------------------------
         Same as store_pattern - see that method's docstring for details on
-        signature_hash, is_current, stored_at, actor, source_run_id, and metadata.
+        is_current, stored_at, actor, source_run_id, and metadata.
 
         Args:
             pattern_id: Unique identifier for this pattern instance.
-            signature: The pattern signature (behavioral/structural fingerprint).
-            signature_hash: Hash of the signature (unused, see docstring).
+            signature: The pattern signature text (stored in pattern_signature column).
+            signature_hash: SHA256 hash of the signature for identity lookups.
             domain: Domain where the pattern was learned.
             version: Version number (MUST be > latest existing version).
             confidence: Confidence score at storage time.
@@ -507,6 +490,7 @@ class AdapterPatternStore:
             {
                 "id": str(pattern_id),
                 "signature": signature,
+                "signature_hash": signature_hash,
                 "domain_id": domain,
                 # domain_version: omitted - uses contract default "1.0"
                 # domain_candidates: omitted - uses contract default "[]"
