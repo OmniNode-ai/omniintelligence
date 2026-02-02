@@ -9,6 +9,12 @@ ONEX Compliance:
     - Full type safety for all fields
 """
 
+from omniintelligence.nodes.node_intelligence_reducer.models.model_pattern_lifecycle_reducer_input import (
+    ModelPatternLifecycleReducerInput,
+)
+from omniintelligence.nodes.node_intelligence_reducer.models.model_payload_update_pattern_status import (
+    ModelPayloadUpdatePatternStatus,
+)
 from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
     ModelIngestionPayload,
     ModelPatternLearningPayload,
@@ -29,6 +35,8 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_outpu
 __all__ = [
     "ModelIngestionPayload",
     "ModelPatternLearningPayload",
+    "ModelPatternLifecycleReducerInput",
+    "ModelPayloadUpdatePatternStatus",
     "ModelQualityAssessmentPayload",
     "ModelReducerInput",
     "ModelReducerInputIngestion",

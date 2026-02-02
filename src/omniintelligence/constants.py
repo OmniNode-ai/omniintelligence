@@ -106,6 +106,24 @@ subject to cooldown/threshold gates.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1: str = (
+    "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+)
+"""
+TEMP_BOOTSTRAP: Topic suffix for pattern lifecycle transition events (OUTPUT).
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1
+
+NodePatternLifecycleEffect publishes when a pattern status transition is applied,
+providing the single source of truth for pattern status changes with full audit trail.
+
+This is the unified lifecycle event that replaces individual promotion/demotion events
+for comprehensive lifecycle tracking.
+
+Reference: OMN-1805
+Deletion ticket: OMN-1546
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -116,5 +134,6 @@ __all__ = [
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
+    "TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1",
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
 ]
