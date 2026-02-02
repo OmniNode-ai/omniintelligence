@@ -174,13 +174,13 @@ class ModelPatternStorageInput(BaseModel):
     def lineage_key(self) -> tuple[str, str]:
         """Return the lineage key for this pattern.
 
-        The lineage key (domain, signature) uniquely identifies
+        The lineage key (domain, signature_hash) uniquely identifies
         a pattern lineage for deduplication and version tracking.
 
         Returns:
-            Tuple of (domain, signature) as the lineage key.
+            Tuple of (domain, signature_hash) as the lineage key.
         """
-        return (self.domain, self.signature)
+        return (self.domain, self.signature_hash)
 
 
 __all__ = [

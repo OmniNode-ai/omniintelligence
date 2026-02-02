@@ -148,17 +148,17 @@ class MockPatternStore:
             "correlation_id": correlation_id,
             "metadata": metadata or {},
         }
-        # Track idempotency key (using signature text, not hash)
-        self.idempotency_map[(pattern_id, signature)] = pattern_id
-        # Track version (using signature text, not hash)
-        lineage_key = (domain, signature)
+        # Track idempotency key (using signature_hash for stability)
+        self.idempotency_map[(pattern_id, signature_hash)] = pattern_id
+        # Track version (using signature_hash for stability)
+        lineage_key = (domain, signature_hash)
         self._version_tracker[lineage_key] = version
         return pattern_id
 
     async def check_exists(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         version: int,
         conn: Any = None,
     ) -> bool:
@@ -166,7 +166,7 @@ class MockPatternStore:
         for pattern in self.patterns.values():
             if (
                 pattern["domain"] == domain
-                and pattern["signature"] == signature
+                and pattern["signature_hash"] == signature_hash
                 and pattern["version"] == version
             ):
                 return True
@@ -175,16 +175,16 @@ class MockPatternStore:
     async def check_exists_by_id(
         self,
         pattern_id: UUID,
-        signature: str,
+        signature_hash: str,
         conn: Any = None,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key."""
-        return self.idempotency_map.get((pattern_id, signature))
+        return self.idempotency_map.get((pattern_id, signature_hash))
 
     async def set_previous_not_current(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         conn: Any = None,
     ) -> int:
         """Set is_current = false for all previous versions."""
@@ -192,7 +192,7 @@ class MockPatternStore:
         for pattern in self.patterns.values():
             if (
                 pattern["domain"] == domain
-                and pattern["signature"] == signature
+                and pattern["signature_hash"] == signature_hash
                 and pattern["is_current"]
             ):
                 pattern["is_current"] = False
@@ -202,11 +202,11 @@ class MockPatternStore:
     async def get_latest_version(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         conn: Any = None,
     ) -> int | None:
         """Get the latest version number for a pattern lineage."""
-        return self._version_tracker.get((domain, signature))
+        return self._version_tracker.get((domain, signature_hash))
 
     async def get_stored_at(
         self,
@@ -251,7 +251,7 @@ class MockPatternStore:
         for pattern in self.patterns.values():
             if (
                 pattern["domain"] == domain
-                and pattern["signature"] == signature
+                and pattern["signature_hash"] == signature_hash
                 and pattern["is_current"]
             ):
                 pattern["is_current"] = False
@@ -273,10 +273,10 @@ class MockPatternStore:
             "correlation_id": correlation_id,
             "metadata": metadata or {},
         }
-        # Track idempotency key
-        self.idempotency_map[(pattern_id, signature)] = pattern_id
-        # Track version
-        lineage_key = (domain, signature)
+        # Track idempotency key (using signature_hash for stability)
+        self.idempotency_map[(pattern_id, signature_hash)] = pattern_id
+        # Track version (using signature_hash for stability)
+        lineage_key = (domain, signature_hash)
         self._version_tracker[lineage_key] = version
         return pattern_id
 

@@ -247,21 +247,34 @@ class AdapterPatternStore:
     async def check_exists(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         version: int,
         conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> bool:
         """Check if a pattern exists for the given lineage and version.
 
+        Args:
+            domain: Domain identifier for the pattern.
+            signature_hash: Hash of the pattern signature for lineage lookup.
+            version: Version number to check for existence.
+            conn: Interface compatibility only (see class docstring).
+
+        Returns:
+            True if a pattern with this lineage and version exists.
+
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
+
+        TODO: The contract stores values in ``pattern_signature`` column, but we're
+            now passing signature_hash values. Consider renaming the column to
+            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "check_exists",
             {
                 "domain_id": domain,
-                "signature": signature,
+                "signature": signature_hash,  # Maps to pattern_signature column in contract
                 "version": version,
             },
         )
@@ -275,20 +288,32 @@ class AdapterPatternStore:
     async def check_exists_by_id(
         self,
         pattern_id: UUID,
-        signature: str,
+        signature_hash: str,
         conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> UUID | None:
-        """Check if a pattern exists by idempotency key.
+        """Check if a pattern exists by idempotency key (pattern_id + signature_hash).
+
+        Args:
+            pattern_id: UUID of the pattern to check.
+            signature_hash: Hash of the pattern signature for lineage verification.
+            conn: Interface compatibility only (see class docstring).
+
+        Returns:
+            The pattern UUID if it exists with matching id and signature_hash, else None.
 
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
+
+        TODO: The contract stores values in ``pattern_signature`` column, but we're
+            now passing signature_hash values. Consider renaming the column to
+            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "check_exists_by_id",
             {
                 "pattern_id": str(pattern_id),
-                "signature": signature,
+                "signature": signature_hash,  # Maps to pattern_signature column in contract
             },
         )
         result = await self._runtime.call("check_exists_by_id", *args)
@@ -300,19 +325,31 @@ class AdapterPatternStore:
     async def set_previous_not_current(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> int:
         """Set is_current = false for all previous versions of this lineage.
 
+        Args:
+            domain: Domain identifier for the pattern lineage.
+            signature_hash: Hash of the pattern signature identifying the lineage.
+            conn: Interface compatibility only (see class docstring).
+
+        Returns:
+            Count of rows updated (previous versions marked non-current).
+
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
+
+        TODO: The contract stores values in ``pattern_signature`` column, but we're
+            now passing signature_hash values. Consider renaming the column to
+            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "set_not_current",
             {
-                "signature": signature,
+                "signature": signature_hash,  # Maps to pattern_signature column in contract
                 "domain_id": domain,
                 # superseded_by: omitted - optional, will be None
             },
@@ -327,20 +364,32 @@ class AdapterPatternStore:
     async def get_latest_version(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         conn: AsyncConnection,  # interface compat only, see class docstring
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
+        Args:
+            domain: Domain identifier for the pattern lineage.
+            signature_hash: Hash of the pattern signature identifying the lineage.
+            conn: Interface compatibility only (see class docstring).
+
+        Returns:
+            The highest version number for this lineage, or None if no patterns exist.
+
         Note:
             The ``conn`` parameter is accepted for interface compatibility
             but is NOT used. See class docstring for transaction semantics.
+
+        TODO: The contract stores values in ``pattern_signature`` column, but we're
+            now passing signature_hash values. Consider renaming the column to
+            ``signature_hash`` or adding a dedicated column for hash-based lookups.
         """
         args = self._build_positional_args(
             "get_latest_version",
             {
                 "domain_id": domain,
-                "signature": signature,
+                "signature": signature_hash,  # Maps to pattern_signature column in contract
             },
         )
         result = await self._runtime.call("get_latest_version", *args)

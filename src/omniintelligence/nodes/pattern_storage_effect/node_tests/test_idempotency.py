@@ -3,12 +3,12 @@
 """Unit tests for pattern storage idempotency and versioning.
 
 Tests the idempotency invariants:
-    - Same (pattern_id, signature) returns same result without side effects
+    - Same (pattern_id, signature_hash) returns same result without side effects
     - Different pattern_id for same lineage creates new version
     - Immutable history: Never overwrite existing patterns
 
-Lineage is defined by (domain, signature), not signature_hash.
-Idempotency key is (pattern_id, signature).
+Lineage is defined by (domain, signature_hash).
+Idempotency key is (pattern_id, signature_hash).
 
 These tests verify the handler's idempotent behavior and version tracking.
 
@@ -51,7 +51,7 @@ class TestIdempotentStorage:
         mock_pattern_store: MockPatternStore,
         mock_conn: MagicMock,
     ) -> None:
-        """Same (pattern_id, signature) should return same result."""
+        """Same (pattern_id, signature_hash) should return same result."""
         pattern_id = uuid4()
         signature_hash = f"hash_{uuid4().hex[:16]}"
 
@@ -180,7 +180,7 @@ class TestNewVersionCreation:
             input1, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Second pattern in same lineage (same domain + signature)
+        # Second pattern in same lineage (same domain + signature_hash)
         input2 = create_valid_input(
             pattern_id=uuid4(),  # Different pattern_id
             signature_hash=signature_hash,
@@ -446,7 +446,7 @@ class TestIsCurrentFlag:
 
 @pytest.mark.unit
 class TestLineageKey:
-    """Tests for lineage key (domain, signature) behavior."""
+    """Tests for lineage key (domain, signature_hash) behavior."""
 
     @pytest.mark.asyncio
     async def test_lineage_key_uniquely_identifies_lineage(
@@ -456,14 +456,14 @@ class TestLineageKey:
     ) -> None:
         """Same lineage key should increment version, different key starts fresh.
 
-        Note: The lineage key is (domain, signature). Different signature_hash
-        values with the same signature belong to the same lineage.
+        Note: The lineage key is (domain, signature_hash). Different signature
+        values with the same signature_hash belong to the same lineage.
         """
-        # Same lineage (same domain + same signature)
+        # Same lineage (same domain + same signature_hash)
         input1 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
-            signature="pattern_x",
+            signature_hash="hash_x",
         )
         result1 = await handle_store_pattern(
             input1, pattern_store=mock_pattern_store, conn=mock_conn
@@ -472,27 +472,27 @@ class TestLineageKey:
         input2 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
-            signature="pattern_x",
+            signature_hash="hash_x",
         )
         result2 = await handle_store_pattern(
             input2, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Different domain, same signature
+        # Different domain, same signature_hash
         input3 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_b",
-            signature="pattern_x",
+            signature_hash="hash_x",
         )
         result3 = await handle_store_pattern(
             input3, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Different signature, same domain
+        # Different signature_hash, same domain
         input4 = create_valid_input(
             pattern_id=uuid4(),
             domain="domain_a",
-            signature="pattern_y",
+            signature_hash="hash_y",
         )
         result4 = await handle_store_pattern(
             input4, pattern_store=mock_pattern_store, conn=mock_conn
@@ -510,17 +510,17 @@ class TestLineageKey:
     async def test_input_lineage_key_property(self) -> None:
         """ModelPatternStorageInput should expose lineage_key property.
 
-        The lineage_key is (domain, signature), not (domain, signature_hash).
-        This allows readable pattern identification and debugging.
+        The lineage_key is (domain, signature_hash) for stable identification.
+        This allows consistent pattern identification across signature variations.
         """
         input_data = create_valid_input(
             domain="test_domain",
-            signature="test_signature",
+            signature_hash="test_hash",
         )
 
         lineage_key = input_data.lineage_key
 
-        assert lineage_key == ("test_domain", "test_signature")
+        assert lineage_key == ("test_domain", "test_hash")
 
 
 # =============================================================================
@@ -648,7 +648,7 @@ class TestIdempotencyEdgeCases:
             input2, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        # Should be idempotent based on (pattern_id, signature)
+        # Should be idempotent based on (pattern_id, signature_hash)
         assert result1.pattern_id == result2.pattern_id
         # Original confidence should be preserved
         stored = mock_pattern_store.patterns[pattern_id]
@@ -810,11 +810,12 @@ class TestAtomicVersionTransition:
 
         domain = "code_patterns"
         signature = "def.*return.*None"
+        signature_hash = "test_hash"
 
         await mock_pattern_store.store_with_version_transition(
             pattern_id=uuid4(),
             signature=signature,
-            signature_hash="test_hash",
+            signature_hash=signature_hash,
             domain=domain,
             version=5,
             confidence=0.85,
@@ -827,7 +828,7 @@ class TestAtomicVersionTransition:
         # Version tracker should be updated
         latest = await mock_pattern_store.get_latest_version(
             domain=domain,
-            signature=signature,
+            signature_hash=signature_hash,
             conn=mock_conn,
         )
         assert latest == 5
@@ -843,11 +844,12 @@ class TestAtomicVersionTransition:
 
         pattern_id = uuid4()
         signature = "test_signature"
+        signature_hash = "test_hash"
 
         await mock_pattern_store.store_with_version_transition(
             pattern_id=pattern_id,
             signature=signature,
-            signature_hash="test_hash",
+            signature_hash=signature_hash,
             domain="test_domain",
             version=2,
             confidence=0.85,
@@ -860,7 +862,7 @@ class TestAtomicVersionTransition:
         # Idempotency check should find it
         existing = await mock_pattern_store.check_exists_by_id(
             pattern_id=pattern_id,
-            signature=signature,
+            signature_hash=signature_hash,
             conn=mock_conn,
         )
         assert existing == pattern_id

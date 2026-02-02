@@ -7,14 +7,16 @@ to storage with governance invariants, idempotency, and version tracking.
 
 Key Invariants:
     - Governance: Confidence must be >= 0.5 (MIN_CONFIDENCE)
-    - Uniqueness: UNIQUE(domain, signature, version)
-    - Current Tracking: UNIQUE(domain, signature) WHERE is_current = true
+    - Uniqueness: UNIQUE(domain, signature_hash, version)
+    - Current Tracking: UNIQUE(domain, signature_hash) WHERE is_current = true
     - Immutable History: Never overwrite existing patterns, create new version
-    - Idempotency: Same (pattern_id, signature) returns same result
+    - Idempotency: Same (pattern_id, signature_hash) returns same result
 
 Lineage Key:
-    Patterns are uniquely identified by (domain, signature) for
+    Patterns are uniquely identified by (domain, signature_hash) for
     deduplication and version tracking across pattern versions.
+    signature_hash is a stable SHA256 hash, while signature is raw text
+    that could change format.
 
 Reference:
     - OMN-1668: Pattern storage effect node implementation
@@ -66,12 +68,12 @@ class ProtocolPatternStore(Protocol):
     the is_current flag for lineage management.
 
     Database Schema Requirements:
-        - UNIQUE(domain, signature, version): No duplicate versions
-        - UNIQUE(domain, signature) WHERE is_current = true: Only one current
+        - UNIQUE(domain, signature_hash, version): No duplicate versions
+        - UNIQUE(domain, signature_hash) WHERE is_current = true: Only one current
         - pattern_state_transitions table: Audit trail (future)
 
     Implementations should handle:
-        - Idempotent storage (same pattern_id + signature returns existing)
+        - Idempotent storage (same pattern_id + signature_hash returns existing)
         - Version management (is_current flag transitions)
         - Atomic operations (set_previous_not_current + store_pattern)
 
@@ -153,7 +155,7 @@ class ProtocolPatternStore(Protocol):
     async def check_exists(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         version: int,
         conn: AsyncConnection,
     ) -> bool:
@@ -163,30 +165,30 @@ class ProtocolPatternStore(Protocol):
 
         Args:
             domain: Domain of the pattern (part of lineage key).
-            signature: The pattern signature text (part of lineage key).
+            signature_hash: The pattern signature hash (part of lineage key).
             version: Version number to check.
             conn: Database connection for transaction control.
 
         Returns:
-            True if a pattern exists for (domain, signature, version).
+            True if a pattern exists for (domain, signature_hash, version).
         """
         ...
 
     async def check_exists_by_id(
         self,
         pattern_id: UUID,
-        signature: str,
+        signature_hash: str,
         conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key.
 
-        The idempotency key is (pattern_id, signature). If a pattern
+        The idempotency key is (pattern_id, signature_hash). If a pattern
         was previously stored with the same idempotency key, return its
         stored ID for idempotent response.
 
         Args:
             pattern_id: The pattern_id from the incoming event.
-            signature: The pattern signature text.
+            signature_hash: The pattern signature hash.
             conn: Database connection for transaction control.
 
         Returns:
@@ -197,17 +199,17 @@ class ProtocolPatternStore(Protocol):
     async def set_previous_not_current(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions of this lineage.
 
         This must be called before inserting a new current version to maintain
-        the invariant: UNIQUE(domain, signature) WHERE is_current = true.
+        the invariant: UNIQUE(domain, signature_hash) WHERE is_current = true.
 
         Args:
             domain: Domain of the pattern (part of lineage key).
-            signature: The pattern signature text (part of lineage key).
+            signature_hash: The pattern signature hash (part of lineage key).
             conn: Database connection for transaction control.
 
         Returns:
@@ -218,7 +220,7 @@ class ProtocolPatternStore(Protocol):
     async def get_latest_version(
         self,
         domain: str,
-        signature: str,
+        signature_hash: str,
         conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
@@ -227,7 +229,7 @@ class ProtocolPatternStore(Protocol):
 
         Args:
             domain: Domain of the pattern (part of lineage key).
-            signature: The pattern signature text (part of lineage key).
+            signature_hash: The pattern signature hash (part of lineage key).
             conn: Database connection for transaction control.
 
         Returns:
@@ -283,6 +285,9 @@ class ProtocolPatternStore(Protocol):
         SQL operation, preventing the invariant violation where a lineage has ZERO
         current versions.
 
+        Lineage lookup uses (domain, signature_hash) for stable identity.
+        The signature parameter is stored as raw text for display/debugging.
+
         Atomicity Guarantee
         -------------------
         This method guarantees that either:
@@ -294,7 +299,7 @@ class ProtocolPatternStore(Protocol):
         transaction boundary.
 
         CRITICAL INVARIANT PROTECTED:
-            UNIQUE(domain, signature) WHERE is_current = true
+            UNIQUE(domain, signature_hash) WHERE is_current = true
             (Exactly one current version per lineage)
 
         FAILURE SCENARIO WITHOUT THIS METHOD:
@@ -546,13 +551,13 @@ async def handle_store_pattern(
 
     This handler implements the following invariants:
         1. Governance: Reject if confidence < MIN_CONFIDENCE (0.5)
-        2. Idempotency: If (pattern_id, signature) exists, return existing
+        2. Idempotency: If (pattern_id, signature_hash) exists, return existing
         3. Version Management: Set previous is_current = false
         4. Storage: Insert new pattern with is_current = true
         5. Audit: Log state transition for governance trail
 
     The handler is designed to be idempotent - calling with the same
-    (pattern_id, signature) will return the same result without
+    (pattern_id, signature_hash) will return the same result without
     side effects.
 
     Args:
@@ -619,13 +624,13 @@ async def handle_store_pattern(
     )
 
     # -------------------------------------------------------------------------
-    # Step 2: Check idempotency (same pattern_id + signature = same result)
+    # Step 2: Check idempotency (same pattern_id + signature_hash = same result)
     # -------------------------------------------------------------------------
     stored_at = datetime.now(UTC)
 
     existing_id = await pattern_store.check_exists_by_id(
         pattern_id=input_data.pattern_id,
-        signature=input_data.signature,
+        signature_hash=input_data.signature_hash,
         conn=conn,
     )
 
@@ -696,7 +701,7 @@ async def handle_store_pattern(
     # Otherwise, auto-increment from latest version
     latest_version = await pattern_store.get_latest_version(
         domain=input_data.domain,
-        signature=input_data.signature,
+        signature_hash=input_data.signature_hash,
         conn=conn,
     )
 
@@ -743,7 +748,7 @@ async def handle_store_pattern(
     #   transition. This is simpler and equally correct.
     #
     # INVARIANT PROTECTED:
-    #   UNIQUE(domain, signature) WHERE is_current = true
+    #   UNIQUE(domain, signature_hash) WHERE is_current = true
     #   (Exactly one current version per lineage)
     # -------------------------------------------------------------------------
 
