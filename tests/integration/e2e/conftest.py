@@ -35,7 +35,6 @@ Reference:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 import os
@@ -1277,39 +1276,9 @@ async def e2e_kafka_session_cleanup() -> AsyncGenerator[None, None]:
         )
 
 
-@pytest.fixture(scope="session")
-def e2e_cleanup_on_session_end(request: pytest.FixtureRequest) -> None:
-    """Synchronous session fixture that schedules Kafka cleanup at session end.
-
-    This fixture uses pytest's request.addfinalizer to schedule cleanup
-    that runs even if async fixtures have issues. It's a safety net for
-    the async cleanup mechanism.
-
-    Note:
-        This runs synchronously, so it uses a new event loop for async cleanup.
-    """
-    def _sync_cleanup() -> None:
-        """Synchronous wrapper for async cleanup."""
-        if not KAFKA_AVAILABLE:
-            return
-
-        try:
-            # Create a new event loop for cleanup
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                orphaned = loop.run_until_complete(list_e2e_test_topics())
-                if orphaned:
-                    _cleanup_logger.info(
-                        "Session finalizer: cleaning %d orphaned topics", len(orphaned)
-                    )
-                    loop.run_until_complete(delete_kafka_topics(orphaned))
-            finally:
-                loop.close()
-        except Exception as e:
-            _cleanup_logger.warning("Session finalizer cleanup error: %s", e)
-
-    request.addfinalizer(_sync_cleanup)
+# Note: The synchronous e2e_cleanup_on_session_end fixture was removed because
+# it created a new event loop which conflicts with pytest-asyncio's loop management.
+# The async e2e_kafka_session_cleanup fixture (above) handles session cleanup properly.
 
 
 # =============================================================================
@@ -1317,21 +1286,26 @@ def e2e_cleanup_on_session_end(request: pytest.FixtureRequest) -> None:
 # =============================================================================
 
 __all__ = [
+    # Constants
     "E2E_DOMAIN",
     "E2E_SIGNATURE_PREFIX",
     "E2E_TEST_PREFIX",
-    "RealKafkaPublisher",
+    # Utility functions
     "_check_signature_hash_column_exists",
     "cleanup_e2e_patterns",
+    # Factory fixtures
     "create_e2e_pattern_input",
     "create_e2e_signature_hash",
     "create_e2e_training_data",
     "delete_kafka_topics",
+    # Handler fixtures
     "demotion_handler_with_kafka",
-    "e2e_cleanup_on_session_end",
+    # Utility fixtures
     "e2e_correlation_id",
+    # Database fixtures
     "e2e_db_conn",
     "e2e_db_conn_with_signature_hash",
+    # Kafka fixtures
     "e2e_kafka_consumer",
     "e2e_kafka_producer",
     "e2e_kafka_publisher",
@@ -1346,6 +1320,7 @@ __all__ = [
     "pattern_learning_node",
     "pattern_storage_handler",
     "promotion_handler_with_kafka",
+    # Skip markers
     "requires_e2e_kafka",
     "requires_e2e_postgres",
     "signature_hash_available",

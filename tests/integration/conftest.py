@@ -33,14 +33,18 @@ Reference:
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import pytest_asyncio
+
+if TYPE_CHECKING:
+    from aiokafka import AIOKafkaProducer
 
 # =============================================================================
 # Environment Loading
@@ -472,7 +476,7 @@ class RealKafkaPublisher:
 
     def __init__(
         self,
-        producer: Any,
+        producer: AIOKafkaProducer,
         *,
         topic_prefix: str = "",
     ) -> None:
@@ -482,7 +486,7 @@ class RealKafkaPublisher:
             producer: AIOKafkaProducer instance (already started).
             topic_prefix: Optional prefix for topic isolation.
         """
-        self._producer = producer
+        self._producer: AIOKafkaProducer = producer
         self._topic_prefix = topic_prefix
         self.published_events: list[tuple[str, str, dict[str, Any]]] = []
         self.created_topics: set[str] = set()
@@ -503,8 +507,6 @@ class RealKafkaPublisher:
             key: Message key for partitioning.
             value: Event payload as a dictionary (will be JSON serialized).
         """
-        import json
-
         # Apply topic prefix for test isolation
         full_topic = f"{self._topic_prefix}{topic}" if self._topic_prefix else topic
 

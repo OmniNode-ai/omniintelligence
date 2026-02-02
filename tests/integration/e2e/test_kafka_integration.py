@@ -26,13 +26,19 @@ from uuid import uuid4
 
 import pytest
 
-from tests.integration.e2e.conftest import (
-    RealKafkaPublisher,
-    requires_e2e_kafka,
-)
+from tests.integration.conftest import RealKafkaPublisher
+from tests.integration.e2e.conftest import requires_e2e_kafka
 
 if TYPE_CHECKING:
     pass
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+UUID_STRING_LENGTH: int = 36
+"""Length of a UUID string in standard format (8-4-4-4-12 with dashes)."""
 
 
 # =============================================================================
@@ -384,7 +390,7 @@ async def test_kafka_message_key_with_uuid_format(
 
     _topic, key, _value = events[0]
     assert key == test_key
-    assert len(key) == 36  # UUID format: 8-4-4-4-12 with dashes
+    assert len(key) == UUID_STRING_LENGTH
 
 
 @pytest.mark.asyncio
