@@ -254,38 +254,132 @@ class TestTC3DuplicateDetection:
     ) -> None:
         """Test that deduplication threshold affects how many patterns are merged.
 
-        This test verifies threshold sensitivity:
-        1. Lower thresholds (e.g., 0.5) should merge more aggressively
-        2. Higher thresholds (e.g., 0.95) should preserve more distinct patterns
-        3. The merged_count metric reflects the threshold effect
+        This test verifies threshold sensitivity by calling deduplicate_patterns
+        directly with different threshold values:
+        1. Very low threshold (0.3) should merge aggressively (more clusters merged)
+        2. Default threshold (0.85) should merge moderately
+        3. Very high threshold (0.99) should preserve most distinct patterns (few merges)
+
+        The test ensures that changing the threshold actually changes behavior,
+        which would catch regressions in threshold logic.
         """
-        # Arrange
-        session_a_data, session_b_data = sample_duplicate_session_data()
-        combined_data = session_a_data + session_b_data
-
-        # Act - Run with default threshold
-        result_default = pattern_learning_handler.handle(combined_data)
-
-        # Assert - Verify the metadata records the threshold used
-        assert result_default["success"]
-        assert result_default["metadata"].deduplication_threshold_used > 0, (
-            "Deduplication threshold should be recorded in metadata"
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
+            compute_cluster_scores,
+        )
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
+            deduplicate_patterns,
+        )
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
+            extract_features_batch,
+        )
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
+            cluster_patterns,
+        )
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets import (
+            DEFAULT_DEDUPLICATION_THRESHOLD,
+            DEFAULT_SIMILARITY_WEIGHTS,
         )
 
-        # The merged_count should be non-negative
-        assert result_default["metrics"].merged_count >= 0, (
-            "Merged count should be tracked"
+        # Arrange - Get combined data and run through feature extraction and clustering
+        session_a_data, session_b_data = sample_duplicate_session_data()
+        combined_data = list(session_a_data + session_b_data)
+
+        # Extract features and cluster patterns
+        features_list = extract_features_batch(combined_data)
+        clusters = cluster_patterns(
+            features_list=features_list,
+            weights=DEFAULT_SIMILARITY_WEIGHTS,
+        )
+
+        # Skip if not enough clusters for meaningful threshold testing
+        if len(clusters) < 2:
+            pytest.skip("Not enough clusters formed for threshold sensitivity testing")
+
+        # Compute confidence scores for deduplication
+        confidence_scores: dict[str, float] = {}
+        for cluster in clusters:
+            scores = compute_cluster_scores(cluster)
+            confidence_scores[cluster["cluster_id"]] = scores["confidence"]
+
+        # Act - Test with different thresholds
+        # Very low threshold (0.3) - should merge very aggressively
+        result_low = deduplicate_patterns(
+            clusters=clusters,
+            confidence_scores=confidence_scores,
+            similarity_threshold=0.3,
+            weights=DEFAULT_SIMILARITY_WEIGHTS,
+        )
+
+        # Default threshold (0.85) - moderate merging
+        result_default = deduplicate_patterns(
+            clusters=clusters,
+            confidence_scores=confidence_scores,
+            similarity_threshold=DEFAULT_DEDUPLICATION_THRESHOLD,
+            weights=DEFAULT_SIMILARITY_WEIGHTS,
+        )
+
+        # Very high threshold (0.99) - almost no merging
+        result_high = deduplicate_patterns(
+            clusters=clusters,
+            confidence_scores=confidence_scores,
+            similarity_threshold=0.99,
+            weights=DEFAULT_SIMILARITY_WEIGHTS,
+        )
+
+        # Assert - Verify threshold is recorded correctly in each result
+        assert result_low["threshold_used"] == 0.3
+        assert result_default["threshold_used"] == DEFAULT_DEDUPLICATION_THRESHOLD
+        assert result_high["threshold_used"] == 0.99
+
+        # Assert - Lower threshold should merge more (fewer surviving clusters)
+        # Higher threshold should preserve more (more surviving clusters)
+        low_cluster_count = len(result_low["deduplicated_clusters"])
+        default_cluster_count = len(result_default["deduplicated_clusters"])
+        high_cluster_count = len(result_high["deduplicated_clusters"])
+
+        # Core threshold sensitivity assertion:
+        # As threshold increases, surviving cluster count should increase (or stay same)
+        assert low_cluster_count <= default_cluster_count, (
+            f"Lower threshold (0.3) should produce same or fewer clusters than default. "
+            f"Low: {low_cluster_count}, Default: {default_cluster_count}"
+        )
+        assert default_cluster_count <= high_cluster_count, (
+            f"Default threshold should produce same or fewer clusters than high (0.99). "
+            f"Default: {default_cluster_count}, High: {high_cluster_count}"
+        )
+
+        # Assert - Merged count should reflect threshold sensitivity
+        # Lower threshold = more merges, higher threshold = fewer merges
+        assert result_low["merged_count"] >= result_default["merged_count"], (
+            f"Lower threshold should merge same or more patterns. "
+            f"Low merged: {result_low['merged_count']}, Default merged: {result_default['merged_count']}"
+        )
+        assert result_default["merged_count"] >= result_high["merged_count"], (
+            f"Default threshold should merge same or more than high threshold. "
+            f"Default merged: {result_default['merged_count']}, High merged: {result_high['merged_count']}"
+        )
+
+        # Assert - High threshold should preserve original cluster count (or close to it)
+        assert high_cluster_count >= len(clusters) - 1, (
+            f"Very high threshold (0.99) should preserve most clusters. "
+            f"Original: {len(clusters)}, After 0.99 threshold: {high_cluster_count}"
         )
 
         # Log metrics for debugging
-        default_pattern_count = (
-            len(result_default["learned_patterns"]) + len(result_default["candidate_patterns"])
-        )
         logger.debug(
-            "Default threshold (%s): %d patterns, %d merged",
-            result_default["metadata"].deduplication_threshold_used,
-            default_pattern_count,
-            result_default["metrics"].merged_count,
+            "Threshold sensitivity results: "
+            "low(0.3)=%d clusters/%d merged, "
+            "default(%.2f)=%d clusters/%d merged, "
+            "high(0.99)=%d clusters/%d merged, "
+            "original=%d clusters",
+            low_cluster_count,
+            result_low["merged_count"],
+            DEFAULT_DEDUPLICATION_THRESHOLD,
+            default_cluster_count,
+            result_default["merged_count"],
+            high_cluster_count,
+            result_high["merged_count"],
+            len(clusters),
         )
 
     def test_near_threshold_warnings_emitted(

@@ -121,9 +121,17 @@ class TestTC2FailedSessionPatternsExtraction:
         candidate_count = len(result["candidate_patterns"])
         learned_count = len(result["learned_patterns"])
 
-        # With low-confidence error patterns, expect more candidates than learned
-        # (or at least some candidates)
-        assert candidate_count >= 0, "Should have candidates or learned patterns"
+        # With low-confidence error patterns (0.28-0.42) and threshold 0.7,
+        # patterns should not be promoted to learned status
+        assert learned_count == 0, (
+            f"Low-confidence patterns (0.28-0.42) should not be promoted with "
+            f"threshold 0.7, but {learned_count} were promoted"
+        )
+        # And we should have at least some candidate patterns extracted
+        assert candidate_count > 0, (
+            "Failed session data should produce candidate patterns "
+            "(patterns below the promotion threshold)"
+        )
 
         # Mean confidence should reflect lower quality patterns
         metrics = result["metrics"]

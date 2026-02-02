@@ -454,7 +454,7 @@ async def pattern_storage_handler(
     # For E2E we use the actual AdapterPatternStore if available,
     # otherwise fall back to MockPatternStore for the protocol
     try:
-        from omniintelligence.adapters.adapter_pattern_store import AdapterPatternStore
+        from omniintelligence.repositories.adapter_pattern_store import AdapterPatternStore
 
         # AdapterPatternStore manages its own connection pool
         pattern_store = AdapterPatternStore()
@@ -568,7 +568,7 @@ def create_e2e_pattern_input() -> Any:
 
     def _factory(
         pattern_id: UUID | None = None,
-        signature: str = "def e2e_test_function(): return True",
+        signature: str = "test_e2e_def_pattern_function(): return True",
         signature_hash: str | None = None,
         domain: str = E2E_DOMAIN,
         confidence: float = 0.75,

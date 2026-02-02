@@ -17,6 +17,17 @@ Infrastructure Requirements:
     - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
     - Tables: learned_patterns, pattern_injections
 
+Safety Measures:
+    The cleanup_test_data helper implements multiple safety layers to prevent
+    accidental deletion of production patterns:
+    1. Explicit pattern ID tracking - cleanup requires explicit list of created IDs
+    2. Signature prefix verification - validates all patterns have E2E prefix
+    3. Dual-condition deletion - patterns must match BOTH ID list AND signature prefix
+
+    Note: Tests primarily use the e2e_db_conn fixture from conftest.py which has
+    automatic cleanup. The cleanup_test_data helper is for manual/explicit cleanup
+    when needed.
+
 Reference:
     - OMN-1800: E2E integration tests for pattern learning pipeline
     - OMN-1678: Rolling window metric updates with decay approximation
@@ -134,7 +145,13 @@ WHERE session_id = ANY($1)
 SQL_CLEANUP_TEST_PATTERNS = """
 DELETE FROM learned_patterns
 WHERE signature_hash LIKE $1
-   OR domain_id = $2
+  AND id = ANY($2)
+"""
+
+SQL_VERIFY_PATTERNS_ARE_TEST_PATTERNS = """
+SELECT id, signature_hash FROM learned_patterns
+WHERE id = ANY($1)
+  AND signature_hash NOT LIKE $2
 """
 
 
@@ -293,23 +310,67 @@ async def get_pattern_metrics(conn: Any, pattern_id: UUID) -> dict[str, Any] | N
 async def cleanup_test_data(
     conn: Any,
     session_ids: list[UUID] | None = None,
-) -> None:
+    pattern_ids: list[UUID] | None = None,
+) -> int:
     """Clean up test data from pattern_injections and learned_patterns.
+
+    SAFETY: This function only deletes patterns that:
+    1. Have IDs explicitly provided in pattern_ids (created during the test)
+    2. Have signature_hash starting with E2E_SIGNATURE_PREFIX
+
+    This prevents accidental deletion of production patterns.
 
     Args:
         conn: asyncpg connection.
         session_ids: Session IDs to clean up injections for.
+        pattern_ids: Explicit list of pattern IDs created during this test.
+            REQUIRED for pattern cleanup - if None or empty, no patterns are deleted.
+
+    Returns:
+        Number of patterns deleted.
+
+    Raises:
+        ValueError: If any pattern_id does not have the expected E2E signature prefix,
+            indicating a potential attempt to delete production data.
     """
     # Clean up injections first (due to potential references)
     if session_ids:
         await conn.execute(SQL_CLEANUP_TEST_INJECTIONS, session_ids)
 
-    # Clean up patterns with E2E prefix
-    await conn.execute(
+    # SAFETY: Only clean up patterns if explicit IDs are provided
+    if not pattern_ids:
+        return 0
+
+    # SAFETY: Verify ALL patterns have the E2E signature prefix before deletion
+    # This prevents deletion of production patterns even if their ID was accidentally passed
+    non_test_patterns = await conn.fetch(
+        SQL_VERIFY_PATTERNS_ARE_TEST_PATTERNS,
+        pattern_ids,
+        f"{E2E_SIGNATURE_PREFIX}%",
+    )
+
+    if non_test_patterns:
+        non_test_ids = [str(row["id"]) for row in non_test_patterns]
+        raise ValueError(
+            f"SAFETY VIOLATION: Attempted to delete non-test patterns. "
+            f"Pattern IDs without E2E signature prefix: {non_test_ids}. "
+            f"Expected signature_hash to start with '{E2E_SIGNATURE_PREFIX}'. "
+            f"Cleanup aborted to protect production data."
+        )
+
+    # SAFETY: Delete only patterns that match BOTH criteria:
+    # 1. ID is in the explicit list (pattern_ids)
+    # 2. signature_hash starts with E2E prefix
+    result = await conn.execute(
         SQL_CLEANUP_TEST_PATTERNS,
         f"{E2E_SIGNATURE_PREFIX}%",
-        E2E_DOMAIN,
+        pattern_ids,
     )
+
+    # Parse "DELETE N" to get count
+    if result and result.startswith("DELETE "):
+        return int(result.split()[1])
+    return 0
 
 
 # =============================================================================
