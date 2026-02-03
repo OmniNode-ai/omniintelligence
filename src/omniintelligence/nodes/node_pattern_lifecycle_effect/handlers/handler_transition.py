@@ -353,11 +353,9 @@ async def apply_transition(
             If None, operations use the repository directly.
 
     Returns:
-        ModelTransitionResult with transition outcome.
-
-    Raises:
-        ValueError: If to_status is "provisional" (PROVISIONAL guard), or if
-            producer is provided but topic_env_prefix is None.
+        ModelTransitionResult with transition outcome. On validation failure
+        (e.g., PROVISIONAL guard, missing topic_env_prefix), returns result
+        with success=False and descriptive error_message rather than raising.
     """
     logger.info(
         "Applying pattern lifecycle transition",
@@ -611,6 +609,8 @@ async def apply_transition(
     # already succeeded. Failed events are routed to DLQ for later processing.
     # Note: topic_env_prefix is validated at function entry (Step 0b) for fail-fast.
     if producer is not None:
+        # Type narrowing: Step 0b validates topic_env_prefix when producer is available
+        assert topic_env_prefix is not None  # Validated at function entry
         try:
             await _emit_transition_event(
                 producer=producer,

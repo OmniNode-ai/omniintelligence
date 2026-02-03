@@ -26,9 +26,9 @@ pytestmark = pytest.mark.audit
 # When Kafka is unavailable, promotion/demotion handlers use direct SQL as fallback.
 # This is documented in handler_promotion.py and handler_demotion.py docstrings.
 ALLOWED_FILES = {
-    "handler_transition.py",  # Effect node handler in node_pattern_lifecycle_effect
-    "handler_promotion.py",  # Fallback SQL when Kafka unavailable (ONEX invariant)
-    "handler_demotion.py",  # Fallback SQL when Kafka unavailable (ONEX invariant)
+    "handler_transition.py",  # Primary path: effect node handler
+    "handler_promotion.py",  # Fallback path: direct SQL when Kafka unavailable
+    "handler_demotion.py",  # Fallback path: direct SQL when Kafka unavailable
 }
 
 # Forbidden patterns - direct status updates
@@ -49,7 +49,7 @@ FORBIDDEN_PATTERNS = [
 SCAN_DIRS = [
     "src/omniintelligence/nodes/node_pattern_promotion_effect/handlers",
     "src/omniintelligence/nodes/node_pattern_demotion_effect/handlers",
-    "src/omniintelligence/nodes/pattern_storage_effect/handlers",
+    "src/omniintelligence/nodes/node_pattern_storage_effect/handlers",
     "src/omniintelligence/nodes/node_pattern_feedback_effect/handlers",
     # Also scan node_pattern_lifecycle_effect/handlers but allow handler_transition.py
     "src/omniintelligence/nodes/node_pattern_lifecycle_effect/handlers",
@@ -113,15 +113,17 @@ class TestPatternStatusDirectUpdate:
     """Tests ensuring pattern status updates only occur via the lifecycle effect node."""
 
     def test_no_direct_pattern_status_updates(self) -> None:
-        """Verify no handler directly updates learned_patterns.status.
+        """Verify no unauthorized handler directly updates learned_patterns.status.
 
         This test enforces the architectural invariant from OMN-1805:
-        All status changes must go through the reducer -> effect node pipeline.
+        All status changes must use authorized code paths.
 
-        The ONLY file allowed to update pattern status is handler_transition.py
-        in node_pattern_lifecycle_effect/handlers/. All other handlers must emit
-        ModelPatternLifecycleEvent to Kafka and let the effect node handle the
-        actual status update atomically with proper audit logging.
+        Authorized handlers:
+        - handler_transition.py: Primary path (reducer -> effect node pipeline)
+        - handler_promotion.py: Fallback path (direct SQL when Kafka unavailable)
+        - handler_demotion.py: Fallback path (direct SQL when Kafka unavailable)
+
+        All other handlers must emit ModelPatternLifecycleEvent to Kafka.
         """
         project_root = _get_project_root()
         all_violations: list[str] = []
@@ -141,14 +143,16 @@ class TestPatternStatusDirectUpdate:
                     all_violations.extend([f"{scan_dir}/{v}" for v in violations])
 
         assert not all_violations, (
-            "Direct pattern status updates found outside effect node!\n\n"
-            "OMN-1805 VIOLATION: All status changes must go through reducer -> effect node.\n\n"
+            "Direct pattern status updates found outside authorized handlers!\n\n"
+            "OMN-1805 VIOLATION: Status changes must use authorized code paths.\n\n"
             "Violations found:\n"
             + "\n".join(f"  - {v}" for v in all_violations)
             + "\n\n"
             "Fix: Emit ModelPatternLifecycleEvent to Kafka instead of direct SQL UPDATE.\n"
-            "The handler_transition.py in node_pattern_lifecycle_effect is the ONLY code\n"
-            "path authorized to update learned_patterns.status."
+            "Authorized handlers:\n"
+            "  - handler_transition.py: Primary path (reducer -> effect node)\n"
+            "  - handler_promotion.py: Fallback path (when Kafka unavailable)\n"
+            "  - handler_demotion.py: Fallback path (when Kafka unavailable)"
         )
 
     def test_effect_node_handler_exists(self) -> None:

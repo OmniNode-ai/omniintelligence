@@ -60,12 +60,13 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 # This table is the SINGLE SOURCE OF TRUTH for valid transitions.
 # Any changes must be reflected in contract.yaml.
 #
-# TODO(OMN-1805): Derive FSM transition tables from contract.yaml at runtime.
+# TODO(OMN-1887): Derive FSM transition tables from contract.yaml at runtime.
 # The current hard-coded approach is acceptable for MVP and provides clear,
 # auditable transition logic. In a future iteration, these tables should be
 # dynamically loaded from contract.yaml to ensure single-source-of-truth
 # consistency and eliminate manual synchronization between code and contract.
 # See: node_intelligence_reducer/contract.yaml state_machine.transitions
+# Ticket: https://linear.app/omninode/issue/OMN-1887
 
 VALID_TRANSITIONS: Final[dict[tuple[str, str], str]] = {
     # NOTE: candidate -> provisional REMOVED - PROVISIONAL is LEGACY (outbound only)

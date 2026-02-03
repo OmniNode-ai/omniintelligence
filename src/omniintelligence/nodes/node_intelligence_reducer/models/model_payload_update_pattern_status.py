@@ -47,7 +47,9 @@ class ModelPayloadUpdatePatternStatus(BaseModel):
     to_status: EnumPatternLifecycleStatus = Field(
         ..., description="New status to apply"
     )
-    trigger: str = Field(..., description="What triggered this transition")
+    trigger: str = Field(
+        ..., min_length=1, description="What triggered this transition"
+    )
     actor: str = Field(default="reducer", description="Who applied the transition")
     reason: str | None = Field(default=None, description="Human-readable reason")
     gate_snapshot: ModelGateSnapshot | None = Field(
