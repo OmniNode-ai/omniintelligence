@@ -21,9 +21,14 @@ logger = logging.getLogger(__name__)
 # Apply audit marker to all tests in this module
 pytestmark = pytest.mark.audit
 
-# Files that ARE allowed to update status (only the effect node handler)
+# Files that ARE allowed to update status
+# Per ONEX invariant: "Effect nodes must never block on Kafka"
+# When Kafka is unavailable, promotion/demotion handlers use direct SQL as fallback.
+# This is documented in handler_promotion.py and handler_demotion.py docstrings.
 ALLOWED_FILES = {
     "handler_transition.py",  # Effect node handler in node_pattern_lifecycle_effect
+    "handler_promotion.py",  # Fallback SQL when Kafka unavailable (ONEX invariant)
+    "handler_demotion.py",  # Fallback SQL when Kafka unavailable (ONEX invariant)
 }
 
 # Forbidden patterns - direct status updates

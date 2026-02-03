@@ -68,6 +68,7 @@ from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1
 from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,
     ModelTransitionResult,
@@ -300,7 +301,7 @@ async def apply_transition(
     trigger: str,
     actor: str = "reducer",
     reason: str | None = None,
-    gate_snapshot: dict[str, Any] | None = None,
+    gate_snapshot: ModelGateSnapshot | dict[str, Any] | None = None,
     transition_at: datetime,
     topic_env_prefix: str = "dev",
     conn: ProtocolPatternRepository | None = None,
@@ -509,8 +510,15 @@ async def apply_transition(
             )
 
         # Insert audit record
-        # Convert gate_snapshot dict to JSON string if present
-        gate_snapshot_json = json.dumps(gate_snapshot) if gate_snapshot else None
+        # Convert gate_snapshot to JSON string if present
+        # Handle both ModelGateSnapshot (Pydantic) and dict for backwards compatibility
+        if gate_snapshot is None:
+            gate_snapshot_json = None
+        elif isinstance(gate_snapshot, dict):
+            gate_snapshot_json = json.dumps(gate_snapshot)
+        else:
+            # ModelGateSnapshot - use Pydantic's JSON serialization
+            gate_snapshot_json = json.dumps(gate_snapshot.model_dump(mode="json"))
 
         await db.execute(
             SQL_INSERT_LIFECYCLE_TRANSITION,
