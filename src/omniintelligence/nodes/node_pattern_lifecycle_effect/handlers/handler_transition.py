@@ -303,7 +303,7 @@ async def apply_transition(
     reason: str | None = None,
     gate_snapshot: ModelGateSnapshot | dict[str, Any] | None = None,
     transition_at: datetime,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str | None = None,
     conn: ProtocolPatternRepository | None = None,
 ) -> ModelTransitionResult:
     """Apply a pattern status transition with atomicity and idempotency.
@@ -345,7 +345,9 @@ async def apply_transition(
         reason: Human-readable reason (optional).
         gate_snapshot: Gate values at decision time (optional).
         transition_at: When to record as transition time.
-        topic_env_prefix: Environment prefix for Kafka topic.
+        topic_env_prefix: Environment prefix for Kafka topic (e.g., 'dev',
+            'staging', 'prod'). Required when producer is provided; can be
+            None if producer is None (no Kafka emission).
         conn: Optional external connection for caller-managed transactions.
             If provided, all database operations use this connection.
             If None, operations use the repository directly.
@@ -354,7 +356,8 @@ async def apply_transition(
         ModelTransitionResult with transition outcome.
 
     Raises:
-        ValueError: If to_status is "provisional" (PROVISIONAL guard).
+        ValueError: If to_status is "provisional" (PROVISIONAL guard), or if
+            producer is provided but topic_env_prefix is None.
     """
     logger.info(
         "Applying pattern lifecycle transition",
@@ -579,6 +582,12 @@ async def apply_transition(
     # Kafka failures do NOT fail the main operation - the database transition
     # already succeeded. Failed events are routed to DLQ for later processing.
     if producer is not None:
+        # Validate topic_env_prefix when Kafka producer is available
+        if topic_env_prefix is None:
+            raise ValueError(
+                "topic_env_prefix is required when Kafka producer is available. "
+                "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
+            )
         try:
             await _emit_transition_event(
                 producer=producer,
@@ -653,10 +662,11 @@ async def _emit_transition_event(
     transitioned_at: datetime,
     request_id: UUID,
     correlation_id: UUID,
-    *,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str,
 ) -> None:
     """Emit a pattern-lifecycle-transitioned event to Kafka.
+
+    Internal function - assumes topic_env_prefix has been validated by caller.
 
     Args:
         producer: Kafka producer implementing ProtocolKafkaPublisher.
@@ -670,7 +680,7 @@ async def _emit_transition_event(
         transitioned_at: When the transition occurred.
         request_id: Idempotency key.
         correlation_id: For distributed tracing.
-        topic_env_prefix: Environment prefix for topic.
+        topic_env_prefix: Environment prefix for topic (required).
     """
     # Build topic name with environment prefix
     topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"
@@ -721,10 +731,11 @@ async def _send_to_dlq(
     request_id: UUID,
     correlation_id: UUID,
     error_message: str,
-    *,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str,
 ) -> None:
     """Send failed event to Dead Letter Queue with sanitized error message.
+
+    Internal function - assumes topic_env_prefix has been validated by caller.
 
     DLQ events are sanitized to prevent secrets from leaking during debugging
     and error analysis. This function is best-effort: DLQ send failures are
@@ -743,7 +754,7 @@ async def _send_to_dlq(
         request_id: Idempotency key.
         correlation_id: For distributed tracing.
         error_message: Sanitized error message (must be pre-sanitized by caller).
-        topic_env_prefix: Environment prefix for topic.
+        topic_env_prefix: Environment prefix for topic (required).
     """
     # Build DLQ topic name: {original_topic}.dlq
     original_topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"

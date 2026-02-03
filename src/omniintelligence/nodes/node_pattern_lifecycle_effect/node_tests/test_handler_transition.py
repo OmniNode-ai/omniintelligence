@@ -942,6 +942,7 @@ class TestKafkaEvents:
             to_status="validated",
             trigger="promote",
             transition_at=sample_transition_at,
+            topic_env_prefix="test",
         )
 
         # Assert
@@ -980,6 +981,7 @@ class TestKafkaEvents:
             to_status="validated",
             trigger="promote",
             transition_at=sample_transition_at,
+            topic_env_prefix="test",
         )
 
         # Assert
