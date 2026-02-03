@@ -1104,7 +1104,7 @@ class TestErrorHandling:
         self,
         mock_repository: MockPatternRepository,
         mock_idempotency_store: MockIdempotencyStore,
-        mock_kafka_producer: MockKafkaPublisher,
+        mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
         sample_request_id: UUID,
         sample_correlation_id: UUID,
@@ -1119,7 +1119,7 @@ class TestErrorHandling:
             await apply_transition(
                 repository=mock_repository,
                 idempotency_store=mock_idempotency_store,
-                producer=mock_kafka_producer,  # Producer provided
+                producer=mock_producer,  # Producer provided
                 request_id=sample_request_id,
                 correlation_id=sample_correlation_id,
                 pattern_id=sample_pattern_id,
