@@ -611,6 +611,8 @@ async def apply_transition(
     # already succeeded. Failed events are routed to DLQ for later processing.
     # Note: topic_env_prefix is validated at function entry (Step 0b) for fail-fast.
     if producer is not None:
+        # Type narrowing: Step 0b validates topic_env_prefix when producer is available
+        assert topic_env_prefix is not None  # Validated at function entry
         try:
             await _emit_transition_event(
                 producer=producer,
