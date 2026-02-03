@@ -143,14 +143,14 @@ __all__ = [
     "PatternStateTransitionError",
     # Router
     "PatternStorageRouter",
-    # Validation result types (TransitionValidationResult is canonical)
-    "TransitionValidationResult",
     "PromotionValidationResult",  # Backwards compat alias for TransitionValidationResult
     # Protocols
     "ProtocolPatternStateManager",
     "ProtocolPatternStore",
     "StorageOperationResult",
     "StorePatternResult",
+    # Validation result types (TransitionValidationResult is canonical)
+    "TransitionValidationResult",
     # Functions (store)
     "create_initial_storage_transition",
     # Functions (promote)

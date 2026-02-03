@@ -34,7 +34,9 @@ if TYPE_CHECKING:
 
 from uuid import UUID
 
-from omnibase_core.types import TypedDictPatternStorageMetadata
+from omnibase_core.types.typed_dict_pattern_storage_metadata import (
+    TypedDictPatternStorageMetadata,
+)
 
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
     EnumPatternState,

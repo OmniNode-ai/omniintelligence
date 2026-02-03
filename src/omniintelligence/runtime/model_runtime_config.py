@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import os
 import re
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
@@ -49,7 +49,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class EnumLogLevel(str, Enum):
+class EnumLogLevel(StrEnum):
     """Log level enumeration for runtime configuration."""
 
     DEBUG = "DEBUG"
@@ -59,7 +59,7 @@ class EnumLogLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-class EnumHandlerType(str, Enum):
+class EnumHandlerType(StrEnum):
     """
     Handler types available for runtime configuration.
 

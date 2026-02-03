@@ -248,8 +248,8 @@ def validate_promotion_transition(
 
 
 __all__ = [
-    "TransitionValidationResult",
     "VALID_TRANSITIONS",
+    "TransitionValidationResult",
     "get_valid_targets",
     "is_valid_transition",
     "validate_promotion_transition",

@@ -159,14 +159,15 @@ class TestPromotionIntegration:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_already_validated_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -258,14 +259,15 @@ class TestPromotionIntegration:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             malicious_signature,
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -329,14 +331,15 @@ class TestPromotionEdgeCases:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_concurrent_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -411,14 +414,15 @@ class TestPromotionEdgeCases:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_null_metrics_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -487,14 +491,15 @@ class TestPromotionGate4DisabledPatterns:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_disabled_pattern_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -592,14 +597,15 @@ class TestPromotionGate4DisabledPatterns:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_reenabled_pattern_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -726,14 +732,15 @@ class TestPromotionLargeBatch:
             await db_conn.execute(
                 """
                 INSERT INTO learned_patterns (
-                    id, pattern_signature, domain_id, domain_version, domain_candidates,
+                    id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                     confidence, status, source_session_ids, promoted_at,
                     injection_count_rolling_20, success_count_rolling_20,
                     failure_count_rolling_20, failure_streak
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 """,
                 pattern_id,
                 f"test_batch_pattern_{i}_{pattern_id}",
+                str(pattern_id),  # signature_hash
                 "code_generation",
                 "1.0",
                 "[]",
@@ -741,9 +748,9 @@ class TestPromotionLargeBatch:
                 "provisional",
                 [session_id],
                 datetime.now(UTC),
-                10 + (i % 10),    # 10-19 injections
-                8 + (i % 8),      # 70-90% success rate
-                2 + (i % 3),      # 2-4 failures
+                10 + (i % 10),    # 10-19 injections (rolling_20 capped at 20)
+                6 + (i % 4),      # 6-9 successes (ensures sum constraint)
+                1 + (i % 2),      # 1-2 failures (max sum 9+2=11 <= 10)
                 i % 3,            # 0-2 failure streak (all pass Gate 3)
             )
 
@@ -835,14 +842,15 @@ class TestPromotionLargeBatch:
             await db_conn.execute(
                 """
                 INSERT INTO learned_patterns (
-                    id, pattern_signature, domain_id, domain_version, domain_candidates,
+                    id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                     confidence, status, source_session_ids, promoted_at,
                     injection_count_rolling_20, success_count_rolling_20,
                     failure_count_rolling_20, failure_streak
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 """,
                 pattern_id,
                 f"test_mixed_batch_{i}_{pattern_id}",
+                str(pattern_id),  # signature_hash
                 "code_generation",
                 "1.0",
                 "[]",
@@ -864,16 +872,19 @@ class TestPromotionLargeBatch:
             )
 
             # Assert: Correct filtering
+            # Note: Use >= because other provisional patterns may exist in database
             assert result.patterns_checked >= batch_size
-            assert result.patterns_eligible == len(eligible_ids)
+            assert result.patterns_eligible >= len(eligible_ids)
 
-            # Verify only eligible patterns were promoted
+            # Verify only eligible patterns from this test were promoted
+            # Filter to only our test patterns (other residual patterns may exist)
             promoted_ids = {
                 p.pattern_id for p in result.patterns_promoted
                 if p.promoted_at is not None and not p.dry_run
+                and p.pattern_id in pattern_ids  # Only our test patterns
             }
             assert promoted_ids == set(eligible_ids), (
-                "Only eligible patterns should be promoted"
+                "Only eligible patterns from this test should be promoted"
             )
 
         finally:
@@ -914,14 +925,15 @@ class TestPromotionMetricsAccuracy:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_metrics_accuracy_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -988,14 +1000,15 @@ class TestPromotionMetricsAccuracy:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_boundary_rate_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -1068,14 +1081,15 @@ class TestPromotionZeroToleranceMode:
             await db_conn.execute(
                 """
                 INSERT INTO learned_patterns (
-                    id, pattern_signature, domain_id, domain_version, domain_candidates,
+                    id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                     confidence, status, source_session_ids, promoted_at,
                     injection_count_rolling_20, success_count_rolling_20,
                     failure_count_rolling_20, failure_streak
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 """,
                 pattern_id,
                 f"test_zero_tolerance_streak_{streak}_{pattern_id}",
+                str(pattern_id),  # signature_hash
                 "code_generation",
                 "1.0",
                 "[]",
@@ -1139,14 +1153,15 @@ class TestPromotionZeroToleranceMode:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id_zero,
             f"test_strict_zero_{pattern_id_zero}",
+            str(pattern_id_zero),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -1161,14 +1176,15 @@ class TestPromotionZeroToleranceMode:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id_one,
             f"test_strict_one_{pattern_id_one}",
+            str(pattern_id_one),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -1229,14 +1245,15 @@ class TestPromotionPartialFailure:
             await db_conn.execute(
                 """
                 INSERT INTO learned_patterns (
-                    id, pattern_signature, domain_id, domain_version, domain_candidates,
+                    id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                     confidence, status, source_session_ids, promoted_at,
                     injection_count_rolling_20, success_count_rolling_20,
                     failure_count_rolling_20, failure_streak
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 """,
                 pattern_id,
                 f"test_partial_failure_{i}_{pattern_id}",
+                str(pattern_id),  # signature_hash
                 "code_generation",
                 "1.0",
                 "[]",
@@ -1293,14 +1310,15 @@ class TestPromotionPartialFailure:
             await db_conn.execute(
                 """
                 INSERT INTO learned_patterns (
-                    id, pattern_signature, domain_id, domain_version, domain_candidates,
+                    id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                     confidence, status, source_session_ids, promoted_at,
                     injection_count_rolling_20, success_count_rolling_20,
                     failure_count_rolling_20, failure_streak
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 """,
                 pattern_id,
                 f"test_persist_{i}_{pattern_id}",
+                str(pattern_id),  # signature_hash
                 "code_generation",
                 "1.0",
                 "[]",
@@ -1379,14 +1397,15 @@ class TestPromotionKafkaEvents:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_kafka_schema_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -1452,14 +1471,15 @@ class TestPromotionKafkaEvents:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_dry_run_no_kafka_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",
@@ -1512,14 +1532,15 @@ class TestPromotionKafkaEvents:
         await db_conn.execute(
             """
             INSERT INTO learned_patterns (
-                id, pattern_signature, domain_id, domain_version, domain_candidates,
+                id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
                 confidence, status, source_session_ids, promoted_at,
                 injection_count_rolling_20, success_count_rolling_20,
                 failure_count_rolling_20, failure_streak
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
             f"test_topic_prefix_{pattern_id}",
+            str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
             "[]",

@@ -66,14 +66,15 @@ async def test_pattern_ids(
     await db_conn.execute(
         """
         INSERT INTO learned_patterns (
-            id, pattern_signature, domain_id, domain_version, domain_candidates,
+            id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
             confidence, status, source_session_ids, promoted_at,
             injection_count_rolling_20, success_count_rolling_20,
             failure_count_rolling_20, failure_streak
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         """,
         id1,
         f"test_pattern_eligible_high_{id1}",
+        str(id1),  # signature_hash
         TEST_DOMAIN_ID,
         TEST_DOMAIN_VERSION,
         "[]",
@@ -93,14 +94,15 @@ async def test_pattern_ids(
     await db_conn.execute(
         """
         INSERT INTO learned_patterns (
-            id, pattern_signature, domain_id, domain_version, domain_candidates,
+            id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
             confidence, status, source_session_ids, promoted_at,
             injection_count_rolling_20, success_count_rolling_20,
             failure_count_rolling_20, failure_streak
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         """,
         id2,
         f"test_pattern_eligible_threshold_{id2}",
+        str(id2),  # signature_hash
         TEST_DOMAIN_ID,
         TEST_DOMAIN_VERSION,
         "[]",
@@ -120,14 +122,15 @@ async def test_pattern_ids(
     await db_conn.execute(
         """
         INSERT INTO learned_patterns (
-            id, pattern_signature, domain_id, domain_version, domain_candidates,
+            id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
             confidence, status, source_session_ids, promoted_at,
             injection_count_rolling_20, success_count_rolling_20,
             failure_count_rolling_20, failure_streak
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         """,
         id3,
         f"test_pattern_ineligible_low_count_{id3}",
+        str(id3),  # signature_hash
         TEST_DOMAIN_ID,
         TEST_DOMAIN_VERSION,
         "[]",
@@ -147,14 +150,15 @@ async def test_pattern_ids(
     await db_conn.execute(
         """
         INSERT INTO learned_patterns (
-            id, pattern_signature, domain_id, domain_version, domain_candidates,
+            id, pattern_signature, signature_hash, domain_id, domain_version, domain_candidates,
             confidence, status, source_session_ids, promoted_at,
             injection_count_rolling_20, success_count_rolling_20,
             failure_count_rolling_20, failure_streak
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         """,
         id4,
         f"test_pattern_ineligible_high_streak_{id4}",
+        str(id4),  # signature_hash
         TEST_DOMAIN_ID,
         TEST_DOMAIN_VERSION,
         "[]",

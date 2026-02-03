@@ -23,11 +23,12 @@ pytestmark = pytest.mark.audit
 
 # Files that ARE allowed to update status
 # Per ONEX invariant: "Effect nodes must never block on Kafka"
-# When Kafka is unavailable, promotion handler uses direct SQL as fallback.
-# This is documented in handler_promotion.py docstring.
+# When Kafka is unavailable, promotion/demotion handlers use direct SQL as fallback.
+# This is documented in handler_promotion.py and handler_demotion.py docstrings.
 ALLOWED_FILES = {
     "handler_transition.py",  # Primary path: effect node handler
     "handler_promotion.py",  # Fallback path: direct SQL when Kafka unavailable
+    "handler_demotion.py",  # Fallback path: direct SQL when Kafka unavailable
 }
 
 # Forbidden patterns - direct status updates
@@ -120,6 +121,7 @@ class TestPatternStatusDirectUpdate:
         Authorized handlers:
         - handler_transition.py: Primary path (reducer -> effect node pipeline)
         - handler_promotion.py: Fallback path (direct SQL when Kafka unavailable)
+        - handler_demotion.py: Fallback path (direct SQL when Kafka unavailable)
 
         All other handlers must emit ModelPatternLifecycleEvent to Kafka.
         """
@@ -149,7 +151,8 @@ class TestPatternStatusDirectUpdate:
             "Fix: Emit ModelPatternLifecycleEvent to Kafka instead of direct SQL UPDATE.\n"
             "Authorized handlers:\n"
             "  - handler_transition.py: Primary path (reducer -> effect node)\n"
-            "  - handler_promotion.py: Fallback path (when Kafka unavailable)"
+            "  - handler_promotion.py: Fallback path (when Kafka unavailable)\n"
+            "  - handler_demotion.py: Fallback path (when Kafka unavailable)"
         )
 
     def test_effect_node_handler_exists(self) -> None:

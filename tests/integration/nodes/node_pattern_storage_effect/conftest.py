@@ -17,7 +17,8 @@ Reference:
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncGenerator
+from typing import Any
+from collections.abc import AsyncGenerator
 from uuid import UUID, uuid4
 
 import pytest
@@ -186,8 +187,32 @@ def correlation_id() -> UUID:
 
 @pytest.fixture
 def test_group_id() -> str:
-    """Create a test consumer group ID for subscriptions."""
+    """Create a test consumer group ID for subscriptions.
+
+    DEPRECATED: Use test_node_identity fixture instead for subscribe() calls.
+    """
     return "test.omniintelligence.pattern_storage_effect.v1"
+
+
+@pytest.fixture
+def test_node_identity() -> Any:
+    """Create a test node identity for event bus subscriptions.
+
+    Returns a ModelNodeIdentity object required by the new event bus subscribe API.
+    The identity components are designed to produce a consumer group ID like:
+        test.omniintelligence.pattern_storage_effect.consume.v1
+
+    Returns:
+        ModelNodeIdentity instance for use with event_bus.subscribe()
+    """
+    from omnibase_infra.models import ModelNodeIdentity
+
+    return ModelNodeIdentity(
+        env="test",
+        service="omniintelligence",
+        node_name="pattern_storage_effect",
+        version="v1",
+    )
 
 
 @pytest.fixture
@@ -258,15 +283,15 @@ def pattern_learned_topic() -> str:
 # =============================================================================
 
 __all__ = [
-    "EventBusKafkaPublisherAdapter",
     "KAFKA_AVAILABLE",
-    "MockPatternStateManager",
-    "MockPatternStore",
     "POSTGRES_AVAILABLE",
     "TEST_TOPIC_PREFIX",
     "TOPIC_PATTERN_LEARNED",
     "TOPIC_PATTERN_PROMOTED",
     "TOPIC_PATTERN_STORED",
+    "EventBusKafkaPublisherAdapter",
+    "MockPatternStateManager",
+    "MockPatternStore",
     "correlation_id",
     "create_valid_input",
     "event_bus",
@@ -280,5 +305,6 @@ __all__ = [
     "requires_postgres",
     "sample_pattern_id",
     "test_group_id",
+    "test_node_identity",
     "valid_input",
 ]

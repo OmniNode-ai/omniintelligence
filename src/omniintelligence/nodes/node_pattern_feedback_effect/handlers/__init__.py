@@ -59,9 +59,9 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics imp
 )
 
 __all__ = [
+    "ROLLING_WINDOW_SIZE",
     "ContributionWeights",
     "ProtocolPatternRepository",
-    "ROLLING_WINDOW_SIZE",
     "apply_heuristic",
     "compute_and_store_heuristics",
     "compute_equal_split",

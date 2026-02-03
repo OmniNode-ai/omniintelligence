@@ -18,8 +18,8 @@ __all__ = [
     # Input models (re-exported from omnibase_core)
     "ClaudeCodeSessionOutcome",
     "ClaudeSessionOutcome",
-    "SessionOutcomeInput",
     # Output models
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
+    "SessionOutcomeInput",
 ]
