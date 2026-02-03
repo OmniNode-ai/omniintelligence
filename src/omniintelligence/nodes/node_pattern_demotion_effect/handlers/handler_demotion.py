@@ -578,7 +578,7 @@ async def check_and_demote_patterns(
     producer: ProtocolKafkaPublisher | None = None,
     *,
     request: ModelDemotionCheckRequest,
-    topic_env_prefix: str,
+    topic_env_prefix: str | None = None,
 ) -> ModelDemotionCheckResult:
     """Check and demote validated patterns that meet demotion criteria.
 
@@ -600,7 +600,7 @@ async def check_and_demote_patterns(
             occur. See "Kafka Optionality" section in module docstring.
         request: Demotion check request with threshold values and dry_run flag.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-            Required parameter - must be provided by caller from configuration.
+            Required when producer is not None. Ignored when producer is None.
 
     Returns:
         ModelDemotionCheckResult with counts, individual demotion results,
@@ -844,7 +844,7 @@ async def demote_pattern(
     thresholds: ModelEffectiveThresholds,
     correlation_id: UUID | None = None,
     *,
-    topic_env_prefix: str,
+    topic_env_prefix: str | None = None,
 ) -> ModelDemotionResult:
     """Request demotion of a pattern by emitting a lifecycle event.
 
@@ -875,7 +875,7 @@ async def demote_pattern(
         thresholds: Effective thresholds used for this demotion.
         correlation_id: Optional correlation ID for tracing.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-            Required parameter - must be provided by caller from configuration.
+            Required when producer is not None. Ignored when producer is None.
 
     Returns:
         ModelDemotionResult with demotion details and gate snapshot.
@@ -924,6 +924,13 @@ async def demote_pattern(
             gate_snapshot=gate_snapshot,
             effective_thresholds=thresholds,
             dry_run=False,
+        )
+
+    # Validate topic_env_prefix is provided when using Kafka
+    if topic_env_prefix is None:
+        raise ValueError(
+            "topic_env_prefix is required when Kafka producer is available. "
+            "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
         )
 
     # Determine actor_type based on reason
