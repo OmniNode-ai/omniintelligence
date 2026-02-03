@@ -33,7 +33,7 @@ class ModelPatternLifecycleReducerInput(BaseModel):
     to_status: EnumPatternLifecycleStatus = Field(..., description="Target status")
     trigger: str = Field(
         ...,
-        description="Trigger name: validation_passed, promote, deprecate, manual_reenable",
+        description="Trigger name: promote, promote_direct, deprecate, manual_reenable",
     )
     actor_type: Literal["system", "admin", "handler"] = Field(
         default="handler",

@@ -109,8 +109,8 @@ VALID_STATES: Final[frozenset[str]] = frozenset({
 })
 
 # Valid triggers for PATTERN_LIFECYCLE FSM
+# NOTE: validation_passed REMOVED - had no valid transition after PROVISIONAL deprecation
 VALID_TRIGGERS: Final[frozenset[str]] = frozenset({
-    "validation_passed",
     "promote",
     "promote_direct",
     "deprecate",

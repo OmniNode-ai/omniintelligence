@@ -338,13 +338,14 @@ class TestFailedTransitionsViaNode:
     ) -> None:
         """Test that valid state/trigger with no transition produces error output.
 
-        Example: validated + validation_passed is not a valid transition.
+        Example: validated + promote_direct is not a valid transition.
+        (promote_direct is only valid from candidate state)
         """
         # Arrange
         input_data = make_reducer_input(
             from_status="validated",
-            to_status="provisional",  # Would be target if transition existed
-            trigger="validation_passed",  # Valid trigger but no transition from validated
+            to_status="validated",  # Would be target if transition existed
+            trigger="promote_direct",  # Valid trigger but no transition from validated
         )
 
         # Act
@@ -354,7 +355,7 @@ class TestFailedTransitionsViaNode:
         assert output.result["success"] is False
         assert output.result["error_code"] == ERROR_INVALID_TRANSITION
         assert "validated" in output.result["error_message"]
-        assert "validation_passed" in output.result["error_message"]
+        assert "promote_direct" in output.result["error_message"]
 
         # Assert - No intents
         assert len(output.intents) == 0

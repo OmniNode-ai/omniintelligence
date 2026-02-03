@@ -464,21 +464,22 @@ class TestInvalidTransition:
     ERROR_INVALID_TRANSITION.
     """
 
-    def test_validated_with_validation_passed_no_transition(
+    def test_validated_with_promote_direct_no_transition(
         self,
         make_reducer_input,
         sample_transition_at: datetime,
     ) -> None:
-        """Test rejection: validated + validation_passed has no transition.
+        """Test rejection: validated + promote_direct has no transition.
 
-        Both 'validated' and 'validation_passed' are valid, but there's
-        no transition from validated state with validation_passed trigger.
+        Both 'validated' and 'promote_direct' are valid, but there's
+        no transition from validated state with promote_direct trigger.
+        (promote_direct is for candidate → validated only)
         """
         # Arrange
         input_data = make_reducer_input(
             from_status="validated",
-            to_status="provisional",  # Would be the target if transition existed
-            trigger="validation_passed",
+            to_status="validated",  # Would stay at validated if transition existed
+            trigger="promote_direct",
         )
 
         # Act
@@ -492,7 +493,7 @@ class TestInvalidTransition:
         assert result.error_code == ERROR_INVALID_TRANSITION
         assert result.intent is None
         assert "validated" in result.error_message
-        assert "validation_passed" in result.error_message
+        assert "promote_direct" in result.error_message
 
     def test_deprecated_with_promote_no_transition(
         self,

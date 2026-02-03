@@ -41,7 +41,7 @@ class ModelPatternLifecycleEvent(BaseModel):
     to_status: str = Field(..., description="Target status")
     trigger: str = Field(
         ...,
-        description="Trigger name: validation_passed, promote, deprecate, manual_reenable",
+        description="Trigger name: promote, promote_direct, deprecate, manual_reenable",
     )
     correlation_id: UUID | None = Field(
         default=None, description="For distributed tracing"
