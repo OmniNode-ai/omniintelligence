@@ -22,7 +22,7 @@ implementation that honors the `conn` parameter.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -90,7 +90,7 @@ def _create_adapter_with_mock_runtime() -> AdapterPatternStore:
     }
 
     # Make call() return a dict with 'id' to simulate successful storage
-    async def mock_call(op_name: str, *args):
+    async def mock_call(_op_name: str, *_args):
         return {"id": str(uuid4())}
 
     mock_runtime.call = AsyncMock(side_effect=mock_call)
@@ -117,7 +117,7 @@ def _create_sample_store_kwargs(*, conn=None) -> dict:
         "quality_score": 0.75,
         "state": EnumPatternState.CANDIDATE,
         "is_current": True,
-        "stored_at": datetime.now(tz=timezone.utc),
+        "stored_at": datetime.now(tz=UTC),
         "correlation_id": uuid4(),
         "conn": conn,
     }

@@ -792,7 +792,7 @@ def handle_intent_classification(
                 SecondaryIntentDict(
                     intent_category=str(intent_category_raw),
                     confidence=float(confidence_raw)
-                    if isinstance(confidence_raw, (int, float))
+                    if isinstance(confidence_raw, int | float)
                     else 0.0,
                     keywords=list(keywords_raw)
                     if isinstance(keywords_raw, list)

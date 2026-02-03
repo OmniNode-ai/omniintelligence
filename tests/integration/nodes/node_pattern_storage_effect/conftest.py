@@ -17,7 +17,8 @@ Reference:
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncGenerator
+from typing import Any
+from collections.abc import AsyncGenerator
 from uuid import UUID, uuid4
 
 import pytest
@@ -282,15 +283,15 @@ def pattern_learned_topic() -> str:
 # =============================================================================
 
 __all__ = [
-    "EventBusKafkaPublisherAdapter",
     "KAFKA_AVAILABLE",
-    "MockPatternStateManager",
-    "MockPatternStore",
     "POSTGRES_AVAILABLE",
     "TEST_TOPIC_PREFIX",
     "TOPIC_PATTERN_LEARNED",
     "TOPIC_PATTERN_PROMOTED",
     "TOPIC_PATTERN_STORED",
+    "EventBusKafkaPublisherAdapter",
+    "MockPatternStateManager",
+    "MockPatternStore",
     "correlation_id",
     "create_valid_input",
     "event_bus",

@@ -41,7 +41,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_p
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
     EnumPatternState,
     ModelPatternMetricsSnapshot,
-    ModelPatternStorageInput,
     PatternStorageGovernance,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.node import NodePatternStorageEffect

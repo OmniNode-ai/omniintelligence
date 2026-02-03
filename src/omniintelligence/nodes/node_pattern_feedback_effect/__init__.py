@@ -37,7 +37,6 @@ __all__ = [
     # Models (input re-exported from omnibase_core)
     "ClaudeCodeSessionOutcome",
     "ClaudeSessionOutcome",
-    "SessionOutcomeInput",
     # Models (output)
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
@@ -45,8 +44,9 @@ __all__ = [
     "NodePatternFeedbackEffect",
     # Handlers
     "ProtocolPatternRepository",
-    "record_session_outcome",
-    "update_pattern_rolling_metrics",
     # Registry
     "RegistryPatternFeedbackEffect",
+    "SessionOutcomeInput",
+    "record_session_outcome",
+    "update_pattern_rolling_metrics",
 ]

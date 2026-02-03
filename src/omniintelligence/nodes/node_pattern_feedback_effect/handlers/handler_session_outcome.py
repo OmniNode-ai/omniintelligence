@@ -630,8 +630,8 @@ def _parse_update_count(status: str | None) -> int:
 
 
 __all__ = [
-    "HandlerArgs",
     "ROLLING_WINDOW_SIZE",
+    "HandlerArgs",
     "ProtocolPatternRepository",
     "compute_and_store_heuristics",
     "event_to_handler_args",
