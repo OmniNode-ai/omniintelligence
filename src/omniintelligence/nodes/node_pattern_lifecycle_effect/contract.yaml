@@ -43,7 +43,7 @@ description: >
 # =============================================================================
 input_model:
   name: "ModelPayloadUpdatePatternStatus"
-  module: "omniintelligence.nodes.intelligence_reducer.models"
+  module: "omniintelligence.nodes.node_intelligence_reducer.models"
   description: "Intent payload from reducer with pattern_id, from/to status, and request_id"
 
 output_model:
@@ -184,7 +184,7 @@ event_bus:
 
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
-      schema_ref: "omniintelligence.nodes.intelligence_reducer.models.ModelPayloadUpdatePatternStatus"
+      schema_ref: "omniintelligence.nodes.node_intelligence_reducer.models.ModelPayloadUpdatePatternStatus"
       description: "Pattern lifecycle transition intents from the reducer"
 
   publish_topic_metadata:

@@ -34,7 +34,7 @@ from uuid import UUID
 import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
-from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
+from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
     ERROR_INVALID_FROM_STATE,

@@ -1099,6 +1099,37 @@ class TestErrorHandling:
         assert "error" in (result.reason or "").lower()
         assert result.transition_id is None
 
+    @pytest.mark.asyncio
+    async def test_producer_without_topic_env_prefix_raises_valueerror(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_idempotency_store: MockIdempotencyStore,
+        mock_kafka_producer: MockKafkaPublisher,
+        sample_pattern_id: UUID,
+        sample_request_id: UUID,
+        sample_correlation_id: UUID,
+        sample_transition_at: datetime,
+    ) -> None:
+        """ValueError raised when producer is provided but topic_env_prefix is None."""
+        # Arrange
+        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="topic_env_prefix is required"):
+            await apply_transition(
+                repository=mock_repository,
+                idempotency_store=mock_idempotency_store,
+                producer=mock_kafka_producer,  # Producer provided
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status="provisional",
+                to_status="validated",
+                trigger="promote",
+                transition_at=sample_transition_at,
+                topic_env_prefix=None,  # But topic_env_prefix is None
+            )
+
 
 # =============================================================================
 # Test Class: Helper Function - _parse_update_count
