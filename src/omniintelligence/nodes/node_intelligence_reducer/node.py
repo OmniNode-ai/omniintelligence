@@ -32,6 +32,7 @@ import time
 from typing import Any
 from uuid import uuid4
 
+from omnibase_core.enums import EnumReductionType
 from omnibase_core.models.reducer.model_intent import ModelIntent
 from omnibase_core.models.reducer.model_reducer_input import ModelReducerInput
 from omnibase_core.models.reducer.model_reducer_output import ModelReducerOutput
@@ -136,7 +137,7 @@ class NodeIntelligenceReducer(NodeReducer[dict[str, Any], dict[str, Any]]):
                     "trigger": result.trigger,
                 },
                 operation_id=uuid4(),
-                reduction_type="transform",
+                reduction_type=EnumReductionType.TRANSFORM,
                 processing_time_ms=processing_time_ms,
                 items_processed=1,
                 intents=(),
@@ -178,7 +179,7 @@ class NodeIntelligenceReducer(NodeReducer[dict[str, Any], dict[str, Any]]):
                 "trigger": result.trigger,
             },
             operation_id=uuid4(),
-            reduction_type="transform",
+            reduction_type=EnumReductionType.TRANSFORM,
             processing_time_ms=processing_time_ms,
             items_processed=1,
             intents=(intent,),

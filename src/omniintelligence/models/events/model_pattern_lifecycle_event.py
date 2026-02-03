@@ -12,7 +12,7 @@ Ticket: OMN-1805
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -52,7 +52,7 @@ class ModelPatternLifecycleEvent(BaseModel):
     reason: str | None = Field(
         default=None, description="Human-readable reason for transition"
     )
-    gate_snapshot: dict | None = Field(
+    gate_snapshot: dict[str, Any] | None = Field(
         default=None,
         description="Gate values at the time of decision (e.g., success_rate, injection_count)",
     )
