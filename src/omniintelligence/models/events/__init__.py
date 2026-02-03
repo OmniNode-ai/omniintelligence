@@ -26,9 +26,13 @@ from omniintelligence.models.events.model_code_analysis_failed import (
 from omniintelligence.models.events.model_code_analysis_request import (
     ModelCodeAnalysisRequestPayload,
 )
+from omniintelligence.models.events.model_pattern_lifecycle_event import (
+    ModelPatternLifecycleEvent,
+)
 
 __all__ = [
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
+    "ModelPatternLifecycleEvent",
 ]

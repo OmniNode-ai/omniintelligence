@@ -15,13 +15,14 @@ from enum import Enum
 class EnumFSMType(str, Enum):
     """FSM types handled by the intelligence reducer.
 
-    This enum defines the three primary FSM workflows supported by
+    This enum defines the primary FSM workflows supported by
     the intelligence reducer node.
 
     Attributes:
         INGESTION: Document ingestion workflow (RECEIVED -> PROCESSING -> INDEXED)
         PATTERN_LEARNING: Pattern learning workflow (4-phase: Foundation -> Matching -> Validation -> Traceability)
         QUALITY_ASSESSMENT: Quality assessment workflow (RAW -> ASSESSING -> SCORED -> STORED)
+        PATTERN_LIFECYCLE: Pattern lifecycle management workflow (OMN-1805)
 
     Example:
         >>> from omniintelligence.enums import EnumFSMType
@@ -32,6 +33,7 @@ class EnumFSMType(str, Enum):
     INGESTION = "INGESTION"
     PATTERN_LEARNING = "PATTERN_LEARNING"
     QUALITY_ASSESSMENT = "QUALITY_ASSESSMENT"
+    PATTERN_LIFECYCLE = "PATTERN_LIFECYCLE"  # OMN-1805
 
 
 __all__ = ["EnumFSMType"]

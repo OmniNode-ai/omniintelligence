@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Registry for Pattern Demotion Node Dependencies.
+"""Registry for Pattern Lifecycle Effect Node Dependencies.
 
-This module provides RegistryPatternDemotionEffect, which creates a registry
-of handlers for the NodePatternDemotionEffect node.
+This module provides RegistryPatternLifecycleEffect, which creates a registry
+of handlers for the NodePatternLifecycleEffect node.
 
 Architecture:
     The registry follows ONEX container-based dependency injection:
@@ -14,51 +14,31 @@ Architecture:
 
 Kafka Optionality:
     The node contract marks ``kafka_producer`` as ``required: false``, meaning
-    the node can operate without Kafka. However, the registry factory method
-    requires a producer to ensure registry-based usage always has Kafka
-    capability.
+    the node can operate without Kafka. The registry factory accepts None for
+    the producer parameter.
 
-    **When Kafka is unavailable**, use the handler functions directly instead
-    of the registry:
-
-    .. code-block:: python
-
-        from omniintelligence.nodes.node_pattern_demotion_effect.handlers import (
-            check_and_demote_patterns,
-        )
-
-        # Direct handler call - producer=None is explicitly allowed
-        result = await check_and_demote_patterns(
-            repository=db_connection,
-            producer=None,  # Demotions succeed, Kafka events skipped
-            request=request,
-            topic_env_prefix="dev",  # Required: environment prefix for Kafka topics
-        )
-
-    **Implications of running without Kafka:**
-    - Database demotions succeed normally
-    - No ``PatternDeprecated`` events are emitted to Kafka
-    - Downstream caches relying on Kafka for invalidation become stale
-    - See ``handler_demotion.py`` module docstring for reconciliation strategy
+    **When Kafka is unavailable**, transitions still succeed in the database,
+    but ``PatternLifecycleTransitioned`` events are NOT emitted.
 
 Usage:
-    >>> from omniintelligence.nodes.node_pattern_demotion_effect.registry import (
-    ...     RegistryPatternDemotionEffect,
+    >>> from omniintelligence.nodes.node_pattern_lifecycle_effect.registry import (
+    ...     RegistryPatternLifecycleEffect,
     ... )
     >>>
-    >>> # Create registry with dependencies (requires Kafka producer)
-    >>> registry = RegistryPatternDemotionEffect.create_registry(
+    >>> # Create registry with dependencies
+    >>> registry = RegistryPatternLifecycleEffect.create_registry(
     ...     repository=db_connection,
-    ...     producer=kafka_producer,
+    ...     idempotency_store=idempotency_store,
+    ...     producer=kafka_producer,  # Optional, can be None
     ... )
     >>>
     >>> # Get handler from registry
-    >>> handler = registry.get_handler("check_and_demote_patterns")
-    >>> result = await handler(request)
+    >>> handler = registry.apply_transition
+    >>> result = await handler(intent)
 
 Testing:
     This module uses module-level state for handler storage. Tests MUST call
-    ``RegistryPatternDemotionEffect.clear()`` in setup and teardown fixtures
+    ``RegistryPatternLifecycleEffect.clear()`` in setup and teardown fixtures
     to prevent test pollution between test cases.
 
     Recommended fixture pattern:
@@ -67,18 +47,11 @@ Testing:
 
         @pytest.fixture(autouse=True)
         def clear_registry():
-            RegistryPatternDemotionEffect.clear()
+            RegistryPatternLifecycleEffect.clear()
             yield
-            RegistryPatternDemotionEffect.clear()
+            RegistryPatternLifecycleEffect.clear()
 
-    **For testing without Kafka**, call handlers directly with ``producer=None``
-    rather than using the registry.
-
-Related:
-    - NodePatternDemotionEffect: Effect node that uses these dependencies
-    - handler_demotion: Handler functions for pattern demotion
-    - ProtocolPatternRepository: Repository protocol for database operations
-    - ProtocolKafkaPublisher: Publisher protocol for Kafka events
+Ticket: OMN-1805
 """
 
 from __future__ import annotations
@@ -89,41 +62,44 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
+    from omniintelligence.nodes.node_intelligence_reducer.models import (
+        ModelPayloadUpdatePatternStatus,
+    )
+    from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+        ProtocolIdempotencyStore,
         ProtocolKafkaPublisher,
         ProtocolPatternRepository,
     )
-    from omniintelligence.nodes.node_pattern_demotion_effect.models import (
-        ModelDemotionCheckRequest,
-        ModelDemotionCheckResult,
+    from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+        ModelTransitionResult,
     )
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RegistryPatternDemotionEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternLifecycleEffect", "ServiceHandlerRegistry"]
 
 
 # Type alias for handler function signature
 HandlerFunction = Callable[
-    ["ModelDemotionCheckRequest"],
-    Coroutine[Any, Any, "ModelDemotionCheckResult"],
+    ["ModelPayloadUpdatePatternStatus"],
+    Coroutine[Any, Any, "ModelTransitionResult"],
 ]
 
 
 @dataclass(frozen=True)
 class ServiceHandlerRegistry:
-    """Frozen registry of handler functions for pattern demotion.
+    """Frozen registry of handler functions for pattern lifecycle transitions.
 
     This class holds the wired handler functions with their dependencies
     already bound. Once created, it cannot be modified (frozen dataclass).
 
     Attributes:
-        check_and_demote: Handler function for checking and demoting patterns.
-            Dependencies (repository, producer) are already bound.
+        apply_transition: Handler function for applying pattern status transitions.
+            Dependencies (repository, idempotency_store, producer) are already bound.
         topic_env_prefix: Environment prefix for Kafka topics.
     """
 
-    check_and_demote: HandlerFunction
+    apply_transition: HandlerFunction
     topic_env_prefix: str = "dev"
 
     _handlers: dict[str, HandlerFunction] = field(
@@ -133,14 +109,14 @@ class ServiceHandlerRegistry:
     def __post_init__(self) -> None:
         """Initialize the handlers dict after creation."""
         # Use object.__setattr__ because dataclass is frozen
-        handlers = {"check_and_demote_patterns": self.check_and_demote}
+        handlers = {"apply_transition": self.apply_transition}
         object.__setattr__(self, "_handlers", handlers)
 
     def get_handler(self, operation: str) -> HandlerFunction | None:
         """Get a handler function by operation name.
 
         Args:
-            operation: The operation name (e.g., "check_and_demote_patterns").
+            operation: The operation name (e.g., "apply_transition").
 
         Returns:
             The handler function if found, None otherwise.
@@ -152,8 +128,8 @@ class ServiceHandlerRegistry:
 _REGISTRY_STORAGE: dict[str, ServiceHandlerRegistry] = {}
 
 
-class RegistryPatternDemotionEffect:
-    """Registry for pattern demotion node dependencies.
+class RegistryPatternLifecycleEffect:
+    """Registry for pattern lifecycle effect node dependencies.
 
     Provides a static factory method to create a ServiceHandlerRegistry
     with all dependencies wired. The registry is immutable once created.
@@ -164,41 +140,42 @@ class RegistryPatternDemotionEffect:
     - Registry is frozen after creation
 
     Example:
-        >>> registry = RegistryPatternDemotionEffect.create_registry(
+        >>> registry = RegistryPatternLifecycleEffect.create_registry(
         ...     repository=db_connection,
+        ...     idempotency_store=idempotency_store,
         ...     producer=kafka_producer,
         ...     topic_env_prefix="prod",
         ... )
-        >>> handler = registry.get_handler("check_and_demote_patterns")
-        >>> result = await handler(request)
+        >>> handler = registry.apply_transition
+        >>> result = await handler(intent)
     """
 
     # Registry key for storage
-    REGISTRY_KEY = "pattern_demotion"
+    REGISTRY_KEY = "pattern_lifecycle"
 
     @staticmethod
     def create_registry(
         repository: ProtocolPatternRepository,
-        producer: ProtocolKafkaPublisher,
+        idempotency_store: ProtocolIdempotencyStore,
+        producer: ProtocolKafkaPublisher | None = None,
         *,
         topic_env_prefix: str = "dev",
     ) -> ServiceHandlerRegistry:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
-        1. Validates that repository and producer are not None
+        1. Validates that repository and idempotency_store are not None
         2. Creates handler functions with dependencies bound
         3. Returns a frozen ServiceHandlerRegistry
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
-                Required for database operations (fetch, execute).
-            producer: Kafka producer implementing ProtocolKafkaPublisher.
-                Required at the registry level to ensure registry-based usage
-                always has full Kafka capability. While the underlying handler
-                accepts None (contract marks kafka_producer as required=false),
-                the registry enforces Kafka availability to guarantee event
-                emission in production deployments.
+                Required for database operations (fetch, fetchrow, execute).
+            idempotency_store: Idempotency store implementing ProtocolIdempotencyStore.
+                Required for request_id deduplication.
+            producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
+                Optional - when None, transitions succeed but Kafka events are
+                not emitted.
             topic_env_prefix: Environment prefix for Kafka topics.
                 Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
@@ -206,30 +183,25 @@ class RegistryPatternDemotionEffect:
             A frozen ServiceHandlerRegistry with handlers wired.
 
         Raises:
-            ValueError: If repository or producer is None.
+            ValueError: If repository or idempotency_store is None.
             ValueError: If topic_env_prefix is invalid.
-
-        Note:
-            To run demotions without Kafka (testing, migrations, degraded mode),
-            call the handler functions directly with ``producer=None`` instead of
-            using the registry. See module docstring "Kafka Optionality" section.
         """
         # Import here to avoid circular imports
-        from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
-            check_and_demote_patterns,
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            apply_transition,
         )
 
         # Validate dependencies (fail-fast)
         if repository is None:
             raise ValueError(
-                "repository is required for RegistryPatternDemotionEffect. "
+                "repository is required for RegistryPatternLifecycleEffect. "
                 "Provide a ProtocolPatternRepository implementation."
             )
 
-        if producer is None:
+        if idempotency_store is None:
             raise ValueError(
-                "producer is required for RegistryPatternDemotionEffect. "
-                "Provide a ProtocolKafkaPublisher implementation."
+                "idempotency_store is required for RegistryPatternLifecycleEffect. "
+                "Provide a ProtocolIdempotencyStore implementation."
             )
 
         # Validate topic_env_prefix
@@ -242,25 +214,35 @@ class RegistryPatternDemotionEffect:
             )
 
         # Create handler with bound dependencies
-        async def bound_check_and_demote(
-            request: ModelDemotionCheckRequest,
-        ) -> ModelDemotionCheckResult:
-            """Handler with repository and producer bound."""
-            return await check_and_demote_patterns(
+        async def bound_apply_transition(
+            intent: ModelPayloadUpdatePatternStatus,
+        ) -> ModelTransitionResult:
+            """Handler with repository, idempotency_store, and producer bound."""
+            return await apply_transition(
                 repository=repository,
+                idempotency_store=idempotency_store,
                 producer=producer,
-                request=request,
+                request_id=intent.request_id,
+                correlation_id=intent.correlation_id,
+                pattern_id=intent.pattern_id,
+                from_status=intent.from_status,
+                to_status=intent.to_status,
+                trigger=intent.trigger,
+                actor=intent.actor,
+                reason=intent.reason,
+                gate_snapshot=intent.gate_snapshot,
+                transition_at=intent.transition_at,
                 topic_env_prefix=topic_env_prefix,
             )
 
         # Create frozen registry
         registry = ServiceHandlerRegistry(
-            check_and_demote=bound_check_and_demote,
+            apply_transition=bound_apply_transition,
             topic_env_prefix=topic_env_prefix,
         )
 
         # Store in module-level storage
-        _REGISTRY_STORAGE[RegistryPatternDemotionEffect.REGISTRY_KEY] = registry
+        _REGISTRY_STORAGE[RegistryPatternLifecycleEffect.REGISTRY_KEY] = registry
 
         return registry
 
@@ -271,7 +253,7 @@ class RegistryPatternDemotionEffect:
         Returns:
             The stored ServiceHandlerRegistry, or None if not created.
         """
-        return _REGISTRY_STORAGE.get(RegistryPatternDemotionEffect.REGISTRY_KEY)
+        return _REGISTRY_STORAGE.get(RegistryPatternLifecycleEffect.REGISTRY_KEY)
 
     @staticmethod
     def clear() -> None:
@@ -285,8 +267,8 @@ class RegistryPatternDemotionEffect:
 
                 @pytest.fixture(autouse=True)
                 def clear_registry():
-                    RegistryPatternDemotionEffect.clear()
+                    RegistryPatternLifecycleEffect.clear()
                     yield
-                    RegistryPatternDemotionEffect.clear()
+                    RegistryPatternLifecycleEffect.clear()
         """
         _REGISTRY_STORAGE.clear()

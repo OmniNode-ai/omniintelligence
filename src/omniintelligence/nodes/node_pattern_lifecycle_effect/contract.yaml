@@ -1,0 +1,228 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternLifecycleEffect
+#
+# This contract defines the interface for the pattern lifecycle effect node.
+# The node applies pattern status transition projections to the database,
+# receiving intents from the reducer and atomically updating status + audit.
+#
+# This is the ONLY code path that may update learned_patterns.status.
+#
+# Reference: OMN-1805 - Pattern lifecycle effect node with atomic projections
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "pattern_lifecycle_effect"
+contract_name: "pattern_lifecycle_effect"
+node_name: "pattern_lifecycle_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node for applying pattern status transition projections to PostgreSQL. Receives ModelPayloadUpdatePatternStatus
+  intents from the reducer containing pattern_id, from_status, to_status, trigger, and request_id (idempotency
+  key). Atomically updates learned_patterns.status (with status guard) and inserts audit record into pattern_lifecycle_transitions
+  table. Provides PROVISIONAL guard to reject legacy provisional state transitions. Uses request_id-based
+  idempotency to prevent duplicate transitions.
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelPayloadUpdatePatternStatus"
+  module: "omniintelligence.nodes.node_intelligence_reducer.models"
+  description: "Intent payload from reducer with pattern_id, from/to status, and request_id"
+
+output_model:
+  name: "ModelTransitionResult"
+  module: "omniintelligence.nodes.node_pattern_lifecycle_effect.models"
+  description: "Result of the transition attempt including success, duplicate detection, and audit info"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_type_match"
+  handlers:
+    - operation: "apply_transition"
+      handler:
+        function: "apply_transition"
+        module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
+        type: "async"
+        description: "Apply pattern status transition with idempotency, status guard, and atomic audit"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "apply_transition"
+    description: "Apply a pattern status transition with atomicity guarantees"
+    input_fields:
+      - request_id
+      - correlation_id
+      - pattern_id
+      - from_status
+      - to_status
+      - trigger
+      - actor
+      - reason
+      - gate_snapshot
+      - transition_at
+    output_fields:
+      - success
+      - duplicate
+      - pattern_id
+      - from_status
+      - to_status
+      - transition_id
+      - reason
+      - transitioned_at
+      - error_message
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "pattern_repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
+    description: "Pattern repository protocol for database operations on learned_patterns and lifecycle
+      transitions"
+    required: true
+
+  - name: "idempotency_store"
+    type: "protocol"
+    class_name: "ProtocolIdempotencyStore"
+    module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
+    description: "Idempotency store for request_id deduplication"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
+    description: "Kafka producer for emitting lifecycle transition events (optional)"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "IntegrityError"
+
+  error_types:
+    - name: "PatternNotFoundError"
+      description: "Pattern with given ID does not exist in learned_patterns"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "StatusMismatchError"
+      description: "Current pattern status does not match expected from_status (optimistic lock failure)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ProvisionalGuardError"
+      description: "Transition to PROVISIONAL status is not allowed (legacy guard)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DatabaseWriteError"
+      description: "Failed to write transition to PostgreSQL"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "IdempotencyCheckError"
+      description: "Failed to check or record idempotency key"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "request_id_tracking"
+  key_field: "request_id"
+  description: >
+    Uses request_id from the intent as idempotency key. Before applying transition, checks if request_id
+    was already processed. If duplicate detected, returns success=true, duplicate=true without re-applying.
+    Records request_id after successful transition to prevent replay.
+
+# =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_reducer.models.ModelPayloadUpdatePatternStatus"
+      description: "Pattern lifecycle transition intents from the reducer"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1":
+      schema_ref: "omniintelligence.nodes.node_pattern_lifecycle_effect.models.ModelPatternLifecycleTransitionedEvent"
+      description: "Pattern lifecycle transition completed events for downstream consumers"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "database_write"
+    description: "Atomically update pattern status and insert audit record"
+  - name: "idempotency"
+    description: "Prevent duplicate transitions via request_id tracking"
+  - name: "status_guard"
+    description: "Verify from_status matches before applying transition"
+  - name: "provisional_guard"
+    description: "Reject transitions to PROVISIONAL status (legacy protection)"
+  - name: "audit_trail"
+    description: "Insert record into pattern_lifecycle_transitions for every transition"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-02"
+  updated: "2026-02-02"
+  tags:
+    - effect
+    - pattern-lifecycle
+    - status-transition
+    - idempotency
+    - postgresql
+    - audit
+  references:
+    - ticket: "OMN-1805"
+      url: "https://linear.app/omninode/issue/OMN-1805"
+      description: "Pattern lifecycle effect node with atomic projections"

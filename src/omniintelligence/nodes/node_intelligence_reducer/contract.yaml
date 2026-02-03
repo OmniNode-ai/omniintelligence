@@ -4,10 +4,11 @@
 # This reducer follows the pure function pattern for intelligence workflows:
 #   reduce(state, event) -> ModelReducerOutput[state + intents]
 #
-# The FSM defines state transitions for three workflow types:
+# The FSM defines state transitions for four workflow types:
 #   - INGESTION: Document ingestion lifecycle
 #   - PATTERN_LEARNING: 4-phase pattern learning
 #   - QUALITY_ASSESSMENT: Quality scoring lifecycle
+#   - PATTERN_LIFECYCLE: Pattern promotion/demotion lifecycle (OMN-1805)
 #
 # All state is stored in PostgreSQL fsm_state table.
 # All state transition logic is driven by this contract.
@@ -24,13 +25,15 @@ name: "node_intelligence_reducer"
 node_type: "REDUCER_GENERIC"
 description: >-
   Unified reducer for all intelligence FSMs. Pure reducer with all state stored in PostgreSQL fsm_state
-  table. Handles INGESTION, PATTERN_LEARNING, and QUALITY_ASSESSMENT FSM types via enum routing.
+  table. Handles INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT, and PATTERN_LIFECYCLE FSM types via
+  enum routing.
 input_model:
   name: "ModelReducerInput"
   module: "omniintelligence.nodes.node_intelligence_reducer.models"
   description: >-
     Discriminated union of FSM-specific input models (ModelReducerInputIngestion, ModelReducerInputPatternLearning,
-    ModelReducerInputQualityAssessment). Each variant has a typed payload model specific to its FSM type.
+    ModelReducerInputQualityAssessment, ModelReducerInputPatternLifecycle). Each variant has a typed payload
+    model specific to its FSM type.
   variants:
     - name: "ModelReducerInputIngestion"
       discriminator_value: "INGESTION"
@@ -41,6 +44,9 @@ input_model:
     - name: "ModelReducerInputQualityAssessment"
       discriminator_value: "QUALITY_ASSESSMENT"
       payload_model: "ModelQualityAssessmentPayload"
+    - name: "ModelReducerInputPatternLifecycle"
+      discriminator_value: "PATTERN_LIFECYCLE"
+      payload_model: "ModelPatternLifecyclePayload"
 output_model:
   name: "ModelReducerOutput"
   module: "omniintelligence.nodes.node_intelligence_reducer.models"
@@ -160,6 +166,35 @@ state_machine:
       exit_actions: []
       required_data:
         - "failure_reason"
+    # PATTERN_LIFECYCLE states (OMN-1805)
+    - state_name: "candidate"
+      description: "Newly discovered pattern, under evaluation"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "pattern_id"
+    - state_name: "provisional"
+      description: "LEGACY - Passed initial quality gates, outbound transitions only"
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "pattern_id"
+    - state_name: "validated"
+      description: "Production-ready pattern with proven track record"
+      entry_actions:
+        - "emit_pattern_promoted_event"
+      exit_actions: []
+      required_data:
+        - "pattern_id"
+    - state_name: "deprecated"
+      description: "Pattern no longer recommended for use"
+      is_terminal: false
+      entry_actions:
+        - "emit_pattern_deprecated_event"
+      exit_actions: []
+      required_data:
+        - "pattern_id"
+        - "reason"
   transitions:
     # INGESTION transitions
     - from_state: "idle"
@@ -342,6 +377,58 @@ state_machine:
       actions:
         - action_name: "clear_state"
           action_type: "state_update"
+    # PATTERN_LIFECYCLE transitions (OMN-1805)
+    # NOTE: candidate → provisional transition REMOVED (OMN-1805 PR review)
+    # The PROVISIONAL status is LEGACY - only outbound transitions allowed.
+    # New patterns use: candidate → validated (via promote_direct)
+    # or stay at: candidate → deprecated (via deprecate)
+    - from_state: "provisional"
+      to_state: "validated"
+      trigger: "promote"
+      description: "Full promotion criteria met"
+      actions:
+        - action_name: "emit_status_update_intent"
+          action_type: "intent_emission"
+    - from_state: "candidate"
+      to_state: "validated"
+      trigger: "promote_direct"
+      description: "Direct promotion (skip provisional)"
+      actions:
+        - action_name: "emit_status_update_intent"
+          action_type: "intent_emission"
+    - from_state: "candidate"
+      to_state: "deprecated"
+      trigger: "deprecate"
+      description: "Pattern deprecated from candidate"
+      actions:
+        - action_name: "emit_status_update_intent"
+          action_type: "intent_emission"
+    - from_state: "provisional"
+      to_state: "deprecated"
+      trigger: "deprecate"
+      description: "Pattern deprecated from provisional"
+      actions:
+        - action_name: "emit_status_update_intent"
+          action_type: "intent_emission"
+    - from_state: "validated"
+      to_state: "deprecated"
+      trigger: "deprecate"
+      description: "Pattern deprecated from validated"
+      actions:
+        - action_name: "emit_status_update_intent"
+          action_type: "intent_emission"
+    - from_state: "deprecated"
+      to_state: "candidate"
+      trigger: "manual_reenable"
+      description: "Manual reenable for retry (admin only)"
+      guard_conditions:
+        - field: "actor_type"
+          operator: "eq"
+          value: "admin"
+          error_message: "manual_reenable requires actor_type='admin'"
+      actions:
+        - action_name: "emit_status_update_intent"
+          action_type: "intent_emission"
   persistence_enabled: true
   # =============================================================================
   # TERMINAL STATE SEMANTICS
@@ -426,8 +513,9 @@ validation:
         - "INGESTION"  # EnumFSMType.INGESTION
         - "PATTERN_LEARNING"  # EnumFSMType.PATTERN_LEARNING
         - "QUALITY_ASSESSMENT"  # EnumFSMType.QUALITY_ASSESSMENT
+        - "PATTERN_LIFECYCLE"  # EnumFSMType.PATTERN_LIFECYCLE (OMN-1805)
       error_code: "invalid_fsm_type"
-      error_message: "fsm_type must be INGESTION, PATTERN_LEARNING, or QUALITY_ASSESSMENT"
+      error_message: "fsm_type must be INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT, or PATTERN_LIFECYCLE"
     - field: "action"
       required: true
       error_code: "missing_action"

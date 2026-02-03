@@ -17,17 +17,10 @@ from enum import Enum
 class EnumPatternLifecycleStatus(str, Enum):
     """Pattern lifecycle status for learned patterns.
 
-    This enum defines the promotion/demotion lifecycle for learned patterns.
-    Patterns progress through these statuses based on rolling quality metrics
-    and temporal stability.
+    IMPORTANT: Valid transitions are defined in contract.yaml (intelligence_reducer),
+    NOT in this enum. This enum provides type safety only.
 
-    Lifecycle Flow:
-        CANDIDATE → PROVISIONAL → VALIDATED → (deprecated: DEPRECATED)
-
-    Promotion Gates:
-        - CANDIDATE → PROVISIONAL: Initial quality threshold met
-        - PROVISIONAL → VALIDATED: Temporal stability + consistent quality
-        - Any → DEPRECATED: Failure streak or manual deprecation
+    See: OMN-1805 - contract.yaml is the single source of truth for transitions.
 
     Attributes:
         CANDIDATE: Newly discovered pattern, under evaluation
@@ -42,53 +35,13 @@ class EnumPatternLifecycleStatus(str, Enum):
 
     See Also:
         - deployment/database/migrations/005_create_learned_patterns.sql
-        - Manifest Injection Enhancement Plan for promotion/demotion rules
+        - nodes/node_intelligence_reducer/contract.yaml (authoritative transitions)
     """
 
     CANDIDATE = "candidate"
     PROVISIONAL = "provisional"
     VALIDATED = "validated"
     DEPRECATED = "deprecated"
-
-    def can_transition_to(self, target: "EnumPatternLifecycleStatus") -> bool:
-        """Check if transition to target status is valid.
-
-        Valid transitions:
-            CANDIDATE → PROVISIONAL, DEPRECATED
-            PROVISIONAL → VALIDATED, DEPRECATED
-            VALIDATED → DEPRECATED
-            DEPRECATED → (none - terminal state)
-
-        Args:
-            target: The target status to transition to.
-
-        Returns:
-            True if the transition is valid, False otherwise.
-
-        Example:
-            >>> status = EnumPatternLifecycleStatus.CANDIDATE
-            >>> status.can_transition_to(EnumPatternLifecycleStatus.PROVISIONAL)
-            True
-            >>> status.can_transition_to(EnumPatternLifecycleStatus.VALIDATED)
-            False
-        """
-        valid_transitions: dict[
-            EnumPatternLifecycleStatus, set[EnumPatternLifecycleStatus]
-        ] = {
-            EnumPatternLifecycleStatus.CANDIDATE: {
-                EnumPatternLifecycleStatus.PROVISIONAL,
-                EnumPatternLifecycleStatus.DEPRECATED,
-            },
-            EnumPatternLifecycleStatus.PROVISIONAL: {
-                EnumPatternLifecycleStatus.VALIDATED,
-                EnumPatternLifecycleStatus.DEPRECATED,
-            },
-            EnumPatternLifecycleStatus.VALIDATED: {
-                EnumPatternLifecycleStatus.DEPRECATED,
-            },
-            EnumPatternLifecycleStatus.DEPRECATED: set(),
-        }
-        return target in valid_transitions.get(self, set())
 
 
 __all__ = ["EnumPatternLifecycleStatus"]
