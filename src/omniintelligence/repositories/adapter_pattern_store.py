@@ -34,7 +34,9 @@ from uuid import UUID
 import yaml
 
 from omnibase_core.models.contracts import ModelDbRepositoryContract
-from omnibase_core.types import TypedDictPatternStorageMetadata
+from omnibase_core.types.typed_dict_pattern_storage_metadata import (
+    TypedDictPatternStorageMetadata,
+)
 from omnibase_infra.runtime.db import PostgresRepositoryRuntime
 
 from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState

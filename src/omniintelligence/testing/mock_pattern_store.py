@@ -25,7 +25,9 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from omnibase_core.types import TypedDictPatternStorageMetadata
+from omnibase_core.types.typed_dict_pattern_storage_metadata import (
+    TypedDictPatternStorageMetadata,
+)
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
