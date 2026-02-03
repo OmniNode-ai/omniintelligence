@@ -634,7 +634,7 @@ class TestProvisionalGuard:
             pattern_id=sample_pattern_id,
             from_status="candidate",
             to_status="provisional",  # FORBIDDEN - legacy state
-            trigger="validation_passed",
+            trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
             transition_at=sample_transition_at,
         )
 
@@ -672,7 +672,7 @@ class TestProvisionalGuard:
             pattern_id=sample_pattern_id,
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
             to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="validation_passed",
+            trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
             transition_at=sample_transition_at,
         )
 
@@ -706,7 +706,7 @@ class TestProvisionalGuard:
             pattern_id=sample_pattern_id,
             from_status="candidate",
             to_status="provisional",  # FORBIDDEN
-            trigger="validation_passed",
+            trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
             transition_at=sample_transition_at,
         )
 
