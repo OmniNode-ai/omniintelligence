@@ -48,7 +48,7 @@ FORBIDDEN_PATTERNS = [
 SCAN_DIRS = [
     "src/omniintelligence/nodes/node_pattern_promotion_effect/handlers",
     "src/omniintelligence/nodes/node_pattern_demotion_effect/handlers",
-    "src/omniintelligence/nodes/pattern_storage_effect/handlers",
+    "src/omniintelligence/nodes/node_pattern_storage_effect/handlers",
     "src/omniintelligence/nodes/node_pattern_feedback_effect/handlers",
     # Also scan node_pattern_lifecycle_effect/handlers but allow handler_transition.py
     "src/omniintelligence/nodes/node_pattern_lifecycle_effect/handlers",
