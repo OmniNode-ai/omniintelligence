@@ -103,6 +103,7 @@ from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_DEPRECATED_V1
+from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
 from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelDemotionCheckRequest,
@@ -1036,6 +1037,15 @@ async def _emit_lifecycle_event(
     # Generate idempotency key for this demotion attempt
     request_id = uuid4()
 
+    # Convert ModelDemotionGateSnapshot to ModelGateSnapshot for the lifecycle event
+    # ModelDemotionGateSnapshot has extra fields (hours_since_promotion) not in ModelGateSnapshot
+    common_gate_snapshot = ModelGateSnapshot(
+        success_rate_rolling_20=gate_snapshot.success_rate_rolling_20,
+        injection_count_rolling_20=gate_snapshot.injection_count_rolling_20,
+        failure_streak=gate_snapshot.failure_streak,
+        disabled=gate_snapshot.disabled,
+    )
+
     # Build lifecycle event for reducer
     event = ModelPatternLifecycleEvent(
         event_type="PatternLifecycleEvent",
@@ -1048,7 +1058,7 @@ async def _emit_lifecycle_event(
         actor=actor,
         actor_type=actor_type,  # type: ignore[arg-type]  # Literal type validation
         reason=reason,
-        gate_snapshot=gate_snapshot.model_dump(mode="json"),
+        gate_snapshot=common_gate_snapshot,
         occurred_at=requested_at,
     )
 

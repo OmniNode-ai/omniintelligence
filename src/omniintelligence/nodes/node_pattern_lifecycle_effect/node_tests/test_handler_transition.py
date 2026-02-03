@@ -159,7 +159,7 @@ class TestSuccessfulTransitions:
             pattern_id=sample_pattern_id,
             from_status="candidate",
             to_status="validated",
-            trigger="validation_passed",
+            trigger="promote_direct",  # Valid trigger for candidate -> validated
             transition_at=sample_transition_at,
         )
 
