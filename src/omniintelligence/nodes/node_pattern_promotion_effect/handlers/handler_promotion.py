@@ -746,7 +746,7 @@ async def _emit_lifecycle_event(
         actor="promotion_handler",
         actor_type="handler",
         reason=reason,
-        gate_snapshot=gate_snapshot.model_dump(mode="json"),
+        gate_snapshot=gate_snapshot,
         occurred_at=request_time,
     )
 

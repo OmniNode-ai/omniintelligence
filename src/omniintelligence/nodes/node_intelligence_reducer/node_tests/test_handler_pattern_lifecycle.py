@@ -33,6 +33,7 @@ from uuid import UUID
 
 import pytest
 
+from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
     ERROR_INVALID_FROM_STATE,
@@ -1103,10 +1104,12 @@ class TestIntentVerification:
     ) -> None:
         """Test that gate_snapshot field is populated in intent."""
         # Arrange
-        gate_snapshot = {
-            "injection_count_rolling_20": 15,
-            "success_rate_rolling_20": 0.85,
-        }
+        gate_snapshot = ModelGateSnapshot(
+            injection_count_rolling_20=15,
+            success_rate_rolling_20=0.85,
+            failure_streak=0,
+            disabled=False,
+        )
         input_data = make_reducer_input(
             from_status="provisional",
             to_status="validated",

@@ -35,6 +35,7 @@ from omnibase_core.models.reducer.payloads.model_extension_payloads import (
     ModelPayloadExtension,
 )
 
+from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
     ERROR_INVALID_FROM_STATE,
@@ -700,11 +701,12 @@ class TestIntentVerificationViaNode:
     ) -> None:
         """Test that gate_snapshot is preserved in intent payload."""
         # Arrange
-        gate_snapshot = {
-            "injection_count_rolling_20": 25,
-            "success_rate_rolling_20": 0.92,
-            "quality_score_avg": 0.85,
-        }
+        gate_snapshot = ModelGateSnapshot(
+            injection_count_rolling_20=25,
+            success_rate_rolling_20=0.92,
+            failure_streak=0,
+            disabled=False,
+        )
         input_data = make_reducer_input(
             from_status="provisional",
             to_status="validated",
@@ -717,7 +719,8 @@ class TestIntentVerificationViaNode:
 
         # Assert
         payload_data = output.intents[0].payload.data
-        assert payload_data["gate_snapshot"] == gate_snapshot
+        # gate_snapshot is serialized to JSON in the payload
+        assert payload_data["gate_snapshot"] == gate_snapshot.model_dump(mode="json")
 
 
 # =============================================================================
