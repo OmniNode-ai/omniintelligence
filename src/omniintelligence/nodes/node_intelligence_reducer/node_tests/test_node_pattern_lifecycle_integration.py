@@ -24,7 +24,6 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 import pytest
@@ -35,6 +34,7 @@ from omnibase_core.models.reducer.payloads.model_extension_payloads import (
     ModelPayloadExtension,
 )
 
+from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
@@ -45,9 +45,6 @@ from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_l
     VALID_TRANSITIONS,
 )
 from omniintelligence.nodes.node_intelligence_reducer.node import NodeIntelligenceReducer
-
-if TYPE_CHECKING:
-    pass
 
 
 # =============================================================================
@@ -317,31 +314,22 @@ class TestFailedTransitionsViaNode:
         - output.intents is empty
     """
 
-    async def test_invalid_from_status_produces_error_output(
+    async def test_invalid_from_status_rejected_at_model_creation(
         self,
-        reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
     ) -> None:
-        """Test that unknown from_status produces error output with no intents."""
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="unknown_state",
-            to_status="validated",
-            trigger="promote",
-        )
+        """Test that unknown from_status is rejected at model creation time.
 
-        # Act
-        output = await reducer_node.process(input_data)
-
-        # Assert - Error output structure
-        assert output.result["success"] is False
-        assert output.result["fsm_type"] == "PATTERN_LIFECYCLE"
-        assert output.result["error_code"] == ERROR_INVALID_FROM_STATE
-        assert "error_message" in output.result
-        assert "unknown_state" in output.result["error_message"]
-
-        # Assert - No intents emitted
-        assert len(output.intents) == 0
+        With typed enums, invalid status strings are rejected during model
+        creation (Pydantic validation), not at handler execution time.
+        """
+        # Invalid status strings raise ValueError during enum conversion
+        with pytest.raises(ValueError, match="unknown_state"):
+            make_reducer_input(
+                from_status="unknown_state",
+                to_status="validated",
+                trigger="promote",
+            )
 
     async def test_invalid_trigger_produces_error_output(
         self,
@@ -482,13 +470,17 @@ class TestFailedTransitionsViaNode:
         make_reducer_input,
         sample_pattern_id: str,
     ) -> None:
-        """Test that error output still contains pattern_id for tracing."""
-        # Arrange
+        """Test that error output still contains pattern_id for tracing.
+
+        Uses an invalid transition (wrong to_status) since invalid status
+        strings are now rejected at model creation time via enum types.
+        """
+        # Arrange - Use valid states but invalid transition (wrong to_status)
         input_data = make_reducer_input(
             pattern_id=sample_pattern_id,
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,  # Wrong target
+            trigger="validation_passed",
         )
 
         # Act
@@ -783,12 +775,16 @@ class TestOutputStructureVerification:
         reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
     ) -> None:
-        """Test that error output has result dict with error fields."""
-        # Arrange
+        """Test that error output has result dict with error fields.
+
+        Uses invalid transition (wrong trigger) since invalid status strings
+        are now rejected at model creation time via enum types.
+        """
+        # Arrange - Use valid states but invalid transition
         input_data = make_reducer_input(
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="promote",  # Wrong trigger for validated
         )
 
         # Act
@@ -805,12 +801,16 @@ class TestOutputStructureVerification:
         reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
     ) -> None:
-        """Test that error output.intents is an empty tuple."""
-        # Arrange
+        """Test that error output.intents is an empty tuple.
+
+        Uses invalid transition (wrong trigger) since invalid status strings
+        are now rejected at model creation time via enum types.
+        """
+        # Arrange - Use valid states but invalid transition
         input_data = make_reducer_input(
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="promote",  # Wrong trigger for validated
         )
 
         # Act
@@ -830,19 +830,19 @@ class TestOutputStructureVerification:
         # Success case
         success_input = make_reducer_input(
             pattern_id=sample_pattern_id,
-            from_status="candidate",
-            to_status="provisional",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
             trigger="validation_passed",
         )
         success_output = await reducer_node.process(success_input)
         assert success_output.result["pattern_id"] == sample_pattern_id
 
-        # Error case
+        # Error case - Use invalid transition (wrong to_status)
         error_input = make_reducer_input(
             pattern_id=sample_pattern_id,
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,  # Wrong target
+            trigger="validation_passed",
         )
         error_output = await reducer_node.process(error_input)
         assert error_output.result["pattern_id"] == sample_pattern_id
@@ -869,12 +869,16 @@ class TestLoggingVerification:
         make_reducer_input,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test that a warning is logged when transition is rejected."""
-        # Arrange
+        """Test that a warning is logged when transition is rejected.
+
+        Uses invalid transition (wrong trigger) since invalid status strings
+        are now rejected at model creation time via enum types.
+        """
+        # Arrange - Use valid states but invalid transition
         input_data = make_reducer_input(
-            from_status="invalid_state",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="promote",  # Wrong trigger, should be "deprecate"
         )
 
         # Act
@@ -924,12 +928,16 @@ class TestLoggingVerification:
         sample_correlation_id: UUID,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test that rejection log contains correlation_id for tracing."""
-        # Arrange
+        """Test that rejection log contains correlation_id for tracing.
+
+        Uses invalid transition (wrong trigger) since invalid status strings
+        are now rejected at model creation time via enum types.
+        """
+        # Arrange - Use valid states but invalid transition
         input_data = make_reducer_input(
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="promote",  # Wrong trigger
             correlation_id=sample_correlation_id,
         )
 
@@ -1050,8 +1058,8 @@ class TestNodeInstanceBehavior:
         """Test that node can process multiple transitions in sequence."""
         # First transition
         input1 = make_reducer_input(
-            from_status="candidate",
-            to_status="provisional",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
             trigger="validation_passed",
         )
         output1 = await reducer_node.process(input1)
@@ -1060,19 +1068,19 @@ class TestNodeInstanceBehavior:
         # Second transition (different pattern, different transition)
         input2 = make_reducer_input(
             pattern_id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
         )
         output2 = await reducer_node.process(input2)
         assert output2.result["success"] is True
 
-        # Third transition (error case)
+        # Third transition (error case - invalid transition, wrong trigger)
         input3 = make_reducer_input(
             pattern_id="cccccccc-cccc-cccc-cccc-cccccccccccc",
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="promote",  # Wrong trigger, should be "deprecate"
         )
         output3 = await reducer_node.process(input3)
         assert output3.result["success"] is False
@@ -1087,36 +1095,21 @@ class TestNodeInstanceBehavior:
         Each call should be independent - a failed call shouldn't affect
         subsequent calls.
         """
-        # First: Error call
+        # First: Error call (invalid transition - wrong trigger)
         error_input = make_reducer_input(
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="promote",  # Wrong trigger
         )
         error_output = await reducer_node.process(error_input)
         assert error_output.result["success"] is False
 
         # Second: Success call (should not be affected by previous error)
         success_input = make_reducer_input(
-            from_status="candidate",
-            to_status="provisional",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
             trigger="validation_passed",
         )
         success_output = await reducer_node.process(success_input)
         assert success_output.result["success"] is True
         assert len(success_output.intents) == 1
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "TestCaseSensitivityViaNode",
-    "TestFailedTransitionsViaNode",
-    "TestIntentVerificationViaNode",
-    "TestLoggingVerification",
-    "TestNodeInstanceBehavior",
-    "TestOutputStructureVerification",
-    "TestSuccessfulTransitionsViaNode",
-]

@@ -256,6 +256,22 @@ class MockIdempotencyStore:
         """
         return request_id in self.processed_ids
 
+    async def record(self, request_id: UUID) -> None:
+        """Record a request_id as processed (without checking).
+
+        This should be called AFTER successful operation completion to
+        prevent replay of the same request_id.
+
+        Args:
+            request_id: The idempotency key to record.
+
+        Note:
+            If the request_id already exists, this is a no-op (idempotent).
+        """
+        if request_id not in self.processed_ids:
+            self.processed_ids.add(request_id)
+            self.recorded_ids.append(request_id)
+
     def reset(self) -> None:
         """Reset all storage for test isolation."""
         self.processed_ids.clear()

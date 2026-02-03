@@ -8,10 +8,11 @@ representing the outcomes of pattern status transition operations.
 Ticket: OMN-1805
 """
 
-from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+
+from omniintelligence.enums import EnumPatternLifecycleStatus
 
 
 class ModelTransitionResult(BaseModel):
@@ -51,11 +52,11 @@ class ModelTransitionResult(BaseModel):
         ...,
         description="The pattern that was (or would be) transitioned",
     )
-    from_status: str = Field(
+    from_status: EnumPatternLifecycleStatus = Field(
         ...,
         description="The expected source status",
     )
-    to_status: str = Field(
+    to_status: EnumPatternLifecycleStatus = Field(
         ...,
         description="The target status",
     )
@@ -67,9 +68,9 @@ class ModelTransitionResult(BaseModel):
         default=None,
         description="Human-readable reason for the result",
     )
-    transitioned_at: datetime | None = Field(
+    transitioned_at: AwareDatetime | None = Field(
         default=None,
-        description="When the transition was recorded, if applied",
+        description="When the transition was recorded, if applied (timezone-aware)",
     )
     error_message: str | None = Field(
         default=None,
@@ -96,11 +97,11 @@ class ModelPatternLifecycleTransitionedEvent(BaseModel):
         ...,
         description="The transitioned pattern ID",
     )
-    from_status: str = Field(
+    from_status: EnumPatternLifecycleStatus = Field(
         ...,
         description="Status before transition",
     )
-    to_status: str = Field(
+    to_status: EnumPatternLifecycleStatus = Field(
         ...,
         description="Status after transition",
     )
@@ -120,9 +121,9 @@ class ModelPatternLifecycleTransitionedEvent(BaseModel):
         ...,
         description="Unique ID of the audit record",
     )
-    transitioned_at: datetime = Field(
+    transitioned_at: AwareDatetime = Field(
         ...,
-        description="Timestamp of the transition",
+        description="Timestamp of the transition (timezone-aware)",
     )
     request_id: UUID = Field(
         ...,

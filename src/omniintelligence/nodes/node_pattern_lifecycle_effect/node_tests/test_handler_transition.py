@@ -28,6 +28,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     ProtocolIdempotencyStore,
     ProtocolKafkaPublisher,
@@ -644,7 +645,7 @@ class TestProvisionalGuard:
         assert "not allowed" in (result.error_message or "").lower()
 
     @pytest.mark.asyncio
-    async def test_provisional_target_rejected_case_insensitive(
+    async def test_provisional_target_rejected_with_enum(
         self,
         mock_repository: MockPatternRepository,
         mock_idempotency_store: MockIdempotencyStore,
@@ -653,27 +654,30 @@ class TestProvisionalGuard:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """PROVISIONAL guard is case-insensitive."""
+        """PROVISIONAL guard rejects transitions to provisional status.
+
+        Note: Case sensitivity is now enforced by the enum type system.
+        This test verifies the guard works with the typed enum value.
+        """
         # Arrange
         mock_repository.add_pattern(sample_pattern_id, status="candidate")
 
-        # Act - Test various cases
-        for to_status in ["PROVISIONAL", "Provisional", "ProVisional"]:
-            result = await apply_transition(
-                repository=mock_repository,
-                idempotency_store=mock_idempotency_store,
-                producer=None,
-                request_id=uuid4(),  # Fresh request ID each time
-                correlation_id=sample_correlation_id,
-                pattern_id=sample_pattern_id,
-                from_status="candidate",
-                to_status=to_status,
-                trigger="validation_passed",
-                transition_at=sample_transition_at,
-            )
+        # Act - Use proper enum value
+        result = await apply_transition(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            producer=None,
+            request_id=uuid4(),
+            correlation_id=sample_correlation_id,
+            pattern_id=sample_pattern_id,
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            trigger="validation_passed",
+            transition_at=sample_transition_at,
+        )
 
-            # Assert
-            assert result.success is False, f"Should reject to_status='{to_status}'"
+        # Assert
+        assert result.success is False, "Should reject to_status=PROVISIONAL"
 
     @pytest.mark.asyncio
     async def test_provisional_guard_before_idempotency_check(
@@ -1258,7 +1262,7 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     @pytest.mark.asyncio
-    async def test_empty_trigger_allowed(
+    async def test_empty_trigger_rejected(
         self,
         mock_repository: MockPatternRepository,
         mock_idempotency_store: MockIdempotencyStore,
@@ -1267,7 +1271,11 @@ class TestEdgeCases:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """Empty string trigger is allowed."""
+        """Empty string trigger is rejected with validation error.
+
+        Trigger is a required field that documents why the transition occurred.
+        Empty triggers make audit logs useless for debugging.
+        """
         # Arrange
         mock_repository.add_pattern(sample_pattern_id, status="provisional")
 
@@ -1281,12 +1289,53 @@ class TestEdgeCases:
             pattern_id=sample_pattern_id,
             from_status="provisional",
             to_status="validated",
-            trigger="",  # Empty trigger
+            trigger="",  # Empty trigger - should be rejected
             transition_at=sample_transition_at,
         )
 
-        # Assert
-        assert result.success is True
+        # Assert: Empty trigger should be rejected
+        assert result.success is False
+        assert result.duplicate is False
+        error_msg = (result.error_message or "").lower()
+        assert "trigger" in error_msg or "empty" in error_msg or "required" in error_msg
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_trigger_rejected(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_idempotency_store: MockIdempotencyStore,
+        sample_pattern_id: UUID,
+        sample_request_id: UUID,
+        sample_correlation_id: UUID,
+        sample_transition_at: datetime,
+    ) -> None:
+        """Whitespace-only trigger is rejected with validation error.
+
+        Triggers containing only whitespace are functionally empty and should
+        be rejected for the same reasons as empty strings.
+        """
+        # Arrange
+        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+
+        # Act
+        result = await apply_transition(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            producer=None,
+            request_id=sample_request_id,
+            correlation_id=sample_correlation_id,
+            pattern_id=sample_pattern_id,
+            from_status="provisional",
+            to_status="validated",
+            trigger="   ",  # Whitespace-only trigger - should be rejected
+            transition_at=sample_transition_at,
+        )
+
+        # Assert: Whitespace-only trigger should be rejected
+        assert result.success is False
+        assert result.duplicate is False
+        error_msg = (result.error_message or "").lower()
+        assert "trigger" in error_msg or "empty" in error_msg or "required" in error_msg
 
     @pytest.mark.asyncio
     async def test_very_long_reason_handled(

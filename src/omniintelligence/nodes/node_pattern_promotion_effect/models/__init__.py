@@ -5,11 +5,13 @@ effect node, which checks and promotes eligible provisional patterns to
 validated status based on rolling window success metrics.
 """
 
+# Import ModelGateSnapshot from shared domain to avoid circular imports
+# Re-export for backward compatibility
+from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_pattern_promotion_effect.models.model_promotion_request import (
     ModelPromotionCheckRequest,
 )
 from omniintelligence.nodes.node_pattern_promotion_effect.models.model_promotion_result import (
-    ModelGateSnapshot,
     ModelPatternPromotedEvent,
     ModelPromotionCheckResult,
     ModelPromotionResult,

@@ -10,10 +10,13 @@ Ticket: OMN-1805
 """
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
 import pytest
+
+logger = logging.getLogger(__name__)
 
 # Apply audit marker to all tests in this module
 pytestmark = pytest.mark.audit
@@ -67,13 +70,25 @@ def _scan_file_for_violations(file_path: Path) -> list[str]:
 
     Returns:
         List of violation strings with format "filename:line: Found forbidden pattern: ..."
+
+    Raises:
+        OSError: If file cannot be read (permissions, encoding issues, etc.)
     """
     violations = []
 
     try:
         content = file_path.read_text()
-    except Exception:
-        return violations
+    except OSError as e:
+        # Do not silently ignore file read errors - they could hide violations
+        logger.error(
+            "Failed to read file during audit scan: %s - %s",
+            file_path,
+            e,
+        )
+        raise OSError(
+            f"Audit scan failed: Cannot read file {file_path}. "
+            f"Error: {e}. This may hide architectural violations."
+        ) from e
 
     for pattern in FORBIDDEN_PATTERNS:
         matches = list(re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE))

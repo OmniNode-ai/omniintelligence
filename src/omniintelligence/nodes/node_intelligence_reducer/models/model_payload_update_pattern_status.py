@@ -10,13 +10,13 @@ Ticket: OMN-1805
 """
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
+from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.models.domain import ModelGateSnapshot
 
 
 class ModelPayloadUpdatePatternStatus(BaseModel):
@@ -41,18 +41,20 @@ class ModelPayloadUpdatePatternStatus(BaseModel):
     )
     correlation_id: UUID = Field(..., description="For distributed tracing")
     pattern_id: UUID = Field(..., description="Pattern to update")
-    from_status: str = Field(
+    from_status: EnumPatternLifecycleStatus = Field(
         ..., description="Expected current status (for optimistic locking)"
     )
-    to_status: str = Field(..., description="New status to apply")
+    to_status: EnumPatternLifecycleStatus = Field(
+        ..., description="New status to apply"
+    )
     trigger: str = Field(..., description="What triggered this transition")
     actor: str = Field(default="reducer", description="Who applied the transition")
     reason: str | None = Field(default=None, description="Human-readable reason")
     gate_snapshot: ModelGateSnapshot | None = Field(
         default=None, description="Gate values at decision time"
     )
-    transition_at: datetime = Field(
-        ..., description="When to record as transition time"
+    transition_at: AwareDatetime = Field(
+        ..., description="When to record as transition time (must be timezone-aware)"
     )
 
 

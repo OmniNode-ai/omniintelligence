@@ -577,7 +577,7 @@ async def check_and_demote_patterns(
     producer: ProtocolKafkaPublisher | None = None,
     *,
     request: ModelDemotionCheckRequest,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str,
 ) -> ModelDemotionCheckResult:
     """Check and demote validated patterns that meet demotion criteria.
 
@@ -599,7 +599,7 @@ async def check_and_demote_patterns(
             occur. See "Kafka Optionality" section in module docstring.
         request: Demotion check request with threshold values and dry_run flag.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-            Only used when producer is not None.
+            Required parameter - must be provided by caller from configuration.
 
     Returns:
         ModelDemotionCheckResult with counts, individual demotion results,
@@ -672,6 +672,7 @@ async def check_and_demote_patterns(
     skipped_cooldown_count: int = 0
     failed_count: int = 0
     skipped_noop_count: int = 0
+    kafka_unavailable_count: int = 0
     eligible_count: int = 0
 
     for pattern in patterns:
@@ -736,6 +737,25 @@ async def check_and_demote_patterns(
                     topic_env_prefix=topic_env_prefix,
                 )
 
+                # Check for kafka issues - track separately but still add result
+                # Handles both "kafka_producer_unavailable" and "kafka_publish_failed:..."
+                if result.reason == "kafka_producer_unavailable" or result.reason.startswith("kafka_publish_failed:"):
+                    kafka_unavailable_count += 1
+                    logger.warning(
+                        "Pattern demotion skipped - Kafka issue",
+                        extra={
+                            "correlation_id": str(correlation_id)
+                            if correlation_id
+                            else None,
+                            "pattern_id": str(pattern_id),
+                            "pattern_signature": pattern_signature,
+                            "reason": result.reason,
+                        },
+                    )
+                    # Still add the result so caller knows demotion was attempted
+                    demotion_results.append(result)
+                    continue
+
                 # Check for no-op (pattern was already demoted or status changed)
                 if result.deprecated_at is None and not result.dry_run:
                     skipped_noop_count += 1
@@ -798,6 +818,7 @@ async def check_and_demote_patterns(
             "patterns_demoted": actual_demotions,
             "patterns_skipped_cooldown": skipped_cooldown_count,
             "patterns_skipped_noop": skipped_noop_count,
+            "patterns_kafka_unavailable": kafka_unavailable_count,
             "patterns_failed": failed_count,
             "dry_run": request.dry_run,
         },
@@ -822,7 +843,7 @@ async def demote_pattern(
     thresholds: ModelEffectiveThresholds,
     correlation_id: UUID | None = None,
     *,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str,
 ) -> ModelDemotionResult:
     """Request demotion of a pattern by emitting a lifecycle event.
 
@@ -852,7 +873,8 @@ async def demote_pattern(
             "failure_streak: 5 consecutive failures", "low_success_rate: 35.0%").
         thresholds: Effective thresholds used for this demotion.
         correlation_id: Optional correlation ID for tracing.
-        topic_env_prefix: Environment prefix for Kafka topic.
+        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
+            Required parameter - must be provided by caller from configuration.
 
     Returns:
         ModelDemotionResult with demotion details and gate snapshot.
@@ -910,17 +932,42 @@ async def demote_pattern(
     actor = "demotion_handler"
 
     # Emit lifecycle event for reducer to process
-    await _emit_lifecycle_event(
-        producer=producer,
-        pattern_id=pattern_id,
-        reason=reason,
-        gate_snapshot=gate_snapshot,
-        correlation_id=correlation_id,
-        actor=actor,
-        actor_type=actor_type,
-        requested_at=requested_at,
-        topic_env_prefix=topic_env_prefix,
-    )
+    # Wrap in try/except to handle Kafka failures gracefully (non-blocking)
+    try:
+        await _emit_lifecycle_event(
+            producer=producer,
+            pattern_id=pattern_id,
+            reason=reason,
+            gate_snapshot=gate_snapshot,
+            correlation_id=correlation_id,
+            actor=actor,
+            actor_type=actor_type,
+            requested_at=requested_at,
+            topic_env_prefix=topic_env_prefix,
+        )
+    except Exception as exc:
+        # Log the error but don't fail - Kafka is optional for effect nodes
+        logger.warning(
+            "Failed to emit lifecycle event to Kafka - demotion not processed",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "pattern_id": str(pattern_id),
+                "pattern_signature": pattern_signature,
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            },
+        )
+        return ModelDemotionResult(
+            pattern_id=pattern_id,
+            pattern_signature=pattern_signature,
+            from_status="validated",
+            to_status="deprecated",
+            deprecated_at=None,  # None indicates event was NOT emitted
+            reason=f"kafka_publish_failed: {type(exc).__name__}: {exc!s}",
+            gate_snapshot=gate_snapshot,
+            effective_thresholds=thresholds,
+            dry_run=False,
+        )
 
     logger.info(
         "Pattern demotion requested via lifecycle event",
@@ -958,7 +1005,7 @@ async def _emit_lifecycle_event(
     actor_type: str,
     requested_at: datetime,
     *,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str,
 ) -> None:
     """Emit a pattern lifecycle event to Kafka for reducer processing.
 
@@ -977,6 +1024,7 @@ async def _emit_lifecycle_event(
         actor_type: Actor classification ("handler" for auto-demote, "admin" for manual).
         requested_at: Timestamp when demotion was requested.
         topic_env_prefix: Environment prefix for topic (e.g., "dev", "prod").
+            Required parameter - must be provided by caller from configuration.
 
     Note:
         The request_id is generated here as the idempotency key. It flows
@@ -1033,7 +1081,7 @@ async def _emit_deprecation_event(
     deprecated_at: datetime,
     correlation_id: UUID | None,
     *,
-    topic_env_prefix: str = "dev",
+    topic_env_prefix: str,
 ) -> None:
     """Emit a pattern-deprecated event to Kafka.
 
@@ -1050,7 +1098,8 @@ async def _emit_deprecation_event(
         thresholds: Effective thresholds used for this demotion.
         deprecated_at: Demotion timestamp.
         correlation_id: Correlation ID for tracing.
-        topic_env_prefix: Environment prefix for topic.
+        topic_env_prefix: Environment prefix for topic (e.g., "dev", "prod").
+            Required parameter - must be provided by caller from configuration.
     """
     # Build topic name with environment prefix
     topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_DEPRECATED_V1}"

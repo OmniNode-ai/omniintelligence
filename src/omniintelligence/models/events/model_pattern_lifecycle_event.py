@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
+from omniintelligence.models.domain import ModelGateSnapshot
 
 
 class ModelPatternLifecycleEvent(BaseModel):

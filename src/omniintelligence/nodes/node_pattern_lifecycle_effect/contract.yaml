@@ -37,7 +37,7 @@ description: >
   intents from the reducer containing pattern_id, from_status, to_status, trigger, and request_id (idempotency
   key). Atomically updates learned_patterns.status (with status guard) and inserts audit record into pattern_lifecycle_transitions
   table. Provides PROVISIONAL guard to reject legacy provisional state transitions. Uses request_id-based
-  idempotency to prevent duplicate transitions. #magic___^_^___line
+  idempotency to prevent duplicate transitions.
 # =============================================================================
 # I/O MODELS
 # =============================================================================
@@ -55,12 +55,14 @@ output_model:
 # HANDLER ROUTING
 # =============================================================================
 handler_routing:
-  routing_strategy: "single_entry"
-  entry_point:
-    function: "apply_transition"
-    module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
-    type: "async"
-    description: "Apply pattern status transition with idempotency, status guard, and atomic audit"
+  routing_strategy: "operation_type_match"
+  handlers:
+    - operation: "apply_transition"
+      handler:
+        function: "apply_transition"
+        module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
+        type: "async"
+        description: "Apply pattern status transition with idempotency, status guard, and atomic audit"
 
 # =============================================================================
 # IO OPERATIONS

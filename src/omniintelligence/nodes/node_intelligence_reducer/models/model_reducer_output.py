@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.enums import EnumFSMType, EnumOrchestratorWorkflowType
 
@@ -68,7 +68,7 @@ class ModelReducerIntentPayload(BaseModel):
         description="Priority level for intent processing",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelReducerIntent(BaseModel):
@@ -99,7 +99,7 @@ class ModelReducerIntent(BaseModel):
         description="Timestamp when intent was created",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelReducerMetadata(BaseModel):
@@ -147,7 +147,7 @@ class ModelReducerMetadata(BaseModel):
         description="Whether this was a duplicate action (skipped)",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelReducerOutput(BaseModel):
@@ -183,7 +183,7 @@ class ModelReducerOutput(BaseModel):
         description="Any errors encountered",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 __all__ = [

@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS pattern_lifecycle_transitions (
     request_id UUID NOT NULL,
 
     -- Pattern reference
-    pattern_id UUID NOT NULL REFERENCES learned_patterns(id) ON DELETE CASCADE,
+    -- NOTE: Using ON DELETE RESTRICT (not CASCADE) to preserve audit trail.
+    -- Audit records must never be silently deleted when parent patterns are removed.
+    -- If a pattern needs deletion, audit history should be explicitly archived first.
+    pattern_id UUID NOT NULL REFERENCES learned_patterns(id) ON DELETE RESTRICT,
 
     -- State transition
     from_status VARCHAR(20) NOT NULL,
@@ -76,7 +79,7 @@ COMMENT ON TABLE pattern_lifecycle_transitions IS 'Audit table tracking all patt
 
 COMMENT ON COLUMN pattern_lifecycle_transitions.id IS 'Primary key - unique identifier for this transition record';
 COMMENT ON COLUMN pattern_lifecycle_transitions.request_id IS 'Request ID for idempotent transition tracking';
-COMMENT ON COLUMN pattern_lifecycle_transitions.pattern_id IS 'Reference to the pattern that transitioned';
+COMMENT ON COLUMN pattern_lifecycle_transitions.pattern_id IS 'Reference to the pattern that transitioned. Uses ON DELETE RESTRICT to preserve audit trail.';
 COMMENT ON COLUMN pattern_lifecycle_transitions.from_status IS 'Previous status before transition (candidate, provisional, validated, deprecated)';
 COMMENT ON COLUMN pattern_lifecycle_transitions.to_status IS 'New status after transition (candidate, provisional, validated, deprecated)';
 COMMENT ON COLUMN pattern_lifecycle_transitions.trigger IS 'Event or condition that triggered the transition';

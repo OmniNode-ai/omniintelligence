@@ -653,6 +653,7 @@ class TestManualDisableGate:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Should be demoted despite cooldown
@@ -691,6 +692,7 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Should be skipped due to cooldown
@@ -714,6 +716,7 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Should be demoted - cooldown expired
@@ -745,6 +748,7 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Should be demoted - no cooldown applies
@@ -781,6 +785,7 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Should be demoted - custom cooldown (4h) has expired
@@ -811,6 +816,7 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Manual disable bypasses cooldown
@@ -855,6 +861,7 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 3
@@ -1060,6 +1067,7 @@ class TestDryRunMode:
             repository=mock_repository,
             producer=None,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Only fetch query executed (no UPDATE)
@@ -1095,6 +1103,7 @@ class TestDryRunMode:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         # No events published
@@ -1123,6 +1132,7 @@ class TestDryRunMode:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert len(result.patterns_demoted) == 1
@@ -1172,6 +1182,7 @@ class TestDryRunMode:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 3
@@ -1226,6 +1237,7 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert result.dry_run is False
@@ -1237,15 +1249,16 @@ class TestActualDemotion:
         assert mock_repository.patterns[sample_pattern_id].status == "validated"
 
     @pytest.mark.asyncio
-    async def test_without_producer_skips_demotion_request(
+    async def test_without_producer_includes_result_with_kafka_unavailable_reason(
         self,
         mock_repository: MockPatternRepository,
         sample_pattern_id: UUID,
     ) -> None:
-        """Without Kafka producer, demotion is skipped (not silently executed).
+        """Without Kafka producer, demotion result is included with reason.
 
-        OMN-1805: Kafka is REQUIRED for actual demotions. Without it, the handler
-        cannot reach the reducer which is the single source of truth.
+        OMN-1805: When Kafka is unavailable, the pattern IS included in
+        patterns_demoted with reason='kafka_producer_unavailable'. The result
+        is NOT dropped - it's recorded so callers know what happened.
         """
         mock_repository.add_pattern(
             DemotablePattern(
@@ -1263,14 +1276,18 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=None,  # No Kafka producer
             request=request,
+            topic_env_prefix="test",
         )
 
-        # Pattern eligible but demotion skipped (no producer)
+        # Pattern eligible and result IS included (not dropped)
         assert result.patterns_checked == 1
         assert result.patterns_eligible == 1
-        # Result indicates skipped due to kafka_unavailable
-        assert len(result.patterns_demoted) == 0  # Skipped, not included
-        # Database status unchanged
+        # Result IS included with kafka_producer_unavailable reason
+        assert len(result.patterns_demoted) == 1
+        assert result.patterns_demoted[0].reason == "kafka_producer_unavailable"
+        # No actual DB update occurred (deprecated_at is None)
+        assert result.patterns_demoted[0].deprecated_at is None
+        # Database status unchanged (event not sent to reducer)
         assert mock_repository.patterns[sample_pattern_id].status == "validated"
 
     @pytest.mark.asyncio
@@ -1295,6 +1312,7 @@ class TestActualDemotion:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 1
@@ -1336,6 +1354,7 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert len(result.patterns_demoted) == 2
@@ -1366,6 +1385,7 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
         after = datetime.now(UTC)
 
@@ -1383,6 +1403,7 @@ class TestActualDemotion:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 0
@@ -1454,6 +1475,7 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         _topic, key, _value = mock_producer.published_events[0]
@@ -1483,6 +1505,7 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1520,6 +1543,7 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1555,6 +1579,7 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1593,6 +1618,7 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1623,6 +1649,7 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -2057,6 +2084,7 @@ class TestEdgeCases:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Not found in validated query
@@ -2086,6 +2114,7 @@ class TestEdgeCases:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         # Not found in query
@@ -2114,6 +2143,7 @@ class TestEdgeCases:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 100
@@ -2129,17 +2159,17 @@ class TestEdgeCases:
         assert reason is None  # No criteria met with defaults
 
     @pytest.mark.asyncio
-    async def test_kafka_unavailable_skips_demotion_gracefully(
+    async def test_kafka_unavailable_includes_result_with_reason(
         self,
         mock_repository: MockPatternRepository,
     ) -> None:
-        """Demotion without Kafka is skipped gracefully (OMN-1805).
+        """Demotion without Kafka includes result with reason (OMN-1805).
 
         This tests the scenario where:
         1. Pattern is fetched as 'validated' (eligible for demotion)
         2. Kafka producer is unavailable (None)
-        3. Demotion is skipped (not silently executed)
-        4. The skipped result should NOT be included in patterns_demoted list
+        3. Result IS included in patterns_demoted with reason='kafka_producer_unavailable'
+        4. deprecated_at is None (no actual DB update)
         5. Database status remains unchanged
 
         NOTE: With OMN-1805, there is no "concurrent demotion" scenario because
@@ -2165,16 +2195,20 @@ class TestEdgeCases:
             repository=mock_repository,
             producer=None,  # Kafka unavailable
             request=request,
+            topic_env_prefix="test",
         )
 
         # Pattern was checked and found eligible
         assert result.patterns_checked == 1
         assert result.patterns_eligible == 1
 
-        # Skipped demotions NOT in patterns_demoted list
-        assert len(result.patterns_demoted) == 0
+        # Result IS included with kafka_producer_unavailable reason
+        assert len(result.patterns_demoted) == 1
+        assert result.patterns_demoted[0].reason == "kafka_producer_unavailable"
+        # No actual DB update occurred
+        assert result.patterns_demoted[0].deprecated_at is None
 
-        # Database status unchanged
+        # Database status unchanged (event not sent to reducer)
         assert mock_repository.patterns[pattern_id].status == "validated"
 
 
@@ -2351,6 +2385,7 @@ class TestResultModelValidation:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         assert isinstance(result, ModelDemotionCheckResult)
@@ -2387,6 +2422,7 @@ class TestResultModelValidation:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
+            topic_env_prefix="test",
         )
 
         demotion = result.patterns_demoted[0]
@@ -2505,6 +2541,7 @@ class TestDemotePatternDirect:
             pattern_data=pattern_data,
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
+            topic_env_prefix="test",
         )
 
         assert result.from_status == "validated"
@@ -2554,6 +2591,7 @@ class TestDemotePatternDirect:
             pattern_data=pattern_data,
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
+            topic_env_prefix="test",
         )
 
         # Demotion skipped, not silently executed
@@ -2598,6 +2636,7 @@ class TestDemotePatternDirect:
             pattern_data=pattern_data,
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
+            topic_env_prefix="test",
         )
 
         assert result.gate_snapshot is not None

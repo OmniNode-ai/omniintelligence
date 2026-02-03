@@ -13,7 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
+from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.models.domain import ModelGateSnapshot
 
 
 class ModelPatternLifecycleReducerInput(BaseModel):
@@ -26,8 +27,10 @@ class ModelPatternLifecycleReducerInput(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     pattern_id: str = Field(..., description="Pattern UUID as string")
-    from_status: str = Field(..., description="Current status (for validation)")
-    to_status: str = Field(..., description="Target status")
+    from_status: EnumPatternLifecycleStatus = Field(
+        ..., description="Current status (for validation)"
+    )
+    to_status: EnumPatternLifecycleStatus = Field(..., description="Target status")
     trigger: str = Field(
         ...,
         description="Trigger name: validation_passed, promote, deprecate, manual_reenable",

@@ -62,15 +62,17 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1
+from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,
     ModelTransitionResult,
 )
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # =============================================================================
 
-PROVISIONAL_STATUS: str = "provisional"
+PROVISIONAL_STATUS: EnumPatternLifecycleStatus = EnumPatternLifecycleStatus.PROVISIONAL
 """Legacy status that new transitions are not allowed to target."""
 
 
@@ -152,6 +154,19 @@ class ProtocolIdempotencyStore(Protocol):
 
     The implementation may use PostgreSQL, Redis, or in-memory storage
     depending on the deployment environment.
+
+    Idempotency Timing:
+        To ensure operations are retriable on failure, the idempotency key
+        should be recorded AFTER successful completion:
+
+        1. Call exists() to check for duplicates
+        2. If duplicate, return cached success
+        3. Perform the operation
+        4. On SUCCESS, call record() to mark as processed
+        5. On FAILURE, do NOT record - allows retry
+
+        This ensures that failed operations can be retried with the same
+        request_id, while preventing duplicate processing of successful ones.
     """
 
     async def check_and_record(self, request_id: UUID) -> bool:
@@ -171,6 +186,10 @@ class ProtocolIdempotencyStore(Protocol):
             Returns True for duplicates (not False) because the common
             case is "not a duplicate" and we want that to be falsy for
             easy if-statement guards.
+
+        Warning:
+            For operations that may fail, prefer using exists() + record()
+            separately to ensure failed operations remain retriable.
         """
         ...
 
@@ -182,6 +201,20 @@ class ProtocolIdempotencyStore(Protocol):
 
         Returns:
             True if request_id exists, False otherwise.
+        """
+        ...
+
+    async def record(self, request_id: UUID) -> None:
+        """Record a request_id as processed (without checking).
+
+        This should be called AFTER successful operation completion to
+        prevent replay of the same request_id.
+
+        Args:
+            request_id: The idempotency key to record.
+
+        Note:
+            If the request_id already exists, this is a no-op (idempotent).
         """
         ...
 
@@ -262,23 +295,38 @@ async def apply_transition(
     request_id: UUID,
     correlation_id: UUID,
     pattern_id: UUID,
-    from_status: str,
-    to_status: str,
+    from_status: EnumPatternLifecycleStatus,
+    to_status: EnumPatternLifecycleStatus,
     trigger: str,
     actor: str = "reducer",
     reason: str | None = None,
-    gate_snapshot: dict | None = None,
+    gate_snapshot: dict[str, Any] | None = None,
     transition_at: datetime,
     topic_env_prefix: str = "dev",
+    conn: ProtocolPatternRepository | None = None,
 ) -> ModelTransitionResult:
     """Apply a pattern status transition with atomicity and idempotency.
 
     This is the main entry point for the transition handler. It:
     1. Validates PROVISIONAL guard (rejects to_status == "provisional")
-    2. Checks idempotency store for duplicate request_id
-    3. Atomically: UPDATE pattern status + INSERT audit record
-    4. Emits Kafka event (if producer available)
-    5. Returns transition result
+    2. Checks idempotency store for duplicate request_id (without recording)
+    3. Atomically: UPDATE pattern status + INSERT audit record (within transaction)
+    4. Records idempotency key AFTER successful database operations
+    5. Emits Kafka event (if producer available) - failures don't fail the operation
+
+    Idempotency Timing:
+        The idempotency key is recorded AFTER successful database operations,
+        not before. This ensures that failed operations can be retried with
+        the same request_id.
+
+    Transaction Control:
+        If ``conn`` is provided, it is used for all database operations,
+        allowing the caller to manage the transaction externally. Both the
+        UPDATE and INSERT operations will use the same connection, ensuring
+        atomicity within the caller's transaction boundary.
+
+        If ``conn`` is None, operations use the ``repository`` directly.
+        In this case, atomicity depends on the repository's implementation.
 
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
@@ -297,6 +345,9 @@ async def apply_transition(
         gate_snapshot: Gate values at decision time (optional).
         transition_at: When to record as transition time.
         topic_env_prefix: Environment prefix for Kafka topic.
+        conn: Optional external connection for caller-managed transactions.
+            If provided, all database operations use this connection.
+            If None, operations use the repository directly.
 
     Returns:
         ModelTransitionResult with transition outcome.
@@ -316,8 +367,34 @@ async def apply_transition(
         },
     )
 
+    # Step 0: Validate trigger is not empty
+    # Trigger documents why the transition occurred - empty triggers make audit logs useless
+    if not trigger or not trigger.strip():
+        logger.warning(
+            "Empty trigger rejected - trigger is required for audit trail",
+            extra={
+                "correlation_id": str(correlation_id),
+                "request_id": str(request_id),
+                "pattern_id": str(pattern_id),
+                "from_status": from_status,
+                "to_status": to_status,
+            },
+        )
+        return ModelTransitionResult(
+            success=False,
+            duplicate=False,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            transition_id=None,
+            reason="Validation error: trigger is required",
+            transitioned_at=None,
+            error_message="Trigger cannot be empty or whitespace-only. "
+            "A meaningful trigger is required for audit trail integrity.",
+        )
+
     # Step 1: PROVISIONAL guard - reject transitions TO provisional
-    if to_status.lower() == PROVISIONAL_STATUS:
+    if to_status == PROVISIONAL_STATUS:
         logger.warning(
             "PROVISIONAL guard: Rejecting transition to provisional status",
             extra={
@@ -342,7 +419,9 @@ async def apply_transition(
         )
 
     # Step 2: Check idempotency - is this a duplicate request?
-    is_duplicate = await idempotency_store.check_and_record(request_id)
+    # Use exists() to check WITHOUT recording. The key will be recorded
+    # AFTER successful database operations to ensure failed ops are retriable.
+    is_duplicate = await idempotency_store.exists(request_id)
     if is_duplicate:
         logger.info(
             "Duplicate request_id detected - returning cached success",
@@ -364,7 +443,9 @@ async def apply_transition(
         )
 
     # Step 3: Verify pattern exists and check current status
-    pattern_row = await repository.fetchrow(SQL_GET_PATTERN_STATUS, pattern_id)
+    # Use conn if provided for external transaction control, otherwise use repository
+    db = conn if conn is not None else repository
+    pattern_row = await db.fetchrow(SQL_GET_PATTERN_STATUS, pattern_id)
     if pattern_row is None:
         logger.warning(
             "Pattern not found",
@@ -387,11 +468,12 @@ async def apply_transition(
         )
 
     # Step 4: Atomic transaction - UPDATE status + INSERT audit
+    # Both operations use the same db connection for atomicity
     transition_id = uuid4()
 
     try:
         # Update pattern status with guard clause
-        update_status = await repository.execute(
+        update_status = await db.execute(
             SQL_UPDATE_PATTERN_STATUS,
             pattern_id,
             to_status,
@@ -430,7 +512,7 @@ async def apply_transition(
         # Convert gate_snapshot dict to JSON string if present
         gate_snapshot_json = json.dumps(gate_snapshot) if gate_snapshot else None
 
-        await repository.execute(
+        await db.execute(
             SQL_INSERT_LIFECYCLE_TRANSITION,
             transition_id,
             pattern_id,
@@ -444,6 +526,10 @@ async def apply_transition(
             request_id,
             correlation_id,
         )
+
+        # Step 4b: Record idempotency key AFTER successful database operations
+        # This ensures failed operations can be retried with the same request_id
+        await idempotency_store.record(request_id)
 
         logger.info(
             "Pattern lifecycle transition applied successfully",
@@ -482,21 +568,58 @@ async def apply_transition(
         )
 
     # Step 5: Emit Kafka event (if producer available)
+    # Kafka failures do NOT fail the main operation - the database transition
+    # already succeeded. Failed events are routed to DLQ for later processing.
     if producer is not None:
-        await _emit_transition_event(
-            producer=producer,
-            pattern_id=pattern_id,
-            from_status=from_status,
-            to_status=to_status,
-            trigger=trigger,
-            actor=actor,
-            reason=reason,
-            transition_id=transition_id,
-            transitioned_at=transition_at,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            topic_env_prefix=topic_env_prefix,
-        )
+        try:
+            await _emit_transition_event(
+                producer=producer,
+                pattern_id=pattern_id,
+                from_status=from_status,
+                to_status=to_status,
+                trigger=trigger,
+                actor=actor,
+                reason=reason,
+                transition_id=transition_id,
+                transitioned_at=transition_at,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                topic_env_prefix=topic_env_prefix,
+            )
+        except Exception as kafka_exc:
+            # Kafka failure - log with sanitization and route to DLQ
+            # The main operation succeeded, so we return success below
+            sanitizer = get_log_sanitizer()
+            sanitized_error = sanitizer.sanitize(str(kafka_exc))
+
+            logger.error(
+                "Kafka event emission failed - routing to DLQ",
+                extra={
+                    "correlation_id": str(correlation_id),
+                    "request_id": str(request_id),
+                    "pattern_id": str(pattern_id),
+                    "transition_id": str(transition_id),
+                    "error": sanitized_error,
+                    "error_type": type(kafka_exc).__name__,
+                },
+            )
+
+            # Attempt DLQ routing (best effort, don't fail on DLQ errors)
+            await _send_to_dlq(
+                producer=producer,
+                pattern_id=pattern_id,
+                from_status=from_status,
+                to_status=to_status,
+                trigger=trigger,
+                actor=actor,
+                reason=reason,
+                transition_id=transition_id,
+                transitioned_at=transition_at,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                topic_env_prefix=topic_env_prefix,
+                error_message=sanitized_error,
+            )
 
     return ModelTransitionResult(
         success=True,
@@ -513,8 +636,8 @@ async def apply_transition(
 async def _emit_transition_event(
     producer: ProtocolKafkaPublisher,
     pattern_id: UUID,
-    from_status: str,
-    to_status: str,
+    from_status: EnumPatternLifecycleStatus,
+    to_status: EnumPatternLifecycleStatus,
     trigger: str,
     actor: str,
     reason: str | None,
@@ -575,6 +698,109 @@ async def _emit_transition_event(
             "topic": topic,
         },
     )
+
+
+async def _send_to_dlq(
+    producer: ProtocolKafkaPublisher,
+    pattern_id: UUID,
+    from_status: str,
+    to_status: str,
+    trigger: str,
+    actor: str,
+    reason: str | None,
+    transition_id: UUID,
+    transitioned_at: datetime,
+    request_id: UUID,
+    correlation_id: UUID,
+    error_message: str,
+    *,
+    topic_env_prefix: str = "dev",
+) -> None:
+    """Send failed event to Dead Letter Queue with sanitized error message.
+
+    DLQ events are sanitized to prevent secrets from leaking during debugging
+    and error analysis. This function is best-effort: DLQ send failures are
+    logged but do not propagate exceptions.
+
+    Args:
+        producer: Kafka producer implementing ProtocolKafkaPublisher.
+        pattern_id: The pattern ID for the failed transition.
+        from_status: Previous status.
+        to_status: Target status.
+        trigger: What triggered the transition.
+        actor: Who applied the transition.
+        reason: Human-readable reason.
+        transition_id: Unique ID for this transition.
+        transitioned_at: When the transition occurred.
+        request_id: Idempotency key.
+        correlation_id: For distributed tracing.
+        error_message: Sanitized error message (must be pre-sanitized by caller).
+        topic_env_prefix: Environment prefix for topic.
+    """
+    # Build DLQ topic name: {original_topic}.dlq
+    original_topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"
+    dlq_topic = f"{original_topic}.dlq"
+
+    try:
+        # Build DLQ payload with error metadata
+        # Note: error_message should already be sanitized by caller
+        dlq_payload = {
+            "original_topic": original_topic,
+            "pattern_id": str(pattern_id),
+            "from_status": from_status,
+            "to_status": to_status,
+            "trigger": trigger,
+            "actor": actor,
+            "reason": reason,
+            "transition_id": str(transition_id),
+            "transitioned_at": transitioned_at.isoformat(),
+            "request_id": str(request_id),
+            "correlation_id": str(correlation_id),
+            "error_message": error_message,
+            "error_timestamp": datetime.now(UTC).isoformat(),
+            "service": "omniintelligence",
+        }
+
+        # Sanitize the entire payload to catch any secrets we might have missed
+        sanitizer = get_log_sanitizer()
+        sanitized_payload = {
+            k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
+            for k, v in dlq_payload.items()
+        }
+
+        await producer.publish(
+            topic=dlq_topic,
+            key=str(pattern_id),
+            value=sanitized_payload,
+        )
+
+        logger.info(
+            "Event sent to DLQ",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+                "transition_id": str(transition_id),
+                "dlq_topic": dlq_topic,
+            },
+        )
+
+    except Exception as dlq_exc:
+        # DLQ send failed - log but don't propagate
+        # The main operation already succeeded, we can't fail here
+        sanitizer = get_log_sanitizer()
+        sanitized_dlq_error = sanitizer.sanitize(str(dlq_exc))
+
+        logger.error(
+            "Failed to send event to DLQ",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+                "transition_id": str(transition_id),
+                "dlq_topic": dlq_topic,
+                "error": sanitized_dlq_error,
+                "error_type": type(dlq_exc).__name__,
+            },
+        )
 
 
 def _parse_update_count(status: str | None) -> int:

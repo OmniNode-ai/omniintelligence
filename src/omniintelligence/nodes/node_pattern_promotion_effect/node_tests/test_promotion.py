@@ -828,6 +828,7 @@ class TestActualPromotion:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -841,15 +842,15 @@ class TestActualPromotion:
         assert mock_repository.patterns[sample_pattern_id].status == "provisional"
 
     @pytest.mark.asyncio
-    async def test_without_producer_skips_promotion_request(
+    async def test_without_producer_uses_fallback_direct_sql(
         self,
         mock_repository: MockPatternRepository,
         sample_pattern_id: UUID,
     ) -> None:
-        """Without Kafka producer, promotion is skipped (not silently executed).
+        """Without Kafka producer, promotion proceeds via direct SQL (fallback mode).
 
-        OMN-1805: Kafka is REQUIRED for actual promotions. Without it, the handler
-        cannot reach the reducer which is the single source of truth.
+        ONEX Invariant: Effect nodes must never block on Kafka. When producer is
+        unavailable, promotion uses direct database UPDATE as fallback.
         """
         # Arrange
         mock_repository.add_pattern(
@@ -865,15 +866,19 @@ class TestActualPromotion:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
-            producer=None,  # No Kafka producer
+            producer=None,  # No Kafka producer - uses fallback
             dry_run=False,
         )
 
-        # Assert: Pattern eligible but promotion skipped (no producer)
+        # Assert: Pattern promoted via direct SQL (fallback mode)
         assert result.patterns_checked == 1
         assert result.patterns_eligible == 1
-        # Result indicates skipped due to kafka_unavailable
-        assert len(result.patterns_promoted) == 0  # Skipped, not included
+        assert len(result.patterns_promoted) == 1
+        # Promotion succeeded via fallback
+        assert result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
+        assert result.patterns_promoted[0].promoted_at is not None
+        # Database updated directly (fallback mode)
+        assert mock_repository.patterns[sample_pattern_id].status == "validated"
 
     @pytest.mark.asyncio
     async def test_skips_ineligible_patterns(
@@ -937,6 +942,7 @@ class TestActualPromotion:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -968,6 +974,7 @@ class TestActualPromotion:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
         after = datetime.now(UTC)
@@ -1061,6 +1068,7 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1091,6 +1099,7 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1124,6 +1133,7 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1162,6 +1172,7 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             correlation_id=sample_correlation_id,
             dry_run=False,
         )
@@ -1193,6 +1204,7 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1252,6 +1264,7 @@ class TestPromotePatternDirect:
             producer=mock_producer,
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
+            topic_env_prefix="test",
         )
 
         # Assert
@@ -1264,12 +1277,16 @@ class TestPromotePatternDirect:
         assert mock_repository.patterns[sample_pattern_id].status == "provisional"
 
     @pytest.mark.asyncio
-    async def test_promote_pattern_without_producer_returns_skipped(
+    async def test_promote_pattern_without_producer_uses_fallback(
         self,
         mock_repository: MockPatternRepository,
         sample_pattern_id: UUID,
     ) -> None:
-        """promote_pattern with producer=None returns skipped result (no silent execution)."""
+        """promote_pattern with producer=None uses direct SQL fallback.
+
+        ONEX Invariant: Effect nodes must never block on Kafka. When producer
+        is unavailable, promote_pattern performs direct database UPDATE.
+        """
         # Arrange
         mock_repository.add_pattern(
             PromotablePattern(
@@ -1292,17 +1309,17 @@ class TestPromotePatternDirect:
         # Act
         result = await promote_pattern(
             repository=mock_repository,
-            producer=None,  # No Kafka producer
+            producer=None,  # No Kafka producer - uses fallback
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
         )
 
-        # Assert: Promotion skipped, not silently executed
-        assert result.to_status == "validated"  # Target status
-        assert result.promoted_at is None  # Indicates not actually promoted
-        assert result.reason == "kafka_unavailable_skipped"
-        # Database unchanged
-        assert mock_repository.patterns[sample_pattern_id].status == "provisional"
+        # Assert: Promotion succeeded via direct SQL fallback
+        assert result.to_status == "validated"
+        assert result.promoted_at is not None  # Promotion actually happened
+        assert result.reason == "auto_promote_rolling_window_fallback"
+        # Database updated directly (fallback mode)
+        assert mock_repository.patterns[sample_pattern_id].status == "validated"
 
     @pytest.mark.asyncio
     async def test_promote_pattern_returns_gate_snapshot(
@@ -1337,6 +1354,7 @@ class TestPromotePatternDirect:
             producer=mock_producer,
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
+            topic_env_prefix="test",
         )
 
         # Assert
@@ -1403,6 +1421,7 @@ class TestResultModelValidation:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             correlation_id=sample_correlation_id,
             dry_run=False,
         )
@@ -1440,6 +1459,7 @@ class TestResultModelValidation:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1569,22 +1589,23 @@ class TestEdgeCases:
         assert meets_promotion_criteria(pattern) is True
 
     @pytest.mark.asyncio
-    async def test_kafka_unavailable_skips_promotion_gracefully(
+    async def test_kafka_unavailable_promotes_via_direct_sql(
         self,
         mock_repository: MockPatternRepository,
     ) -> None:
-        """Promotion without Kafka is skipped gracefully (OMN-1805).
+        """Promotion without Kafka uses direct SQL fallback (ONEX invariant).
+
+        ONEX Invariant: Effect nodes must never block on Kafka.
 
         This tests the scenario where:
         1. Pattern is fetched as 'provisional' (eligible for promotion)
         2. Kafka producer is unavailable (None)
-        3. Promotion is skipped (not silently executed)
-        4. The skipped result should NOT be included in patterns_promoted list
-        5. Database status remains unchanged
+        3. Promotion proceeds via direct SQL UPDATE (fallback mode)
+        4. Database status IS updated
+        5. Downstream Kafka consumers will NOT be notified
 
-        NOTE: With OMN-1805, there is no "concurrent promotion" scenario because
-        the handler no longer does direct SQL updates. The reducer handles
-        idempotency via request_id tracking.
+        NOTE: With fallback mode, there is no event-driven reducer validation.
+        The promotion happens directly in the database.
         """
         # Arrange
         pattern_id = uuid4()
@@ -1599,10 +1620,10 @@ class TestEdgeCases:
             )
         )
 
-        # Act - No Kafka producer available
+        # Act - No Kafka producer available, uses fallback
         result = await check_and_promote_patterns(
             repository=mock_repository,
-            producer=None,  # Kafka unavailable
+            producer=None,  # Kafka unavailable - uses direct SQL fallback
             dry_run=False,
         )
 
@@ -1611,11 +1632,13 @@ class TestEdgeCases:
         assert result.patterns_checked == 1
         assert result.patterns_eligible == 1
 
-        # Skipped promotions NOT in patterns_promoted list
-        assert len(result.patterns_promoted) == 0
+        # Promotion succeeded via fallback
+        assert len(result.patterns_promoted) == 1
+        assert result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
+        assert result.patterns_promoted[0].promoted_at is not None
 
-        # Database status unchanged
-        assert mock_repository.patterns[pattern_id].status == "provisional"
+        # Database status WAS updated (fallback mode)
+        assert mock_repository.patterns[pattern_id].status == "validated"
 
 
 # =============================================================================
@@ -1846,6 +1869,7 @@ class TestConfigurableThresholds:
         result_lenient = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
+            topic_env_prefix="test",
             dry_run=False,
             min_injection_count=2,
             min_success_rate=0.4,

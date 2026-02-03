@@ -81,7 +81,7 @@ class ModelIngestionPayload(BaseModel):
         description="Detailed error information",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelPatternLearningPayload(BaseModel):
@@ -140,7 +140,7 @@ class ModelPatternLearningPayload(BaseModel):
         description="Detailed error information",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelQualityAssessmentPayload(BaseModel):
@@ -201,7 +201,7 @@ class ModelQualityAssessmentPayload(BaseModel):
         description="Detailed error information",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 # =============================================================================
@@ -255,7 +255,7 @@ class ModelReducerInputIngestion(BaseModel):
         description="Epoch for action lease management",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelReducerInputPatternLearning(BaseModel):
@@ -292,7 +292,7 @@ class ModelReducerInputPatternLearning(BaseModel):
         description="Epoch for action lease management",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelReducerInputQualityAssessment(BaseModel):
@@ -329,7 +329,7 @@ class ModelReducerInputQualityAssessment(BaseModel):
         description="Epoch for action lease management",
     )
 
-    model_config = {"frozen": True, "extra": "forbid"}
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ModelReducerInputPatternLifecycle(BaseModel):

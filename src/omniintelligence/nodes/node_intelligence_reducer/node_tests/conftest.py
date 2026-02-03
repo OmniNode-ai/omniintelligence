@@ -16,6 +16,7 @@ from uuid import UUID
 
 import pytest
 
+from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_intelligence_reducer.models.model_pattern_lifecycle_reducer_input import (
     ModelPatternLifecycleReducerInput,
 )
@@ -84,8 +85,8 @@ def make_reducer_input():
     def _make_input(
         *,
         pattern_id: str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-        from_status: str = "candidate",
-        to_status: str = "provisional",
+        from_status: str | EnumPatternLifecycleStatus = "candidate",
+        to_status: str | EnumPatternLifecycleStatus = "provisional",
         trigger: str = "validation_passed",
         actor_type: str = "handler",
         actor: str = "test_actor",
@@ -98,8 +99,8 @@ def make_reducer_input():
 
         Args:
             pattern_id: Pattern UUID as string.
-            from_status: Source lifecycle status.
-            to_status: Target lifecycle status.
+            from_status: Source lifecycle status (enum or lowercase string).
+            to_status: Target lifecycle status (enum or lowercase string).
             trigger: FSM trigger name.
             actor_type: One of "system", "admin", "handler".
             actor: Actor identifier.
@@ -110,7 +111,17 @@ def make_reducer_input():
 
         Returns:
             ModelReducerInputPatternLifecycle ready for handler testing.
+
+        Note:
+            If strings are passed, they must be lowercase to match enum values.
+            Use EnumPatternLifecycleStatus.CANDIDATE etc. for explicit enums.
         """
+        # Convert strings to enums if needed (must be lowercase)
+        if isinstance(from_status, str):
+            from_status = EnumPatternLifecycleStatus(from_status.lower())
+        if isinstance(to_status, str):
+            to_status = EnumPatternLifecycleStatus(to_status.lower())
+
         return ModelReducerInputPatternLifecycle(
             fsm_type="PATTERN_LIFECYCLE",
             entity_id=pattern_id,
@@ -131,17 +142,3 @@ def make_reducer_input():
         )
 
     return _make_input
-
-
-# =============================================================================
-# Exports
-# =============================================================================
-
-__all__ = [
-    "sample_correlation_id",
-    "sample_pattern_id",
-    "sample_pattern_id_uuid",
-    "sample_request_id",
-    "sample_transition_at",
-    "make_reducer_input",
-]

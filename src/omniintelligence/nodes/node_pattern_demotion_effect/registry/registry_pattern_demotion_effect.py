@@ -32,6 +32,7 @@ Kafka Optionality:
             repository=db_connection,
             producer=None,  # Demotions succeed, Kafka events skipped
             request=request,
+            topic_env_prefix="dev",  # Required: environment prefix for Kafka topics
         )
 
     **Implications of running without Kafka:**

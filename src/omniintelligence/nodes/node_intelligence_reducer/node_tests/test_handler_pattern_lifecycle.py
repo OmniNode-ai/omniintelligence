@@ -33,6 +33,7 @@ from uuid import UUID
 
 import pytest
 
+from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_promotion_effect.models import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
@@ -290,107 +291,64 @@ class TestValidTransitions:
 class TestInvalidState:
     """Tests for invalid from_status values.
 
-    These tests verify that unknown states are rejected with
-    ERROR_INVALID_FROM_STATE and a descriptive error message.
+    With typed enums, invalid status strings are rejected at model creation
+    time (Pydantic validation), not at handler execution time.
+    These tests verify that validation correctly rejects invalid values.
     """
 
     def test_invalid_from_status_unknown_state(
         self,
         make_reducer_input,
-        sample_transition_at: datetime,
     ) -> None:
-        """Test rejection of unknown from_status value."""
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="unknown_state",
-            to_status="validated",
-            trigger="promote",
-        )
-
-        # Act
-        result = handle_pattern_lifecycle_transition(
-            input_data,
-            transition_at=sample_transition_at,
-        )
-
-        # Assert
-        assert result.success is False
-        assert result.error_code == ERROR_INVALID_FROM_STATE
-        assert result.intent is None
-        assert "unknown_state" in result.error_message
-        assert "Valid states" in result.error_message
+        """Test rejection of unknown from_status value at model creation."""
+        # Invalid status strings raise ValueError during enum conversion
+        with pytest.raises(ValueError, match="unknown_state"):
+            make_reducer_input(
+                from_status="unknown_state",
+                to_status="validated",
+                trigger="promote",
+            )
 
     def test_invalid_from_status_empty_string(
         self,
         make_reducer_input,
-        sample_transition_at: datetime,
     ) -> None:
-        """Test rejection of empty string from_status."""
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="",
-            to_status="validated",
-            trigger="promote",
-        )
-
-        # Act
-        result = handle_pattern_lifecycle_transition(
-            input_data,
-            transition_at=sample_transition_at,
-        )
-
-        # Assert
-        assert result.success is False
-        assert result.error_code == ERROR_INVALID_FROM_STATE
+        """Test rejection of empty string from_status at model creation."""
+        # Empty strings raise ValueError during enum conversion
+        with pytest.raises(ValueError):
+            make_reducer_input(
+                from_status="",
+                to_status="validated",
+                trigger="promote",
+            )
 
     def test_invalid_from_status_typo(
         self,
         make_reducer_input,
-        sample_transition_at: datetime,
     ) -> None:
         """Test rejection of typo in from_status (e.g., 'candiate')."""
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="candiate",  # Typo
-            to_status="provisional",
-            trigger="validation_passed",
-        )
+        # Typos raise ValueError during enum conversion
+        with pytest.raises(ValueError, match="candiate"):
+            make_reducer_input(
+                from_status="candiate",  # Typo
+                to_status="provisional",
+                trigger="validation_passed",
+            )
 
-        # Act
-        result = handle_pattern_lifecycle_transition(
-            input_data,
-            transition_at=sample_transition_at,
-        )
-
-        # Assert
-        assert result.success is False
-        assert result.error_code == ERROR_INVALID_FROM_STATE
-        assert "candiate" in result.error_message
-
-    def test_error_message_lists_valid_states(
+    def test_valid_enum_values_accepted(
         self,
         make_reducer_input,
-        sample_transition_at: datetime,
     ) -> None:
-        """Test that error message includes list of valid states."""
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="invalid",
-            to_status="validated",
-            trigger="promote",
-        )
-
-        # Act
-        result = handle_pattern_lifecycle_transition(
-            input_data,
-            transition_at=sample_transition_at,
-        )
-
-        # Assert
-        assert result.success is False
-        # Verify all valid states are listed
-        for state in VALID_STATES:
-            assert state in result.error_message
+        """Test that all valid enum values are accepted."""
+        # All valid enum values should be accepted
+        for status in EnumPatternLifecycleStatus:
+            # Should not raise
+            input_data = make_reducer_input(
+                from_status=status,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+            )
+            assert input_data.payload.from_status == status
 
 
 # =============================================================================
@@ -1399,11 +1357,16 @@ class TestResultModel:
         make_reducer_input,
         sample_transition_at: datetime,
     ) -> None:
-        """Test that error result has None for intent field."""
-        # Arrange
+        """Test that error result has None for intent field.
+
+        Uses an invalid transition (wrong to_status) instead of invalid status
+        since status is now validated at model creation time via enum types.
+        """
+        # Arrange - Use valid states but invalid transition (wrong to_status)
+        # candidate + validation_passed should go to provisional, not deprecated
         input_data = make_reducer_input(
-            from_status="invalid",
-            to_status="provisional",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,  # Wrong target
             trigger="validation_passed",
         )
 
@@ -1424,19 +1387,22 @@ class TestResultModel:
         make_reducer_input,
         sample_transition_at: datetime,
     ) -> None:
-        """Test that result always contains from_status and trigger."""
+        """Test that result always contains from_status and trigger.
+
+        Tests both valid and invalid transitions (using wrong trigger).
+        """
         # Arrange - Valid transition
         input_valid = make_reducer_input(
-            from_status="candidate",
-            to_status="provisional",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
             trigger="validation_passed",
         )
 
-        # Arrange - Invalid transition
+        # Arrange - Invalid transition (wrong trigger for validated state)
         input_invalid = make_reducer_input(
-            from_status="invalid",
-            to_status="provisional",
-            trigger="invalid",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
+            trigger="validation_passed",  # Wrong trigger, should be "deprecate"
         )
 
         # Act
@@ -1452,8 +1418,8 @@ class TestResultModel:
         # Assert - Both have from_status and trigger
         assert result_valid.from_status == "candidate"
         assert result_valid.trigger == "validation_passed"
-        assert result_invalid.from_status == "invalid"
-        assert result_invalid.trigger == "invalid"
+        assert result_invalid.from_status == "validated"
+        assert result_invalid.trigger == "validation_passed"
 
 
 # =============================================================================

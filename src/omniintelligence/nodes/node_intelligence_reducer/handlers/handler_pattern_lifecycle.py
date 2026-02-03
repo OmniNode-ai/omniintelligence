@@ -37,6 +37,7 @@ from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID
 
+from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_intelligence_reducer.models.model_payload_update_pattern_status import (
     ModelPayloadUpdatePatternStatus,
 )
@@ -55,6 +56,13 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 #
 # This table is the SINGLE SOURCE OF TRUTH for valid transitions.
 # Any changes must be reflected in contract.yaml.
+#
+# TODO(OMN-1805): Derive FSM transition tables from contract.yaml at runtime.
+# The current hard-coded approach is acceptable for MVP and provides clear,
+# auditable transition logic. In a future iteration, these tables should be
+# dynamically loaded from contract.yaml to ensure single-source-of-truth
+# consistency and eliminate manual synchronization between code and contract.
+# See: node_intelligence_reducer/contract.yaml state_machine.transitions
 
 VALID_TRANSITIONS: Final[dict[tuple[str, str], str]] = {
     # candidate -> provisional via validation_passed
@@ -140,6 +148,7 @@ class PatternLifecycleTransitionResult:
 
 
 # Error code constants
+ERROR_INVALID_PATTERN_ID: Final[str] = "INVALID_PATTERN_ID"
 ERROR_INVALID_FROM_STATE: Final[str] = "INVALID_FROM_STATE"
 ERROR_INVALID_TRIGGER: Final[str] = "INVALID_TRIGGER"
 ERROR_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
@@ -188,6 +197,18 @@ def handle_pattern_lifecycle_transition(
     trigger = payload.trigger.lower()
     actor_type = payload.actor_type
     transition_time = transition_at or datetime.now(UTC)
+
+    # Step 0: Validate pattern_id is a valid UUID format
+    try:
+        UUID(payload.pattern_id)
+    except (ValueError, AttributeError):
+        return _create_error_result(
+            error_code=ERROR_INVALID_PATTERN_ID,
+            error_message=f"pattern_id is not a valid UUID: {payload.pattern_id}",
+            from_status=from_status,
+            to_status=to_status,
+            trigger=trigger,
+        )
 
     # Step 1: Validate from_status is a valid PATTERN_LIFECYCLE state
     if from_status not in VALID_STATES:
@@ -256,13 +277,14 @@ def handle_pattern_lifecycle_transition(
             )
 
     # Step 6: Build the intent payload
+    # Convert string statuses back to enum values for type safety
     intent = ModelPayloadUpdatePatternStatus(
         intent_type="postgres.update_pattern_status",
         request_id=input_data.request_id,
         correlation_id=input_data.correlation_id,
         pattern_id=UUID(payload.pattern_id),
-        from_status=from_status,
-        to_status=expected_to_status,
+        from_status=EnumPatternLifecycleStatus(from_status),
+        to_status=EnumPatternLifecycleStatus(expected_to_status),
         trigger=trigger,
         actor=payload.actor,
         reason=payload.reason,
@@ -374,6 +396,7 @@ def get_guard_conditions() -> dict[tuple[str, str], tuple[str, str, str]]:
 __all__ = [
     "ERROR_GUARD_CONDITION_FAILED",
     "ERROR_INVALID_FROM_STATE",
+    "ERROR_INVALID_PATTERN_ID",
     "ERROR_INVALID_TRANSITION",
     "ERROR_INVALID_TRIGGER",
     "ERROR_STATE_MISMATCH",
