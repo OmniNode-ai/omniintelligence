@@ -679,7 +679,7 @@ class TestExtractAllPatterns:
         # For now, we verify that at least one session is required
         # by checking the model validation
 
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValueError):  # Pydantic ValidationError inherits ValueError
             ModelPatternExtractionInput(
                 session_snapshots=(),  # Empty - should fail validation
                 options=ModelExtractionConfig(reference_time=reference_time),

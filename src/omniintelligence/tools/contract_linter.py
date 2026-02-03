@@ -25,7 +25,7 @@ import re
 import sys
 import time as time_module  # Avoid conflict with potential 'time' variable names
 from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -295,7 +295,7 @@ SENSITIVE_ENV_VAR_PATTERNS: tuple[str, ...] = (
 REDACTED_VALUE = "***REDACTED***"
 
 
-class EnumContractErrorType(str, Enum):
+class EnumContractErrorType(StrEnum):
     """
     Enumeration of contract validation error types.
 

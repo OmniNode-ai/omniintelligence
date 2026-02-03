@@ -300,6 +300,7 @@ class NodePatternStorageEffect(NodeEffect):
             input_data=input_data,
             pattern_store=self._pattern_store,
             state_manager=self._state_manager,
+            conn=None,
         )
 
 

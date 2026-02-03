@@ -23,12 +23,12 @@ from tests.fixtures.topic_constants import (
 )
 
 __all__ = [
+    # Topic constants
+    "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
+    "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     # Mock protocol implementations
     "MockPatternStateManager",
     "MockPatternStore",
     "create_low_confidence_input_dict",
     "create_valid_pattern_input",
-    # Topic constants
-    "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
-    "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
 ]

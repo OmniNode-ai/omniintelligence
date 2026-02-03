@@ -384,8 +384,8 @@ class TestBoundaryMappingEdgeCases:
 
 
 __all__ = [
-    "TestOutcomeToSuccess",
-    "TestExtractFailureReason",
-    "TestEventToHandlerArgs",
     "TestBoundaryMappingEdgeCases",
+    "TestEventToHandlerArgs",
+    "TestExtractFailureReason",
+    "TestOutcomeToSuccess",
 ]

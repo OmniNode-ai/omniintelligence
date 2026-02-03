@@ -188,35 +188,35 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    # Orchestrators (2)
-    "NodeIntelligenceOrchestrator",
-    "NodePatternAssemblerOrchestrator",
-    # Reducers (1)
-    "NodeIntelligenceReducer",
-    # Effects (2) + registries
-    "NodePatternFeedbackEffect",
-    "NodePatternPromotionEffect",
-    "RegistryPatternPromotionEffect",
-    "ServiceHandlerRegistry",
-    # Computes (7)
-    "NodeExecutionTraceParserCompute",
-    "NodeIntentClassifierCompute",
-    "NodePatternExtractionCompute",
-    "NodePatternMatchingCompute",
-    "NodeQualityScoringCompute",
-    "NodeSemanticAnalysisCompute",
-    "NodeSuccessCriteriaMatcherCompute",
+    # Constants
+    "ROLLING_WINDOW_SIZE",
     # Models and enums (from node_pattern_feedback_effect)
     "ClaudeCodeSessionOutcome",
     "ClaudeSessionOutcome",
-    "SessionOutcomeInput",
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
+    # Computes (7)
+    "NodeExecutionTraceParserCompute",
+    # Orchestrators (2)
+    "NodeIntelligenceOrchestrator",
+    # Reducers (1)
+    "NodeIntelligenceReducer",
+    "NodeIntentClassifierCompute",
+    "NodePatternAssemblerOrchestrator",
+    "NodePatternExtractionCompute",
+    # Effects (2) + registries
+    "NodePatternFeedbackEffect",
+    "NodePatternMatchingCompute",
+    "NodePatternPromotionEffect",
+    "NodeQualityScoringCompute",
+    "NodeSemanticAnalysisCompute",
+    "NodeSuccessCriteriaMatcherCompute",
     # Protocols
     "ProtocolPatternRepository",
+    "RegistryPatternPromotionEffect",
+    "ServiceHandlerRegistry",
+    "SessionOutcomeInput",
     # Handler functions
     "record_session_outcome",
     "update_pattern_rolling_metrics",
-    # Constants
-    "ROLLING_WINDOW_SIZE",
 ]

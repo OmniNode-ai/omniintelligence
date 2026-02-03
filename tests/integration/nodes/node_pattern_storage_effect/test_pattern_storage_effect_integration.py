@@ -41,7 +41,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_p
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
     EnumPatternState,
     ModelPatternMetricsSnapshot,
-    ModelPatternStorageInput,
     PatternStorageGovernance,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.node import NodePatternStorageEffect
@@ -83,6 +82,7 @@ class TestStorePatternIntegration:
         result = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         # Verify result
@@ -114,6 +114,7 @@ class TestStorePatternIntegration:
         result = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         assert result.confidence == min_confidence
@@ -143,6 +144,7 @@ class TestStorePatternIntegration:
         result = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         stored = mock_pattern_store.patterns[result.pattern_id]
@@ -185,12 +187,14 @@ class TestIdempotencyIntegration:
         result1 = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         # Second store (idempotent)
         result2 = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         # Same pattern_id returned
@@ -217,6 +221,7 @@ class TestIdempotencyIntegration:
         result1 = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         original_stored_at = mock_pattern_store.patterns[input_data.pattern_id]["stored_at"]
@@ -228,6 +233,7 @@ class TestIdempotencyIntegration:
         result2 = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         # Original timestamp preserved in store
@@ -252,7 +258,7 @@ class TestIdempotencyIntegration:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store)
+        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store, conn=None)
 
         # Second pattern in same lineage
         input2 = create_valid_input(
@@ -260,7 +266,7 @@ class TestIdempotencyIntegration:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store)
+        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store, conn=None)
 
         # Versions should increment
         assert result1.version == 1
@@ -370,6 +376,7 @@ class TestPromotePatternIntegration:
             to_state=EnumPatternState.PROVISIONAL,
             reason="Pattern passed verification",
             state_manager=mock_state_manager,
+            conn=None,
             actor="test_promotion",
         )
 
@@ -406,6 +413,7 @@ class TestPromotePatternIntegration:
             to_state=EnumPatternState.VALIDATED,
             reason="Pattern met all validation criteria",
             state_manager=mock_state_manager,
+            conn=None,
             metrics_snapshot=ModelPatternMetricsSnapshot(
                 confidence=0.95,
                 match_count=100,
@@ -437,6 +445,7 @@ class TestPromotePatternIntegration:
                 to_state=EnumPatternState.VALIDATED,  # Invalid: must go through PROVISIONAL
                 reason="Trying to skip provisional",
                 state_manager=mock_state_manager,
+                conn=None,
             )
 
         assert exc_info.value.from_state == EnumPatternState.CANDIDATE
@@ -461,6 +470,7 @@ class TestPromotePatternIntegration:
                 to_state=EnumPatternState.PROVISIONAL,  # Cannot go backwards
                 reason="Trying to demote",
                 state_manager=mock_state_manager,
+                conn=None,
             )
 
     async def test_pattern_not_found(
@@ -480,6 +490,7 @@ class TestPromotePatternIntegration:
                 to_state=EnumPatternState.PROVISIONAL,
                 reason="Pattern does not exist",
                 state_manager=mock_state_manager,
+                conn=None,
             )
 
         assert exc_info.value.pattern_id == unknown_pattern_id
@@ -501,7 +512,7 @@ class TestEventPublishingIntegration:
         event_bus: Any,
         kafka_publisher_adapter: Any,
         pattern_stored_topic: str,
-        test_group_id: str,
+        test_node_identity: Any,
         mock_pattern_store: MockPatternStore,
     ) -> None:
         """Test that pattern-stored events have correct structure.
@@ -520,7 +531,7 @@ class TestEventPublishingIntegration:
         # Subscribe to output topic
         unsubscribe = await event_bus.subscribe(
             pattern_stored_topic,
-            test_group_id,
+            test_node_identity,
             event_handler,
         )
 
@@ -530,6 +541,7 @@ class TestEventPublishingIntegration:
             result = await handle_store_pattern(
                 input_data,
                 pattern_store=mock_pattern_store,
+                conn=None,
             )
 
             # Publish the event (simulating what the node would do)
@@ -565,7 +577,7 @@ class TestEventPublishingIntegration:
         event_bus: Any,
         kafka_publisher_adapter: Any,
         pattern_promoted_topic: str,
-        test_group_id: str,
+        test_node_identity: Any,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
         """Test that pattern-promoted events have correct structure.
@@ -584,7 +596,7 @@ class TestEventPublishingIntegration:
         # Subscribe to output topic
         unsubscribe = await event_bus.subscribe(
             pattern_promoted_topic,
-            test_group_id,
+            test_node_identity,
             event_handler,
         )
 
@@ -597,6 +609,7 @@ class TestEventPublishingIntegration:
                 to_state=EnumPatternState.PROVISIONAL,
                 reason="Verification passed",
                 state_manager=mock_state_manager,
+                conn=None,
                 metrics_snapshot=ModelPatternMetricsSnapshot(
                     confidence=0.9,
                     match_count=50,
@@ -654,6 +667,7 @@ class TestEventPublishingIntegration:
         result = await handle_store_pattern(
             input_data,
             pattern_store=mock_pattern_store,
+            conn=None,
         )
 
         event_data = {
@@ -916,7 +930,7 @@ class TestEndToEndWorkflow:
             domain=domain,
             confidence=0.75,
         )
-        result_v1 = await handle_store_pattern(input_v1, pattern_store=mock_pattern_store)
+        result_v1 = await handle_store_pattern(input_v1, pattern_store=mock_pattern_store, conn=None)
         mock_state_manager.set_state(result_v1.pattern_id, EnumPatternState.CANDIDATE)
 
         await handle_promote_pattern(
@@ -924,6 +938,7 @@ class TestEndToEndWorkflow:
             to_state=EnumPatternState.PROVISIONAL,
             reason="V1 promoted",
             state_manager=mock_state_manager,
+            conn=None,
         )
 
         # Create version 2 (now the current version)
@@ -933,7 +948,7 @@ class TestEndToEndWorkflow:
             domain=domain,
             confidence=0.9,
         )
-        result_v2 = await handle_store_pattern(input_v2, pattern_store=mock_pattern_store)
+        result_v2 = await handle_store_pattern(input_v2, pattern_store=mock_pattern_store, conn=None)
 
         # Verify versions
         assert result_v1.version == 1
