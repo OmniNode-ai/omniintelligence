@@ -27,7 +27,7 @@ from omnibase_core.nodes.node_effect import NodeEffect
 
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
-    from omniintelligence.nodes.intelligence_reducer.models import (
+    from omniintelligence.nodes.node_intelligence_reducer.models import (
         ModelPayloadUpdatePatternStatus,
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (

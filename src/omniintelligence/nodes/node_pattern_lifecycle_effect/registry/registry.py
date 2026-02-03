@@ -62,7 +62,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.intelligence_reducer.models import (
+    from omniintelligence.nodes.node_intelligence_reducer.models import (
         ModelPayloadUpdatePatternStatus,
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
