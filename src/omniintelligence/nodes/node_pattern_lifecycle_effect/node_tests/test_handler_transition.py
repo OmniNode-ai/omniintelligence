@@ -1100,7 +1100,7 @@ class TestErrorHandling:
         assert result.transition_id is None
 
     @pytest.mark.asyncio
-    async def test_producer_without_topic_env_prefix_raises_valueerror(
+    async def test_producer_without_topic_env_prefix_returns_failure(
         self,
         mock_repository: MockPatternRepository,
         mock_idempotency_store: MockIdempotencyStore,
@@ -1110,25 +1110,37 @@ class TestErrorHandling:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """ValueError raised when producer is provided but topic_env_prefix is None."""
-        # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        """Failure returned when producer is provided but topic_env_prefix is None.
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="topic_env_prefix is required"):
-            await apply_transition(
-                repository=mock_repository,
-                idempotency_store=mock_idempotency_store,
-                producer=mock_producer,  # Producer provided
-                request_id=sample_request_id,
-                correlation_id=sample_correlation_id,
-                pattern_id=sample_pattern_id,
-                from_status="provisional",
-                to_status="validated",
-                trigger="promote",
-                transition_at=sample_transition_at,
-                topic_env_prefix=None,  # But topic_env_prefix is None
-            )
+        Note: This validation now happens at function entry (fail-fast) and returns
+        a structured error result rather than raising ValueError. This ensures the
+        function never performs database operations if configuration is invalid.
+        """
+        # Arrange - no need to add pattern, validation should fail before DB access
+        # mock_repository.add_pattern(sample_pattern_id, status="provisional")
+
+        # Act
+        result = await apply_transition(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            producer=mock_producer,  # Producer provided
+            request_id=sample_request_id,
+            correlation_id=sample_correlation_id,
+            pattern_id=sample_pattern_id,
+            from_status="provisional",
+            to_status="validated",
+            trigger="promote",
+            transition_at=sample_transition_at,
+            topic_env_prefix=None,  # But topic_env_prefix is None
+        )
+
+        # Assert
+        assert result.success is False
+        assert result.duplicate is False
+        assert "topic_env_prefix" in result.error_message
+        assert result.transition_id is None
+        # Verify no database operations occurred (fail-fast)
+        assert len(mock_repository.patterns) == 0  # Pattern was never added
 
 
 # =============================================================================

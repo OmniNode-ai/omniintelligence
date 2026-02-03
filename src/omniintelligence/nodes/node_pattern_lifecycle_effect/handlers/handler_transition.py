@@ -397,6 +397,34 @@ async def apply_transition(
             "A meaningful trigger is required for audit trail integrity.",
         )
 
+    # Step 0b: Validate topic_env_prefix when Kafka producer is available
+    # This validation MUST happen before any database operations for fail-fast
+    # semantics. We validate early to avoid partial-success states where DB
+    # operations succeed but we can't emit events due to missing config.
+    if producer is not None and topic_env_prefix is None:
+        logger.warning(
+            "topic_env_prefix required when producer is available",
+            extra={
+                "correlation_id": str(correlation_id),
+                "request_id": str(request_id),
+                "pattern_id": str(pattern_id),
+                "from_status": from_status,
+                "to_status": to_status,
+            },
+        )
+        return ModelTransitionResult(
+            success=False,
+            duplicate=False,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            transition_id=None,
+            reason="Configuration error: topic_env_prefix required with Kafka producer",
+            transitioned_at=None,
+            error_message="topic_env_prefix is required when Kafka producer is available. "
+            "Provide environment prefix (e.g., 'dev', 'staging', 'prod').",
+        )
+
     # Step 1: PROVISIONAL guard - reject transitions TO provisional
     if to_status == PROVISIONAL_STATUS:
         logger.warning(
@@ -581,13 +609,8 @@ async def apply_transition(
     # Step 5: Emit Kafka event (if producer available)
     # Kafka failures do NOT fail the main operation - the database transition
     # already succeeded. Failed events are routed to DLQ for later processing.
+    # Note: topic_env_prefix is validated at function entry (Step 0b) for fail-fast.
     if producer is not None:
-        # Validate topic_env_prefix when Kafka producer is available
-        if topic_env_prefix is None:
-            raise ValueError(
-                "topic_env_prefix is required when Kafka producer is available. "
-                "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
-            )
         try:
             await _emit_transition_event(
                 producer=producer,
