@@ -77,8 +77,8 @@ def make_reducer_input():
     Example:
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
     """
 
@@ -86,8 +86,8 @@ def make_reducer_input():
         *,
         pattern_id: str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         from_status: str | EnumPatternLifecycleStatus = "candidate",
-        to_status: str | EnumPatternLifecycleStatus = "provisional",
-        trigger: str = "validation_passed",
+        to_status: str | EnumPatternLifecycleStatus = "validated",
+        trigger: str = "promote_direct",
         actor_type: str = "handler",
         actor: str = "test_actor",
         reason: str | None = "Test reason",

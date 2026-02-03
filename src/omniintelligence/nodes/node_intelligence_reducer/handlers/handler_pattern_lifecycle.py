@@ -3,7 +3,11 @@
 """Handler for PATTERN_LIFECYCLE FSM transitions in the Intelligence Reducer.
 
 This module implements pure FSM transition logic for pattern lifecycle states:
-    CANDIDATE -> PROVISIONAL -> VALIDATED -> DEPRECATED
+    CANDIDATE -> VALIDATED -> DEPRECATED
+
+Note: PROVISIONAL is a LEGACY status - only outbound transitions allowed.
+Legacy patterns in PROVISIONAL can transition to VALIDATED or DEPRECATED,
+but new patterns cannot transition TO PROVISIONAL.
 
 The handler:
     1. Validates the transition against contract.yaml FSM rules
@@ -12,11 +16,10 @@ The handler:
     4. Returns structured error on invalid transitions (never raises)
 
 FSM Transitions (from contract.yaml):
-    - candidate -> provisional (trigger: validation_passed)
-    - provisional -> validated (trigger: promote)
+    - provisional -> validated (trigger: promote) [LEGACY: outbound only]
     - candidate -> validated (trigger: promote_direct)
     - candidate -> deprecated (trigger: deprecate)
-    - provisional -> deprecated (trigger: deprecate)
+    - provisional -> deprecated (trigger: deprecate) [LEGACY: outbound only]
     - validated -> deprecated (trigger: deprecate)
     - deprecated -> candidate (trigger: manual_reenable) REQUIRES actor_type='admin'
 
@@ -65,15 +68,14 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 # See: node_intelligence_reducer/contract.yaml state_machine.transitions
 
 VALID_TRANSITIONS: Final[dict[tuple[str, str], str]] = {
-    # candidate -> provisional via validation_passed
-    ("candidate", "validation_passed"): "provisional",
-    # provisional -> validated via promote
+    # NOTE: candidate -> provisional REMOVED - PROVISIONAL is LEGACY (outbound only)
+    # provisional -> validated via promote (LEGACY: outbound only)
     ("provisional", "promote"): "validated",
-    # candidate -> validated via promote_direct (skip provisional)
+    # candidate -> validated via promote_direct
     ("candidate", "promote_direct"): "validated",
     # candidate -> deprecated via deprecate
     ("candidate", "deprecate"): "deprecated",
-    # provisional -> deprecated via deprecate
+    # provisional -> deprecated via deprecate (LEGACY: outbound only)
     ("provisional", "deprecate"): "deprecated",
     # validated -> deprecated via deprecate
     ("validated", "deprecate"): "deprecated",

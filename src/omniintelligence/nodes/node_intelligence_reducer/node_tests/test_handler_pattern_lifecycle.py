@@ -12,7 +12,7 @@ contract.yaml FSM rules. This handler is a pure function that:
     6. Returns structured error for invalid transitions (never raises)
 
 Test organization:
-1. Valid Transitions - All 7 valid FSM transitions
+1. Valid Transitions - All 6 valid FSM transitions (PROVISIONAL is LEGACY - inbound blocked)
 2. Invalid State Tests - Unknown from_status values
 3. Invalid Trigger Tests - Unknown trigger values
 4. Invalid Transition Tests - Valid state/trigger with no transition
@@ -63,7 +63,11 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_payload_updat
 
 @pytest.mark.unit
 class TestValidTransitions:
-    """Tests for all 7 valid FSM transitions.
+    """Tests for all 6 valid FSM transitions.
+
+    Note: candidate -> provisional was REMOVED because PROVISIONAL is LEGACY.
+    The effect handler's PROVISIONAL guard blocks inbound transitions.
+    New patterns use: candidate -> validated (via promote_direct).
 
     These tests verify the happy path where:
     - from_status is a valid state
@@ -73,38 +77,9 @@ class TestValidTransitions:
     - Guard conditions are satisfied
     """
 
-    def test_candidate_to_provisional_via_validation_passed(
-        self,
-        make_reducer_input,
-        sample_transition_at: datetime,
-    ) -> None:
-        """Test transition: candidate -> provisional (trigger: validation_passed).
-
-        This is the first phase transition when a candidate pattern passes
-        initial validation checks.
-        """
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
-        )
-
-        # Act
-        result = handle_pattern_lifecycle_transition(
-            input_data,
-            transition_at=sample_transition_at,
-        )
-
-        # Assert
-        assert result.success is True
-        assert result.error_code is None
-        assert result.error_message is None
-        assert result.from_status == "candidate"
-        assert result.to_status == "provisional"
-        assert result.trigger == "validation_passed"
-        assert result.intent is not None
-        assert result.intent.intent_type == "postgres.update_pattern_status"
+    # NOTE: test_candidate_to_provisional_via_validation_passed REMOVED
+    # PROVISIONAL is legacy - only outbound transitions allowed.
+    # See handler_transition.py PROVISIONAL guard documentation.
 
     def test_provisional_to_validated_via_promote(
         self,
@@ -331,8 +306,8 @@ class TestInvalidState:
         with pytest.raises(ValueError, match="candiate"):
             make_reducer_input(
                 from_status="candiate",  # Typo
-                to_status="provisional",
-                trigger="validation_passed",
+                to_status="validated",
+                trigger="promote_direct",
             )
 
     def test_valid_enum_values_accepted(
@@ -373,7 +348,7 @@ class TestInvalidTrigger:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
+            to_status="validated",
             trigger="unknown_trigger",
         )
 
@@ -415,7 +390,7 @@ class TestInvalidTrigger:
                 payload=ModelPatternLifecycleReducerInput(
                     pattern_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                     from_status="candidate",
-                    to_status="provisional",
+                    to_status="validated",
                     trigger="",
                 ),
                 correlation_id="12345678-1234-5678-1234-567812345678",
@@ -458,7 +433,7 @@ class TestInvalidTrigger:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
+            to_status="validated",
             trigger="invalid",
         )
 
@@ -581,7 +556,7 @@ class TestInvalidTransition:
         input_data = make_reducer_input(
             from_status="candidate",
             to_status="validated",
-            trigger="promote",  # Invalid for candidate
+            trigger="promote",  # Invalid for candidate - should use promote_direct
         )
 
         # Act
@@ -593,9 +568,9 @@ class TestInvalidTransition:
         # Assert
         assert result.success is False
         assert "Available transitions from 'candidate'" in result.error_message
-        # Should mention valid triggers: validation_passed, promote_direct, deprecate
+        # Should mention valid triggers: promote_direct, deprecate
+        # NOTE: validation_passed REMOVED - PROVISIONAL is legacy
         assert "deprecate" in result.error_message
-        assert "validation_passed" in result.error_message
         assert "promote_direct" in result.error_message
 
 
@@ -612,21 +587,21 @@ class TestStateMismatch:
     provided to_status must match the expected target state.
     """
 
-    def test_candidate_validation_passed_wrong_to_status(
+    def test_candidate_promote_direct_wrong_to_status(
         self,
         make_reducer_input,
         sample_transition_at: datetime,
     ) -> None:
-        """Test mismatch: candidate + validation_passed should go to provisional.
+        """Test mismatch: candidate + promote_direct should go to validated.
 
-        If caller provides to_status='validated' instead of 'provisional',
+        If caller provides to_status='deprecated' instead of 'validated',
         this is a state mismatch error.
         """
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="validated",  # Wrong! Should be 'provisional'
-            trigger="validation_passed",
+            to_status="deprecated",  # Wrong! Should be 'validated'
+            trigger="promote_direct",
         )
 
         # Act
@@ -639,8 +614,8 @@ class TestStateMismatch:
         assert result.success is False
         assert result.error_code == ERROR_STATE_MISMATCH
         assert result.intent is None
-        assert "provisional" in result.error_message  # Expected target
-        assert "validated" in result.error_message  # Provided target
+        assert "validated" in result.error_message  # Expected target
+        assert "deprecated" in result.error_message  # Provided target
 
     def test_provisional_promote_wrong_to_status(
         self,
@@ -846,8 +821,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -871,8 +846,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
             request_id=sample_request_id,
         )
 
@@ -896,8 +871,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
             correlation_id=sample_correlation_id,
         )
 
@@ -923,8 +898,8 @@ class TestIntentVerification:
         input_data = make_reducer_input(
             pattern_id=sample_pattern_id,  # String
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -972,8 +947,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -994,8 +969,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1016,8 +991,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
             actor="promotion_scheduler",
         )
 
@@ -1040,9 +1015,9 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
-            reason="Passed initial validation gates",
+            to_status="validated",
+            trigger="promote_direct",
+            reason="Direct promotion - all criteria met",
         )
 
         # Act
@@ -1053,7 +1028,7 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
-        assert result.intent.reason == "Passed initial validation gates"
+        assert result.intent.reason == "Direct promotion - all criteria met"
 
     def test_gate_snapshot_populated(
         self,
@@ -1120,8 +1095,8 @@ class TestIntentVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1165,9 +1140,9 @@ class TestHelperFunctions:
     def test_validate_transition_case_insensitive(self) -> None:
         """Test validate_transition normalizes case."""
         # Mixed case should still work
-        is_valid, to_status = validate_transition("CANDIDATE", "VALIDATION_PASSED")
+        is_valid, to_status = validate_transition("CANDIDATE", "PROMOTE_DIRECT")
         assert is_valid is True
-        assert to_status == "provisional"
+        assert to_status == "validated"
 
     def test_get_fsm_transition_table_returns_copy(self) -> None:
         """Test get_fsm_transition_table returns a copy."""
@@ -1206,8 +1181,8 @@ class TestCaseSensitivity:
         # Arrange
         input_data = make_reducer_input(
             from_status="CANDIDATE",  # Uppercase
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1229,8 +1204,8 @@ class TestCaseSensitivity:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="PROVISIONAL",  # Uppercase
-            trigger="validation_passed",
+            to_status="VALIDATED",  # Uppercase
+            trigger="promote_direct",
         )
 
         # Act
@@ -1241,7 +1216,7 @@ class TestCaseSensitivity:
 
         # Assert
         assert result.success is True
-        assert result.to_status == "provisional"  # Lowercased
+        assert result.to_status == "validated"  # Lowercased
 
     def test_uppercase_trigger_normalized(
         self,
@@ -1252,8 +1227,8 @@ class TestCaseSensitivity:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="VALIDATION_PASSED",  # Uppercase
+            to_status="validated",
+            trigger="PROMOTE_DIRECT",  # Uppercase
         )
 
         # Act
@@ -1264,7 +1239,7 @@ class TestCaseSensitivity:
 
         # Assert
         assert result.success is True
-        assert result.trigger == "validation_passed"  # Lowercased
+        assert result.trigger == "promote_direct"  # Lowercased
 
     def test_mixed_case_all_fields(
         self,
@@ -1275,8 +1250,8 @@ class TestCaseSensitivity:
         # Arrange
         input_data = make_reducer_input(
             from_status="CaNdIdAtE",
-            to_status="PrOvIsIoNaL",
-            trigger="VaLiDaTiOn_PaSsEd",
+            to_status="VaLiDaTeD",
+            trigger="PrOmOtE_DiReCt",
         )
 
         # Act
@@ -1288,8 +1263,8 @@ class TestCaseSensitivity:
         # Assert
         assert result.success is True
         assert result.from_status == "candidate"
-        assert result.to_status == "provisional"
-        assert result.trigger == "validation_passed"
+        assert result.to_status == "validated"
+        assert result.trigger == "promote_direct"
 
 
 # =============================================================================
@@ -1310,8 +1285,8 @@ class TestResultModel:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1337,8 +1312,8 @@ class TestResultModel:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1363,11 +1338,11 @@ class TestResultModel:
         since status is now validated at model creation time via enum types.
         """
         # Arrange - Use valid states but invalid transition (wrong to_status)
-        # candidate + validation_passed should go to provisional, not deprecated
+        # candidate + promote_direct should go to validated, not deprecated
         input_data = make_reducer_input(
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
             to_status=EnumPatternLifecycleStatus.DEPRECATED,  # Wrong target
-            trigger="validation_passed",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1394,15 +1369,15 @@ class TestResultModel:
         # Arrange - Valid transition
         input_valid = make_reducer_input(
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="validation_passed",
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
+            trigger="promote_direct",
         )
 
         # Arrange - Invalid transition (wrong trigger for validated state)
         input_invalid = make_reducer_input(
             from_status=EnumPatternLifecycleStatus.VALIDATED,
             to_status=EnumPatternLifecycleStatus.DEPRECATED,
-            trigger="validation_passed",  # Wrong trigger, should be "deprecate"
+            trigger="promote_direct",  # Wrong trigger, should be "deprecate"
         )
 
         # Act
@@ -1417,9 +1392,9 @@ class TestResultModel:
 
         # Assert - Both have from_status and trigger
         assert result_valid.from_status == "candidate"
-        assert result_valid.trigger == "validation_passed"
+        assert result_valid.trigger == "promote_direct"
         assert result_invalid.from_status == "validated"
-        assert result_invalid.trigger == "validation_passed"
+        assert result_invalid.trigger == "promote_direct"
 
 
 # =============================================================================
@@ -1466,8 +1441,11 @@ class TestCompleteCoverage:
             assert result.to_status == expected_to
 
     def test_transition_count_matches_expected(self) -> None:
-        """Test that we have exactly 7 valid transitions."""
-        assert len(VALID_TRANSITIONS) == 7
+        """Test that we have exactly 6 valid transitions.
+
+        Note: candidate -> provisional REMOVED - PROVISIONAL is legacy.
+        """
+        assert len(VALID_TRANSITIONS) == 6
 
     def test_guard_condition_count_matches_expected(self) -> None:
         """Test that we have exactly 1 guard condition."""

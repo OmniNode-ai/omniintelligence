@@ -378,13 +378,10 @@ state_machine:
         - action_name: "clear_state"
           action_type: "state_update"
     # PATTERN_LIFECYCLE transitions (OMN-1805)
-    - from_state: "candidate"
-      to_state: "provisional"
-      trigger: "validation_passed"
-      description: "Initial quality threshold met"
-      actions:
-        - action_name: "emit_status_update_intent"
-          action_type: "intent_emission"
+    # NOTE: candidate → provisional transition REMOVED (OMN-1805 PR review)
+    # The PROVISIONAL status is LEGACY - only outbound transitions allowed.
+    # New patterns use: candidate → validated (via promote_direct)
+    # or stay at: candidate → deprecated (via deprecate)
     - from_state: "provisional"
       to_state: "validated"
       trigger: "promote"

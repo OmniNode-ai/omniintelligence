@@ -11,7 +11,7 @@ Unlike unit tests that test handlers directly, these integration tests exercise:
     5. Error path handling and output structure
 
 Test organization:
-1. Successful Transitions via Node - All 7 valid FSM transitions
+1. Successful Transitions via Node - All 6 valid FSM transitions (PROVISIONAL is legacy)
 2. Failed Transitions via Node - Invalid state, trigger, transition, guard
 3. Intent Verification via Node - intent_type, target, payload structure
 4. Output Structure Verification - Result dict and intents tuple
@@ -82,6 +82,10 @@ def reducer_node(onex_container: ModelONEXContainer) -> NodeIntelligenceReducer:
 class TestSuccessfulTransitionsViaNode:
     """Integration tests for successful PATTERN_LIFECYCLE transitions.
 
+    Note: candidate -> provisional was REMOVED because PROVISIONAL is LEGACY.
+    The effect handler's PROVISIONAL guard blocks inbound transitions.
+    New patterns use: candidate -> validated (via promote_direct).
+
     These tests verify that when a valid transition is requested through
     the node's process() method:
         - output.result["success"] is True
@@ -89,37 +93,9 @@ class TestSuccessfulTransitionsViaNode:
         - Intent has correct intent_type, target, and payload
     """
 
-    async def test_candidate_to_provisional_via_process(
-        self,
-        reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
-    ) -> None:
-        """Test: candidate -> provisional via node.process().
-
-        Verifies the full flow from input through process() to output
-        for the first phase transition.
-        """
-        # Arrange
-        input_data = make_reducer_input(
-            from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
-        )
-
-        # Act
-        output = await reducer_node.process(input_data)
-
-        # Assert - Output structure
-        assert output.result["success"] is True
-        assert output.result["fsm_type"] == "PATTERN_LIFECYCLE"
-        assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "provisional"
-        assert output.result["trigger"] == "validation_passed"
-        assert "error_code" not in output.result
-        assert "error_message" not in output.result
-
-        # Assert - Intents
-        assert len(output.intents) == 1
+    # NOTE: test_candidate_to_provisional_via_process REMOVED
+    # PROVISIONAL is legacy - only outbound transitions allowed.
+    # See handler_transition.py PROVISIONAL guard documentation.
 
     async def test_provisional_to_validated_via_process(
         self,
@@ -390,14 +366,14 @@ class TestFailedTransitionsViaNode:
     ) -> None:
         """Test that wrong to_status for valid transition produces error output.
 
-        Example: candidate + validation_passed should go to provisional,
-        not validated.
+        Example: candidate + promote_direct should go to validated,
+        not deprecated.
         """
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="validated",  # Wrong! Should be provisional
-            trigger="validation_passed",
+            to_status="deprecated",  # Wrong! Should be validated
+            trigger="promote_direct",
         )
 
         # Act
@@ -406,8 +382,8 @@ class TestFailedTransitionsViaNode:
         # Assert - Error output with STATE_MISMATCH
         assert output.result["success"] is False
         assert output.result["error_code"] == ERROR_STATE_MISMATCH
-        assert "provisional" in output.result["error_message"]  # Expected
-        assert "validated" in output.result["error_message"]  # Provided
+        assert "validated" in output.result["error_message"]  # Expected
+        assert "deprecated" in output.result["error_message"]  # Provided
 
         # Assert - No intents
         assert len(output.intents) == 0
@@ -480,7 +456,7 @@ class TestFailedTransitionsViaNode:
             pattern_id=sample_pattern_id,
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
             to_status=EnumPatternLifecycleStatus.DEPRECATED,  # Wrong target
-            trigger="validation_passed",
+            trigger="promote_direct",
         )
 
         # Act
@@ -499,8 +475,8 @@ class TestFailedTransitionsViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="validated",  # Wrong for validation_passed
-            trigger="validation_passed",
+            to_status="deprecated",  # Wrong for promote_direct
+            trigger="promote_direct",
         )
 
         # Act
@@ -509,8 +485,8 @@ class TestFailedTransitionsViaNode:
         # Assert - All transition details in error output
         assert output.result["success"] is False
         assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "validated"
-        assert output.result["trigger"] == "validation_passed"
+        assert output.result["to_status"] == "deprecated"
+        assert output.result["trigger"] == "promote_direct"
 
 
 # =============================================================================
@@ -539,8 +515,8 @@ class TestIntentVerificationViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -564,8 +540,8 @@ class TestIntentVerificationViaNode:
         input_data = make_reducer_input(
             pattern_id=sample_pattern_id,
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -586,8 +562,8 @@ class TestIntentVerificationViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -652,8 +628,8 @@ class TestIntentVerificationViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
             request_id=sample_request_id,
         )
 
@@ -674,8 +650,8 @@ class TestIntentVerificationViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
             correlation_id=sample_correlation_id,
         )
 
@@ -738,8 +714,8 @@ class TestOutputStructureVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -759,8 +735,8 @@ class TestOutputStructureVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -831,8 +807,8 @@ class TestOutputStructureVerification:
         success_input = make_reducer_input(
             pattern_id=sample_pattern_id,
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="validation_passed",
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
+            trigger="promote_direct",
         )
         success_output = await reducer_node.process(success_input)
         assert success_output.result["pattern_id"] == sample_pattern_id
@@ -842,7 +818,7 @@ class TestOutputStructureVerification:
             pattern_id=sample_pattern_id,
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
             to_status=EnumPatternLifecycleStatus.DEPRECATED,  # Wrong target
-            trigger="validation_passed",
+            trigger="promote_direct",
         )
         error_output = await reducer_node.process(error_input)
         assert error_output.result["pattern_id"] == sample_pattern_id
@@ -904,8 +880,8 @@ class TestLoggingVerification:
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -964,8 +940,8 @@ class TestLoggingVerification:
         input_data = make_reducer_input(
             pattern_id=sample_pattern_id,
             from_status="candidate",
-            to_status="provisional",
-            trigger="validation_passed",
+            to_status="validated",
+            trigger="promote_direct",
         )
 
         # Act
@@ -1000,8 +976,8 @@ class TestCaseSensitivityViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="CANDIDATE",
-            to_status="PROVISIONAL",
-            trigger="VALIDATION_PASSED",
+            to_status="VALIDATED",
+            trigger="PROMOTE_DIRECT",
         )
 
         # Act
@@ -1010,8 +986,8 @@ class TestCaseSensitivityViaNode:
         # Assert - Normalized in result
         assert output.result["success"] is True
         assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "provisional"
-        assert output.result["trigger"] == "validation_passed"
+        assert output.result["to_status"] == "validated"
+        assert output.result["trigger"] == "promote_direct"
 
     async def test_uppercase_normalized_in_intent_payload(
         self,
@@ -1022,8 +998,8 @@ class TestCaseSensitivityViaNode:
         # Arrange
         input_data = make_reducer_input(
             from_status="CANDIDATE",
-            to_status="PROVISIONAL",
-            trigger="VALIDATION_PASSED",
+            to_status="VALIDATED",
+            trigger="PROMOTE_DIRECT",
         )
 
         # Act
@@ -1033,8 +1009,8 @@ class TestCaseSensitivityViaNode:
         assert output.result["success"] is True
         payload_data = output.intents[0].payload.data
         assert payload_data["from_status"] == "candidate"
-        assert payload_data["to_status"] == "provisional"
-        assert payload_data["trigger"] == "validation_passed"
+        assert payload_data["to_status"] == "validated"
+        assert payload_data["trigger"] == "promote_direct"
 
 
 # =============================================================================
@@ -1059,8 +1035,8 @@ class TestNodeInstanceBehavior:
         # First transition
         input1 = make_reducer_input(
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="validation_passed",
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
+            trigger="promote_direct",
         )
         output1 = await reducer_node.process(input1)
         assert output1.result["success"] is True
@@ -1107,8 +1083,8 @@ class TestNodeInstanceBehavior:
         # Second: Success call (should not be affected by previous error)
         success_input = make_reducer_input(
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="validation_passed",
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
+            trigger="promote_direct",
         )
         success_output = await reducer_node.process(success_input)
         assert success_output.result["success"] is True
