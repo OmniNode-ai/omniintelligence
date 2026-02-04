@@ -62,17 +62,24 @@ db_repository:
   # =============================================================================
   ops:
     # -------------------------------------------------------------------------
-    # READ: List validated patterns for injection
+    # READ: List injectable patterns (validated + provisional)
     # -------------------------------------------------------------------------
+    # OMN-1894: Enforce lifecycle_state filter for injection eligibility.
+    # - VALIDATED patterns are preferred (priority 0)
+    # - PROVISIONAL patterns are fallback (priority 1)
+    # - CANDIDATE and DEPRECATED are never returned
     list_validated_patterns:
       mode: read
       description: |
-        Retrieve validated patterns ready for injection into Claude sessions.
+        Retrieve patterns eligible for injection into Claude sessions.
         Only returns patterns that are:
-        - status = 'validated'
+        - status IN ('validated', 'provisional') - enforced lifecycle filter
         - is_current = TRUE (latest version)
         - compiled_snippet IS NOT NULL (has compiled form)
-        Ordered by quality_score DESC for best patterns first.
+        Ordered by status (validated first), then quality_score DESC.
+
+        OMN-1894: CANDIDATE and DEPRECATED patterns are explicitly excluded.
+        PROVISIONAL patterns serve as bootstrap fallback with lower priority.
       sql: |
         SELECT
           id,
@@ -87,10 +94,13 @@ db_repository:
           version,
           compiled_token_count
         FROM learned_patterns
-        WHERE status = 'validated'
+        WHERE status IN ('validated', 'provisional')
           AND is_current = TRUE
           AND compiled_snippet IS NOT NULL
-        ORDER BY quality_score DESC, id ASC
+        ORDER BY
+          CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
+          quality_score DESC,
+          id ASC
         LIMIT :limit
       params:
         limit:
@@ -106,11 +116,41 @@ db_repository:
         many: true
 
     # -------------------------------------------------------------------------
-    # READ: Get single pattern by ID
+    # READ: Get single pattern by ID (injectable only)
     # -------------------------------------------------------------------------
+    # OMN-1894: Enforce lifecycle_state filter - only returns injectable patterns.
     get_pattern:
       mode: read
-      description: Retrieve a single pattern by its UUID
+      description: |
+        Retrieve a single pattern by its UUID.
+        OMN-1894: Only returns patterns with injectable status (validated/provisional).
+        CANDIDATE and DEPRECATED patterns cannot be fetched via this operation.
+      sql: |
+        SELECT *
+        FROM learned_patterns
+        WHERE id = :pattern_id
+          AND status IN ('validated', 'provisional')
+      params:
+        pattern_id:
+          name: pattern_id
+          param_type: string
+          required: true
+          description: Pattern UUID
+      returns:
+        model_ref: PatternRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get single pattern by ID (administrative - no filter)
+    # -------------------------------------------------------------------------
+    # OMN-1894: Administrative operation intentionally exempt from lifecycle filter.
+    # Use get_pattern for injection-safe access.
+    get_pattern_admin:
+      mode: read
+      description: |
+        Retrieve any pattern by its UUID regardless of lifecycle status.
+        ADMINISTRATIVE USE ONLY - for debugging, metrics, and lifecycle management.
+        WARNING: Do NOT use this for injection queries.
       sql: |
         SELECT *
         FROM learned_patterns
@@ -128,12 +168,17 @@ db_repository:
     # -------------------------------------------------------------------------
     # READ: Get current pattern for lineage (same signature_hash)
     # -------------------------------------------------------------------------
+    # OMN-1894 EXEMPTION: This query is intentionally unfiltered.
+    # It is used for lineage management (storing new versions, checking existence)
+    # and MUST return patterns in ANY lifecycle state to support version transitions.
+    # Filtering here would break CANDIDATE → PROVISIONAL → VALIDATED upgrades.
     get_latest_by_lineage:
       mode: read
       description: |
         Get the current (latest) version of a pattern by its signature hash.
         Used to check if a pattern already exists before storing.
         Uses signature_hash for stable lineage identity.
+        NOTE: Intentionally unfiltered by status - needed for lineage management.
       sql: |
         SELECT *
         FROM learned_patterns
@@ -158,13 +203,15 @@ db_repository:
         many: false
 
     # -------------------------------------------------------------------------
-    # READ: List patterns by domain
+    # READ: List patterns by domain (injectable only)
     # -------------------------------------------------------------------------
+    # OMN-1894: Enforce lifecycle_state filter - only returns injectable patterns.
     list_by_domain:
       mode: read
       description: |
         List patterns filtered by domain with pagination.
-        Only returns current versions.
+        Only returns current versions with injectable status.
+        OMN-1894: CANDIDATE and DEPRECATED patterns are excluded.
       sql: |
         SELECT
           id,
@@ -180,7 +227,11 @@ db_repository:
         FROM learned_patterns
         WHERE domain_id = :domain_id
           AND is_current = TRUE
-        ORDER BY quality_score DESC, id ASC
+          AND status IN ('validated', 'provisional')
+        ORDER BY
+          CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
+          quality_score DESC,
+          id ASC
         LIMIT :limit
         OFFSET :offset
       params:
