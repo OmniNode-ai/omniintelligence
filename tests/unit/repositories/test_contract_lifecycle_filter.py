@@ -385,8 +385,8 @@ class TestContractDocumentation:
 
 
 __all__ = [
+    "TestContractDocumentation",
+    "TestExemptQueriesNotFiltered",
     "TestInjectionQueriesEnforceLifecycleFilter",
     "TestValidatedPatternsPriorityOrdering",
-    "TestExemptQueriesNotFiltered",
-    "TestContractDocumentation",
 ]
