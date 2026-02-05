@@ -28,12 +28,19 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
+    ModelReducerInputPatternLifecycle,
+)
+
+# Type alias for the make_reducer_input fixture factory function
+MakeReducerInputType = Callable[..., ModelReducerInputPatternLifecycle]
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
@@ -80,7 +87,7 @@ class TestValidTransitions:
 
     def test_provisional_to_validated_via_promote(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test transition: provisional -> validated (trigger: promote).
@@ -109,7 +116,7 @@ class TestValidTransitions:
 
     def test_candidate_to_validated_via_promote_direct(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test transition: candidate -> validated (trigger: promote_direct).
@@ -138,7 +145,7 @@ class TestValidTransitions:
 
     def test_candidate_to_deprecated_via_deprecate(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test transition: candidate -> deprecated (trigger: deprecate).
@@ -167,7 +174,7 @@ class TestValidTransitions:
 
     def test_provisional_to_deprecated_via_deprecate(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test transition: provisional -> deprecated (trigger: deprecate).
@@ -196,7 +203,7 @@ class TestValidTransitions:
 
     def test_validated_to_deprecated_via_deprecate(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test transition: validated -> deprecated (trigger: deprecate).
@@ -225,7 +232,7 @@ class TestValidTransitions:
 
     def test_deprecated_to_candidate_via_manual_reenable_with_admin(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test transition: deprecated -> candidate (trigger: manual_reenable).
@@ -270,7 +277,7 @@ class TestInvalidState:
 
     def test_invalid_from_status_unknown_state(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
     ) -> None:
         """Test rejection of unknown from_status value at model creation."""
         # Invalid status strings raise ValueError during enum conversion
@@ -283,7 +290,7 @@ class TestInvalidState:
 
     def test_invalid_from_status_empty_string(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
     ) -> None:
         """Test rejection of empty string from_status at model creation."""
         # Empty strings raise ValueError during enum conversion
@@ -296,7 +303,7 @@ class TestInvalidState:
 
     def test_invalid_from_status_typo(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
     ) -> None:
         """Test rejection of typo in from_status (e.g., 'candiate')."""
         # Typos raise ValueError during enum conversion
@@ -309,7 +316,7 @@ class TestInvalidState:
 
     def test_valid_enum_values_accepted(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
     ) -> None:
         """Test that all valid enum values are accepted."""
         # All valid enum values should be accepted
@@ -338,7 +345,7 @@ class TestInvalidTrigger:
 
     def test_invalid_trigger_unknown(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test rejection of unknown trigger value."""
@@ -359,6 +366,7 @@ class TestInvalidTrigger:
         assert result.success is False
         assert result.error_code == ERROR_INVALID_TRIGGER
         assert result.intent is None
+        assert result.error_message is not None
         assert "unknown_trigger" in result.error_message
         assert "Valid triggers" in result.error_message
 
@@ -386,12 +394,12 @@ class TestInvalidTrigger:
                 action="",  # Empty - rejected at model level
                 payload=ModelPatternLifecycleReducerInput(
                     pattern_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                    from_status="candidate",
-                    to_status="validated",
+                    from_status=EnumPatternLifecycleStatus.CANDIDATE,
+                    to_status=EnumPatternLifecycleStatus.VALIDATED,
                     trigger="",
                 ),
-                correlation_id="12345678-1234-5678-1234-567812345678",
-                request_id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                correlation_id=UUID("12345678-1234-5678-1234-567812345678"),
+                request_id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
             )
 
         # Assert: Validation error mentions string_too_short
@@ -399,7 +407,7 @@ class TestInvalidTrigger:
 
     def test_invalid_trigger_typo(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test rejection of typo in trigger (e.g., 'promte')."""
@@ -419,11 +427,12 @@ class TestInvalidTrigger:
         # Assert
         assert result.success is False
         assert result.error_code == ERROR_INVALID_TRIGGER
+        assert result.error_message is not None
         assert "promte" in result.error_message
 
     def test_error_message_lists_valid_triggers(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that error message includes list of valid triggers."""
@@ -442,6 +451,7 @@ class TestInvalidTrigger:
 
         # Assert
         assert result.success is False
+        assert result.error_message is not None
         # Verify all valid triggers are listed
         for trigger in VALID_TRIGGERS:
             assert trigger in result.error_message
@@ -463,7 +473,7 @@ class TestInvalidTransition:
 
     def test_validated_with_promote_direct_no_transition(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test rejection: validated + promote_direct has no transition.
@@ -489,12 +499,13 @@ class TestInvalidTransition:
         assert result.success is False
         assert result.error_code == ERROR_INVALID_TRANSITION
         assert result.intent is None
+        assert result.error_message is not None
         assert "validated" in result.error_message
         assert "promote_direct" in result.error_message
 
     def test_deprecated_with_promote_no_transition(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test rejection: deprecated + promote has no transition.
@@ -520,7 +531,7 @@ class TestInvalidTransition:
 
     def test_candidate_with_promote_no_transition(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test rejection: candidate + promote has no transition.
@@ -546,7 +557,7 @@ class TestInvalidTransition:
 
     def test_error_message_shows_available_triggers(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that error message shows available triggers from the state."""
@@ -565,6 +576,7 @@ class TestInvalidTransition:
 
         # Assert
         assert result.success is False
+        assert result.error_message is not None
         assert "Available transitions from 'candidate'" in result.error_message
         # Should mention valid triggers: promote_direct, deprecate
         # NOTE: validation_passed REMOVED - PROVISIONAL is legacy
@@ -587,7 +599,7 @@ class TestStateMismatch:
 
     def test_candidate_promote_direct_wrong_to_status(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test mismatch: candidate + promote_direct should go to validated.
@@ -612,12 +624,13 @@ class TestStateMismatch:
         assert result.success is False
         assert result.error_code == ERROR_STATE_MISMATCH
         assert result.intent is None
+        assert result.error_message is not None
         assert "validated" in result.error_message  # Expected target
         assert "deprecated" in result.error_message  # Provided target
 
     def test_provisional_promote_wrong_to_status(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test mismatch: provisional + promote should go to validated.
@@ -640,12 +653,13 @@ class TestStateMismatch:
         # Assert
         assert result.success is False
         assert result.error_code == ERROR_STATE_MISMATCH
+        assert result.error_message is not None
         assert "validated" in result.error_message  # Expected target
         assert "deprecated" in result.error_message  # Provided target
 
     def test_deprecated_manual_reenable_wrong_to_status(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test mismatch: deprecated + manual_reenable should go to candidate.
@@ -669,6 +683,7 @@ class TestStateMismatch:
         # Assert
         assert result.success is False
         assert result.error_code == ERROR_STATE_MISMATCH
+        assert result.error_message is not None
         assert "candidate" in result.error_message  # Expected target
         assert "validated" in result.error_message  # Provided target
 
@@ -688,7 +703,7 @@ class TestGuardConditions:
 
     def test_manual_reenable_without_admin_fails(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test guard: manual_reenable without admin actor_type fails.
@@ -713,12 +728,13 @@ class TestGuardConditions:
         assert result.success is False
         assert result.error_code == ERROR_GUARD_CONDITION_FAILED
         assert result.intent is None
+        assert result.error_message is not None
         assert "admin" in result.error_message
         assert "handler" in result.error_message
 
     def test_manual_reenable_with_system_actor_fails(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test guard: manual_reenable with system actor_type fails.
@@ -742,11 +758,12 @@ class TestGuardConditions:
         # Assert
         assert result.success is False
         assert result.error_code == ERROR_GUARD_CONDITION_FAILED
+        assert result.error_message is not None
         assert "system" in result.error_message
 
     def test_manual_reenable_with_admin_succeeds(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test guard: manual_reenable with admin actor_type succeeds."""
@@ -770,7 +787,7 @@ class TestGuardConditions:
 
     def test_guard_condition_checked_after_transition_lookup(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that guard condition error has lower priority than transition errors.
@@ -812,7 +829,7 @@ class TestIntentVerification:
 
     def test_intent_type_is_correct(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that intent_type is 'postgres.update_pattern_status'."""
@@ -836,7 +853,7 @@ class TestIntentVerification:
 
     def test_request_id_flows_through(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_request_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
@@ -857,11 +874,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.request_id == sample_request_id
 
     def test_correlation_id_flows_through(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
@@ -882,11 +900,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.correlation_id == sample_correlation_id
 
     def test_pattern_id_is_uuid(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_pattern_id: str,
         sample_pattern_id_uuid: UUID,
         sample_transition_at: datetime,
@@ -908,12 +927,13 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.pattern_id == sample_pattern_id_uuid
         assert isinstance(result.intent.pattern_id, UUID)
 
     def test_status_fields_populated(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that from_status and to_status are populated in intent."""
@@ -932,13 +952,14 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.from_status == "provisional"
         assert result.intent.to_status == "validated"
         assert result.intent.trigger == "promote"
 
     def test_transition_at_populated(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that transition_at is populated in intent."""
@@ -957,11 +978,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.transition_at == sample_transition_at
 
     def test_transition_at_defaults_to_now(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
     ) -> None:
         """Test that transition_at defaults to current time if not provided."""
         # Arrange
@@ -978,11 +1000,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert before <= result.intent.transition_at <= after
 
     def test_actor_populated(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that actor field is populated in intent."""
@@ -1002,11 +1025,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.actor == "promotion_scheduler"
 
     def test_reason_populated(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that reason field is populated in intent."""
@@ -1026,11 +1050,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.reason == "Direct promotion - all criteria met"
 
     def test_gate_snapshot_populated(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that gate_snapshot field is populated in intent."""
@@ -1056,11 +1081,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.gate_snapshot == gate_snapshot
 
     def test_gate_snapshot_none_allowed(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that gate_snapshot can be None."""
@@ -1080,11 +1106,12 @@ class TestIntentVerification:
 
         # Assert
         assert result.success is True
+        assert result.intent is not None
         assert result.intent.gate_snapshot is None
 
     def test_intent_is_frozen(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that intent model is immutable (frozen)."""
@@ -1108,7 +1135,7 @@ class TestIntentVerification:
         assert isinstance(result.intent, ModelPayloadUpdatePatternStatus)
         # Frozen models raise ValidationError on mutation
         with pytest.raises(pydantic.ValidationError):
-            result.intent.to_status = "deprecated"  # type: ignore[misc]
+            result.intent.to_status = "deprecated"  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -1172,7 +1199,7 @@ class TestCaseSensitivity:
 
     def test_uppercase_from_status_normalized(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that uppercase from_status is normalized to lowercase."""
@@ -1195,7 +1222,7 @@ class TestCaseSensitivity:
 
     def test_uppercase_to_status_normalized(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that uppercase to_status is normalized to lowercase."""
@@ -1218,7 +1245,7 @@ class TestCaseSensitivity:
 
     def test_uppercase_trigger_normalized(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that uppercase trigger is normalized to lowercase."""
@@ -1241,7 +1268,7 @@ class TestCaseSensitivity:
 
     def test_mixed_case_all_fields(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test mixed case in all fields."""
@@ -1276,7 +1303,7 @@ class TestResultModel:
 
     def test_result_is_frozen_dataclass(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that result is a frozen dataclass."""
@@ -1303,7 +1330,7 @@ class TestResultModel:
 
     def test_success_result_has_none_error_fields(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that successful result has None for error fields."""
@@ -1327,7 +1354,7 @@ class TestResultModel:
 
     def test_error_result_has_none_intent(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that error result has None for intent field.
@@ -1357,7 +1384,7 @@ class TestResultModel:
 
     def test_result_always_has_from_status_and_trigger(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that result always contains from_status and trigger.
@@ -1409,7 +1436,7 @@ class TestCompleteCoverage:
 
     def test_all_valid_transitions_exercised(
         self,
-        make_reducer_input,
+        make_reducer_input: MakeReducerInputType,
         sample_transition_at: datetime,
     ) -> None:
         """Test that we can successfully execute all valid transitions.
