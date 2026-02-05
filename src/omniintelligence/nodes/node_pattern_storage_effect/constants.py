@@ -45,7 +45,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_sta
     EnumPatternState,
 )
 
-
 # =============================================================================
 # Validation Result Model
 # =============================================================================

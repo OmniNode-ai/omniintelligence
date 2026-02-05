@@ -14,7 +14,6 @@ import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 
-
 # =========================================================================
 # Constants: Expected values from SQL migration CHECK constraint
 # =========================================================================

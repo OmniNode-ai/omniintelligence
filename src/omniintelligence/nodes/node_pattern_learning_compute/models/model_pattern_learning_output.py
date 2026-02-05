@@ -5,14 +5,13 @@ Uses contract models from omnibase_core for canonical pattern representations.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-
 from omnibase_core.enums.pattern_learning import EnumPatternLifecycleState
 from omnibase_core.models.pattern_learning import (
     ModelLearnedPattern,
     ModelPatternLearningMetadata,
     ModelPatternLearningMetrics,
 )
+from pydantic import BaseModel, Field
 
 
 class ModelPatternLearningOutput(BaseModel):

@@ -45,7 +45,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.models import (
     ModelPatternStorageMetadata,
 )
 
-
 # =============================================================================
 # Mock Protocol Implementations
 # =============================================================================

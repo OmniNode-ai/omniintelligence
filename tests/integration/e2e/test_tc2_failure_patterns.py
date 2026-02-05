@@ -26,7 +26,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-
 from omnibase_core.enums.pattern_learning import (
     EnumPatternLifecycleState,
     EnumPatternType,

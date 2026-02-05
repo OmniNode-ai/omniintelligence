@@ -53,7 +53,6 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_payload_updat
     ModelPayloadUpdatePatternStatus,
 )
 
-
 # =============================================================================
 # Test Class: Valid Transitions
 # =============================================================================

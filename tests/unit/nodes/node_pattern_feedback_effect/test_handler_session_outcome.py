@@ -29,9 +29,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
-
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
+
+from omnibase_core.nodes.node_effect import NodeEffect
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
@@ -49,8 +50,6 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
-from omnibase_core.nodes.node_effect import NodeEffect
-
 
 # =============================================================================
 # Mock asyncpg.Record Implementation

@@ -43,7 +43,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.node_tests.conftest impo
     MockPatternStateManager,
 )
 
-
 # =============================================================================
 # State Transition Constants Verification
 # =============================================================================

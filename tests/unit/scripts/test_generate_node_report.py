@@ -38,7 +38,6 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "scripts"))
 from generate_node_report import check_is_stub, get_node_type
 
-
 # =========================================================================
 # Test Fixtures
 # =========================================================================
@@ -424,8 +423,8 @@ class TestRealNodeStubDetection:
         # Note: pattern_learning_compute was implemented
         # Note: pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
+        # Note: execution_trace_parser_compute was implemented in OMN-1427
         known_stubs = [
-            "node_execution_trace_parser_compute",
             "node_pattern_assembler_orchestrator",
         ]
 
@@ -445,6 +444,7 @@ class TestRealNodeStubDetection:
         # Note: pattern_learning_compute was implemented
         # Note: pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
+        # Note: execution_trace_parser_compute was implemented in OMN-1427
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
@@ -454,6 +454,7 @@ class TestRealNodeStubDetection:
             "node_intent_classifier_compute",
             "node_pattern_matching_compute",
             "node_success_criteria_matcher_compute",
+            "node_execution_trace_parser_compute",
         ]
 
         for node_name in known_non_stubs:

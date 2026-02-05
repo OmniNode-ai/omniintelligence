@@ -8,7 +8,6 @@ Tests cover:
 from unittest.mock import MagicMock
 
 import pytest
-
 from omnibase_core.enums.enum_parameter_type import EnumParameterType
 from omnibase_core.models.common.model_schema_value import ModelSchemaValue
 from omnibase_core.models.contracts.model_db_operation import ModelDbOperation
@@ -258,6 +257,7 @@ class TestContractParamOrder:
         # Each operation should have required fields
         for op_name, operation in contract.ops.items():
             assert operation.sql, f"Operation '{op_name}' missing SQL"
-            assert operation.mode in ("read", "write"), (
-                f"Operation '{op_name}' has invalid mode: {operation.mode}"
-            )
+            assert operation.mode in (
+                "read",
+                "write",
+            ), f"Operation '{op_name}' has invalid mode: {operation.mode}"

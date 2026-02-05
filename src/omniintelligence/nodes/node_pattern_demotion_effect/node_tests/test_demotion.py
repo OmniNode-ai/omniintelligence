@@ -62,7 +62,6 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelEffectiveThresholds,
 )
 
-
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================

@@ -22,7 +22,7 @@ implementation that honors the `conn` parameter.
 """
 
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 

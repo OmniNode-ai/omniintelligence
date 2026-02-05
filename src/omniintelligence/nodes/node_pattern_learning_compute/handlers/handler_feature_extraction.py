@@ -57,7 +57,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.models import (
     TrainingDataItemDict,
 )
 
-
 # =============================================================================
 # Public API
 # =============================================================================

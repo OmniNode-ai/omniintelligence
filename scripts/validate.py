@@ -83,7 +83,9 @@ def run_omnibase_validator(
         cmd.append("--verbose")
 
     try:
-        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=300
+        )
         passed = result.returncode == 0
         message = "" if passed else f"Exit code: {result.returncode}"
     except subprocess.TimeoutExpired:
@@ -134,7 +136,9 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
             filename = contract_path.name
             if filename.endswith("_contract.yaml") or filename.startswith("fsm_"):
                 # Exclude subcontracts and workflows directories
-                if "subcontracts" not in str(contract_path) and "workflows" not in str(contract_path):
+                if "subcontracts" not in str(contract_path) and "workflows" not in str(
+                    contract_path
+                ):
                     contract_files.append(contract_path)
 
     # Sort for consistent ordering
@@ -159,7 +163,9 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
         cmd.append("--verbose")
 
     try:
-        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=300
+        )
         elapsed = time.monotonic() - start_time
         passed = result.returncode == 0
         message = (
@@ -172,7 +178,9 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
         message = "Contract linter timed out after 300 seconds"
     except FileNotFoundError:
         passed = False
-        message = "Contract linter module not found - check omniintelligence installation"
+        message = (
+            "Contract linter module not found - check omniintelligence installation"
+        )
     except subprocess.SubprocessError as e:
         passed = False
         message = f"Subprocess error: {e}"
@@ -200,7 +208,9 @@ def run_mypy(verbose: bool = False) -> ValidationResult:
     ]
 
     try:
-        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=300
+        )
         passed = result.returncode == 0
         message = "" if passed else "Type errors found"
     except subprocess.TimeoutExpired:
@@ -241,7 +251,9 @@ def run_ruff(verbose: bool = False) -> ValidationResult:
     ]
 
     try:
-        result = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=300
+        )
         passed = result.returncode == 0
         message = "" if passed else "Linting errors found"
     except subprocess.TimeoutExpired:
@@ -353,7 +365,9 @@ def main() -> int:
 
     print()
     if blocking_failures:
-        print(f"❌ {len(blocking_failures)} blocking failure(s): {', '.join(blocking_failures)}")
+        print(
+            f"❌ {len(blocking_failures)} blocking failure(s): {', '.join(blocking_failures)}"
+        )
         return 1
     else:
         print("✅ All blocking validators passed!")

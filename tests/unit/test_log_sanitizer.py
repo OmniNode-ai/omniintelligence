@@ -800,7 +800,9 @@ class TestLogSanitizerLegacyImports:
                 del sys.modules[mod]
 
             # Now import and check for warnings
-            from omniintelligence._legacy.utils import log_sanitizer as legacy_module  # noqa: F401
+            from omniintelligence._legacy.utils import (
+                log_sanitizer as legacy_module,  # noqa: F401
+            )
 
             # Should have at least one deprecation warning
             deprecation_warnings = [

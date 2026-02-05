@@ -41,8 +41,8 @@ from __future__ import annotations
 
 import importlib
 import importlib.resources
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, TypeVar
 
 import yaml

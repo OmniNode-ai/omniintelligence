@@ -242,25 +242,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      # Scope: tools/, utils/, runtime/ source code and their tests
-      # Matches pre-commit ruff hook scope (see .pre-commit-config.yaml)
+      # Scope: Entire codebase (src/ tests/)
+      # Matches pre-commit ruff hooks (always_run: true pattern from omnibase_core)
       - name: Run ruff check
-        run: |
-          uv run ruff check \
-            src/omniintelligence/tools/ \
-            src/omniintelligence/utils/ \
-            src/omniintelligence/runtime/ \
-            tests/unit/tools/ \
-            tests/unit/test_log_sanitizer.py
+        run: uv run ruff check src/ tests/
 
       - name: Run ruff format check
-        run: |
-          uv run ruff format --check \
-            src/omniintelligence/tools/ \
-            src/omniintelligence/utils/ \
-            src/omniintelligence/runtime/ \
-            tests/unit/tools/ \
-            tests/unit/test_log_sanitizer.py
+        run: uv run ruff format --check src/ tests/
 
   # Type checking job - mypy
   # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ source code)

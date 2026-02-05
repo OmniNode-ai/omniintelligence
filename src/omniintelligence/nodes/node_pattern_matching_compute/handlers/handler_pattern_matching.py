@@ -36,7 +36,8 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from typing import Literal
 
 # Module logger for debug/error tracking
@@ -115,6 +116,7 @@ def _timeout_protected_regex_search(
             extra={"correlation_id": correlation_id},
         )
         return False
+
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions import (
     PatternMatchingValidationError,
@@ -214,9 +216,7 @@ def match_patterns(
             continue
 
         if confidence >= min_confidence:
-            matches.append(
-                _create_match_detail(pattern, confidence, algorithm_name)
-            )
+            matches.append(_create_match_detail(pattern, confidence, algorithm_name))
         else:
             patterns_filtered += 1
 
@@ -276,15 +276,15 @@ def _filter_by_category(
         return list(patterns)
 
     category_set = set(categories)
-    return [
-        p for p in patterns
-        if p.get("category", "") in category_set
-    ]
+    return [p for p in patterns if p.get("category", "") in category_set]
 
 
 def _get_algorithm_for_operation(
     operation: PatternOperation,
-) -> tuple[Callable[[str, PatternRecord, str | None], float], Literal["keyword_overlap", "regex_match", "semantic"]]:
+) -> tuple[
+    Callable[[str, PatternRecord, str | None], float],
+    Literal["keyword_overlap", "regex_match", "semantic"],
+]:
     """Get the appropriate matching algorithm for an operation.
 
     Args:
@@ -396,11 +396,44 @@ def _extract_keywords(text: str) -> set[str]:
     """
     # Common Python keywords and noise words to filter out
     noise_words = {
-        "def", "class", "return", "if", "else", "elif", "for", "while",
-        "try", "except", "finally", "with", "as", "import", "from",
-        "in", "is", "not", "and", "or", "none", "true", "false",
-        "self", "cls", "args", "kwargs", "the", "a", "an", "of", "to",
-        "pass", "raise", "yield", "async", "await", "lambda",
+        "def",
+        "class",
+        "return",
+        "if",
+        "else",
+        "elif",
+        "for",
+        "while",
+        "try",
+        "except",
+        "finally",
+        "with",
+        "as",
+        "import",
+        "from",
+        "in",
+        "is",
+        "not",
+        "and",
+        "or",
+        "none",
+        "true",
+        "false",
+        "self",
+        "cls",
+        "args",
+        "kwargs",
+        "the",
+        "a",
+        "an",
+        "of",
+        "to",
+        "pass",
+        "raise",
+        "yield",
+        "async",
+        "await",
+        "lambda",
     }
 
     # Extract word-like tokens

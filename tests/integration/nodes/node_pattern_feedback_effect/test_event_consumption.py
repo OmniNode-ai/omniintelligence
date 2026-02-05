@@ -16,7 +16,6 @@ from uuid import uuid4
 
 import pytest
 import yaml
-
 from omnibase_core.integrations.claude_code import (
     ClaudeCodeSessionOutcome,
     ClaudeSessionOutcome,
@@ -31,7 +30,6 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_sessio
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
 )
-
 
 # =============================================================================
 # Path Constants
@@ -338,9 +336,7 @@ class TestEventConsumption:
 
         # Verify at least one call looked for the correct session_id
         all_calls = mock_repository.fetch.call_args_list
-        session_ids_queried = [
-            call[0][1] for call in all_calls if len(call[0]) > 1
-        ]
+        session_ids_queried = [call[0][1] for call in all_calls if len(call[0]) > 1]
         assert sample_success_event.session_id in session_ids_queried
 
     @pytest.mark.integration

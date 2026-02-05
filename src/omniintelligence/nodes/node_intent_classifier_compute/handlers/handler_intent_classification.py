@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from collections import Counter
 from typing import TYPE_CHECKING
-
-import time
 
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     IntentMetadataDict,

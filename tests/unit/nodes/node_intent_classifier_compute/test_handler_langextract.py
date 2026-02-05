@@ -30,7 +30,6 @@ from omniintelligence.nodes.node_intent_classifier_compute.models import (
     ModelSemanticLimitsConfig,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================

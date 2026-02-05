@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # =============================================================================
 # Test Class: check_injection_safety - Safe Snippets
 # =============================================================================

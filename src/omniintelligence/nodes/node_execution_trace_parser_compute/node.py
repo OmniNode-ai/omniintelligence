@@ -1,71 +1,61 @@
-# STUB: This node is a stub implementation. Full functionality is not yet available.
-# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/5
-# Status: Interface defined, implementation pending
-"""Execution Trace Parser Compute - STUB compute node for trace parsing."""
+"""Execution Trace Parser Compute Node.
+
+Thin shell compute node for parsing execution traces. All logic is
+delegated to the handler function following ONEX declarative pattern.
+"""
 
 from __future__ import annotations
 
-import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING
 
 from omnibase_core.nodes.node_compute import NodeCompute
+
+from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
+    handle_trace_parsing_compute,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
+    ModelTraceParsingInput,
+    ModelTraceParsingOutput,
+)
 
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
-# Issue tracking URL for this stub implementation
-_STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/5"
 
+class NodeExecutionTraceParserCompute(
+    NodeCompute[ModelTraceParsingInput, ModelTraceParsingOutput]
+):
+    """Pure compute node for parsing execution traces.
 
-class NodeExecutionTraceParserCompute(NodeCompute[dict[str, Any], dict[str, Any]]):
-    """STUB: Pure compute node for parsing execution traces.
+    This node parses agent execution traces to extract:
+    - Span lifecycle events (start, end)
+    - Error events from status and log levels
+    - Timing metrics and latency breakdown
 
-    Attributes:
-        is_stub: Class attribute indicating this is a stub implementation.
-
-    WARNING: This is a stub implementation that does not provide full functionality.
-    The node is included for forward compatibility and interface definition.
-
-    Expected functionality when implemented:
-        - Parse agent execution traces
-        - Extract workflow steps and outcomes
-        - Support pattern learning from traces
+    The node is a thin shell following the ONEX declarative pattern.
+    All parsing logic is delegated to the handler function.
     """
 
-    is_stub: ClassVar[bool] = True
-
     def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodeExecutionTraceParserCompute is a stub implementation and does not "
-            f"provide full functionality. The node accepts inputs but performs no actual "
-            f"trace parsing. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
-
-    async def compute(self, _input_data: dict[str, Any]) -> dict[str, Any]:
-        """Compute trace parsing (STUB - returns empty result).
+        """Initialize the compute node.
 
         Args:
-            _input_data: Input data for trace parsing (unused in stub).
+            container: ONEX container with node configuration.
+        """
+        super().__init__(container)
+
+    async def compute(
+        self, input_data: ModelTraceParsingInput
+    ) -> ModelTraceParsingOutput:
+        """Parse execution traces by delegating to handler function.
+
+        Args:
+            input_data: Input containing trace data and parsing options.
 
         Returns:
-            Empty result dictionary indicating stub status.
+            ModelTraceParsingOutput with parsed events, errors, and timing.
         """
-        warnings.warn(
-            f"NodeExecutionTraceParserCompute.compute() is a stub that returns empty "
-            f"results. No actual trace parsing is performed. "
-            f"See {_STUB_TRACKING_URL} for progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        return {
-            "status": "stub",
-            "message": "NodeExecutionTraceParserCompute is not yet implemented",
-            "parsed_traces": [],
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+        return handle_trace_parsing_compute(input_data)
 
 
 __all__ = ["NodeExecutionTraceParserCompute"]

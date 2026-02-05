@@ -32,8 +32,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from omniintelligence.enums import EnumHeuristicMethod, HEURISTIC_CONFIDENCE
-
+from omniintelligence.enums import HEURISTIC_CONFIDENCE, EnumHeuristicMethod
 
 # =============================================================================
 # Type Definitions

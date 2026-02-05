@@ -24,7 +24,6 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
     ModelReducerInputPatternLifecycle,
 )
 
-
 # =============================================================================
 # Pytest Fixtures - IDs
 # =============================================================================

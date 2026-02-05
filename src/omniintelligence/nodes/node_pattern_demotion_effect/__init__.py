@@ -74,12 +74,12 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers import (
     build_gate_snapshot,
     calculate_hours_since_promotion,
     calculate_success_rate,
-    get_demotion_reason,
-    is_cooldown_active,
-    validate_threshold_overrides,
     # Handler functions
     check_and_demote_patterns,
     demote_pattern,
+    get_demotion_reason,
+    is_cooldown_active,
+    validate_threshold_overrides,
 )
 
 # Models

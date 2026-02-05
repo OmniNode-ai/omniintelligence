@@ -54,7 +54,6 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_s
     ModelSuccessCriteriaOutput,
 )
 
-
 # Module logger for exception tracking
 logger = logging.getLogger(__name__)
 
@@ -122,7 +121,9 @@ def handle_success_criteria_compute(
                 "criteria_count=%d, processing_time_ms=%.2f",
                 len(getattr(input_data, "criteria_set", [])),
                 processing_time,
-                extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None
+                },
             )
         except Exception:
             # If logging itself fails, try minimal logging
@@ -130,7 +131,11 @@ def handle_success_criteria_compute(
                 logger.error(
                     "Success criteria matching compute failed: %s",
                     e,
-                    extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                    extra={
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None
+                    },
                 )
 
         # Safe error response creation
@@ -317,7 +322,9 @@ def _create_safe_error_output(
         ModelSuccessCriteriaOutput indicating failure. Always succeeds.
     """
     try:
-        return _create_compute_error_output(error_message, processing_time_ms, correlation_id)
+        return _create_compute_error_output(
+            error_message, processing_time_ms, correlation_id
+        )
     except Exception:
         # If normal error output creation fails, create minimal output
         # This should never happen, but ensures the no-exception contract

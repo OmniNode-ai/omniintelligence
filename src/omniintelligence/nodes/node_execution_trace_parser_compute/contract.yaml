@@ -37,6 +37,16 @@ operations:
       - parsed_events
       - error_events
       - timing_data
+# Handler Routing (Declarative Pattern)
+# ======================================
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "parse_trace"
+      handler:
+        function: "handle_trace_parsing_compute"
+        module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers"
+        type: "sync"
 # Protocol Dependencies (Future)
 # ==============================
 # Status: Backlog - Phase 3 (v0.4.0)
@@ -69,7 +79,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-10-02"
-  updated: "2026-01-18"
+  updated: "2026-02-05"
   tags:
     - "ONEX"
     - "compute"

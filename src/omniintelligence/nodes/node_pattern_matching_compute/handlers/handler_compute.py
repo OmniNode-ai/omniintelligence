@@ -111,8 +111,14 @@ def handle_pattern_matching_compute(
         # Extract correlation_id safely for logging
         correlation_id: str | None = None
         with contextlib.suppress(Exception):
-            if hasattr(input_data, "context") and hasattr(input_data.context, "correlation_id"):
-                correlation_id = str(input_data.context.correlation_id) if input_data.context.correlation_id else None
+            if hasattr(input_data, "context") and hasattr(
+                input_data.context, "correlation_id"
+            ):
+                correlation_id = (
+                    str(input_data.context.correlation_id)
+                    if input_data.context.correlation_id
+                    else None
+                )
 
         # Safe logging - failures here must not propagate
         try:
@@ -163,7 +169,9 @@ def _execute_matching(
     context = input_data.context
     min_confidence = context.min_confidence
     max_results = context.max_results
-    pattern_categories = context.pattern_categories if context.pattern_categories else None
+    pattern_categories = (
+        context.pattern_categories if context.pattern_categories else None
+    )
     language = context.language
 
     # Call the pure matching function

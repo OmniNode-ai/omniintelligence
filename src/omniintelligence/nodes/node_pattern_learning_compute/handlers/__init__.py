@@ -40,6 +40,26 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions im
     PatternLearningComputeError,
     PatternLearningValidationError,
 )
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
+    compute_cluster_scores,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
+    deduplicate_patterns,
+    generate_pattern_signature,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
+    extract_features,
+    extract_features_batch,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
+    cluster_patterns,
+    compute_similarity,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning import (
+    HANDLER_ID_PATTERN_LEARNING,
+    HandlerPatternLearning,
+    aggregate_patterns,
+)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets import (
     DEFAULT_SIMILARITY_WEIGHTS,
     SIGNATURE_NORMALIZATION,
@@ -57,32 +77,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
     SimilarityWeightsDict,
     StructuralFeaturesDict,
 )
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
-    extract_features,
-    extract_features_batch,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.utils import (
-    jaccard_similarity,
-    normalize_identifier,
-    normalize_identifiers,
-    validate_similarity_weights,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
-    compute_cluster_scores,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
-    cluster_patterns,
-    compute_similarity,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
-    deduplicate_patterns,
-    generate_pattern_signature,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning import (
-    HANDLER_ID_PATTERN_LEARNING,
-    HandlerPatternLearning,
-    aggregate_patterns,
-)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.replay import (
     NULL_EMITTER,
     NullEmitter,
@@ -91,6 +85,12 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.replay import
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.union_find import (
     UnionFind,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.utils import (
+    jaccard_similarity,
+    normalize_identifier,
+    normalize_identifiers,
+    validate_similarity_weights,
 )
 
 __all__ = [

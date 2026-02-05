@@ -63,7 +63,6 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.enum_onex_stri
     OnexStrictnessLevel,
 )
 
-
 # =============================================================================
 # Preset Weight Configurations
 # =============================================================================

@@ -965,8 +965,8 @@ class TestRealNodeFiles:
         # Known stub nodes (per CLAUDE.md documentation)
         # Note: node_pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
+        # Note: node_execution_trace_parser_compute was implemented in OMN-1427
         stub_nodes = [
-            "node_execution_trace_parser_compute",
             "node_pattern_assembler_orchestrator",
         ]
 

@@ -35,7 +35,6 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
 
 from .conftest import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 
-
 # =============================================================================
 # Test Classes
 # =============================================================================

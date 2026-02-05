@@ -37,7 +37,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
     StructuralFeaturesDict,
 )
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================

@@ -35,21 +35,10 @@ from typing import Final, Literal, get_args
 
 from omnibase_core.models.primitives.model_semver import ModelSemVer
 
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
-    QualityScoringComputeError,
-)
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.enum_onex_strictness_level import (
-    OnexStrictnessLevel,
-)
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import (
-    get_threshold_for_preset,
-    get_weights_for_preset,
-)
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.protocols import (
-    DimensionScores,
-    QualityScoringResult,
-    create_error_dimensions,
-)
+from .enum_onex_strictness_level import OnexStrictnessLevel
+from .exceptions import QualityScoringComputeError, QualityScoringValidationError
+from .presets import get_threshold_for_preset, get_weights_for_preset
+from .protocols import DimensionScores, QualityScoringResult
 
 # Type alias for valid dimension keys (matches DimensionScores TypedDict keys)
 DimensionKey = Literal[
@@ -402,13 +391,10 @@ def score_code_quality(
             - LENIENT: Development mode, threshold 0.5
 
     Returns:
-        QualityScoringResult with all scoring data. On validation errors (empty content,
-        invalid weights), returns a result with success=False and a validation_error
-        recommendation instead of raising an exception.
-
-    Raises:
-        QualityScoringComputeError: If scoring computation fails unexpectedly
-            (invariant violation, not a domain error).
+        QualityScoringResult with all scoring data. On validation errors,
+        returns result with success=False and error in recommendations.
+        Validation errors are domain errors returned as structured output
+        per CLAUDE.md handler pattern.
 
     Example:
         >>> result = score_code_quality(
@@ -428,10 +414,20 @@ def score_code_quality(
         ... )
         >>> result["onex_compliant"]  # Uses 0.8 threshold
         False
+
+        >>> # Validation error returns structured output
+        >>> result = score_code_quality(content="", language="python")
+        >>> result["success"]
+        False
     """
-    # Validate inputs - return structured error instead of raising
+    normalized_language = language.lower().strip() if language else "unknown"
+
+    # Validate inputs - return structured errors per CLAUDE.md handler pattern
     if not content or not content.strip():
-        return _create_validation_error_result("Content cannot be empty")
+        return _create_validation_error_result(
+            "Content cannot be empty",
+            language=normalized_language,
+        )
 
     # Apply preset configuration (highest precedence)
     if preset is not None:
@@ -441,12 +437,11 @@ def score_code_quality(
         effective_weights = weights if weights is not None else DEFAULT_WEIGHTS.copy()
         effective_threshold = onex_threshold
 
-    # Validate weights - return structured error instead of raising
-    weight_error = _validate_weights(effective_weights)
-    if weight_error is not None:
-        return _create_validation_error_result(weight_error)
-
-    normalized_language = language.lower().strip()
+    # Validate weights - catch validation errors and return structured output
+    try:
+        _validate_weights(effective_weights)
+    except QualityScoringValidationError as e:
+        return _create_validation_error_result(str(e), language=normalized_language)
 
     # Check if language is supported for full analysis
     if normalized_language not in SUPPORTED_LANGUAGES:
@@ -481,10 +476,16 @@ def score_code_quality(
         # Code has syntax errors - return partial result
         return _create_syntax_error_result(normalized_language, str(e))
 
+    except QualityScoringComputeError:
+        # Re-raise compute errors as invariant violations
+        raise
+
     except Exception as e:
-        raise QualityScoringComputeError(
-            f"Unexpected error during quality scoring: {e}"
-        ) from e
+        # Unknown errors - return structured output per CLAUDE.md
+        return _create_validation_error_result(
+            f"Unexpected error during quality scoring: {e}",
+            language=normalized_language,
+        )
 
 
 # =============================================================================
@@ -974,6 +975,10 @@ def _check_import_grouping(tree: ast.AST) -> bool:
     Imports should be organized with stdlib first, then third-party,
     then local imports, with each group being contiguous.
 
+    Handles both absolute and relative imports:
+    - Absolute imports are categorized by module name
+    - Relative imports (level > 0) are always categorized as "local"
+
     Args:
         tree: Parsed AST of the Python source code.
 
@@ -988,7 +993,13 @@ def _check_import_grouping(tree: ast.AST) -> bool:
                 category = _categorize_import(alias.name)
                 imports.append((node.lineno, alias.name, category))
         elif isinstance(node, ast.ImportFrom):
-            if node.module:
+            # Relative imports (from . or from .module) are always local
+            if node.level > 0:
+                # Relative import: from . import X or from .module import X
+                module_name = node.module if node.module else "."
+                imports.append((node.lineno, module_name, "local"))
+            elif node.module:
+                # Absolute import: from module import X
                 category = _categorize_import(node.module)
                 imports.append((node.lineno, node.module, category))
 
@@ -1215,7 +1226,7 @@ def _round_dimension_scores(
     )
 
 
-def _validate_weights(weights: dict[str, float]) -> str | None:
+def _validate_weights(weights: dict[str, float]) -> None:
     """Validate that weights sum to approximately 1.0.
 
     Note: This validation is defensive for direct API calls to score_code_quality().
@@ -1226,8 +1237,8 @@ def _validate_weights(weights: dict[str, float]) -> str | None:
     Args:
         weights: Dictionary of dimension weights.
 
-    Returns:
-        None if validation passes, or an error message string if validation fails.
+    Raises:
+        QualityScoringValidationError: If weights don't sum to ~1.0 or have invalid keys.
     """
     expected_keys = set(DEFAULT_WEIGHTS.keys())
     actual_keys = set(weights.keys())
@@ -1235,17 +1246,19 @@ def _validate_weights(weights: dict[str, float]) -> str | None:
     if actual_keys != expected_keys:
         missing = expected_keys - actual_keys
         extra = actual_keys - expected_keys
-        return f"Invalid weight keys. Missing: {missing}, Extra: {extra}"
+        raise QualityScoringValidationError(
+            f"Invalid weight keys. Missing: {missing}, Extra: {extra}"
+        )
 
     total = sum(weights.values())
     if not (0.99 <= total <= 1.01):
-        return f"Weights must sum to 1.0, got {total:.4f}"
+        raise QualityScoringValidationError(f"Weights must sum to 1.0, got {total:.4f}")
 
     for key, value in weights.items():
         if not (0.0 <= value <= 1.0):
-            return f"Weight '{key}' must be between 0.0 and 1.0, got {value}"
-
-    return None
+            raise QualityScoringValidationError(
+                f"Weight '{key}' must be between 0.0 and 1.0, got {value}"
+            )
 
 
 def _compute_weighted_score(
@@ -1338,25 +1351,40 @@ def _create_syntax_error_result(language: str, error_msg: str) -> QualityScoring
     )
 
 
-def _create_validation_error_result(error_msg: str) -> QualityScoringResult:
-    """Create result when input validation fails.
+def _create_validation_error_result(
+    error_msg: str,
+    language: str = "unknown",
+) -> QualityScoringResult:
+    """Create result for validation errors (empty content, invalid weights).
 
-    Per CLAUDE.md: Domain errors should return structured output, not raise exceptions.
-    This allows callers to handle validation failures gracefully without exception handling.
+    Per CLAUDE.md handler pattern, validation errors are domain errors that
+    should be returned as structured output, not raised as exceptions.
 
     Args:
-        error_msg: Description of the validation failure.
+        error_msg: The validation error message.
+        language: The source language (default "unknown" for content validation).
 
     Returns:
-        QualityScoringResult with success=False and zero scores.
+        QualityScoringResult with success=False and error recommendation.
     """
+    # Use zero scores for validation failures - code wasn't analyzed
+    zero_score = 0.0
+    dimensions: DimensionScores = {
+        "complexity": zero_score,
+        "maintainability": zero_score,
+        "documentation": zero_score,
+        "temporal_relevance": zero_score,
+        "patterns": zero_score,
+        "architectural": zero_score,
+    }
+
     return QualityScoringResult(
-        success=False,  # Validation failed - operation did not complete
-        quality_score=0.0,
-        dimensions=create_error_dimensions(),
+        success=False,
+        quality_score=zero_score,
+        dimensions=dimensions,
         onex_compliant=False,
         recommendations=[f"[validation_error] {error_msg}"],
-        source_language="unknown",
+        source_language=language,
         analysis_version=ANALYSIS_VERSION_STR,
     )
 

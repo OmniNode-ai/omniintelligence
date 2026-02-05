@@ -27,12 +27,11 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+
 from omniintelligence.nodes.node_quality_scoring_compute import (
     NodeQualityScoringCompute,
 )
-
 
 # =============================================================================
 # Path Configuration

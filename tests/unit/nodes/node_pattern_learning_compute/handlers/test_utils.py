@@ -22,7 +22,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.utils import 
     normalize_identifiers,
 )
 
-
 # =============================================================================
 # jaccard_similarity Tests
 # =============================================================================

@@ -37,9 +37,10 @@ from omnibase_core.models.contracts.subcontracts import (
     ModelWorkflowCoordinationSubcontract,
 )
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from pydantic import BaseModel, ValidationError
+
 from omniintelligence.constants import PERCENTAGE_MULTIPLIER
 from omniintelligence.tools.stubs.contract_validator import ProtocolContractValidator
-from pydantic import BaseModel, ValidationError
 
 # Module-level logger for contract linter operations
 # Outputs to stderr to avoid polluting stdout which is used for CLI results

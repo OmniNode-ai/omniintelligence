@@ -38,7 +38,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.node_tests.conftest impo
     create_valid_input,
 )
 
-
 # =============================================================================
 # Governance Constants Verification
 # =============================================================================
