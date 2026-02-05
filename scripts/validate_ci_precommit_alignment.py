@@ -72,19 +72,25 @@ CI_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yaml"
 PRECOMMIT_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
 
 # =============================================================================
-# CANONICAL SOURCE OF TRUTH - Update these when adding new modules
+# CANONICAL SOURCE OF TRUTH - Full codebase mode
 # =============================================================================
-# These lists define the expected scope for CI and pre-commit configurations.
-# When adding a new source directory:
-# 1. Add to ALIGNED_SOURCE_DIRS below
-# 2. Run this script to detect drift
-# 3. Follow the checklist in .github/workflows/ci.yaml header
+# As of the omnibase_core alignment (2025-02), both CI and pre-commit run
+# ruff on the ENTIRE codebase (src/ tests/) using the always_run pattern.
+# This eliminates the need for explicit directory alignment since everything
+# is covered.
 #
-# Note: The mypy cache hashFiles patterns in ci.yaml should also include
-# the new module to ensure proper cache invalidation.
+# When FULL_CODEBASE_MODE is True:
+# - CI ruff commands run on: src/ tests/
+# - Pre-commit ruff hooks use: always_run: true with src/ tests/
+# - Both cover the entire codebase, so alignment is automatic
+#
+# Legacy narrow-scope lists (kept for reference/rollback):
+# ALIGNED_SOURCE_DIRS = ["tools", "utils", "runtime"]
+# ALIGNED_TEST_PATHS = ["tests/unit/tools", "tests/unit/test_log_sanitizer.py"]
 # =============================================================================
-ALIGNED_SOURCE_DIRS = ["tools", "utils", "runtime"]
-ALIGNED_TEST_PATHS = ["tests/unit/tools", "tests/unit/test_log_sanitizer.py"]
+FULL_CODEBASE_MODE = True
+ALIGNED_SOURCE_DIRS: list[str] = []  # Not used in full codebase mode
+ALIGNED_TEST_PATHS: list[str] = []  # Not used in full codebase mode
 
 
 @dataclass
@@ -496,6 +502,61 @@ def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> Mypy
     return result
 
 
+def _check_ci_full_codebase_mode(ci_config: dict) -> bool:
+    """Check if CI ruff commands run on entire codebase (src/ tests/).
+
+    Args:
+        ci_config: Parsed CI workflow YAML
+
+    Returns:
+        True if CI runs ruff on src/ tests/ (full codebase mode)
+    """
+    jobs = ci_config.get("jobs", {})
+    lint_job = jobs.get("lint", {})
+    steps = lint_job.get("steps", [])
+
+    for step in steps:
+        step_name = step.get("name", "")
+        run_cmd = step.get("run", "")
+        # Check for full codebase ruff commands
+        if "ruff" in step_name.lower() or "ruff" in run_cmd:
+            # Full codebase pattern: "ruff check src/ tests/" or similar
+            if "src/" in run_cmd and "tests/" in run_cmd:
+                # Check it's not listing specific subdirectories
+                if "src/omniintelligence/tools" not in run_cmd:
+                    return True
+    return False
+
+
+def _check_precommit_full_codebase_mode(precommit_config: dict) -> bool:
+    """Check if pre-commit ruff hooks run on entire codebase.
+
+    Args:
+        precommit_config: Parsed pre-commit config YAML
+
+    Returns:
+        True if pre-commit uses always_run or runs on src/ tests/
+    """
+    repos = precommit_config.get("repos", [])
+    for repo in repos:
+        if not isinstance(repo, dict):
+            continue
+        hooks = repo.get("hooks", [])
+        for hook in hooks:
+            if not isinstance(hook, dict):
+                continue
+            hook_id = hook.get("id", "")
+            if "ruff" in hook_id:
+                # Check for always_run: true pattern
+                if hook.get("always_run") is True:
+                    return True
+                # Check for entry that runs on src/ tests/
+                entry = hook.get("entry", "")
+                if "src/" in entry and "tests/" in entry:
+                    return True
+    return False
+
+
 def validate_alignment(verbose: bool = False) -> ValidationResult:
     """Validate that CI and pre-commit patterns are aligned.
 
@@ -529,7 +590,30 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
         result.is_aligned = False
         return result
 
-    # Extract patterns
+    # Check for full codebase mode (omnibase_core alignment pattern)
+    # When both CI and pre-commit run on entire src/ tests/, they are aligned by definition
+    ci_full_codebase = _check_ci_full_codebase_mode(ci_config)
+    precommit_full_codebase = _check_precommit_full_codebase_mode(precommit_config)
+
+    if verbose:
+        print(f"\nFull codebase mode:")
+        print(f"  CI: {ci_full_codebase}")
+        print(f"  Pre-commit: {precommit_full_codebase}")
+
+    if ci_full_codebase and precommit_full_codebase:
+        if verbose:
+            print("\nBoth CI and pre-commit run on entire codebase (src/ tests/).")
+            print("Alignment is automatic - no directory-level checks needed.")
+        result.is_aligned = True
+        result.ci_source_dirs = ["(full codebase: src/)"]
+        result.ci_test_paths = ["(full codebase: tests/)"]
+        result.precommit_source_dirs = ["(full codebase: src/)"]
+        result.precommit_test_paths = ["(full codebase: tests/)"]
+        # Still validate mypy cache
+        result.mypy_cache = validate_mypy_cache_patterns(ci_config, verbose=verbose)
+        return result
+
+    # Extract patterns (legacy narrow-scope mode)
     result.ci_source_dirs, result.ci_test_paths = extract_ci_patterns(ci_config)
     result.precommit_source_dirs, result.precommit_test_paths = extract_precommit_patterns(
         precommit_config
