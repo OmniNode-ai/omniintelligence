@@ -33,9 +33,7 @@ from omniintelligence.tools.contract_linter import (
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
 # Contracts base directory in the canonical nodes
-CONTRACTS_DIR = (
-    PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
-)
+CONTRACTS_DIR = PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
 
 # Runtime contracts directory
 RUNTIME_CONTRACTS_DIR = (
@@ -307,9 +305,7 @@ class TestRealContractValidation:
                 f"got '{result.contract_type}'"
             )
 
-    def test_batch_validate_all_contracts(
-        self, all_contracts: list[Path]
-    ) -> None:
+    def test_batch_validate_all_contracts(self, all_contracts: list[Path]) -> None:
         """Test batch validation of all contracts with summary statistics."""
         if not all_contracts:
             pytest.skip("No contracts found in codebase")
@@ -337,9 +333,7 @@ class TestRealContractValidation:
                 for error in result.validation_errors[:3]:
                     print(f"      {error.field_path}: {error.error_message}")
 
-    def test_contract_count_sanity_check(
-        self, all_contracts: list[Path]
-    ) -> None:
+    def test_contract_count_sanity_check(self, all_contracts: list[Path]) -> None:
         """Verify expected minimum number of contracts exist in codebase.
 
         This test ensures the test infrastructure is working correctly
@@ -431,14 +425,10 @@ class TestParallelValidationPerformance:
         linter = ContractLinter()
 
         # Sequential validation
-        sequential_results = linter.validate_batch(
-            large_contract_batch, parallel=False
-        )
+        sequential_results = linter.validate_batch(large_contract_batch, parallel=False)
 
         # Parallel validation
-        parallel_results = linter.validate_batch(
-            large_contract_batch, parallel=True
-        )
+        parallel_results = linter.validate_batch(large_contract_batch, parallel=True)
 
         # Results should match (same files, same validity)
         assert len(sequential_results) == len(parallel_results)

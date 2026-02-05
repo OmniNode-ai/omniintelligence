@@ -377,7 +377,9 @@ class TestEventConsumption:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="DLQ infrastructure not yet wired for this node - see OMN-1764")
+@pytest.mark.skip(
+    reason="DLQ infrastructure not yet wired for this node - see OMN-1764"
+)
 class TestDLQRouting:
     """Tests for Dead Letter Queue routing on processing failures."""
 

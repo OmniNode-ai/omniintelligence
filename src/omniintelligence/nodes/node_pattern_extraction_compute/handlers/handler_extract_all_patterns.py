@@ -257,9 +257,13 @@ def _run_extractors(
     all_patterns: list[ModelCodebaseInsight] = []
     metrics_counts: dict[str, int] = {}
 
-    for extractor_id, config_flag, metrics_field, extract_func, convert_func in (
-        _EXTRACTORS
-    ):
+    for (
+        extractor_id,
+        config_flag,
+        metrics_field,
+        extract_func,
+        convert_func,
+    ) in _EXTRACTORS:
         # Check if extractor is enabled via config flag
         if not getattr(config, config_flag, False):
             metrics_counts[metrics_field] = 0

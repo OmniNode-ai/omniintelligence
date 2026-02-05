@@ -43,7 +43,9 @@ class OrchestratorIntentDict(TypedDict, total=False):
     intent_type: str
     target: str
     payload: IntentPayloadDict
-    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    correlation_id: (
+        str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    )
     timestamp: str
     metadata: IntentMetadataDict | None
 

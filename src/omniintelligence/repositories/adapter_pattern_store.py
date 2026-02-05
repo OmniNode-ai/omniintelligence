@@ -159,12 +159,12 @@ class AdapterPatternStore:
         confidence: float,
         quality_score: float = 0.5,
         state: EnumPatternState,
-        is_current: bool,  # noqa: ARG002 - interface compat, see class docstring
-        stored_at: datetime,  # noqa: ARG002 - interface compat, see class docstring
-        actor: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
-        source_run_id: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
+        is_current: bool,
+        stored_at: datetime,
+        actor: str | None = None,
+        source_run_id: str | None = None,
         correlation_id: UUID | None = None,
-        metadata: TypedDictPatternStorageMetadata | None = None,  # noqa: ARG002
+        metadata: TypedDictPatternStorageMetadata | None = None,
         conn: AsyncConnection,
     ) -> UUID:
         """Store a pattern using the contract runtime.
@@ -222,7 +222,9 @@ class AdapterPatternStore:
                 "confidence": confidence,
                 "quality_score": quality_score,
                 "status": state.value,
-                "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
+                "source_session_ids": f"{{{correlation_id}}}"
+                if correlation_id
+                else "{}",
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
                 # supersedes: omitted - optional with no default, will be None
@@ -249,7 +251,7 @@ class AdapterPatternStore:
         domain: str,
         signature_hash: str,
         version: int,
-        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
+        conn: AsyncConnection,
     ) -> bool:
         """Check if a pattern exists for the given lineage and version.
 
@@ -285,7 +287,7 @@ class AdapterPatternStore:
         self,
         pattern_id: UUID,
         signature_hash: str,
-        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
+        conn: AsyncConnection,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key (pattern_id + signature_hash).
 
@@ -318,7 +320,7 @@ class AdapterPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
+        conn: AsyncConnection,
     ) -> int:
         """Set is_current = false for all previous versions of this lineage.
 
@@ -353,7 +355,7 @@ class AdapterPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
+        conn: AsyncConnection,
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
@@ -385,7 +387,7 @@ class AdapterPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        conn: AsyncConnection,  # noqa: ARG002 - interface compat, see class docstring
+        conn: AsyncConnection,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -416,12 +418,12 @@ class AdapterPatternStore:
         confidence: float,
         quality_score: float = 0.5,
         state: EnumPatternState,
-        is_current: bool,  # noqa: ARG002 - interface compat, see class docstring
-        stored_at: datetime,  # noqa: ARG002 - interface compat, see class docstring
-        actor: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
-        source_run_id: str | None = None,  # noqa: ARG002 - interface compat, see class docstring
+        is_current: bool,
+        stored_at: datetime,
+        actor: str | None = None,
+        source_run_id: str | None = None,
         correlation_id: UUID | None = None,
-        metadata: TypedDictPatternStorageMetadata | None = None,  # noqa: ARG002
+        metadata: TypedDictPatternStorageMetadata | None = None,
         conn: AsyncConnection,
     ) -> UUID:
         """Atomically transition previous version(s) and store new pattern.
@@ -500,7 +502,9 @@ class AdapterPatternStore:
                 "confidence": confidence,
                 "quality_score": quality_score,
                 "status": state.value,
-                "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
+                "source_session_ids": f"{{{correlation_id}}}"
+                if correlation_id
+                else "{}",
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
             },

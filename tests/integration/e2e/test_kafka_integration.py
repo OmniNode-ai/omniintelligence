@@ -300,9 +300,7 @@ async def test_kafka_consumer_can_verify_published_events(
     assert received["topic"] == topic, (
         f"Expected topic '{topic}', got '{received['topic']}'"
     )
-    assert received["key"] == key, (
-        f"Expected key '{key}', got '{received['key']}'"
-    )
+    assert received["key"] == key, f"Expected key '{key}', got '{received['key']}'"
     assert received["value"] == value, (
         f"Expected value {value}, got {received['value']}"
     )

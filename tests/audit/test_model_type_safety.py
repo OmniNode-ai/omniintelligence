@@ -65,8 +65,8 @@ class TestNoAnyTypesInModels:
                                 f"Class {node.name}, field {ast.unparse(item.target) if item.target else 'unknown'}: {annotation_str}"
                             )
 
-        assert not any_usages, (
-            f"Found raw `Any` type in {model_file}:\n" + "\n".join(any_usages)
+        assert not any_usages, f"Found raw `Any` type in {model_file}:\n" + "\n".join(
+            any_usages
         )
 
     @pytest.mark.parametrize("model_file", MODEL_FILES)
@@ -92,9 +92,7 @@ class TestNoAnyTypesInModels:
                         # Check for dict[str, Any] pattern
                         if re.search(r"dict\s*\[\s*str\s*,\s*Any\s*\]", annotation_str):
                             field_name = (
-                                ast.unparse(item.target)
-                                if item.target
-                                else "unknown"
+                                ast.unparse(item.target) if item.target else "unknown"
                             )
                             violations.append(
                                 f"Class {node.name}, field {field_name}: {annotation_str}"

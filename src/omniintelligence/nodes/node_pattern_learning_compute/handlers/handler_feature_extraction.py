@@ -154,7 +154,9 @@ def extract_features_batch(
 # =============================================================================
 
 
-def _normalize_labels(labels: tuple[str, ...] | list[str] | str | None) -> tuple[str, ...]:
+def _normalize_labels(
+    labels: tuple[str, ...] | list[str] | str | None,
+) -> tuple[str, ...]:
     """Normalize labels to an immutable tuple.
 
     Handles:
@@ -370,7 +372,9 @@ def _extract_structural_features(tree: ast.AST, content: str) -> StructuralFeatu
                 has_type_hints = True
             # Check for argument type hints
             if node.args:
-                for arg in node.args.args + node.args.posonlyargs + node.args.kwonlyargs:
+                for arg in (
+                    node.args.args + node.args.posonlyargs + node.args.kwonlyargs
+                ):
                     if arg.annotation is not None:
                         has_type_hints = True
                         break

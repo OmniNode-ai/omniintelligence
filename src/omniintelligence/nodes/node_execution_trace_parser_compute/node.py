@@ -2,6 +2,7 @@
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/5
 # Status: Interface defined, implementation pending
 """Execution Trace Parser Compute - STUB compute node for trace parsing."""
+
 from __future__ import annotations
 
 import warnings

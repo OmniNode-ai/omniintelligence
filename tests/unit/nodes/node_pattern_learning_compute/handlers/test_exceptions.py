@@ -117,7 +117,9 @@ class TestPatternLearningComputeError:
 
     def test_message_preserved(self) -> None:
         """Exception message is preserved correctly."""
-        error = PatternLearningComputeError("Failed to parse AST: syntax error at line 42")
+        error = PatternLearningComputeError(
+            "Failed to parse AST: syntax error at line 42"
+        )
         assert str(error) == "Failed to parse AST: syntax error at line 42"
 
     def test_message_in_args(self) -> None:
@@ -265,9 +267,7 @@ class TestErrorCodeSemantics:
         )
 
         # Example: parsing error -> compute error (might succeed on retry)
-        compute_error = PatternLearningComputeError(
-            "Failed to parse AST: timeout"
-        )
+        compute_error = PatternLearningComputeError("Failed to parse AST: timeout")
 
         # Both are exceptions but represent different failure modes
         assert isinstance(validation_error, Exception)
@@ -288,9 +288,7 @@ class TestUsagePatterns:
     def test_exception_can_wrap_original_error(self) -> None:
         """Exceptions can wrap original error information."""
         original = ValueError("Original cause")
-        wrapped = PatternLearningComputeError(
-            f"Pattern learning failed: {original}"
-        )
+        wrapped = PatternLearningComputeError(f"Pattern learning failed: {original}")
 
         assert "Original cause" in str(wrapped)
         assert "Pattern learning failed" in str(wrapped)
@@ -357,9 +355,7 @@ class TestUsagePatterns:
                 raise PatternLearningValidationError("Validation failed")
             except PatternLearningValidationError as e:
                 # Convert validation to compute error (e.g., for retry logic)
-                raise PatternLearningComputeError(
-                    f"Retryable: {e}"
-                ) from e
+                raise PatternLearningComputeError(f"Retryable: {e}") from e
 
         assert "Retryable" in str(exc_info.value)
         assert exc_info.value.__cause__ is not None
@@ -419,21 +415,27 @@ class TestModuleExports:
 
     def test_all_exceptions_importable(self) -> None:
         """All exception classes are importable from handlers package."""
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers import exceptions
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+            exceptions,
+        )
 
         assert hasattr(exceptions, "PatternLearningValidationError")
         assert hasattr(exceptions, "PatternLearningComputeError")
 
     def test_exports_match_all(self) -> None:
         """Module __all__ includes all exception classes."""
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers import exceptions
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+            exceptions,
+        )
 
         expected = {"PatternLearningComputeError", "PatternLearningValidationError"}
         assert set(exceptions.__all__) == expected
 
     def test_classes_are_actual_exception_types(self) -> None:
         """Exported names are actual exception classes."""
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers import exceptions
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+            exceptions,
+        )
 
         assert isinstance(exceptions.PatternLearningValidationError, type)
         assert isinstance(exceptions.PatternLearningComputeError, type)

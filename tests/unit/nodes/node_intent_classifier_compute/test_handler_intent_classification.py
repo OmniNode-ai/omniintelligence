@@ -187,8 +187,7 @@ class TestDebuggingIntent:
         """Test detection of debugging intent for various phrases."""
         result = classify_intent(content)
         assert result["intent_category"] == "debugging", (
-            f"Expected 'debugging' for: {content!r}, "
-            f"got: {result['intent_category']}"
+            f"Expected 'debugging' for: {content!r}, got: {result['intent_category']}"
         )
         assert result["confidence"] > 0.0
 
@@ -211,8 +210,7 @@ class TestRefactoringIntent:
         """Test detection of refactoring intent for various phrases."""
         result = classify_intent(content)
         assert result["intent_category"] == "refactoring", (
-            f"Expected 'refactoring' for: {content!r}, "
-            f"got: {result['intent_category']}"
+            f"Expected 'refactoring' for: {content!r}, got: {result['intent_category']}"
         )
         assert result["confidence"] > 0.0
 
@@ -235,8 +233,7 @@ class TestTestingIntent:
         """Test detection of testing intent for various phrases."""
         result = classify_intent(content)
         assert result["intent_category"] == "testing", (
-            f"Expected 'testing' for: {content!r}, "
-            f"got: {result['intent_category']}"
+            f"Expected 'testing' for: {content!r}, got: {result['intent_category']}"
         )
         assert result["confidence"] > 0.0
 
@@ -283,8 +280,7 @@ class TestAnalysisIntent:
         """Test detection of analysis intent for various phrases."""
         result = classify_intent(content)
         assert result["intent_category"] == "analysis", (
-            f"Expected 'analysis' for: {content!r}, "
-            f"got: {result['intent_category']}"
+            f"Expected 'analysis' for: {content!r}, got: {result['intent_category']}"
         )
         assert result["confidence"] > 0.0
 
@@ -538,7 +534,9 @@ class TestEdgeCases:
     def test_unicode_content(self) -> None:
         """Test that unicode content is handled correctly."""
         # Test with various unicode characters (Chinese, emoji, accented chars)
-        unicode_content = "Generate a function to process \u4e2d\u6587 text with caf\u00e9"
+        unicode_content = (
+            "Generate a function to process \u4e2d\u6587 text with caf\u00e9"
+        )
         result = classify_intent(unicode_content)
 
         # Should classify as code_generation and return valid result structure
@@ -676,8 +674,14 @@ class TestConfigurationPassing:
         self, default_config: ModelClassificationConfig
     ) -> None:
         """Test that fixture default_config matches DEFAULT_CLASSIFICATION_CONFIG."""
-        assert default_config.exact_match_weight == DEFAULT_CLASSIFICATION_CONFIG.exact_match_weight
-        assert default_config.default_confidence_threshold == DEFAULT_CLASSIFICATION_CONFIG.default_confidence_threshold
+        assert (
+            default_config.exact_match_weight
+            == DEFAULT_CLASSIFICATION_CONFIG.exact_match_weight
+        )
+        assert (
+            default_config.default_confidence_threshold
+            == DEFAULT_CLASSIFICATION_CONFIG.default_confidence_threshold
+        )
 
     def test_classify_with_explicit_default_config(
         self, default_config: ModelClassificationConfig
@@ -709,12 +713,17 @@ class TestConfigurationPassing:
         # Low threshold should return result for weak match
         result_low = classify_intent("work on the project", config=low_threshold_config)
         # High threshold should return unknown for same text
-        result_high = classify_intent("work on the project", config=high_threshold_config)
+        result_high = classify_intent(
+            "work on the project", config=high_threshold_config
+        )
 
         # Low threshold allows weak matches through
         # High threshold filters them out
         if result_low["intent_category"] != "unknown":
-            assert result_high["intent_category"] == "unknown" or result_high["confidence"] >= 0.99
+            assert (
+                result_high["intent_category"] == "unknown"
+                or result_high["confidence"] >= 0.99
+            )
 
     def test_config_weight_affects_scoring(self) -> None:
         """Test that different weights affect relative scoring."""

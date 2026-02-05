@@ -32,11 +32,11 @@ def process(data: dict[str, int]) -> list[str]:
     """Process data dictionary."""
     return list(data.keys())
 '''
-        untyped = '''
+        untyped = """
 def process(data, **kwargs):
     result = []
     return result
-'''
+"""
         result_typed = score_code_quality(typed, "python")
         result_untyped = score_code_quality(untyped, "python")
 
@@ -66,16 +66,22 @@ def process(data: dict[str, int], limit: int) -> list[str]:
     """Process data."""
     return list(data.keys())[:limit]
 '''
-        undocumented = '''
+        undocumented = """
 def process(data, limit):
     return list(data.keys())[:limit]
-'''
+"""
         result_full = score_code_quality(fully_documented, "python")
         result_partial = score_code_quality(partial_documented, "python")
         result_none = score_code_quality(undocumented, "python")
 
-        assert result_full["dimensions"]["documentation"] >= result_partial["dimensions"]["documentation"]
-        assert result_partial["dimensions"]["documentation"] >= result_none["dimensions"]["documentation"]
+        assert (
+            result_full["dimensions"]["documentation"]
+            >= result_partial["dimensions"]["documentation"]
+        )
+        assert (
+            result_partial["dimensions"]["documentation"]
+            >= result_none["dimensions"]["documentation"]
+        )
 
     def test_documentation_detects_docstrings(self) -> None:
         """Code with docstrings should score higher on documentation."""
@@ -91,14 +97,17 @@ def process(data: dict) -> list:
     """
     return list(data.keys())
 '''
-        undocumented = '''
+        undocumented = """
 def process(data: dict) -> list:
     return list(data.keys())
-'''
+"""
         result_doc = score_code_quality(documented, "python")
         result_undoc = score_code_quality(undocumented, "python")
 
-        assert result_doc["dimensions"]["documentation"] > result_undoc["dimensions"]["documentation"]
+        assert (
+            result_doc["dimensions"]["documentation"]
+            > result_undoc["dimensions"]["documentation"]
+        )
 
     def test_documentation_class_and_module_docstrings(self) -> None:
         """Class and module docstrings should improve documentation score."""
@@ -112,23 +121,26 @@ class Processor:
         """Process the data."""
         return list(data.keys())
 '''
-        without_docstrings = '''
+        without_docstrings = """
 class Processor:
     def process(self, data: dict) -> list:
         return list(data.keys())
-'''
+"""
         result_with = score_code_quality(with_docstrings, "python")
         result_without = score_code_quality(without_docstrings, "python")
 
-        assert result_with["dimensions"]["documentation"] > result_without["dimensions"]["documentation"]
+        assert (
+            result_with["dimensions"]["documentation"]
+            > result_without["dimensions"]["documentation"]
+        )
 
     def test_complexity_rewards_simple_code(self) -> None:
         """Simple code should score better on complexity dimension."""
-        simple = '''
+        simple = """
 def add(a: int, b: int) -> int:
     return a + b
-'''
-        complex_code = '''
+"""
+        complex_code = """
 def process(data):
     result = 0
     for item in data:
@@ -142,19 +154,22 @@ def process(data):
                     else:
                         result *= 2
     return result
-'''
+"""
         result_simple = score_code_quality(simple, "python")
         result_complex = score_code_quality(complex_code, "python")
 
-        assert result_simple["dimensions"]["complexity"] > result_complex["dimensions"]["complexity"]
+        assert (
+            result_simple["dimensions"]["complexity"]
+            > result_complex["dimensions"]["complexity"]
+        )
 
     def test_complexity_with_try_except(self) -> None:
         """Try-except blocks should add to complexity score."""
-        without_try = '''
+        without_try = """
 def simple(x: int) -> int:
     return x * 2
-'''
-        with_try = '''
+"""
+        with_try = """
 def complex(x: int) -> int:
     try:
         result = x * 2
@@ -163,12 +178,15 @@ def complex(x: int) -> int:
     except ValueError:
         result = -1
     return result
-'''
+"""
         result_simple = score_code_quality(without_try, "python")
         result_with_try = score_code_quality(with_try, "python")
 
         # More exception handlers = higher complexity = lower complexity score
-        assert result_simple["dimensions"]["complexity"] >= result_with_try["dimensions"]["complexity"]
+        assert (
+            result_simple["dimensions"]["complexity"]
+            >= result_with_try["dimensions"]["complexity"]
+        )
 
     def test_maintainability_naming_conventions(self) -> None:
         """Proper naming conventions should improve maintainability score."""
@@ -184,14 +202,14 @@ class UserAccount:
         """Validate amount internally."""
         return amount > 0
 '''
-        bad_naming = '''
+        bad_naming = """
 class user_account:
     def GetBalance(self):
         return 0.0
 
     def ValidateAmount(self, Amount):
         return Amount > 0
-'''
+"""
         result_good = score_code_quality(good_naming, "python")
         result_bad = score_code_quality(bad_naming, "python")
 
@@ -223,34 +241,40 @@ class Model(BaseModel):
 
     model_config = {"frozen": True, "extra": "forbid"}
 '''
-        without_patterns = '''
+        without_patterns = """
 class Model:
     def __init__(self):
         self.data = {}
 
 def process(data, **kwargs):
     return dict(data)
-'''
+"""
         result_with = score_code_quality(with_patterns, "python")
         result_without = score_code_quality(without_patterns, "python")
 
-        assert result_with["dimensions"]["patterns"] > result_without["dimensions"]["patterns"]
+        assert (
+            result_with["dimensions"]["patterns"]
+            > result_without["dimensions"]["patterns"]
+        )
 
     def test_patterns_penalizes_antipatterns(self) -> None:
         """ONEX anti-patterns should lower the patterns dimension score."""
-        clean_code = '''
+        clean_code = """
 def process(data: dict[str, str]) -> list[str]:
     return list(data.values())
-'''
-        with_antipatterns = '''
+"""
+        with_antipatterns = """
 from typing import Any
 
 def process(data: dict[str, Any], **kwargs) -> list:
     result = []
     defaults = {}
     return result
-'''
+"""
         result_clean = score_code_quality(clean_code, "python")
         result_antipatterns = score_code_quality(with_antipatterns, "python")
 
-        assert result_clean["dimensions"]["patterns"] > result_antipatterns["dimensions"]["patterns"]
+        assert (
+            result_clean["dimensions"]["patterns"]
+            > result_antipatterns["dimensions"]["patterns"]
+        )

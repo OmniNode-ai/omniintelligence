@@ -291,29 +291,39 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1000]
   # ============================================================================
-  # RUFF - Fast Python linter and formatter
+  # RUFF - Fast Python linter and formatter (LOCAL HOOKS)
   # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
-  # Scope: Production code (tools/, utils/, runtime/) and their unit tests
+  # Scope: Production code - tools/, utils/, runtime/ and their tests
+  # Pattern: Uses local hooks with `language: system` for uv integration
+  # Reference: Aligned with CI scope (see CI ALIGNMENT NOTICE above)
   # ============================================================================
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+  - repo: local
     hooks:
-      - id: ruff
-        name: ruff (lint)
-        args: [--fix, --exit-non-zero-on-fix]
-        # types: [python] is more efficient than files regex for Python detection
-        types: [python]
-        # Covers: tools/, utils/, runtime/ source code and their tests
-        # test_log_sanitizer.py is included separately as it tests utils/log_sanitizer.py
-        # functionality but lives in tests/unit/ rather than tests/unit/tools/
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
-
       - id: ruff-format
-        name: ruff (format)
-        # types: [python] is more efficient than files regex for Python detection
+        name: ruff format (tools/utils/runtime)
+        entry: uv run ruff format
+        language: system
         types: [python]
-        # Same scope as ruff lint (see comment above for test_log_sanitizer.py rationale)
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
+        # Scope matches CI: tools/, utils/, runtime/ and their tests
+        # Pattern breakdown:
+        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
+        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
+        stages: [pre-commit]
+
+      - id: ruff-fix
+        name: ruff check (tools/utils/runtime)
+        entry: uv run ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types: [python]
+        # Scope matches CI: tools/, utils/, runtime/ and their tests
+        # Pattern breakdown:
+        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
+        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
+        stages: [pre-commit]
 
   # ============================================================================
   # MYPY - Static type checking

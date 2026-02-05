@@ -67,9 +67,9 @@ class TestExtractFileAccessPatterns:
                 routes_handlers_pattern = pattern
                 break
 
-        assert (
-            routes_handlers_pattern is not None
-        ), "Should detect routes.py + handlers.py co-access"
+        assert routes_handlers_pattern is not None, (
+            "Should detect routes.py + handlers.py co-access"
+        )
         assert routes_handlers_pattern["occurrences"] >= 2
         assert routes_handlers_pattern["confidence"] > 0
 
@@ -83,7 +83,9 @@ class TestExtractFileAccessPatterns:
             min_confidence=0.3,
         )
 
-        entry_point_patterns = [r for r in results if r["pattern_type"] == "entry_point"]
+        entry_point_patterns = [
+            r for r in results if r["pattern_type"] == "entry_point"
+        ]
 
         # routes.py is first in multiple sessions
         if entry_point_patterns:
@@ -246,9 +248,7 @@ class TestExtractErrorPatterns:
 
         assert len(results) == 0, "No errors should produce no error patterns"
 
-    def test_failure_outcome_counted_as_error(
-        self, base_time: datetime
-    ) -> None:
+    def test_failure_outcome_counted_as_error(self, base_time: datetime) -> None:
         """Sessions with failure outcome are counted even without explicit errors."""
         sessions = (
             ModelSessionSnapshot(
@@ -283,9 +283,9 @@ class TestExtractErrorPatterns:
 
         error_prone = [r for r in results if r["pattern_type"] == "error_prone_file"]
         # problematic.py should be detected as error-prone due to failure outcomes
-        assert any(
-            "problematic.py" in p["affected_files"] for p in error_prone
-        ), "Failure outcomes should contribute to error-prone detection"
+        assert any("problematic.py" in p["affected_files"] for p in error_prone), (
+            "Failure outcomes should contribute to error-prone detection"
+        )
 
     def test_result_structure(
         self, sessions_with_errors: tuple[ModelSessionSnapshot, ...]
@@ -330,7 +330,8 @@ class TestExtractToolPatterns:
 
         # Read -> Edit should be detected as a common sequence
         read_edit = [
-            s for s in sequences
+            s
+            for s in sequences
             if s["tools"] == ("Read", "Edit") and s["context"] == "sequential_usage"
         ]
         assert len(read_edit) > 0, "Should detect Read -> Edit sequence"
@@ -349,7 +350,8 @@ class TestExtractToolPatterns:
 
         # Read -> Edit -> Bash should be detected
         trigrams = [
-            s for s in sequences
+            s
+            for s in sequences
             if len(s["tools"]) == 3 and s["context"] == "workflow_pattern"
         ]
         # May or may not meet threshold depending on occurrence count
@@ -375,9 +377,7 @@ class TestExtractToolPatterns:
                 assert len(pref["tools"]) == 1
                 assert pref["context"].endswith("_files")  # e.g., ".py_files"
 
-    def test_detects_success_rates(
-        self, base_time: datetime
-    ) -> None:
+    def test_detects_success_rates(self, base_time: datetime) -> None:
         """Detects tools with notably high or low success rates."""
         # Create sessions where one tool has high success, another has low
         sessions = (
@@ -426,9 +426,7 @@ class TestExtractToolPatterns:
 
         # GoodTool has 100% success rate (3 sessions, all success)
         if success_rates:
-            good_tool_pattern = [
-                s for s in success_rates if "GoodTool" in s["tools"]
-            ]
+            good_tool_pattern = [s for s in success_rates if "GoodTool" in s["tools"]]
             if good_tool_pattern:
                 assert good_tool_pattern[0]["success_rate"] == 1.0
 
@@ -665,9 +663,7 @@ class TestExtractAllPatterns:
         total_insights = len(output.new_insights) + len(output.updated_insights)
         assert total_insights > 0
 
-    def test_validation_error_on_empty_sessions(
-        self, reference_time: datetime
-    ) -> None:
+    def test_validation_error_on_empty_sessions(self, reference_time: datetime) -> None:
         """Empty session list returns validation error."""
         # Create input that would fail validation
         # Note: ModelPatternExtractionInput requires min_length=1
@@ -1013,7 +1009,8 @@ class TestExtractToolFailurePatterns:
 
         # Find context_failure patterns (extension-based)
         context_patterns = [
-            r for r in results
+            r
+            for r in results
             if "context_failure:" in r["error_summary"]
             and ".json" in r["error_summary"]
         ]
@@ -1273,7 +1270,9 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert result is True, "30 seconds apart with 60 second limit should be within bound"
+        assert result is True, (
+            "30 seconds apart with 60 second limit should be within bound"
+        )
 
     def test_within_time_bound_returns_false_when_outside_limit(
         self, base_time: datetime
@@ -1301,11 +1300,11 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert result is False, "90 seconds apart with 60 second limit should be outside bound"
+        assert result is False, (
+            "90 seconds apart with 60 second limit should be outside bound"
+        )
 
-    def test_within_time_bound_equal_timestamps(
-        self, base_time: datetime
-    ) -> None:
+    def test_within_time_bound_equal_timestamps(self, base_time: datetime) -> None:
         """Same timestamp should return True (short-circuit path)."""
         from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
             _within_time_bound,
@@ -1364,9 +1363,7 @@ class TestWithinTimeBound:
 
         assert result is True, "Negative delta (B before A) should return True"
 
-    def test_within_time_bound_exactly_at_boundary(
-        self, base_time: datetime
-    ) -> None:
+    def test_within_time_bound_exactly_at_boundary(self, base_time: datetime) -> None:
         """Exactly at the boundary (60 seconds with limit 60) should return True."""
         from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
             _within_time_bound,
@@ -1390,11 +1387,11 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert result is True, "Exactly at boundary (60s with 60s limit) should return True"
+        assert result is True, (
+            "Exactly at boundary (60s with 60s limit) should return True"
+        )
 
-    def test_within_time_bound_just_over_boundary(
-        self, base_time: datetime
-    ) -> None:
+    def test_within_time_bound_just_over_boundary(self, base_time: datetime) -> None:
         """Just over the boundary (61 seconds with limit 60) should return False."""
         from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
             _within_time_bound,
@@ -1418,11 +1415,11 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert result is False, "Just over boundary (61s with 60s limit) should return False"
+        assert result is False, (
+            "Just over boundary (61s with 60s limit) should return False"
+        )
 
-    def test_within_time_bound_zero_max_gap(
-        self, base_time: datetime
-    ) -> None:
+    def test_within_time_bound_zero_max_gap(self, base_time: datetime) -> None:
         """Zero max_gap_sec should only allow equal timestamps."""
         from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
             _within_time_bound,

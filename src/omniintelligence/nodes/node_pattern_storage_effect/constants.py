@@ -85,6 +85,7 @@ class TransitionValidationResult:
     error_message: str | None
     valid_targets: list[EnumPatternState]
 
+
 # =============================================================================
 # Constants
 # =============================================================================

@@ -176,7 +176,9 @@ class PatternStateTransitionError(Exception):
             else:
                 valid_targets = VALID_TRANSITIONS.get(from_state, [])
                 valid_str = (
-                    ", ".join(s.value for s in valid_targets) if valid_targets else "none (terminal)"
+                    ", ".join(s.value for s in valid_targets)
+                    if valid_targets
+                    else "none (terminal)"
                 )
                 message = (
                     f"Invalid transition for pattern {pattern_id}: "

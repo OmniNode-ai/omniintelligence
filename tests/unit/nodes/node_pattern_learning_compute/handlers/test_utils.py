@@ -119,7 +119,7 @@ class TestJaccardSimilarity:
         similarity = 2/3 = 0.666...
         """
         result = jaccard_similarity({"a", "b"}, {"a", "b", "c"})
-        assert result == pytest.approx(2/3)
+        assert result == pytest.approx(2 / 3)
 
     def test_subset_returns_ratio(self) -> None:
         """When one set is subset of another.
@@ -313,10 +313,9 @@ class TestNormalizeIdentifiers:
 
     def test_multiple_duplicates_reduced(self) -> None:
         """Multiple different duplicates are all reduced."""
-        result = normalize_identifiers([
-            "ClassA", "classa", "CLASSA",
-            "ClassB", "classb", "CLASSB"
-        ])
+        result = normalize_identifiers(
+            ["ClassA", "classa", "CLASSA", "ClassB", "classb", "CLASSB"]
+        )
         assert result == ("classa", "classb")
 
     # -------------------------------------------------------------------------

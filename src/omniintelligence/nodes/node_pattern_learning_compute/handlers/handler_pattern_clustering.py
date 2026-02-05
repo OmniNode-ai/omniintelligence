@@ -583,9 +583,7 @@ def cluster_patterns(
     # Single-linkage: merge if ANY pair >= threshold
     for i in range(n):
         for j in range(i + 1, n):
-            result = compute_similarity(
-                sorted_features[i], sorted_features[j], weights
-            )
+            result = compute_similarity(sorted_features[i], sorted_features[j], weights)
             if result["similarity"] >= threshold:
                 uf.union(i, j)
 

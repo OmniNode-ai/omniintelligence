@@ -41,8 +41,6 @@ pytest-timeout = ">=2.3.0"
 pytest-xdist = ">=3.5.0"
 ruff = ">=0.12.5"
 mypy = ">=1.17.0"
-black = ">=24.10.0"
-isort = ">=5.13.0"
 types-PyYAML = ">=6.0.0"
 requests = ">=2.31.0"
 factory-boy = ">=3.3.0"
@@ -125,8 +123,6 @@ dev = [
     "pytest-timeout>=2.3.0",
     "pytest-cov>=6.2.1",
     "pytest-xdist>=3.5.0",
-    "black>=24.10.0",
-    "isort>=5.13.0",
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
@@ -205,7 +201,7 @@ select = [
 ]
 ignore = [
     "S101",   # Allow assert statements in tests
-    "E501",   # Allow line length violations (handled by Black)
+    "E501",   # Allow line length violations (handled by ruff format)
     "E402",   # Allow imports not at top (tests need sys.path setup, legacy emits warnings)
     "B904",   # Allow raise without from in exception handlers
     "B019",   # Allow lru_cache on methods (used carefully for singleton patterns)
@@ -215,12 +211,17 @@ ignore = [
     "N806",   # Allow non-lowercase variable in function
     "N805",   # Allow cls as first argument
     "UP007",  # Allow Union syntax
+    "UP042",  # Allow (str, Enum) instead of StrEnum (codebase uses existing pattern)
     "SIM117", # Allow nested with statements
     "SIM102", # Allow nested if statements (sometimes clearer than combining)
     "SIM103", # Allow explicit if/else returns (sometimes clearer)
     "B008",   # Allow function call defaults
     "F841",   # Allow unused variables
+    "ARG002", # Allow unused method arguments (common in test fixtures)
     "RUF012", # Allow mutable class attributes
+    "RUF022", # Allow unsorted __all__ (manual ordering preferred for readability)
+    "RUF043", # Allow unescaped regex patterns in pytest.raises match
+    "RUF059", # Allow unused unpacked variables (common in tests for tuple unpacking)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -239,15 +240,6 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-[tool.black]
-line-length = 88
-target-version = ['py312']
-
-[tool.isort]
-profile = "black"
-line_length = 88
-multi_line_output = 3
 
 [tool.mypy]
 python_version = "3.12"

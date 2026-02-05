@@ -28,7 +28,8 @@ class ModelPatternSummary(BaseModel):
     id: UUID = Field(..., description="Pattern UUID")
     pattern_signature: str = Field(..., description="Pattern signature text")
     signature_hash: str = Field(
-        ..., description="SHA256 hash of canonicalized signature for stable lineage identity"
+        ...,
+        description="SHA256 hash of canonicalized signature for stable lineage identity",
     )
     domain_id: str = Field(..., max_length=50, description="Domain identifier")
 

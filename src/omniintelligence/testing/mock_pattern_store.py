@@ -102,7 +102,7 @@ class MockPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> UUID:
         """Store a pattern in the mock database.
 
@@ -154,7 +154,7 @@ class MockPatternStore:
         domain: str,
         signature_hash: str,
         version: int,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> bool:
         """Check if a pattern exists for the given lineage and version.
 
@@ -180,7 +180,7 @@ class MockPatternStore:
         self,
         pattern_id: UUID,
         signature_hash: str,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key.
 
@@ -198,7 +198,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> int:
         """Set is_current = false for all previous versions.
 
@@ -225,7 +225,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
@@ -242,7 +242,7 @@ class MockPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -271,13 +271,13 @@ class MockPatternStore:
         confidence: float,
         quality_score: float = 0.5,
         state: EnumPatternState,
-        is_current: bool,  # noqa: ARG002
+        is_current: bool,
         stored_at: datetime,
         actor: str | None = None,
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> UUID:
         """Atomically transition previous version(s) and store new pattern.
 
@@ -372,7 +372,9 @@ class MockPatternStateManager:
         self.transitions: list[ModelStateTransition] = []
 
     async def get_current_state(
-        self, pattern_id: UUID, conn: Any = None  # noqa: ARG002
+        self,
+        pattern_id: UUID,
+        conn: Any = None,
     ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
@@ -389,7 +391,7 @@ class MockPatternStateManager:
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
-        conn: Any = None,  # noqa: ARG002
+        conn: Any = None,
     ) -> None:
         """Update the state of a pattern.
 
@@ -401,7 +403,9 @@ class MockPatternStateManager:
         self.states[pattern_id] = new_state
 
     async def record_transition(
-        self, transition: ModelStateTransition, conn: Any = None  # noqa: ARG002
+        self,
+        transition: ModelStateTransition,
+        conn: Any = None,
     ) -> None:
         """Record a state transition in the audit table.
 

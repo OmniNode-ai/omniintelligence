@@ -407,9 +407,7 @@ class TestRealNodeStubDetection:
     def nodes_directory(self) -> Path:
         """Get the path to the nodes directory."""
         test_dir = Path(__file__).parent
-        nodes_dir = (
-            test_dir.parent.parent.parent / "src" / "omniintelligence" / "nodes"
-        )
+        nodes_dir = test_dir.parent.parent.parent / "src" / "omniintelligence" / "nodes"
         if not nodes_dir.exists():
             pytest.skip(f"Nodes directory not found: {nodes_dir}")
         return nodes_dir
@@ -425,9 +423,9 @@ class TestRealNodeStubDetection:
         # Note: node_intent_classifier_compute was refactored to thin shell in declarative refactor
         # Note: pattern_learning_compute was implemented
         # Note: pattern_matching_compute was implemented in OMN-1424
+        # Note: success_criteria_matcher_compute was implemented in OMN-1426
         known_stubs = [
             "node_execution_trace_parser_compute",
-            "node_success_criteria_matcher_compute",
             "node_pattern_assembler_orchestrator",
         ]
 
@@ -446,6 +444,7 @@ class TestRealNodeStubDetection:
         # Note: Folder renames in declarative refactor (node_* prefix)
         # Note: pattern_learning_compute was implemented
         # Note: pattern_matching_compute was implemented in OMN-1424
+        # Note: success_criteria_matcher_compute was implemented in OMN-1426
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
@@ -454,6 +453,7 @@ class TestRealNodeStubDetection:
             "node_semantic_analysis_compute",
             "node_intent_classifier_compute",
             "node_pattern_matching_compute",
+            "node_success_criteria_matcher_compute",
         ]
 
         for node_name in known_non_stubs:

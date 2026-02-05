@@ -217,9 +217,7 @@ class TestTC3DuplicateDetection:
 
         # Assert - All should succeed
         assert (
-            result_a["success"]
-            and result_b["success"]
-            and result_combined["success"]
+            result_a["success"] and result_b["success"] and result_combined["success"]
         )
 
         # Get all patterns
@@ -290,9 +288,7 @@ class TestTC3DuplicateDetection:
         combined_data = list(session_a_data + session_b_data)
 
         # Extract features and cluster patterns
-        features_list = handler_feature_extraction.extract_features_batch(
-            combined_data
-        )
+        features_list = handler_feature_extraction.extract_features_batch(combined_data)
         clusters = handler_pattern_clustering.cluster_patterns(
             features_list=features_list,
             weights=DEFAULT_SIMILARITY_WEIGHTS,
@@ -579,7 +575,7 @@ class TestTC3DeterminismGuarantees:
 
         # Assert - All runs should succeed
         for i, result in enumerate(results):
-            assert result["success"], f"Run {i+1} should succeed"
+            assert result["success"], f"Run {i + 1} should succeed"
 
         # All runs should produce same pattern count
         pattern_counts = [
@@ -638,11 +634,11 @@ class TestTC3DeterminismGuarantees:
         assert result_1["success"] and result_2["success"] and result_3["success"]
 
         # Same pattern count
-        count_1 = (
-            len(result_1["learned_patterns"]) + len(result_1["candidate_patterns"])
+        count_1 = len(result_1["learned_patterns"]) + len(
+            result_1["candidate_patterns"]
         )
-        count_2 = (
-            len(result_2["learned_patterns"]) + len(result_2["candidate_patterns"])
+        count_2 = len(result_2["learned_patterns"]) + len(
+            result_2["candidate_patterns"]
         )
 
         # ordering_3 may have different count since it's a subset
@@ -661,6 +657,4 @@ class TestTC3DeterminismGuarantees:
             p.signature_info.signature
             for p in (result_2["learned_patterns"] + result_2["candidate_patterns"])
         }
-        assert sigs_1 == sigs_2, (
-            "Different orderings should produce same signatures"
-        )
+        assert sigs_1 == sigs_2, "Different orderings should produce same signatures"
