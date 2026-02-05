@@ -16,7 +16,12 @@ class MigrationRunner:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.migrations_dir = Path(__file__).parent.parent.parent / "deployment" / "database" / "migrations"
+        self.migrations_dir = (
+            Path(__file__).parent.parent.parent
+            / "deployment"
+            / "database"
+            / "migrations"
+        )
 
     async def get_connection(self) -> asyncpg.Connection:
         """Get database connection."""
@@ -43,10 +48,7 @@ class MigrationRunner:
     def get_pending_migrations(self, applied: list[str]) -> list[Path]:
         """Get list of pending migration files."""
         all_migrations = sorted(self.migrations_dir.glob("*.sql"))
-        return [
-            mig for mig in all_migrations
-            if mig.stem not in applied
-        ]
+        return [mig for mig in all_migrations if mig.stem not in applied]
 
     async def apply_migration(
         self,

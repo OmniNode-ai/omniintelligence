@@ -238,9 +238,9 @@ class TestEnumDocumentation:
 
         for op in key_operations:
             assert op in enum_values, f"Operation {op} not in enum"
-            assert op in description, (
-                f"Operation {op} not documented in field description"
-            )
+            assert (
+                op in description
+            ), f"Operation {op} not documented in field description"
 
 
 class TestScoreFieldValidation:

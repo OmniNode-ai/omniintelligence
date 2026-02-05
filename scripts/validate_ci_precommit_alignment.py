@@ -146,9 +146,7 @@ def extract_ci_patterns(ci_config: dict) -> tuple[list[str], list[str]]:
                 if stripped_line.startswith("- '") and stripped_line.endswith("'"):
                     pattern = stripped_line[3:-1]  # Remove "- '" and "'"
                     # Extract source dirs from src/omniintelligence/<dir>/**
-                    src_match = re.match(
-                        r"src/omniintelligence/(\w+)/\*\*", pattern
-                    )
+                    src_match = re.match(r"src/omniintelligence/(\w+)/\*\*", pattern)
                     if src_match:
                         source_dirs.append(src_match.group(1))
                     # Extract test paths
@@ -198,9 +196,7 @@ def _extract_source_dirs_from_pattern(files_pattern: str) -> list[str]:
     try:
         # Pattern: src/omniintelligence/(tools|utils|runtime)/
         # This handles the alternation group for source directories
-        src_match = re.search(
-            r"src/omniintelligence/\(([^)]+)\)/", files_pattern
-        )
+        src_match = re.search(r"src/omniintelligence/\(([^)]+)\)/", files_pattern)
         if src_match:
             # Split by pipe to get individual directories
             raw_dirs = src_match.group(1).split("|")
@@ -243,9 +239,7 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
 
     try:
         # Pattern: tests/unit/(tools/|test_log_sanitizer\.py)
-        test_match = re.search(
-            r"tests/unit/\(([^)]+)\)", files_pattern
-        )
+        test_match = re.search(r"tests/unit/\(([^)]+)\)", files_pattern)
         if test_match:
             parts = test_match.group(1).split("|")
             for part in parts:
@@ -258,9 +252,7 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
                     if cleaned:
                         test_paths.append(f"tests/unit/{cleaned}")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to clean test path part '{part}': {e}"
-                    )
+                    logger.warning(f"Failed to clean test path part '{part}': {e}")
     except re.error as e:
         logger.warning(
             f"Failed to parse test paths from pre-commit pattern: {e}. "
@@ -317,9 +309,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
     for repo_idx, repo in enumerate(repos):
         # Validate repo is a dict
         if not isinstance(repo, dict):
-            logger.warning(
-                f"Repo at index {repo_idx} is not a dict, skipping"
-            )
+            logger.warning(f"Repo at index {repo_idx} is not a dict, skipping")
             continue
 
         hooks = repo.get("hooks")
@@ -406,7 +396,9 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
     return sorted(set(source_dirs)), sorted(set(test_paths))
 
 
-def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> MypyCacheValidation:
+def validate_mypy_cache_patterns(
+    ci_config: dict, verbose: bool = False
+) -> MypyCacheValidation:
     """Validate that mypy cache hashFiles patterns match mypy command scope.
 
     The mypy cache key in CI uses hashFiles() patterns to determine when to
@@ -495,9 +487,13 @@ def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> Mypy
         result.is_aligned = False
         if verbose:
             if result.missing_in_cache:
-                print(f"Directories in mypy command but not in cache: {result.missing_in_cache}")
+                print(
+                    f"Directories in mypy command but not in cache: {result.missing_in_cache}"
+                )
             if result.extra_in_cache:
-                print(f"Directories in cache but not in mypy command: {result.extra_in_cache}")
+                print(
+                    f"Directories in cache but not in mypy command: {result.extra_in_cache}"
+                )
 
     return result
 
@@ -615,8 +611,8 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
 
     # Extract patterns (legacy narrow-scope mode)
     result.ci_source_dirs, result.ci_test_paths = extract_ci_patterns(ci_config)
-    result.precommit_source_dirs, result.precommit_test_paths = extract_precommit_patterns(
-        precommit_config
+    result.precommit_source_dirs, result.precommit_test_paths = (
+        extract_precommit_patterns(precommit_config)
     )
 
     if verbose:
@@ -659,7 +655,9 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
 
     if precommit_src_set != expected_src_set:
         if verbose:
-            print(f"\nWarning: Pre-commit source dirs differ from expected: {expected_src_set}")
+            print(
+                f"\nWarning: Pre-commit source dirs differ from expected: {expected_src_set}"
+            )
 
     # Validate mypy cache patterns match mypy command scope
     result.mypy_cache = validate_mypy_cache_patterns(ci_config, verbose=verbose)
@@ -765,16 +763,24 @@ def format_result(result: ValidationResult, output_json: bool = False) -> str:
         lines.append("")
         lines.append("Mypy Cache Status: DRIFT DETECTED (Warning)")
         if result.mypy_cache.missing_in_cache:
-            lines.append("Directories in mypy command but not in cache (will cause stale cache):")
+            lines.append(
+                "Directories in mypy command but not in cache (will cause stale cache):"
+            )
             for dir_name in result.mypy_cache.missing_in_cache:
                 lines.append(f"  - {dir_name}")
         if result.mypy_cache.extra_in_cache:
-            lines.append("Directories in cache but not in mypy command (unnecessary invalidation):")
+            lines.append(
+                "Directories in cache but not in mypy command (unnecessary invalidation):"
+            )
             for dir_name in result.mypy_cache.extra_in_cache:
                 lines.append(f"  - {dir_name}")
         lines.append("")
-        lines.append("Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yaml")
-        lines.append("        to match the mypy command scope (~line 309 and ~line 319)")
+        lines.append(
+            "Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yaml"
+        )
+        lines.append(
+            "        to match the mypy command scope (~line 309 and ~line 319)"
+        )
 
     return "\n".join(lines)
 
@@ -792,15 +798,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Validate CI and pre-commit pattern alignment"
     )
     parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Print detailed progress"
+        "--verbose", "-v", action="store_true", help="Print detailed progress"
     )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSON"
-    )
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
 
     result = validate_alignment(verbose=args.verbose)

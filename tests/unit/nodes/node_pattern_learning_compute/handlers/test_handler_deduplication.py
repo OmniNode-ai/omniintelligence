@@ -666,9 +666,9 @@ class TestDeduplicatePatternsDeterminismContract:
 
         assert len(result1["deduplicated_clusters"]) == 1
         # Cluster with more members survives
-        assert result1["deduplicated_clusters"][0]["cluster_id"] == "cluster-0002", (
-            "When confidence ties, larger member_count should win"
-        )
+        assert (
+            result1["deduplicated_clusters"][0]["cluster_id"] == "cluster-0002"
+        ), "When confidence ties, larger member_count should win"
 
         # Test case 2: Confidence tie AND member_count tie, smaller leader wins
         cluster_larger_leader = make_cluster(
@@ -695,9 +695,9 @@ class TestDeduplicatePatternsDeterminismContract:
 
         assert len(result2["deduplicated_clusters"]) == 1
         # Cluster with smaller leader (member_ids[0]) survives
-        assert result2["deduplicated_clusters"][0]["cluster_id"] == "cluster-0004", (
-            "When confidence and member_count tie, smaller leader should win"
-        )
+        assert (
+            result2["deduplicated_clusters"][0]["cluster_id"] == "cluster-0004"
+        ), "When confidence and member_count tie, smaller leader should win"
 
 
 # =============================================================================

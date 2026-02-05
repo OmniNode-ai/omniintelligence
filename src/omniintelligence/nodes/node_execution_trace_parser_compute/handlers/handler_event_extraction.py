@@ -286,7 +286,9 @@ def extract_all_errors(
     errors.extend(detect_span_errors(span, correlation_id=correlation_id))
 
     # Detect log-level errors
-    errors.extend(detect_log_errors(span, correlated_logs, correlation_id=correlation_id))
+    errors.extend(
+        detect_log_errors(span, correlated_logs, correlation_id=correlation_id)
+    )
 
     # Detect timeout errors (may overlap with span errors)
     timeout_errors = detect_timeout_errors(span, correlation_id=correlation_id)

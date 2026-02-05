@@ -212,4 +212,6 @@ def complex_comprehension(items: list) -> list:
             assert result["success"] is False
             assert result["quality_score"] == 0.0
             assert any("unexpected" in r.lower() for r in result["recommendations"])
-            assert any("validation_error" in r.lower() for r in result["recommendations"])
+            assert any(
+                "validation_error" in r.lower() for r in result["recommendations"]
+            )

@@ -400,9 +400,9 @@ class TestIsCurrentFlag:
                 assert stored["is_current"] is True, f"Pattern {i} should be current"
             else:
                 # Others should not be current
-                assert stored["is_current"] is False, (
-                    f"Pattern {i} should not be current"
-                )
+                assert (
+                    stored["is_current"] is False
+                ), f"Pattern {i} should not be current"
 
     @pytest.mark.asyncio
     async def test_previous_version_marked_not_current(
@@ -924,9 +924,9 @@ class TestAtomicVersionTransition:
 
         # ALL previous versions should now be not current
         for v_id in v_ids:
-            assert mock_pattern_store.patterns[v_id]["is_current"] is False, (
-                f"Version {mock_pattern_store.patterns[v_id]['version']} should not be current"
-            )
+            assert (
+                mock_pattern_store.patterns[v_id]["is_current"] is False
+            ), f"Version {mock_pattern_store.patterns[v_id]['version']} should not be current"
 
         # Only v4 should be current
         assert mock_pattern_store.patterns[v4_id]["is_current"] is True

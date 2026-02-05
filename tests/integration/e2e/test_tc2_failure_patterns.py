@@ -81,15 +81,15 @@ class TestTC2FailedSessionPatternsExtraction:
         total_patterns = len(result["learned_patterns"]) + len(
             result["candidate_patterns"]
         )
-        assert total_patterns > 0, (
-            "Failed sessions should still produce extractable patterns"
-        )
+        assert (
+            total_patterns > 0
+        ), "Failed sessions should still produce extractable patterns"
 
         # Assert - Metrics reflect processing
         metrics = result["metrics"]
-        assert metrics.input_count == len(training_data), (
-            f"Expected {len(training_data)} inputs, got {metrics.input_count}"
-        )
+        assert metrics.input_count == len(
+            training_data
+        ), f"Expected {len(training_data)} inputs, got {metrics.input_count}"
         assert metrics.cluster_count > 0, "Should form at least one cluster"
 
     def test_failed_session_patterns_have_lower_confidence(
@@ -257,9 +257,9 @@ class TestTC2FailurePatternsHaveDebuggingDomain:
 
         # Category is derived from pattern_type (CODE_PATTERN -> "code")
         for pattern in all_patterns:
-            assert pattern.category == "code", (
-                f"Expected 'code' category for CODE_PATTERN, got '{pattern.category}'"
-            )
+            assert (
+                pattern.category == "code"
+            ), f"Expected 'code' category for CODE_PATTERN, got '{pattern.category}'"
 
     def test_failure_patterns_lifecycle_state(
         self,
@@ -284,15 +284,15 @@ class TestTC2FailurePatternsHaveDebuggingDomain:
 
         # Learned patterns should have VALIDATED lifecycle
         for pattern in result["learned_patterns"]:
-            assert pattern.lifecycle_state == EnumPatternLifecycleState.VALIDATED, (
-                f"Learned pattern should be VALIDATED, got {pattern.lifecycle_state}"
-            )
+            assert (
+                pattern.lifecycle_state == EnumPatternLifecycleState.VALIDATED
+            ), f"Learned pattern should be VALIDATED, got {pattern.lifecycle_state}"
 
         # Candidate patterns should have CANDIDATE lifecycle
         for pattern in result["candidate_patterns"]:
-            assert pattern.lifecycle_state == EnumPatternLifecycleState.CANDIDATE, (
-                f"Candidate pattern should be CANDIDATE, got {pattern.lifecycle_state}"
-            )
+            assert (
+                pattern.lifecycle_state == EnumPatternLifecycleState.CANDIDATE
+            ), f"Candidate pattern should be CANDIDATE, got {pattern.lifecycle_state}"
 
 
 # =============================================================================
@@ -344,9 +344,9 @@ class TestTC2FailurePatternsIncludeErrorContext:
             if pattern_tags & expected_error_labels:
                 patterns_with_error_context += 1
 
-        assert patterns_with_error_context > 0, (
-            "At least some patterns should have error-related labels in tags"
-        )
+        assert (
+            patterns_with_error_context > 0
+        ), "At least some patterns should have error-related labels in tags"
 
     def test_failure_patterns_preserve_debugging_label(
         self,
@@ -374,9 +374,9 @@ class TestTC2FailurePatternsIncludeErrorContext:
 
         # All patterns from debugging data should have "debugging" in tags
         for pattern in all_patterns:
-            assert "debugging" in pattern.tags, (
-                f"Pattern should have 'debugging' in tags, got: {pattern.tags}"
-            )
+            assert (
+                "debugging" in pattern.tags
+            ), f"Pattern should have 'debugging' in tags, got: {pattern.tags}"
 
     def test_failure_patterns_have_signature_info(
         self,
@@ -407,9 +407,9 @@ class TestTC2FailurePatternsIncludeErrorContext:
             sig_info = pattern.signature_info
             assert sig_info is not None, "Pattern should have signature_info"
             assert sig_info.signature, "Signature should not be empty"
-            assert sig_info.signature_version is not None, (
-                "Signature version should be set"
-            )
+            assert (
+                sig_info.signature_version is not None
+            ), "Signature version should be set"
             assert len(sig_info.signature_inputs) > 0, "Signature should have inputs"
 
 

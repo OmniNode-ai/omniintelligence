@@ -106,16 +106,16 @@ class TestEnumPatternLifecycleStatusProperties:
     def test_enum_values_are_lowercase(self) -> None:
         """Verify all enum values use lowercase (DB convention)."""
         for status in EnumPatternLifecycleStatus:
-            assert status.value == status.value.lower(), (
-                f"Enum value '{status.value}' should be lowercase"
-            )
+            assert (
+                status.value == status.value.lower()
+            ), f"Enum value '{status.value}' should be lowercase"
 
     def test_enum_names_are_uppercase(self) -> None:
         """Verify all enum names use SCREAMING_SNAKE_CASE."""
         for status in EnumPatternLifecycleStatus:
-            assert status.name == status.name.upper(), (
-                f"Enum name '{status.name}' should be SCREAMING_SNAKE_CASE"
-            )
+            assert (
+                status.name == status.name.upper()
+            ), f"Enum name '{status.name}' should be SCREAMING_SNAKE_CASE"
 
     def test_enum_can_be_constructed_from_string(self) -> None:
         """Verify enum can be constructed from string value."""
@@ -208,9 +208,9 @@ class TestLearnedPatternsMigrationFile:
         content = migration_path.read_text()
 
         # Verify CHECK constraint syntax exists
-        assert "CHECK (status IN (" in content, (
-            "CHECK constraint for status not found in migration"
-        )
+        assert (
+            "CHECK (status IN (" in content
+        ), "CHECK constraint for status not found in migration"
 
     def test_migration_contains_all_statuses(self, migration_path: Path) -> None:
         """Verify migration CHECK constraint contains all expected statuses."""
@@ -220,9 +220,9 @@ class TestLearnedPatternsMigrationFile:
         content = migration_path.read_text()
 
         for status in EXPECTED_STATUSES:
-            assert f"'{status}'" in content, (
-                f"Status '{status}' not found in migration CHECK constraint"
-            )
+            assert (
+                f"'{status}'" in content
+            ), f"Status '{status}' not found in migration CHECK constraint"
 
     def test_migration_default_is_candidate(self, migration_path: Path) -> None:
         """Verify migration sets 'candidate' as default status."""
@@ -231,6 +231,6 @@ class TestLearnedPatternsMigrationFile:
 
         content = migration_path.read_text()
 
-        assert "DEFAULT 'candidate'" in content, (
-            "Default status should be 'candidate' in migration"
-        )
+        assert (
+            "DEFAULT 'candidate'" in content
+        ), "Default status should be 'candidate' in migration"

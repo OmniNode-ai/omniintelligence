@@ -189,9 +189,9 @@ class TestAdapterTransactionSemantics:
         ]
         conn_warnings = [m for m in warning_messages if "conn parameter ignored" in m]
 
-        assert len(conn_warnings) == 0, (
-            f"Expected no conn warnings when conn=None, got: {conn_warnings}"
-        )
+        assert (
+            len(conn_warnings) == 0
+        ), f"Expected no conn warnings when conn=None, got: {conn_warnings}"
 
     @pytest.mark.asyncio
     async def test_conn_warning_logged_once_on_store_with_version_transition(

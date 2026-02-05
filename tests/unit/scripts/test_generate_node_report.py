@@ -431,9 +431,9 @@ class TestRealNodeStubDetection:
         for node_name in known_stubs:
             node_path = nodes_directory / node_name / "node.py"
             if node_path.exists():
-                assert check_is_stub(node_path) is True, (
-                    f"{node_name} should be detected as stub"
-                )
+                assert (
+                    check_is_stub(node_path) is True
+                ), f"{node_name} should be detected as stub"
 
     def test_known_non_stub_nodes_not_detected(self, nodes_directory: Path) -> None:
         """Known non-stub nodes should NOT be detected as stubs."""
@@ -456,6 +456,6 @@ class TestRealNodeStubDetection:
         for node_name in known_non_stubs:
             node_path = nodes_directory / node_name / "node.py"
             if node_path.exists():
-                assert check_is_stub(node_path) is False, (
-                    f"{node_name} should NOT be detected as stub"
-                )
+                assert (
+                    check_is_stub(node_path) is False
+                ), f"{node_name} should NOT be detected as stub"

@@ -389,17 +389,17 @@ def process() -> int:
 
         # Imports should NOT appear in DEFINES targets
         overlap = import_entity_names & defines_targets
-        assert overlap == set(), (
-            f"Imports should not have DEFINES relations, but found: {overlap}"
-        )
+        assert (
+            overlap == set()
+        ), f"Imports should not have DEFINES relations, but found: {overlap}"
 
         # Verify imports DO have IMPORTS relations
         imports_relations = [
             r for r in result["relations"] if r["relation_type"] == "imports"
         ]
-        assert len(imports_relations) >= 3, (
-            "Imports should still have IMPORTS relations"
-        )
+        assert (
+            len(imports_relations) >= 3
+        ), "Imports should still have IMPORTS relations"
 
 
 # =============================================================================

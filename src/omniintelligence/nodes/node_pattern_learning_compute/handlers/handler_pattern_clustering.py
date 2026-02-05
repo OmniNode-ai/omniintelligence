@@ -103,9 +103,9 @@ _STRUCTURAL_WEIGHTS: dict[str, float] = {
 
 # Validate weights sum to 1.0 at module load time
 _structural_weights_sum = sum(_STRUCTURAL_WEIGHTS.values())
-assert abs(_structural_weights_sum - 1.0) < 1e-9, (
-    f"_STRUCTURAL_WEIGHTS must sum to 1.0, got {_structural_weights_sum}"
-)
+assert (
+    abs(_structural_weights_sum - 1.0) < 1e-9
+), f"_STRUCTURAL_WEIGHTS must sum to 1.0, got {_structural_weights_sum}"
 
 
 # =============================================================================
@@ -662,9 +662,9 @@ def cluster_patterns(
             f"member_pattern_indicators length {len(member_pattern_indicators)} "
             f"!= member_ids length {len(member_ids_sorted)}"
         )
-        assert len(members) == len(member_ids_sorted), (
-            f"member_count {len(members)} != member_ids length {len(member_ids_sorted)}"
-        )
+        assert len(members) == len(
+            member_ids_sorted
+        ), f"member_count {len(members)} != member_ids length {len(member_ids_sorted)}"
 
         # Build cluster dict
         cluster_dict = PatternClusterDict(

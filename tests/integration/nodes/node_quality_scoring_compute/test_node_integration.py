@@ -142,9 +142,9 @@ class TestNodeComputeMethod:
 
         # High quality code should score well
         assert output.success is True
-        assert output.quality_score >= HIGH_QUALITY_MIN_SCORE, (
-            f"High quality code scored {output.quality_score}, expected >= {HIGH_QUALITY_MIN_SCORE}"
-        )
+        assert (
+            output.quality_score >= HIGH_QUALITY_MIN_SCORE
+        ), f"High quality code scored {output.quality_score}, expected >= {HIGH_QUALITY_MIN_SCORE}"
 
         # Should be ONEX compliant with default threshold
         assert output.onex_compliant is True
@@ -174,9 +174,9 @@ class TestNodeComputeMethod:
         assert output.success is True
 
         # Low quality code should score poorly
-        assert output.quality_score < LOW_QUALITY_MAX_SCORE, (
-            f"Low quality code scored {output.quality_score}, expected < {LOW_QUALITY_MAX_SCORE}"
-        )
+        assert (
+            output.quality_score < LOW_QUALITY_MAX_SCORE
+        ), f"Low quality code scored {output.quality_score}, expected < {LOW_QUALITY_MAX_SCORE}"
 
         # Should have low temporal relevance (TODOs, FIXMEs)
         assert output.dimensions["temporal_relevance"] < 0.8
@@ -464,9 +464,9 @@ class TestErrorPropagation:
         # Should have recommendation about syntax error
         assert len(output.recommendations) >= 1
         has_syntax_rec = any("syntax" in rec.lower() for rec in output.recommendations)
-        assert has_syntax_rec, (
-            f"Expected syntax recommendation in {output.recommendations}"
-        )
+        assert (
+            has_syntax_rec
+        ), f"Expected syntax recommendation in {output.recommendations}"
 
     async def test_unsupported_language_handled_gracefully(
         self, quality_scoring_node: NodeQualityScoringCompute

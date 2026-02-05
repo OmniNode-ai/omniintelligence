@@ -300,9 +300,9 @@ class TestRealFileAnalysis:
         # Verify dimensions exist and are within valid range
         assert result.dimensions is not None
         for dimension_name, score in result.dimensions.items():
-            assert 0.0 <= score <= 1.0, (
-                f"Dimension {dimension_name} score {score} out of range"
-            )
+            assert (
+                0.0 <= score <= 1.0
+            ), f"Dimension {dimension_name} score {score} out of range"
 
         # Metadata should be populated
         assert result.metadata is not None
@@ -401,9 +401,9 @@ class TestRealFileAnalysis:
         # Verify all files scored successfully
         for filename, result in results:
             assert result.success is True, f"File {filename} failed scoring"
-            assert 0.0 <= result.quality_score <= 1.0, (
-                f"File {filename} score {result.quality_score} out of range"
-            )
+            assert (
+                0.0 <= result.quality_score <= 1.0
+            ), f"File {filename} score {result.quality_score} out of range"
             assert result.dimensions is not None, f"File {filename} missing dimensions"
             assert result.metadata is not None, f"File {filename} missing metadata"
 
@@ -418,9 +418,9 @@ class TestRealFileAnalysis:
         }
         for filename, result in results:
             actual_dimensions = set(result.dimensions.keys())
-            assert actual_dimensions == expected_dimensions, (
-                f"File {filename} has unexpected dimensions: {actual_dimensions}"
-            )
+            assert (
+                actual_dimensions == expected_dimensions
+            ), f"File {filename} has unexpected dimensions: {actual_dimensions}"
 
 
 @pytest.mark.integration
@@ -715,6 +715,6 @@ class TestKnownCodePatterns:
 
         assert result.success is True
         # Poor code should generate recommendations
-        assert len(result.recommendations) > 0, (
-            "Code with issues should generate recommendations"
-        )
+        assert (
+            len(result.recommendations) > 0
+        ), "Code with issues should generate recommendations"

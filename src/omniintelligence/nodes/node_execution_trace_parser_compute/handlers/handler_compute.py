@@ -179,9 +179,7 @@ def _execute_parsing(
     )
 
     # Correlate external logs with span (empty list for now - single trace model)
-    correlated_logs = correlate_logs_with_span(
-        span, [], correlation_id=correlation_id
-    )
+    correlated_logs = correlate_logs_with_span(span, [], correlation_id=correlation_id)
 
     # Extract events based on options
     parsed_events = []
@@ -190,9 +188,7 @@ def _execute_parsing(
             "Extracting span events",
             extra={"correlation_id": correlation_id},
         )
-        parsed_events.extend(
-            extract_span_events(span, correlation_id=correlation_id)
-        )
+        parsed_events.extend(extract_span_events(span, correlation_id=correlation_id))
 
     # Extract errors based on options
     error_events = []

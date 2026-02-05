@@ -49,23 +49,23 @@ class TestStructuredErrorOutput:
         # Each error should have field_path, error_message, and validation_error_type
         # These attributes enable structured error reporting for CI/CD integration
         for error in result.validation_errors:
-            assert hasattr(error, "field_path"), (
-                "Error object missing 'field_path' attribute"
-            )
-            assert hasattr(error, "error_message"), (
-                "Error object missing 'error_message' attribute"
-            )
-            assert hasattr(error, "validation_error_type"), (
-                "Error object missing 'validation_error_type' attribute"
-            )
+            assert hasattr(
+                error, "field_path"
+            ), "Error object missing 'field_path' attribute"
+            assert hasattr(
+                error, "error_message"
+            ), "Error object missing 'error_message' attribute"
+            assert hasattr(
+                error, "validation_error_type"
+            ), "Error object missing 'validation_error_type' attribute"
             # field_path identifies the contract location of the error (e.g., "name", "version.major")
-            assert error.field_path is not None, (
-                f"Error has field_path=None, expected a path string. Error: {error}"
-            )
+            assert (
+                error.field_path is not None
+            ), f"Error has field_path=None, expected a path string. Error: {error}"
             # error_message provides human-readable description of the validation failure
-            assert error.error_message is not None, (
-                f"Error has error_message=None, expected a description. Error: {error}"
-            )
+            assert (
+                error.error_message is not None
+            ), f"Error has error_message=None, expected a description. Error: {error}"
 
     def test_nested_field_path_in_errors(self, tmp_path: Path):
         """Test that nested field paths are properly formatted.
@@ -233,9 +233,9 @@ class TestFieldIdentifierPattern:
         valid_simple_names = ["name", "version", "description", "contract"]
         for field_name in valid_simple_names:
             match = FIELD_IDENTIFIER_PATTERN.match(field_name)
-            assert match is not None, (
-                f"Simple field name '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
-            )
+            assert (
+                match is not None
+            ), f"Simple field name '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
 
     def test_valid_snake_case_field_names(self):
         """Test that snake_case field names match the pattern."""
@@ -249,9 +249,9 @@ class TestFieldIdentifierPattern:
         ]
         for field_name in valid_snake_case_names:
             match = FIELD_IDENTIFIER_PATTERN.match(field_name)
-            assert match is not None, (
-                f"Snake_case field name '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
-            )
+            assert (
+                match is not None
+            ), f"Snake_case field name '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
 
     def test_valid_underscore_prefix(self):
         """Test that underscore-prefixed field names match the pattern.
@@ -273,9 +273,9 @@ class TestFieldIdentifierPattern:
         valid_names_with_numbers = ["field123", "v1_0_0", "step_1"]
         for field_name in valid_names_with_numbers:
             match = FIELD_IDENTIFIER_PATTERN.match(field_name)
-            assert match is not None, (
-                f"Field name with numbers '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
-            )
+            assert (
+                match is not None
+            ), f"Field name with numbers '{field_name}' should match FIELD_IDENTIFIER_PATTERN"
 
     def test_invalid_uppercase_start(self):
         """Test that uppercase-starting names don't match (likely error messages)."""
@@ -362,9 +362,9 @@ class TestFieldIdentifierPattern:
             # This simulates the parsing logic in _validate_node_contract
             potential_field = message.split(":", 1)[0].strip()
             # All these should fail the pattern match because they start with uppercase
-            assert FIELD_IDENTIFIER_PATTERN.match(potential_field) is None, (
-                f"'{potential_field}' should not match FIELD_IDENTIFIER_PATTERN"
-            )
+            assert (
+                FIELD_IDENTIFIER_PATTERN.match(potential_field) is None
+            ), f"'{potential_field}' should not match FIELD_IDENTIFIER_PATTERN"
 
     def test_valid_field_name_with_colon_message(self):
         """Test that valid field names followed by messages with colons are parsed correctly.
@@ -573,9 +573,9 @@ class TestTrailingUnderscoreValidation:
         ]
 
         for name in invalid_names:
-            assert has_invalid_trailing_underscore(name) is True, (
-                f"'{name}' should have invalid trailing underscore"
-            )
+            assert (
+                has_invalid_trailing_underscore(name) is True
+            ), f"'{name}' should have invalid trailing underscore"
 
     def test_valid_names_without_trailing_underscore(self):
         """Test that valid field names are not flagged for trailing underscore."""
@@ -600,9 +600,9 @@ class TestTrailingUnderscoreValidation:
         ]
 
         for name in valid_names:
-            assert has_invalid_trailing_underscore(name) is False, (
-                f"'{name}' should NOT have invalid trailing underscore"
-            )
+            assert (
+                has_invalid_trailing_underscore(name) is False
+            ), f"'{name}' should NOT have invalid trailing underscore"
 
 
 # =============================================================================
@@ -695,15 +695,15 @@ class TestValidateFieldIdentifier:
 
         for name in underscore_only_names:
             is_valid, error = validate_field_identifier(name)
-            assert is_valid is False, (
-                f"Underscore-only name '{name}' should be rejected as invalid"
-            )
-            assert error is not None, (
-                f"Underscore-only name '{name}' rejection should include error message"
-            )
-            assert "only underscores" in error, (
-                f"Error for '{name}' should mention 'only underscores', got: {error}"
-            )
+            assert (
+                is_valid is False
+            ), f"Underscore-only name '{name}' should be rejected as invalid"
+            assert (
+                error is not None
+            ), f"Underscore-only name '{name}' rejection should include error message"
+            assert (
+                "only underscores" in error
+            ), f"Error for '{name}' should mention 'only underscores', got: {error}"
 
     def test_invalid_pattern_rejected(self):
         """Test that names not matching snake_case pattern are rejected."""

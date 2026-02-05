@@ -68,9 +68,9 @@ class TestContractSignatureHashParamDefinitions:
             operation = contract.ops[op_name]
             param = operation.params.get("signature_hash")
 
-            assert param is not None, (
-                f"Operation '{op_name}' missing signature_hash param"
-            )
+            assert (
+                param is not None
+            ), f"Operation '{op_name}' missing signature_hash param"
             assert param.required is True, (
                 f"Operation '{op_name}': signature_hash param should be required, "
                 f"but required={param.required}"
@@ -89,9 +89,9 @@ class TestContractSignatureHashParamDefinitions:
             param = operation.params.get("signature_hash")
 
             assert param is not None
-            assert param.description, (
-                f"Operation '{op_name}': signature_hash param should have a description"
-            )
+            assert (
+                param.description
+            ), f"Operation '{op_name}': signature_hash param should have a description"
             # Verify description mentions lineage or identity
             description_lower = param.description.lower()
             assert any(
@@ -131,9 +131,9 @@ class TestStoreOperationsIncludeSignatureHash:
                 sql,
                 re.IGNORECASE | re.DOTALL,
             )
-            assert insert_match, (
-                f"Operation '{op_name}': Could not find INSERT INTO ... () pattern"
-            )
+            assert (
+                insert_match
+            ), f"Operation '{op_name}': Could not find INSERT INTO ... () pattern"
 
             column_list = insert_match.group(1)
             assert "signature_hash" in column_list, (
@@ -147,9 +147,9 @@ class TestStoreOperationsIncludeSignatureHash:
                 sql,
                 re.IGNORECASE | re.DOTALL,
             )
-            assert values_match, (
-                f"Operation '{op_name}': Could not find VALUES (...) pattern"
-            )
+            assert (
+                values_match
+            ), f"Operation '{op_name}': Could not find VALUES (...) pattern"
 
             values_list = values_match.group(1)
             assert ":signature_hash" in values_list, (
@@ -263,9 +263,9 @@ class TestSelectOperationsIncludeSignatureHash:
                 sql,
                 re.IGNORECASE | re.DOTALL,
             )
-            assert select_match, (
-                f"Operation '{op_name}': Could not find SELECT ... FROM pattern"
-            )
+            assert (
+                select_match
+            ), f"Operation '{op_name}': Could not find SELECT ... FROM pattern"
 
             column_list = select_match.group(1)
             assert "signature_hash" in column_list, (
@@ -330,9 +330,9 @@ class TestCTEOperationsUseSignatureHash:
             sql,
             re.IGNORECASE | re.DOTALL,
         )
-        assert cte_match, (
-            "store_with_version_transition: Could not find CTE UPDATE pattern"
-        )
+        assert (
+            cte_match
+        ), "store_with_version_transition: Could not find CTE UPDATE pattern"
 
         cte_where = cte_match.group(1)
         assert re.search(

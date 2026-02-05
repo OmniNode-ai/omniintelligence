@@ -257,6 +257,7 @@ class TestContractParamOrder:
         # Each operation should have required fields
         for op_name, operation in contract.ops.items():
             assert operation.sql, f"Operation '{op_name}' missing SQL"
-            assert operation.mode in ("read", "write"), (
-                f"Operation '{op_name}' has invalid mode: {operation.mode}"
-            )
+            assert operation.mode in (
+                "read",
+                "write",
+            ), f"Operation '{op_name}' has invalid mode: {operation.mode}"

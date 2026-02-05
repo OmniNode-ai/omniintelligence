@@ -192,21 +192,21 @@ class TestCLIEntryPoint:
         # Validate types
         assert isinstance(result["file_path"], str), "'file_path' must be a string"
         assert isinstance(result["is_valid"], bool), "'is_valid' must be a boolean"
-        assert isinstance(result["validation_errors"], list), (
-            "'validation_errors' must be a list"
-        )
+        assert isinstance(
+            result["validation_errors"], list
+        ), "'validation_errors' must be a list"
         assert result["contract_type"] is None or isinstance(
             result["contract_type"], str
         ), "'contract_type' must be string or null"
 
         # Validate values for valid contract
         assert result["is_valid"] is True, "Valid contract should have is_valid=true"
-        assert result["validation_errors"] == [], (
-            "Valid contract should have empty validation_errors list"
-        )
-        assert result["contract_type"] == "compute", (
-            "Contract type should be 'compute' for compute contract"
-        )
+        assert (
+            result["validation_errors"] == []
+        ), "Valid contract should have empty validation_errors list"
+        assert (
+            result["contract_type"] == "compute"
+        ), "Contract type should be 'compute' for compute contract"
 
     def test_cli_verbose_flag(
         self, tmp_path: Path, invalid_missing_name_yaml: str, capsys
@@ -234,25 +234,25 @@ class TestCLIEntryPoint:
         output = captured.out
 
         # Verbose output must show FAIL status
-        assert "[FAIL]" in output, (
-            "Verbose output must show [FAIL] for invalid contract"
-        )
+        assert (
+            "[FAIL]" in output
+        ), "Verbose output must show [FAIL] for invalid contract"
 
         # Verbose output must show the field name in error details
         # The format is "  - {field}: {message}"
-        assert "name" in output, (
-            "Verbose output must show 'name' field in error details"
-        )
+        assert (
+            "name" in output
+        ), "Verbose output must show 'name' field in error details"
 
         # Verbose output must show indented error line (verbose format)
-        assert "  - " in output, (
-            "Verbose output must show indented error lines with '  - ' prefix"
-        )
+        assert (
+            "  - " in output
+        ), "Verbose output must show indented error lines with '  - ' prefix"
 
         # Verbose output must indicate the field is required/missing
-        assert "required" in output.lower() or "missing" in output.lower(), (
-            "Verbose output must indicate field is required or missing"
-        )
+        assert (
+            "required" in output.lower() or "missing" in output.lower()
+        ), "Verbose output must indicate field is required or missing"
 
 
 # =============================================================================
@@ -416,9 +416,9 @@ class TestCLIExitCodes:
 
         # Should return 1 because not all files had file errors
         # (valid.yaml was found and validated successfully)
-        assert exit_code == 1, (
-            "Expected exit code 1 when mix of file and validation issues"
-        )
+        assert (
+            exit_code == 1
+        ), "Expected exit code 1 when mix of file and validation issues"
 
     def test_exit_code_semantics_with_all_error_types(
         self,
@@ -476,9 +476,9 @@ class TestCLIExitCodes:
         # All three have file-level errors: 2 not found + 1 directory
         exit_code = main([str(nonexistent1), str(nonexistent2), str(directory_path)])
 
-        assert exit_code == 2, (
-            "Expected exit code 2 when ALL files have file-level errors"
-        )
+        assert (
+            exit_code == 2
+        ), "Expected exit code 2 when ALL files have file-level errors"
 
     def test_exit_code_with_json_flag_valid(
         self, tmp_path: Path, valid_compute_contract_yaml: str
@@ -522,9 +522,9 @@ class TestCLIExitCodes:
 
         exit_code = main([str(contract), "--verbose"])
 
-        assert exit_code == 1, (
-            "Expected exit code 1 with --verbose for invalid contract"
-        )
+        assert (
+            exit_code == 1
+        ), "Expected exit code 1 with --verbose for invalid contract"
 
 
 # =============================================================================
@@ -787,15 +787,15 @@ class TestCLIExitCodesSubprocess:
         assert result.returncode == 1
 
         # Verbose output must show FAIL status
-        assert "FAIL" in result.stdout, (
-            f"Verbose output must show FAIL for invalid contract. Got: {result.stdout}"
-        )
+        assert (
+            "FAIL" in result.stdout
+        ), f"Verbose output must show FAIL for invalid contract. Got: {result.stdout}"
 
         # Verbose output must show the 'name' field specifically (since that's the
         # missing field in invalid_contract_file fixture)
-        assert "name" in result.stdout.lower(), (
-            f"Verbose output must show 'name' field in error details. Got: {result.stdout}"
-        )
+        assert (
+            "name" in result.stdout.lower()
+        ), f"Verbose output must show 'name' field in error details. Got: {result.stdout}"
 
         # Verbose output must show indented error line (verbose format uses '  - ')
         assert "  - " in result.stdout, (
