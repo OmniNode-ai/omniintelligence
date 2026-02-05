@@ -79,10 +79,6 @@ __all__ = [
     "EnumHookProcessingStatus",
     # Handler class (orchestration helper)
     "HandlerClaudeHookEvent",
-    # Handler functions (direct invocation - primary API)
-    "handle_no_op",
-    "handle_user_prompt_submit",
-    "route_hook_event",
     # Models
     "ModelClaudeCodeHookEvent",
     "ModelClaudeHookResult",
@@ -92,4 +88,8 @@ __all__ = [
     # Protocols
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
+    # Handler functions (direct invocation - primary API)
+    "handle_no_op",
+    "handle_user_prompt_submit",
+    "route_hook_event",
 ]

@@ -108,18 +108,18 @@ __all__ = [
     "ModelPromotionResult",
     # Node
     "NodePatternPromotionEffect",
-    # Handlers
-    "build_gate_snapshot",
-    "calculate_success_rate",
-    "check_and_promote_patterns",
-    "meets_promotion_criteria",
-    "promote_pattern",
-    # Protocols (re-exported from handlers)
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     # Introspection
     "PatternPromotionErrorCode",
     "PatternPromotionIntrospection",
     "PatternPromotionMetadataLoader",
+    # Protocols (re-exported from handlers)
+    "ProtocolKafkaPublisher",
+    "ProtocolPatternRepository",
+    # Handlers
+    "build_gate_snapshot",
+    "calculate_success_rate",
+    "check_and_promote_patterns",
     "get_introspection_response",
+    "meets_promotion_criteria",
+    "promote_pattern",
 ]
