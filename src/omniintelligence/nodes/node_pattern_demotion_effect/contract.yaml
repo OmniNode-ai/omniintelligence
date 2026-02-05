@@ -33,11 +33,10 @@ status: "active"
 
 # Description
 description: >
-  Effect node for demoting validated patterns to deprecated status. Checks patterns
-  against demotion gates (manual disable, failure streak, low success rate) and emits
-  lifecycle events for patterns that meet failure criteria. Implements anti-oscillation
-  via cooldown periods to prevent rapid state changes between validated and deprecated.
-
+  Effect node for demoting validated patterns to deprecated status. Checks patterns against demotion gates
+  (manual disable, failure streak, low success rate) and emits lifecycle events for patterns that meet
+  failure criteria. Implements anti-oscillation via cooldown periods to prevent rapid state changes between
+  validated and deprecated. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelDemotionCheckRequest"
@@ -187,13 +186,15 @@ published_events:
     full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     event_type: "PatternLifecycleEvent"
     trigger: "Pattern meets demotion criteria (failure streak, low success rate, manual disable)"
-    description: "Emitted when a pattern needs to transition from validated to deprecated. Consumed by reducer for FSM validation."
+    description: "Emitted when a pattern needs to transition from validated to deprecated. Consumed by
+      reducer for FSM validation."
 
   - topic_suffix: "onex.evt.omniintelligence.pattern-deprecated.v1"
     full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
     event_type: "PatternDeprecated"
     trigger: "Pattern successfully deprecated after reducer validation"
-    description: "Emitted after reducer processes lifecycle event and pattern is deprecated. Contains gate snapshot and effective thresholds."
+    description: "Emitted after reducer processes lifecycle event and pattern is deprecated. Contains
+      gate snapshot and effective thresholds."
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer

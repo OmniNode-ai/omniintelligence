@@ -33,12 +33,11 @@ status: "active"
 
 # Description
 description: >
-  Effect node for promoting provisional patterns to validated status based on rolling window
-  success metrics. Evaluates patterns against configurable promotion gates (injection count,
-  success rate, failure streak, disabled status) and emits lifecycle events for eligible
-  patterns. Supports dry_run mode for previewing promotions without committing changes.
-  When Kafka is unavailable, falls back to direct database updates per ONEX invariant.
-
+  Effect node for promoting provisional patterns to validated status based on rolling window success metrics.
+  Evaluates patterns against configurable promotion gates (injection count, success rate, failure streak,
+  disabled status) and emits lifecycle events for eligible patterns. Supports dry_run mode for previewing
+  promotions without committing changes. When Kafka is unavailable, falls back to direct database updates
+  per ONEX invariant. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelPromotionCheckRequest"
@@ -193,8 +192,8 @@ published_events:
     full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     event_type: "PatternLifecycleEvent"
     trigger: "Pattern meets promotion gates (injection count, success rate, failure streak)"
-    description: "Emitted when a provisional pattern is eligible for promotion. Contains pattern ID,
-      gate snapshot, and promotion reason. Consumed by reducer for FSM validation."
+    description: "Emitted when a provisional pattern is eligible for promotion. Contains pattern ID, gate
+      snapshot, and promotion reason. Consumed by reducer for FSM validation."
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
@@ -246,8 +245,8 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
     module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
-    description: "Kafka producer for emitting lifecycle events. OPTIONAL - when unavailable,
-      falls back to direct database UPDATE per ONEX invariant."
+    description: "Kafka producer for emitting lifecycle events. OPTIONAL - when unavailable, falls back
+      to direct database UPDATE per ONEX invariant."
     required: false
 
 # =============================================================================
@@ -328,8 +327,8 @@ idempotency:
   enabled: true
   strategy: "event_id_tracking"
   hash_fields: ["pattern_id", "from_status", "to_status"]
-  description: "Each lifecycle event has a unique request_id. Re-processing the same
-    promotion request is idempotent - already-validated patterns are skipped."
+  description: "Each lifecycle event has a unique request_id. Re-processing the same promotion request
+    is idempotent - already-validated patterns are skipped."
 
 # =============================================================================
 # HEALTH CHECK
