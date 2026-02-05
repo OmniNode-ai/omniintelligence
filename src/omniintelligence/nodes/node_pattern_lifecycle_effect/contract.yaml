@@ -16,9 +16,9 @@
 # =============================================================================
 # IDENTIFIERS
 # =============================================================================
-name: "pattern_lifecycle_effect"
-contract_name: "pattern_lifecycle_effect"
-node_name: "pattern_lifecycle_effect"
+name: "node_pattern_lifecycle_effect"
+contract_name: "node_pattern_lifecycle_effect"
+node_name: "node_pattern_lifecycle_effect"
 contract_version:
   major: 1
   minor: 0
