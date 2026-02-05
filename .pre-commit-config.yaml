@@ -293,26 +293,36 @@ repos:
   # ============================================================================
   # RUFF - Fast Python linter and formatter (LOCAL HOOKS)
   # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
-  # Scope: All Python code in src/ and tests/
+  # Scope: Production code - tools/, utils/, runtime/ and their tests
   # Pattern: Uses local hooks with `language: system` for uv integration
-  # Reference: Aligned with omnibase_core configuration
+  # Reference: Aligned with CI scope (see CI ALIGNMENT NOTICE above)
   # ============================================================================
   - repo: local
     hooks:
       - id: ruff-format
-        name: ruff format (auto-format entire codebase)
-        entry: uv run ruff format src/ tests/
+        name: ruff format (tools/utils/runtime)
+        entry: uv run ruff format
         language: system
-        pass_filenames: false
-        always_run: true
+        types: [python]
+        # Scope matches CI: tools/, utils/, runtime/ and their tests
+        # Pattern breakdown:
+        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
+        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
         stages: [pre-commit]
 
       - id: ruff-fix
-        name: ruff check (auto-fix entire codebase)
-        entry: uv run ruff check --fix --exit-non-zero-on-fix src/ tests/
+        name: ruff check (tools/utils/runtime)
+        entry: uv run ruff check --fix --exit-non-zero-on-fix
         language: system
-        pass_filenames: false
-        always_run: true
+        types: [python]
+        # Scope matches CI: tools/, utils/, runtime/ and their tests
+        # Pattern breakdown:
+        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
+        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
+        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
         stages: [pre-commit]
 
   # ============================================================================
