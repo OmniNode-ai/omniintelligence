@@ -21,9 +21,6 @@ from __future__ import annotations
 
 import pytest
 
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions import (
-    PatternLearningValidationError,
-)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
     deduplicate_patterns,
     generate_pattern_signature,
@@ -116,13 +113,27 @@ def make_cluster(
 
 @pytest.mark.unit
 class TestGeneratePatternSignature:
-    """Tests for generate_pattern_signature function."""
+    """Tests for generate_pattern_signature function.
+
+    Note: generate_pattern_signature returns PatternSignatureResultDict which
+    wraps the actual signature data in result["result"]. Tests must check
+    result["success"] first, then access the signature via result["result"].
+    """
 
     def test_returns_all_fields(self) -> None:
         """Signature result should contain all required fields."""
         cluster = make_cluster()
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        # Result wrapper fields
+        assert "success" in result
+        assert "result" in result
+        assert "error_message" in result
+        assert result["success"] is True
+
+        # Signature data fields
+        sig = result["result"]
+        assert sig is not None
         assert "signature" in sig
         assert "signature_version" in sig
         assert "signature_inputs" in sig
@@ -131,30 +142,42 @@ class TestGeneratePatternSignature:
     def test_signature_is_sha256_hex(self) -> None:
         """Signature should be a 64-character SHA256 hex string."""
         cluster = make_cluster()
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         assert len(sig["signature"]) == 64
         assert all(c in "0123456789abcdef" for c in sig["signature"])
 
     def test_signature_version_matches_preset(self) -> None:
         """Signature version should match SIGNATURE_VERSION from presets."""
         cluster = make_cluster()
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         assert sig["signature_version"] == SIGNATURE_VERSION
 
     def test_normalization_applied_matches_preset(self) -> None:
         """normalization_applied should match SIGNATURE_NORMALIZATION."""
         cluster = make_cluster()
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         assert sig["normalization_applied"] == SIGNATURE_NORMALIZATION
 
     def test_signature_inputs_includes_pattern_type(self) -> None:
         """signature_inputs should include pattern_type as first element."""
         cluster = make_cluster(pattern_type="NodeEffect")
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         # First input is pattern_type (lowercased)
         assert sig["signature_inputs"][0] == "nodeeffect"
 
@@ -165,8 +188,11 @@ class TestGeneratePatternSignature:
             keywords=("DEF", "CLASS", "MyFunc"),
             pattern_indicators=("NodeCompute", "FROZEN"),
         )
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         # All inputs should be lowercase
         for input_str in sig["signature_inputs"]:
             assert input_str == input_str.lower()
@@ -177,8 +203,11 @@ class TestGeneratePatternSignature:
             keywords=("zebra", "apple", "mango"),
             pattern_indicators=("NodeCompute", "BaseModel"),
         )
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         # Skip first element (pattern_type)
         inputs = sig["signature_inputs"][1:]
 
@@ -197,8 +226,11 @@ class TestGeneratePatternSignature:
             keywords=("def", "def", "class", "def"),
             pattern_indicators=("NodeEffect", "NodeEffect"),
         )
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         # Count occurrences - keywords and indicators are deduped internally
         inputs = list(sig["signature_inputs"])
         assert inputs.count("def") == 1
@@ -213,8 +245,11 @@ class TestGeneratePatternSignature:
         many_keywords = tuple(f"kw{i:02d}" for i in range(25))
         cluster = make_cluster(keywords=many_keywords, pattern_indicators=())
 
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
 
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
         # Should have pattern_type + 20 keywords max
         # First keyword after sort would be kw00, kw01, ... kw19
         assert len(sig["signature_inputs"]) <= 21  # 1 pattern_type + 20 keywords
@@ -223,9 +258,15 @@ class TestGeneratePatternSignature:
         """Same cluster should always produce the same signature."""
         cluster = make_cluster()
 
-        sig1 = generate_pattern_signature(cluster)
-        sig2 = generate_pattern_signature(cluster)
+        result1 = generate_pattern_signature(cluster)
+        result2 = generate_pattern_signature(cluster)
 
+        assert result1["success"] is True
+        assert result2["success"] is True
+        sig1 = result1["result"]
+        sig2 = result2["result"]
+        assert sig1 is not None
+        assert sig2 is not None
         assert sig1["signature"] == sig2["signature"]
         assert sig1["signature_inputs"] == sig2["signature_inputs"]
 
@@ -234,15 +275,29 @@ class TestGeneratePatternSignature:
         cluster1 = make_cluster(keywords=("a", "b", "c"))
         cluster2 = make_cluster(keywords=("c", "a", "b"))
 
-        sig1 = generate_pattern_signature(cluster1)
-        sig2 = generate_pattern_signature(cluster2)
+        result1 = generate_pattern_signature(cluster1)
+        result2 = generate_pattern_signature(cluster2)
 
+        assert result1["success"] is True
+        assert result2["success"] is True
+        sig1 = result1["result"]
+        sig2 = result2["result"]
+        assert sig1 is not None
+        assert sig2 is not None
         assert sig1["signature"] == sig2["signature"]
 
-    def test_empty_cluster_raises_error(self) -> None:
-        """Empty cluster should raise PatternLearningValidationError."""
-        with pytest.raises(PatternLearningValidationError):
-            generate_pattern_signature({})  # type: ignore[arg-type]
+    def test_empty_cluster_returns_structured_error(self) -> None:
+        """Empty cluster should return structured error, not raise exception.
+
+        Per CLAUDE.md: handlers must return structured errors, not raise
+        domain exceptions. Validation errors are data, not exceptions.
+        """
+        result = generate_pattern_signature(None)
+
+        assert result["success"] is False
+        assert result["result"] is None
+        assert result["error_message"] is not None
+        assert "empty cluster" in result["error_message"].lower()
 
 
 # =============================================================================
@@ -259,6 +314,10 @@ class TestDeduplicatePatternsBasic:
         clusters = [make_cluster()]
         result = deduplicate_patterns(clusters)
 
+        # New structured error fields
+        assert "success" in result
+        assert "error_message" in result
+        # Original fields
         assert "deduplicated_clusters" in result
         assert "merged_count" in result
         assert "threshold_used" in result
@@ -269,6 +328,7 @@ class TestDeduplicatePatternsBasic:
         clusters = [make_cluster()]
         result = deduplicate_patterns(clusters, similarity_threshold=0.90)
 
+        assert result["success"] is True
         assert result["threshold_used"] == 0.90
 
     def test_threshold_used_defaults_to_preset(self) -> None:
@@ -276,21 +336,25 @@ class TestDeduplicatePatternsBasic:
         clusters = [make_cluster()]
         result = deduplicate_patterns(clusters)
 
+        assert result["success"] is True
         assert result["threshold_used"] == DEFAULT_DEDUPLICATION_THRESHOLD
 
     def test_empty_input_returns_empty_result(self) -> None:
         """Empty input should return empty deduplicated_clusters."""
         result = deduplicate_patterns([])
 
+        assert result["success"] is True
         assert result["deduplicated_clusters"] == []
         assert result["merged_count"] == 0
         assert result["near_threshold_warnings"] == []
+        assert result["error_message"] is None
 
     def test_single_cluster_unchanged(self) -> None:
         """Single cluster should pass through unchanged."""
         cluster = make_cluster()
         result = deduplicate_patterns([cluster])
 
+        assert result["success"] is True
         assert len(result["deduplicated_clusters"]) == 1
         assert result["deduplicated_clusters"][0]["cluster_id"] == cluster["cluster_id"]
         assert result["merged_count"] == 0
@@ -707,36 +771,57 @@ class TestDeduplicatePatternsDeterminismContract:
 
 @pytest.mark.unit
 class TestDeduplicatePatternsValidation:
-    """Tests for input validation."""
+    """Tests for input validation.
 
-    def test_threshold_above_one_raises_error(self) -> None:
-        """similarity_threshold > 1.0 should raise error."""
-        with pytest.raises(PatternLearningValidationError):
-            deduplicate_patterns([make_cluster()], similarity_threshold=1.5)
+    Per CLAUDE.md: handlers must return structured errors, not raise
+    domain exceptions. Validation errors are data, not exceptions.
+    """
 
-    def test_threshold_below_zero_raises_error(self) -> None:
-        """similarity_threshold < 0.0 should raise error."""
-        with pytest.raises(PatternLearningValidationError):
-            deduplicate_patterns([make_cluster()], similarity_threshold=-0.1)
+    def test_threshold_above_one_returns_structured_error(self) -> None:
+        """similarity_threshold > 1.0 should return structured error."""
+        result = deduplicate_patterns([make_cluster()], similarity_threshold=1.5)
 
-    def test_margin_above_one_raises_error(self) -> None:
-        """near_threshold_margin > 1.0 should raise error."""
-        with pytest.raises(PatternLearningValidationError):
-            deduplicate_patterns([make_cluster()], near_threshold_margin=1.5)
+        assert result["success"] is False
+        assert result["error_message"] is not None
+        assert "similarity_threshold" in result["error_message"]
+        assert "[0.0, 1.0]" in result["error_message"]
 
-    def test_margin_below_zero_raises_error(self) -> None:
-        """near_threshold_margin < 0.0 should raise error."""
-        with pytest.raises(PatternLearningValidationError):
-            deduplicate_patterns([make_cluster()], near_threshold_margin=-0.1)
+    def test_threshold_below_zero_returns_structured_error(self) -> None:
+        """similarity_threshold < 0.0 should return structured error."""
+        result = deduplicate_patterns([make_cluster()], similarity_threshold=-0.1)
+
+        assert result["success"] is False
+        assert result["error_message"] is not None
+        assert "similarity_threshold" in result["error_message"]
+
+    def test_margin_above_one_returns_structured_error(self) -> None:
+        """near_threshold_margin > 1.0 should return structured error."""
+        result = deduplicate_patterns([make_cluster()], near_threshold_margin=1.5)
+
+        assert result["success"] is False
+        assert result["error_message"] is not None
+        assert "near_threshold_margin" in result["error_message"]
+
+    def test_margin_below_zero_returns_structured_error(self) -> None:
+        """near_threshold_margin < 0.0 should return structured error."""
+        result = deduplicate_patterns([make_cluster()], near_threshold_margin=-0.1)
+
+        assert result["success"] is False
+        assert result["error_message"] is not None
+        assert "near_threshold_margin" in result["error_message"]
 
     def test_boundary_threshold_zero_accepted(self) -> None:
         """similarity_threshold = 0.0 should be accepted."""
         result = deduplicate_patterns([make_cluster()], similarity_threshold=0.0)
+
+        assert result["success"] is True
         assert result["threshold_used"] == 0.0
 
     def test_boundary_threshold_one_accepted(self) -> None:
         """similarity_threshold = 1.0 should be accepted."""
         result = deduplicate_patterns([make_cluster()], similarity_threshold=1.0)
+
+        assert result["success"] is True
         assert result["threshold_used"] == 1.0
 
 
@@ -778,7 +863,11 @@ class TestDeduplicationReplayInvariants:
             pattern_indicators=("NodeCompute", "BaseModel"),
         )
 
-        sig = generate_pattern_signature(cluster)
+        result = generate_pattern_signature(cluster)
+
+        assert result["success"] is True
+        sig = result["result"]
+        assert sig is not None
 
         # Assert exact golden hash (computed once, frozen forever)
         expected_hash = (
@@ -985,13 +1074,17 @@ class TestSignatureDeduplicationIntegration:
             make_cluster(cluster_id="cluster-0003", keywords=("e", "f")),
         ]
 
-        result = deduplicate_patterns(clusters, similarity_threshold=0.99)
+        dedup_result = deduplicate_patterns(clusters, similarity_threshold=0.99)
+
+        assert dedup_result["success"] is True
 
         # Generate signatures for surviving clusters
-        signatures = [
-            generate_pattern_signature(c)["signature"]
-            for c in result["deduplicated_clusters"]
-        ]
+        signatures = []
+        for c in dedup_result["deduplicated_clusters"]:
+            sig_result = generate_pattern_signature(c)
+            assert sig_result["success"] is True
+            assert sig_result["result"] is not None
+            signatures.append(sig_result["result"]["signature"])
 
         # All signatures should be unique
         assert len(signatures) == len(set(signatures))

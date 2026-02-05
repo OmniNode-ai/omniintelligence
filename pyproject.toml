@@ -218,7 +218,9 @@ ignore = [
     "SIM103", # Allow explicit if/else returns (sometimes clearer)
     "B008",   # Allow function call defaults
     "F841",   # Allow unused variables
+    "ARG002", # Allow unused method arguments (common in test fixtures)
     "RUF012", # Allow mutable class attributes
+    "RUF022", # Allow unsorted __all__ (manual ordering preferred for readability)
 ]
 
 [tool.ruff.lint.per-file-ignores]
