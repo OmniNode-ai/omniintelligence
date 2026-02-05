@@ -221,8 +221,16 @@ class TransportImportChecker(ast.NodeVisitor):
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         """Handle `from X import Y` statements."""
+        # Skip relative imports entirely - they reference local modules, not external packages
+        # Note: level > 0 indicates relative import (from . import X, from .foo import X, from ..foo import X)
+        # level == 0 indicates absolute import (from foo import X)
+        if node.level > 0:
+            self.generic_visit(node)
+            return
+
         if node.module is None:
-            # Relative import without module (from . import X)
+            # Absolute import without module shouldn't happen (level=0 with no module)
+            # but handle defensively
             self.generic_visit(node)
             return
 
@@ -330,9 +338,10 @@ def iter_python_files(root_dir: Path, excludes: set[Path]) -> Iterator[Path]:
                     if exclude_path.name == path.name:
                         should_exclude = True
                         break
-                except Exception:
-                    # fallback-ok: skip exclusion check on path parsing errors
-                    pass
+                except (TypeError, AttributeError) as e:
+                    # boundary-ok: handle path comparison errors (e.g., incompatible types)
+                    # Log in debug scenarios but don't fail the entire scan
+                    _ = e  # Acknowledge the exception without using it
 
         if not should_exclude:
             yield path

@@ -248,6 +248,111 @@ elif some_condition:
         assert len(checker.violations) == 1
         assert checker.violations[0].module_name == "redis"
 
+    def test_not_type_checking_pattern_flagged(self) -> None:
+        """Imports in `if not TYPE_CHECKING:` should be flagged.
+
+        This pattern runs at runtime (when TYPE_CHECKING is False),
+        so banned imports there are violations.
+        """
+        source = """
+from typing import TYPE_CHECKING
+
+if not TYPE_CHECKING:
+    import aiohttp  # SHOULD be flagged (runtime)
+"""
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # The negated TYPE_CHECKING import should be flagged
+        assert len(checker.violations) == 1
+        assert checker.violations[0].module_name == "aiohttp"
+
+    def test_type_checking_with_boolean_operator_flagged(self) -> None:
+        """Imports in `if TYPE_CHECKING and condition:` should be flagged.
+
+        Only pure `if TYPE_CHECKING:` is a valid guard.
+        Boolean operators make the condition runtime-dependent.
+        """
+        source = """
+from typing import TYPE_CHECKING
+
+some_condition = True
+
+if TYPE_CHECKING and some_condition:
+    import aiohttp  # SHOULD be flagged (not a pure guard)
+"""
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # The compound condition import should be flagged
+        assert len(checker.violations) == 1
+        assert checker.violations[0].module_name == "aiohttp"
+
+
+# =============================================================================
+# TransportImportChecker TESTS - RELATIVE IMPORTS
+# =============================================================================
+
+
+class TestRelativeImportHandling:
+    """Tests for relative import handling (should NOT be flagged)."""
+
+    def test_relative_import_not_flagged(self) -> None:
+        """Relative imports with banned module names should NOT be flagged.
+
+        `from .aiohttp import X` refers to a local module named 'aiohttp',
+        not the external aiohttp package.
+        """
+        source = "from .aiohttp import ClientSession"
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # Relative import should NOT be flagged
+        assert len(checker.violations) == 0
+
+    def test_relative_import_double_dot_not_flagged(self) -> None:
+        """Parent-relative imports should NOT be flagged."""
+        source = "from ..aiohttp import ClientSession"
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # Relative import should NOT be flagged
+        assert len(checker.violations) == 0
+
+    def test_relative_import_no_module_not_flagged(self) -> None:
+        """Relative imports without module name should NOT be flagged."""
+        source = "from . import something"
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # Relative import should NOT be flagged
+        assert len(checker.violations) == 0
+
+    def test_absolute_import_still_flagged(self) -> None:
+        """Absolute imports of banned modules should still be flagged.
+
+        This ensures the relative import fix didn't break absolute import detection.
+        """
+        source = "from aiohttp import ClientSession"
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # Absolute import SHOULD be flagged
+        assert len(checker.violations) == 1
+        assert checker.violations[0].module_name == "aiohttp"
+
 
 # =============================================================================
 # TransportImportChecker TESTS - VIOLATION DETECTION
