@@ -15,7 +15,7 @@ Field Path Resolution:
     - Supports dot-notation: "outputs.0.name"
     - List indices are non-negative integers: "items.0.value"
     - Returns MISSING sentinel for non-existent paths
-    - Rejects invalid paths (empty tokens, negative indices)
+    - Rejects invalid paths (empty tokens, invalid characters)
 
 Example:
     from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
@@ -192,8 +192,8 @@ def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
 
     Path Syntax Rules:
         - Tokens separated by dots: "a.b.c"
-        - Allowed tokens: [A-Za-z0-9_]+ or non-negative integers
-        - Rejects: empty tokens ("a..b"), leading/trailing dots, negative indexes
+        - Allowed tokens: [A-Za-z0-9_]+ (alphanumeric and underscore only)
+        - Rejects: empty tokens ("a..b"), leading/trailing dots, invalid characters
         - Returns MISSING (not None) for missing keys or out-of-range indexes
 
     Examples:
@@ -237,7 +237,7 @@ def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
             index = int(token)
             if not isinstance(current, list | tuple):
                 return MISSING
-            if index < 0 or index >= len(current):
+            if index >= len(current):
                 return MISSING
             current = current[index]
         else:
@@ -665,8 +665,36 @@ def _truncate(s: str, max_len: int) -> str:
     return s[: max_len - 3] + "..."
 
 
+# =============================================================================
+# Public Wrapper (Naming Convention)
+# =============================================================================
+
+
+def handle_match_criteria(
+    outcome: dict[str, Any],
+    criteria: list[SuccessCriterionDict],
+) -> CriteriaMatchResult:
+    """Handle success criteria matching (naming convention wrapper).
+
+    This function follows the ONEX handler naming convention (handle_*)
+    and delegates to the core match_criteria function.
+
+    Args:
+        outcome: Dictionary containing execution results to match against.
+        criteria: List of success criteria to evaluate.
+
+    Returns:
+        CriteriaMatchResult with match status, scores, and details.
+
+    Raises:
+        CriteriaMatchingValidationError: If criteria set is invalid.
+    """
+    return match_criteria(outcome, criteria)
+
+
 __all__ = [
     "apply_operator",
+    "handle_match_criteria",
     "match_criteria",
     "resolve_field_path",
 ]

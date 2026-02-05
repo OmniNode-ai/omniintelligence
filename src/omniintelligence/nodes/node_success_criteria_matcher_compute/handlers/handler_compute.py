@@ -87,17 +87,28 @@ def handle_success_criteria_compute(
         Always returns a valid output, even on errors.
     """
     start_time = time.perf_counter()
+    correlation_id = input_data.correlation_id
 
     try:
-        return _execute_matching(input_data, start_time)
+        return _execute_matching(input_data, start_time, correlation_id)
 
     except CriteriaMatchingValidationError as e:
         processing_time = (time.perf_counter() - start_time) * 1000
-        return _create_validation_error_output(str(e), processing_time)
+        logger.warning(
+            "Validation error in criteria matching: %s",
+            str(e),
+            extra={"correlation_id": str(correlation_id) if correlation_id else None},
+        )
+        return _create_validation_error_output(str(e), processing_time, correlation_id)
 
     except CriteriaMatchingComputeError as e:
         processing_time = (time.perf_counter() - start_time) * 1000
-        return _create_compute_error_output(str(e), processing_time)
+        logger.warning(
+            "Compute error in criteria matching: %s",
+            str(e),
+            extra={"correlation_id": str(correlation_id) if correlation_id else None},
+        )
+        return _create_compute_error_output(str(e), processing_time, correlation_id)
 
     except Exception as e:
         # Catch-all for any unhandled exceptions.
@@ -108,32 +119,39 @@ def handle_success_criteria_compute(
         try:
             logger.exception(
                 "Unhandled exception in success criteria matching compute. "
-                "correlation_id=%s, criteria_count=%d, processing_time_ms=%.2f",
-                getattr(input_data, "correlation_id", "<unknown>"),
+                "criteria_count=%d, processing_time_ms=%.2f",
                 len(getattr(input_data, "criteria_set", [])),
                 processing_time,
+                extra={"correlation_id": str(correlation_id) if correlation_id else None},
             )
         except Exception:
             # If logging itself fails, try minimal logging
             with contextlib.suppress(Exception):
-                logger.error("Success criteria matching compute failed: %s", e)
+                logger.error(
+                    "Success criteria matching compute failed: %s",
+                    e,
+                    extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                )
 
         # Safe error response creation
         return _create_safe_error_output(
             f"Unhandled error: {e}",
             processing_time,
+            correlation_id,
         )
 
 
 def _execute_matching(
     input_data: ModelSuccessCriteriaInput,
     start_time: float,
+    correlation_id: str | None,
 ) -> ModelSuccessCriteriaOutput:
     """Execute the criteria matching logic.
 
     Args:
         input_data: Typed input model with execution outcome and criteria.
         start_time: Performance counter start time for timing.
+        correlation_id: Correlation ID for end-to-end tracing.
 
     Returns:
         ModelSuccessCriteriaOutput with matching results.
@@ -147,10 +165,25 @@ def _execute_matching(
     outcome = dict(input_data.execution_outcome)
     criteria = list(input_data.criteria_set)
 
+    logger.debug(
+        "Starting criteria matching with %d criteria",
+        len(criteria),
+        extra={"correlation_id": str(correlation_id) if correlation_id else None},
+    )
+
     # Perform matching
     result = match_criteria(outcome, criteria)
 
     processing_time = (time.perf_counter() - start_time) * 1000
+
+    logger.debug(
+        "Criteria matching completed: success=%s, score=%.2f, matched=%d/%d",
+        result["success"],
+        result["match_score"],
+        len(result["matched_criteria"]),
+        len(criteria),
+        extra={"correlation_id": str(correlation_id) if correlation_id else None},
+    )
 
     # Build match details strings for metadata
     match_detail_strings = [
@@ -182,12 +215,14 @@ def _execute_matching(
 def _create_validation_error_output(
     error_message: str,
     processing_time_ms: float,
+    correlation_id: str | None,  # noqa: ARG001 - threaded for architectural consistency
 ) -> ModelSuccessCriteriaOutput:
     """Create output for validation errors.
 
     Args:
         error_message: The validation error message.
         processing_time_ms: Time spent before the error occurred.
+        correlation_id: Correlation ID for end-to-end tracing.
 
     Returns:
         ModelSuccessCriteriaOutput indicating validation failure.
@@ -214,12 +249,14 @@ def _create_validation_error_output(
 def _create_compute_error_output(
     error_message: str,
     processing_time_ms: float,
+    correlation_id: str | None,  # noqa: ARG001 - threaded for architectural consistency
 ) -> ModelSuccessCriteriaOutput:
     """Create output for compute errors.
 
     Args:
         error_message: The compute error message.
         processing_time_ms: Time spent before the error occurred.
+        correlation_id: Correlation ID for end-to-end tracing.
 
     Returns:
         ModelSuccessCriteriaOutput indicating compute failure.
@@ -263,6 +300,7 @@ def _safe_elapsed_time_ms(start_time: float) -> float:
 def _create_safe_error_output(
     error_message: str,
     processing_time_ms: float,
+    correlation_id: str | None,
 ) -> ModelSuccessCriteriaOutput:
     """Create error output that is guaranteed not to raise exceptions.
 
@@ -273,12 +311,13 @@ def _create_safe_error_output(
     Args:
         error_message: The error message to include.
         processing_time_ms: Time spent before the error occurred.
+        correlation_id: Correlation ID for end-to-end tracing.
 
     Returns:
         ModelSuccessCriteriaOutput indicating failure. Always succeeds.
     """
     try:
-        return _create_compute_error_output(error_message, processing_time_ms)
+        return _create_compute_error_output(error_message, processing_time_ms, correlation_id)
     except Exception:
         # If normal error output creation fails, create minimal output
         # This should never happen, but ensures the no-exception contract

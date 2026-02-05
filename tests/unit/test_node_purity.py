@@ -963,9 +963,9 @@ class TestRealNodeFiles:
     def test_stub_nodes_are_detected_and_skipped(self, nodes_directory: Path) -> None:
         """Stub nodes should be detected and skipped from purity checks."""
         # Known stub nodes (per CLAUDE.md documentation)
+        # Note: success_criteria_matcher_compute was implemented in OMN-1426
         stub_nodes = [
             "node_execution_trace_parser_compute",
-            "node_success_criteria_matcher_compute",
             "node_pattern_matching_compute",
             "node_pattern_assembler_orchestrator",
         ]

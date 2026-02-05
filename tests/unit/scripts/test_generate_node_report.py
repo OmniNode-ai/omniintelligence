@@ -422,9 +422,9 @@ class TestRealNodeStubDetection:
         # Note: semantic_analysis_compute was implemented in OMN-1422
         # Note: node_intent_classifier_compute was refactored to thin shell in declarative refactor
         # Note: pattern_learning_compute was implemented
+        # Note: success_criteria_matcher_compute was implemented in OMN-1426
         known_stubs = [
             "node_execution_trace_parser_compute",
-            "node_success_criteria_matcher_compute",
             "node_pattern_matching_compute",
             "node_pattern_assembler_orchestrator",
         ]
@@ -450,6 +450,7 @@ class TestRealNodeStubDetection:
             "node_quality_scoring_compute",
             "node_semantic_analysis_compute",
             "node_intent_classifier_compute",
+            "node_success_criteria_matcher_compute",
         ]
 
         for node_name in known_non_stubs:

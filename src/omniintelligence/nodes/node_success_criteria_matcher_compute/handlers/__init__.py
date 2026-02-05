@@ -74,6 +74,7 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handl
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_criteria_matching import (
     apply_operator,
+    handle_match_criteria,
     match_criteria,
     resolve_field_path,
 )
@@ -102,6 +103,7 @@ __all__ = [
     "MaybeJsonValue",
     "apply_operator",
     "get_type_name",
+    "handle_match_criteria",
     "handle_success_criteria_compute",
     "match_criteria",
     "resolve_field_path",

@@ -37,7 +37,6 @@ from omnibase_core.models.primitives.model_semver import ModelSemVer
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
     QualityScoringComputeError,
-    QualityScoringValidationError,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.enum_onex_strictness_level import (
     OnexStrictnessLevel,
@@ -49,6 +48,7 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.protocols import (
     DimensionScores,
     QualityScoringResult,
+    create_error_dimensions,
 )
 
 # Type alias for valid dimension keys (matches DimensionScores TypedDict keys)
@@ -402,11 +402,13 @@ def score_code_quality(
             - LENIENT: Development mode, threshold 0.5
 
     Returns:
-        QualityScoringResult with all scoring data.
+        QualityScoringResult with all scoring data. On validation errors (empty content,
+        invalid weights), returns a result with success=False and a validation_error
+        recommendation instead of raising an exception.
 
     Raises:
-        QualityScoringValidationError: If content is empty or weights are invalid.
-        QualityScoringComputeError: If scoring computation fails unexpectedly.
+        QualityScoringComputeError: If scoring computation fails unexpectedly
+            (invariant violation, not a domain error).
 
     Example:
         >>> result = score_code_quality(
@@ -427,9 +429,9 @@ def score_code_quality(
         >>> result["onex_compliant"]  # Uses 0.8 threshold
         False
     """
-    # Validate inputs
+    # Validate inputs - return structured error instead of raising
     if not content or not content.strip():
-        raise QualityScoringValidationError("Content cannot be empty")
+        return _create_validation_error_result("Content cannot be empty")
 
     # Apply preset configuration (highest precedence)
     if preset is not None:
@@ -439,7 +441,10 @@ def score_code_quality(
         effective_weights = weights if weights is not None else DEFAULT_WEIGHTS.copy()
         effective_threshold = onex_threshold
 
-    _validate_weights(effective_weights)
+    # Validate weights - return structured error instead of raising
+    weight_error = _validate_weights(effective_weights)
+    if weight_error is not None:
+        return _create_validation_error_result(weight_error)
 
     normalized_language = language.lower().strip()
 
@@ -1210,7 +1215,7 @@ def _round_dimension_scores(
     )
 
 
-def _validate_weights(weights: dict[str, float]) -> None:
+def _validate_weights(weights: dict[str, float]) -> str | None:
     """Validate that weights sum to approximately 1.0.
 
     Note: This validation is defensive for direct API calls to score_code_quality().
@@ -1221,8 +1226,8 @@ def _validate_weights(weights: dict[str, float]) -> None:
     Args:
         weights: Dictionary of dimension weights.
 
-    Raises:
-        QualityScoringValidationError: If weights don't sum to ~1.0 or have invalid keys.
+    Returns:
+        None if validation passes, or an error message string if validation fails.
     """
     expected_keys = set(DEFAULT_WEIGHTS.keys())
     actual_keys = set(weights.keys())
@@ -1230,19 +1235,17 @@ def _validate_weights(weights: dict[str, float]) -> None:
     if actual_keys != expected_keys:
         missing = expected_keys - actual_keys
         extra = actual_keys - expected_keys
-        raise QualityScoringValidationError(
-            f"Invalid weight keys. Missing: {missing}, Extra: {extra}"
-        )
+        return f"Invalid weight keys. Missing: {missing}, Extra: {extra}"
 
     total = sum(weights.values())
     if not (0.99 <= total <= 1.01):
-        raise QualityScoringValidationError(f"Weights must sum to 1.0, got {total:.4f}")
+        return f"Weights must sum to 1.0, got {total:.4f}"
 
     for key, value in weights.items():
         if not (0.0 <= value <= 1.0):
-            raise QualityScoringValidationError(
-                f"Weight '{key}' must be between 0.0 and 1.0, got {value}"
-            )
+            return f"Weight '{key}' must be between 0.0 and 1.0, got {value}"
+
+    return None
 
 
 def _compute_weighted_score(
@@ -1331,6 +1334,29 @@ def _create_syntax_error_result(language: str, error_msg: str) -> QualityScoring
             f"[syntax_error] Code contains syntax errors and cannot be fully analyzed: {error_msg}"
         ],
         source_language=language,
+        analysis_version=ANALYSIS_VERSION_STR,
+    )
+
+
+def _create_validation_error_result(error_msg: str) -> QualityScoringResult:
+    """Create result when input validation fails.
+
+    Per CLAUDE.md: Domain errors should return structured output, not raise exceptions.
+    This allows callers to handle validation failures gracefully without exception handling.
+
+    Args:
+        error_msg: Description of the validation failure.
+
+    Returns:
+        QualityScoringResult with success=False and zero scores.
+    """
+    return QualityScoringResult(
+        success=False,  # Validation failed - operation did not complete
+        quality_score=0.0,
+        dimensions=create_error_dimensions(),
+        onex_compliant=False,
+        recommendations=[f"[validation_error] {error_msg}"],
+        source_language="unknown",
         analysis_version=ANALYSIS_VERSION_STR,
     )
 

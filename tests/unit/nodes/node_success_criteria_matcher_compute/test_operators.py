@@ -13,6 +13,9 @@ Operators tested:
 
 import pytest
 
+# Module-level marker: all tests in this file are unit tests
+pytestmark = pytest.mark.unit
+
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     MISSING,
     EnumCriteriaOperator,
