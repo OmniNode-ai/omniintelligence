@@ -14,7 +14,7 @@ Ticket: OMN-1672
 from __future__ import annotations
 
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 from omniintelligence.utils.injection_safety import (

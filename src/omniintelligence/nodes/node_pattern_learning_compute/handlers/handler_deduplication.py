@@ -37,6 +37,9 @@ from __future__ import annotations
 import hashlib
 from typing import Final
 
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions import (
+    PatternLearningValidationError,
+)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
     compute_similarity,
 )
@@ -52,7 +55,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
     NearThresholdWarningDict,
     PatternClusterDict,
     PatternSignatureDict,
-    PatternSignatureResultDict,
     SimilarityWeightsDict,
 )
 
@@ -69,7 +71,7 @@ _SIGNATURE_MAX_KEYWORDS: Final[int] = 20
 # =============================================================================
 
 
-def generate_pattern_signature(cluster: PatternClusterDict | None) -> PatternSignatureResultDict:
+def generate_pattern_signature(cluster: PatternClusterDict) -> PatternSignatureDict:
     """Generate versioned, deterministic signature for a pattern cluster.
 
     STABILITY CONTRACT:
@@ -83,39 +85,29 @@ def generate_pattern_signature(cluster: PatternClusterDict | None) -> PatternSig
         - Tracking pattern changes over time
         - Debugging "why did this pattern change?" questions
 
-    Following CLAUDE.md error handling pattern: handlers must return structured
-    errors, not raise domain exceptions. Validation errors are returned as data.
-
     Args:
         cluster: Pattern cluster to generate signature for.
 
     Returns:
-        PatternSignatureResultDict containing:
-        - success: Whether signature generation succeeded
-        - result: PatternSignatureDict if success=True, None otherwise
-        - error_message: Error description if success=False, None otherwise
-
-        On success, result contains:
+        PatternSignatureDict containing:
         - signature: SHA256 hex digest
         - signature_version: Algorithm version (e.g., "v1.0.0")
         - signature_inputs: Tuple of normalized inputs (for debugging)
         - normalization_applied: Normalization method used
 
+    Raises:
+        PatternLearningValidationError: If cluster is malformed.
+
     Examples:
-        >>> result = generate_pattern_signature(cluster)
-        >>> if result["success"]:
-        ...     sig = result["result"]
-        ...     print(sig["signature"])
+        >>> sig = generate_pattern_signature(cluster)
+        >>> sig["signature"]
         'a1b2c3d4...'
-        >>> else:
-        ...     print(result["error_message"])
+        >>> sig["signature_version"]
+        'v1.0.0'
     """
-    # Validation - return structured error instead of raising
     if not cluster:
-        return PatternSignatureResultDict(
-            success=False,
-            result=None,
-            error_message="Cannot generate signature for empty cluster",
+        raise PatternLearningValidationError(
+            "Cannot generate signature for empty cluster"
         )
 
     centroid = cluster["centroid_features"]
@@ -147,15 +139,11 @@ def generate_pattern_signature(cluster: PatternClusterDict | None) -> PatternSig
     # Compute SHA256
     signature_hash = hashlib.sha256(canonical_string.encode("utf-8")).hexdigest()
 
-    return PatternSignatureResultDict(
-        success=True,
-        result=PatternSignatureDict(
-            signature=signature_hash,
-            signature_version=SIGNATURE_VERSION,
-            signature_inputs=signature_inputs,
-            normalization_applied=SIGNATURE_NORMALIZATION,
-        ),
-        error_message=None,
+    return PatternSignatureDict(
+        signature=signature_hash,
+        signature_version=SIGNATURE_VERSION,
+        signature_inputs=signature_inputs,
+        normalization_applied=SIGNATURE_NORMALIZATION,
     )
 
 
@@ -173,9 +161,6 @@ def deduplicate_patterns(
         - Near-threshold cases (within margin) emit warnings
         - Prefer false negatives over false positives
           (You can merge later; you can't un-merge)
-
-    Following CLAUDE.md error handling pattern: handlers must return structured
-    errors, not raise domain exceptions. Validation errors are returned as data.
 
     Algorithm:
         1. Sort clusters by cluster_id for determinism
@@ -203,53 +188,41 @@ def deduplicate_patterns(
 
     Returns:
         DeduplicationResultDict containing:
-        - success: Whether deduplication succeeded
         - deduplicated_clusters: Surviving clusters after deduplication
         - merged_count: Number of clusters that were removed
         - threshold_used: The threshold that was applied (explicit)
         - near_threshold_warnings: Warnings for borderline cases
-        - error_message: Error description if success=False, None otherwise
+
+    Raises:
+        PatternLearningValidationError: If threshold is out of range.
 
     Examples:
         >>> result = deduplicate_patterns(clusters, confidence_scores)
-        >>> if result["success"]:
-        ...     print(len(result["deduplicated_clusters"]))
+        >>> len(result["deduplicated_clusters"])
         5
         >>> result["merged_count"]
         3
         >>> result["threshold_used"]
         0.85
     """
-    # Validate threshold - return structured error instead of raising
+    # Validate threshold
     if not (0.0 <= similarity_threshold <= 1.0):
-        return DeduplicationResultDict(
-            success=False,
-            deduplicated_clusters=[],
-            merged_count=0,
-            threshold_used=similarity_threshold,
-            near_threshold_warnings=[],
-            error_message=f"similarity_threshold must be in [0.0, 1.0], got {similarity_threshold}",
+        raise PatternLearningValidationError(
+            f"similarity_threshold must be in [0.0, 1.0], got {similarity_threshold}"
         )
 
     if not (0.0 <= near_threshold_margin <= 1.0):
-        return DeduplicationResultDict(
-            success=False,
-            deduplicated_clusters=[],
-            merged_count=0,
-            threshold_used=similarity_threshold,
-            near_threshold_warnings=[],
-            error_message=f"near_threshold_margin must be in [0.0, 1.0], got {near_threshold_margin}",
+        raise PatternLearningValidationError(
+            f"near_threshold_margin must be in [0.0, 1.0], got {near_threshold_margin}"
         )
 
     # Handle empty input
     if not clusters:
         return DeduplicationResultDict(
-            success=True,
             deduplicated_clusters=[],
             merged_count=0,
             threshold_used=similarity_threshold,
             near_threshold_warnings=[],
-            error_message=None,
         )
 
     # Use default weights if none provided
@@ -348,12 +321,10 @@ def deduplicate_patterns(
     merged_count = len(sorted_clusters) - len(deduplicated)
 
     return DeduplicationResultDict(
-        success=True,
         deduplicated_clusters=deduplicated,
         merged_count=merged_count,
         threshold_used=similarity_threshold,
         near_threshold_warnings=warnings,
-        error_message=None,
     )
 
 

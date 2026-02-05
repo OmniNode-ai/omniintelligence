@@ -23,7 +23,6 @@ from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
     analyze_semantics,
 )
 
-
 # =============================================================================
 # Test Fixtures - Sample Python Code Snippets
 # =============================================================================

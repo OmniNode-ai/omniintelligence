@@ -190,6 +190,7 @@ target-version = "py312"
 select = [
     "E",     # pycodestyle errors
     "F",     # pyflakes
+    "I",     # isort (import sorting)
     "W",     # pycodestyle warnings
     "N",     # pep8-naming
     "UP",    # pyupgrade
@@ -201,7 +202,7 @@ select = [
 ]
 ignore = [
     "S101",   # Allow assert statements in tests
-    "E501",   # Allow line length violations (handled by ruff format)
+    "E501",   # Allow line length violations (line length handled by ruff format)
     "E402",   # Allow imports not at top (tests need sys.path setup, legacy emits warnings)
     "B904",   # Allow raise without from in exception handlers
     "B019",   # Allow lru_cache on methods (used carefully for singleton patterns)
@@ -211,7 +212,7 @@ ignore = [
     "N806",   # Allow non-lowercase variable in function
     "N805",   # Allow cls as first argument
     "UP007",  # Allow Union syntax
-    "UP042",  # Allow (str, Enum) instead of StrEnum (codebase uses existing pattern)
+    "UP042",  # Allow (str, Enum) inheritance (20 existing classes, migrate to StrEnum later)
     "SIM117", # Allow nested with statements
     "SIM102", # Allow nested if statements (sometimes clearer than combining)
     "SIM103", # Allow explicit if/else returns (sometimes clearer)
@@ -220,7 +221,7 @@ ignore = [
     "ARG002", # Allow unused method arguments (common in test fixtures)
     "RUF012", # Allow mutable class attributes
     "RUF022", # Allow unsorted __all__ (manual ordering preferred for readability)
-    "RUF043", # Allow unescaped regex patterns in pytest.raises match
+    "RUF043", # Allow unescaped regex patterns in pytest.raises match (intentional regex)
     "RUF059", # Allow unused unpacked variables (common in tests for tuple unpacking)
 ]
 

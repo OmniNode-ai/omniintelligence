@@ -75,11 +75,6 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from omnibase_infra.enums import (
-    EnumHandlerType,
-    EnumHandlerTypeCategory,
-)
-
 from omnibase_core.enums.pattern_learning import (
     EnumPatternLearningStatus,
     EnumPatternLifecycleState,
@@ -93,6 +88,10 @@ from omnibase_core.models.pattern_learning import (
     ModelPatternSignature,
 )
 from omnibase_core.models.primitives import ModelSemVer
+from omnibase_infra.enums import (
+    EnumHandlerType,
+    EnumHandlerTypeCategory,
+)
 
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions import (
     PatternLearningValidationError,

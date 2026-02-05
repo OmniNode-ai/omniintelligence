@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import re
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -49,7 +48,9 @@ class NodeInfo:
     status: str  # "Pure Shell", "Stub", "Needs Handler Extraction", "Missing Node File"
 
 
-def get_node_type(name: str) -> Literal["compute", "effect", "orchestrator", "reducer", "unknown"]:
+def get_node_type(
+    name: str,
+) -> Literal["compute", "effect", "orchestrator", "reducer", "unknown"]:
     """Determine node type from directory name."""
     if name.endswith("_compute"):
         return "compute"
@@ -104,8 +105,14 @@ def check_is_stub(file_path: Path) -> bool:
             if isinstance(node, ast.ClassDef):
                 for item in node.body:
                     if isinstance(item, ast.AnnAssign):
-                        if isinstance(item.target, ast.Name) and item.target.id == "is_stub":
-                            if isinstance(item.value, ast.Constant) and item.value.value is True:
+                        if (
+                            isinstance(item.target, ast.Name)
+                            and item.target.id == "is_stub"
+                        ):
+                            if (
+                                isinstance(item.value, ast.Constant)
+                                and item.value.value is True
+                            ):
                                 return True
         return False
     except Exception:
@@ -146,7 +153,9 @@ def scan_node(node_dir: Path) -> NodeInfo:
         line_count = count_lines(node_file)
         is_stub = check_is_stub(node_file)
         try:
-            node_file_path = str(node_file.relative_to(node_dir.parent.parent.parent.parent))
+            node_file_path = str(
+                node_file.relative_to(node_dir.parent.parent.parent.parent)
+            )
         except ValueError:
             node_file_path = str(node_file)
     else:
@@ -235,13 +244,15 @@ def generate_report(nodes: list[NodeInfo]) -> str:
         if count > 0:
             lines.append(f"| {node_type.title()} | {count} |")
 
-    lines.extend([
-        "",
-        "## Detailed Node Status",
-        "",
-        "| Node | Type | Lines | Stub | Handlers | Contract | Models | Status |",
-        "|------|------|------:|:----:|:--------:|:--------:|:------:|--------|",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Detailed Node Status",
+            "",
+            "| Node | Type | Lines | Stub | Handlers | Contract | Models | Status |",
+            "|------|------|------:|:----:|:--------:|:--------:|:------:|--------|",
+        ]
+    )
 
     for node in nodes:
         stub_marker = "Yes" if node.is_stub else "No"
@@ -266,14 +277,18 @@ def generate_report(nodes: list[NodeInfo]) -> str:
 
     # Purity violations section
     violations = [n for n in nodes if n.status == "Needs Handler Extraction"]
-    lines.extend([
-        "",
-        "## Purity Violations",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Purity Violations",
+            "",
+        ]
+    )
 
     if violations:
-        lines.append("The following nodes exceed 100 lines and need handler extraction:")
+        lines.append(
+            "The following nodes exceed 100 lines and need handler extraction:"
+        )
         lines.append("")
         for v in violations:
             lines.append(
@@ -290,29 +305,39 @@ def generate_report(nodes: list[NodeInfo]) -> str:
         lines.append("- Testability: Handlers can be unit tested in isolation")
         lines.append("- Reusability: Handlers can be shared across nodes")
         lines.append("- Maintainability: Clear separation of concerns")
-        lines.append("- Contract compliance: Node shells focus on I/O, handlers on logic")
+        lines.append(
+            "- Contract compliance: Node shells focus on I/O, handlers on logic"
+        )
     else:
-        lines.append("No purity violations detected. All non-stub nodes are under 100 lines.")
+        lines.append(
+            "No purity violations detected. All non-stub nodes are under 100 lines."
+        )
 
     # Missing node files section
     missing = [n for n in nodes if n.status == "Missing Node File"]
     if missing:
-        lines.extend([
-            "",
-            "## Missing Node Files",
-            "",
-            "The following node directories don't have a `node.py` file:",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Missing Node Files",
+                "",
+                "The following node directories don't have a `node.py` file:",
+                "",
+            ]
+        )
         for m in missing:
-            lines.append(f"- **{m.name}**: Check `__init__.py` for stub/model-only definition")
+            lines.append(
+                f"- **{m.name}**: Check `__init__.py` for stub/model-only definition"
+            )
 
     # Recommendations section
-    lines.extend([
-        "",
-        "## Recommendations",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Recommendations",
+            "",
+        ]
+    )
 
     recommendations = []
 
@@ -337,11 +362,15 @@ def generate_report(nodes: list[NodeInfo]) -> str:
             "All nodes should have contracts for validation and documentation."
         )
 
-    no_handlers = [n for n in nodes if not n.has_handlers and n.status == "Needs Handler Extraction"]
+    no_handlers = [
+        n
+        for n in nodes
+        if not n.has_handlers and n.status == "Needs Handler Extraction"
+    ]
     if no_handlers:
         recommendations.append(
-            f"4. **Create handlers directories**: Nodes needing extraction should have "
-            f"`handlers/` directories created to hold extracted business logic."
+            "4. **Create handlers directories**: Nodes needing extraction should have "
+            "`handlers/` directories created to hold extracted business logic."
         )
 
     if not recommendations:
@@ -352,20 +381,22 @@ def generate_report(nodes: list[NodeInfo]) -> str:
     lines.extend(recommendations)
 
     # Legend section
-    lines.extend([
-        "",
-        "## Legend",
-        "",
-        "- **Pure Shell**: Node with <100 lines that delegates to base class",
-        "- **Stub**: Node marked with `is_stub: ClassVar[bool] = True`",
-        "- **Needs Handler Extraction**: Node with >100 lines requiring refactoring",
-        "- **Handlers**: Whether `handlers/` directory exists",
-        "- **Contract**: Whether `contract.yaml` exists",
-        "- **Models**: Whether `models/` directory or `models.py` exists",
-        "",
-        "---",
-        f"*Report generated by `scripts/generate_node_report.py` for OMN-1140*",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Legend",
+            "",
+            "- **Pure Shell**: Node with <100 lines that delegates to base class",
+            "- **Stub**: Node marked with `is_stub: ClassVar[bool] = True`",
+            "- **Needs Handler Extraction**: Node with >100 lines requiring refactoring",
+            "- **Handlers**: Whether `handlers/` directory exists",
+            "- **Contract**: Whether `contract.yaml` exists",
+            "- **Models**: Whether `models/` directory or `models.py` exists",
+            "",
+            "---",
+            "*Report generated by `scripts/generate_node_report.py` for OMN-1140*",
+        ]
+    )
 
     # Add trailing newline for POSIX compliance
     return "\n".join(lines) + "\n"
@@ -377,14 +408,15 @@ def main():
         description="Generate node status report for omniintelligence"
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="docs/NODE_STATUS_REPORT.md",
-        help="Output file path (default: docs/NODE_STATUS_REPORT.md)"
+        help="Output file path (default: docs/NODE_STATUS_REPORT.md)",
     )
     parser.add_argument(
         "--nodes-dir",
         default="src/omniintelligence/nodes",
-        help="Path to nodes directory (default: src/omniintelligence/nodes)"
+        help="Path to nodes directory (default: src/omniintelligence/nodes)",
     )
 
     args = parser.parse_args()

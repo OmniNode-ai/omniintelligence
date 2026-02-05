@@ -21,14 +21,12 @@ from uuid import UUID
 import asyncpg
 import pytest
 
-from tests.integration.nodes.node_pattern_promotion_effect.conftest import (
-    MockKafkaPublisher,
-)
-
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
     check_and_promote_patterns,
 )
-
+from tests.integration.nodes.node_pattern_promotion_effect.conftest import (
+    MockKafkaPublisher,
+)
 
 # =============================================================================
 # Integration Tests
@@ -717,9 +715,9 @@ class TestPromotionLargeBatch:
 
         Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
+        import time
         from datetime import UTC, datetime
         from uuid import uuid4
-        import time
 
         batch_size = 100
         pattern_ids: list[UUID] = []

@@ -17,8 +17,8 @@ Reference:
 from __future__ import annotations
 
 import json
-from typing import Any
 from collections.abc import AsyncGenerator
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -33,7 +33,6 @@ from omniintelligence.testing import (
     MockPatternStore,
     create_valid_pattern_input,
 )
-
 
 # =============================================================================
 # Infrastructure Detection

@@ -34,7 +34,6 @@ from omniintelligence.testing import (
     create_valid_pattern_input,
 )
 
-
 # =============================================================================
 # Re-export shared classes for backwards compatibility
 # =============================================================================

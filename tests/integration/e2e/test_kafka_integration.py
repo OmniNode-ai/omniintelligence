@@ -29,7 +29,6 @@ import pytest
 from tests.integration.conftest import RealKafkaPublisher
 from tests.integration.e2e.conftest import requires_e2e_kafka
 
-
 # =============================================================================
 # Constants
 # =============================================================================

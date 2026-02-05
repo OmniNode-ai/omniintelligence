@@ -28,7 +28,6 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handl
     _validate_criteria_set,
 )
 
-
 # =============================================================================
 # resolve_field_path Tests - Basic Path Resolution
 # =============================================================================

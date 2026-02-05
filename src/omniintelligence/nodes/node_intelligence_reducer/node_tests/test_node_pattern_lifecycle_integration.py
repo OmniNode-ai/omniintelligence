@@ -27,7 +27,6 @@ import logging
 from uuid import UUID
 
 import pytest
-
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omnibase_core.models.reducer.model_intent import ModelIntent
 from omnibase_core.models.reducer.payloads.model_extension_payloads import (
@@ -46,7 +45,6 @@ from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_l
 from omniintelligence.nodes.node_intelligence_reducer.node import (
     NodeIntelligenceReducer,
 )
-
 
 # =============================================================================
 # Pytest Fixtures

@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import yaml
-
 from omnibase_core.models.contracts import ModelDbRepositoryContract
 from omnibase_core.types.typed_dict_pattern_storage_metadata import (
     TypedDictPatternStorageMetadata,

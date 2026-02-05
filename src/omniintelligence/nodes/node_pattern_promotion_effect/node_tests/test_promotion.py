@@ -48,7 +48,6 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelPromotionResult,
 )
 
-
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================

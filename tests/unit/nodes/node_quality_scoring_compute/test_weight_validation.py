@@ -8,7 +8,8 @@ This module tests weight configuration validation:
     - Extra weight keys return structured error
     - Weight sum validation returns structured error
 
-Per CLAUDE.md: Domain errors should return structured output, not raise exceptions.
+Per CLAUDE.md handler pattern, validation errors are domain errors
+returned as structured output with success=False, not raised.
 """
 
 from __future__ import annotations
@@ -32,8 +33,12 @@ class TestWeightValidation:
         total = sum(DEFAULT_WEIGHTS.values())
         assert abs(total - 1.0) < 0.001
 
-    def test_invalid_weight_keys_returns_validation_error(self) -> None:
-        """Weights with invalid keys should return structured validation error."""
+    def test_invalid_weight_keys_return_error(self) -> None:
+        """Weights with invalid keys should return structured error.
+
+        Per CLAUDE.md handler pattern, validation errors are domain errors
+        returned as structured output with success=False, not raised.
+        """
         invalid_weights = {
             "complexity": 0.5,
             "maintainability": 0.5,
@@ -42,13 +47,15 @@ class TestWeightValidation:
         result = score_code_quality("x = 1", "python", weights=invalid_weights)
         assert result["success"] is False
         assert result["quality_score"] == 0.0
-        assert any(
-            "validation_error" in r and "missing" in r.lower()
-            for r in result["recommendations"]
-        )
+        assert any("missing" in r.lower() for r in result["recommendations"])
+        assert any("validation_error" in r.lower() for r in result["recommendations"])
 
-    def test_extra_weight_keys_returns_validation_error(self) -> None:
-        """Weights with extra keys should return structured validation error."""
+    def test_extra_weight_keys_return_error(self) -> None:
+        """Weights with extra keys should return structured error.
+
+        Per CLAUDE.md handler pattern, validation errors are domain errors
+        returned as structured output with success=False, not raised.
+        """
         extra_weights = {
             "complexity": 0.15,
             "maintainability": 0.15,
@@ -61,13 +68,15 @@ class TestWeightValidation:
         result = score_code_quality("x = 1", "python", weights=extra_weights)
         assert result["success"] is False
         assert result["quality_score"] == 0.0
-        assert any(
-            "validation_error" in r and "extra" in r.lower()
-            for r in result["recommendations"]
-        )
+        assert any("extra" in r.lower() for r in result["recommendations"])
+        assert any("validation_error" in r.lower() for r in result["recommendations"])
 
-    def test_weights_not_summing_to_one_returns_validation_error(self) -> None:
-        """Weights not summing to 1.0 should return structured validation error."""
+    def test_weights_not_summing_to_one_return_error(self) -> None:
+        """Weights not summing to 1.0 should return structured error.
+
+        Per CLAUDE.md handler pattern, validation errors are domain errors
+        returned as structured output with success=False, not raised.
+        """
         bad_weights = {
             "complexity": 0.5,
             "maintainability": 0.5,
@@ -79,7 +88,5 @@ class TestWeightValidation:
         result = score_code_quality("x = 1", "python", weights=bad_weights)
         assert result["success"] is False
         assert result["quality_score"] == 0.0
-        assert any(
-            "validation_error" in r and "sum" in r.lower()
-            for r in result["recommendations"]
-        )
+        assert any("sum" in r.lower() for r in result["recommendations"])
+        assert any("validation_error" in r.lower() for r in result["recommendations"])

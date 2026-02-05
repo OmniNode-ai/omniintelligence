@@ -27,7 +27,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets impor
     SIGNATURE_VERSION,
 )
 
-
 # =============================================================================
 # Signature Versioning Tests
 # =============================================================================

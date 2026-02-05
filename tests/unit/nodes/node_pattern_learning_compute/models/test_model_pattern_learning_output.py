@@ -9,7 +9,7 @@ This module tests the factory method that splits patterns by lifecycle_state:
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID, uuid5
 
 import pytest
@@ -33,7 +33,6 @@ from omnibase_core.models.primitives.model_semver import ModelSemVer
 from omniintelligence.nodes.node_pattern_learning_compute.models import (
     ModelPatternLearningOutput,
 )
-
 
 # =============================================================================
 # Test Fixtures

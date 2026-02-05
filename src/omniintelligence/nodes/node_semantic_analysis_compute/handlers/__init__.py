@@ -58,7 +58,7 @@ from omniintelligence.nodes.node_semantic_analysis_compute.handlers.exceptions i
     SemanticAnalysisValidationError,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis import (
-    compute_semantic_analysis,
+    handle_semantic_analysis_compute,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION,
@@ -97,7 +97,7 @@ __all__ = [
     "SemanticFunctionMetadata",
     "SemanticImportMetadata",
     "analyze_semantics",
-    "compute_semantic_analysis",
     "create_empty_features",
     "create_error_result",
+    "handle_semantic_analysis_compute",
 ]

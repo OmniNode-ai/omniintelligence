@@ -43,8 +43,8 @@ Reference:
 """
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
-    ProtocolPatternRepository,
     ROLLING_WINDOW_SIZE,
+    ProtocolPatternRepository,
     compute_and_store_heuristics,
     event_to_handler_args,
     record_session_outcome,

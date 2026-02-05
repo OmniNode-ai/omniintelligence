@@ -22,7 +22,6 @@ from omniintelligence.enums import (
     EnumInjectionContext,
 )
 
-
 # =========================================================================
 # Constants: Expected values from SQL migration CHECK constraints
 # =========================================================================
@@ -210,6 +209,8 @@ class TestCohortPercentages:
         """Verify percentages are exported from enums package."""
         from omniintelligence.enums import (
             COHORT_CONTROL_PERCENTAGE as EXPORTED_CONTROL,
+        )
+        from omniintelligence.enums import (
             COHORT_TREATMENT_PERCENTAGE as EXPORTED_TREATMENT,
         )
 

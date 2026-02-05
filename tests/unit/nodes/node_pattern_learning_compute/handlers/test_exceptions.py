@@ -20,7 +20,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions im
     PatternLearningValidationError,
 )
 
-
 # =============================================================================
 # PatternLearningValidationError Tests
 # =============================================================================

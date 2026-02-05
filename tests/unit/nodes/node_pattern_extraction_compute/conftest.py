@@ -9,14 +9,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
+    EnumInsightType,
     ModelCodebaseInsight,
     ModelExtractionConfig,
     ModelPatternExtractionInput,
     ModelSessionSnapshot,
     ModelToolExecution,
-    EnumInsightType,
 )
-
 
 # =============================================================================
 # Time Fixtures

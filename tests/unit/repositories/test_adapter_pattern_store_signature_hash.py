@@ -22,7 +22,6 @@ import pytest
 from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState
 from omniintelligence.repositories.adapter_pattern_store import AdapterPatternStore
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================

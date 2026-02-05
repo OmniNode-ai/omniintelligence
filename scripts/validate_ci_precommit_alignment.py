@@ -72,19 +72,25 @@ CI_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yaml"
 PRECOMMIT_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
 
 # =============================================================================
-# CANONICAL SOURCE OF TRUTH - Update these when adding new modules
+# CANONICAL SOURCE OF TRUTH - Full codebase mode
 # =============================================================================
-# These lists define the expected scope for CI and pre-commit configurations.
-# When adding a new source directory:
-# 1. Add to ALIGNED_SOURCE_DIRS below
-# 2. Run this script to detect drift
-# 3. Follow the checklist in .github/workflows/ci.yaml header
+# As of the omnibase_core alignment (2025-02), both CI and pre-commit run
+# ruff on the ENTIRE codebase (src/ tests/) using the always_run pattern.
+# This eliminates the need for explicit directory alignment since everything
+# is covered.
 #
-# Note: The mypy cache hashFiles patterns in ci.yaml should also include
-# the new module to ensure proper cache invalidation.
+# When FULL_CODEBASE_MODE is True:
+# - CI ruff commands run on: src/ tests/
+# - Pre-commit ruff hooks use: always_run: true with src/ tests/
+# - Both cover the entire codebase, so alignment is automatic
+#
+# Legacy narrow-scope lists (kept for reference/rollback):
+# ALIGNED_SOURCE_DIRS = ["tools", "utils", "runtime"]
+# ALIGNED_TEST_PATHS = ["tests/unit/tools", "tests/unit/test_log_sanitizer.py"]
 # =============================================================================
-ALIGNED_SOURCE_DIRS = ["tools", "utils", "runtime"]
-ALIGNED_TEST_PATHS = ["tests/unit/tools", "tests/unit/test_log_sanitizer.py"]
+FULL_CODEBASE_MODE = True
+ALIGNED_SOURCE_DIRS: list[str] = []  # Not used in full codebase mode
+ALIGNED_TEST_PATHS: list[str] = []  # Not used in full codebase mode
 
 
 @dataclass
@@ -140,9 +146,7 @@ def extract_ci_patterns(ci_config: dict) -> tuple[list[str], list[str]]:
                 if stripped_line.startswith("- '") and stripped_line.endswith("'"):
                     pattern = stripped_line[3:-1]  # Remove "- '" and "'"
                     # Extract source dirs from src/omniintelligence/<dir>/**
-                    src_match = re.match(
-                        r"src/omniintelligence/(\w+)/\*\*", pattern
-                    )
+                    src_match = re.match(r"src/omniintelligence/(\w+)/\*\*", pattern)
                     if src_match:
                         source_dirs.append(src_match.group(1))
                     # Extract test paths
@@ -192,9 +196,7 @@ def _extract_source_dirs_from_pattern(files_pattern: str) -> list[str]:
     try:
         # Pattern: src/omniintelligence/(tools|utils|runtime)/
         # This handles the alternation group for source directories
-        src_match = re.search(
-            r"src/omniintelligence/\(([^)]+)\)/", files_pattern
-        )
+        src_match = re.search(r"src/omniintelligence/\(([^)]+)\)/", files_pattern)
         if src_match:
             # Split by pipe to get individual directories
             raw_dirs = src_match.group(1).split("|")
@@ -237,10 +239,8 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
         return test_paths
 
     try:
-        # Pattern 1: tests/unit/(tools/|test_log_sanitizer\.py) - nested group
-        test_match = re.search(
-            r"tests/unit/\(([^)]+)\)", files_pattern
-        )
+        # Pattern: tests/unit/(tools/|test_log_sanitizer\.py)
+        test_match = re.search(r"tests/unit/\(([^)]+)\)", files_pattern)
         if test_match:
             parts = test_match.group(1).split("|")
             for part in parts:
@@ -253,30 +253,7 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
                     if cleaned:
                         test_paths.append(f"tests/unit/{cleaned}")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to clean test path part '{part}': {e}"
-                    )
-
-        # Pattern 2: tests/unit/tools/.*\.py or tests/unit/test_*.py as top-level alternatives
-        # Matches patterns like: tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py
-        if not test_paths:
-            # Find all tests/unit/... patterns in the alternation
-            test_alternatives = re.findall(
-                r"tests/unit/([^\|$\)]+)", files_pattern
-            )
-            for alt in test_alternatives:
-                if not alt:
-                    continue
-                # Clean up: remove regex suffixes like /.*\.py$ and escape sequences
-                cleaned = alt
-                # Remove trailing regex patterns like /.*\.py or .*\.py
-                cleaned = re.sub(r"/?\.\*\\?\.py\$?$", "", cleaned)
-                # Handle exact file match patterns
-                cleaned = cleaned.replace("\\.py", ".py")
-                cleaned = cleaned.rstrip("/")
-                if cleaned:
-                    test_paths.append(f"tests/unit/{cleaned}")
-
+                    logger.warning(f"Failed to clean test path part '{part}': {e}")
     except re.error as e:
         logger.warning(
             f"Failed to parse test paths from pre-commit pattern: {e}. "
@@ -336,9 +313,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
     for repo_idx, repo in enumerate(repos):
         # Validate repo is a dict
         if not isinstance(repo, dict):
-            logger.warning(
-                f"Repo at index {repo_idx} is not a dict, skipping"
-            )
+            logger.warning(f"Repo at index {repo_idx} is not a dict, skipping")
             continue
 
         hooks = repo.get("hooks")
@@ -426,7 +401,9 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
     return sorted(set(source_dirs)), sorted(set(test_paths))
 
 
-def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> MypyCacheValidation:
+def validate_mypy_cache_patterns(
+    ci_config: dict, verbose: bool = False
+) -> MypyCacheValidation:
     """Validate that mypy cache hashFiles patterns match mypy command scope.
 
     The mypy cache key in CI uses hashFiles() patterns to determine when to
@@ -515,11 +492,70 @@ def validate_mypy_cache_patterns(ci_config: dict, verbose: bool = False) -> Mypy
         result.is_aligned = False
         if verbose:
             if result.missing_in_cache:
-                print(f"Directories in mypy command but not in cache: {result.missing_in_cache}")
+                print(
+                    f"Directories in mypy command but not in cache: {result.missing_in_cache}"
+                )
             if result.extra_in_cache:
-                print(f"Directories in cache but not in mypy command: {result.extra_in_cache}")
+                print(
+                    f"Directories in cache but not in mypy command: {result.extra_in_cache}"
+                )
 
     return result
+
+
+def _check_ci_full_codebase_mode(ci_config: dict) -> bool:
+    """Check if CI ruff commands run on entire codebase (src/ tests/).
+
+    Args:
+        ci_config: Parsed CI workflow YAML
+
+    Returns:
+        True if CI runs ruff on src/ tests/ (full codebase mode)
+    """
+    jobs = ci_config.get("jobs", {})
+    lint_job = jobs.get("lint", {})
+    steps = lint_job.get("steps", [])
+
+    for step in steps:
+        step_name = step.get("name", "")
+        run_cmd = step.get("run", "")
+        # Check for full codebase ruff commands
+        if "ruff" in step_name.lower() or "ruff" in run_cmd:
+            # Full codebase pattern: "ruff check src/ tests/" or similar
+            if "src/" in run_cmd and "tests/" in run_cmd:
+                # Check it's not listing specific subdirectories
+                if "src/omniintelligence/tools" not in run_cmd:
+                    return True
+    return False
+
+
+def _check_precommit_full_codebase_mode(precommit_config: dict) -> bool:
+    """Check if pre-commit ruff hooks run on entire codebase.
+
+    Args:
+        precommit_config: Parsed pre-commit config YAML
+
+    Returns:
+        True if pre-commit uses always_run or runs on src/ tests/
+    """
+    repos = precommit_config.get("repos", [])
+    for repo in repos:
+        if not isinstance(repo, dict):
+            continue
+        hooks = repo.get("hooks", [])
+        for hook in hooks:
+            if not isinstance(hook, dict):
+                continue
+            hook_id = hook.get("id", "")
+            if "ruff" in hook_id:
+                # Check for always_run: true pattern
+                if hook.get("always_run") is True:
+                    return True
+                # Check for entry that runs on src/ tests/
+                entry = hook.get("entry", "")
+                if "src/" in entry and "tests/" in entry:
+                    return True
+    return False
 
 
 def validate_alignment(verbose: bool = False) -> ValidationResult:
@@ -555,10 +591,33 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
         result.is_aligned = False
         return result
 
-    # Extract patterns
+    # Check for full codebase mode (omnibase_core alignment pattern)
+    # When both CI and pre-commit run on entire src/ tests/, they are aligned by definition
+    ci_full_codebase = _check_ci_full_codebase_mode(ci_config)
+    precommit_full_codebase = _check_precommit_full_codebase_mode(precommit_config)
+
+    if verbose:
+        print("\nFull codebase mode:")
+        print(f"  CI: {ci_full_codebase}")
+        print(f"  Pre-commit: {precommit_full_codebase}")
+
+    if ci_full_codebase and precommit_full_codebase:
+        if verbose:
+            print("\nBoth CI and pre-commit run on entire codebase (src/ tests/).")
+            print("Alignment is automatic - no directory-level checks needed.")
+        result.is_aligned = True
+        result.ci_source_dirs = ["(full codebase: src/)"]
+        result.ci_test_paths = ["(full codebase: tests/)"]
+        result.precommit_source_dirs = ["(full codebase: src/)"]
+        result.precommit_test_paths = ["(full codebase: tests/)"]
+        # Still validate mypy cache
+        result.mypy_cache = validate_mypy_cache_patterns(ci_config, verbose=verbose)
+        return result
+
+    # Extract patterns (legacy narrow-scope mode)
     result.ci_source_dirs, result.ci_test_paths = extract_ci_patterns(ci_config)
-    result.precommit_source_dirs, result.precommit_test_paths = extract_precommit_patterns(
-        precommit_config
+    result.precommit_source_dirs, result.precommit_test_paths = (
+        extract_precommit_patterns(precommit_config)
     )
 
     if verbose:
@@ -601,7 +660,9 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
 
     if precommit_src_set != expected_src_set:
         if verbose:
-            print(f"\nWarning: Pre-commit source dirs differ from expected: {expected_src_set}")
+            print(
+                f"\nWarning: Pre-commit source dirs differ from expected: {expected_src_set}"
+            )
 
     # Validate mypy cache patterns match mypy command scope
     result.mypy_cache = validate_mypy_cache_patterns(ci_config, verbose=verbose)
@@ -707,16 +768,24 @@ def format_result(result: ValidationResult, output_json: bool = False) -> str:
         lines.append("")
         lines.append("Mypy Cache Status: DRIFT DETECTED (Warning)")
         if result.mypy_cache.missing_in_cache:
-            lines.append("Directories in mypy command but not in cache (will cause stale cache):")
+            lines.append(
+                "Directories in mypy command but not in cache (will cause stale cache):"
+            )
             for dir_name in result.mypy_cache.missing_in_cache:
                 lines.append(f"  - {dir_name}")
         if result.mypy_cache.extra_in_cache:
-            lines.append("Directories in cache but not in mypy command (unnecessary invalidation):")
+            lines.append(
+                "Directories in cache but not in mypy command (unnecessary invalidation):"
+            )
             for dir_name in result.mypy_cache.extra_in_cache:
                 lines.append(f"  - {dir_name}")
         lines.append("")
-        lines.append("Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yaml")
-        lines.append("        to match the mypy command scope (~line 309 and ~line 319)")
+        lines.append(
+            "Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yaml"
+        )
+        lines.append(
+            "        to match the mypy command scope (~line 309 and ~line 319)"
+        )
 
     return "\n".join(lines)
 
@@ -734,15 +803,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Validate CI and pre-commit pattern alignment"
     )
     parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Print detailed progress"
+        "--verbose", "-v", action="store_true", help="Print detailed progress"
     )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSON"
-    )
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
 
     result = validate_alignment(verbose=args.verbose)

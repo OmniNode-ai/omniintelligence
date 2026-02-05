@@ -23,7 +23,6 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
     SemanticAnalysisError,
 )
 
-
 # =============================================================================
 # IntentClassificationError Tests (Base Exception)
 # =============================================================================

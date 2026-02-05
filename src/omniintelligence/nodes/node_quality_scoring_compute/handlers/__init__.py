@@ -82,17 +82,20 @@ Example:
     True
 """
 
+from omniintelligence.nodes.node_quality_scoring_compute.handlers.enum_onex_strictness_level import (
+    OnexStrictnessLevel,
+)
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
     QualityScoringComputeError,
     QualityScoringValidationError,
+)
+from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute import (
+    handle_quality_scoring_compute,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_quality_scoring import (
     ANALYSIS_VERSION,
     DEFAULT_WEIGHTS,
     score_code_quality,
-)
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.enum_onex_strictness_level import (
-    OnexStrictnessLevel,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import (
     LENIENT_THRESHOLD,
@@ -103,9 +106,6 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import
     STRICT_WEIGHTS,
     get_threshold_for_preset,
     get_weights_for_preset,
-)
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute import (
-    handle_quality_scoring_compute,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.protocols import (
     DimensionScores,

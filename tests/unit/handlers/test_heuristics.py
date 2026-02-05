@@ -25,14 +25,13 @@ from uuid import UUID
 
 import pytest
 
-from omniintelligence.enums import EnumHeuristicMethod, HEURISTIC_CONFIDENCE
+from omniintelligence.enums import HEURISTIC_CONFIDENCE, EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
     apply_heuristic,
     compute_equal_split,
     compute_first_match,
     compute_recency_weighted,
 )
-
 
 # =============================================================================
 # Fixtures

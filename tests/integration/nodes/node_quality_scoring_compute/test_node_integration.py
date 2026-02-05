@@ -433,7 +433,7 @@ class TestErrorPropagation:
         """Test validation error for invalid weights propagates correctly."""
         # Invalid weights that don't sum to 1.0 will fail Pydantic validation
         # So we test by checking the model validation works
-        with pytest.raises(ValueError, match="sum to 1.0"):
+        with pytest.raises(ValueError, match=r"sum to 1\.0"):
             ModelDimensionWeights(
                 complexity=0.50,
                 maintainability=0.50,

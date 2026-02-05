@@ -286,7 +286,7 @@ class TestTopicConstantValues:
                 )
                 continue
 
-            prefix, kind, producer, event_name, version = parts
+            prefix, kind, producer, _event_name, version = parts
 
             # Check prefix
             if prefix != "onex":

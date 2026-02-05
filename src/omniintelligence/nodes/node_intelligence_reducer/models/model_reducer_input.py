@@ -21,7 +21,6 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_pattern_lifec
     ModelPatternLifecycleReducerInput,
 )
 
-
 # =============================================================================
 # FSM-Specific Payload Models
 # =============================================================================
