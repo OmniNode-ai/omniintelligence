@@ -417,9 +417,10 @@ def _build_component_results(
     Returns:
         ComponentResultsDict with all component results.
     """
-    trace_result = workflow_result.get("trace_result", {})
-    intent_result = workflow_result.get("intent_result", {})
-    criteria_result = workflow_result.get("criteria_result", {})
+    # Note: workflow_result contains raw step outputs while context contains
+    # aggregated/processed data. We use context here since it has the normalized
+    # values we need. The workflow_result parameter is kept for future extensibility.
+    _ = workflow_result  # Explicitly mark as intentionally unused
 
     return ComponentResultsDict(
         # Trace parsing results

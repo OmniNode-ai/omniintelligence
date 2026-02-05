@@ -64,8 +64,23 @@ def execute_workflow(
 
     Returns:
         WorkflowResultDict with results from all steps.
+
+    Raises:
+        RuntimeError: If called from within a running event loop.
+            Use execute_workflow_async() in async contexts instead.
     """
     import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        raise RuntimeError(
+            "execute_workflow() cannot be called from within a running event loop. "
+            "Use execute_workflow_async() instead for async contexts."
+        )
 
     return asyncio.run(
         execute_workflow_async(
