@@ -22,13 +22,17 @@ Example:
     - topic_suffix: "onex.cmd.omniintelligence.claude-hook-event.v1"
 """
 
-TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = "onex.cmd.omniintelligence.claude-hook-event.v1"
+TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = (
+    "onex.cmd.omniintelligence.claude-hook-event.v1"
+)
 """Topic suffix for Claude Code hook events (INPUT).
 
 Full topic: {env}.onex.cmd.omniintelligence.claude-hook-event.v1
 """
 
-TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
+TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
+    "onex.evt.omniintelligence.intent-classified.v1"
+)
 """Topic suffix for intent classification events (OUTPUT).
 
 Full topic: {env}.onex.evt.omniintelligence.intent-classified.v1

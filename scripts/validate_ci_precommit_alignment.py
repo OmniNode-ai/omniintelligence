@@ -223,6 +223,7 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
     Handles patterns like:
     - tests/unit/(tools/|test_log_sanitizer\\.py)
     - tests/unit/tools/
+    - ^(src/.../|tests/unit/tools/.*\\.py|tests/unit/test_log_sanitizer\\.py)$
 
     Args:
         files_pattern: The regex pattern from pre-commit files: field
@@ -236,7 +237,7 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
         return test_paths
 
     try:
-        # Pattern: tests/unit/(tools/|test_log_sanitizer\.py)
+        # Pattern 1: tests/unit/(tools/|test_log_sanitizer\.py) - nested group
         test_match = re.search(
             r"tests/unit/\(([^)]+)\)", files_pattern
         )
@@ -255,6 +256,27 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
                     logger.warning(
                         f"Failed to clean test path part '{part}': {e}"
                     )
+
+        # Pattern 2: tests/unit/tools/.*\.py or tests/unit/test_*.py as top-level alternatives
+        # Matches patterns like: tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py
+        if not test_paths:
+            # Find all tests/unit/... patterns in the alternation
+            test_alternatives = re.findall(
+                r"tests/unit/([^\|$\)]+)", files_pattern
+            )
+            for alt in test_alternatives:
+                if not alt:
+                    continue
+                # Clean up: remove regex suffixes like /.*\.py$ and escape sequences
+                cleaned = alt
+                # Remove trailing regex patterns like /.*\.py or .*\.py
+                cleaned = re.sub(r"/?\.\*\\?\.py\$?$", "", cleaned)
+                # Handle exact file match patterns
+                cleaned = cleaned.replace("\\.py", ".py")
+                cleaned = cleaned.rstrip("/")
+                if cleaned:
+                    test_paths.append(f"tests/unit/{cleaned}")
+
     except re.error as e:
         logger.warning(
             f"Failed to parse test paths from pre-commit pattern: {e}. "
@@ -265,7 +287,10 @@ def _extract_test_paths_from_pattern(files_pattern: str) -> list[str]:
 
 
 def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[str]]:
-    """Extract source dirs and test paths from pre-commit ruff hook pattern.
+    """Extract source dirs and test paths from pre-commit ruff hook patterns.
+
+    This function looks for all ruff-related hooks (ruff, ruff-format, ruff-fix, etc.)
+    and extracts the file patterns from them.
 
     This function includes defensive validation for:
     - Missing or malformed files: patterns in hooks
@@ -337,9 +362,10 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
                 )
                 continue
 
-            # Check ruff hook (representative of all Python hooks)
+            # Check ruff hooks (ruff, ruff-format, ruff-fix, etc.)
+            # All ruff-* hooks should have consistent file patterns
             hook_id = hook.get("id")
-            if hook_id != "ruff":
+            if not hook_id or not hook_id.startswith("ruff"):
                 continue
 
             # Get files pattern with defensive handling
@@ -348,7 +374,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
             # Handle None or missing files pattern
             if files_pattern is None:
                 logger.warning(
-                    f"Ruff hook at repo index {repo_idx} has no 'files' pattern. "
+                    f"Hook '{hook_id}' at repo index {repo_idx} has no 'files' pattern. "
                     "This hook will match all files."
                 )
                 continue
@@ -356,7 +382,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
             # Handle non-string files pattern
             if not isinstance(files_pattern, str):
                 logger.warning(
-                    f"Expected string for 'files' in ruff hook, "
+                    f"Expected string for 'files' in hook '{hook_id}', "
                     f"got {type(files_pattern).__name__}. Skipping."
                 )
                 continue
@@ -364,7 +390,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
             # Handle empty string
             if not files_pattern.strip():
                 logger.warning(
-                    "Ruff hook has empty 'files' pattern. "
+                    f"Hook '{hook_id}' has empty 'files' pattern. "
                     "This hook will match all files."
                 )
                 continue
@@ -377,7 +403,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
                 re.compile(normalized_pattern)
             except re.error as e:
                 logger.warning(
-                    f"Invalid regex in ruff hook 'files' pattern: {e}. "
+                    f"Invalid regex in hook '{hook_id}' 'files' pattern: {e}. "
                     f"Pattern: '{files_pattern[:80]}...'"
                 )
                 continue
@@ -393,7 +419,7 @@ def extract_precommit_patterns(precommit_config: dict) -> tuple[list[str], list[
             # Log if we couldn't extract anything (might indicate pattern format change)
             if not extracted_dirs and not extracted_tests:
                 logger.warning(
-                    f"Could not extract any paths from ruff hook pattern. "
+                    f"Could not extract any paths from hook '{hook_id}' pattern. "
                     f"Pattern may have unexpected format: '{files_pattern[:80]}...'"
                 )
 

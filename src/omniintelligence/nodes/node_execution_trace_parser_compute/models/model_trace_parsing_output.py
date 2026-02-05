@@ -38,7 +38,9 @@ class ModelErrorEvent(BaseModel):
     error_message: str | None = Field(default=None, description="Error message")
     timestamp: str | None = Field(default=None, description="Error timestamp")
     span_id: str | None = Field(default=None, description="Associated span ID")
-    stack_trace: str | None = Field(default=None, description="Stack trace if available")
+    stack_trace: str | None = Field(
+        default=None, description="Stack trace if available"
+    )
     attributes: dict[str, str] = Field(
         default_factory=dict, description="Error attributes"
     )
@@ -81,13 +83,13 @@ class ModelTraceMetadata(BaseModel):
     source_format: str | None = Field(
         default=None, description="Source format of the trace"
     )
-    event_count: int | None = Field(default=None, ge=0, description="Number of events parsed")
+    event_count: int | None = Field(
+        default=None, ge=0, description="Number of events parsed"
+    )
     error_count: int | None = Field(
         default=None, ge=0, description="Number of errors extracted"
     )
-    warnings: list[str] = Field(
-        default_factory=list, description="Parsing warnings"
-    )
+    warnings: list[str] = Field(default_factory=list, description="Parsing warnings")
 
     model_config = {"frozen": True, "extra": "forbid"}
 

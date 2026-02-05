@@ -197,7 +197,9 @@ def extract_file_access_patterns(
         if count < min_occurrences:
             break
         # Modification clusters are rarer than co-access patterns
-        confidence = min(1.0, count / (total_sessions * MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR))
+        confidence = min(
+            1.0, count / (total_sessions * MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR)
+        )
         if confidence >= min_confidence:
             evidence = tuple(
                 sid

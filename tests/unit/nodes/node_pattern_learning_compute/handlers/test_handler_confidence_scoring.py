@@ -80,9 +80,7 @@ def make_cluster(
 ) -> PatternClusterDict:
     """Factory function to create PatternClusterDict for testing."""
     if member_pattern_indicators is None:
-        member_pattern_indicators = tuple(
-            ("NodeCompute",) for _ in member_ids
-        )
+        member_pattern_indicators = tuple(("NodeCompute",) for _ in member_ids)
 
     return PatternClusterDict(
         cluster_id=cluster_id,
@@ -316,7 +314,7 @@ class TestComputeClusterScoresNoRecompute:
             member_pattern_indicators=(
                 ("NodeCompute",),  # matches
                 ("NodeCompute",),  # matches
-                ("NodeEffect",),   # doesn't match
+                ("NodeEffect",),  # doesn't match
             ),
             # If recomputed: 2/3 = 0.667
             # But we set it to 0.5 to verify it reads, not recomputes

@@ -462,7 +462,9 @@ async def check_and_promote_patterns(
                 logger.debug(
                     "Pattern has injections but no outcomes - possible data inconsistency",
                     extra={
-                        "correlation_id": str(correlation_id) if correlation_id else None,
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None,
                         "pattern_id": str(pattern["id"]),
                         "injection_count": injection_count,
                     },
@@ -519,7 +521,9 @@ async def check_and_promote_patterns(
                     logger.debug(
                         "Skipped no-op promotion",
                         extra={
-                            "correlation_id": str(correlation_id) if correlation_id else None,
+                            "correlation_id": str(correlation_id)
+                            if correlation_id
+                            else None,
                             "pattern_id": str(pattern_id),
                             "pattern_signature": pattern_signature,
                             "reason": result.reason,
@@ -537,7 +541,9 @@ async def check_and_promote_patterns(
                 logger.error(
                     "Failed to promote pattern - continuing with remaining patterns",
                     extra={
-                        "correlation_id": str(correlation_id) if correlation_id else None,
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None,
                         "pattern_id": str(pattern_id),
                         "pattern_signature": pattern_signature,
                         "error": str(exc),
@@ -560,8 +566,7 @@ async def check_and_promote_patterns(
 
     # Calculate actual promotions (excluding no-ops and failures)
     actual_promotions = sum(
-        1 for r in promotion_results
-        if r.promoted_at is not None and not r.dry_run
+        1 for r in promotion_results if r.promoted_at is not None and not r.dry_run
     )
 
     logger.info(

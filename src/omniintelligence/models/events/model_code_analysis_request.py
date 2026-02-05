@@ -16,7 +16,9 @@ from pydantic import BaseModel, Field
 from omniintelligence.enums.enum_code_analysis import EnumAnalysisOperationType
 
 # UUID pattern for correlation_id validation
-UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+UUID_PATTERN = (
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 class ModelCodeAnalysisRequestPayload(BaseModel):

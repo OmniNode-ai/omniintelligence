@@ -21,12 +21,14 @@ from omniintelligence.enums import EnumPatternLifecycleStatus
 
 # These must match the CHECK constraint in 005_create_learned_patterns.sql:
 # CHECK (status IN ('candidate', 'provisional', 'validated', 'deprecated'))
-EXPECTED_STATUSES = frozenset({
-    "candidate",
-    "provisional",
-    "validated",
-    "deprecated",
-})
+EXPECTED_STATUSES = frozenset(
+    {
+        "candidate",
+        "provisional",
+        "validated",
+        "deprecated",
+    }
+)
 
 EXPECTED_COUNT = 4
 

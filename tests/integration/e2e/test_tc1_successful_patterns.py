@@ -337,9 +337,7 @@ class TestTC1SuccessfulPatternExtraction:
         )
 
         # Check model version
-        assert metadata.model_version is not None, (
-            "model_version should not be None"
-        )
+        assert metadata.model_version is not None, "model_version should not be None"
 
         # Check timestamp
         assert metadata.timestamp is not None, "timestamp should not be None"

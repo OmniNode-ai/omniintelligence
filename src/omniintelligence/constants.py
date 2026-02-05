@@ -57,7 +57,9 @@ Used in:
 # Full topic is constructed as: f"{env_prefix}.{suffix}"
 # =============================================================================
 
-TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = "onex.cmd.omniintelligence.claude-hook-event.v1"
+TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = (
+    "onex.cmd.omniintelligence.claude-hook-event.v1"
+)
 """
 TEMP_BOOTSTRAP: Topic suffix for Claude Code hook events (INPUT).
 
@@ -69,7 +71,9 @@ RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
 Deletion ticket: OMN-1546
 """
 
-TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = "onex.evt.omniintelligence.intent-classified.v1"
+TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
+    "onex.evt.omniintelligence.intent-classified.v1"
+)
 """
 TEMP_BOOTSTRAP: Topic suffix for intent classification events (OUTPUT).
 
@@ -93,7 +97,9 @@ to validated status based on rolling window success metrics.
 Deletion ticket: OMN-1546
 """
 
-TOPIC_SUFFIX_PATTERN_DEPRECATED_V1: str = "onex.evt.omniintelligence.pattern-deprecated.v1"
+TOPIC_SUFFIX_PATTERN_DEPRECATED_V1: str = (
+    "onex.evt.omniintelligence.pattern-deprecated.v1"
+)
 """
 TEMP_BOOTSTRAP: Topic suffix for pattern deprecation events (OUTPUT).
 

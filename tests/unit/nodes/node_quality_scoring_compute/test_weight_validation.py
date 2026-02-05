@@ -4,9 +4,11 @@
 
 This module tests weight configuration validation:
     - Default weights sum to 1.0
-    - Invalid weight keys
-    - Extra weight keys
-    - Weight sum validation
+    - Invalid weight keys return structured error
+    - Extra weight keys return structured error
+    - Weight sum validation returns structured error
+
+Per CLAUDE.md: Domain errors should return structured output, not raise exceptions.
 """
 
 from __future__ import annotations
@@ -20,9 +22,6 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     DEFAULT_WEIGHTS,
     score_code_quality,
 )
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
-    QualityScoringValidationError,
-)
 
 
 class TestWeightValidation:
@@ -33,18 +32,23 @@ class TestWeightValidation:
         total = sum(DEFAULT_WEIGHTS.values())
         assert abs(total - 1.0) < 0.001
 
-    def test_invalid_weight_keys_raise_error(self) -> None:
-        """Weights with invalid keys should raise QualityScoringValidationError."""
+    def test_invalid_weight_keys_returns_validation_error(self) -> None:
+        """Weights with invalid keys should return structured validation error."""
         invalid_weights = {
             "complexity": 0.5,
             "maintainability": 0.5,
             # Missing: documentation, temporal_relevance, patterns, architectural
         }
-        with pytest.raises(QualityScoringValidationError, match=r"[Mm]issing"):
-            score_code_quality("x = 1", "python", weights=invalid_weights)
+        result = score_code_quality("x = 1", "python", weights=invalid_weights)
+        assert result["success"] is False
+        assert result["quality_score"] == 0.0
+        assert any(
+            "validation_error" in r and "missing" in r.lower()
+            for r in result["recommendations"]
+        )
 
-    def test_extra_weight_keys_raise_error(self) -> None:
-        """Weights with extra keys should raise QualityScoringValidationError."""
+    def test_extra_weight_keys_returns_validation_error(self) -> None:
+        """Weights with extra keys should return structured validation error."""
         extra_weights = {
             "complexity": 0.15,
             "maintainability": 0.15,
@@ -54,11 +58,16 @@ class TestWeightValidation:
             "architectural": 0.15,
             "extra_dimension": 0.10,  # Not a valid dimension
         }
-        with pytest.raises(QualityScoringValidationError, match=r"[Ee]xtra"):
-            score_code_quality("x = 1", "python", weights=extra_weights)
+        result = score_code_quality("x = 1", "python", weights=extra_weights)
+        assert result["success"] is False
+        assert result["quality_score"] == 0.0
+        assert any(
+            "validation_error" in r and "extra" in r.lower()
+            for r in result["recommendations"]
+        )
 
-    def test_weights_not_summing_to_one_raise_error(self) -> None:
-        """Weights not summing to 1.0 should raise QualityScoringValidationError."""
+    def test_weights_not_summing_to_one_returns_validation_error(self) -> None:
+        """Weights not summing to 1.0 should return structured validation error."""
         bad_weights = {
             "complexity": 0.5,
             "maintainability": 0.5,
@@ -67,5 +76,10 @@ class TestWeightValidation:
             "patterns": 0.5,
             "architectural": 0.5,  # Sum = 3.0
         }
-        with pytest.raises(QualityScoringValidationError, match="sum"):
-            score_code_quality("x = 1", "python", weights=bad_weights)
+        result = score_code_quality("x = 1", "python", weights=bad_weights)
+        assert result["success"] is False
+        assert result["quality_score"] == 0.0
+        assert any(
+            "validation_error" in r and "sum" in r.lower()
+            for r in result["recommendations"]
+        )

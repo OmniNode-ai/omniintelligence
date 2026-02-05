@@ -404,9 +404,7 @@ class TestRealFileAnalysis:
             assert 0.0 <= result.quality_score <= 1.0, (
                 f"File {filename} score {result.quality_score} out of range"
             )
-            assert result.dimensions is not None, (
-                f"File {filename} missing dimensions"
-            )
+            assert result.dimensions is not None, f"File {filename} missing dimensions"
             assert result.metadata is not None, f"File {filename} missing metadata"
 
         # Verify consistent dimension structure across all results
@@ -697,7 +695,7 @@ class TestKnownCodePatterns:
     ) -> None:
         """Test that code with issues generates improvement recommendations."""
         # Code with intentional issues
-        poor_code = '''def x(y):
+        poor_code = """def x(y):
     z = []
     for a in y:
         if a > 0:
@@ -705,7 +703,7 @@ class TestKnownCodePatterns:
                 for b in range(a):
                     z.append(b)
     return z
-'''
+"""
 
         input_data = ModelQualityScoringInput(
             source_path="test/poor_code.py",

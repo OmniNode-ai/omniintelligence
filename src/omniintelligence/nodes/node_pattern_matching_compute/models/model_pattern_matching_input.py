@@ -148,9 +148,7 @@ class ModelPatternMatchingInput(BaseModel):
     def validate_match_threshold(cls, v: float) -> float:
         """Validate match_threshold is within valid range."""
         if not 0.0 <= v <= 1.0:
-            raise ValueError(
-                f"match_threshold must be between 0.0 and 1.0, got {v}"
-            )
+            raise ValueError(f"match_threshold must be between 0.0 and 1.0, got {v}")
         return v
 
     model_config = {"frozen": True, "extra": "forbid"}

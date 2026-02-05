@@ -1,71 +1,44 @@
-# STUB: This node is a stub implementation. Full functionality is not yet available.
-# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/16
-# Status: Interface defined, implementation pending
-"""Success Criteria Matcher Compute - STUB compute node for criteria matching."""
-from __future__ import annotations
+"""Success Criteria Matcher Compute Node - Thin shell delegating to handler.
 
-import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+This node follows the ONEX declarative pattern where the node class is a thin
+shell that delegates all logic to handler functions.
+"""
+
+from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
+    handle_success_criteria_compute,
+)
+from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
+    ModelSuccessCriteriaInput,
+    ModelSuccessCriteriaOutput,
+)
 
-# Issue tracking URL for this stub implementation
-_STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/16"
 
+class NodeSuccessCriteriaMatcherCompute(
+    NodeCompute[ModelSuccessCriteriaInput, ModelSuccessCriteriaOutput]
+):
+    """Pure compute node for matching success criteria against execution outcomes.
 
-class NodeSuccessCriteriaMatcherCompute(NodeCompute[dict[str, Any], dict[str, Any]]):
-    """STUB: Pure compute node for matching success criteria.
+    Evaluates execution outcomes against a list of success criteria using
+    configurable comparison operators:
+        - equals/not_equals: Exact value comparison
+        - greater_than/less_than/greater_or_equal/less_or_equal: Numeric comparison
+        - contains/not_contains: Membership or substring tests
+        - regex: Pattern matching
+        - is_null/is_not_null: Null checks
 
-    Attributes:
-        is_stub: Class attribute indicating this is a stub implementation.
-
-    WARNING: This is a stub implementation that does not provide full functionality.
-    The node is included for forward compatibility and interface definition.
-
-    Expected functionality when implemented:
-        - Match execution results against success criteria
-        - Support pattern-based criteria matching
-        - Generate success/failure analysis
+    This node is a thin shell following the ONEX declarative pattern.
+    All computation logic is delegated to the handler function.
     """
 
-    is_stub: ClassVar[bool] = True
-
-    def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodeSuccessCriteriaMatcherCompute is a stub implementation and does not "
-            f"provide full functionality. The node accepts inputs but performs no actual "
-            f"criteria matching. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
-
-    async def compute(self, _input_data: dict[str, Any]) -> dict[str, Any]:
-        """Compute criteria matching (STUB - returns empty result).
-
-        Args:
-            _input_data: Input data for criteria matching (unused in stub).
-
-        Returns:
-            Empty result dictionary indicating stub status.
-        """
-        warnings.warn(
-            f"NodeSuccessCriteriaMatcherCompute.compute() is a stub that returns empty "
-            f"results. No actual criteria matching is performed. "
-            f"See {_STUB_TRACKING_URL} for progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        return {
-            "status": "stub",
-            "message": "NodeSuccessCriteriaMatcherCompute is not yet implemented",
-            "criteria_matched": [],
-            "success_rate": 0.0,
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+    async def compute(
+        self, input_data: ModelSuccessCriteriaInput
+    ) -> ModelSuccessCriteriaOutput:
+        """Match criteria by delegating to handler function."""
+        return handle_success_criteria_compute(input_data)
 
 
 __all__ = ["NodeSuccessCriteriaMatcherCompute"]

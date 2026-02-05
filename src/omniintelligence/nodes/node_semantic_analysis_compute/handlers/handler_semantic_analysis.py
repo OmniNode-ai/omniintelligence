@@ -670,7 +670,9 @@ def _extract_call_relations(tree: ast.Module) -> list[RelationDict]:
         # Adjust confidence based on frequency (more calls = higher confidence)
         # Scale from 0.8 to 1.0 based on frequency
         frequency_factor = min(frequency / MAX_CALL_FREQUENCY, 1.0)
-        confidence = CONFIDENCE_CALLS_BASE + (1.0 - CONFIDENCE_CALLS_BASE) * frequency_factor
+        confidence = (
+            CONFIDENCE_CALLS_BASE + (1.0 - CONFIDENCE_CALLS_BASE) * frequency_factor
+        )
 
         relations.append(
             RelationDict(
@@ -1028,7 +1030,9 @@ def _compute_documentation_ratio(tree: ast.Module) -> float:
     has_docstring = 0
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Module):
+        if isinstance(
+            node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Module
+        ):
             needs_docstring += 1
             docstring = ast.get_docstring(node)
             if docstring:

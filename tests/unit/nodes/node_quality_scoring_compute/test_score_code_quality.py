@@ -21,9 +21,6 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     ANALYSIS_VERSION,
     score_code_quality,
 )
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
-    QualityScoringValidationError,
-)
 
 
 class TestScoreCodeQuality:
@@ -83,13 +80,13 @@ class ModelConfig(BaseModel):
 
     def test_low_score_for_antipatterns(self) -> None:
         """Code with ONEX antipatterns should score lower on patterns."""
-        bad_code = '''
+        bad_code = """
 def process(data, **kwargs):
     result = {}
     for k, v in data.items():
         result[k] = v
     return result
-'''
+"""
         result = score_code_quality(bad_code, "python")
 
         # Untyped functions with mutable defaults and **kwargs
@@ -121,7 +118,9 @@ def process(data, **kwargs):
             "patterns": 0.05,
             "architectural": 0.10,
         }
-        result_complexity = score_code_quality(code, "python", weights=complexity_weights)
+        result_complexity = score_code_quality(
+            code, "python", weights=complexity_weights
+        )
 
         # Complexity-weighted should be higher than doc-weighted for this simple code
         assert result_complexity["quality_score"] > result_doc["quality_score"]
@@ -141,7 +140,10 @@ class Example:
         result_high = score_code_quality(medium_code, "python", onex_threshold=0.95)
 
         # Same dimension scores for both
-        assert result_low["dimensions"]["patterns"] == result_high["dimensions"]["patterns"]
+        assert (
+            result_low["dimensions"]["patterns"]
+            == result_high["dimensions"]["patterns"]
+        )
 
         # Compliance is determined by: score >= threshold
         # With threshold 0.3, compliance should match score >= 0.3
@@ -177,13 +179,17 @@ class Example:
         # Should have unsupported language recommendation
         assert any("unsupported" in r.lower() for r in result["recommendations"])
 
-    def test_empty_content_raises_validation_error(self) -> None:
-        """Empty or whitespace content should raise QualityScoringValidationError."""
-        with pytest.raises(QualityScoringValidationError, match="empty"):
-            score_code_quality("", "python")
+    def test_empty_content_returns_validation_error(self) -> None:
+        """Empty or whitespace content should return structured validation error."""
+        result = score_code_quality("", "python")
+        assert result["success"] is False
+        assert result["quality_score"] == 0.0
+        assert any("validation_error" in r and "empty" in r.lower() for r in result["recommendations"])
 
-        with pytest.raises(QualityScoringValidationError, match="empty"):
-            score_code_quality("   \n\t  ", "python")
+        result = score_code_quality("   \n\t  ", "python")
+        assert result["success"] is False
+        assert result["quality_score"] == 0.0
+        assert any("validation_error" in r and "empty" in r.lower() for r in result["recommendations"])
 
     def test_returns_typed_dict_structure(self) -> None:
         """Result should match QualityScoringResult TypedDict structure."""

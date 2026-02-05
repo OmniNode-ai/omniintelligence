@@ -71,16 +71,12 @@ class TestComputeEqualSplit:
         result = compute_equal_split([])
         assert result == {}
 
-    def test_single_pattern_gets_full_weight(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_single_pattern_gets_full_weight(self, pattern_a: UUID) -> None:
         """Single pattern gets weight of 1.0."""
         result = compute_equal_split([pattern_a])
         assert result == {str(pattern_a): 1.0}
 
-    def test_two_patterns_get_half_each(
-        self, pattern_a: UUID, pattern_b: UUID
-    ) -> None:
+    def test_two_patterns_get_half_each(self, pattern_a: UUID, pattern_b: UUID) -> None:
         """Two patterns each get 0.5."""
         result = compute_equal_split([pattern_a, pattern_b])
         assert result[str(pattern_a)] == 0.5
@@ -114,13 +110,11 @@ class TestComputeEqualSplit:
         """
         result = compute_equal_split([pattern_a, pattern_b, pattern_a])
         # A: 1/3 + 1/3 = 2/3
-        assert abs(result[str(pattern_a)] - 2.0/3) < 1e-9
+        assert abs(result[str(pattern_a)] - 2.0 / 3) < 1e-9
         # B: 1/3
-        assert abs(result[str(pattern_b)] - 1.0/3) < 1e-9
+        assert abs(result[str(pattern_b)] - 1.0 / 3) < 1e-9
 
-    def test_many_duplicates_still_sum_to_one(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_many_duplicates_still_sum_to_one(self, pattern_a: UUID) -> None:
         """Many duplicates of same pattern still sum to 1.0."""
         result = compute_equal_split([pattern_a] * 10)
         # Single pattern, all occurrences accumulate to ~1.0
@@ -142,9 +136,7 @@ class TestComputeRecencyWeighted:
         result = compute_recency_weighted([])
         assert result == {}
 
-    def test_single_pattern_gets_full_weight(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_single_pattern_gets_full_weight(self, pattern_a: UUID) -> None:
         """Single pattern gets weight of 1.0."""
         result = compute_recency_weighted([pattern_a])
         assert result == {str(pattern_a): 1.0}
@@ -158,8 +150,8 @@ class TestComputeRecencyWeighted:
         A=1/3, B=2/3.
         """
         result = compute_recency_weighted([pattern_a, pattern_b])
-        assert abs(result[str(pattern_a)] - 1.0/3) < 1e-9
-        assert abs(result[str(pattern_b)] - 2.0/3) < 1e-9
+        assert abs(result[str(pattern_a)] - 1.0 / 3) < 1e-9
+        assert abs(result[str(pattern_b)] - 2.0 / 3) < 1e-9
 
     def test_three_patterns_linear_ramp(
         self, pattern_a: UUID, pattern_b: UUID, pattern_c: UUID
@@ -170,9 +162,9 @@ class TestComputeRecencyWeighted:
         A=1/6, B=2/6, C=3/6.
         """
         result = compute_recency_weighted([pattern_a, pattern_b, pattern_c])
-        assert abs(result[str(pattern_a)] - 1.0/6) < 1e-9
-        assert abs(result[str(pattern_b)] - 2.0/6) < 1e-9
-        assert abs(result[str(pattern_c)] - 3.0/6) < 1e-9
+        assert abs(result[str(pattern_a)] - 1.0 / 6) < 1e-9
+        assert abs(result[str(pattern_b)] - 2.0 / 6) < 1e-9
+        assert abs(result[str(pattern_c)] - 3.0 / 6) < 1e-9
 
     def test_weights_sum_to_one(
         self, pattern_a: UUID, pattern_b: UUID, pattern_c: UUID
@@ -192,8 +184,8 @@ class TestComputeRecencyWeighted:
         B: position 2 = 2/6 = 1/3
         """
         result = compute_recency_weighted([pattern_a, pattern_b, pattern_a])
-        assert abs(result[str(pattern_a)] - 4.0/6) < 1e-9
-        assert abs(result[str(pattern_b)] - 2.0/6) < 1e-9
+        assert abs(result[str(pattern_a)] - 4.0 / 6) < 1e-9
+        assert abs(result[str(pattern_b)] - 2.0 / 6) < 1e-9
 
     def test_five_patterns_distribution(
         self, pattern_a: UUID, pattern_b: UUID, pattern_c: UUID
@@ -205,12 +197,12 @@ class TestComputeRecencyWeighted:
         B: 2+5 = 7/15
         C: 3 = 3/15 = 1/5
         """
-        result = compute_recency_weighted([
-            pattern_a, pattern_b, pattern_c, pattern_a, pattern_b
-        ])
-        assert abs(result[str(pattern_a)] - 5.0/15) < 1e-9
-        assert abs(result[str(pattern_b)] - 7.0/15) < 1e-9
-        assert abs(result[str(pattern_c)] - 3.0/15) < 1e-9
+        result = compute_recency_weighted(
+            [pattern_a, pattern_b, pattern_c, pattern_a, pattern_b]
+        )
+        assert abs(result[str(pattern_a)] - 5.0 / 15) < 1e-9
+        assert abs(result[str(pattern_b)] - 7.0 / 15) < 1e-9
+        assert abs(result[str(pattern_c)] - 3.0 / 15) < 1e-9
         assert abs(sum(result.values()) - 1.0) < 1e-9
 
 
@@ -228,9 +220,7 @@ class TestComputeFirstMatch:
         result = compute_first_match([])
         assert result == {}
 
-    def test_single_pattern_gets_full_weight(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_single_pattern_gets_full_weight(self, pattern_a: UUID) -> None:
         """Single pattern gets weight of 1.0."""
         result = compute_first_match([pattern_a])
         assert result == {str(pattern_a): 1.0}
@@ -291,9 +281,12 @@ class TestApplyHeuristic:
             method=EnumHeuristicMethod.RECENCY_WEIGHTED,
             ordered_pattern_ids=[pattern_a, pattern_b],
         )
-        assert abs(weights[str(pattern_a)] - 1.0/3) < 1e-9
-        assert abs(weights[str(pattern_b)] - 2.0/3) < 1e-9
-        assert confidence == HEURISTIC_CONFIDENCE[EnumHeuristicMethod.RECENCY_WEIGHTED.value]
+        assert abs(weights[str(pattern_a)] - 1.0 / 3) < 1e-9
+        assert abs(weights[str(pattern_b)] - 2.0 / 3) < 1e-9
+        assert (
+            confidence
+            == HEURISTIC_CONFIDENCE[EnumHeuristicMethod.RECENCY_WEIGHTED.value]
+        )
         assert confidence == 0.4
 
     def test_first_match_dispatches_correctly(
@@ -379,9 +372,7 @@ class TestEdgeCases:
         for pid in patterns:
             assert abs(weights[str(pid)] - 0.01) < 1e-9
 
-    def test_same_pattern_many_times_equal_split(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_same_pattern_many_times_equal_split(self, pattern_a: UUID) -> None:
         """Same pattern repeated N times in equal_split."""
         patterns = [pattern_a] * 5
 
@@ -394,9 +385,7 @@ class TestEdgeCases:
         assert len(weights) == 1
         assert weights[str(pattern_a)] == 1.0
 
-    def test_same_pattern_many_times_recency_weighted(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_same_pattern_many_times_recency_weighted(self, pattern_a: UUID) -> None:
         """Same pattern repeated N times in recency_weighted."""
         patterns = [pattern_a] * 5
 
@@ -410,9 +399,7 @@ class TestEdgeCases:
         assert len(weights) == 1
         assert abs(weights[str(pattern_a)] - 1.0) < 1e-9
 
-    def test_uuid_string_format_is_lowercase(
-        self, pattern_a: UUID
-    ) -> None:
+    def test_uuid_string_format_is_lowercase(self, pattern_a: UUID) -> None:
         """UUID keys in weights dict are lowercase strings."""
         weights, _ = apply_heuristic(
             method=EnumHeuristicMethod.EQUAL_SPLIT,

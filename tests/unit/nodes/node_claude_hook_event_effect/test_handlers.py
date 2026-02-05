@@ -59,9 +59,7 @@ def sample_stop_event() -> ModelClaudeCodeHookEvent:
 @pytest.fixture
 def sample_session_start_event() -> ModelClaudeCodeHookEvent:
     """Create a sample SessionStart event."""
-    payload = ModelClaudeCodeHookEventPayload(
-        working_directory="/workspace/project"
-    )
+    payload = ModelClaudeCodeHookEventPayload(working_directory="/workspace/project")
     return ModelClaudeCodeHookEvent(
         event_type=EnumClaudeCodeHookEventType.SESSION_START,
         session_id="session-123",
@@ -79,7 +77,9 @@ class TestHandleNoOp:
         result = handle_no_op(sample_stop_event)
         assert result.status == EnumHookProcessingStatus.SUCCESS
 
-    def test_no_intent_result(self, sample_stop_event: ModelClaudeCodeHookEvent) -> None:
+    def test_no_intent_result(
+        self, sample_stop_event: ModelClaudeCodeHookEvent
+    ) -> None:
         """Test that no-op handler has no intent result."""
         result = handle_no_op(sample_stop_event)
         assert result.intent_result is None

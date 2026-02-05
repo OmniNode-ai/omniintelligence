@@ -436,6 +436,18 @@ def _execute_pipeline(
         weights=similarity_weights,
     )
 
+    # Handle deduplication failure (structured error)
+    if not dedup_result["success"]:
+        end_time_ms = time.perf_counter() * 1000
+        processing_time_ms = end_time_ms - start_time_ms
+        return _create_empty_result(
+            input_count=len(training_data),
+            processing_time_ms=processing_time_ms,
+            promotion_threshold=promotion_threshold,
+            warnings=[f"Deduplication failed: {dedup_result['error_message']}"],
+            success=False,
+        )
+
     # Collect near-threshold warnings
     for warning in dedup_result["near_threshold_warnings"]:
         warnings.append(
@@ -694,9 +706,7 @@ def compute_learning_metrics(
     # Use scores from deduplicated clusters only for mean calculations
     deduplicated_ids = {c["cluster_id"] for c in final_clusters}
     deduplicated_scores = [
-        confidence_scores[cid]
-        for cid in deduplicated_ids
-        if cid in confidence_scores
+        confidence_scores[cid] for cid in deduplicated_ids if cid in confidence_scores
     ]
 
     if deduplicated_scores:
@@ -756,18 +766,28 @@ def _create_empty_result(
     processing_time_ms: float,
     promotion_threshold: float,
     warnings: list[str],
+    success: bool = True,
 ) -> PatternLearningResult:
-    """Create an empty result when no patterns are formed.
+    """Create an empty result when no patterns are formed or on error.
 
     Args:
         input_count: Number of input items processed.
         processing_time_ms: Processing time in milliseconds.
         promotion_threshold: The threshold that was used.
         warnings: Warnings to include.
+        success: Whether the operation succeeded. Defaults to True for
+            normal empty results, False for error cases.
 
     Returns:
         PatternLearningResult with empty pattern lists.
     """
+    # Use FAILED status if success=False, COMPLETED otherwise
+    status = (
+        EnumPatternLearningStatus.COMPLETED
+        if success
+        else EnumPatternLearningStatus.FAILED
+    )
+
     metrics = ModelPatternLearningMetrics(
         input_count=input_count,
         cluster_count=0,
@@ -782,7 +802,7 @@ def _create_empty_result(
     )
 
     metadata = ModelPatternLearningMetadata(
-        status=EnumPatternLearningStatus.COMPLETED,
+        status=status,
         model_version=_MODEL_VERSION,
         timestamp=datetime.now(UTC),
         deduplication_threshold_used=DEFAULT_DEDUPLICATION_THRESHOLD,
@@ -795,7 +815,7 @@ def _create_empty_result(
     )
 
     return PatternLearningResult(
-        success=True,
+        success=success,
         candidate_patterns=[],
         learned_patterns=[],
         metrics=metrics,
@@ -837,9 +857,7 @@ def _cluster_to_learned_pattern(
 
     # Map pattern_type string to enum
     pattern_type_str = cluster["pattern_type"].lower()
-    pattern_type = _PATTERN_TYPE_MAP.get(
-        pattern_type_str, EnumPatternType.CODE_PATTERN
-    )
+    pattern_type = _PATTERN_TYPE_MAP.get(pattern_type_str, EnumPatternType.CODE_PATTERN)
 
     # Derive category from pattern_type
     category = _derive_category(pattern_type)
@@ -860,7 +878,20 @@ def _cluster_to_learned_pattern(
     )
 
     # Generate signature
-    signature_dict = generate_pattern_signature(cluster)
+    signature_result = generate_pattern_signature(cluster)
+
+    # Check for signature generation failure - this is an invariant violation
+    # if it occurs at this point (cluster was already validated through pipeline)
+    if not signature_result["success"]:
+        raise PatternLearningValidationError(
+            f"Signature generation failed for cluster {cluster_id}: "
+            f"{signature_result['error_message']}. "
+            "This indicates a bug in the pipeline - clusters should be validated earlier."
+        )
+
+    signature_dict = signature_result["result"]
+    assert signature_dict is not None  # mypy: guaranteed by success=True
+
     # Strip "v" prefix from SIGNATURE_VERSION if present for ModelSemVer
     version_str = SIGNATURE_VERSION.lstrip("v")
     signature_info = ModelPatternSignature(

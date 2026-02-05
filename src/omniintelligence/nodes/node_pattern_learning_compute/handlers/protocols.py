@@ -252,17 +252,25 @@ class DeduplicationResultDict(TypedDict):
         - Prefer false negatives over false positives
           (You can merge later; you can't un-merge)
 
+    Following CLAUDE.md error handling pattern: handlers must return structured
+    errors, not raise domain exceptions. Validation errors are returned via
+    the success and error_message fields.
+
     Attributes:
+        success: Whether deduplication succeeded.
         deduplicated_clusters: Clusters after deduplication.
         merged_count: Number of clusters that were merged.
         threshold_used: The similarity threshold applied (explicit).
         near_threshold_warnings: Warnings for borderline cases.
+        error_message: Error description if success=False, None otherwise.
     """
 
+    success: bool
     deduplicated_clusters: list[PatternClusterDict]
     merged_count: int
     threshold_used: float
     near_threshold_warnings: list[NearThresholdWarningDict]
+    error_message: str | None
 
 
 class PatternSignatureDict(TypedDict):
@@ -289,6 +297,24 @@ class PatternSignatureDict(TypedDict):
     signature_version: str
     signature_inputs: tuple[str, ...]
     normalization_applied: str
+
+
+class PatternSignatureResultDict(TypedDict):
+    """Result wrapper for pattern signature generation.
+
+    Following CLAUDE.md error handling pattern: handlers must return structured
+    errors, not raise domain exceptions. This wrapper enables returning
+    validation errors as data.
+
+    Attributes:
+        success: Whether signature generation succeeded.
+        result: The generated signature (None if success=False).
+        error_message: Error description if success=False, None otherwise.
+    """
+
+    success: bool
+    result: PatternSignatureDict | None
+    error_message: str | None
 
 
 class PatternLearningResult(TypedDict):
@@ -321,6 +347,7 @@ __all__ = [
     "PatternLearningResult",
     "PatternScoreComponentsDict",
     "PatternSignatureDict",
+    "PatternSignatureResultDict",
     "SimilarityResultDict",
     "SimilarityWeightsDict",
     "StructuralFeaturesDict",

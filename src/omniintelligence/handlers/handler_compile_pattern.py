@@ -60,7 +60,9 @@ def format_pattern_snippet(
         Formatted markdown snippet with compiler version stamp.
     """
     # Truncate long names with ellipsis indicator
-    display_name = pattern_name[:100] + "..." if len(pattern_name) > 100 else pattern_name
+    display_name = (
+        pattern_name[:100] + "..." if len(pattern_name) > 100 else pattern_name
+    )
 
     # Limit keywords to first 10, add ellipsis if truncated
     if not keywords:

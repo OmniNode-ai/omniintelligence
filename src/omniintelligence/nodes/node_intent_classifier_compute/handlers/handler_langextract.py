@@ -545,9 +545,12 @@ def analyze_semantics(
 
         # Extract domain indicators (top domains)
         # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
-        domain_indicators: list[str] = [str(d["name"]) for d in sorted(
-            domains, key=lambda x: cast(float, x["confidence"]), reverse=True
-        )[:max_domain_indicators]]
+        domain_indicators: list[str] = [
+            str(d["name"])
+            for d in sorted(
+                domains, key=lambda x: cast(float, x["confidence"]), reverse=True
+            )[:max_domain_indicators]
+        ]
 
         # Build concepts from detected keywords
         concepts = _extract_concepts(tokens, domain_scores, min_confidence, config)
@@ -635,8 +638,12 @@ def map_semantic_to_intent_boost(
     # Process concepts
     concepts = semantic_result.get("concepts", [])
     for concept in concepts:
-        concept_name = concept.get("name", "").lower().replace(" ", "_").replace("-", "_")
-        concept_category = concept.get("category", "").lower().replace(" ", "_").replace("-", "_")
+        concept_name = (
+            concept.get("name", "").lower().replace(" ", "_").replace("-", "_")
+        )
+        concept_category = (
+            concept.get("category", "").lower().replace(" ", "_").replace("-", "_")
+        )
         concept_confidence = concept.get("confidence", 0.0)
 
         # Check concept name
@@ -659,9 +666,7 @@ def map_semantic_to_intent_boost(
         topic_normalized = topic.lower().replace(" ", "_").replace("-", "_")
         intent = DOMAIN_TO_INTENT_MAP.get(topic_normalized)
         if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + (
-                topic_multiplier * weight
-            )
+            boosts[intent] = boosts.get(intent, 0.0) + (topic_multiplier * weight)
 
     # Process explicit domains
     domains = semantic_result.get("domains", [])
@@ -695,7 +700,7 @@ def _tokenize(text: str, min_token_length: int = 2) -> list[str]:
         List of word tokens with length >= min_token_length.
     """
     # Split on non-alphanumeric characters, keep hyphenated words
-    words = re.findall(r'\b[\w-]+\b', text)
+    words = re.findall(r"\b[\w-]+\b", text)
     return [w for w in words if len(w) >= min_token_length]
 
 
@@ -816,11 +821,15 @@ def _extract_concepts(
         for token in tokens:
             if token in keyword_set and token not in seen_concepts:
                 seen_concepts.add(token)
-                concepts.append({
-                    "name": token,
-                    "confidence": round(domain_confidence * confidence_multiplier, 3),
-                    "category": domain,
-                })
+                concepts.append(
+                    {
+                        "name": token,
+                        "confidence": round(
+                            domain_confidence * confidence_multiplier, 3
+                        ),
+                        "category": domain,
+                    }
+                )
 
     # Sort by confidence
     # Note: Explicit cast for mypy - dict values are Any but runtime types are correct
@@ -847,11 +856,13 @@ def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:
         matching = domain_set.intersection(theme_domains)
         if matching:
             coverage = len(matching) / len(theme_domains)
-            themes.append({
-                "name": theme,
-                "weight": round(coverage, 3),
-                "related_domains": list(matching),
-            })
+            themes.append(
+                {
+                    "name": theme,
+                    "weight": round(coverage, 3),
+                    "related_domains": list(matching),
+                }
+            )
 
     # Sort by weight
     # Note: Explicit cast for mypy - dict values are Any but runtime types are correct

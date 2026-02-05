@@ -174,7 +174,9 @@ def extract_tool_patterns(
         if count < min_occurrences:
             break
 
-        confidence = min(1.0, count / (total_sessions * BIGRAM_SEQUENCE_SIGNIFICANCE_FACTOR))
+        confidence = min(
+            1.0, count / (total_sessions * BIGRAM_SEQUENCE_SIGNIFICANCE_FACTOR)
+        )
         if confidence >= min_confidence:
             results.append(
                 ToolPatternResult(
@@ -212,7 +214,9 @@ def extract_tool_patterns(
         if count < min_occurrences:
             break
 
-        confidence = min(1.0, count / (total_sessions * TOOL_PREFERENCE_SIGNIFICANCE_FACTOR))
+        confidence = min(
+            1.0, count / (total_sessions * TOOL_PREFERENCE_SIGNIFICANCE_FACTOR)
+        )
         if confidence >= min_confidence:
             results.append(
                 ToolPatternResult(
@@ -234,7 +238,10 @@ def extract_tool_patterns(
         success_rate = sum(successes) / len(successes)
         # Only report notably high or low success rates
         if success_rate >= 0.9 or success_rate <= 0.5:
-            confidence = min(1.0, len(successes) / (total_sessions * SUCCESS_RATE_SIGNIFICANCE_FACTOR))
+            confidence = min(
+                1.0,
+                len(successes) / (total_sessions * SUCCESS_RATE_SIGNIFICANCE_FACTOR),
+            )
             if confidence >= min_confidence:
                 results.append(
                     ToolPatternResult(

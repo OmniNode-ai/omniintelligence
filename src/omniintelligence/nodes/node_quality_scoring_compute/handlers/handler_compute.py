@@ -187,7 +187,9 @@ def _execute_scoring(
     )
 
 
-def _extract_weights_dict(input_data: ModelQualityScoringInput) -> dict[str, float] | None:
+def _extract_weights_dict(
+    input_data: ModelQualityScoringInput,
+) -> dict[str, float] | None:
     """Extract weights dictionary from input model.
 
     Args:

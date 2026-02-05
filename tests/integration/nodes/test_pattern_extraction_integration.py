@@ -100,17 +100,17 @@ async def test_code_generation_scenario():
     result = await orchestrator.execute_orchestration(input_data)
 
     # Assertions
-    assert (
-        result.intent == "code_generation"
-    ), f"Expected code_generation, got {result.intent}"
-    assert (
-        result.intent_confidence >= 0.8
-    ), f"Low confidence: {result.intent_confidence}"
+    assert result.intent == "code_generation", (
+        f"Expected code_generation, got {result.intent}"
+    )
+    assert result.intent_confidence >= 0.8, (
+        f"Low confidence: {result.intent_confidence}"
+    )
     assert len(result.keywords) >= 5, f"Too few keywords: {len(result.keywords)}"
     assert result.success_status is True, "Expected success status"
-    assert (
-        len(result.matched_criteria) >= 4
-    ), f"Expected 4+ matches, got {len(result.matched_criteria)}"
+    assert len(result.matched_criteria) >= 4, (
+        f"Expected 4+ matches, got {len(result.matched_criteria)}"
+    )
 
 
 @pytest.mark.asyncio
@@ -213,9 +213,9 @@ async def test_empty_input_handling():
     result = await orchestrator.execute_orchestration(input_data)
 
     # Should handle gracefully
-    assert (
-        result.intent == "unknown"
-    ), f"Expected unknown for empty input, got {result.intent}"
+    assert result.intent == "unknown", (
+        f"Expected unknown for empty input, got {result.intent}"
+    )
 
 
 @pytest.mark.asyncio

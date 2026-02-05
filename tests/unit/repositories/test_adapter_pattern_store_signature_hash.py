@@ -32,7 +32,9 @@ from omniintelligence.repositories.adapter_pattern_store import AdapterPatternSt
 def mock_runtime() -> MagicMock:
     """Create a mock PostgresRepositoryRuntime with minimal contract."""
     runtime = MagicMock()
-    runtime.call = AsyncMock(return_value={"id": "00000000-0000-0000-0000-000000000001"})
+    runtime.call = AsyncMock(
+        return_value={"id": "00000000-0000-0000-0000-000000000001"}
+    )
     return runtime
 
 
@@ -118,7 +120,9 @@ class TestStorePatternSignatureMapping:
 
         # Patch _build_positional_args to capture what's passed
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             # Act
             await adapter.store_pattern(
@@ -155,7 +159,9 @@ class TestStorePatternSignatureMapping:
         captured_args: dict[str, object] = {}
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.store_pattern(
                 pattern_id=sample_pattern_id,
@@ -198,7 +204,9 @@ class TestCheckExistsSignatureHash:
         mock_runtime.call = AsyncMock(return_value={"exists": True})
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.check_exists(
                 domain="test-domain",
@@ -226,7 +234,9 @@ class TestCheckExistsSignatureHash:
         mock_runtime.call = AsyncMock(return_value={"exists": False})
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.check_exists(
                 domain="test-domain",
@@ -261,12 +271,12 @@ class TestCheckExistsByIdSignatureHash:
         """check_exists_by_id passes signature_hash to the runtime."""
         captured_args: dict[str, object] = {}
 
-        mock_runtime.call = AsyncMock(
-            return_value={"id": str(sample_pattern_id)}
-        )
+        mock_runtime.call = AsyncMock(return_value={"id": str(sample_pattern_id)})
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.check_exists_by_id(
                 pattern_id=sample_pattern_id,
@@ -302,7 +312,9 @@ class TestSetPreviousNotCurrentSignatureHash:
         mock_runtime.call = AsyncMock(return_value=[])
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.set_previous_not_current(
                 domain="test-domain",
@@ -338,7 +350,9 @@ class TestGetLatestVersionSignatureHash:
         mock_runtime.call = AsyncMock(return_value={"version": 3})
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.get_latest_version(
                 domain="test-domain",
@@ -374,7 +388,9 @@ class TestStoreWithVersionTransitionSignatureMapping:
         captured_args: dict[str, object] = {}
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_fn(captured_args)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_fn(captured_args),
         ):
             await adapter.store_with_version_transition(
                 pattern_id=sample_pattern_id,
@@ -410,7 +426,9 @@ class TestStoreWithVersionTransitionSignatureMapping:
         captured_op: list[str] = []
 
         with patch.object(
-            adapter, "_build_positional_args", side_effect=_make_capture_op_fn(captured_op)
+            adapter,
+            "_build_positional_args",
+            side_effect=_make_capture_op_fn(captured_op),
         ):
             await adapter.store_with_version_transition(
                 pattern_id=sample_pattern_id,

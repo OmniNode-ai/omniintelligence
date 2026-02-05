@@ -32,7 +32,9 @@ class SemanticAnalysisContextDict(TypedDict, total=False):
     function_name: str
 
     # Request metadata
-    correlation_id: str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    correlation_id: (
+        str  # Expected format: UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    )
     request_id: str
     timestamp_utc: str
 
