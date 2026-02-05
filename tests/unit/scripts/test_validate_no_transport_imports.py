@@ -172,18 +172,26 @@ if t.TYPE_CHECKING:
         assert len(checker.violations) == 0
 
     def test_module_alias_not_valid_as_direct_name(self) -> None:
-        """Verify `if t:` is NOT a TYPE_CHECKING guard even with `import typing as t`."""
+        """Verify `if t:` is NOT a TYPE_CHECKING guard even with `import typing as t`.
+
+        Module aliases (from `import typing as t`) are only valid for attribute access
+        like `if t.TYPE_CHECKING:`. They are NOT tracked as valid direct names because
+        `_type_checking_module_aliases` is only checked in `_is_type_checking_guard()`
+        for ast.Attribute nodes, not ast.Name nodes. This is intentional: while
+        `t.TYPE_CHECKING` clearly references the typing module's constant, a bare `if t:`
+        could be any truthy value.
+        """
         source = """
 import typing as t
 
-t = True  # Reassigning t to a boolean
 if t:
-    import aiohttp  # SHOULD be flagged - not a TYPE_CHECKING guard
+    import aiohttp  # SHOULD be flagged - bare name is not a TYPE_CHECKING guard
 """
         checker = TransportImportChecker(source)
         tree = ast.parse(source)
         checker.visit(tree)
         # This should flag the import because `if t:` is not a TYPE_CHECKING guard
+        # Only attribute access like `if t.TYPE_CHECKING:` is recognized
         assert len(checker.violations) == 1
         assert checker.violations[0].module_name == "aiohttp"
 
@@ -541,6 +549,48 @@ class TestIterPythonFiles:
         assert len(files) == 2
         names = {f.name for f in files}
         assert names == {"deep.py", "shallow.py"}
+
+    def test_excludes_by_path_component_not_basename(self, temp_dir: Path) -> None:
+        """Exclusion requires path component match, not just basename match.
+
+        This tests that `--exclude dir1/foo.py` does NOT exclude `dir2/foo.py`.
+        Basename-only matching would be overly broad and cause false negatives
+        where banned imports go undetected.
+        """
+        dir1 = temp_dir / "dir1"
+        dir2 = temp_dir / "dir2"
+        dir1.mkdir()
+        dir2.mkdir()
+        (dir1 / "foo.py").write_text("# dir1/foo.py")
+        (dir2 / "foo.py").write_text("# dir2/foo.py - should NOT be excluded")
+
+        # Exclude only dir1/foo.py (or just "dir1")
+        files = list(iter_python_files(temp_dir, {dir1}))
+
+        # dir2/foo.py should NOT be excluded despite sharing basename
+        assert len(files) == 1
+        assert files[0].name == "foo.py"
+        assert "dir2" in str(files[0])
+
+    def test_excludes_by_exact_path_component_sequence(self, temp_dir: Path) -> None:
+        """Exclusion matches exact path component sequences.
+
+        exclude="tests" matches "src/tests/file.py" but NOT "src/tests_util/file.py"
+        because 'tests_util' != 'tests'.
+        """
+        tests_dir = temp_dir / "src" / "tests"
+        tests_util_dir = temp_dir / "src" / "tests_util"
+        tests_dir.mkdir(parents=True)
+        tests_util_dir.mkdir(parents=True)
+        (tests_dir / "test_foo.py").write_text("# should be excluded")
+        (tests_util_dir / "helper.py").write_text("# should NOT be excluded")
+
+        # Exclude "tests" as a path component
+        files = list(iter_python_files(temp_dir, {Path("tests")}))
+
+        # Only tests_util/helper.py should remain
+        assert len(files) == 1
+        assert files[0].name == "helper.py"
 
 
 # =============================================================================

@@ -302,7 +302,6 @@ def iter_python_files(
         2. The file path is relative to any exclude_path (i.e., file is inside exclude_path)
         3. The exclude_path appears as a contiguous subsequence of path components
            (e.g., exclude="tests" matches "src/tests/file.py" but NOT "src/tests_util/file.py")
-        4. The file's basename matches the exclude_path's basename exactly
 
     Thread Safety:
         This function is thread-safe as it only performs read-only filesystem operations
@@ -338,10 +337,10 @@ def iter_python_files(
                             break
                     if should_exclude:
                         break
-                    # Also check exact filename match (for single-file exclusions)
-                    if exclude_path.name == path.name:
-                        should_exclude = True
-                        break
+                    # Note: We intentionally do NOT fall back to basename matching here.
+                    # Basename matching (`--exclude foo.py` matches all `*/foo.py`) would
+                    # be overly broad and could cause false negatives. Use full paths
+                    # or path component patterns for precise exclusions.
                 except (TypeError, AttributeError) as e:
                     # boundary-ok: handle path comparison errors (e.g., incompatible types)
                     # Log in verbose mode to aid debugging exclusion logic issues
