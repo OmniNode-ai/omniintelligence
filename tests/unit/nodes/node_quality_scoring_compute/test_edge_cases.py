@@ -25,9 +25,6 @@ pytestmark = pytest.mark.unit
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     score_code_quality,
 )
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
-    QualityScoringComputeError,
-)
 
 
 class TestEdgeCases:
@@ -204,8 +201,15 @@ def complex_comprehension(items: list) -> list:
         )
 
     def test_compute_error_on_unexpected_failure(self) -> None:
-        """Test that QualityScoringComputeError is raised for unexpected failures."""
+        """Test that unexpected failures return structured error.
+
+        Per CLAUDE.md handler pattern, unknown errors are returned as
+        structured output with success=False, not raised as exceptions.
+        """
         # Mock ast.parse to raise an unexpected exception (not SyntaxError)
         with patch("ast.parse", side_effect=MemoryError("Simulated memory exhaustion")):
-            with pytest.raises(QualityScoringComputeError, match=r"[Uu]nexpected"):
-                score_code_quality("valid_code = 1", "python")
+            result = score_code_quality("valid_code = 1", "python")
+            assert result["success"] is False
+            assert result["quality_score"] == 0.0
+            assert any("unexpected" in r.lower() for r in result["recommendations"])
+            assert any("validation_error" in r.lower() for r in result["recommendations"])

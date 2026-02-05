@@ -12,10 +12,10 @@ Design Decisions:
 
 Usage:
     from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-        compute_semantic_analysis,
+        handle_semantic_analysis_compute,
     )
 
-    output = compute_semantic_analysis(input_data)
+    output = handle_semantic_analysis_compute(input_data)
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ from omniintelligence.nodes.node_semantic_analysis_compute.models import (
 logger = logging.getLogger(__name__)
 
 
-def compute_semantic_analysis(
+def handle_semantic_analysis_compute(
     input_data: ModelSemanticAnalysisInput,
 ) -> ModelSemanticAnalysisOutput:
     """Compute semantic analysis from input and return typed output.
@@ -183,4 +183,4 @@ def _convert_relation_dict_to_model(relation: RelationDict) -> ModelSemanticRela
     )
 
 
-__all__ = ["compute_semantic_analysis"]
+__all__ = ["handle_semantic_analysis_compute"]

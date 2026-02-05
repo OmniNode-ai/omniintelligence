@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
     build_span_tree,
     detect_log_errors,
@@ -13,13 +15,22 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
     ModelTraceData,
 )
 
+pytestmark = pytest.mark.unit
+
+
+def _build_span(trace_data: ModelTraceData):
+    """Helper to build span and extract from result."""
+    result = build_span_tree(trace_data)
+    assert result["success"], f"Build failed: {result['error_message']}"
+    return result["span"]
+
 
 class TestDetectSpanErrors:
     """Tests for detect_span_errors function."""
 
     def test_detect_error_status(self) -> None:
         """Detect error from span status."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 operation_name="db_query",
@@ -38,7 +49,7 @@ class TestDetectSpanErrors:
 
     def test_detect_error_with_message_tag(self) -> None:
         """Detect error with error.message tag."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 status="failed",
@@ -53,7 +64,7 @@ class TestDetectSpanErrors:
 
     def test_detect_error_with_stack_trace(self) -> None:
         """Detect error with stack trace in tags."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 status="exception",
@@ -71,7 +82,7 @@ class TestDetectSpanErrors:
 
     def test_no_error_ok_status(self) -> None:
         """No error detected for OK status."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 status="OK",
@@ -82,13 +93,42 @@ class TestDetectSpanErrors:
 
         assert len(errors) == 0
 
+    def test_detect_error_includes_duration_ms(self) -> None:
+        """Detect error includes duration_ms in attributes for monitoring."""
+        span = _build_span(
+            ModelTraceData(
+                span_id="span-123",
+                status="error",
+                duration_ms=5000.0,
+            )
+        )
+
+        errors = detect_span_errors(span)
+
+        assert len(errors) == 1
+        assert "duration_ms" in errors[0]["attributes"]
+        assert errors[0]["attributes"]["duration_ms"] == "5000.0"
+
+    def test_detect_error_with_correlation_id(self) -> None:
+        """Detect error with correlation_id for tracing."""
+        span = _build_span(
+            ModelTraceData(
+                span_id="span-123",
+                status="error",
+            )
+        )
+
+        errors = detect_span_errors(span, correlation_id="test-correlation-123")
+
+        assert len(errors) == 1
+
 
 class TestDetectLogErrors:
     """Tests for detect_log_errors function."""
 
     def test_detect_error_level_log(self) -> None:
         """Detect error from ERROR level log."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 operation_name="process",
@@ -114,7 +154,7 @@ class TestDetectLogErrors:
 
     def test_detect_fatal_level_log(self) -> None:
         """Detect error from FATAL level log."""
-        span = build_span_tree(ModelTraceData(span_id="span-123"))
+        span = _build_span(ModelTraceData(span_id="span-123"))
         logs = [
             {
                 "timestamp": "2026-01-01T00:00:00Z",
@@ -130,7 +170,7 @@ class TestDetectLogErrors:
 
     def test_no_error_info_level(self) -> None:
         """No error detected for INFO level log."""
-        span = build_span_tree(ModelTraceData(span_id="span-123"))
+        span = _build_span(ModelTraceData(span_id="span-123"))
         logs = [
             {
                 "timestamp": "2026-01-01T00:00:00Z",
@@ -143,13 +183,50 @@ class TestDetectLogErrors:
 
         assert len(errors) == 0
 
+    def test_detect_log_error_includes_duration_ms(self) -> None:
+        """Detect log error includes duration_ms in attributes for monitoring."""
+        span = _build_span(
+            ModelTraceData(
+                span_id="span-123",
+                duration_ms=3000.0,
+            )
+        )
+        logs = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "level": "ERROR",
+                "message": "Something failed",
+            },
+        ]
+
+        errors = detect_log_errors(span, logs)
+
+        assert len(errors) == 1
+        assert "duration_ms" in errors[0]["attributes"]
+        assert errors[0]["attributes"]["duration_ms"] == "3000.0"
+
+    def test_detect_log_error_with_correlation_id(self) -> None:
+        """Detect log error with correlation_id for tracing."""
+        span = _build_span(ModelTraceData(span_id="span-123"))
+        logs = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "level": "ERROR",
+                "message": "Error occurred",
+            },
+        ]
+
+        errors = detect_log_errors(span, logs, correlation_id="test-correlation-123")
+
+        assert len(errors) == 1
+
 
 class TestDetectTimeoutErrors:
     """Tests for detect_timeout_errors function."""
 
     def test_detect_timeout_status(self) -> None:
         """Detect timeout from status."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 operation_name="external_api",
@@ -168,7 +245,7 @@ class TestDetectTimeoutErrors:
 
     def test_detect_timeout_tag(self) -> None:
         """Detect timeout from tag."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 operation_name="slow_query",
@@ -184,7 +261,7 @@ class TestDetectTimeoutErrors:
 
     def test_no_timeout_normal_span(self) -> None:
         """No timeout detected for normal span."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 status="OK",
@@ -195,13 +272,26 @@ class TestDetectTimeoutErrors:
 
         assert len(errors) == 0
 
+    def test_detect_timeout_with_correlation_id(self) -> None:
+        """Detect timeout with correlation_id for tracing."""
+        span = _build_span(
+            ModelTraceData(
+                span_id="span-123",
+                status="timeout",
+            )
+        )
+
+        errors = detect_timeout_errors(span, correlation_id="test-correlation-123")
+
+        assert len(errors) == 1
+
 
 class TestExtractAllErrors:
     """Tests for extract_all_errors function."""
 
     def test_extract_combined_errors(self) -> None:
         """Extract errors from multiple sources."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 operation_name="multi_error",
@@ -223,7 +313,7 @@ class TestExtractAllErrors:
 
     def test_deduplication_span_and_timeout(self) -> None:
         """Timeout errors deduplicated when span error exists."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 operation_name="failed_op",
@@ -241,7 +331,7 @@ class TestExtractAllErrors:
 
     def test_no_errors_clean_span(self) -> None:
         """No errors extracted from clean span."""
-        span = build_span_tree(
+        span = _build_span(
             ModelTraceData(
                 span_id="span-123",
                 status="OK",
@@ -258,3 +348,16 @@ class TestExtractAllErrors:
         errors = extract_all_errors(span, logs)
 
         assert len(errors) == 0
+
+    def test_extract_all_errors_with_correlation_id(self) -> None:
+        """Extract all errors with correlation_id for tracing."""
+        span = _build_span(
+            ModelTraceData(
+                span_id="span-123",
+                status="error",
+            )
+        )
+
+        errors = extract_all_errors(span, [], correlation_id="test-correlation-123")
+
+        assert len(errors) == 1

@@ -83,6 +83,15 @@ class SpanNodeDict(TypedDict):
     children: list[str]  # Child span IDs
 
 
+class BuildSpanResult(TypedDict):
+    """Result structure for build_span_tree that supports structured errors."""
+
+    success: bool
+    span: SpanNodeDict | None
+    error_message: str | None
+    error_type: str | None  # "validation" or "compute"
+
+
 def create_empty_timing_data() -> TimingDataDict:
     """Create empty timing data for error cases."""
     return TimingDataDict(
@@ -112,6 +121,7 @@ def create_error_metadata(
 
 
 __all__ = [
+    "BuildSpanResult",
     "ErrorEventDict",
     "ParsedEventDict",
     "SpanNodeDict",

@@ -21,9 +21,6 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     ANALYSIS_VERSION,
     score_code_quality,
 )
-from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions import (
-    QualityScoringValidationError,
-)
 
 
 class TestScoreCodeQuality:
@@ -182,13 +179,21 @@ class Example:
         # Should have unsupported language recommendation
         assert any("unsupported" in r.lower() for r in result["recommendations"])
 
-    def test_empty_content_raises_validation_error(self) -> None:
-        """Empty or whitespace content should raise QualityScoringValidationError."""
-        with pytest.raises(QualityScoringValidationError, match="empty"):
-            score_code_quality("", "python")
+    def test_empty_content_returns_validation_error(self) -> None:
+        """Empty or whitespace content should return structured error.
 
-        with pytest.raises(QualityScoringValidationError, match="empty"):
-            score_code_quality("   \n\t  ", "python")
+        Per CLAUDE.md handler pattern, validation errors are domain errors
+        returned as structured output with success=False, not raised.
+        """
+        result = score_code_quality("", "python")
+        assert result["success"] is False
+        assert result["quality_score"] == 0.0
+        assert any("empty" in r.lower() for r in result["recommendations"])
+        assert any("validation_error" in r.lower() for r in result["recommendations"])
+
+        result_whitespace = score_code_quality("   \n\t  ", "python")
+        assert result_whitespace["success"] is False
+        assert any("empty" in r.lower() for r in result_whitespace["recommendations"])
 
     def test_returns_typed_dict_structure(self) -> None:
         """Result should match QualityScoringResult TypedDict structure."""

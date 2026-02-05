@@ -2,18 +2,20 @@
 
 This module contains pure functions for parsing execution traces.
 No I/O operations, no global state mutations.
+
+Error Handling: Returns structured errors instead of raising exceptions.
+Correlation ID: Threaded through all functions for end-to-end tracing.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.exceptions import (
-    TraceParsingValidationError,
-)
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.protocols import (
+    BuildSpanResult,
     ParsedEventDict,
     SpanNodeDict,
     TimingDataDict,
@@ -25,11 +27,17 @@ if TYPE_CHECKING:
         ModelTraceLog,
     )
 
+logger = logging.getLogger(__name__)
+
 # Parser version for tracking
 PARSER_VERSION = "1.0.0"
 
 
-def build_span_tree(trace_data: ModelTraceData) -> SpanNodeDict:
+def build_span_tree(
+    trace_data: ModelTraceData,
+    *,
+    correlation_id: str | None = None,
+) -> BuildSpanResult:
     """Build a span tree from trace data.
 
     Converts the flat ModelTraceData into a SpanNodeDict structure
@@ -37,16 +45,29 @@ def build_span_tree(trace_data: ModelTraceData) -> SpanNodeDict:
 
     Args:
         trace_data: Raw trace data with span information.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
-        SpanNodeDict representing the root span with children references.
-
-    Raises:
-        TraceParsingValidationError: If span_id is missing.
+        BuildSpanResult with success=True and span, or success=False
+        with error_message and error_type for structured error handling.
     """
+    logger.debug(
+        "Building span tree from trace data",
+        extra={"correlation_id": correlation_id},
+    )
+
     span_id = trace_data.span_id
     if not span_id:
-        raise TraceParsingValidationError("span_id is required for trace parsing")
+        logger.debug(
+            "Validation failed: span_id is required",
+            extra={"correlation_id": correlation_id},
+        )
+        return BuildSpanResult(
+            success=False,
+            span=None,
+            error_message="span_id is required for trace parsing",
+            error_type="validation",
+        )
 
     # Convert logs to dict format for internal processing
     logs_as_dicts: list[dict[str, str | None]] = []
@@ -59,7 +80,7 @@ def build_span_tree(trace_data: ModelTraceData) -> SpanNodeDict:
             }
         )
 
-    return SpanNodeDict(
+    span = SpanNodeDict(
         span_id=span_id,
         trace_id=trace_data.trace_id,
         parent_span_id=trace_data.parent_span_id,
@@ -74,44 +95,107 @@ def build_span_tree(trace_data: ModelTraceData) -> SpanNodeDict:
         children=[],  # Single trace doesn't have child spans in current model
     )
 
+    logger.debug(
+        "Successfully built span tree for span_id=%s",
+        span_id,
+        extra={"correlation_id": correlation_id},
+    )
+
+    return BuildSpanResult(
+        success=True,
+        span=span,
+        error_message=None,
+        error_type=None,
+    )
+
 
 def correlate_logs_with_span(
     span: SpanNodeDict,
     external_logs: list[ModelTraceLog],
+    *,
+    correlation_id: str | None = None,
 ) -> list[dict[str, str | None]]:
     """Correlate external logs with a span by trace_id and timestamp.
 
-    Matches logs to the span based on trace_id correlation. Logs within
-    the span's time window are associated with it.
+    Matches logs to the span based on trace_id correlation AND time window.
+    Logs must be within the span's time window (start_time to end_time)
+    to be associated with it.
 
     Args:
         span: The span node to correlate logs with.
         external_logs: List of external log entries to match.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         List of correlated log entries (merged with span's own logs).
     """
+    logger.debug(
+        "Correlating logs with span_id=%s",
+        span["span_id"],
+        extra={"correlation_id": correlation_id},
+    )
+
     correlated: list[dict[str, str | None]] = list(span["logs"])
 
     span_trace_id = span["trace_id"]
     if not span_trace_id:
+        logger.debug(
+            "No trace_id on span, returning only embedded logs",
+            extra={"correlation_id": correlation_id},
+        )
         return correlated
+
+    # Parse span time boundaries for time window checking
+    span_start = parse_timestamp(span["start_time"])
+    span_end = parse_timestamp(span["end_time"])
+
+    logs_matched = 0
+    logs_rejected_no_timestamp = 0
+    logs_rejected_outside_window = 0
 
     for log in external_logs:
         # Skip logs without timestamp (can't correlate temporally)
         if not log.timestamp:
+            logs_rejected_no_timestamp += 1
             continue
 
         # Check if log has matching trace context in fields
         log_trace_id = log.fields.get("trace_id")
-        if log_trace_id == span_trace_id:
-            correlated.append(
-                {
-                    "timestamp": log.timestamp,
-                    "level": log.level,
-                    "message": log.message,
-                }
+        if log_trace_id != span_trace_id:
+            continue
+
+        # Parse log timestamp for time window check
+        log_time = parse_timestamp(log.timestamp)
+
+        # Check if log is within span's time window
+        if not _is_within_time_window(log_time, span_start, span_end):
+            logs_rejected_outside_window += 1
+            logger.debug(
+                "Log rejected: outside span time window (log_time=%s, span=%s to %s)",
+                log.timestamp,
+                span["start_time"],
+                span["end_time"],
+                extra={"correlation_id": correlation_id},
             )
+            continue
+
+        correlated.append(
+            {
+                "timestamp": log.timestamp,
+                "level": log.level,
+                "message": log.message,
+            }
+        )
+        logs_matched += 1
+
+    logger.debug(
+        "Log correlation complete: matched=%d, rejected_no_timestamp=%d, "
+        "rejected_outside_window=%d",
+        logs_matched,
+        logs_rejected_no_timestamp,
+        logs_rejected_outside_window,
+        extra={"correlation_id": correlation_id},
+    )
 
     # Sort by timestamp if available
     def get_timestamp(log: dict[str, str | None]) -> str:
@@ -122,7 +206,45 @@ def correlate_logs_with_span(
     return correlated
 
 
-def compute_timing_metrics(span: SpanNodeDict) -> TimingDataDict:
+def _is_within_time_window(
+    log_time: datetime | None,
+    span_start: datetime | None,
+    span_end: datetime | None,
+) -> bool:
+    """Check if a log timestamp is within the span's time window.
+
+    Args:
+        log_time: Parsed log timestamp.
+        span_start: Parsed span start time.
+        span_end: Parsed span end time.
+
+    Returns:
+        True if log is within span time window or if boundaries are unknown.
+    """
+    # If we can't parse the log time, accept it (be permissive)
+    if log_time is None:
+        return True
+
+    # If span boundaries are unknown, accept the log (be permissive)
+    if span_start is None and span_end is None:
+        return True
+
+    # Check start boundary (if known)
+    if span_start is not None and log_time < span_start:
+        return False
+
+    # Check end boundary (if known)
+    if span_end is not None and log_time > span_end:
+        return False
+
+    return True
+
+
+def compute_timing_metrics(
+    span: SpanNodeDict,
+    *,
+    correlation_id: str | None = None,
+) -> TimingDataDict:
     """Compute timing metrics from a span.
 
     Extracts timing information including total duration, start/end times,
@@ -130,10 +252,17 @@ def compute_timing_metrics(span: SpanNodeDict) -> TimingDataDict:
 
     Args:
         span: The span node to compute timing from.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         TimingDataDict with computed timing metrics.
     """
+    logger.debug(
+        "Computing timing metrics for span_id=%s",
+        span["span_id"],
+        extra={"correlation_id": correlation_id},
+    )
+
     latency_breakdown: dict[str, float] = {}
 
     # Add operation to latency breakdown if we have duration
@@ -195,17 +324,28 @@ def generate_event_id() -> str:
     return str(uuid.uuid4())
 
 
-def extract_span_events(span: SpanNodeDict) -> list[ParsedEventDict]:
+def extract_span_events(
+    span: SpanNodeDict,
+    *,
+    correlation_id: str | None = None,
+) -> list[ParsedEventDict]:
     """Extract events from span transitions.
 
     Creates SPAN_START and SPAN_END events from a span's lifecycle.
 
     Args:
         span: The span node to extract events from.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         List of parsed events (typically start and end events).
     """
+    logger.debug(
+        "Extracting span events for span_id=%s",
+        span["span_id"],
+        extra={"correlation_id": correlation_id},
+    )
+
     events: list[ParsedEventDict] = []
 
     base_attributes: dict[str, str] = {}
@@ -249,6 +389,12 @@ def extract_span_events(span: SpanNodeDict) -> list[ParsedEventDict]:
                 attributes=end_attributes,
             )
         )
+
+    logger.debug(
+        "Extracted %d span events",
+        len(events),
+        extra={"correlation_id": correlation_id},
+    )
 
     return events
 

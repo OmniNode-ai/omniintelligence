@@ -17,8 +17,10 @@ import logging
 import os
 import signal
 import sys
-from http.server import HTTPServer
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from http.server import HTTPServer
 
 
 def _get_log_level() -> int:
@@ -42,7 +44,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
+def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> "HTTPServer":
     """Run a simple health check HTTP server.
 
     Args:
@@ -54,7 +56,7 @@ def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
     """
     import json
     import threading
-    from http.server import BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
     class HealthHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -82,7 +84,7 @@ def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
     return server
 
 
-def _shutdown_health_server(health_server: HTTPServer, timeout: float = 5.0) -> None:
+def _shutdown_health_server(health_server: "HTTPServer", timeout: float = 5.0) -> None:
     """Shut down health server with timeout.
 
     Args:

@@ -9,6 +9,7 @@ This module coordinates the trace parsing workflow:
 6. Constructs output model
 
 Error Handling: Returns structured error output, never raises.
+Correlation ID: Threaded through all operations for end-to-end tracing.
 """
 
 from __future__ import annotations
@@ -20,7 +21,6 @@ from typing import TYPE_CHECKING
 
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.exceptions import (
     TraceParsingComputeError,
-    TraceParsingValidationError,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_event_extraction import (
     extract_all_errors,
@@ -78,27 +78,22 @@ def handle_trace_parsing_compute(
         and returned as structured output with success=False.
     """
     start_time = time.perf_counter()
+    correlation_id = input_data.correlation_id
+
+    logger.debug(
+        "Starting trace parsing compute",
+        extra={"correlation_id": correlation_id},
+    )
 
     try:
-        return _execute_parsing(input_data, start_time)
-
-    except TraceParsingValidationError as e:
-        processing_time = _elapsed_time_ms(start_time)
-        logger.warning(
-            "Trace parsing validation error: %s",
-            str(e),
-            extra={"correlation_id": input_data.correlation_id},
-        )
-        return _create_validation_error_output(
-            str(e), processing_time, input_data.trace_format
-        )
+        return _execute_parsing(input_data, start_time, correlation_id)
 
     except TraceParsingComputeError as e:
         processing_time = _elapsed_time_ms(start_time)
         logger.error(
             "Trace parsing compute error: %s",
             str(e),
-            extra={"correlation_id": input_data.correlation_id},
+            extra={"correlation_id": correlation_id},
         )
         return _create_compute_error_output(
             str(e), processing_time, input_data.trace_format
@@ -111,7 +106,7 @@ def handle_trace_parsing_compute(
             logger.exception(
                 "Unhandled exception in trace parsing: %s",
                 str(e),
-                extra={"correlation_id": input_data.correlation_id},
+                extra={"correlation_id": correlation_id},
             )
         return _create_safe_error_output(
             f"Unhandled error: {e}", processing_time, input_data.trace_format
@@ -121,40 +116,102 @@ def handle_trace_parsing_compute(
 def _execute_parsing(
     input_data: ModelTraceParsingInput,
     start_time: float,
+    correlation_id: str | None,
 ) -> ModelTraceParsingOutput:
     """Execute the core trace parsing logic.
 
     Args:
         input_data: Validated input data.
         start_time: Start time for timing calculation.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         ModelTraceParsingOutput with parsed results.
 
     Raises:
-        TraceParsingValidationError: If input validation fails.
         TraceParsingComputeError: If computation fails.
     """
     trace_data = input_data.trace_data
 
-    # Build span tree
-    span = build_span_tree(trace_data)
+    logger.debug(
+        "Building span tree",
+        extra={"correlation_id": correlation_id},
+    )
+
+    # Build span tree - now returns structured result instead of raising
+    build_result = build_span_tree(trace_data, correlation_id=correlation_id)
+
+    # Handle validation/compute errors from build_span_tree
+    if not build_result["success"]:
+        processing_time = _elapsed_time_ms(start_time)
+        error_message = build_result["error_message"] or "Unknown error"
+        error_type = build_result["error_type"]
+
+        logger.warning(
+            "Span tree build failed (%s): %s",
+            error_type,
+            error_message,
+            extra={"correlation_id": correlation_id},
+        )
+
+        if error_type == "validation":
+            return _create_validation_error_output(
+                error_message, processing_time, input_data.trace_format
+            )
+        else:
+            return _create_compute_error_output(
+                error_message, processing_time, input_data.trace_format
+            )
+
+    span = build_result["span"]
+    if span is None:
+        # Defensive check - should not happen if success=True
+        processing_time = _elapsed_time_ms(start_time)
+        return _create_compute_error_output(
+            "Span is None despite successful build",
+            processing_time,
+            input_data.trace_format,
+        )
+
+    logger.debug(
+        "Correlating logs with span",
+        extra={"correlation_id": correlation_id},
+    )
 
     # Correlate external logs with span (empty list for now - single trace model)
-    correlated_logs = correlate_logs_with_span(span, [])
+    correlated_logs = correlate_logs_with_span(
+        span, [], correlation_id=correlation_id
+    )
 
     # Extract events based on options
     parsed_events = []
     if input_data.extract_timing:
-        parsed_events.extend(extract_span_events(span))
+        logger.debug(
+            "Extracting span events",
+            extra={"correlation_id": correlation_id},
+        )
+        parsed_events.extend(
+            extract_span_events(span, correlation_id=correlation_id)
+        )
 
     # Extract errors based on options
     error_events = []
     if input_data.extract_errors:
-        error_events.extend(extract_all_errors(span, correlated_logs))
+        logger.debug(
+            "Extracting error events",
+            extra={"correlation_id": correlation_id},
+        )
+        error_events.extend(
+            extract_all_errors(span, correlated_logs, correlation_id=correlation_id)
+        )
+
+    logger.debug(
+        "Computing timing metrics",
+        extra={"correlation_id": correlation_id},
+    )
 
     # Compute timing metrics
-    timing_data = compute_timing_metrics(span)
+    timing_data = compute_timing_metrics(span, correlation_id=correlation_id)
 
     # Calculate processing time
     processing_time = _elapsed_time_ms(start_time)
@@ -167,6 +224,14 @@ def _execute_parsing(
         event_count=len(parsed_events),
         error_count=len(error_events),
         warnings=[],
+    )
+
+    logger.debug(
+        "Trace parsing complete: events=%d, errors=%d, time_ms=%.2f",
+        len(parsed_events),
+        len(error_events),
+        processing_time,
+        extra={"correlation_id": correlation_id},
     )
 
     # Convert to Pydantic output models

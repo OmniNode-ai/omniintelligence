@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
     PARSER_VERSION,
     handle_trace_parsing_compute,
@@ -11,6 +13,8 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
     ModelTraceLog,
     ModelTraceParsingInput,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestHandleTraceParsingCompute:

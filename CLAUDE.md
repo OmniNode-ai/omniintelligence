@@ -66,10 +66,9 @@ pytest -m audit            # I/O audit tests only
 pytest --cov=src/omniintelligence --cov-report=html  # With coverage
 
 # Code quality
-ruff check src tests       # Lint
-ruff check --fix src tests # Auto-fix
-black src tests            # Format
-isort src tests            # Sort imports
+ruff check src tests       # Lint (includes import sorting)
+ruff check --fix src tests # Auto-fix lint issues
+ruff format src tests      # Format code
 mypy src                   # Type check
 ```
 
