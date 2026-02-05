@@ -65,7 +65,7 @@ def assemble_pattern(
     Args:
         context: Assembly context with aggregated data.
         workflow_result: Results from workflow execution.
-        input_data: Original input data.
+        _input_data: Original input data (reserved for future use).
 
     Returns:
         Tuple of (assembled_pattern, component_results, metadata).

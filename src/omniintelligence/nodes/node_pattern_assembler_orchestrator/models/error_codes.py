@@ -92,3 +92,6 @@ class EnumPatternAssemblerErrorCode(str, Enum):
             self.INVALID_INPUT_ERROR,
         }
         return self not in non_recoverable
+
+
+__all__ = ["EnumPatternAssemblerErrorCode"]

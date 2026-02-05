@@ -379,7 +379,7 @@ async def _execute_intent_classification(
 
     Args:
         input_data: The orchestrator input.
-        trace_result: Results from trace parsing.
+        _trace_result: Results from trace parsing (reserved for future use).
         intent_classifier_node: The intent classifier compute node.
         correlation_id: Correlation ID for tracing.
 
@@ -472,7 +472,7 @@ async def _execute_criteria_matching(
     Args:
         input_data: The orchestrator input.
         trace_result: Results from trace parsing.
-        intent_result: Results from intent classification.
+        _intent_result: Results from intent classification (reserved for future use).
         criteria_matcher_node: The criteria matcher compute node.
         correlation_id: Correlation ID for tracing.
 
