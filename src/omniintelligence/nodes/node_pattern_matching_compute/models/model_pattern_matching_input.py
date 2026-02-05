@@ -197,12 +197,6 @@ class ModelPatternMatchingInput(BaseModel):
         default_factory=ModelPatternContext,
         description="Structured context for pattern matching",
     )
-    match_threshold: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Minimum match score threshold (0.0 to 1.0)",
-    )
 
     model_config = {"frozen": True, "extra": "forbid"}
 

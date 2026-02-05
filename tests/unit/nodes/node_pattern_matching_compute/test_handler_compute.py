@@ -162,20 +162,27 @@ class TestHandlePatternMatchingCompute:
         assert result.metadata.input_line_count is not None
 
     def test_validation_error_returns_structured_output(self) -> None:
-        """Validation errors should return structured output, not raise."""
-        # This should fail Pydantic validation before reaching handler
-        # but let's test the handler's error handling
+        """Validation errors should return structured output, not raise.
+
+        Tests that PatternMatchingValidationError from the handler is caught
+        and converted to a structured error response with success=False.
+        """
+        # Whitespace-only code_snippet passes Pydantic min_length=1 but fails
+        # handler's _validate_inputs check: "not code_snippet.strip()"
         input_data = ModelPatternMatchingInput(
-            code_snippet="valid code",
+            code_snippet="   ",  # Whitespace only - triggers validation error
             patterns=[],
             context=ModelPatternContext(
-                min_confidence=0.5,  # Valid
+                min_confidence=0.5,
             ),
         )
 
-        # This should work fine
+        # Handler should return structured error, not raise
         result = handle_pattern_matching_compute(input_data)
-        assert result.success is True
+        assert result.success is False
+        assert result.metadata is not None
+        assert result.metadata.status == "validation_error"
+        assert "empty" in result.metadata.message.lower()
 
     def test_validate_operation_uses_regex_matching(self) -> None:
         """Validate operation should use regex matching algorithm."""

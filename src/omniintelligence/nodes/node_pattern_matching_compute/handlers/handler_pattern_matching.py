@@ -93,7 +93,6 @@ def match_patterns(
 
     Raises:
         PatternMatchingValidationError: If input validation fails.
-        PatternMatchingComputeError: If matching computation fails.
     """
     # Validate inputs
     _validate_inputs(code_snippet, min_confidence, max_results)
