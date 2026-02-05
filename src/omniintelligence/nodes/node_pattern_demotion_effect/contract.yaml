@@ -1,0 +1,334 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternDemotionEffect
+#
+# This contract defines the interface for the pattern demotion effect node.
+# The node checks validated patterns against demotion gates and emits
+# lifecycle events for patterns that meet failure criteria.
+#
+# Reference: OMN-1681 - Auto-demote logic for patterns failing quality thresholds
+# Reference: OMN-1757 - Refactor to declarative pattern
+
+# Contract identifiers
+name: "node_pattern_demotion_effect"
+contract_name: "pattern_demotion_effect"
+node_name: "pattern_demotion_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node for demoting validated patterns to deprecated status. Checks patterns against demotion gates
+  (manual disable, failure streak, low success rate) and emits lifecycle events for patterns that meet
+  failure criteria. Implements anti-oscillation via cooldown periods to prevent rapid state changes between
+  validated and deprecated. #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "ModelDemotionCheckRequest"
+  module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
+  description: "Input model containing demotion check criteria and threshold overrides."
+
+output_model:
+  name: "ModelDemotionCheckResult"
+  module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
+  description: "Output model with demotion results, gate snapshots, and skip counts."
+
+output_models:
+  - name: "ModelDemotionCheckResult"
+    module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
+    operation: "check_and_demote"
+    topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    description: "Aggregated result of demotion check with individual pattern outcomes."
+  - name: "ModelDemotionResult"
+    module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
+    operation: "demote_pattern"
+    topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    description: "Individual pattern demotion result with gate snapshot."
+
+# =============================================================================
+# HANDLER ROUTING (Operation-Based Dispatch)
+# =============================================================================
+# Routes operations based on the demotion action type. The primary operation
+# is check_and_demote which evaluates all validated patterns against gates.
+#
+# Execution Flow:
+#   1. Receive ModelDemotionCheckRequest (optionally from scheduled trigger)
+#   2. Validate threshold overrides and build effective thresholds
+#   3. Fetch validated patterns from database
+#   4. For each pattern, evaluate demotion gates:
+#      - Gate 1: Manual disable (HARD TRIGGER - bypasses all checks)
+#      - Gate 2: Failure streak >= threshold
+#      - Gate 3: Success rate < threshold (requires sufficient injections)
+#   5. Check cooldown period (unless manual disable)
+#   6. Emit lifecycle events for patterns meeting criteria
+#   7. Return aggregated ModelDemotionCheckResult
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "check_and_demote_patterns"
+    module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
+    type: "async"
+    description: "Main entry point that checks and demotes validated patterns"
+  handlers:
+    # Check and demote - main workflow
+    - operation: "check_and_demote"
+      handler:
+        function: "check_and_demote_patterns"
+        module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
+        type: "async"
+      description: "Check all validated patterns and demote those meeting criteria"
+      actions:
+        - "validate threshold overrides"
+        - "build effective thresholds"
+        - "fetch validated patterns"
+        - "evaluate demotion gates for each pattern"
+        - "check cooldown period"
+        - "emit lifecycle events for demotions"
+
+    # Single pattern demotion
+    - operation: "demote_pattern"
+      handler:
+        function: "demote_pattern"
+        module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
+        type: "async"
+      description: "Demote a single pattern by emitting lifecycle event"
+      actions:
+        - "build gate snapshot"
+        - "determine actor type"
+        - "emit lifecycle event to Kafka"
+
+  # Default handler for unrecognized operations
+  default_handler:
+    function: "check_and_demote_patterns"
+    module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
+    type: "async"
+    description: "Default to check_and_demote operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "check_and_demote"
+    description: "Check all validated patterns and demote those meeting failure criteria"
+    input_model: "ModelDemotionCheckRequest"
+    output_model: "ModelDemotionCheckResult"
+    output_topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    input_fields:
+      - dry_run
+      - max_success_rate
+      - min_failure_streak
+      - min_injection_count
+      - cooldown_hours
+      - allow_threshold_override
+      - correlation_id
+    output_fields:
+      - dry_run
+      - patterns_checked
+      - patterns_eligible
+      - patterns_demoted
+      - patterns_skipped_cooldown
+      - correlation_id
+
+  - operation: "demote_pattern"
+    description: "Demote a single pattern by emitting lifecycle event"
+    input_model: "ModelDemotionCheckRequest"
+    output_model: "ModelDemotionResult"
+    output_topic: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    input_fields:
+      - pattern_id
+      - reason
+      - correlation_id
+    output_fields:
+      - pattern_id
+      - pattern_signature
+      - from_status
+      - to_status
+      - deprecated_at
+      - reason
+      - gate_snapshot
+      - effective_thresholds
+      - dry_run
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+# PURPOSE: Human-readable documentation of WHAT events this node produces.
+#
+# This section provides rich metadata for:
+#   - IntentTypeExtractor (capability inference)
+#   - Contract validation and diff computation
+#   - Human understanding of node behavior
+#
+# Contains: event_type, trigger conditions, descriptions, full topic patterns.
+#
+# Topic naming: onex.{kind}.{producer}.{event-name}.v{n}
+#   - kind=cmd for commands/inputs (lifecycle transitions)
+#   - kind=evt for events/outputs (deprecated notifications)
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    event_type: "PatternLifecycleEvent"
+    trigger: "Pattern meets demotion criteria (failure streak, low success rate, manual disable)"
+    description: "Emitted when a pattern needs to transition from validated to deprecated. Consumed by
+      reducer for FSM validation."
+
+  - topic_suffix: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
+    event_type: "PatternDeprecated"
+    trigger: "Pattern successfully deprecated after reducer validation"
+    description: "Emitted after reducer processes lifecycle event and pattern is deprecated. Contains
+      gate snapshot and effective thresholds."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# NOTE: This node emits lifecycle COMMANDS to the reducer, which then emits
+# the final deprecated EVENTS. The node also optionally emits direct deprecated
+# events for downstream notification.
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  # This node is typically triggered by scheduled jobs, not Kafka events
+  subscribe_topics: []
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    - "onex.evt.omniintelligence.pattern-deprecated.v1"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
+      schema_ref: "omniintelligence.models.events.ModelPatternLifecycleEvent"
+      description: "Lifecycle transition command for reducer to process"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.pattern-deprecated.v1":
+      schema_ref: "omniintelligence.nodes.node_pattern_demotion_effect.models.ModelPatternDeprecatedEvent"
+      description: "Pattern deprecated notification with gate snapshot"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
+    description: "Database repository for fetching validated patterns"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
+    description: "Kafka producer for emitting lifecycle events (required for event-driven demotion)"
+    required: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "KafkaError"
+
+  error_types:
+    - name: "ThresholdValidationError"
+      error_code: "PATDEM_001"
+      description: "Threshold overrides used without allow_threshold_override=True"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternFetchError"
+      error_code: "PATDEM_002"
+      description: "Failed to fetch validated patterns from database"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "LifecycleEventError"
+      error_code: "PATDEM_003"
+      description: "Failed to emit lifecycle event to Kafka"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "pattern_demotion.check_and_demote"
+    description: "Check validated patterns against demotion gates and emit lifecycle events"
+    version: "1.0.0"
+  - name: "pattern_demotion.cooldown"
+    description: "Prevent oscillation via post-promotion cooldown period"
+    version: "1.0.0"
+  - name: "pattern_demotion.manual_disable"
+    description: "Hard trigger demotion via admin disable (bypasses cooldown)"
+    version: "1.0.0"
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-01-30"
+  updated: "2026-02-05"
+  tags:
+    - effect
+    - pattern-demotion
+    - kafka
+    - lifecycle
+    - anti-oscillation
+  references:
+    - ticket: "OMN-1681"
+      url: "https://linear.app/omninode/issue/OMN-1681"
+      description: "Auto-demote logic for patterns failing quality thresholds"
+    - ticket: "OMN-1805"
+      url: "https://linear.app/omninode/issue/OMN-1805"
+      description: "Reducer-based status transitions"
+    - ticket: "OMN-1757"
+      url: "https://linear.app/omninode/issue/OMN-1757"
+      description: "Refactor to declarative pattern"

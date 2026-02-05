@@ -14,10 +14,10 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_trans
 )
 
 __all__ = [
-    # Handler functions
-    "apply_transition",
     # Protocols
     "ProtocolIdempotencyStore",
     "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",
+    # Handler functions
+    "apply_transition",
 ]

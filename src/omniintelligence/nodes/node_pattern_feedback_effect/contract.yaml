@@ -45,32 +45,43 @@ output_model:
   description: "Output model containing recording status and updated metric summary."
 
 # =============================================================================
-# HANDLER ROUTING (Single Entry Point)
+# HANDLER ROUTING (Declarative Handler Dispatch)
 # =============================================================================
-# This node has a single primary operation: record session outcomes.
-# Future versions may add additional handlers for metric queries or batch updates.
+# This section defines how operations are routed to the session outcome handler.
+# The routing strategy determines handler selection based on operation type.
 #
-# Implementation Note:
-#   The main entry point is `record_session_outcome()` which:
-#     - Finds unrecorded pattern_injections for the session
-#     - Marks injections as recorded with outcome (success/failure)
-#     - Updates rolling window metrics in learned_patterns table
-#     - Returns counts of updated records
+# Design Rationale:
+#   - Single handler for session outcome recording
+#   - Rolling window metrics with decay approximation
+#   - Contribution heuristics for outcome attribution
 #
 # Execution Flow:
 #   1. Receive ClaudeSessionOutcome event with session_id, outcome, error
-#   2. Find all pattern_injections for this session that haven't been processed
-#   3. Mark injections as recorded with the outcome
-#   4. Update rolling_20 metrics for all unique patterns involved (decay approximation)
-#   5. Return ModelSessionOutcomeResult with status, counts, and pattern_ids
+#   2. Route to record_session_outcome handler based on operation
+#   3. Find all pattern_injections for this session that haven't been processed
+#   4. Mark injections as recorded with the outcome
+#   5. Update rolling_20 metrics for all unique patterns involved (decay approximation)
+#   6. Return ModelSessionOutcomeResult with status, counts, and pattern_ids
 # =============================================================================
 handler_routing:
-  routing_strategy: "single_entry"
-  entry_point:
-    function: "record_session_outcome"
-    module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome"
-    type: "async"
-    description: "Main entry point for recording session outcomes and updating rolling metrics"
+  routing_strategy: "operation_match"
+  handlers:
+    # Record Session Outcome - Main handler for pattern feedback
+    # Records session outcomes and updates rolling window metrics.
+    - operation: "record_session_outcome"
+      handler:
+        function: "record_session_outcome"
+        module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome"
+        type: "async"
+      description: "Record session outcome and update rolling window metrics for patterns"
+      output_fields:
+        - status
+        - session_id
+        - injections_updated
+        - patterns_updated
+        - pattern_ids
+        - recorded_at
+        - error_message
 
 # =============================================================================
 # IO OPERATIONS

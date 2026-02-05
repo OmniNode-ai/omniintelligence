@@ -22,8 +22,7 @@ Reference:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -667,7 +666,7 @@ class TestProvisionalGuard:
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=uuid4(),
+            request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
             from_status=EnumPatternLifecycleStatus.CANDIDATE,
