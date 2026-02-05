@@ -233,5 +233,3 @@ class TestLearnedPatternsMigrationFile:
         assert "DEFAULT 'candidate'" in content, (
             "Default status should be 'candidate' in migration"
         )
-
-
