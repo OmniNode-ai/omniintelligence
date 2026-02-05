@@ -221,6 +221,8 @@ ignore = [
     "ARG002", # Allow unused method arguments (common in test fixtures)
     "RUF012", # Allow mutable class attributes
     "RUF022", # Allow unsorted __all__ (manual ordering preferred for readability)
+    "RUF043", # Allow unescaped regex patterns in pytest.raises match (intentional regex)
+    "RUF059", # Allow unused unpacked variables (common in tests for tuple unpacking)
 ]
 
 [tool.ruff.lint.per-file-ignores]
