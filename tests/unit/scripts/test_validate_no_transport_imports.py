@@ -6,9 +6,9 @@ Nodes never touch Kafka directly. Runtime owns all Kafka plumbing.
 
 from __future__ import annotations
 
+import ast
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -23,9 +23,6 @@ from scripts.validate_no_transport_imports import (
     check_file,
     iter_python_files,
 )
-
-if TYPE_CHECKING:
-    import ast
 
 
 # =============================================================================
@@ -132,8 +129,6 @@ if TYPE_CHECKING:
     import aiohttp  # Should NOT be flagged
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 0
@@ -147,8 +142,6 @@ if TC:
     import aiohttp  # Should NOT be flagged
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 0
@@ -162,8 +155,6 @@ if typing.TYPE_CHECKING:
     import aiohttp  # Should NOT be flagged
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 0
@@ -177,8 +168,6 @@ if t.TYPE_CHECKING:
     import aiohttp  # Should NOT be flagged
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 0
@@ -193,8 +182,6 @@ if t:
     import aiohttp  # SHOULD be flagged - not a TYPE_CHECKING guard
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # This should flag the import because `if t:` is not a TYPE_CHECKING guard
@@ -216,8 +203,6 @@ else:
     import asyncpg  # SHOULD be flagged (runtime)
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # Only the else block import should be flagged
@@ -240,8 +225,6 @@ elif some_condition:
     import redis  # SHOULD be flagged (elif is runtime)
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # The elif import should be flagged
@@ -261,8 +244,6 @@ if not TYPE_CHECKING:
     import aiohttp  # SHOULD be flagged (runtime)
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # The negated TYPE_CHECKING import should be flagged
@@ -284,8 +265,6 @@ if TYPE_CHECKING and some_condition:
     import aiohttp  # SHOULD be flagged (not a pure guard)
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # The compound condition import should be flagged
@@ -309,8 +288,6 @@ class TestRelativeImportHandling:
         """
         source = "from .aiohttp import ClientSession"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # Relative import should NOT be flagged
@@ -320,8 +297,6 @@ class TestRelativeImportHandling:
         """Parent-relative imports should NOT be flagged."""
         source = "from ..aiohttp import ClientSession"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # Relative import should NOT be flagged
@@ -331,8 +306,6 @@ class TestRelativeImportHandling:
         """Relative imports without module name should NOT be flagged."""
         source = "from . import something"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # Relative import should NOT be flagged
@@ -345,8 +318,6 @@ class TestRelativeImportHandling:
         """
         source = "from aiohttp import ClientSession"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         # Absolute import SHOULD be flagged
@@ -366,8 +337,6 @@ class TestViolationDetection:
         """Detect `import aiohttp`."""
         source = "import aiohttp"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 1
@@ -377,8 +346,6 @@ class TestViolationDetection:
         """Detect `from aiohttp import ClientSession`."""
         source = "from aiohttp import ClientSession"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 1
@@ -388,8 +355,6 @@ class TestViolationDetection:
         """Detect `import aiohttp.client`."""
         source = "import aiohttp.client"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 1
@@ -399,8 +364,6 @@ class TestViolationDetection:
         """Detect `from aiohttp.client import ClientSession`."""
         source = "from aiohttp.client import ClientSession"
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 1
@@ -414,8 +377,6 @@ import asyncpg
 from redis import Redis
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 3
@@ -431,8 +392,6 @@ from pathlib import Path
 from typing import Any
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 0
@@ -446,8 +405,6 @@ import os  # line 3
 import aiohttp  # line 5
 """
         checker = TransportImportChecker(source)
-        import ast
-
         tree = ast.parse(source)
         checker.visit(tree)
         assert len(checker.violations) == 1
