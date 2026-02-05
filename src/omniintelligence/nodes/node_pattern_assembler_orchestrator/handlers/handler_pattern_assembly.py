@@ -20,9 +20,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.exceptions import (
-    PatternAssemblyError,
-)
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.protocols import (
     AssemblyContextDict,
     WorkflowResultDict,
@@ -61,6 +58,7 @@ def assemble_pattern(
     """Assemble the final pattern from workflow results.
 
     This is the pure function implementing step 4 of the workflow.
+    Returns structured error output on failure instead of raising.
 
     Args:
         context: Assembly context with aggregated data.
@@ -69,9 +67,7 @@ def assemble_pattern(
 
     Returns:
         Tuple of (assembled_pattern, component_results, metadata).
-
-    Raises:
-        PatternAssemblyError: If pattern assembly fails.
+        On error, returns empty dicts with metadata.status="assembly_failed".
     """
     start_time = time.perf_counter()
     correlation_id = context.get("correlation_id", "")
@@ -135,12 +131,15 @@ def assemble_pattern(
         return assembled_pattern, component_results, metadata
 
     except Exception as e:
+        # Return structured error output per ONEX handler pattern
+        # Domain errors are returned, not raised
         logger.error(
             "Pattern assembly failed: %s",
             str(e),
             extra={"correlation_id": correlation_id},
         )
-        raise PatternAssemblyError(f"Failed to assemble pattern: {e}") from e
+        processing_time = _elapsed_time_ms(start_time)
+        return _create_assembly_error_output(str(e), workflow_result, processing_time)
 
 
 def _generate_pattern_id(context: AssemblyContextDict) -> str:
@@ -486,6 +485,43 @@ def _build_assembly_metadata(
 def _elapsed_time_ms(start_time: float) -> float:
     """Calculate elapsed time in milliseconds."""
     return (time.perf_counter() - start_time) * 1000
+
+
+def _create_assembly_error_output(
+    error_message: str,
+    workflow_result: WorkflowResultDict,
+    processing_time_ms: float,
+) -> tuple[AssembledPatternOutputDict, ComponentResultsDict, AssemblyMetadataDict]:
+    """Create structured error output for assembly failures.
+
+    Returns empty dicts for pattern/component results with error details
+    in metadata, following the ONEX pattern of returning structured
+    errors instead of raising domain exceptions.
+
+    Args:
+        error_message: Description of the assembly error.
+        workflow_result: The workflow result (used for timing).
+        processing_time_ms: Processing time before error.
+
+    Returns:
+        Tuple of (empty_pattern, empty_components, error_metadata).
+    """
+    total_time = workflow_result.get("total_duration_ms", 0.0) + processing_time_ms
+
+    return (
+        AssembledPatternOutputDict(),
+        ComponentResultsDict(),
+        AssemblyMetadataDict(
+            processing_time_ms=int(total_time),
+            timestamp=datetime.now(UTC).isoformat(),
+            trace_parsing_ms=0,
+            keyword_extraction_ms=0,
+            intent_classification_ms=0,
+            criteria_matching_ms=0,
+            status="assembly_failed",
+            warnings=[f"Assembly error (PAO_005): {error_message}"],
+        ),
+    )
 
 
 __all__ = [

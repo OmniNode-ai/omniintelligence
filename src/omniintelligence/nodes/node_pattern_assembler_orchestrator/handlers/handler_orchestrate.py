@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.exceptions import (
     InvalidInputError,
     PatternAssemblerOrchestratorError,
-    PatternAssemblyError,
     WorkflowTimeoutError,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_pattern_assembly import (
@@ -126,6 +125,16 @@ async def handle_pattern_assembly_orchestrate(
             _input_data=input_data,
         )
 
+        # Check for structured error return from assemble_pattern
+        # (follows ONEX pattern of returning errors, not raising)
+        if metadata.get("status") == "assembly_failed":
+            return ModelPatternAssemblyOutput(
+                success=False,
+                assembled_pattern=assembled_pattern,
+                component_results=component_results,
+                metadata=metadata,
+            )
+
         logger.debug(
             "Pattern assembly orchestration completed successfully: "
             "pattern_id=%s, duration_ms=%.2f",
@@ -158,15 +167,6 @@ async def handle_pattern_assembly_orchestrate(
             extra={"correlation_id": correlation_id},
         )
         return _create_timeout_error_output(str(e), processing_time)
-
-    except PatternAssemblyError as e:
-        processing_time = _elapsed_time_ms(start_time)
-        logger.error(
-            "Pattern assembly error: %s",
-            str(e),
-            extra={"correlation_id": correlation_id},
-        )
-        return _create_assembly_error_output(str(e), processing_time)
 
     except PatternAssemblerOrchestratorError as e:
         processing_time = _elapsed_time_ms(start_time)
@@ -283,31 +283,6 @@ def _create_timeout_error_output(
             processing_time_ms=int(processing_time),
             status="timeout",
             warnings=[f"Timeout error (PAO_006): {error_message}"],
-        ),
-    )
-
-
-def _create_assembly_error_output(
-    error_message: str,
-    processing_time: float,
-) -> ModelPatternAssemblyOutput:
-    """Create output for pattern assembly errors.
-
-    Args:
-        error_message: Description of the assembly error.
-        processing_time: Processing time before error.
-
-    Returns:
-        ModelPatternAssemblyOutput indicating assembly failure.
-    """
-    return ModelPatternAssemblyOutput(
-        success=False,
-        assembled_pattern=AssembledPatternOutputDict(),
-        component_results=ComponentResultsDict(),
-        metadata=AssemblyMetadataDict(
-            processing_time_ms=int(processing_time),
-            status="assembly_failed",
-            warnings=[f"Assembly error (PAO_005): {error_message}"],
         ),
     )
 
