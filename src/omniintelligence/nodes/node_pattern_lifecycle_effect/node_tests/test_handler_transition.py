@@ -82,8 +82,8 @@ class TestSuccessfulTransitions:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -120,8 +120,8 @@ class TestSuccessfulTransitions:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="validated",
-            to_status="deprecated",
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
             trigger="demote",
             transition_at=sample_transition_at,
         )
@@ -155,8 +155,8 @@ class TestSuccessfulTransitions:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="candidate",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote_direct",  # Valid trigger for candidate -> validated
             transition_at=sample_transition_at,
         )
@@ -193,8 +193,8 @@ class TestSuccessfulTransitions:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="auto_promote",
             actor="promotion_scheduler",
             reason="Passed all promotion gates",
@@ -246,8 +246,8 @@ class TestIdempotency:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -285,8 +285,8 @@ class TestIdempotency:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -326,8 +326,8 @@ class TestIdempotency:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -357,8 +357,8 @@ class TestIdempotency:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -393,8 +393,8 @@ class TestIdempotency:
             request_id=request_id_1,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -407,8 +407,8 @@ class TestIdempotency:
             request_id=request_id_2,
             correlation_id=sample_correlation_id,
             pattern_id=pattern_id_2,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -457,8 +457,8 @@ class TestStatusGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",  # Expected provisional, but pattern is candidate
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,  # Expected provisional, but pattern is candidate
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -495,8 +495,8 @@ class TestStatusGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="deprecated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
             trigger="demote",
             transition_at=sample_transition_at,
         )
@@ -528,8 +528,8 @@ class TestStatusGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -565,8 +565,8 @@ class TestStatusGuard:
             request_id=uuid4(),
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -579,8 +579,8 @@ class TestStatusGuard:
             request_id=uuid4(),  # Different request ID
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",  # Pattern is now "validated"
-            to_status="deprecated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,  # Pattern is now "validated"
+            to_status=EnumPatternLifecycleStatus.DEPRECATED,
             trigger="demote",
             transition_at=sample_transition_at,
         )
@@ -630,8 +630,8 @@ class TestProvisionalGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="candidate",
-            to_status="provisional",  # FORBIDDEN - legacy state
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN - legacy state
             trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
             transition_at=sample_transition_at,
         )
@@ -702,8 +702,8 @@ class TestProvisionalGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="candidate",
-            to_status="provisional",  # FORBIDDEN
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN
             trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
             transition_at=sample_transition_at,
         )
@@ -733,8 +733,8 @@ class TestProvisionalGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",  # FROM provisional is OK
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FROM provisional is OK
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -773,8 +773,8 @@ class TestPatternNotFound:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -808,8 +808,8 @@ class TestPatternNotFound:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -849,8 +849,8 @@ class TestAuditRecords:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -882,8 +882,8 @@ class TestAuditRecords:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             actor="test_actor",
             reason="Test reason",
@@ -936,8 +936,8 @@ class TestKafkaEvents:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
             topic_env_prefix="test",
@@ -975,8 +975,8 @@ class TestKafkaEvents:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
             topic_env_prefix="test",
@@ -1009,8 +1009,8 @@ class TestKafkaEvents:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -1041,8 +1041,8 @@ class TestKafkaEvents:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
             topic_env_prefix="prod",
@@ -1085,8 +1085,8 @@ class TestErrorHandling:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -1125,8 +1125,8 @@ class TestErrorHandling:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
             topic_env_prefix=None,  # But topic_env_prefix is None
@@ -1135,6 +1135,7 @@ class TestErrorHandling:
         # Assert
         assert result.success is False
         assert result.duplicate is False
+        assert result.error_message is not None
         assert "topic_env_prefix" in result.error_message
         assert result.transition_id is None
         # Verify no database operations occurred (fail-fast)
@@ -1247,8 +1248,8 @@ class TestResultModelValidation:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -1259,7 +1260,7 @@ class TestResultModelValidation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            result.success = False  # type: ignore[misc]
+            result.success = False
 
     @pytest.mark.asyncio
     async def test_result_includes_all_status_fields(
@@ -1283,8 +1284,8 @@ class TestResultModelValidation:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
         )
@@ -1330,8 +1331,8 @@ class TestEdgeCases:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="",  # Empty trigger - should be rejected
             transition_at=sample_transition_at,
         )
@@ -1368,8 +1369,8 @@ class TestEdgeCases:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="   ",  # Whitespace-only trigger - should be rejected
             transition_at=sample_transition_at,
         )
@@ -1403,8 +1404,8 @@ class TestEdgeCases:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             reason=long_reason,
             transition_at=sample_transition_at,
@@ -1438,8 +1439,8 @@ class TestEdgeCases:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="validated",
-            to_status="validated",  # Same as from
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,  # Same as from
             trigger="reconfirm",
             transition_at=sample_transition_at,
         )
@@ -1471,8 +1472,8 @@ class TestEdgeCases:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             gate_snapshot=None,  # Explicitly None
             transition_at=sample_transition_at,
@@ -1515,8 +1516,8 @@ class TestEdgeCases:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status="provisional",
-            to_status="validated",
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             gate_snapshot=gate_snapshot,
             transition_at=sample_transition_at,

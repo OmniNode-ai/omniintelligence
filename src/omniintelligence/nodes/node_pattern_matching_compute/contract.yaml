@@ -23,16 +23,45 @@ output_model:
   description: "Output containing matched patterns and confidence scores."
 operations:
   - name: "match_patterns"
-    description: "Match patterns in code"
+    description: "Match patterns in code using keyword overlap or regex algorithms"
     input_fields:
       - code_snippet
+      - patterns
+      - operation
       - project_name
       - context
     output_fields:
       - success
       - patterns_matched
       - pattern_scores
+      - matches
       - metadata
+# Handler Routing (Declarative Pattern)
+# =====================================
+# Compute nodes use a single handler that routes based on operation type.
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "match"
+      handler:
+        function: "handle_pattern_matching_compute"
+        module: "omniintelligence.nodes.node_pattern_matching_compute.handlers"
+        type: "sync"
+    - operation: "similarity"
+      handler:
+        function: "handle_pattern_matching_compute"
+        module: "omniintelligence.nodes.node_pattern_matching_compute.handlers"
+        type: "sync"
+    - operation: "classify"
+      handler:
+        function: "handle_pattern_matching_compute"
+        module: "omniintelligence.nodes.node_pattern_matching_compute.handlers"
+        type: "sync"
+    - operation: "validate"
+      handler:
+        function: "handle_pattern_matching_compute"
+        module: "omniintelligence.nodes.node_pattern_matching_compute.handlers"
+        type: "sync"
 # Metadata Model (for typed metadata in output)
 # =============================================
 # The output model uses ModelPatternMatchingMetadata for type-safe metadata
@@ -43,17 +72,13 @@ metadata_model:
   module: "omniintelligence.nodes.node_pattern_matching_compute.models"
   description: "Typed metadata for pattern matching output (status, message, tracking_url, operation,
     etc.)"
-# Protocol Dependencies (Future)
-# ==============================
-# Status: Backlog - Phase 3 (v0.4.0)
-# When implementing full functionality, a pattern library protocol will be needed.
-# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
+# Protocol Dependencies
+# =====================
+# This is a pure compute node - no protocol dependencies needed.
+# Patterns are passed via the input model (ModelPatternRecord[]) following
+# the compute node purity principle. The orchestrator fetches patterns from
+# storage and passes them to this node.
 dependencies: []
-# Future protocol dependency (uncomment when protocols module exists):
-# - name: "pattern_library"
-#   type: "protocol"
-#   module: "omniintelligence.protocols"
-#   description: "Pattern library for matching"
 # Error Handling Configuration
 # ============================
 error_handling:
@@ -75,9 +100,11 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-18"
+  updated: "2026-02-05"
   tags:
     - "ONEX"
     - "compute"
     - "patterns"
     - "matching"
+    - "keyword_overlap"
+    - "regex_match"

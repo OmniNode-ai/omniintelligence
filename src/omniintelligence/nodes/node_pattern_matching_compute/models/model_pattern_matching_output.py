@@ -15,8 +15,12 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Type alias for pattern matching operations
-PatternMatchingOperation = Literal[
+# Type alias for output matching algorithm types.
+# Note: This differs from input's PatternMatchingOperation ("match", "similarity", "classify", "validate").
+# Input operations describe the USER'S intent (what to do); this type describes the ALGORITHM used (how).
+# In practice, algorithm details are tracked in matches[].algorithm_used (MatchAlgorithm type),
+# making this metadata field optional. Set to None when algorithm is tracked per-match.
+OutputMatchingAlgorithm = Literal[
     "exact_match",
     "fuzzy_match",
     "semantic_match",
@@ -68,9 +72,9 @@ class ModelPatternMatchingMetadata(BaseModel):
         default=None,
         description="URL for tracking stub implementation progress (for stub nodes)",
     )
-    operation: PatternMatchingOperation | None = Field(
+    operation: OutputMatchingAlgorithm | None = Field(
         default=None,
-        description="The pattern matching operation that was performed",
+        description="The matching algorithm used (None when tracked per-match in matches[])",
     )
 
     # Processing info
@@ -140,10 +144,66 @@ class ModelPatternMatchingMetadata(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
+# Algorithm types for match detail.
+# Note: "semantic" is reserved for future implementation when embedding-based
+# similarity matching is added. Currently only "keyword_overlap" and "regex_match"
+# are actively used by the handler. The type includes "semantic" to support
+# forward compatibility in output models.
+MatchAlgorithm = Literal["keyword_overlap", "regex_match", "semantic"]
+
+
+class ModelPatternMatch(BaseModel):
+    """Detailed information about a single pattern match.
+
+    Provides rich context about why a pattern matched and with what
+    confidence. Used for downstream processing that needs more than
+    just pattern names and scores.
+
+    Attributes:
+        pattern_id: Unique identifier of the matched pattern.
+        pattern_name: Human-readable pattern name or signature excerpt.
+        confidence: Match confidence score (0.0-1.0).
+        category: Pattern category (e.g., "design_pattern", "anti_pattern").
+        match_reason: Explanation of why this pattern matched.
+        algorithm_used: Which matching algorithm produced this result.
+    """
+
+    pattern_id: str = Field(
+        ...,
+        description="Unique identifier of the matched pattern",
+    )
+    pattern_name: str = Field(
+        ...,
+        description="Human-readable pattern name or signature excerpt",
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Match confidence score (0.0-1.0)",
+    )
+    category: str = Field(
+        default="uncategorized",
+        description="Pattern category (e.g., 'design_pattern', 'anti_pattern')",
+    )
+    match_reason: str = Field(
+        default="",
+        description="Explanation of why this pattern matched",
+    )
+    algorithm_used: MatchAlgorithm = Field(
+        default="keyword_overlap",
+        description="Which matching algorithm produced this result",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
 class ModelPatternMatchingOutput(BaseModel):
     """Output model for pattern matching operations.
 
     This model represents the result of matching code patterns.
+    Includes both simple (patterns_matched, pattern_scores) and
+    rich (matches) representations for flexibility.
     """
 
     success: bool = Field(
@@ -152,11 +212,15 @@ class ModelPatternMatchingOutput(BaseModel):
     )
     patterns_matched: list[str] = Field(
         default_factory=list,
-        description="List of matched pattern names",
+        description="List of matched pattern names (simple representation)",
     )
     pattern_scores: dict[str, float] = Field(
         default_factory=dict,
         description="Confidence scores for each matched pattern (0.0 to 1.0)",
+    )
+    matches: list[ModelPatternMatch] = Field(
+        default_factory=list,
+        description="Rich match details including reasons and algorithms",
     )
     metadata: ModelPatternMatchingMetadata | None = Field(
         default=None,
@@ -166,7 +230,13 @@ class ModelPatternMatchingOutput(BaseModel):
     @field_validator("pattern_scores")
     @classmethod
     def validate_pattern_scores(cls, v: dict[str, float]) -> dict[str, float]:
-        """Validate that all pattern scores are within 0.0 to 1.0 range."""
+        """Validate that all pattern scores are within 0.0 to 1.0 range.
+
+        Note: This validator is necessary because Pydantic's Field(ge=0.0, le=1.0)
+        constraints only apply to the dict type itself, not to dictionary VALUES.
+        The `dict[str, float]` annotation provides no bounds on the float values,
+        so explicit validation is required to enforce the 0.0-1.0 range.
+        """
         for pattern_name, score in v.items():
             if not 0.0 <= score <= 1.0:
                 raise ValueError(
@@ -208,8 +278,9 @@ class ModelPatternMatchingOutput(BaseModel):
 
 
 __all__ = [
-    "UUID_PATTERN",
+    "MatchAlgorithm",
+    "ModelPatternMatch",
     "ModelPatternMatchingMetadata",
     "ModelPatternMatchingOutput",
-    "PatternMatchingOperation",
+    "OutputMatchingAlgorithm",
 ]

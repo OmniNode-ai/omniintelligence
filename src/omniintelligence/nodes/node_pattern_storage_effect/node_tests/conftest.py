@@ -12,7 +12,7 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
@@ -61,7 +61,7 @@ __all__ = [
 
 
 def create_valid_input(
-    **kwargs,
+    **kwargs: Any,
 ) -> ModelPatternStorageInput:
     """Create a valid ModelPatternStorageInput for testing.
 
@@ -83,8 +83,8 @@ def create_valid_input(
 
 def create_low_confidence_input(
     confidence: float = 0.3,
-    **kwargs,
-) -> dict:
+    **kwargs: Any,
+) -> dict[str, Any]:
     """Create input dict with low confidence for validation bypass testing.
 
     This is an alias for create_low_confidence_input_dict.
