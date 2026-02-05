@@ -1,71 +1,73 @@
-# STUB: This node is a stub implementation. Full functionality is not yet available.
-# Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/9
-# Status: Interface defined, implementation pending
-"""Pattern Assembler Orchestrator - STUB orchestrator for pattern assembly."""
+"""Pattern Assembler Orchestrator Node.
+
+Thin shell orchestrator node for assembling patterns from components.
+All logic is delegated to the handler function following ONEX declarative pattern.
+
+Workflow (4 steps):
+1. Parse traces (execution_trace_parser_compute)
+2. Classify intent (node_intent_classifier_compute)
+3. Match criteria (success_criteria_matcher_compute)
+4. Assemble pattern (internal)
+"""
 
 from __future__ import annotations
 
-import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
+
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers import (
+    handle_pattern_assembly_orchestrate,
+)
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
+    ModelPatternAssemblyInput,
+    ModelPatternAssemblyOutput,
+)
 
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
-# Issue tracking URL for this stub implementation
-_STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/9"
-
 
 class NodePatternAssemblerOrchestrator(NodeOrchestrator):
-    """STUB: Orchestrator node for assembling patterns from components.
+    """Orchestrator node for assembling patterns from components.
 
-    Attributes:
-        is_stub: Class attribute indicating this is a stub implementation.
+    This node coordinates the 4-phase pattern assembly workflow:
+    1. Parse execution traces for structured events
+    2. Classify user intent from content
+    3. Match results against success criteria
+    4. Assemble final pattern from component results
 
-    WARNING: This is a stub implementation that does not provide full functionality.
-    The node is included for forward compatibility and interface definition.
-
-    Expected functionality when implemented:
-        - Coordinate pattern extraction from multiple sources
-        - Assemble composite patterns from atomic patterns
-        - Route to appropriate compute and effect nodes
+    The node is a thin shell following the ONEX declarative pattern.
+    All orchestration logic is delegated to the handler function.
     """
 
-    is_stub: ClassVar[bool] = True
-
     def __init__(self, container: ModelONEXContainer) -> None:
-        warnings.warn(
-            f"NodePatternAssemblerOrchestrator is a stub implementation and does not "
-            f"provide full functionality. The node accepts inputs but performs no actual "
-            f"pattern assembly. See {_STUB_TRACKING_URL} for implementation progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
-        super().__init__(container)
-
-    async def orchestrate(self, _input_data: dict[str, Any]) -> dict[str, Any]:
-        """Orchestrate pattern assembly (STUB - returns empty result).
+        """Initialize the orchestrator node.
 
         Args:
-            _input_data: Input data for pattern assembly (unused in stub).
+            container: ONEX container with node configuration.
+        """
+        super().__init__(container)
+
+    async def orchestrate(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Orchestrate pattern assembly by delegating to handler function.
+
+        Args:
+            input_data: Input dictionary to parse into ModelPatternAssemblyInput.
 
         Returns:
-            Empty result dictionary indicating stub status.
+            Output dictionary from ModelPatternAssemblyOutput.
         """
-        warnings.warn(
-            f"NodePatternAssemblerOrchestrator.orchestrate() is a stub that returns "
-            f"empty results. No actual pattern assembly is performed. "
-            f"See {_STUB_TRACKING_URL} for progress.",
-            category=RuntimeWarning,
-            stacklevel=2,
+        # Parse input into typed model
+        typed_input = ModelPatternAssemblyInput(**input_data)
+
+        # Delegate to handler
+        result: ModelPatternAssemblyOutput = await handle_pattern_assembly_orchestrate(
+            typed_input
         )
-        return {
-            "status": "stub",
-            "message": "NodePatternAssemblerOrchestrator is not yet implemented",
-            "assembled_patterns": [],
-            "tracking_url": _STUB_TRACKING_URL,
-        }
+
+        # Return as dictionary
+        return result.model_dump()
 
 
 __all__ = ["NodePatternAssemblerOrchestrator"]

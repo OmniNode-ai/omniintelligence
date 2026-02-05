@@ -7,6 +7,8 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.models.model_pat
     AssemblyParametersDict,
     ModelPatternAssemblyInput,
     RawAssemblyDataDict,
+    SuccessCriterionDict,
+    TraceDataDict,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.models.model_pattern_assembly_output import (
     AssembledPatternOutputDict,
@@ -24,4 +26,6 @@ __all__ = [
     "ModelPatternAssemblyInput",
     "ModelPatternAssemblyOutput",
     "RawAssemblyDataDict",
+    "SuccessCriterionDict",
+    "TraceDataDict",
 ]
