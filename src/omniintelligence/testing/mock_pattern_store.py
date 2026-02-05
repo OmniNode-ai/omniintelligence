@@ -102,7 +102,7 @@ class MockPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> UUID:
         """Store a pattern in the mock database.
 
@@ -154,7 +154,7 @@ class MockPatternStore:
         domain: str,
         signature_hash: str,
         version: int,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> bool:
         """Check if a pattern exists for the given lineage and version.
 
@@ -180,7 +180,7 @@ class MockPatternStore:
         self,
         pattern_id: UUID,
         signature_hash: str,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key.
 
@@ -198,7 +198,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> int:
         """Set is_current = false for all previous versions.
 
@@ -225,7 +225,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
@@ -242,7 +242,7 @@ class MockPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -372,7 +372,7 @@ class MockPatternStateManager:
         self.transitions: list[ModelStateTransition] = []
 
     async def get_current_state(
-        self, pattern_id: UUID, _conn: Any = None
+        self, pattern_id: UUID, conn: Any = None  # noqa: ARG002
     ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
@@ -389,7 +389,7 @@ class MockPatternStateManager:
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
-        _conn: Any = None,
+        conn: Any = None,  # noqa: ARG002
     ) -> None:
         """Update the state of a pattern.
 
@@ -401,7 +401,7 @@ class MockPatternStateManager:
         self.states[pattern_id] = new_state
 
     async def record_transition(
-        self, transition: ModelStateTransition, _conn: Any = None
+        self, transition: ModelStateTransition, conn: Any = None  # noqa: ARG002
     ) -> None:
         """Record a state transition in the audit table.
 

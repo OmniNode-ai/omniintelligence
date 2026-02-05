@@ -42,7 +42,6 @@ class TestPromotionIntegration:
         self,
         db_conn: asyncpg.Connection,
         test_pattern_ids: list[UUID],
-        mock_kafka_publisher: MockKafkaPublisher,
         sample_correlation_id: UUID,
     ) -> None:
         """Eligible patterns are promoted to validated status in real DB.
@@ -52,11 +51,13 @@ class TestPromotionIntegration:
             - Pattern 1: Eligible (60% success, 5 injections, 2 streak)
             - Pattern 2: Ineligible (low injection count)
             - Pattern 3: Ineligible (high failure streak)
+
+        Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
-        # Act
+        # Act - fallback mode directly updates database
         result = await check_and_promote_patterns(
             repository=db_conn,
-            producer=mock_kafka_publisher,
+            producer=None,
             dry_run=False,
             correlation_id=sample_correlation_id,
         )
@@ -85,14 +86,6 @@ class TestPromotionIntegration:
             assert row is not None
             assert row["status"] == "provisional", f"Pattern {i} should remain provisional"
 
-        # Verify Kafka events were emitted for promoted patterns
-        assert len(mock_kafka_publisher.published_events) == 2
-        for topic, key, value in mock_kafka_publisher.published_events:
-            assert "pattern-promoted" in topic
-            assert value["event_type"] == "PatternPromoted"
-            assert value["from_status"] == "provisional"
-            assert value["to_status"] == "validated"
-
     async def test_dry_run_does_not_mutate_database(
         self,
         db_conn: asyncpg.Connection,
@@ -114,6 +107,7 @@ class TestPromotionIntegration:
             repository=db_conn,
             producer=mock_kafka_publisher,
             dry_run=True,
+            topic_env_prefix="test",
         )
 
         # Assert: Results show what would happen
@@ -187,6 +181,7 @@ class TestPromotionIntegration:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # Assert: Our validated pattern should not appear in promoted list
@@ -226,6 +221,7 @@ class TestPromotionIntegration:
             min_injection_count=10,
             min_success_rate=0.75,
             max_failure_streak=3,
+            topic_env_prefix="test",
         )
 
         # Assert: Only 1 pattern meets the stricter criteria
@@ -287,6 +283,7 @@ class TestPromotionIntegration:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # Assert: Pattern was processed safely
@@ -315,12 +312,13 @@ class TestPromotionEdgeCases:
     async def test_concurrent_promotion_is_idempotent(
         self,
         db_conn: asyncpg.Connection,
-        mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
         """A pattern that's promoted concurrently doesn't cause errors.
 
         If a pattern is already validated when the UPDATE runs,
         the affected row count is 0 and no event is emitted.
+
+        Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
         from datetime import UTC, datetime
         from uuid import uuid4
@@ -354,14 +352,12 @@ class TestPromotionEdgeCases:
         )
 
         try:
-            # First promotion should succeed
+            # First promotion should succeed (fallback mode)
             result1 = await check_and_promote_patterns(
                 repository=db_conn,
-                producer=mock_kafka_publisher,
+                producer=None,
                 dry_run=False,
             )
-
-            events_after_first = len(mock_kafka_publisher.published_events)
 
             # Verify pattern was promoted
             row = await db_conn.fetchrow(
@@ -376,10 +372,10 @@ class TestPromotionEdgeCases:
                 pattern_id,
             )
 
-            # Second promotion should also work
+            # Second promotion should also work (fallback mode)
             result2 = await check_and_promote_patterns(
                 repository=db_conn,
-                producer=mock_kafka_publisher,
+                producer=None,
                 dry_run=False,
             )
 
@@ -441,6 +437,7 @@ class TestPromotionEdgeCases:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # Pattern should be checked but not promoted
@@ -546,6 +543,7 @@ class TestPromotionGate4DisabledPatterns:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # Assert: Disabled pattern should NOT appear in eligible or promoted lists
@@ -578,12 +576,13 @@ class TestPromotionGate4DisabledPatterns:
     async def test_reenabled_pattern_can_be_promoted(
         self,
         db_conn: asyncpg.Connection,
-        mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
         """Patterns that were disabled but re-enabled can be promoted.
 
         When a pattern has both disable and re_enable events, the latest
         event determines state. A re-enabled pattern should be eligible.
+
+        Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
         from datetime import UTC, datetime, timedelta
         from uuid import uuid4
@@ -666,10 +665,10 @@ class TestPromotionGate4DisabledPatterns:
                 "Re-enabled pattern should NOT be in disabled_patterns_current"
             )
 
-            # Act: Run promotion check
+            # Act: Run promotion check (fallback mode)
             result = await check_and_promote_patterns(
                 repository=db_conn,
-                producer=mock_kafka_publisher,
+                producer=None,
                 dry_run=False,
             )
 
@@ -710,12 +709,13 @@ class TestPromotionLargeBatch:
     async def test_large_batch_promotion_completes(
         self,
         db_conn: asyncpg.Connection,
-        mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
         """Promotion of 100+ patterns completes without timeout.
 
         This test verifies batch processing performance and correctness
         with a realistic number of patterns.
+
+        Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
         from datetime import UTC, datetime
         from uuid import uuid4
@@ -758,10 +758,10 @@ class TestPromotionLargeBatch:
             # Measure execution time
             start_time = time.monotonic()
 
-            # Act: Promote all patterns
+            # Act: Promote all patterns (fallback mode)
             result = await check_and_promote_patterns(
                 repository=db_conn,
-                producer=mock_kafka_publisher,
+                producer=None,
                 dry_run=False,
             )
 
@@ -794,11 +794,6 @@ class TestPromotionLargeBatch:
             )
             assert validated_count == batch_size, (
                 f"Expected {batch_size} validated patterns in DB, got {validated_count}"
-            )
-
-            # Verify Kafka events count
-            assert len(mock_kafka_publisher.published_events) == batch_size, (
-                f"Expected {batch_size} Kafka events, got {len(mock_kafka_publisher.published_events)}"
             )
 
             # Performance assertion: should complete in reasonable time
@@ -869,6 +864,7 @@ class TestPromotionLargeBatch:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # Assert: Correct filtering
@@ -952,6 +948,7 @@ class TestPromotionMetricsAccuracy:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # Find our pattern in results
@@ -1027,6 +1024,7 @@ class TestPromotionMetricsAccuracy:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=True,  # Use dry run to avoid mutation
+                topic_env_prefix="test",
             )
 
             our_promotion = next(
@@ -1110,6 +1108,7 @@ class TestPromotionZeroToleranceMode:
                 producer=mock_kafka_publisher,
                 dry_run=True,
                 max_failure_streak=1,  # 1 means streak >= 1 blocks, so only 0 passes
+                topic_env_prefix="test",
             )
 
             promoted_ids = {p.pattern_id for p in result.patterns_promoted}
@@ -1201,6 +1200,7 @@ class TestPromotionZeroToleranceMode:
                 producer=mock_kafka_publisher,
                 dry_run=True,
                 max_failure_streak=1,  # Strict mode
+                topic_env_prefix="test",
             )
 
             promoted_ids = {p.pattern_id for p in result.patterns_promoted}
@@ -1270,6 +1270,7 @@ class TestPromotionPartialFailure:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
+                topic_env_prefix="test",
             )
 
             # All 5 should be processed
@@ -1291,11 +1292,12 @@ class TestPromotionPartialFailure:
     async def test_promoted_patterns_persist_after_later_failure(
         self,
         db_conn: asyncpg.Connection,
-        mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
         """Patterns promoted before a failure remain promoted.
 
         Per-pattern transaction model: each promotion is independent.
+
+        Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
         from datetime import UTC, datetime
         from uuid import uuid4
@@ -1330,10 +1332,10 @@ class TestPromotionPartialFailure:
             )
 
         try:
-            # Promote first pattern
+            # Promote first pattern (fallback mode)
             result1 = await check_and_promote_patterns(
                 repository=db_conn,
-                producer=mock_kafka_publisher,
+                producer=None,
                 dry_run=False,
             )
 
@@ -1352,7 +1354,7 @@ class TestPromotionPartialFailure:
             # Run promotion again (no changes expected - already validated)
             result2 = await check_and_promote_patterns(
                 repository=db_conn,
-                producer=mock_kafka_publisher,
+                producer=None,
                 dry_run=False,
             )
 
@@ -1422,6 +1424,7 @@ class TestPromotionKafkaEvents:
                 producer=mock_kafka_publisher,
                 dry_run=False,
                 correlation_id=sample_correlation_id,
+                topic_env_prefix="test",
             )
 
             # Verify event was published
@@ -1436,15 +1439,16 @@ class TestPromotionKafkaEvents:
 
             assert our_event is not None, "Event for our pattern should be published"
 
-            # Verify required schema fields
-            assert our_event["event_type"] == "PatternPromoted"
+            # Verify required schema fields for ModelPatternLifecycleEvent
+            assert our_event["event_type"] == "PatternLifecycleEvent"
             assert our_event["pattern_id"] == str(pattern_id)
-            assert "pattern_signature" in our_event
             assert our_event["from_status"] == "provisional"
             assert our_event["to_status"] == "validated"
-            assert "success_rate_rolling_20" in our_event
-            assert 0.0 <= our_event["success_rate_rolling_20"] <= 1.0
-            assert "promoted_at" in our_event
+            assert our_event["trigger"] == "promote"
+            assert "gate_snapshot" in our_event
+            assert "success_rate_rolling_20" in our_event["gate_snapshot"]
+            assert 0.0 <= our_event["gate_snapshot"]["success_rate_rolling_20"] <= 1.0
+            assert "occurred_at" in our_event
             assert our_event["correlation_id"] == str(sample_correlation_id)
 
         finally:
@@ -1498,6 +1502,7 @@ class TestPromotionKafkaEvents:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=True,  # DRY RUN
+                topic_env_prefix="test",
             )
 
             # Pattern should be eligible
@@ -1566,7 +1571,7 @@ class TestPromotionKafkaEvents:
             assert topic.startswith("staging."), (
                 f"Topic should start with 'staging.', got: {topic}"
             )
-            assert "pattern-promoted" in topic
+            assert "pattern-lifecycle" in topic
 
         finally:
             await db_conn.execute(

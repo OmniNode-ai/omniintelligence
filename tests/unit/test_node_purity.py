@@ -72,6 +72,16 @@ ALLOWED_TOP_LEVEL_TYPES = frozenset(
 # Methods allowed in pure node classes
 ALLOWED_METHODS = frozenset({"__init__"})
 
+# Interface methods allowed per base class type
+# These are the required interface methods that nodes must implement
+# to delegate to their handlers (like compute, execute, process)
+INTERFACE_METHODS_BY_BASE: dict[str, str] = {
+    "NodeCompute": "compute",
+    "NodeEffect": "execute",
+    "NodeReducer": "process",
+    "NodeOrchestrator": "orchestrate",
+}
+
 # Allowed module-level variable names (besides __all__ and _private)
 ALLOWED_MODULE_VARS = frozenset({"logger", "LOGGER", "log", "LOG"})
 
@@ -275,10 +285,17 @@ class PurityVisitor(ast.NodeVisitor):
 
     def _check_class_purity(self, node: ast.ClassDef) -> None:
         """Check that a node class is a pure shell."""
+        # Determine which interface method is allowed for this base class
+        interface_method = INTERFACE_METHODS_BY_BASE.get(self.base_class or "", "")
+
         for item in node.body:
             if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
                 method_name = item.name
-                if method_name not in ALLOWED_METHODS:
+                # Allow __init__, and the interface method for this base class type
+                is_allowed = (
+                    method_name in ALLOWED_METHODS or method_name == interface_method
+                )
+                if not is_allowed:
                     self._add_violation(
                         EnumPurityViolation.FORBIDDEN_METHOD,
                         f"Forbidden method '{method_name}' in pure node class",
@@ -846,13 +863,47 @@ class NodeTest(NodeCompute):
         assert result.is_stub
         assert result.is_pure  # Stubs pass purity (they're skipped)
 
-    def test_non_stub_with_methods_fails(self, tmp_path: Path) -> None:
-        """Non-stub with methods should fail."""
-        code = '''"""Non-stub node with method."""
+    def test_non_stub_with_forbidden_methods_fails(self, tmp_path: Path) -> None:
+        """Non-stub with non-interface methods should fail.
+
+        Interface methods (compute, execute, process) are allowed for their
+        respective base classes. But arbitrary business logic methods should
+        still fail purity checks.
+        """
+        code = '''"""Non-stub node with forbidden method."""
 from omnibase_core.nodes.node_compute import NodeCompute
 
 class NodeTest(NodeCompute):
     """Test."""
+    def compute(self, data):
+        return data
+
+    def _handle_business_logic(self, data):
+        # This method should NOT be in a node - it belongs in a handler
+        return data.upper()
+'''
+        file_path = tmp_path / "node.py"
+        file_path.write_text(code)
+        result = check_node_purity(file_path)
+        assert not result.is_stub
+        assert not result.is_pure
+        # Should have exactly one violation for the forbidden method
+        assert len(result.violations) == 1
+        assert result.violations[0].rule == EnumPurityViolation.FORBIDDEN_METHOD
+        assert "_handle_business_logic" in result.violations[0].message
+
+    def test_interface_method_is_allowed(self, tmp_path: Path) -> None:
+        """Interface methods should be allowed for their respective base classes.
+
+        - NodeCompute can have compute()
+        - NodeEffect can have execute()
+        - NodeReducer can have process()
+        """
+        code = '''"""Node with allowed interface method."""
+from omnibase_core.nodes.node_compute import NodeCompute
+
+class NodeTest(NodeCompute):
+    """Test node with compute method - this should be pure."""
     def compute(self, data):
         return data
 '''
@@ -860,7 +911,7 @@ class NodeTest(NodeCompute):
         file_path.write_text(code)
         result = check_node_purity(file_path)
         assert not result.is_stub
-        assert not result.is_pure
+        assert result.is_pure, f"Node with interface method should be pure, violations: {result.violations}"
 
 
 # =========================================================================
@@ -936,25 +987,28 @@ class TestRealNodeFiles:
         """
         # Nodes exempt from purity checks due to architectural patterns that
         # don't fit the thin shell model. These are IMPLEMENTED nodes (not stubs)
-        # that have legitimate interface methods (compute/execute) required by
-        # their base classes. Different from stub nodes which are UNIMPLEMENTED.
+        # that have legitimate interface methods (compute/execute/process) required
+        # by their base classes. Different from stub nodes which are UNIMPLEMENTED.
         #
         # The purity checker only allows __init__, but NodeCompute requires
-        # compute() and NodeEffect requires execute(). These exemptions are for
-        # nodes that properly delegate to handlers but still need their interface
-        # methods defined.
+        # compute(), NodeEffect requires execute(), and NodeReducer requires
+        # process(). These exemptions are for nodes that properly delegate to
+        # handlers but still need their interface methods defined.
         purity_exempt_nodes = {
             # Effect nodes with execute() and registry patterns
             "node_pattern_storage_effect",
             "node_pattern_demotion_effect",
             "node_pattern_feedback_effect",
             "node_pattern_promotion_effect",
+            "node_pattern_lifecycle_effect",
             "node_claude_hook_event_effect",
             # Compute nodes with compute() delegation
             "node_quality_scoring_compute",
             "node_semantic_analysis_compute",
             "node_intent_classifier_compute",
             "node_pattern_extraction_compute",
+            # Reducer nodes with process() delegation
+            "node_intelligence_reducer",
         }
 
         results = check_all_nodes(nodes_directory)
