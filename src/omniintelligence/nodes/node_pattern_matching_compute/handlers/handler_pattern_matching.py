@@ -33,9 +33,13 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Final, Literal
+
+# Module logger for debug/error tracking
+logger = logging.getLogger(__name__)
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions import (
     PatternMatchingValidationError,
@@ -111,9 +115,13 @@ def match_patterns(
     for pattern in filtered_patterns:
         try:
             confidence = algorithm(code_snippet, pattern, language)
-        except Exception as e:
+        except Exception:
             # Individual pattern failures don't fail the entire operation
-            # Log and skip (in production, this would be logged)
+            logger.debug(
+                "Pattern matching failed for pattern_id=%s, skipping",
+                pattern.get("pattern_id", "<unknown>"),
+                exc_info=True,
+            )
             continue
 
         if confidence >= min_confidence:
@@ -187,7 +195,7 @@ def _filter_by_category(
 
 def _get_algorithm_for_operation(
     operation: PatternOperation,
-) -> tuple[callable, Literal["keyword_overlap", "regex_match", "semantic"]]:
+) -> tuple[Callable[[str, PatternRecord, str | None], float], Literal["keyword_overlap", "regex_match", "semantic"]]:
     """Get the appropriate matching algorithm for an operation.
 
     Args:

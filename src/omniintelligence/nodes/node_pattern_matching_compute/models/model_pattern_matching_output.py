@@ -15,7 +15,11 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Type alias for pattern matching operations
+# Type alias for pattern matching algorithm types (output context)
+# Note: This differs from input operations ("match", "similarity", "classify", "validate").
+# Input operations describe the USER'S intent; output operations describe the ALGORITHM used.
+# In practice, algorithm details are now in matches[].algorithm_used (MatchAlgorithm type),
+# making this field optional in metadata. Set to None when algorithm is tracked per-match.
 PatternMatchingOperation = Literal[
     "exact_match",
     "fuzzy_match",
