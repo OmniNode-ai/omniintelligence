@@ -8,6 +8,7 @@ This script applies SQL migrations in order to set up the database schema.
 import asyncio
 import sys
 from pathlib import Path
+
 import asyncpg
 
 

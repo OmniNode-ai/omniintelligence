@@ -597,7 +597,7 @@ def validate_alignment(verbose: bool = False) -> ValidationResult:
     precommit_full_codebase = _check_precommit_full_codebase_mode(precommit_config)
 
     if verbose:
-        print(f"\nFull codebase mode:")
+        print("\nFull codebase mode:")
         print(f"  CI: {ci_full_codebase}")
         print(f"  Pre-commit: {precommit_full_codebase}")
 

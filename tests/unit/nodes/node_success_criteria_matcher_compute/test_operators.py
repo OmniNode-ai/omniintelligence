@@ -22,7 +22,6 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers impor
     apply_operator,
 )
 
-
 # =============================================================================
 # EQUALS Operator Tests
 # =============================================================================

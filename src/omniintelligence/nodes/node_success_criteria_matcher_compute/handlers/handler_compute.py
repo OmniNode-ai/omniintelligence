@@ -54,7 +54,6 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_s
     ModelSuccessCriteriaOutput,
 )
 
-
 # Module logger for exception tracking
 logger = logging.getLogger(__name__)
 

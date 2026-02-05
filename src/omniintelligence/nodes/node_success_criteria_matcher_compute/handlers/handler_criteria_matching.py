@@ -56,7 +56,6 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_s
     SuccessCriterionDict,
 )
 
-
 # =============================================================================
 # Constants
 # =============================================================================
