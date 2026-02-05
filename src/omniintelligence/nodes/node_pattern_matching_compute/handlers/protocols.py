@@ -123,35 +123,10 @@ def create_empty_handler_result(
     )
 
 
-def create_error_handler_result(
-    threshold: float = 0.5,
-) -> PatternMatchingHandlerResult:
-    """Create a result for error cases.
-
-    Used when matching fails due to validation or compute errors.
-
-    Args:
-        threshold: The threshold that was configured.
-
-    Returns:
-        Error result structure with success=False.
-    """
-    return PatternMatchingHandlerResult(
-        success=False,
-        matches=[],
-        patterns_analyzed=0,
-        patterns_matched=0,
-        patterns_filtered=0,
-        threshold_used=threshold,
-        algorithm_version=ALGORITHM_VERSION,
-    )
-
-
 __all__ = [
     "ALGORITHM_VERSION",
     "PatternMatchDetail",
     "PatternMatchingHandlerResult",
     "PatternRecord",
     "create_empty_handler_result",
-    "create_error_handler_result",
 ]

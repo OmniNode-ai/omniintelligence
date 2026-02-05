@@ -61,7 +61,6 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols imp
     PatternMatchingHandlerResult,
     PatternRecord,
     create_empty_handler_result,
-    create_error_handler_result,
 )
 
 __all__ = [
@@ -73,7 +72,6 @@ __all__ = [
     "PatternOperation",
     "PatternRecord",
     "create_empty_handler_result",
-    "create_error_handler_result",
     "handle_pattern_matching_compute",
     "match_patterns",
 ]
