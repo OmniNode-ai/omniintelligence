@@ -27,24 +27,30 @@ class PatternRecord(TypedDict, total=False):
     matching. Patterns are provided by the caller (typically an orchestrator
     that fetches from pattern_storage).
 
-    Required Attributes:
+    Note on total=False: All fields are technically optional at the type level
+    to allow flexible construction from external data sources (databases, APIs).
+    Code that consumes PatternRecord uses .get() with defaults throughout,
+    so missing fields are handled gracefully at runtime.
+
+    Core Attributes (expected to be present in well-formed records):
         pattern_id: Unique identifier for the pattern.
         signature: The pattern signature (text/regex/structure).
         domain: Domain where the pattern belongs.
 
-    Optional Attributes:
+    Enhancement Attributes (may be absent):
         keywords: Extracted keywords for keyword-based matching.
         status: Pattern lifecycle status (validated, provisional, etc.).
         confidence: Original pattern confidence score.
         category: Pattern category for filtering.
     """
 
-    # Required fields (total=False allows gradual population)
+    # Core fields - typically present but total=False allows flexibility
+    # for records from external sources that may have partial data
     pattern_id: str
     signature: str
     domain: str
 
-    # Optional fields for enhanced matching
+    # Enhancement fields - used when available
     keywords: list[str]
     status: str
     confidence: float
@@ -74,13 +80,17 @@ class PatternMatchDetail(TypedDict):
     algorithm_used: Literal["keyword_overlap", "regex_match", "semantic"]
 
 
-class PatternMatchingHandlerResult(TypedDict):
+class PatternMatchingHandlerResult(TypedDict, total=False):
     """Result structure for pattern matching handler.
 
     This TypedDict defines the guaranteed structure returned by
     the match_patterns function.
 
-    Attributes:
+    Note on total=False: Used because error and error_code fields are only
+    present when success=False. The core fields below are always populated
+    by the factory functions (create_empty_handler_result, create_error_handler_result).
+
+    Core Attributes (always present in practice):
         success: Whether the matching completed without errors.
         matches: List of detailed match results.
         patterns_analyzed: Total number of patterns checked.
@@ -88,8 +98,13 @@ class PatternMatchingHandlerResult(TypedDict):
         patterns_filtered: Number of patterns filtered out.
         threshold_used: Confidence threshold applied.
         algorithm_version: Version of the matching algorithm.
+
+    Error Attributes (only present when success=False):
+        error: Human-readable error message.
+        error_code: Machine-readable error code (e.g., PATMATCH_001).
     """
 
+    # Core fields - always populated by factory functions
     success: bool
     matches: list[PatternMatchDetail]
     patterns_analyzed: int
@@ -97,6 +112,10 @@ class PatternMatchingHandlerResult(TypedDict):
     patterns_filtered: int
     threshold_used: float
     algorithm_version: str
+
+    # Error fields - only present when success=False
+    error: str
+    error_code: str
 
 
 def create_empty_handler_result(
@@ -123,10 +142,42 @@ def create_empty_handler_result(
     )
 
 
+def create_error_handler_result(
+    error_message: str,
+    error_code: str,
+    threshold: float = 0.5,
+) -> PatternMatchingHandlerResult:
+    """Create an error result for validation or processing failures.
+
+    Used when input validation fails or an unrecoverable error occurs.
+    Per ONEX patterns, handlers return structured errors instead of raising.
+
+    Args:
+        error_message: Human-readable error description.
+        error_code: Machine-readable error code (e.g., PATMATCH_001).
+        threshold: The threshold that was requested.
+
+    Returns:
+        Error result structure with success=False.
+    """
+    return PatternMatchingHandlerResult(
+        success=False,
+        matches=[],
+        patterns_analyzed=0,
+        patterns_matched=0,
+        patterns_filtered=0,
+        threshold_used=threshold,
+        algorithm_version=ALGORITHM_VERSION,
+        error=error_message,
+        error_code=error_code,
+    )
+
+
 __all__ = [
     "ALGORITHM_VERSION",
     "PatternMatchDetail",
     "PatternMatchingHandlerResult",
     "PatternRecord",
     "create_empty_handler_result",
+    "create_error_handler_result",
 ]

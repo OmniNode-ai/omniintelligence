@@ -36,10 +36,85 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Literal
 
 # Module logger for debug/error tracking
 logger = logging.getLogger(__name__)
+
+# Regex execution timeout in seconds (prevents ReDoS attacks)
+_REGEX_TIMEOUT_SECONDS: float = 2.0
+
+# Thread pool for timeout-protected regex execution
+# Lazy initialization to avoid creating threads if never used
+_regex_executor: ThreadPoolExecutor | None = None
+
+
+def _get_regex_executor() -> ThreadPoolExecutor:
+    """Get or create the regex thread pool executor.
+
+    Uses lazy initialization to avoid creating threads until needed.
+
+    Returns:
+        Shared ThreadPoolExecutor for regex operations.
+    """
+    global _regex_executor
+    if _regex_executor is None:
+        # Single worker thread is sufficient since regex is CPU-bound
+        # and we don't need parallel regex execution
+        _regex_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="regex_")
+    return _regex_executor
+
+
+def _timeout_protected_regex_search(
+    pattern: str,
+    text: str,
+    flags: int = 0,
+    timeout: float = _REGEX_TIMEOUT_SECONDS,
+    correlation_id: str | None = None,
+) -> bool:
+    """Execute regex search with timeout protection against ReDoS.
+
+    Pattern signatures from external sources could contain malicious regex
+    patterns designed to cause exponential backtracking (ReDoS attacks).
+    This function wraps regex execution in a timeout to prevent denial of service.
+
+    Args:
+        pattern: The regex pattern to search for.
+        text: The text to search in.
+        flags: Regex flags (e.g., re.MULTILINE | re.DOTALL).
+        timeout: Maximum execution time in seconds.
+        correlation_id: Optional correlation ID for tracing.
+
+    Returns:
+        True if the pattern matches, False otherwise (including timeout/errors).
+    """
+    executor = _get_regex_executor()
+
+    def do_search() -> bool:
+        return re.search(pattern, text, flags) is not None
+
+    try:
+        future = executor.submit(do_search)
+        return future.result(timeout=timeout)
+    except FuturesTimeoutError:
+        logger.warning(
+            "Regex search timed out after %.2f seconds, pattern may be malicious",
+            timeout,
+            extra={"correlation_id": correlation_id},
+        )
+        return False
+    except re.error:
+        # Invalid regex, return False (caller will fall back to substring)
+        return False
+    except Exception:
+        # Unexpected error, log and return False
+        logger.debug(
+            "Unexpected error in regex search",
+            exc_info=True,
+            extra={"correlation_id": correlation_id},
+        )
+        return False
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions import (
     PatternMatchingValidationError,
@@ -50,6 +125,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols imp
     PatternMatchingHandlerResult,
     PatternRecord,
     create_empty_handler_result,
+    create_error_handler_result,
 )
 
 # Supported operations
@@ -90,12 +166,23 @@ def match_patterns(
 
     Returns:
         PatternMatchingHandlerResult with matches sorted by confidence (descending).
-
-    Raises:
-        PatternMatchingValidationError: If input validation fails.
+        On validation errors, returns result with success=False and error details
+        instead of raising exceptions (per ONEX handler pattern).
     """
-    # Validate inputs
-    _validate_inputs(code_snippet, min_confidence, max_results)
+    # Validate inputs - catch validation errors and return structured result
+    try:
+        _validate_inputs(code_snippet, min_confidence, max_results)
+    except PatternMatchingValidationError as e:
+        logger.warning(
+            "Validation failed in match_patterns: %s",
+            str(e),
+            extra={"correlation_id": correlation_id},
+        )
+        return create_error_handler_result(
+            error_message=str(e),
+            error_code="PATMATCH_001",
+            threshold=min_confidence,
+        )
 
     # Handle empty pattern library
     if not patterns:
@@ -115,9 +202,11 @@ def match_patterns(
         try:
             confidence = algorithm(code_snippet, pattern, language)
         except Exception:
-            # Individual pattern failures don't fail the entire operation
-            logger.debug(
-                "Pattern matching failed for pattern_id=%s, skipping",
+            # Individual pattern failures don't fail the entire operation,
+            # but log at WARNING to ensure visibility of potential bugs
+            logger.warning(
+                "Pattern matching failed for pattern_id=%s, skipping. "
+                "This may indicate malformed pattern data or algorithm issues.",
                 pattern.get("pattern_id", "<unknown>"),
                 exc_info=True,
                 extra={"correlation_id": correlation_id},
@@ -199,18 +288,15 @@ def _get_algorithm_for_operation(
     """Get the appropriate matching algorithm for an operation.
 
     Args:
-        operation: The matching operation type.
+        operation: The matching operation type (exhaustive Literal type).
 
     Returns:
         Tuple of (algorithm_function, algorithm_name).
     """
     if operation in ("match", "similarity", "classify"):
         return _keyword_overlap_score, "keyword_overlap"
-    elif operation == "validate":
-        return _regex_match_score, "regex_match"
-    else:
-        # Default to keyword overlap
-        return _keyword_overlap_score, "keyword_overlap"
+    # operation == "validate" - PatternOperation is exhaustive Literal type
+    return _regex_match_score, "regex_match"
 
 
 def _keyword_overlap_score(
@@ -242,14 +328,13 @@ def _keyword_overlap_score(
         pattern_keywords = _extract_keywords(pattern.get("signature", ""))
 
     # Compute Jaccard similarity
+    # Return early if either set is empty (division would be meaningless)
     if not code_keywords or not pattern_keywords:
         return 0.0
 
     intersection = code_keywords & pattern_keywords
     union = code_keywords | pattern_keywords
-
-    if not union:
-        return 0.0
+    # Note: union cannot be empty here since both sets are non-empty (checked above)
 
     return len(intersection) / len(union)
 
@@ -259,11 +344,16 @@ def _regex_match_score(
     pattern: PatternRecord,
     _language: str | None = None,
 ) -> float:
-    """Compute regex/substring match score.
+    """Compute regex/substring match score with ReDoS protection.
 
     Attempts to match the pattern signature against the code:
-    1. First tries as regex
-    2. Falls back to substring match if regex invalid
+    1. First tries as regex with timeout protection (prevents ReDoS attacks)
+    2. Falls back to substring match if regex invalid or times out
+
+    Security Note:
+        Pattern signatures from external sources could contain malicious regex
+        patterns designed to cause exponential backtracking. The timeout-protected
+        regex search prevents denial of service by limiting execution time.
 
     Args:
         code_snippet: The code to analyze.
@@ -277,15 +367,15 @@ def _regex_match_score(
     if not signature:
         return 0.0
 
-    # Try regex match first
-    try:
-        if re.search(signature, code_snippet, re.MULTILINE | re.DOTALL):
-            return 1.0
-    except re.error:
-        # Invalid regex, fall through to substring match
-        pass
+    # Try regex match first with timeout protection against ReDoS
+    if _timeout_protected_regex_search(
+        signature,
+        code_snippet,
+        flags=re.MULTILINE | re.DOTALL,
+    ):
+        return 1.0
 
-    # Try substring match
+    # Regex didn't match (or timed out/errored) - try substring match
     if signature.lower() in code_snippet.lower():
         return 0.8
 

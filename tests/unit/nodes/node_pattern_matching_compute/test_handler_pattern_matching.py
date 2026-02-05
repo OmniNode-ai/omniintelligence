@@ -11,9 +11,6 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
     PatternRecord,
     match_patterns,
 )
-from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions import (
-    PatternMatchingValidationError,
-)
 
 
 @pytest.mark.unit
@@ -209,8 +206,12 @@ class TestMatchPatterns:
         assert result["success"] is True
         assert result["patterns_filtered"] >= 0
 
-    def test_empty_code_snippet_raises_validation_error(self) -> None:
-        """Empty code snippet should raise validation error."""
+    def test_empty_code_snippet_returns_validation_error(self) -> None:
+        """Empty code snippet should return structured validation error.
+
+        Per ONEX handler pattern, validation errors return structured output
+        with success=False instead of raising exceptions.
+        """
         patterns: list[PatternRecord] = [
             PatternRecord(
                 pattern_id="p1",
@@ -219,14 +220,21 @@ class TestMatchPatterns:
             ),
         ]
 
-        with pytest.raises(PatternMatchingValidationError, match="cannot be empty"):
-            match_patterns(
-                code_snippet="",
-                patterns=patterns,
-            )
+        result = match_patterns(
+            code_snippet="",
+            patterns=patterns,
+        )
 
-    def test_whitespace_only_code_raises_validation_error(self) -> None:
-        """Whitespace-only code should raise validation error."""
+        assert result["success"] is False
+        assert result["error_code"] == "PATMATCH_001"
+        assert "cannot be empty" in result["error"]
+
+    def test_whitespace_only_code_returns_validation_error(self) -> None:
+        """Whitespace-only code should return structured validation error.
+
+        Per ONEX handler pattern, validation errors return structured output
+        with success=False instead of raising exceptions.
+        """
         patterns: list[PatternRecord] = [
             PatternRecord(
                 pattern_id="p1",
@@ -235,29 +243,46 @@ class TestMatchPatterns:
             ),
         ]
 
-        with pytest.raises(PatternMatchingValidationError, match="cannot be empty"):
-            match_patterns(
-                code_snippet="   \n\t  ",
-                patterns=patterns,
-            )
+        result = match_patterns(
+            code_snippet="   \n\t  ",
+            patterns=patterns,
+        )
 
-    def test_invalid_confidence_threshold_raises_error(self) -> None:
-        """Invalid confidence threshold should raise validation error."""
-        with pytest.raises(PatternMatchingValidationError, match="min_confidence"):
-            match_patterns(
-                code_snippet="code",
-                patterns=[],
-                min_confidence=1.5,
-            )
+        assert result["success"] is False
+        assert result["error_code"] == "PATMATCH_001"
+        assert "cannot be empty" in result["error"]
 
-    def test_invalid_max_results_raises_error(self) -> None:
-        """Invalid max_results should raise validation error."""
-        with pytest.raises(PatternMatchingValidationError, match="max_results"):
-            match_patterns(
-                code_snippet="code",
-                patterns=[],
-                max_results=0,
-            )
+    def test_invalid_confidence_threshold_returns_validation_error(self) -> None:
+        """Invalid confidence threshold should return structured validation error.
+
+        Per ONEX handler pattern, validation errors return structured output
+        with success=False instead of raising exceptions.
+        """
+        result = match_patterns(
+            code_snippet="code",
+            patterns=[],
+            min_confidence=1.5,
+        )
+
+        assert result["success"] is False
+        assert result["error_code"] == "PATMATCH_001"
+        assert "min_confidence" in result["error"]
+
+    def test_invalid_max_results_returns_validation_error(self) -> None:
+        """Invalid max_results should return structured validation error.
+
+        Per ONEX handler pattern, validation errors return structured output
+        with success=False instead of raising exceptions.
+        """
+        result = match_patterns(
+            code_snippet="code",
+            patterns=[],
+            max_results=0,
+        )
+
+        assert result["success"] is False
+        assert result["error_code"] == "PATMATCH_001"
+        assert "max_results" in result["error"]
 
     def test_results_sorted_by_confidence_descending(self) -> None:
         """Results should be sorted by confidence descending."""

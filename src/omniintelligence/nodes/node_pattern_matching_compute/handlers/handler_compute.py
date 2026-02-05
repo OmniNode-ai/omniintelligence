@@ -197,13 +197,21 @@ def _execute_matching(
     patterns_matched = [m.pattern_name for m in matches]
     pattern_scores = {m.pattern_name: m.confidence for m in matches}
 
-    # Determine status
+    # Determine status based on result
     if not result["success"]:
-        status = STATUS_COMPUTE_ERROR
+        # Check error code to differentiate validation vs compute errors
+        error_code = result.get("error_code", "")
+        if error_code == "PATMATCH_001":
+            status = STATUS_VALIDATION_ERROR
+        else:
+            status = STATUS_COMPUTE_ERROR
     elif not matches:
         status = STATUS_NO_PATTERNS if not patterns else STATUS_COMPLETED
     else:
         status = STATUS_COMPLETED
+
+    # Extract error message from result if present
+    error_message = result.get("error") if not result["success"] else None
 
     return ModelPatternMatchingOutput(
         success=result["success"],
@@ -212,7 +220,7 @@ def _execute_matching(
         matches=matches,
         metadata=ModelPatternMatchingMetadata(
             status=status,
-            message=None if result["success"] else "Matching failed",
+            message=error_message or (None if result["success"] else "Matching failed"),
             operation=None,  # Output operation type differs from input
             processing_time_ms=processing_time,
             algorithm_version=result["algorithm_version"],

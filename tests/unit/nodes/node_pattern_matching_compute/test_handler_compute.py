@@ -182,6 +182,7 @@ class TestHandlePatternMatchingCompute:
         assert result.success is False
         assert result.metadata is not None
         assert result.metadata.status == "validation_error"
+        assert result.metadata.message is not None, "Expected error message for validation_error"
         assert "empty" in result.metadata.message.lower()
 
     def test_validate_operation_uses_regex_matching(self) -> None:
