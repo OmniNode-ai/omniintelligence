@@ -1,12 +1,20 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Pattern Lifecycle Effect node - OMN-1805.
+"""Pattern Lifecycle Effect node.
 
-This node applies pattern status transition projections to the database.
-It receives ModelPayloadUpdatePatternStatus intents from the reducer and
-atomically updates learned_patterns.status + inserts audit records.
+This module exports the pattern lifecycle effect node and its supporting
+models, handlers, and protocols. The node applies pattern status transition
+projections to the database with atomic audit trail and idempotency.
 
 This is the ONLY code path that may update learned_patterns.status.
+
+Key Components:
+    - NodePatternLifecycleEffect: Pure declarative effect node (thin shell)
+    - ModelTransitionResult: Output for transition results
+    - apply_transition: Handler function for applying transitions
+    - ProtocolPatternRepository: Interface for database operations
+    - ProtocolIdempotencyStore: Interface for idempotency tracking
+    - ProtocolKafkaPublisher: Interface for Kafka event publishing
 
 Key Features:
     - Idempotency via request_id deduplication
@@ -17,62 +25,66 @@ Key Features:
 Published Events:
     - onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1
 
-Example:
+Usage (Declarative Pattern):
     ```python
     from omnibase_core.models.container import ModelONEXContainer
     from omniintelligence.nodes.node_pattern_lifecycle_effect import (
         NodePatternLifecycleEffect,
+        apply_transition,
         ModelTransitionResult,
     )
-    from omniintelligence.nodes.node_pattern_lifecycle_effect.registry import (
-        RegistryPatternLifecycleEffect,
-    )
 
-    # Create registry with wired dependencies
-    registry = RegistryPatternLifecycleEffect.create_registry(
-        repository=db_connection,
-        idempotency_store=idempotency_store,
-        producer=kafka_producer,  # Optional
-    )
-
-    # Create and configure node
+    # Create node via container (pure declarative shell)
     container = ModelONEXContainer()
-    effect = NodePatternLifecycleEffect(container, registry)
+    node = NodePatternLifecycleEffect(container)
 
-    # Apply a transition intent from the reducer
-    intent = ModelPayloadUpdatePatternStatus(...)
-    result = await effect.execute(intent)
+    # Handlers are called directly with their dependencies
+    result = await apply_transition(
+        repository=db_conn,
+        idempotency_store=idempotency_impl,
+        producer=kafka_producer,  # Optional, can be None
+        request_id=request_id,
+        correlation_id=correlation_id,
+        pattern_id=pattern_id,
+        from_status="provisional",
+        to_status="validated",
+        trigger="promote",
+        transition_at=datetime.now(UTC),
+    )
+
+    # For event-driven execution, use RuntimeHostProcess
+    # which reads handler_routing from contract.yaml
     ```
 
-Ticket: OMN-1805
+Reference:
+    - OMN-1805: Pattern lifecycle effect node implementation
+    - OMN-1757: Refactor to declarative pattern
 """
 
-from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
     ProtocolIdempotencyStore,
     ProtocolKafkaPublisher,
     ProtocolPatternRepository,
+    apply_transition,
 )
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+    ModelPatternLifecycleTransitionedEvent,
     ModelTransitionResult,
 )
 from omniintelligence.nodes.node_pattern_lifecycle_effect.node import (
     NodePatternLifecycleEffect,
 )
-from omniintelligence.nodes.node_pattern_lifecycle_effect.registry import (
-    RegistryPatternLifecycleEffect,
-    ServiceHandlerRegistry,
-)
 
 __all__ = [
     # Models
+    "ModelPatternLifecycleTransitionedEvent",
     "ModelTransitionResult",
     # Node
     "NodePatternLifecycleEffect",
-    # Protocols (re-exported from handlers)
+    # Protocols
     "ProtocolIdempotencyStore",
     "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",
-    # Registry
-    "RegistryPatternLifecycleEffect",
-    "ServiceHandlerRegistry",
+    # Handler functions (for direct invocation)
+    "apply_transition",
 ]
