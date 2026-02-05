@@ -9,9 +9,9 @@ imports inside TYPE_CHECKING blocks, which are legal since they
 create no runtime dependencies.
 
 Usage:
-    poetry run python scripts/validate_no_transport_imports.py
-    poetry run python scripts/validate_no_transport_imports.py --verbose
-    poetry run python scripts/validate_no_transport_imports.py --exclude path/to/file.py
+    uv run python scripts/validate_no_transport_imports.py
+    uv run python scripts/validate_no_transport_imports.py --verbose
+    uv run python scripts/validate_no_transport_imports.py --exclude path/to/file.py
 
 Exit codes:
     0 = no violations
@@ -63,6 +63,8 @@ BANNED_MODULES: frozenset[str] = frozenset(
 )
 
 # Directories to skip during traversal (standard Python/build artifacts)
+# Note: These are exact directory name matches. For suffix patterns like .egg-info,
+# see _should_skip_directory() which handles both exact matches and suffix patterns.
 SKIP_DIRECTORIES: frozenset[str] = frozenset(
     {
         "__pycache__",
@@ -78,9 +80,15 @@ SKIP_DIRECTORIES: frozenset[str] = frozenset(
         ".ruff_cache",
         "node_modules",
         ".eggs",
-        "*.egg-info",
         "migration_sources",  # Legacy migration code (not active)
         "_legacy",  # Deprecated code with deprecation warnings
+    }
+)
+
+# Directory suffixes that should be skipped (e.g., "foo.egg-info" matches ".egg-info")
+SKIP_DIRECTORY_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".egg-info",
     }
 )
 
@@ -289,8 +297,14 @@ def iter_python_files(root_dir: Path, excludes: set[Path]) -> Iterator[Path]:
         and does not maintain any shared mutable state.
     """
     for path in root_dir.rglob("*.py"):
-        # Skip files in excluded directories
+        # Skip files in excluded directories (exact match or suffix match)
         if any(skip_dir in path.parts for skip_dir in SKIP_DIRECTORIES):
+            continue
+        if any(
+            part.endswith(suffix)
+            for part in path.parts
+            for suffix in SKIP_DIRECTORY_SUFFIXES
+        ):
             continue
 
         # Check against user-provided exclusions
