@@ -429,9 +429,9 @@ config = read_config("/nonexistent/config.json")''',
 # =============================================================================
 
 
-def sample_duplicate_session_data() -> (
-    tuple[list[TrainingDataItemDict], list[TrainingDataItemDict]]
-):
+def sample_duplicate_session_data() -> tuple[
+    list[TrainingDataItemDict], list[TrainingDataItemDict]
+]:
     """Return two lists of training data for deduplication testing.
 
     This fixture provides two sets of training data that contain semantically
@@ -588,14 +588,12 @@ async def create_invoice(
 # =============================================================================
 
 
-def sample_feedback_data() -> (
-    list[
-        dict[
-            str,
-            UUID | str | list[UUID],
-        ]
+def sample_feedback_data() -> list[
+    dict[
+        str,
+        UUID | str | list[UUID],
     ]
-):
+]:
     """Return session outcome data for feedback/metrics update testing.
 
     This fixture provides session outcome data that should be used to update

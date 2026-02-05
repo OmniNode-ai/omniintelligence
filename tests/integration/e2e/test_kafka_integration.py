@@ -282,9 +282,9 @@ async def test_kafka_consumer_can_verify_published_events(
 
     # Verify: Publisher recorded the event locally
     event_count = len(publisher.published_events)
-    assert (
-        event_count == 1
-    ), f"Publisher should have recorded exactly 1 event, got {event_count}"
+    assert event_count == 1, (
+        f"Publisher should have recorded exactly 1 event, got {event_count}"
+    )
 
     # Assert: Consumer receives the event from Kafka broker
     # This is the critical E2E verification - message roundtrip through Kafka
@@ -296,13 +296,13 @@ async def test_kafka_consumer_can_verify_published_events(
     )
 
     # Verify message content matches what was published
-    assert (
-        received["topic"] == topic
-    ), f"Expected topic '{topic}', got '{received['topic']}'"
+    assert received["topic"] == topic, (
+        f"Expected topic '{topic}', got '{received['topic']}'"
+    )
     assert received["key"] == key, f"Expected key '{key}', got '{received['key']}'"
-    assert (
-        received["value"] == value
-    ), f"Expected value {value}, got {received['value']}"
+    assert received["value"] == value, (
+        f"Expected value {value}, got {received['value']}"
+    )
 
 
 # =============================================================================

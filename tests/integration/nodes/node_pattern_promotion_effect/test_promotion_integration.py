@@ -84,9 +84,9 @@ class TestPromotionIntegration:
                 test_pattern_ids[i],
             )
             assert row is not None
-            assert (
-                row["status"] == "provisional"
-            ), f"Pattern {i} should remain provisional"
+            assert row["status"] == "provisional", (
+                f"Pattern {i} should remain provisional"
+            )
 
     async def test_dry_run_does_not_mutate_database(
         self,
@@ -128,9 +128,9 @@ class TestPromotionIntegration:
                 "SELECT status FROM learned_patterns WHERE id = $1",
                 pattern_id,
             )
-            assert (
-                row["status"] == initial_statuses[pattern_id]
-            ), f"Pattern {pattern_id} status should not change in dry run"
+            assert row["status"] == initial_statuses[pattern_id], (
+                f"Pattern {pattern_id} status should not change in dry run"
+            )
 
         # Verify NO Kafka events were published
         assert len(mock_kafka_publisher.published_events) == 0
@@ -191,9 +191,9 @@ class TestPromotionIntegration:
             # Note: Filter to our fixture pattern rather than asserting global counts,
             # as other tests may leave residual provisional patterns
             promoted_ids = {p.pattern_id for p in result.patterns_promoted}
-            assert (
-                pattern_id not in promoted_ids
-            ), "Already-validated pattern should not be promoted again"
+            assert pattern_id not in promoted_ids, (
+                "Already-validated pattern should not be promoted again"
+            )
 
         finally:
             # Cleanup
@@ -536,9 +536,9 @@ class TestPromotionGate4DisabledPatterns:
                 "SELECT pattern_id FROM disabled_patterns_current WHERE pattern_id = $1",
                 pattern_id,
             )
-            assert (
-                disabled_row is not None
-            ), "Pattern should be in disabled_patterns_current"
+            assert disabled_row is not None, (
+                "Pattern should be in disabled_patterns_current"
+            )
 
             # Act: Run promotion check
             result = await check_and_promote_patterns(
@@ -550,18 +550,18 @@ class TestPromotionGate4DisabledPatterns:
 
             # Assert: Disabled pattern should NOT appear in eligible or promoted lists
             promoted_ids = {p.pattern_id for p in result.patterns_promoted}
-            assert (
-                pattern_id not in promoted_ids
-            ), "Disabled pattern should NOT be promoted even if it meets other criteria"
+            assert pattern_id not in promoted_ids, (
+                "Disabled pattern should NOT be promoted even if it meets other criteria"
+            )
 
             # Verify pattern is still provisional in database
             row = await db_conn.fetchrow(
                 "SELECT status FROM learned_patterns WHERE id = $1",
                 pattern_id,
             )
-            assert (
-                row["status"] == "provisional"
-            ), "Disabled pattern should remain provisional"
+            assert row["status"] == "provisional", (
+                "Disabled pattern should remain provisional"
+            )
 
         finally:
             # Cleanup: Remove disable event and pattern
@@ -661,9 +661,9 @@ class TestPromotionGate4DisabledPatterns:
                 "SELECT pattern_id FROM disabled_patterns_current WHERE pattern_id = $1",
                 pattern_id,
             )
-            assert (
-                disabled_row is None
-            ), "Re-enabled pattern should NOT be in disabled_patterns_current"
+            assert disabled_row is None, (
+                "Re-enabled pattern should NOT be in disabled_patterns_current"
+            )
 
             # Act: Run promotion check (fallback mode)
             result = await check_and_promote_patterns(
@@ -766,12 +766,12 @@ class TestPromotionLargeBatch:
             elapsed_time = time.monotonic() - start_time
 
             # Assert: All patterns were processed
-            assert (
-                result.patterns_checked >= batch_size
-            ), f"Expected at least {batch_size} patterns checked, got {result.patterns_checked}"
-            assert (
-                result.patterns_eligible >= batch_size
-            ), f"Expected at least {batch_size} eligible, got {result.patterns_eligible}"
+            assert result.patterns_checked >= batch_size, (
+                f"Expected at least {batch_size} patterns checked, got {result.patterns_checked}"
+            )
+            assert result.patterns_eligible >= batch_size, (
+                f"Expected at least {batch_size} eligible, got {result.patterns_eligible}"
+            )
 
             # Count actual promotions (excluding any failures)
             promoted_count = sum(
@@ -779,9 +779,9 @@ class TestPromotionLargeBatch:
                 for p in result.patterns_promoted
                 if p.promoted_at is not None and not p.dry_run
             )
-            assert (
-                promoted_count == batch_size
-            ), f"Expected {batch_size} promotions, got {promoted_count}"
+            assert promoted_count == batch_size, (
+                f"Expected {batch_size} promotions, got {promoted_count}"
+            )
 
             # Verify all patterns are now validated in database
             validated_count = await db_conn.fetchval(
@@ -791,14 +791,14 @@ class TestPromotionLargeBatch:
                 """,
                 pattern_ids,
             )
-            assert (
-                validated_count == batch_size
-            ), f"Expected {batch_size} validated patterns in DB, got {validated_count}"
+            assert validated_count == batch_size, (
+                f"Expected {batch_size} validated patterns in DB, got {validated_count}"
+            )
 
             # Performance assertion: should complete in reasonable time
-            assert (
-                elapsed_time < 60.0
-            ), f"Batch promotion took {elapsed_time:.2f}s, expected < 60s"
+            assert elapsed_time < 60.0, (
+                f"Batch promotion took {elapsed_time:.2f}s, expected < 60s"
+            )
 
         finally:
             # Cleanup: Delete all test patterns in a single statement
@@ -880,9 +880,9 @@ class TestPromotionLargeBatch:
                 and not p.dry_run
                 and p.pattern_id in pattern_ids  # Only our test patterns
             }
-            assert promoted_ids == set(
-                eligible_ids
-            ), "Only eligible patterns from this test should be promoted"
+            assert promoted_ids == set(eligible_ids), (
+                "Only eligible patterns from this test should be promoted"
+            )
 
         finally:
             await db_conn.execute(
@@ -961,21 +961,21 @@ class TestPromotionMetricsAccuracy:
 
             # Verify gate_snapshot accuracy
             snapshot = our_promotion.gate_snapshot
-            assert (
-                snapshot.injection_count_rolling_20 == injection_count
-            ), f"Expected injection_count {injection_count}, got {snapshot.injection_count_rolling_20}"
-            assert (
-                snapshot.failure_streak == failure_streak
-            ), f"Expected failure_streak {failure_streak}, got {snapshot.failure_streak}"
+            assert snapshot.injection_count_rolling_20 == injection_count, (
+                f"Expected injection_count {injection_count}, got {snapshot.injection_count_rolling_20}"
+            )
+            assert snapshot.failure_streak == failure_streak, (
+                f"Expected failure_streak {failure_streak}, got {snapshot.failure_streak}"
+            )
             assert (
                 abs(snapshot.success_rate_rolling_20 - expected_success_rate) < 0.0001
             ), (
                 f"Expected success_rate {expected_success_rate:.4f}, "
                 f"got {snapshot.success_rate_rolling_20:.4f}"
             )
-            assert (
-                snapshot.disabled is False
-            ), "Pattern should not be marked as disabled"
+            assert snapshot.disabled is False, (
+                "Pattern should not be marked as disabled"
+            )
 
         finally:
             await db_conn.execute(
@@ -1039,9 +1039,9 @@ class TestPromotionMetricsAccuracy:
             assert our_promotion is not None, "Pattern at 60% should be eligible"
 
             # Verify exact success rate calculation
-            assert (
-                our_promotion.gate_snapshot.success_rate_rolling_20 == 0.6
-            ), "Success rate should be exactly 0.6 (60%)"
+            assert our_promotion.gate_snapshot.success_rate_rolling_20 == 0.6, (
+                "Success rate should be exactly 0.6 (60%)"
+            )
 
         finally:
             await db_conn.execute(
@@ -1120,16 +1120,16 @@ class TestPromotionZeroToleranceMode:
 
             # Only pattern with streak=0 should be promoted
             # Pattern 0 (streak=0) should pass
-            assert (
-                pattern_ids[0] in promoted_ids
-            ), "Pattern with streak=0 should pass in max_failure_streak=1 mode"
+            assert pattern_ids[0] in promoted_ids, (
+                "Pattern with streak=0 should pass in max_failure_streak=1 mode"
+            )
             # Patterns with streak >= 1 should fail
-            assert (
-                pattern_ids[1] not in promoted_ids
-            ), "Pattern with streak=1 should fail in max_failure_streak=1 mode"
-            assert (
-                pattern_ids[2] not in promoted_ids
-            ), "Pattern with streak=2 should fail in max_failure_streak=1 mode"
+            assert pattern_ids[1] not in promoted_ids, (
+                "Pattern with streak=1 should fail in max_failure_streak=1 mode"
+            )
+            assert pattern_ids[2] not in promoted_ids, (
+                "Pattern with streak=2 should fail in max_failure_streak=1 mode"
+            )
 
         finally:
             await db_conn.execute(
@@ -1296,9 +1296,9 @@ class TestPromotionPartialFailure:
                 for p in result.patterns_promoted
                 if p.promoted_at is not None and "failed" not in p.reason
             )
-            assert (
-                successful == 5
-            ), f"Expected 5 successful promotions, got {successful}"
+            assert successful == 5, (
+                f"Expected 5 successful promotions, got {successful}"
+            )
 
         finally:
             await db_conn.execute(
@@ -1535,9 +1535,9 @@ class TestPromotionKafkaEvents:
             assert result.patterns_eligible >= 1
 
             # But no Kafka events
-            assert (
-                len(mock_kafka_publisher.published_events) == 0
-            ), "No Kafka events should be emitted during dry run"
+            assert len(mock_kafka_publisher.published_events) == 0, (
+                "No Kafka events should be emitted during dry run"
+            )
 
         finally:
             await db_conn.execute(
@@ -1597,9 +1597,9 @@ class TestPromotionKafkaEvents:
             # Verify topic prefix
             assert len(mock_kafka_publisher.published_events) >= 1
             topic, _, _ = mock_kafka_publisher.published_events[0]
-            assert topic.startswith(
-                "staging."
-            ), f"Topic should start with 'staging.', got: {topic}"
+            assert topic.startswith("staging."), (
+                f"Topic should start with 'staging.', got: {topic}"
+            )
             assert "pattern-lifecycle" in topic
 
         finally:

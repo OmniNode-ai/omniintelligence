@@ -323,9 +323,9 @@ class TestContractLinterFileHandling:
         assert result.is_valid is False, "Comments-only YAML should fail validation"
 
         # Must have at least one error
-        assert (
-            len(result.validation_errors) >= 1
-        ), "Comments-only YAML should report at least one error"
+        assert len(result.validation_errors) >= 1, (
+            "Comments-only YAML should report at least one error"
+        )
 
         # Must be treated as empty file error
         assert any(
@@ -341,9 +341,9 @@ class TestContractLinterFileHandling:
         ), "Error message should indicate file has no content"
 
         # Contract type should be None (cannot detect type from empty content)
-        assert (
-            result.contract_type is None
-        ), "Contract type should be None for comments-only YAML"
+        assert result.contract_type is None, (
+            "Contract type should be None for comments-only YAML"
+        )
 
     def test_validate_directory_instead_of_file(self, tmp_path: Path):
         """Test error when path is a directory, not a file."""

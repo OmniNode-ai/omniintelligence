@@ -70,9 +70,9 @@ class TestEnumInjectionContextMatchesDatabase:
         """Verify every DB constraint value has a corresponding enum member."""
         enum_values = {c.value for c in EnumInjectionContext}
         for context_value in EXPECTED_INJECTION_CONTEXTS:
-            assert (
-                context_value in enum_values
-            ), f"DB constraint value '{context_value}' has no corresponding enum member."
+            assert context_value in enum_values, (
+                f"DB constraint value '{context_value}' has no corresponding enum member."
+            )
 
     @pytest.mark.parametrize("context_value", list(EXPECTED_INJECTION_CONTEXTS))
     def test_individual_context_exists(self, context_value: str) -> None:
@@ -110,9 +110,9 @@ class TestEnumCohortMatchesDatabase:
         """Verify every DB constraint value has a corresponding enum member."""
         enum_values = {c.value for c in EnumCohort}
         for cohort_value in EXPECTED_COHORTS:
-            assert (
-                cohort_value in enum_values
-            ), f"DB constraint value '{cohort_value}' has no corresponding enum member."
+            assert cohort_value in enum_values, (
+                f"DB constraint value '{cohort_value}' has no corresponding enum member."
+            )
 
     @pytest.mark.parametrize("cohort_value", list(EXPECTED_COHORTS))
     def test_individual_cohort_exists(self, cohort_value: str) -> None:
@@ -138,12 +138,12 @@ class TestEnumInjectionContextProperties:
         """Verify values use PascalCase (matching hook event convention)."""
         for context in EnumInjectionContext:
             # PascalCase: first letter uppercase, no underscores
-            assert context.value[
-                0
-            ].isupper(), f"'{context.value}' should start uppercase"
-            assert (
-                "_" not in context.value
-            ), f"'{context.value}' should not contain underscores"
+            assert context.value[0].isupper(), (
+                f"'{context.value}' should start uppercase"
+            )
+            assert "_" not in context.value, (
+                f"'{context.value}' should not contain underscores"
+            )
 
     def test_enum_can_be_constructed_from_string(self) -> None:
         """Verify enum can be constructed from string value."""
@@ -168,9 +168,9 @@ class TestEnumCohortProperties:
     def test_enum_values_are_lowercase(self) -> None:
         """Verify values use lowercase (DB convention)."""
         for cohort in EnumCohort:
-            assert (
-                cohort.value == cohort.value.lower()
-            ), f"Enum value '{cohort.value}' should be lowercase"
+            assert cohort.value == cohort.value.lower(), (
+                f"Enum value '{cohort.value}' should be lowercase"
+            )
 
     def test_enum_can_be_constructed_from_string(self) -> None:
         """Verify enum can be constructed from string value."""
@@ -243,9 +243,9 @@ class TestInjectionMigrationFile:
         content = migration_path.read_text()
 
         for context_value in EXPECTED_INJECTION_CONTEXTS:
-            assert (
-                f"'{context_value}'" in content
-            ), f"Injection context '{context_value}' not found in migration file"
+            assert f"'{context_value}'" in content, (
+                f"Injection context '{context_value}' not found in migration file"
+            )
 
     def test_migration_contains_all_cohorts(self, migration_path: Path) -> None:
         """Verify migration CHECK constraint contains all expected cohorts."""
@@ -255,6 +255,6 @@ class TestInjectionMigrationFile:
         content = migration_path.read_text()
 
         for cohort_value in EXPECTED_COHORTS:
-            assert (
-                f"'{cohort_value}'" in content
-            ), f"Cohort '{cohort_value}' not found in migration file"
+            assert f"'{cohort_value}'" in content, (
+                f"Cohort '{cohort_value}' not found in migration file"
+            )

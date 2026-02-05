@@ -108,16 +108,16 @@ class TestTC3DuplicateDetection:
         )
 
         # Assert - Verify metrics show merging occurred
-        assert (
-            result_combined["metrics"].merged_count >= 0
-        ), "Merged count should be tracked in metrics"
+        assert result_combined["metrics"].merged_count >= 0, (
+            "Merged count should be tracked in metrics"
+        )
 
         # If there were enough similar items to cluster, verify deduplication
         if result_combined["metrics"].cluster_count > 0:
             # Check that deduplication threshold was applied
-            assert (
-                result_combined["metadata"].deduplication_threshold_used > 0
-            ), "Deduplication threshold should be set in metadata"
+            assert result_combined["metadata"].deduplication_threshold_used > 0, (
+                "Deduplication threshold should be set in metadata"
+            )
 
     def test_signature_hash_identifies_duplicates(
         self,
@@ -174,20 +174,20 @@ class TestTC3DuplicateDetection:
                 f"Signature should be 64-character SHA256 hex, "
                 f"got {len(sig_info.signature)}"
             )
-            assert all(
-                c in "0123456789abcdef" for c in sig_info.signature
-            ), "Signature should only contain hex characters"
+            assert all(c in "0123456789abcdef" for c in sig_info.signature), (
+                "Signature should only contain hex characters"
+            )
             # Signature version should be set
-            assert (
-                sig_info.signature_version is not None
-            ), "Signature version should be set"
+            assert sig_info.signature_version is not None, (
+                "Signature version should be set"
+            )
             # Signature inputs should be a tuple of strings
-            assert isinstance(
-                sig_info.signature_inputs, tuple
-            ), "Signature inputs should be a tuple"
-            assert (
-                len(sig_info.signature_inputs) > 0
-            ), "Signature inputs should not be empty"
+            assert isinstance(sig_info.signature_inputs, tuple), (
+                "Signature inputs should be a tuple"
+            )
+            assert len(sig_info.signature_inputs) > 0, (
+                "Signature inputs should not be empty"
+            )
 
     def test_merged_pattern_combines_session_ids(
         self,
@@ -483,9 +483,9 @@ class TestTC3SignatureStability:
             sig_info = pattern.signature_info
 
             # Version should be a ModelSemVer instance
-            assert (
-                sig_info.signature_version is not None
-            ), "Signature version should be set"
+            assert sig_info.signature_version is not None, (
+                "Signature version should be set"
+            )
 
             # Major version should be at least 1 (we're post-v1.0.0)
             assert sig_info.signature_version.major >= 1, (
@@ -494,12 +494,12 @@ class TestTC3SignatureStability:
             )
 
             # Normalization should be documented
-            assert (
-                sig_info.normalization_applied is not None
-            ), "Normalization method should be documented"
-            assert (
-                len(sig_info.normalization_applied) > 0
-            ), "Normalization method should not be empty"
+            assert sig_info.normalization_applied is not None, (
+                "Normalization method should be documented"
+            )
+            assert len(sig_info.normalization_applied) > 0, (
+                "Normalization method should not be empty"
+            )
 
     def test_signature_inputs_are_auditable(
         self,
@@ -529,12 +529,12 @@ class TestTC3SignatureStability:
             sig_info = pattern.signature_info
 
             # Signature inputs should be present
-            assert (
-                sig_info.signature_inputs is not None
-            ), "Signature inputs should be preserved"
-            assert (
-                len(sig_info.signature_inputs) > 0
-            ), "Signature inputs should not be empty"
+            assert sig_info.signature_inputs is not None, (
+                "Signature inputs should be preserved"
+            )
+            assert len(sig_info.signature_inputs) > 0, (
+                "Signature inputs should not be empty"
+            )
 
             # First input should be pattern_type (lowercased)
             first_input = sig_info.signature_inputs[0]
@@ -545,9 +545,9 @@ class TestTC3SignatureStability:
 
             # All inputs should be lowercase (normalization)
             for input_val in sig_info.signature_inputs:
-                assert (
-                    input_val == input_val.lower()
-                ), f"All signature inputs should be lowercase, got '{input_val}'"
+                assert input_val == input_val.lower(), (
+                    f"All signature inputs should be lowercase, got '{input_val}'"
+                )
 
 
 @pytest.mark.integration
@@ -581,15 +581,15 @@ class TestTC3DeterminismGuarantees:
         pattern_counts = [
             len(r["learned_patterns"]) + len(r["candidate_patterns"]) for r in results
         ]
-        assert (
-            len(set(pattern_counts)) == 1
-        ), f"All runs should produce same pattern count, got {pattern_counts}"
+        assert len(set(pattern_counts)) == 1, (
+            f"All runs should produce same pattern count, got {pattern_counts}"
+        )
 
         # All runs should produce same merged_count
         merged_counts = [r["metrics"].merged_count for r in results]
-        assert (
-            len(set(merged_counts)) == 1
-        ), f"All runs should produce same merged_count, got {merged_counts}"
+        assert len(set(merged_counts)) == 1, (
+            f"All runs should produce same merged_count, got {merged_counts}"
+        )
 
         # All runs should produce same signatures
         signature_sets = [
@@ -599,9 +599,9 @@ class TestTC3DeterminismGuarantees:
             )
             for r in results
         ]
-        assert all(
-            s == signature_sets[0] for s in signature_sets
-        ), "All runs should produce same set of signatures"
+        assert all(s == signature_sets[0] for s in signature_sets), (
+            "All runs should produce same set of signatures"
+        )
 
     def test_input_order_does_not_affect_result(
         self,

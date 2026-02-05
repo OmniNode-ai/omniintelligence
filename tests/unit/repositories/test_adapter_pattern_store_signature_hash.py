@@ -245,9 +245,9 @@ class TestCheckExistsSignatureHash:
             )
 
         # Explicitly verify 'signature' is NOT in the args
-        assert (
-            "signature" not in captured_args
-        ), "check_exists should use signature_hash, not signature"
+        assert "signature" not in captured_args, (
+            "check_exists should use signature_hash, not signature"
+        )
 
 
 # =============================================================================

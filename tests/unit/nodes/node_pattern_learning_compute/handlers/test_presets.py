@@ -46,9 +46,9 @@ class TestSignatureVersioning:
 
         # Pattern: vX.Y.Z where X, Y, Z are non-negative integers
         semver_pattern = r"^v\d+\.\d+\.\d+$"
-        assert re.match(
-            semver_pattern, SIGNATURE_VERSION
-        ), f"SIGNATURE_VERSION '{SIGNATURE_VERSION}' does not match vX.Y.Z format"
+        assert re.match(semver_pattern, SIGNATURE_VERSION), (
+            f"SIGNATURE_VERSION '{SIGNATURE_VERSION}' does not match vX.Y.Z format"
+        )
 
     def test_signature_version_is_v1(self) -> None:
         """Current SIGNATURE_VERSION should be v1.0.0."""
@@ -122,9 +122,9 @@ class TestSimilarityWeights:
     def test_weights_are_floats(self) -> None:
         """All weights should be float values."""
         for key, weight in DEFAULT_SIMILARITY_WEIGHTS.items():
-            assert isinstance(
-                weight, float
-            ), f"Weight for '{key}' is not float: {type(weight)}"
+            assert isinstance(weight, float), (
+                f"Weight for '{key}' is not float: {type(weight)}"
+            )
 
     def test_weights_dict_is_not_empty(self) -> None:
         """DEFAULT_SIMILARITY_WEIGHTS should not be empty."""
