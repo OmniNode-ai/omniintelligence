@@ -275,7 +275,9 @@ class TransportImportChecker(ast.NodeVisitor):
             self.generic_visit(node)
 
 
-def iter_python_files(root_dir: Path, excludes: set[Path]) -> Iterator[Path]:
+def iter_python_files(
+    root_dir: Path, excludes: set[Path], *, verbose: bool = False
+) -> Iterator[Path]:
     """Iterate over all Python files in a directory, skipping excluded paths.
 
     This function recursively traverses the given directory and yields paths to
@@ -288,6 +290,8 @@ def iter_python_files(root_dir: Path, excludes: set[Path]) -> Iterator[Path]:
         excludes: A set of Path objects representing files or directories to exclude.
             Exclusions are matched using proper path component matching to avoid
             false positives from partial string matches.
+        verbose: If True, log debug information about exclusion matching errors
+            to stderr. Defaults to False.
 
     Yields:
         Path: Absolute paths to Python files that are not excluded.
@@ -340,8 +344,13 @@ def iter_python_files(root_dir: Path, excludes: set[Path]) -> Iterator[Path]:
                         break
                 except (TypeError, AttributeError) as e:
                     # boundary-ok: handle path comparison errors (e.g., incompatible types)
-                    # Log in debug scenarios but don't fail the entire scan
-                    _ = e  # Acknowledge the exception without using it
+                    # Log in verbose mode to aid debugging exclusion logic issues
+                    if verbose:
+                        print(
+                            f"  [debug] Exclusion match error for {path} "
+                            f"with exclude {exclude_path}: {e}",
+                            file=sys.stderr,
+                        )
 
         if not should_exclude:
             yield path
@@ -544,7 +553,7 @@ Per ARCH-002: Nodes never touch Kafka directly. Runtime owns all Kafka plumbing.
 
     print(f"Checking for transport/I/O library imports in {src_dir}...")
 
-    for file_path in iter_python_files(src_dir, excludes):
+    for file_path in iter_python_files(src_dir, excludes, verbose=args.verbose):
         file_count += 1
         violations, errors = check_file(file_path)
         all_violations.extend(violations)
