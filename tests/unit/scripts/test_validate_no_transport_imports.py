@@ -201,6 +201,53 @@ if t:
         assert len(checker.violations) == 1
         assert checker.violations[0].module_name == "aiohttp"
 
+    def test_else_block_of_type_checking_guard(self) -> None:
+        """Imports in the `else` block of TYPE_CHECKING should be flagged.
+
+        The else block runs at runtime (when TYPE_CHECKING is False),
+        so banned imports there are violations.
+        """
+        source = """
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import aiohttp  # Should NOT be flagged (type-only)
+else:
+    import asyncpg  # SHOULD be flagged (runtime)
+"""
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # Only the else block import should be flagged
+        assert len(checker.violations) == 1
+        assert checker.violations[0].module_name == "asyncpg"
+
+    def test_elif_not_affected_by_type_checking_guard(self) -> None:
+        """Imports in elif blocks after TYPE_CHECKING should be flagged.
+
+        Only the immediate if body is guarded, not elif branches.
+        """
+        source = """
+from typing import TYPE_CHECKING
+
+some_condition = True
+
+if TYPE_CHECKING:
+    import aiohttp  # Should NOT be flagged
+elif some_condition:
+    import redis  # SHOULD be flagged (elif is runtime)
+"""
+        checker = TransportImportChecker(source)
+        import ast
+
+        tree = ast.parse(source)
+        checker.visit(tree)
+        # The elif import should be flagged
+        assert len(checker.violations) == 1
+        assert checker.violations[0].module_name == "redis"
+
 
 # =============================================================================
 # TransportImportChecker TESTS - VIOLATION DETECTION
