@@ -996,7 +996,7 @@ class TestRealNodeFiles:
         # handlers but still need their interface methods defined.
         purity_exempt_nodes = {
             # Effect nodes with execute() and registry patterns
-            "node_pattern_storage_effect",
+            # NOTE: node_pattern_storage_effect removed - now pure declarative shell (OMN-1757)
             "node_pattern_demotion_effect",
             "node_pattern_feedback_effect",
             "node_pattern_promotion_effect",
