@@ -67,7 +67,7 @@ def execute_workflow(
     """
     import asyncio
 
-    return asyncio.get_event_loop().run_until_complete(
+    return asyncio.run(
         execute_workflow_async(
             input_data,
             trace_parser_node,
