@@ -165,6 +165,7 @@ def _execute_matching(
         operation=input_data.operation,
         language=language,
         pattern_categories=pattern_categories,
+        correlation_id=str(context.correlation_id) if context.correlation_id else None,
     )
 
     processing_time = (time.perf_counter() - start_time) * 1000

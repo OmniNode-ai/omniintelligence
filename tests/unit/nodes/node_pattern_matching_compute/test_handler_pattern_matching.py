@@ -16,6 +16,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions im
 )
 
 
+@pytest.mark.unit
 class TestMatchPatterns:
     """Tests for the match_patterns function."""
 
@@ -317,6 +318,7 @@ class TestMatchPatterns:
             assert "algorithm_used" in match
 
 
+@pytest.mark.unit
 class TestKeywordExtraction:
     """Tests for the keyword extraction algorithm."""
 
@@ -336,7 +338,8 @@ class TestKeywordExtraction:
         code = """
         def function(self, args, kwargs):
             if True and False or None:
-                return pass
+                pass
+            return None
         meaningful identifier here
         """
 

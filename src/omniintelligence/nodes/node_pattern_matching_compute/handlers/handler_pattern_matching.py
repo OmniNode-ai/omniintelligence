@@ -67,6 +67,7 @@ def match_patterns(
     operation: PatternOperation = "match",
     language: str | None = None,
     pattern_categories: Sequence[str] | None = None,
+    correlation_id: str | None = None,
 ) -> PatternMatchingHandlerResult:
     """Match code against a pattern library.
 
@@ -87,6 +88,7 @@ def match_patterns(
         operation: Type of matching operation ("match", "similarity", "classify", "validate").
         language: Optional language hint for better matching.
         pattern_categories: Optional category filter (empty = all categories).
+        correlation_id: Optional correlation ID for tracing (included in error logs).
 
     Returns:
         PatternMatchingHandlerResult with matches sorted by confidence (descending).
@@ -121,6 +123,7 @@ def match_patterns(
                 "Pattern matching failed for pattern_id=%s, skipping",
                 pattern.get("pattern_id", "<unknown>"),
                 exc_info=True,
+                extra={"correlation_id": correlation_id},
             )
             continue
 

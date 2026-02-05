@@ -17,6 +17,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.models import (
 )
 
 
+@pytest.mark.unit
 class TestHandlePatternMatchingCompute:
     """Tests for handle_pattern_matching_compute function."""
 

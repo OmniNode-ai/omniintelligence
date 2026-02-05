@@ -142,7 +142,11 @@ class ModelPatternMatchingMetadata(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-# Algorithm types for match detail
+# Algorithm types for match detail.
+# Note: "semantic" is reserved for future implementation when embedding-based
+# similarity matching is added. Currently only "keyword_overlap" and "regex_match"
+# are actively used by the handler. The type includes "semantic" to support
+# forward compatibility in output models.
 MatchAlgorithm = Literal["keyword_overlap", "regex_match", "semantic"]
 
 
@@ -224,7 +228,13 @@ class ModelPatternMatchingOutput(BaseModel):
     @field_validator("pattern_scores")
     @classmethod
     def validate_pattern_scores(cls, v: dict[str, float]) -> dict[str, float]:
-        """Validate that all pattern scores are within 0.0 to 1.0 range."""
+        """Validate that all pattern scores are within 0.0 to 1.0 range.
+
+        Note: This validator is necessary because Pydantic's Field(ge=0.0, le=1.0)
+        constraints only apply to the dict type itself, not to dictionary VALUES.
+        The `dict[str, float]` annotation provides no bounds on the float values,
+        so explicit validation is required to enforce the 0.0-1.0 range.
+        """
         for pattern_name, score in v.items():
             if not 0.0 <= score <= 1.0:
                 raise ValueError(
