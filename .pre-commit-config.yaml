@@ -375,6 +375,24 @@ repos:
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
+      # Transport Import Validator - ARCH-002 enforcement
+      # Validates: Nodes do not import transport/I/O libraries at runtime
+      # Scope: Node source files (where ARCH-002 applies)
+      # Purpose: Enforces "Nodes never touch Kafka directly. Runtime owns all
+      #          Kafka plumbing." TYPE_CHECKING imports are allowed.
+      # Banned: aiohttp, httpx, asyncpg, aiokafka, redis, grpc, etc.
+      # --------------------------------------------------------------------------
+      - id: validate-no-transport-imports
+        name: validate-no-transport-imports (ARCH-002)
+        entry: uv run python scripts/validate_no_transport_imports.py
+        language: system
+        pass_filenames: false
+        types: [python]
+        # Trigger on changes to node implementations
+        files: ^src/omniintelligence/nodes/
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
       # Pytest Smoke Tests - Quick unit tests on commit
       # Validates: Core functionality via fast unit tests
       # Scope: Triggered on changes to tools/ source or tests only (fast feedback)
