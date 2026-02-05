@@ -6,9 +6,13 @@ This node records session outcomes and updates rolling window metrics
 for pattern learning feedback loops.
 
 Architecture:
-    - Thin shell effect node (declarative pattern)
-    - Registry-based dependency injection
-    - Handler functions with explicit dependencies
+    - Declarative effect node (100% contract-driven)
+    - Handler functions with explicit protocol dependencies
+    - External DI: callers provide repository protocol to handlers
+
+Related Tickets:
+    - OMN-1678: Rolling window metric updates for session outcomes
+    - OMN-1757: Refactor to declarative pattern
 """
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
@@ -27,25 +31,15 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
-from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-    RegistryPatternFeedbackEffect,
-)
 
 __all__ = [
-    # Constants
     "ROLLING_WINDOW_SIZE",
-    # Models (input re-exported from omnibase_core)
     "ClaudeCodeSessionOutcome",
     "ClaudeSessionOutcome",
-    # Models (output)
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
-    # Node
     "NodePatternFeedbackEffect",
-    # Handlers
     "ProtocolPatternRepository",
-    # Registry
-    "RegistryPatternFeedbackEffect",
     "SessionOutcomeInput",
     "record_session_outcome",
     "update_pattern_rolling_metrics",

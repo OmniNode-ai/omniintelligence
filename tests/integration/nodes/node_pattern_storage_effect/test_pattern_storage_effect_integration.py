@@ -43,8 +43,12 @@ from omniintelligence.nodes.node_pattern_storage_effect.models import (
     ModelPatternMetricsSnapshot,
     PatternStorageGovernance,
 )
-from omniintelligence.nodes.node_pattern_storage_effect.node import (
-    NodePatternStorageEffect,
+from omniintelligence.nodes.node_pattern_storage_effect.node import NodePatternStorageEffect
+from omniintelligence.nodes.node_pattern_storage_effect.contract_loader import (
+    get_contract_loader,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.handlers import (
+    route_storage_operation,
 )
 
 from .conftest import (
@@ -717,96 +721,89 @@ class TestEventPublishingIntegration:
 @pytest.mark.asyncio
 @pytest.mark.integration
 class TestNodePatternStorageEffectIntegration:
-    """Integration tests for the complete NodePatternStorageEffect node."""
+    """Integration tests for the NodePatternStorageEffect handlers.
 
-    async def test_node_store_pattern_via_execute(
+    Note: With the declarative pattern (OMN-1757), the node is a pure shell.
+    Tests now call handlers directly via route_storage_operation instead of
+    instantiating the node with a registry.
+    """
+
+    async def test_store_pattern_via_route_handler(
         self,
         mock_pattern_store: MockPatternStore,
-    ) -> None:
-        """Test storing a pattern via the node's execute() method.
-
-        Verifies:
-        - Contract-driven dispatch works
-        - Result contains expected fields
-        """
-        from omnibase_core.models.container.model_onex_container import (
-            ModelONEXContainer,
-        )
-
-        container = ModelONEXContainer()
-        node = NodePatternStorageEffect(container)
-        node.set_pattern_store(mock_pattern_store)
-
-        input_data = create_valid_input()
-
-        result = await node.execute(
-            operation="store_pattern",
-            input_data=input_data.model_dump(mode="json"),
-        )
-
-        assert result["success"] is True
-        assert result["event_type"] == "pattern_stored"
-        assert result["event"]["pattern_id"] == str(input_data.pattern_id)
-        assert result["event"]["state"] == "candidate"
-
-    async def test_node_store_pattern_via_execute_returns_typed_result(
-        self,
-        mock_pattern_store: MockPatternStore,
-    ) -> None:
-        """Test storing a pattern via execute() returns proper envelope.
-
-        Verifies:
-        - execute() returns success envelope
-        - event contains expected fields
-        """
-        from omnibase_core.models.container.model_onex_container import (
-            ModelONEXContainer,
-        )
-
-        container = ModelONEXContainer()
-        node = NodePatternStorageEffect(container)
-        node.set_pattern_store(mock_pattern_store)
-
-        input_data = create_valid_input()
-
-        result = await node.execute(
-            operation="store_pattern",
-            input_data=input_data.model_dump(mode="json"),
-        )
-
-        assert result["success"] is True
-        assert result["event_type"] == "pattern_stored"
-        assert result["event"]["pattern_id"] == str(input_data.pattern_id)
-        assert result["event"]["state"] == "candidate"
-
-    async def test_node_promote_pattern_via_execute_returns_typed_result(
-        self,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
-        """Test promoting a pattern via execute() returns proper envelope.
+        """Test storing a pattern via the route_storage_operation handler.
 
         Verifies:
-        - execute() returns success envelope
-        - event contains expected fields
+        - Contract-driven dispatch works via route_storage_operation
+        - Result contains expected fields
         """
-        from omnibase_core.models.container.model_onex_container import (
-            ModelONEXContainer,
+        input_data = create_valid_input()
+
+        result = await route_storage_operation(
+            operation="store_pattern",
+            input_data=input_data.model_dump(mode="json"),
+            pattern_store=mock_pattern_store,
+            state_manager=mock_state_manager,
+            conn=None,
         )
 
-        container = ModelONEXContainer()
-        node = NodePatternStorageEffect(container)
-        node.set_state_manager(mock_state_manager)
+        assert result["success"] is True
+        assert result["event_type"] == "pattern_stored"
+        assert result["event"]["pattern_id"] == str(input_data.pattern_id)
+        assert result["event"]["state"] == "candidate"
 
+    async def test_store_pattern_via_route_handler_returns_typed_result(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_state_manager: MockPatternStateManager,
+    ) -> None:
+        """Test storing a pattern via route_storage_operation returns proper envelope.
+
+        Verifies:
+        - route_storage_operation returns success envelope
+        - event contains expected fields
+        """
+        input_data = create_valid_input()
+
+        result = await route_storage_operation(
+            operation="store_pattern",
+            input_data=input_data.model_dump(mode="json"),
+            pattern_store=mock_pattern_store,
+            state_manager=mock_state_manager,
+            conn=None,
+        )
+
+        assert result["success"] is True
+        assert result["event_type"] == "pattern_stored"
+        assert result["event"]["pattern_id"] == str(input_data.pattern_id)
+        assert result["event"]["state"] == "candidate"
+
+    async def test_promote_pattern_via_route_handler_returns_typed_result(
+        self,
+        mock_pattern_store: MockPatternStore,
+        mock_state_manager: MockPatternStateManager,
+    ) -> None:
+        """Test promoting a pattern via route_storage_operation returns proper envelope.
+
+        Verifies:
+        - route_storage_operation returns success envelope
+        - event contains expected fields
+        """
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        result = await node.execute(
+        result = await route_storage_operation(
             operation="promote_pattern",
             input_data={
                 "pattern_id": str(pattern_id),
                 "to_state": "provisional",
                 "reason": "Test promotion",
             },
+            pattern_store=mock_pattern_store,
+            state_manager=mock_state_manager,
+            conn=None,
         )
 
         assert result["success"] is True
@@ -815,29 +812,28 @@ class TestNodePatternStorageEffectIntegration:
         assert result["event"]["from_state"] == "candidate"
         assert result["event"]["to_state"] == "provisional"
 
-    async def test_node_introspection_properties(self) -> None:
-        """Test that node introspection properties are accessible.
+    async def test_contract_introspection_properties(self) -> None:
+        """Test that contract introspection properties are accessible.
 
         Verifies:
         - subscribe_topics returns topic list
         - publish_topics returns topic list
         - supported_operations returns operation names
-        """
-        from omnibase_core.models.container.model_onex_container import (
-            ModelONEXContainer,
-        )
 
-        container = ModelONEXContainer()
-        node = NodePatternStorageEffect(container)
+        Note: Introspection is done via ContractLoader, not the node itself,
+        following the declarative pattern where nodes are thin shells.
+        """
+        loader = get_contract_loader()
 
         # Verify introspection works
-        assert isinstance(node.subscribe_topics, list)
-        assert isinstance(node.publish_topics, list)
-        assert isinstance(node.supported_operations, list)
+        assert isinstance(loader.subscribe_topics, list)
+        assert isinstance(loader.publish_topics, list)
+        operations = loader.list_operations()
+        assert isinstance(operations, list)
 
         # Check expected operations are present
-        assert "store_pattern" in node.supported_operations
-        assert "promote_pattern" in node.supported_operations
+        assert "store_pattern" in operations
+        assert "promote_pattern" in operations
 
 
 # =============================================================================
@@ -848,7 +844,11 @@ class TestNodePatternStorageEffectIntegration:
 @pytest.mark.asyncio
 @pytest.mark.integration
 class TestEndToEndWorkflow:
-    """End-to-end integration tests for full pattern lifecycle."""
+    """End-to-end integration tests for full pattern lifecycle.
+
+    Note: With the declarative pattern (OMN-1757), tests call handlers directly
+    via route_storage_operation instead of instantiating the node with a registry.
+    """
 
     async def test_full_pattern_lifecycle(
         self,
@@ -858,28 +858,22 @@ class TestEndToEndWorkflow:
         """Test full pattern lifecycle: store -> promote to provisional -> promote to validated.
 
         Verifies:
-        - Pattern can be stored as CANDIDATE via execute()
-        - Pattern can be promoted to PROVISIONAL via execute()
-        - Pattern can be promoted to VALIDATED via execute()
+        - Pattern can be stored as CANDIDATE via route_storage_operation
+        - Pattern can be promoted to PROVISIONAL via route_storage_operation
+        - Pattern can be promoted to VALIDATED via route_storage_operation
         - All states are tracked correctly
         """
-        from omnibase_core.models.container.model_onex_container import (
-            ModelONEXContainer,
-        )
-
-        container = ModelONEXContainer()
-        node = NodePatternStorageEffect(container)
-        node.set_pattern_store(mock_pattern_store)
-        node.set_state_manager(mock_state_manager)
-
         # Step 1: Store pattern (starts as CANDIDATE)
         input_data = create_valid_input(
             confidence=0.85,
             domain="lifecycle_test",
         )
-        store_result = await node.execute(
+        store_result = await route_storage_operation(
             operation="store_pattern",
             input_data=input_data.model_dump(mode="json"),
+            pattern_store=mock_pattern_store,
+            state_manager=mock_state_manager,
+            conn=None,
         )
 
         assert store_result["success"] is True
@@ -893,7 +887,7 @@ class TestEndToEndWorkflow:
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
         # Step 2: Promote to PROVISIONAL
-        promote_result_1 = await node.execute(
+        promote_result_1 = await route_storage_operation(
             operation="promote_pattern",
             input_data={
                 "pattern_id": pattern_id_str,
@@ -905,6 +899,9 @@ class TestEndToEndWorkflow:
                     "success_rate": 0.92,
                 },
             },
+            pattern_store=mock_pattern_store,
+            state_manager=mock_state_manager,
+            conn=None,
         )
 
         assert promote_result_1["success"] is True
@@ -912,7 +909,7 @@ class TestEndToEndWorkflow:
         assert promote_result_1["event"]["to_state"] == "provisional"
 
         # Step 3: Promote to VALIDATED
-        promote_result_2 = await node.execute(
+        promote_result_2 = await route_storage_operation(
             operation="promote_pattern",
             input_data={
                 "pattern_id": pattern_id_str,
@@ -924,6 +921,9 @@ class TestEndToEndWorkflow:
                     "success_rate": 0.98,
                 },
             },
+            pattern_store=mock_pattern_store,
+            state_manager=mock_state_manager,
+            conn=None,
         )
 
         assert promote_result_2["success"] is True

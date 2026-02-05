@@ -31,12 +31,6 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_sessio
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
 )
-from omniintelligence.nodes.node_pattern_feedback_effect.node import (
-    NodePatternFeedbackEffect,
-)
-from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-    RegistryPatternFeedbackEffect,
-)
 
 
 # =============================================================================
@@ -181,12 +175,12 @@ class TestContractConfiguration:
             contract = yaml.safe_load(f)
 
         assert "handler_routing" in contract, "Missing handler_routing section"
-        assert contract["handler_routing"]["routing_strategy"] == "single_entry"
-        assert "entry_point" in contract["handler_routing"]
-        assert (
-            contract["handler_routing"]["entry_point"]["function"]
-            == "record_session_outcome"
-        )
+        assert contract["handler_routing"]["routing_strategy"] == "operation_match"
+        assert "handlers" in contract["handler_routing"]
+        # Verify record_session_outcome handler is defined
+        handlers = contract["handler_routing"]["handlers"]
+        handler_ops = [h["operation"] for h in handlers]
+        assert "record_session_outcome" in handler_ops
 
 
 # =============================================================================
@@ -304,83 +298,78 @@ class TestEventConsumption:
         assert result2.status == EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND
 
     @pytest.mark.integration
-    async def test_node_execute_processes_event_end_to_end(
+    async def test_handler_processes_event_end_to_end(
         self,
         sample_success_event: ClaudeSessionOutcome,
         mock_repository: MagicMock,
     ) -> None:
-        """Verify full node.execute() path from event to handler result.
+        """Verify full handler path from event to result (declarative pattern).
 
-        This test verifies the end-to-end flow:
+        This test verifies the end-to-end flow using the declarative pattern:
         1. ClaudeSessionOutcome event is created
-        2. Event is passed to NodePatternFeedbackEffect.execute()
-        3. Node retrieves repository from registry
-        4. Node maps event to handler arguments
-        5. Handler is called and returns result
-        6. Result has expected status
+        2. Event is mapped to handler arguments via event_to_handler_args()
+        3. Handler is called directly with repository dependency
+        4. Handler returns result
+        5. Result has expected status
 
-        This validates the complete wiring from OMN-1763.
+        This validates the complete wiring from OMN-1763 using the declarative pattern.
         """
-        # Arrange: Clear registry and register mock repository
-        RegistryPatternFeedbackEffect.clear()
-        try:
-            RegistryPatternFeedbackEffect.register_repository(mock_repository)
+        # Map event to handler arguments
+        args = event_to_handler_args(sample_success_event)
 
-            # Create node with mock container
-            container = MagicMock()
-            node = NodePatternFeedbackEffect(container)
+        # Act: Call handler directly with dependencies (declarative pattern)
+        result = await record_session_outcome(
+            session_id=args["session_id"],
+            success=args["success"],
+            failure_reason=args["failure_reason"],
+            repository=mock_repository,
+            correlation_id=args["correlation_id"],
+        )
 
-            # Act: Execute the node with the event
-            result = await node.execute(sample_success_event)
+        # Assert: Verify handler was called correctly
+        assert result.status == EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND
+        assert result.session_id == sample_success_event.session_id
+        assert result.injections_updated == 0
+        assert result.patterns_updated == 0
 
-            # Assert: Verify handler was called correctly
-            assert result.status == EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND
-            assert result.session_id == sample_success_event.session_id
-            assert result.injections_updated == 0
-            assert result.patterns_updated == 0
+        # Verify repository.fetch was called (to look for injections)
+        # Handler calls fetch twice: once for injections, once for idempotency COUNT
+        assert mock_repository.fetch.call_count >= 1
 
-            # Verify repository.fetch was called (to look for injections)
-            # Handler calls fetch twice: once for injections, once for idempotency COUNT
-            assert mock_repository.fetch.call_count >= 1
-
-            # Verify at least one call looked for the correct session_id
-            all_calls = mock_repository.fetch.call_args_list
-            session_ids_queried = [call[0][1] for call in all_calls if len(call[0]) > 1]
-            assert sample_success_event.session_id in session_ids_queried
-
-        finally:
-            # Cleanup: Clear registry to prevent test pollution
-            RegistryPatternFeedbackEffect.clear()
+        # Verify at least one call looked for the correct session_id
+        all_calls = mock_repository.fetch.call_args_list
+        session_ids_queried = [
+            call[0][1] for call in all_calls if len(call[0]) > 1
+        ]
+        assert sample_success_event.session_id in session_ids_queried
 
     @pytest.mark.integration
-    async def test_node_execute_with_failed_event_end_to_end(
+    async def test_handler_with_failed_event_end_to_end(
         self,
         sample_failed_event: ClaudeSessionOutcome,
         mock_repository: MagicMock,
     ) -> None:
-        """Verify node.execute() correctly handles FAILED outcome events.
+        """Verify handler correctly handles FAILED outcome events (declarative pattern).
 
         This test ensures the failure path is wired correctly:
         - FAILED outcome maps to success=False in handler
         - Error field is passed as failure_reason
         """
-        # Arrange: Clear registry and register mock repository
-        RegistryPatternFeedbackEffect.clear()
-        try:
-            RegistryPatternFeedbackEffect.register_repository(mock_repository)
+        # Map event to handler arguments
+        args = event_to_handler_args(sample_failed_event)
 
-            container = MagicMock()
-            node = NodePatternFeedbackEffect(container)
+        # Act: Call handler directly with dependencies (declarative pattern)
+        result = await record_session_outcome(
+            session_id=args["session_id"],
+            success=args["success"],
+            failure_reason=args["failure_reason"],
+            repository=mock_repository,
+            correlation_id=args["correlation_id"],
+        )
 
-            # Act
-            result = await node.execute(sample_failed_event)
-
-            # Assert
-            assert result.status == EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND
-            assert result.session_id == sample_failed_event.session_id
-
-        finally:
-            RegistryPatternFeedbackEffect.clear()
+        # Assert
+        assert result.status == EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND
+        assert result.session_id == sample_failed_event.session_id
 
 
 # =============================================================================

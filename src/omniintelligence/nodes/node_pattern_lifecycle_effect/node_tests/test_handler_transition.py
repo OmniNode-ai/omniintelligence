@@ -666,7 +666,7 @@ class TestProvisionalGuard:
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=uuid4(),
+            request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
             from_status=EnumPatternLifecycleStatus.CANDIDATE,

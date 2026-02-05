@@ -1,98 +1,97 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Pattern Demotion Effect - Thin shell node for pattern demotion.
+"""Node Pattern Demotion Effect - Declarative effect node for pattern demotion.
 
 This node follows the ONEX declarative pattern:
-    - EFFECT node for database writes (pattern status updates) and Kafka events
-    - Lightweight shell (~30 lines) that delegates to registry-wired handlers
-    - No setters, no try/except, no logging in node class
-    - Pattern: "Contract-driven, handlers wired externally via registry"
+    - DECLARATIVE effect driven by contract.yaml
+    - Zero custom routing logic - all behavior from handler_routing
+    - Lightweight shell that delegates to handlers via container resolution
+    - Used for ONEX-compliant runtime execution via RuntimeHostProcess
+    - Pattern: "Contract-driven, handlers wired externally"
 
-The node is initialized with a ServiceHandlerRegistry that contains handlers
-with their dependencies (repository, producer) already bound. All error handling,
-logging, and business logic resides in the handler functions.
+Extends NodeEffect from omnibase_core for infrastructure I/O operations.
+All handler routing is 100% driven by contract.yaml, not Python code.
 
-Reference:
+Handler Routing Pattern:
+    1. Receive demotion check request (input_model in contract)
+    2. Route to appropriate handler based on operation (handler_routing)
+    3. Execute infrastructure I/O via handler (PostgreSQL queries, Kafka events)
+    4. Return structured response (output_model in contract)
+
+Design Decisions:
+    - 100% Contract-Driven: All routing logic in YAML, not Python
+    - Zero Custom Routing: Base class handles handler dispatch via contract
+    - Declarative Handlers: handler_routing section defines dispatch rules
+    - Container DI: Handler dependencies resolved via container
+
+Node Responsibilities:
+    - Define I/O model contract (ModelDemotionCheckRequest -> ModelDemotionCheckResult)
+    - Delegate all execution to handlers via base class
+    - NO custom logic - pure declarative shell
+
+The actual handler execution and routing is performed by:
+    - Direct handler invocation by callers
+    - Or RuntimeHostProcess for workflow coordination
+
+Handlers receive their dependencies directly via parameter injection:
+    - check_and_demote_patterns(repository, producer, request, topic_env_prefix)
+    - demote_pattern(repository, producer, pattern_id, pattern_data, ...)
+
+Related Modules:
+    - contract.yaml: Handler routing and I/O model definitions
+    - handlers/handler_demotion.py: Demotion handler functions
+
+Related Tickets:
     - OMN-1681: Auto-demote logic for patterns failing quality thresholds
-    - OMN-1678: Rolling window metrics (dependency)
+    - OMN-1757: Refactor to declarative pattern
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from omnibase_core.nodes.node_effect import NodeEffect
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
-    from omniintelligence.nodes.node_pattern_demotion_effect.models import (
-        ModelDemotionCheckRequest,
-        ModelDemotionCheckResult,
-    )
-    from omniintelligence.nodes.node_pattern_demotion_effect.registry import (
-        ServiceHandlerRegistry,
-    )
 
 
 class NodePatternDemotionEffect(NodeEffect):
-    """Effect node for demoting validated patterns to deprecated status.
+    """Declarative effect node for demoting validated patterns to deprecated status.
 
-    This is a declarative thin shell - all business logic is in the handler.
-    The node simply delegates to the registry-wired handler function.
+    This effect node is a lightweight shell that defines the I/O contract
+    for pattern demotion operations. All routing and execution logic is driven
+    by contract.yaml - this class contains NO custom routing code.
+
+    Supported Operations (defined in contract.yaml handler_routing):
+        - check_and_demote: Check validated patterns and demote those failing gates
+
+    Dependency Injection:
+        Handlers are invoked by callers with their dependencies
+        (repository, producer, topic_env_prefix). This node contains NO
+        instance variables for handlers or registries.
 
     Example:
-        >>> from omnibase_core.models.container import ModelONEXContainer
-        >>> from omniintelligence.nodes.node_pattern_demotion_effect import (
-        ...     NodePatternDemotionEffect,
-        ... )
-        >>> from omniintelligence.nodes.node_pattern_demotion_effect.registry import (
-        ...     RegistryPatternDemotionEffect,
-        ... )
-        >>>
-        >>> # Create registry with wired dependencies
-        >>> registry = RegistryPatternDemotionEffect.create_registry(
-        ...     repository=pattern_repo,
-        ...     producer=kafka_producer,
-        ... )
-        >>>
-        >>> # Create node with registry
-        >>> container = ModelONEXContainer()
-        >>> node = NodePatternDemotionEffect(container, registry)
-        >>>
-        >>> # Execute
-        >>> request = ModelDemotionCheckRequest(dry_run=False)
-        >>> result = await node.execute(request)
+        ```python
+        from omnibase_core.models.container import ModelONEXContainer
+        from omniintelligence.nodes.node_pattern_demotion_effect import (
+            NodePatternDemotionEffect,
+            check_and_demote_patterns,
+        )
+
+        # Create effect node via container (pure declarative shell)
+        container = ModelONEXContainer()
+        effect = NodePatternDemotionEffect(container)
+
+        # Handlers are invoked directly with their dependencies
+        result = await check_and_demote_patterns(
+            repository=db_connection,
+            producer=kafka_producer,
+            request=ModelDemotionCheckRequest(dry_run=False),
+            topic_env_prefix="dev",
+        )
+
+        # Or use RuntimeHostProcess for event-driven execution
+        # which reads handler_routing from contract.yaml
+        ```
     """
 
-    def __init__(
-        self,
-        container: ModelONEXContainer,
-        registry: ServiceHandlerRegistry,
-    ) -> None:
-        """Initialize the effect node with registry.
-
-        Args:
-            container: ONEX dependency injection container.
-            registry: Service handler registry with wired dependencies.
-        """
-        super().__init__(container)
-        self._registry = registry
-
-    async def execute(
-        self, request: ModelDemotionCheckRequest
-    ) -> ModelDemotionCheckResult:
-        """Execute the effect node to check and demote patterns.
-
-        Delegates to the registry-wired handler function.
-
-        Args:
-            request: The demotion check request with criteria and options.
-
-        Returns:
-            ModelDemotionCheckResult with demotion outcomes.
-        """
-        handler = self._registry.check_and_demote
-        return await handler(request)
+    # Pure declarative shell - all behavior defined in contract.yaml
 
 
 __all__ = ["NodePatternDemotionEffect"]

@@ -1,70 +1,83 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Pattern Feedback Effect - Records session outcomes and updates rolling metrics.
+"""Node Pattern Feedback Effect - Declarative effect node for session outcome recording.
 
 This node follows the ONEX declarative pattern:
-    - Thin shell effect node that delegates to handler
-    - Dependencies retrieved from registry (no setters)
-    - No error handling in node (propagates to caller)
-    - Pattern: "Contract-driven, registry-wired dependencies"
+    - DECLARATIVE effect driven by contract.yaml
+    - Zero custom routing logic - all behavior from handler_routing
+    - Lightweight shell that delegates to handlers via container resolution
+    - Used for ONEX-compliant runtime execution via RuntimeHostProcess
+    - Pattern: "Contract-driven, handlers wired externally"
+
+Extends NodeEffect from omnibase_core for infrastructure I/O operations.
+All handler routing is 100% driven by contract.yaml, not Python code.
+
+Handler Routing Pattern:
+    1. Receive ClaudeSessionOutcome event (input_model in contract)
+    2. Route to record_session_outcome handler (handler_routing)
+    3. Execute database I/O via handler (PostgreSQL rolling metrics)
+    4. Return ModelSessionOutcomeResult (output_model in contract)
+
+Design Decisions:
+    - 100% Contract-Driven: All routing logic in YAML, not Python
+    - Zero Custom Routing: Base class handles handler dispatch via contract
+    - Declarative Handlers: handler_routing section defines dispatch rules
+    - External DI: Handler dependencies resolved by callers/orchestrators
+
+Node Responsibilities:
+    - Define I/O model contract (ClaudeSessionOutcome -> ModelSessionOutcomeResult)
+    - Delegate all execution to handlers via base class
+    - NO custom logic - pure declarative shell
+
+Related Modules:
+    - contract.yaml: Handler routing and I/O model definitions
+    - handlers/handler_session_outcome.py: Session outcome recording handler
+    - models/: Input/output model definitions
+
+Related Tickets:
+    - OMN-1678: Rolling window metric updates for session outcomes
+    - OMN-1757: Refactor to declarative pattern
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from omnibase_core.integrations.claude_code import ClaudeSessionOutcome
 from omnibase_core.nodes.node_effect import NodeEffect
-
-from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-    event_to_handler_args,
-    record_session_outcome,
-)
-from omniintelligence.nodes.node_pattern_feedback_effect.models import (
-    ModelSessionOutcomeResult,
-)
-from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-    RegistryPatternFeedbackEffect,
-)
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 
 class NodePatternFeedbackEffect(NodeEffect):
-    """Effect node for recording session outcomes and updating pattern metrics.
+    """Declarative effect node for recording session outcomes and pattern metrics.
 
-    Thin shell that delegates to record_session_outcome handler.
-    Repository dependency is retrieved from RegistryPatternFeedbackEffect.
+    This effect node is a lightweight shell that defines the I/O contract
+    for pattern feedback operations. All routing and execution logic is driven
+    by contract.yaml - this class contains NO custom routing code.
+
+    Supported Operations (defined in contract.yaml handler_routing):
+        - record_session_outcome: Record session outcome and update rolling metrics
+
+    Dependency Injection:
+        The record_session_outcome handler is invoked by callers with its
+        dependencies (repository protocol for database operations).
+        This node contains NO instance variables for handlers or repositories.
+
+    Example:
+        ```python
+        from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
+            record_session_outcome,
+        )
+
+        # Handler receives dependencies directly via parameters
+        result = await record_session_outcome(
+            session_id=session_uuid,
+            success=True,
+            repository=db_connection,
+        )
+
+        if result.status == EnumOutcomeRecordingStatus.SUCCESS:
+            print(f"Recorded outcome for {result.patterns_updated} patterns")
+        ```
     """
 
-    def __init__(self, container: ModelONEXContainer) -> None:
-        super().__init__(container)
-
-    async def execute(self, request: ClaudeSessionOutcome) -> ModelSessionOutcomeResult:
-        """Execute the effect node to record session outcome.
-
-        Delegates to record_session_outcome handler with registry-wired repository.
-        Maps ClaudeSessionOutcome event to handler arguments at the boundary.
-
-        Raises:
-            RuntimeError: If repository is not registered.
-        """
-        repository = RegistryPatternFeedbackEffect.get_repository()
-        if repository is None:
-            raise RuntimeError(
-                "Pattern repository not registered. "
-                "Call RegistryPatternFeedbackEffect.register_repository() before executing node."
-            )
-        # Map event to handler arguments at the boundary
-        args = event_to_handler_args(request)
-        return await record_session_outcome(
-            session_id=args["session_id"],
-            success=args["success"],
-            failure_reason=args["failure_reason"],
-            repository=repository,
-            correlation_id=args["correlation_id"],
-        )
+    # Pure declarative shell - all behavior defined in contract.yaml
 
 
 __all__ = ["NodePatternFeedbackEffect"]

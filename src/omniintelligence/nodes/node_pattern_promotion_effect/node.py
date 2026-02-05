@@ -1,98 +1,102 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Pattern Promotion Effect - Thin shell node for pattern promotion.
+"""Node Pattern Promotion Effect - Declarative effect node for pattern promotion.
 
 This node follows the ONEX declarative pattern:
-    - EFFECT node for database writes (pattern status updates) and Kafka events
-    - Lightweight shell (~30 lines) that delegates to registry-wired handlers
-    - No setters, no try/except, no logging in node class
-    - Pattern: "Contract-driven, handlers wired externally via registry"
+    - DECLARATIVE effect driven by contract.yaml
+    - Zero custom routing logic - all behavior from handler_routing
+    - Lightweight shell that delegates to handlers via container resolution
+    - Used for ONEX-compliant runtime execution via RuntimeHostProcess
+    - Pattern: "Contract-driven, handlers wired externally"
 
-The node is initialized with a ServiceHandlerRegistry that contains handlers
-with their dependencies (repository, producer) already bound. All error handling,
-logging, and business logic resides in the handler functions.
+Extends NodeEffect from omnibase_core for infrastructure I/O operations.
+All handler routing is 100% driven by contract.yaml, not Python code.
 
-Reference:
+Handler Routing Pattern:
+    1. Receive promotion check request (input_model in contract)
+    2. Route to appropriate handler based on operation (handler_routing)
+    3. Execute infrastructure I/O via handler (PostgreSQL queries, Kafka events)
+    4. Return structured response (output_model in contract)
+
+Design Decisions:
+    - 100% Contract-Driven: All routing logic in YAML, not Python
+    - Zero Custom Routing: Base class handles handler dispatch via contract
+    - Declarative Handlers: handler_routing section defines dispatch rules
+    - Container DI: Handler dependencies resolved via container
+
+Node Responsibilities:
+    - Define I/O model contract (ModelPromotionCheckRequest -> ModelPromotionCheckResult)
+    - Delegate all execution to handlers via base class
+    - NO custom logic - pure declarative shell
+
+The actual handler execution and routing is performed by:
+    - Direct handler invocation by callers
+    - Or RuntimeHostProcess for workflow coordination
+
+Handlers receive their dependencies directly via parameters:
+    - check_and_promote_patterns(repository, producer, ...)
+    - promote_pattern(repository, producer, pattern_id, pattern_data, ...)
+    - meets_promotion_criteria(pattern) - pure function
+
+Related Modules:
+    - contract.yaml: Handler routing and I/O model definitions
+    - handlers/handler_promotion.py: Main promotion handlers
+
+Related Tickets:
     - OMN-1680: Auto-promote logic for provisional patterns
-    - OMN-1678: Rolling window metrics (dependency)
+    - OMN-1757: Refactor to declarative pattern
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from omnibase_core.nodes.node_effect import NodeEffect
-
-if TYPE_CHECKING:
-    from omnibase_core.models.container.model_onex_container import ModelONEXContainer
-    from omniintelligence.nodes.node_pattern_promotion_effect.models import (
-        ModelPromotionCheckRequest,
-        ModelPromotionCheckResult,
-    )
-    from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
-        ServiceHandlerRegistry,
-    )
 
 
 class NodePatternPromotionEffect(NodeEffect):
-    """Effect node for promoting provisional patterns to validated status.
+    """Declarative effect node for promoting provisional patterns to validated status.
 
-    This is a declarative thin shell - all business logic is in the handler.
-    The node simply delegates to the registry-wired handler function.
+    This effect node is a lightweight shell that defines the I/O contract
+    for pattern promotion operations. All routing and execution logic is driven
+    by contract.yaml - this class contains NO custom routing code.
+
+    Supported Operations (defined in contract.yaml handler_routing):
+        - check_and_promote: Check all provisional patterns and promote eligible ones
+        - promote_pattern: Promote a single pattern with gate snapshot
+
+    Dependency Injection:
+        Handlers are invoked by callers with their dependencies
+        (repository, producer, correlation_id). This node contains NO
+        instance variables for handlers or registries.
 
     Example:
-        >>> from omnibase_core.models.container import ModelONEXContainer
-        >>> from omniintelligence.nodes.node_pattern_promotion_effect import (
-        ...     NodePatternPromotionEffect,
-        ... )
-        >>> from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
-        ...     RegistryPatternPromotionEffect,
-        ... )
-        >>>
-        >>> # Create registry with wired dependencies
-        >>> registry = RegistryPatternPromotionEffect.create_registry(
-        ...     repository=pattern_repo,
-        ...     producer=kafka_producer,
-        ... )
-        >>>
-        >>> # Create node with registry
-        >>> container = ModelONEXContainer()
-        >>> node = NodePatternPromotionEffect(container, registry)
-        >>>
-        >>> # Execute
-        >>> request = ModelPromotionCheckRequest(dry_run=False)
-        >>> result = await node.execute(request)
+        ```python
+        from omnibase_core.models.container import ModelONEXContainer
+        from omniintelligence.nodes.node_pattern_promotion_effect import (
+            NodePatternPromotionEffect,
+            check_and_promote_patterns,
+            promote_pattern,
+            meets_promotion_criteria,
+        )
+
+        # Create effect node via container (pure declarative shell)
+        container = ModelONEXContainer()
+        effect = NodePatternPromotionEffect(container)
+
+        # Handlers are invoked directly with their dependencies
+        result = await check_and_promote_patterns(
+            repository=db_conn,
+            producer=kafka_producer,
+            dry_run=False,
+            correlation_id=correlation_id,
+            topic_env_prefix="dev",
+        )
+
+        # Or use RuntimeHostProcess for event-driven execution
+        # which reads handler_routing from contract.yaml
+        ```
     """
 
-    def __init__(
-        self,
-        container: ModelONEXContainer,
-        registry: ServiceHandlerRegistry,
-    ) -> None:
-        """Initialize the effect node with registry.
-
-        Args:
-            container: ONEX dependency injection container.
-            registry: Service handler registry with wired dependencies.
-        """
-        super().__init__(container)
-        self._registry = registry
-
-    async def execute(
-        self, request: ModelPromotionCheckRequest
-    ) -> ModelPromotionCheckResult:
-        """Execute the effect node to check and promote patterns.
-
-        Delegates to the registry-wired handler function.
-
-        Args:
-            request: The promotion check request with criteria and options.
-
-        Returns:
-            ModelPromotionCheckResult with promotion outcomes.
-        """
-        handler = self._registry.check_and_promote
-        return await handler(request)
+    # Pure declarative shell - all behavior defined in contract.yaml
 
 
 __all__ = ["NodePatternPromotionEffect"]
