@@ -155,7 +155,6 @@ def _execute_matching(
 
     Raises:
         PatternMatchingValidationError: If input validation fails.
-        PatternMatchingComputeError: If matching computation fails.
     """
     # Convert Pydantic models to handler-compatible dicts
     patterns = _convert_patterns_to_records(input_data.patterns)

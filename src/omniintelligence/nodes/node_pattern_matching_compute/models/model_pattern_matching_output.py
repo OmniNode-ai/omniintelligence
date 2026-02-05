@@ -15,12 +15,12 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Type alias for pattern matching algorithm types (output context)
-# Note: This differs from input operations ("match", "similarity", "classify", "validate").
-# Input operations describe the USER'S intent; output operations describe the ALGORITHM used.
-# In practice, algorithm details are now in matches[].algorithm_used (MatchAlgorithm type),
-# making this field optional in metadata. Set to None when algorithm is tracked per-match.
-PatternMatchingOperation = Literal[
+# Type alias for output matching algorithm types.
+# Note: This differs from input's PatternMatchingOperation ("match", "similarity", "classify", "validate").
+# Input operations describe the USER'S intent (what to do); this type describes the ALGORITHM used (how).
+# In practice, algorithm details are tracked in matches[].algorithm_used (MatchAlgorithm type),
+# making this metadata field optional. Set to None when algorithm is tracked per-match.
+OutputMatchingAlgorithm = Literal[
     "exact_match",
     "fuzzy_match",
     "semantic_match",
@@ -70,9 +70,9 @@ class ModelPatternMatchingMetadata(BaseModel):
         default=None,
         description="URL for tracking stub implementation progress (for stub nodes)",
     )
-    operation: PatternMatchingOperation | None = Field(
+    operation: OutputMatchingAlgorithm | None = Field(
         default=None,
-        description="The pattern matching operation that was performed",
+        description="The matching algorithm used (None when tracked per-match in matches[])",
     )
 
     # Processing info
@@ -280,5 +280,5 @@ __all__ = [
     "ModelPatternMatch",
     "ModelPatternMatchingMetadata",
     "ModelPatternMatchingOutput",
-    "PatternMatchingOperation",
+    "OutputMatchingAlgorithm",
 ]
