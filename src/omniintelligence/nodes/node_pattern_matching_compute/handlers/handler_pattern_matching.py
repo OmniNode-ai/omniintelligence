@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Sequence
-from typing import Final, Literal
+from typing import Literal
 
 # Module logger for debug/error tracking
 logger = logging.getLogger(__name__)
@@ -45,14 +45,12 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions im
     PatternMatchingValidationError,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols import (
+    ALGORITHM_VERSION,
     PatternMatchDetail,
     PatternMatchingHandlerResult,
     PatternRecord,
     create_empty_handler_result,
 )
-
-# Algorithm version for traceability
-ALGORITHM_VERSION: Final[str] = "1.0.0"
 
 # Supported operations
 PatternOperation = Literal["match", "similarity", "classify", "validate"]

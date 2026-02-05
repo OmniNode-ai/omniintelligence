@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from omniintelligence.constants import MAX_PATTERN_MATCH_RESULTS
 
@@ -203,16 +203,6 @@ class ModelPatternMatchingInput(BaseModel):
         le=1.0,
         description="Minimum match score threshold (0.0 to 1.0)",
     )
-
-    @field_validator("match_threshold")
-    @classmethod
-    def validate_match_threshold(cls, v: float) -> float:
-        """Validate match_threshold is within valid range."""
-        if not 0.0 <= v <= 1.0:
-            raise ValueError(
-                f"match_threshold must be between 0.0 and 1.0, got {v}"
-            )
-        return v
 
     model_config = {"frozen": True, "extra": "forbid"}
 

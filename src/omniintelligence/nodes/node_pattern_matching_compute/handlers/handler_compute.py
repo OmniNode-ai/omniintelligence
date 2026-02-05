@@ -108,6 +108,12 @@ def handle_pattern_matching_compute(
         # This block MUST NOT raise - use nested try/except for all operations.
         processing_time = _safe_elapsed_time_ms(start_time)
 
+        # Extract correlation_id safely for logging
+        correlation_id: str | None = None
+        with contextlib.suppress(Exception):
+            if hasattr(input_data, "context") and hasattr(input_data.context, "correlation_id"):
+                correlation_id = str(input_data.context.correlation_id) if input_data.context.correlation_id else None
+
         # Safe logging - failures here must not propagate
         try:
             logger.exception(
@@ -116,11 +122,16 @@ def handle_pattern_matching_compute(
                 getattr(input_data, "operation", "<unknown>"),
                 len(getattr(input_data, "patterns", [])),
                 processing_time,
+                extra={"correlation_id": correlation_id},
             )
         except Exception:
             # If logging itself fails, try minimal logging
             with contextlib.suppress(Exception):
-                logger.error("Pattern matching compute failed: %s", e)
+                logger.error(
+                    "Pattern matching compute failed: %s",
+                    e,
+                    extra={"correlation_id": correlation_id},
+                )
 
         # Safe error response creation
         return _create_safe_error_output(
@@ -310,7 +321,13 @@ def _safe_elapsed_time_ms(start_time: float) -> float:
     """
     try:
         return (time.perf_counter() - start_time) * 1000
-    except Exception:
+    except Exception as e:
+        # Log the exception but don't propagate - this function must never fail
+        with contextlib.suppress(Exception):
+            logger.warning(
+                "Failed to calculate elapsed time: %s",
+                e,
+            )
         return 0.0
 
 
@@ -331,8 +348,13 @@ def _create_safe_error_output(
     """
     try:
         return _create_compute_error_output(error_message, processing_time_ms)
-    except Exception:
-        # If normal error output creation fails, create minimal output
+    except Exception as e:
+        # If normal error output creation fails, log and create minimal output
+        with contextlib.suppress(Exception):
+            logger.error(
+                "Failed to create compute error output, falling back to minimal: %s",
+                e,
+            )
         try:
             return ModelPatternMatchingOutput(
                 success=False,
@@ -345,8 +367,13 @@ def _create_safe_error_output(
                     processing_time_ms=0.0,
                 ),
             )
-        except Exception:
+        except Exception as e2:
             # Absolute last resort - should never happen
+            with contextlib.suppress(Exception):
+                logger.error(
+                    "All error output creation failed, using bare minimum: %s",
+                    e2,
+                )
             return ModelPatternMatchingOutput(
                 success=False,
                 patterns_matched=[],

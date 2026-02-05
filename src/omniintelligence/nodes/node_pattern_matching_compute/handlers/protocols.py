@@ -13,7 +13,11 @@ Design Decisions:
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Final, Literal, TypedDict
+
+# Algorithm version constant for traceability
+# Defined here to avoid circular imports (handler imports from protocols)
+ALGORITHM_VERSION: Final[str] = "1.0.0"
 
 
 class PatternRecord(TypedDict, total=False):
@@ -115,7 +119,7 @@ def create_empty_handler_result(
         patterns_matched=0,
         patterns_filtered=0,
         threshold_used=threshold,
-        algorithm_version="1.0.0",
+        algorithm_version=ALGORITHM_VERSION,
     )
 
 
@@ -139,11 +143,12 @@ def create_error_handler_result(
         patterns_matched=0,
         patterns_filtered=0,
         threshold_used=threshold,
-        algorithm_version="1.0.0",
+        algorithm_version=ALGORITHM_VERSION,
     )
 
 
 __all__ = [
+    "ALGORITHM_VERSION",
     "PatternMatchDetail",
     "PatternMatchingHandlerResult",
     "PatternRecord",
