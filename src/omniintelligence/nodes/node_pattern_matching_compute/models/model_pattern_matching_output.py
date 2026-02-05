@@ -138,10 +138,62 @@ class ModelPatternMatchingMetadata(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
+# Algorithm types for match detail
+MatchAlgorithm = Literal["keyword_overlap", "regex_match", "semantic"]
+
+
+class ModelPatternMatch(BaseModel):
+    """Detailed information about a single pattern match.
+
+    Provides rich context about why a pattern matched and with what
+    confidence. Used for downstream processing that needs more than
+    just pattern names and scores.
+
+    Attributes:
+        pattern_id: Unique identifier of the matched pattern.
+        pattern_name: Human-readable pattern name or signature excerpt.
+        confidence: Match confidence score (0.0-1.0).
+        category: Pattern category (e.g., "design_pattern", "anti_pattern").
+        match_reason: Explanation of why this pattern matched.
+        algorithm_used: Which matching algorithm produced this result.
+    """
+
+    pattern_id: str = Field(
+        ...,
+        description="Unique identifier of the matched pattern",
+    )
+    pattern_name: str = Field(
+        ...,
+        description="Human-readable pattern name or signature excerpt",
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Match confidence score (0.0-1.0)",
+    )
+    category: str = Field(
+        default="uncategorized",
+        description="Pattern category (e.g., 'design_pattern', 'anti_pattern')",
+    )
+    match_reason: str = Field(
+        default="",
+        description="Explanation of why this pattern matched",
+    )
+    algorithm_used: MatchAlgorithm = Field(
+        default="keyword_overlap",
+        description="Which matching algorithm produced this result",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
 class ModelPatternMatchingOutput(BaseModel):
     """Output model for pattern matching operations.
 
     This model represents the result of matching code patterns.
+    Includes both simple (patterns_matched, pattern_scores) and
+    rich (matches) representations for flexibility.
     """
 
     success: bool = Field(
@@ -150,11 +202,15 @@ class ModelPatternMatchingOutput(BaseModel):
     )
     patterns_matched: list[str] = Field(
         default_factory=list,
-        description="List of matched pattern names",
+        description="List of matched pattern names (simple representation)",
     )
     pattern_scores: dict[str, float] = Field(
         default_factory=dict,
         description="Confidence scores for each matched pattern (0.0 to 1.0)",
+    )
+    matches: list[ModelPatternMatch] = Field(
+        default_factory=list,
+        description="Rich match details including reasons and algorithms",
     )
     metadata: ModelPatternMatchingMetadata | None = Field(
         default=None,
@@ -206,7 +262,8 @@ class ModelPatternMatchingOutput(BaseModel):
 
 
 __all__ = [
-    "UUID_PATTERN",
+    "MatchAlgorithm",
+    "ModelPatternMatch",
     "ModelPatternMatchingMetadata",
     "ModelPatternMatchingOutput",
     "PatternMatchingOperation",

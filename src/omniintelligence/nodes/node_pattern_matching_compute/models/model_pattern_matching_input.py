@@ -10,6 +10,59 @@ from pydantic import BaseModel, Field, field_validator
 from omniintelligence.constants import MAX_PATTERN_MATCH_RESULTS
 
 
+class ModelPatternRecord(BaseModel):
+    """Pattern record for matching operations.
+
+    Represents a pattern from the pattern library that will be matched
+    against the code snippet. Patterns are provided by the caller
+    (typically an orchestrator that fetches from pattern_storage).
+
+    Attributes:
+        pattern_id: Unique identifier for the pattern.
+        signature: The pattern signature (text/regex/structure).
+        domain: Domain where the pattern belongs.
+        keywords: Extracted keywords for keyword-based matching.
+        status: Pattern lifecycle status (validated, provisional, etc.).
+        confidence: Original pattern confidence score.
+        category: Pattern category for filtering.
+    """
+
+    pattern_id: str = Field(
+        ...,
+        description="Unique identifier for the pattern",
+    )
+    signature: str = Field(
+        ...,
+        min_length=1,
+        description="The pattern signature (text/regex/structure)",
+    )
+    domain: str = Field(
+        ...,
+        min_length=1,
+        description="Domain where the pattern belongs",
+    )
+    keywords: list[str] | None = Field(
+        default=None,
+        description="Extracted keywords for keyword-based matching",
+    )
+    status: str | None = Field(
+        default=None,
+        description="Pattern lifecycle status (validated, provisional, etc.)",
+    )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Original pattern confidence score",
+    )
+    category: str | None = Field(
+        default=None,
+        description="Pattern category for filtering",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+
 class ModelPatternContext(BaseModel):
     """Structured context for pattern matching operations.
 
@@ -117,12 +170,20 @@ class ModelPatternMatchingInput(BaseModel):
 
     This model represents the input for matching code patterns.
     All fields are fully typed with validation constraints.
+
+    The patterns field contains the pattern library to match against.
+    This follows the compute node purity principle - patterns are passed
+    in rather than fetched via I/O.
     """
 
     code_snippet: str = Field(
         ...,
         min_length=1,
         description="Code snippet to match patterns against",
+    )
+    patterns: list[ModelPatternRecord] = Field(
+        default_factory=list,
+        description="Pattern library to match against (provided by orchestrator)",
     )
     operation: PatternMatchingOperation = Field(
         default="match",
@@ -159,5 +220,6 @@ class ModelPatternMatchingInput(BaseModel):
 __all__ = [
     "ModelPatternContext",
     "ModelPatternMatchingInput",
+    "ModelPatternRecord",
     "PatternMatchingOperation",
 ]
