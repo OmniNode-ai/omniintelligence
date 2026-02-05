@@ -43,7 +43,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.node_tests.conftest impo
     MockPatternStateManager,
 )
 
-
 # =============================================================================
 # State Transition Constants Verification
 # =============================================================================
@@ -243,7 +242,10 @@ class TestValidStateTransitions:
         )
 
         # State should be updated in the manager
-        assert await mock_state_manager.get_current_state(pattern_id, mock_conn) == EnumPatternState.PROVISIONAL
+        assert (
+            await mock_state_manager.get_current_state(pattern_id, mock_conn)
+            == EnumPatternState.PROVISIONAL
+        )
 
     @pytest.mark.asyncio
     async def test_transition_recorded_in_audit(

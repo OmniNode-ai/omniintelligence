@@ -45,7 +45,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.models import (
     ModelPatternStorageMetadata,
 )
 
-
 # =============================================================================
 # Mock Protocol Implementations
 # =============================================================================
@@ -372,7 +371,9 @@ class MockPatternStateManager:
         self.transitions: list[ModelStateTransition] = []
 
     async def get_current_state(
-        self, pattern_id: UUID, conn: Any = None  # noqa: ARG002
+        self,
+        pattern_id: UUID,
+        conn: Any = None,  # noqa: ARG002
     ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
@@ -401,7 +402,9 @@ class MockPatternStateManager:
         self.states[pattern_id] = new_state
 
     async def record_transition(
-        self, transition: ModelStateTransition, conn: Any = None  # noqa: ARG002
+        self,
+        transition: ModelStateTransition,
+        conn: Any = None,  # noqa: ARG002
     ) -> None:
         """Record a state transition in the audit table.
 

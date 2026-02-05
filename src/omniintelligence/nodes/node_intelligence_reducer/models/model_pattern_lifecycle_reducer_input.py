@@ -7,6 +7,7 @@ Naming note: "ReducerInput" not "Payload" to distinguish from intent payloads.
 
 Ticket: OMN-1805
 """
+
 from __future__ import annotations
 
 from typing import Literal

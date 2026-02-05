@@ -41,8 +41,8 @@ from __future__ import annotations
 
 import importlib
 import importlib.resources
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, TypeVar
 
 import yaml
@@ -113,7 +113,9 @@ class EventBusConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    version: dict[str, int] = Field(default_factory=lambda: {"major": 1, "minor": 0, "patch": 0})
+    version: dict[str, int] = Field(
+        default_factory=lambda: {"major": 1, "minor": 0, "patch": 0}
+    )
     event_bus_enabled: bool = True
     subscribe_topics: list[str] = Field(default_factory=list)
     publish_topics: list[str] = Field(default_factory=list)

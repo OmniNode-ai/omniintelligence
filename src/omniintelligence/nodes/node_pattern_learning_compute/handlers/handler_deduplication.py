@@ -106,7 +106,9 @@ def generate_pattern_signature(cluster: PatternClusterDict) -> PatternSignatureD
         'v1.0.0'
     """
     if not cluster:
-        raise PatternLearningValidationError("Cannot generate signature for empty cluster")
+        raise PatternLearningValidationError(
+            "Cannot generate signature for empty cluster"
+        )
 
     centroid = cluster["centroid_features"]
     pattern_type = cluster["pattern_type"]
@@ -267,7 +269,9 @@ def deduplicate_patterns(
 
             # Check near-threshold (warning zone)
             near_threshold_lower = similarity_threshold - near_threshold_margin
-            is_near_threshold = near_threshold_lower <= similarity < similarity_threshold
+            is_near_threshold = (
+                near_threshold_lower <= similarity < similarity_threshold
+            )
 
             # Check if duplicates (should merge)
             if similarity >= similarity_threshold:
@@ -284,7 +288,10 @@ def deduplicate_patterns(
                 # Emit near-threshold warning if applicable
                 # (similarity was >= threshold but also in warning zone is impossible,
                 # but we emit warning anyway for the merge action)
-                if is_near_threshold or similarity < similarity_threshold + near_threshold_margin:
+                if (
+                    is_near_threshold
+                    or similarity < similarity_threshold + near_threshold_margin
+                ):
                     # Only emit if very close to threshold
                     if abs(similarity - similarity_threshold) < near_threshold_margin:
                         warnings.append(

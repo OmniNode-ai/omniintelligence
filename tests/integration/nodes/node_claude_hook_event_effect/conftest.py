@@ -35,7 +35,6 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-
 from omnibase_core.enums.hooks.claude_code import EnumClaudeCodeHookEventType
 from omnibase_core.models.hooks.claude_code import (
     ModelClaudeCodeHookEvent,
@@ -43,6 +42,7 @@ from omnibase_core.models.hooks.claude_code import (
 )
 from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_infra.models import ModelNodeIdentity
+
 from tests.fixtures.topic_constants import (
     TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
     TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,

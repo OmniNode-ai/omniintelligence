@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
     build_span_tree,
     detect_log_errors,
@@ -116,9 +114,7 @@ class TestDetectLogErrors:
 
     def test_detect_fatal_level_log(self) -> None:
         """Detect error from FATAL level log."""
-        span = build_span_tree(
-            ModelTraceData(span_id="span-123")
-        )
+        span = build_span_tree(ModelTraceData(span_id="span-123"))
         logs = [
             {
                 "timestamp": "2026-01-01T00:00:00Z",
@@ -134,9 +130,7 @@ class TestDetectLogErrors:
 
     def test_no_error_info_level(self) -> None:
         """No error detected for INFO level log."""
-        span = build_span_tree(
-            ModelTraceData(span_id="span-123")
-        )
+        span = build_span_tree(ModelTraceData(span_id="span-123"))
         logs = [
             {
                 "timestamp": "2026-01-01T00:00:00Z",

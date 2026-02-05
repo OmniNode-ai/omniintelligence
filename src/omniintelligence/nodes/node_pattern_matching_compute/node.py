@@ -2,6 +2,7 @@
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/10
 # Status: Interface defined, implementation pending
 """Pattern Matching Compute - STUB compute node for pattern matching."""
+
 from __future__ import annotations
 
 import warnings
@@ -19,7 +20,9 @@ from omniintelligence.nodes.node_pattern_matching_compute.models import (
 _STUB_TRACKING_URL = "https://github.com/OmniNode-ai/omniintelligence/issues/10"
 
 
-class NodePatternMatchingCompute(NodeCompute[ModelPatternMatchingInput, ModelPatternMatchingOutput]):
+class NodePatternMatchingCompute(
+    NodeCompute[ModelPatternMatchingInput, ModelPatternMatchingOutput]
+):
     """STUB: Pure compute node for matching code patterns.
 
     Attributes:

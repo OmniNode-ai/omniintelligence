@@ -29,9 +29,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
-
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
+
+from omnibase_core.nodes.node_effect import NodeEffect
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
@@ -49,8 +50,6 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
-from omnibase_core.nodes.node_effect import NodeEffect
-
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -221,7 +220,10 @@ class MockPatternRepository:
             return f"UPDATE {count}"
 
         # Handle: Update learned_patterns on FAILURE
-        if "UPDATE learned_patterns" in query and "failure_streak = failure_streak + 1" in query:
+        if (
+            "UPDATE learned_patterns" in query
+            and "failure_streak = failure_streak + 1" in query
+        ):
             pattern_ids = args[0]
             count = 0
             for pid in pattern_ids:
@@ -242,14 +244,21 @@ class MockPatternRepository:
 
         # Handle: Update injection heuristics (OMN-1679)
         # SQL_UPDATE_INJECTION_HEURISTIC: UPDATE pattern_injections SET ... WHERE injection_id = $1 AND contribution_heuristic IS NULL
-        if "UPDATE pattern_injections" in query and "contribution_heuristic" in query and "heuristic_method" in query:
+        if (
+            "UPDATE pattern_injections" in query
+            and "contribution_heuristic" in query
+            and "heuristic_method" in query
+        ):
             injection_id = args[0]
             weights_json = args[1]
             method = args[2]
             confidence = args[3]
             count = 0
             for inj in self.injections:
-                if inj.injection_id == injection_id and inj.contribution_heuristic is None:
+                if (
+                    inj.injection_id == injection_id
+                    and inj.contribution_heuristic is None
+                ):
                     inj.contribution_heuristic = weights_json
                     inj.heuristic_method = method
                     inj.heuristic_confidence = confidence
@@ -422,7 +431,7 @@ class TestNormalIncrementBelowCap:
             await record_session_outcome(
                 session_id=session_id,
                 success=False,
-                failure_reason=f"Failure {i+1}",
+                failure_reason=f"Failure {i + 1}",
                 repository=mock_repository,
             )
 
@@ -1287,7 +1296,9 @@ class TestDecayApproximation:
 
         # Assert: Ratio shifted
         updated = mock_repository.patterns[sample_pattern_id]
-        success_rate = updated.success_count_rolling_20 / updated.injection_count_rolling_20
+        success_rate = (
+            updated.success_count_rolling_20 / updated.injection_count_rolling_20
+        )
         # Started at 50%, after 5 successes should be ~75% (15/20)
         assert success_rate == 0.75
 
@@ -1846,9 +1857,9 @@ class TestContributionHeuristics:
 
         weights = json.loads(injection.contribution_heuristic)
         # Positions: 1, 2, 3. Sum = 6. Weights: 1/6, 2/6, 3/6
-        assert abs(weights[str(sample_pattern_ids[0])] - 1.0/6) < 1e-9
-        assert abs(weights[str(sample_pattern_ids[1])] - 2.0/6) < 1e-9
-        assert abs(weights[str(sample_pattern_ids[2])] - 3.0/6) < 1e-9
+        assert abs(weights[str(sample_pattern_ids[0])] - 1.0 / 6) < 1e-9
+        assert abs(weights[str(sample_pattern_ids[1])] - 2.0 / 6) < 1e-9
+        assert abs(weights[str(sample_pattern_ids[2])] - 3.0 / 6) < 1e-9
 
     @pytest.mark.asyncio
     async def test_first_match_only_first_pattern(
@@ -1918,10 +1929,12 @@ class TestContributionHeuristics:
         # Act: Try to compute heuristics again
         updated = await compute_and_store_heuristics(
             injection_rows=[
-                MockRecord({
-                    "injection_id": injection_id,
-                    "pattern_ids": [sample_pattern_id],
-                })
+                MockRecord(
+                    {
+                        "injection_id": injection_id,
+                        "pattern_ids": [sample_pattern_id],
+                    }
+                )
             ],
             heuristic_method=EnumHeuristicMethod.FIRST_MATCH,  # Different method
             repository=mock_repository,
@@ -1983,8 +1996,12 @@ class TestContributionHeuristics:
         )
 
         # Assert: Both injections have the same weights
-        inj1 = next(i for i in mock_repository.injections if i.injection_id == injection_id_1)
-        inj2 = next(i for i in mock_repository.injections if i.injection_id == injection_id_2)
+        inj1 = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id_1
+        )
+        inj2 = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id_2
+        )
 
         # Both should have same weights (session-level computation)
         assert inj1.contribution_heuristic == inj2.contribution_heuristic
@@ -1994,7 +2011,7 @@ class TestContributionHeuristics:
         # Weights: 3 patterns total, each gets 1/3
         weights = json.loads(inj1.contribution_heuristic)
         for pid in sample_pattern_ids:
-            assert abs(weights[str(pid)] - 1.0/3) < 1e-9
+            assert abs(weights[str(pid)] - 1.0 / 3) < 1e-9
 
     @pytest.mark.asyncio
     async def test_duplicate_patterns_across_injections_accumulated(
@@ -2043,14 +2060,16 @@ class TestContributionHeuristics:
         )
 
         # Assert
-        inj = next(i for i in mock_repository.injections if i.injection_id == injection_id_1)
+        inj = next(
+            i for i in mock_repository.injections if i.injection_id == injection_id_1
+        )
         weights = json.loads(inj.contribution_heuristic)
 
         # Order: A(1), B(2), A(3). Sum = 6.
         # A: 1/6 + 3/6 = 4/6 = 2/3
         # B: 2/6 = 1/3
-        assert abs(weights[str(pattern_a)] - 4.0/6) < 1e-9
-        assert abs(weights[str(pattern_b)] - 2.0/6) < 1e-9
+        assert abs(weights[str(pattern_a)] - 4.0 / 6) < 1e-9
+        assert abs(weights[str(pattern_b)] - 2.0 / 6) < 1e-9
 
     @pytest.mark.asyncio
     async def test_default_heuristic_method_is_equal_split(

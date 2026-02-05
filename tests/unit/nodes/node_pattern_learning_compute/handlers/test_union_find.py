@@ -19,7 +19,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.union_find im
     UnionFind,
 )
 
-
 # =============================================================================
 # Initialization Tests
 # =============================================================================

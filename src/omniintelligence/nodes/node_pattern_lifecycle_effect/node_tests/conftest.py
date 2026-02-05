@@ -25,7 +25,6 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_trans
     ProtocolPatternRepository,
 )
 
-
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================

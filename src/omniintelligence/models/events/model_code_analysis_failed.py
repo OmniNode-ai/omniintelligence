@@ -14,7 +14,9 @@ from pydantic import BaseModel, Field
 from omniintelligence.enums.enum_code_analysis import EnumAnalysisOperationType
 
 # UUID pattern for correlation_id validation
-UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+UUID_PATTERN = (
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 class ModelCodeAnalysisFailedPayload(BaseModel):
@@ -45,12 +47,16 @@ class ModelCodeAnalysisFailedPayload(BaseModel):
     operation_type: EnumAnalysisOperationType | None = Field(
         default=None, description="Type of analysis that failed"
     )
-    source_path: str = Field(default="", description="Path to the source that was analyzed")
+    source_path: str = Field(
+        default="", description="Path to the source that was analyzed"
+    )
     retry_allowed: bool = Field(default=True, description="Whether retry is allowed")
     processing_time_ms: float = Field(
         default=0.0, ge=0.0, description="Processing time in ms"
     )
-    error_details: str | None = Field(default=None, description="Detailed error information")
+    error_details: str | None = Field(
+        default=None, description="Detailed error information"
+    )
     suggested_action: str | None = Field(
         default=None, description="Suggested action to resolve"
     )

@@ -740,7 +740,10 @@ async def check_and_demote_patterns(
 
                 # Check for kafka issues - track separately but still add result
                 # Handles both "kafka_producer_unavailable" and "kafka_publish_failed:..."
-                if result.reason == "kafka_producer_unavailable" or result.reason.startswith("kafka_publish_failed:"):
+                if (
+                    result.reason == "kafka_producer_unavailable"
+                    or result.reason.startswith("kafka_publish_failed:")
+                ):
                     kafka_unavailable_count += 1
                     logger.warning(
                         "Pattern demotion skipped - Kafka issue",

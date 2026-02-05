@@ -62,14 +62,15 @@
 #   end-of-file-fixer         | <0.1s      | >0.3s             | Normal
 #   check-merge-conflict      | <0.1s      | >0.3s             | Normal
 #   check-added-large-files   | <0.1s      | >0.5s             | Normal
-#   ruff (lint)               | <0.1s      | >0.5s             | Check file scope
-#   ruff (format)             | <0.1s      | >0.5s             | Check file scope
-#   mypy (type check)         | ~0.2s      | >2.0s             | Check cache*
+#   ruff-format               | <0.2s      | >1.0s             | Full codebase scan
+#   ruff-fix                  | <0.2s      | >1.0s             | Full codebase scan
 #   contract-linter           | <0.2s      | >1.0s             | Normal
 #   pytest-smoke              | ~3-5s      | >10s              | Check test scope
+#   mypy (pre-push)           | ~0.5s      | >3.0s             | Check cache*
 #   pytest-tools (pre-push)   | ~5-10s     | >30s              | Check test scope
 #
 #   * mypy uses incremental cache - see "MYPY CACHE" section below
+#   Note: ruff hooks run on entire src/ and tests/ directories (not just staged files)
 #
 # ============================================================================
 # TROUBLESHOOTING SLOW HOOKS
@@ -129,31 +130,24 @@
 # Hook Scope Summary:
 # - yamlfmt: YAML formatting for consistency
 # - pre-commit-hooks: File hygiene (trailing whitespace, EOF, merge conflicts)
-# - ruff/mypy: All production Python code (tools/, utils/, runtime/) and their tests
+# - ruff-format/ruff-fix: Entire codebase (src/ and tests/) - runs always, not just on staged files
+# - mypy: Production source code (pre-push stage for performance)
 # - contract-linter: ONEX node contracts (future nodes/ directory)
 # - pytest-smoke: Quick unit tests on commit
 # - pytest-tools: Full tools/utils/runtime tests on push only
 #
 # ============================================================================
-# CI ALIGNMENT NOTICE - KEEP IN SYNC WITH .github/workflows/ci.yaml
+# CI ALIGNMENT NOTICE
 # ============================================================================
-# The file patterns in ruff/mypy hooks MUST stay aligned with CI path filters.
-# When updating patterns here, also update the corresponding CI filters.
+# ruff hooks now run on the entire codebase (src/ and tests/) matching CI behavior.
+# This eliminates "works locally, fails in CI" issues from scoped file patterns.
+#
+# mypy runs on src/omniintelligence/ in pre-push stage (moved from pre-commit
+# for faster commit cycles).
 #
 # CI WORKFLOW CROSS-REFERENCE:
 # - CI workflow file: .github/workflows/ci.yaml
 # - CI alignment notice: lines 15-74 (comprehensive sync instructions)
-# - production_code filter: lines 100-109 (changes job, dorny/paths-filter)
-# - scope-alignment job: lines 167-204 (runs validation on every CI build)
-#
-# Aligned patterns (pre-commit <-> CI):
-# - ruff/mypy files: regex      <-> CI production_code filter: glob patterns
-# - Source: tools/, utils/, runtime/ directories
-# - Tests: tests/unit/tools/, tests/unit/test_log_sanitizer.py
-#
-# Validation script: scripts/validate_ci_precommit_alignment.py
-# Run manually: uv run python scripts/validate_ci_precommit_alignment.py
-# CI runs this automatically via the scope-alignment job on every build.
 # ============================================================================
 #
 # ============================================================================
@@ -220,11 +214,11 @@
 # 2. types: [python] instead of regex file matching
 #    - Pre-commit's type system uses file magic/extension detection
 #    - Faster than regex matching against all staged files
-#    - Used on: ruff (lint/format), mypy, pytest hooks
+#    - Used on: mypy, pytest hooks
 #
 # 3. Scoped file patterns
-#    - Each hook only processes files it needs (not the entire repo)
-#    - ruff/mypy: Only tools/, utils/, runtime/ directories
+#    - ruff: Runs on entire src/ and tests/ directories (matches CI behavior)
+#    - mypy: Production source code only (src/omniintelligence/)
 #    - pytest-smoke: Only tools/ directory (narrowest scope for fast feedback)
 #    - Global exclusions: _legacy/, migration_sources/ avoid processing dead code
 #
@@ -291,54 +285,50 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1000]
   # ============================================================================
-  # RUFF - Fast Python linter and formatter
-  # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
-  # Scope: Production code (tools/, utils/, runtime/) and their unit tests
+  # ONEX Python Development Hooks (local - matching omnibase_core pattern)
+  # Order: ruff format → ruff check (formatting before linting)
+  # Note: ruff replaces both black and isort (10-100x faster)
   # ============================================================================
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+  - repo: local
     hooks:
-      - id: ruff
-        name: ruff (lint)
-        args: [--fix, --exit-non-zero-on-fix]
-        # types: [python] is more efficient than files regex for Python detection
-        types: [python]
-        # Covers: tools/, utils/, runtime/ source code and their tests
-        # test_log_sanitizer.py is included separately as it tests utils/log_sanitizer.py
-        # functionality but lives in tests/unit/ rather than tests/unit/tools/
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
-
+      # --------------------------------------------------------------------------
+      # FULL CODEBASE FORMATTING: These hooks run on src/ and tests/ (not just staged files)
+      # to match CI behavior and prevent "works locally, fails in CI" issues.
+      # --------------------------------------------------------------------------
       - id: ruff-format
-        name: ruff (format)
-        # types: [python] is more efficient than files regex for Python detection
-        types: [python]
-        # Same scope as ruff lint (see comment above for test_log_sanitizer.py rationale)
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
+        name: ruff format (auto-format entire codebase)
+        entry: uv run ruff format src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
 
-  # ============================================================================
-  # MYPY - Static type checking
-  # Validates: Type annotations and type safety
-  # Scope: Production source code only (tests may lack full type annotations)
-  # ============================================================================
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    # mypy pinned to v1.13.0 for stability (latest stable release as of Nov 2024)
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        name: mypy (type check)
-        # --incremental uses mypy cache for faster subsequent runs
-        # Locally: Cache in .mypy_cache/ speeds up repeated runs automatically
-        # CI: .mypy_cache/ is cached in .github/workflows/ci.yaml (type-check job)
-        #     to restore incremental benefits across workflow runs
-        args: [--strict, --ignore-missing-imports, --incremental]
-        # types: [python] is more efficient than files regex for Python detection
+      - id: ruff-fix
+        name: ruff check (auto-fix entire codebase)
+        entry: uv run ruff check --fix --exit-non-zero-on-fix src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+        # Note: --exit-non-zero-on-fix ensures pre-commit fails if files were modified,
+        # forcing you to re-stage the changes. This keeps pre-commit and CI in sync.
+
+      # --------------------------------------------------------------------------
+      # MYPY - Static type checking (pre-push stage for performance)
+      # Validates: Type annotations and type safety
+      # Scope: All production source code in src/omniintelligence/
+      # Stage: pre-push (moved from pre-commit for faster commit cycles)
+      # --incremental uses mypy cache for faster subsequent runs
+      # --------------------------------------------------------------------------
+      - id: mypy-type-check
+        name: mypy (type checking - strict)
+        entry: uv run mypy --strict --ignore-missing-imports --incremental
+        language: system
         types: [python]
-        # Covers: tools/, utils/, runtime/ source code (not tests)
-        files: ^src/omniintelligence/(tools|utils|runtime)/
-        additional_dependencies:
-          - types-PyYAML
-          - pydantic>=2.0.0
-          - omnibase-core>=0.11.0
+        files: ^src/omniintelligence/.*\.py$
+        exclude: ^tests/.*\.py$
+        pass_filenames: true
+        stages: [pre-push]
 
   # ============================================================================
   # LOCAL HOOKS - Project-specific validators

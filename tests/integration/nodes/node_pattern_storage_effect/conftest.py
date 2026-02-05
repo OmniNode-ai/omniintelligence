@@ -17,8 +17,8 @@ Reference:
 from __future__ import annotations
 
 import json
-from typing import Any
 from collections.abc import AsyncGenerator
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -33,7 +33,6 @@ from omniintelligence.testing import (
     MockPatternStore,
     create_valid_pattern_input,
 )
-
 
 # =============================================================================
 # Infrastructure Detection
@@ -255,9 +254,15 @@ def kafka_publisher_adapter(event_bus: Any) -> EventBusKafkaPublisherAdapter:
 # =============================================================================
 
 TEST_TOPIC_PREFIX: str = "test"
-TOPIC_PATTERN_STORED: str = f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-stored.v1"
-TOPIC_PATTERN_PROMOTED: str = f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-promoted.v1"
-TOPIC_PATTERN_LEARNED: str = f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-learned.v1"
+TOPIC_PATTERN_STORED: str = (
+    f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-stored.v1"
+)
+TOPIC_PATTERN_PROMOTED: str = (
+    f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-promoted.v1"
+)
+TOPIC_PATTERN_LEARNED: str = (
+    f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-learned.v1"
+)
 
 
 @pytest.fixture

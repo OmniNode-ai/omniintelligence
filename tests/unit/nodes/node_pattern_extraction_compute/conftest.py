@@ -9,14 +9,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
+    EnumInsightType,
     ModelCodebaseInsight,
     ModelExtractionConfig,
     ModelPatternExtractionInput,
     ModelSessionSnapshot,
     ModelToolExecution,
-    EnumInsightType,
 )
-
 
 # =============================================================================
 # Time Fixtures
@@ -41,7 +40,9 @@ def base_time(reference_time: datetime) -> datetime:
 
 
 @pytest.fixture
-def sample_session(base_time: datetime, reference_time: datetime) -> ModelSessionSnapshot:
+def sample_session(
+    base_time: datetime, reference_time: datetime
+) -> ModelSessionSnapshot:
     """A single session snapshot with realistic data.
 
     This session represents a typical development session where:
@@ -157,9 +158,7 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
                 "src/api/routes.py",
                 "src/api/handlers.py",
             ),
-            files_modified=(
-                "src/api/handlers.py",
-            ),
+            files_modified=("src/api/handlers.py",),
             tools_used=("Read", "Edit"),
             errors_encountered=(),
             outcome="success",
@@ -168,7 +167,9 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
 
 
 @pytest.fixture
-def sessions_with_diverse_tools(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_diverse_tools(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions with diverse tool usage for tool pattern detection.
 
     Designed to detect:
@@ -556,7 +557,9 @@ def tool_execution_failure(base_time: datetime) -> ModelToolExecution:
 
 
 @pytest.fixture
-def sessions_with_recurring_failures(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_recurring_failures(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions with same tool+error_type across multiple sessions (min 3).
 
     Designed to detect:
@@ -652,7 +655,9 @@ def sessions_with_recurring_failures(base_time: datetime) -> tuple[ModelSessionS
 
 
 @pytest.fixture
-def sessions_with_failure_sequence(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_failure_sequence(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions where Read failure is followed by Edit failure (within 5 calls).
 
     Designed to detect:
@@ -778,7 +783,9 @@ def sessions_with_failure_sequence(base_time: datetime) -> tuple[ModelSessionSna
 
 
 @pytest.fixture
-def sessions_with_recovery_pattern(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_recovery_pattern(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions with failure -> retry -> success pattern.
 
     Designed to detect:
@@ -862,7 +869,9 @@ def sessions_with_recovery_pattern(base_time: datetime) -> tuple[ModelSessionSna
 
 
 @pytest.fixture
-def sessions_with_directory_failures(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_directory_failures(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions with failures concentrated in specific directory.
 
     Designed to detect:
@@ -1117,7 +1126,9 @@ def single_failure_session(base_time: datetime) -> tuple[ModelSessionSnapshot, .
 
 
 @pytest.fixture
-def sessions_with_extension_failures(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_extension_failures(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions with failures concentrated on specific file extensions.
 
     Designed to detect:
@@ -1270,7 +1281,9 @@ def sessions_with_extension_failures(base_time: datetime) -> tuple[ModelSessionS
 
 
 @pytest.fixture
-def sessions_with_many_failure_patterns(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
+def sessions_with_many_failure_patterns(
+    base_time: datetime,
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions designed to produce MULTIPLE patterns of EACH subtype.
 
     This fixture is specifically for testing max_results_per_type limiting.
@@ -1290,7 +1303,11 @@ def sessions_with_many_failure_patterns(base_time: datetime) -> tuple[ModelSessi
             working_directory="/project",
             started_at=base_time,
             ended_at=base_time + timedelta(minutes=30),
-            files_accessed=("src/api/routes.py", "config/settings.json", "data/file.csv"),
+            files_accessed=(
+                "src/api/routes.py",
+                "config/settings.json",
+                "data/file.csv",
+            ),
             files_modified=(),
             tools_used=("Read", "Read", "Edit", "Bash", "Read", "Edit"),
             tool_executions=(

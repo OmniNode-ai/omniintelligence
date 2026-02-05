@@ -9,7 +9,7 @@ This module tests the factory method that splits patterns by lifecycle_state:
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID, uuid5
 
 import pytest
@@ -33,7 +33,6 @@ from omnibase_core.models.primitives.model_semver import ModelSemVer
 from omniintelligence.nodes.node_pattern_learning_compute.models import (
     ModelPatternLearningOutput,
 )
-
 
 # =============================================================================
 # Test Fixtures
@@ -197,11 +196,18 @@ class TestFromPatternsFactoryMethod:
         # Assert
         assert len(result.learned_patterns) == 1
         assert result.learned_patterns[0].pattern_id == make_test_uuid("p1")
-        assert result.learned_patterns[0].lifecycle_state == EnumPatternLifecycleState.VALIDATED
+        assert (
+            result.learned_patterns[0].lifecycle_state
+            == EnumPatternLifecycleState.VALIDATED
+        )
 
         assert len(result.candidate_patterns) == 3
         candidate_ids = {p.pattern_id for p in result.candidate_patterns}
-        expected_ids = {make_test_uuid("p2"), make_test_uuid("p3"), make_test_uuid("p4")}
+        expected_ids = {
+            make_test_uuid("p2"),
+            make_test_uuid("p3"),
+            make_test_uuid("p4"),
+        }
         assert candidate_ids == expected_ids
 
         # Verify all candidate patterns have non-VALIDATED lifecycle states
@@ -429,7 +435,9 @@ class TestFromPatternsFactoryMethod:
         # Assert - verify metadata is preserved
         assert result.metadata.status == sample_metadata.status
         assert result.metadata.model_version == sample_metadata.model_version
-        assert result.metadata.convergence_achieved == sample_metadata.convergence_achieved
+        assert (
+            result.metadata.convergence_achieved == sample_metadata.convergence_achieved
+        )
 
 
 # =============================================================================
@@ -680,6 +688,8 @@ class TestFromFailureFactoryMethod:
         # Assert - verify metadata is preserved
         assert result.metadata.status == sample_metadata.status
         assert result.metadata.model_version == sample_metadata.model_version
-        assert result.metadata.convergence_achieved == sample_metadata.convergence_achieved
+        assert (
+            result.metadata.convergence_achieved == sample_metadata.convergence_achieved
+        )
         assert result.metadata.training_samples == sample_metadata.training_samples
         assert result.metadata.final_epoch == sample_metadata.final_epoch

@@ -23,7 +23,6 @@ from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
     analyze_semantics,
 )
 
-
 # =============================================================================
 # Test Fixtures - Sample Python Code Snippets
 # =============================================================================
@@ -69,18 +68,18 @@ class Dog(Animal):
         return f"fetched {item}"
 '''
 
-SAMPLE_WITH_IMPORTS = '''
+SAMPLE_WITH_IMPORTS = """
 import os
 from typing import List, Optional
 from pathlib import Path
-'''
+"""
 
-SAMPLE_CONSTANTS = '''
+SAMPLE_CONSTANTS = """
 MAX_RETRIES: int = 3
 DEFAULT_TIMEOUT = 30.0
 API_VERSION = "1.0.0"
 _PRIVATE_CONST = "internal"
-'''
+"""
 
 SAMPLE_REALISTIC_FILE = '''
 """A realistic Python module for testing semantic analysis."""
@@ -281,7 +280,9 @@ class TestRelationshipDetection:
 
         assert result["success"] is True
 
-        import_relations = [r for r in result["relations"] if r["relation_type"] == "imports"]
+        import_relations = [
+            r for r in result["relations"] if r["relation_type"] == "imports"
+        ]
         assert len(import_relations) >= 3
 
         # All should have module as source
@@ -302,7 +303,9 @@ class TestRelationshipDetection:
 
         assert result["success"] is True
 
-        inherits_relations = [r for r in result["relations"] if r["relation_type"] == "inherits"]
+        inherits_relations = [
+            r for r in result["relations"] if r["relation_type"] == "inherits"
+        ]
         assert len(inherits_relations) == 1
 
         dog_inherits = inherits_relations[0]
@@ -312,23 +315,29 @@ class TestRelationshipDetection:
 
     def test_detect_call_relationships(self) -> None:
         """Test CALLS relation extraction (best-effort)."""
-        code = '''
+        code = """
 def helper() -> int:
     return 42
 
 def process() -> int:
     result = helper()
     return result + helper()
-'''
+"""
         result = analyze_semantics(code, "python")
 
         assert result["success"] is True
 
-        call_relations = [r for r in result["relations"] if r["relation_type"] == "calls"]
+        call_relations = [
+            r for r in result["relations"] if r["relation_type"] == "calls"
+        ]
 
         # Should detect process -> helper call
         process_to_helper = next(
-            (r for r in call_relations if r["source"] == "process" and r["target"] == "helper"),
+            (
+                r
+                for r in call_relations
+                if r["source"] == "process" and r["target"] == "helper"
+            ),
             None,
         )
         assert process_to_helper is not None
@@ -343,7 +352,9 @@ def process() -> int:
 
         assert result["success"] is True
 
-        defines_relations = [r for r in result["relations"] if r["relation_type"] == "defines"]
+        defines_relations = [
+            r for r in result["relations"] if r["relation_type"] == "defines"
+        ]
 
         # Module should define the greet function
         greet_defined = next(
@@ -373,9 +384,7 @@ def process() -> int:
 
         # Get DEFINES relation targets
         defines_targets = {
-            r["target"]
-            for r in result["relations"]
-            if r["relation_type"] == "defines"
+            r["target"] for r in result["relations"] if r["relation_type"] == "defines"
         }
 
         # Imports should NOT appear in DEFINES targets
@@ -388,7 +397,9 @@ def process() -> int:
         imports_relations = [
             r for r in result["relations"] if r["relation_type"] == "imports"
         ]
-        assert len(imports_relations) >= 3, "Imports should still have IMPORTS relations"
+        assert len(imports_relations) >= 3, (
+            "Imports should still have IMPORTS relations"
+        )
 
 
 # =============================================================================
@@ -410,7 +421,9 @@ class TestErrorHandling:
         assert len(result["entities"]) == 0
         assert len(result["relations"]) == 0
         assert len(result["warnings"]) > 0
-        assert any("syntax" in w.lower() or "error" in w.lower() for w in result["warnings"])
+        assert any(
+            "syntax" in w.lower() or "error" in w.lower() for w in result["warnings"]
+        )
 
     def test_empty_content_returns_warning(self) -> None:
         """Test that empty input returns validation error."""
@@ -650,29 +663,41 @@ class TestFeatureFlags:
 
     def test_exclude_call_graph(self) -> None:
         """Test that call relations are excluded when flag is False."""
-        code = '''
+        code = """
 def caller():
     callee()
 
 def callee():
     pass
-'''
+"""
         result_with = analyze_semantics(code, "python", include_call_graph=True)
         result_without = analyze_semantics(code, "python", include_call_graph=False)
 
-        calls_with = [r for r in result_with["relations"] if r["relation_type"] == "calls"]
-        calls_without = [r for r in result_without["relations"] if r["relation_type"] == "calls"]
+        calls_with = [
+            r for r in result_with["relations"] if r["relation_type"] == "calls"
+        ]
+        calls_without = [
+            r for r in result_without["relations"] if r["relation_type"] == "calls"
+        ]
 
         assert len(calls_with) > 0
         assert len(calls_without) == 0
 
     def test_exclude_import_graph(self) -> None:
         """Test that import relations are excluded when flag is False."""
-        result_with = analyze_semantics(SAMPLE_WITH_IMPORTS, "python", include_import_graph=True)
-        result_without = analyze_semantics(SAMPLE_WITH_IMPORTS, "python", include_import_graph=False)
+        result_with = analyze_semantics(
+            SAMPLE_WITH_IMPORTS, "python", include_import_graph=True
+        )
+        result_without = analyze_semantics(
+            SAMPLE_WITH_IMPORTS, "python", include_import_graph=False
+        )
 
-        imports_with = [r for r in result_with["relations"] if r["relation_type"] == "imports"]
-        imports_without = [r for r in result_without["relations"] if r["relation_type"] == "imports"]
+        imports_with = [
+            r for r in result_with["relations"] if r["relation_type"] == "imports"
+        ]
+        imports_without = [
+            r for r in result_without["relations"] if r["relation_type"] == "imports"
+        ]
 
         assert len(imports_with) > 0
         assert len(imports_without) == 0
@@ -695,10 +720,10 @@ class TestEdgeCases:
 
     def test_comments_only(self) -> None:
         """Test analysis of code with only comments."""
-        code = '''
+        code = """
 # This is a comment
 # Another comment
-'''
+"""
         result = analyze_semantics(code, "python")
 
         assert result["success"] is True
@@ -757,12 +782,12 @@ def comp():
 
     def test_decorators_with_arguments(self) -> None:
         """Test extraction of decorators with arguments."""
-        code = '''
+        code = """
 @decorator_factory("arg1", kwarg=True)
 @simple_decorator
 def decorated():
     pass
-'''
+"""
         result = analyze_semantics(code, "python")
 
         assert result["success"] is True
@@ -776,7 +801,7 @@ def decorated():
 
     def test_multiple_inheritance(self) -> None:
         """Test detection of multiple inheritance."""
-        code = '''
+        code = """
 class Base1:
     pass
 
@@ -785,7 +810,7 @@ class Base2:
 
 class Child(Base1, Base2):
     pass
-'''
+"""
         result = analyze_semantics(code, "python")
 
         inherits = [r for r in result["relations"] if r["relation_type"] == "inherits"]
@@ -799,10 +824,10 @@ class Child(Base1, Base2):
 
     def test_aliased_imports(self) -> None:
         """Test extraction of aliased imports."""
-        code = '''
+        code = """
 import numpy as np
 from pandas import DataFrame as DF
-'''
+"""
         result = analyze_semantics(code, "python")
 
         imports = [e for e in result["entities"] if e["entity_type"] == "import"]
@@ -878,7 +903,7 @@ class Config(BaseModel):
 
     def test_detect_test_code_purpose(self) -> None:
         """Test detection of test code purpose."""
-        code = '''
+        code = """
 import pytest
 
 def test_something():
@@ -886,7 +911,7 @@ def test_something():
 
 def test_another():
     assert 1 == 1
-'''
+"""
         result = analyze_semantics(code, "python")
 
         assert result["semantic_features"]["code_purpose"] == "testing"
@@ -921,13 +946,13 @@ class DocumentedClass:
 
     def test_undocumented_code(self) -> None:
         """Test documentation ratio for undocumented code."""
-        code = '''
+        code = """
 def no_docs():
     pass
 
 class NoDocs:
     pass
-'''
+"""
         result = analyze_semantics(code, "python")
 
         # Should have low documentation ratio

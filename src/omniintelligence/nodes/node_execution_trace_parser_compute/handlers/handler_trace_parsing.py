@@ -51,11 +51,13 @@ def build_span_tree(trace_data: ModelTraceData) -> SpanNodeDict:
     # Convert logs to dict format for internal processing
     logs_as_dicts: list[dict[str, str | None]] = []
     for log in trace_data.logs:
-        logs_as_dicts.append({
-            "timestamp": log.timestamp,
-            "level": log.level,
-            "message": log.message,
-        })
+        logs_as_dicts.append(
+            {
+                "timestamp": log.timestamp,
+                "level": log.level,
+                "message": log.message,
+            }
+        )
 
     return SpanNodeDict(
         span_id=span_id,
@@ -103,11 +105,13 @@ def correlate_logs_with_span(
         # Check if log has matching trace context in fields
         log_trace_id = log.fields.get("trace_id")
         if log_trace_id == span_trace_id:
-            correlated.append({
-                "timestamp": log.timestamp,
-                "level": log.level,
-                "message": log.message,
-            })
+            correlated.append(
+                {
+                    "timestamp": log.timestamp,
+                    "level": log.level,
+                    "message": log.message,
+                }
+            )
 
     # Sort by timestamp if available
     def get_timestamp(log: dict[str, str | None]) -> str:

@@ -83,7 +83,9 @@ class TestNodeComputeMethod:
         assert isinstance(output.recommendations, list)
 
     async def test_compute_pipeline_input_to_output(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test full pipeline: ModelQualityScoringInput -> compute() -> ModelQualityScoringOutput."""
         input_data = ModelQualityScoringInput(
@@ -125,7 +127,9 @@ class TestNodeComputeMethod:
         assert output.metadata.processing_time_ms >= 0.0
 
     async def test_compute_with_high_quality_code(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test compute() scores ONEX-compliant code highly."""
         input_data = ModelQualityScoringInput(
@@ -187,7 +191,9 @@ class TestNodeComputeMethod:
         assert len(output.recommendations) >= 1
 
     async def test_compute_with_moderate_quality_code(
-        self, quality_scoring_node: NodeQualityScoringCompute, moderate_quality_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        moderate_quality_code: str,
     ) -> None:
         """Test compute() returns moderate scores for average code."""
         input_data = ModelQualityScoringInput(
@@ -201,12 +207,16 @@ class TestNodeComputeMethod:
         assert output.success is True
 
         # Moderate code should score in the middle range
-        assert MODERATE_QUALITY_MIN_SCORE <= output.quality_score <= MODERATE_QUALITY_MAX_SCORE, (
-            f"Moderate code scored {output.quality_score}"
-        )
+        assert (
+            MODERATE_QUALITY_MIN_SCORE
+            <= output.quality_score
+            <= MODERATE_QUALITY_MAX_SCORE
+        ), f"Moderate code scored {output.quality_score}"
 
     async def test_compute_with_custom_weights(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test compute() respects custom dimension weights."""
         # Custom weights emphasizing documentation
@@ -258,7 +268,9 @@ class TestPresetIntegration:
     """Integration tests for preset behavior through the node."""
 
     async def test_strict_preset_through_compute(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test STRICT preset via compute() method."""
         input_data = ModelQualityScoringInput(
@@ -276,7 +288,9 @@ class TestPresetIntegration:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_standard_preset_through_compute(
-        self, quality_scoring_node: NodeQualityScoringCompute, moderate_quality_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        moderate_quality_code: str,
     ) -> None:
         """Test STANDARD preset via compute() method."""
         input_data = ModelQualityScoringInput(
@@ -310,7 +324,9 @@ class TestPresetIntegration:
         assert 0.0 <= output.quality_score <= 1.0
 
     async def test_preset_overrides_custom_weights(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test that preset takes precedence over dimension_weights."""
         # Custom weights that would produce different results
@@ -354,7 +370,9 @@ class TestPresetIntegration:
         assert 0.0 <= output_with_preset.quality_score <= 1.0
 
     async def test_preset_determines_onex_compliance_threshold(
-        self, quality_scoring_node: NodeQualityScoringCompute, moderate_quality_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        moderate_quality_code: str,
     ) -> None:
         """Test that preset correctly sets ONEX compliance threshold."""
         # Use code that scores around 0.6-0.75 range
@@ -415,7 +433,7 @@ class TestErrorPropagation:
         """Test validation error for invalid weights propagates correctly."""
         # Invalid weights that don't sum to 1.0 will fail Pydantic validation
         # So we test by checking the model validation works
-        with pytest.raises(ValueError, match="sum to 1.0"):
+        with pytest.raises(ValueError, match=r"sum to 1\.0"):
             ModelDimensionWeights(
                 complexity=0.50,
                 maintainability=0.50,
@@ -445,10 +463,10 @@ class TestErrorPropagation:
 
         # Should have recommendation about syntax error
         assert len(output.recommendations) >= 1
-        has_syntax_rec = any(
-            "syntax" in rec.lower() for rec in output.recommendations
+        has_syntax_rec = any("syntax" in rec.lower() for rec in output.recommendations)
+        assert has_syntax_rec, (
+            f"Expected syntax recommendation in {output.recommendations}"
         )
-        assert has_syntax_rec, f"Expected syntax recommendation in {output.recommendations}"
 
     async def test_unsupported_language_handled_gracefully(
         self, quality_scoring_node: NodeQualityScoringCompute
@@ -456,7 +474,7 @@ class TestErrorPropagation:
         """Test that unsupported languages get baseline scores."""
         input_data = ModelQualityScoringInput(
             source_path="code.rs",
-            content="fn main() { println!(\"Hello\"); }",
+            content='fn main() { println!("Hello"); }',
             language="rust",  # Unsupported
         )
 
@@ -477,7 +495,9 @@ class TestErrorPropagation:
 
     @pytest.mark.performance
     async def test_processing_time_captured(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test that processing time is captured in metadata."""
         input_data = ModelQualityScoringInput(
@@ -500,7 +520,9 @@ class TestNodeDeterminism:
     """Tests verifying the node produces deterministic results."""
 
     async def test_compute_is_deterministic(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test that compute() produces same output for same input."""
         input_data = ModelQualityScoringInput(
@@ -553,7 +575,9 @@ class TestNodePerformance:
     """Performance tests for the compute node."""
 
     async def test_compute_completes_in_bounded_time(
-        self, quality_scoring_node: NodeQualityScoringCompute, high_quality_onex_code: str
+        self,
+        quality_scoring_node: NodeQualityScoringCompute,
+        high_quality_onex_code: str,
     ) -> None:
         """Test that compute completes quickly for reasonable input."""
         input_data = ModelQualityScoringInput(
@@ -586,15 +610,15 @@ class TestNodePerformance:
         # Generate 20 unique classes (~300 bytes each = ~6KB total)
         for i in range(20):
             parts.append(
-                f'class Model{i}(BaseModel):\n'
+                f"class Model{i}(BaseModel):\n"
                 f'    """Model variant {i} following ONEX patterns.\n\n'
                 f"    Attributes:\n"
                 f"        name: The model's display name.\n"
                 f"        value: The model's numeric value.\n"
                 f'    """\n\n'
                 f'    name: str = Field(..., min_length=1, description="Display name")\n'
-                f"    value: int = Field(default={i}, ge=0, description=\"Numeric value\")\n\n"
-                f'    model_config: ClassVar[dict[str, bool | str]] = {{\n'
+                f'    value: int = Field(default={i}, ge=0, description="Numeric value")\n\n'
+                f"    model_config: ClassVar[dict[str, bool | str]] = {{\n"
                 f'        "frozen": True,\n'
                 f'        "extra": "forbid",\n'
                 f"    }}\n\n"

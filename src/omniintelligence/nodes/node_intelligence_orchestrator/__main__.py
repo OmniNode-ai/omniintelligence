@@ -52,9 +52,9 @@ def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
     Returns:
         HTTPServer instance for shutdown management.
     """
-    from http.server import BaseHTTPRequestHandler
     import json
     import threading
+    from http.server import BaseHTTPRequestHandler
 
     class HealthHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -136,7 +136,9 @@ async def main() -> None:
     health_server = run_health_server(port=health_port)
 
     try:
-        logger.info("Intelligence Orchestrator Node ready - waiting for shutdown signal")
+        logger.info(
+            "Intelligence Orchestrator Node ready - waiting for shutdown signal"
+        )
         logger.info("Health endpoint available at /health")
         # Keep the node running until shutdown signal
         await shutdown_event.wait()

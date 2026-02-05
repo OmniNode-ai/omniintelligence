@@ -2,6 +2,7 @@
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/16
 # Status: Interface defined, implementation pending
 """Success Criteria Matcher Compute - STUB compute node for criteria matching."""
+
 from __future__ import annotations
 
 import warnings

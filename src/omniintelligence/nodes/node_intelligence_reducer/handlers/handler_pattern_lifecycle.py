@@ -48,7 +48,6 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
     ModelReducerInputPatternLifecycle,
 )
 
-
 # =============================================================================
 # FSM Transition Table
 # =============================================================================
@@ -91,9 +90,7 @@ VALID_TRANSITIONS: Final[dict[tuple[str, str], str]] = {
 # Key: (from_state, trigger)
 # Value: (field, required_value, error_message)
 
-GUARD_CONDITIONS: Final[
-    dict[tuple[str, str], tuple[str, str, str]]
-] = {
+GUARD_CONDITIONS: Final[dict[tuple[str, str], tuple[str, str, str]]] = {
     ("deprecated", "manual_reenable"): (
         "actor_type",
         "admin",
@@ -102,21 +99,25 @@ GUARD_CONDITIONS: Final[
 }
 
 # Valid pattern lifecycle states
-VALID_STATES: Final[frozenset[str]] = frozenset({
-    "candidate",
-    "provisional",
-    "validated",
-    "deprecated",
-})
+VALID_STATES: Final[frozenset[str]] = frozenset(
+    {
+        "candidate",
+        "provisional",
+        "validated",
+        "deprecated",
+    }
+)
 
 # Valid triggers for PATTERN_LIFECYCLE FSM
 # NOTE: validation_passed REMOVED - had no valid transition after PROVISIONAL deprecation
-VALID_TRIGGERS: Final[frozenset[str]] = frozenset({
-    "promote",
-    "promote_direct",
-    "deprecate",
-    "manual_reenable",
-})
+VALID_TRIGGERS: Final[frozenset[str]] = frozenset(
+    {
+        "promote",
+        "promote_direct",
+        "deprecate",
+        "manual_reenable",
+    }
+)
 
 
 # =============================================================================

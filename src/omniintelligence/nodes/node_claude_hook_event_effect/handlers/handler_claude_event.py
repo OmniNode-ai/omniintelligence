@@ -278,7 +278,10 @@ def _extract_prompt_from_payload(
     """
     # Strategy 1: Try direct attribute access
     payload_class = type(payload)
-    if hasattr(payload_class, "model_fields") and "prompt" in payload_class.model_fields:
+    if (
+        hasattr(payload_class, "model_fields")
+        and "prompt" in payload_class.model_fields
+    ):
         direct_value = getattr(payload, "prompt", None)
         if direct_value is not None and direct_value != "":
             return str(direct_value), "direct_attribute"

@@ -77,9 +77,13 @@ class ModelToolExecution(BaseModel):
 
     tool_name: str = Field(..., description="Tool name (Read, Write, Edit, Bash, etc.)")
     success: bool = Field(..., description="Whether the tool execution succeeded")
-    error_message: str | None = Field(default=None, description="Error message if failed")
+    error_message: str | None = Field(
+        default=None, description="Error message if failed"
+    )
     error_type: str | None = Field(default=None, description="Exception type if failed")
-    duration_ms: int | None = Field(default=None, ge=0, description="Execution duration")
+    duration_ms: int | None = Field(
+        default=None, ge=0, description="Execution duration"
+    )
     # IMPORTANT: Use JsonType | None, NOT dict[str, Any]
     tool_parameters: JsonType | None = Field(
         default=None, description="Tool input parameters (opaque JSON)"

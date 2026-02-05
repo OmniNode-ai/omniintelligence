@@ -22,7 +22,6 @@ from omniintelligence.enums import (
     EnumInjectionContext,
 )
 
-
 # =========================================================================
 # Constants: Expected values from SQL migration CHECK constraints
 # =========================================================================
@@ -139,8 +138,12 @@ class TestEnumInjectionContextProperties:
         """Verify values use PascalCase (matching hook event convention)."""
         for context in EnumInjectionContext:
             # PascalCase: first letter uppercase, no underscores
-            assert context.value[0].isupper(), f"'{context.value}' should start uppercase"
-            assert "_" not in context.value, f"'{context.value}' should not contain underscores"
+            assert context.value[0].isupper(), (
+                f"'{context.value}' should start uppercase"
+            )
+            assert "_" not in context.value, (
+                f"'{context.value}' should not contain underscores"
+            )
 
     def test_enum_can_be_constructed_from_string(self) -> None:
         """Verify enum can be constructed from string value."""
@@ -206,6 +209,8 @@ class TestCohortPercentages:
         """Verify percentages are exported from enums package."""
         from omniintelligence.enums import (
             COHORT_CONTROL_PERCENTAGE as EXPORTED_CONTROL,
+        )
+        from omniintelligence.enums import (
             COHORT_TREATMENT_PERCENTAGE as EXPORTED_TREATMENT,
         )
 

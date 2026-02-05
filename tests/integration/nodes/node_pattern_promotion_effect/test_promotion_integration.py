@@ -21,12 +21,12 @@ from uuid import UUID
 import asyncpg
 import pytest
 
-from tests.integration.nodes.node_pattern_promotion_effect.conftest import MockKafkaPublisher
-
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
     check_and_promote_patterns,
 )
-
+from tests.integration.nodes.node_pattern_promotion_effect.conftest import (
+    MockKafkaPublisher,
+)
 
 # =============================================================================
 # Integration Tests
@@ -84,7 +84,9 @@ class TestPromotionIntegration:
                 test_pattern_ids[i],
             )
             assert row is not None
-            assert row["status"] == "provisional", f"Pattern {i} should remain provisional"
+            assert row["status"] == "provisional", (
+                f"Pattern {i} should remain provisional"
+            )
 
     async def test_dry_run_does_not_mutate_database(
         self,
@@ -504,10 +506,10 @@ class TestPromotionGate4DisabledPatterns:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            20,   # High injection count (passes Gate 1)
-            18,   # 90% success rate (passes Gate 2)
+            20,  # High injection count (passes Gate 1)
+            18,  # 90% success rate (passes Gate 2)
             2,
-            0,    # No failure streak (passes Gate 3)
+            0,  # No failure streak (passes Gate 3)
         )
 
         # Disable the pattern by inserting into pattern_disable_events
@@ -526,9 +528,7 @@ class TestPromotionGate4DisabledPatterns:
         )
 
         # Refresh the materialized view to pick up the new disabled pattern
-        await db_conn.execute(
-            "REFRESH MATERIALIZED VIEW disabled_patterns_current"
-        )
+        await db_conn.execute("REFRESH MATERIALIZED VIEW disabled_patterns_current")
 
         try:
             # Verify pattern appears in disabled_patterns_current
@@ -536,7 +536,9 @@ class TestPromotionGate4DisabledPatterns:
                 "SELECT pattern_id FROM disabled_patterns_current WHERE pattern_id = $1",
                 pattern_id,
             )
-            assert disabled_row is not None, "Pattern should be in disabled_patterns_current"
+            assert disabled_row is not None, (
+                "Pattern should be in disabled_patterns_current"
+            )
 
             # Act: Run promotion check
             result = await check_and_promote_patterns(
@@ -557,7 +559,9 @@ class TestPromotionGate4DisabledPatterns:
                 "SELECT status FROM learned_patterns WHERE id = $1",
                 pattern_id,
             )
-            assert row["status"] == "provisional", "Disabled pattern should remain provisional"
+            assert row["status"] == "provisional", (
+                "Disabled pattern should remain provisional"
+            )
 
         finally:
             # Cleanup: Remove disable event and pattern
@@ -565,9 +569,7 @@ class TestPromotionGate4DisabledPatterns:
                 "DELETE FROM pattern_disable_events WHERE event_id = $1",
                 event_id,
             )
-            await db_conn.execute(
-                "REFRESH MATERIALIZED VIEW disabled_patterns_current"
-            )
+            await db_conn.execute("REFRESH MATERIALIZED VIEW disabled_patterns_current")
             await db_conn.execute(
                 "DELETE FROM learned_patterns WHERE id = $1",
                 pattern_id,
@@ -612,8 +614,8 @@ class TestPromotionGate4DisabledPatterns:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            15,   # Good injection count
-            12,   # 80% success rate
+            15,  # Good injection count
+            12,  # 80% success rate
             3,
             0,
         )
@@ -651,9 +653,7 @@ class TestPromotionGate4DisabledPatterns:
         )
 
         # Refresh materialized view
-        await db_conn.execute(
-            "REFRESH MATERIALIZED VIEW disabled_patterns_current"
-        )
+        await db_conn.execute("REFRESH MATERIALIZED VIEW disabled_patterns_current")
 
         try:
             # Verify pattern is NOT in disabled_patterns_current (re-enabled)
@@ -690,9 +690,7 @@ class TestPromotionGate4DisabledPatterns:
                 disable_event_id,
                 enable_event_id,
             )
-            await db_conn.execute(
-                "REFRESH MATERIALIZED VIEW disabled_patterns_current"
-            )
+            await db_conn.execute("REFRESH MATERIALIZED VIEW disabled_patterns_current")
             await db_conn.execute(
                 "DELETE FROM learned_patterns WHERE id = $1",
                 pattern_id,
@@ -717,9 +715,9 @@ class TestPromotionLargeBatch:
 
         Note: Uses fallback mode (producer=None) to verify direct database updates.
         """
+        import time
         from datetime import UTC, datetime
         from uuid import uuid4
-        import time
 
         batch_size = 100
         pattern_ids: list[UUID] = []
@@ -748,10 +746,10 @@ class TestPromotionLargeBatch:
                 "provisional",
                 [session_id],
                 datetime.now(UTC),
-                10 + (i % 10),    # 10-19 injections (rolling_20 capped at 20)
-                6 + (i % 4),      # 6-9 successes (ensures sum constraint)
-                1 + (i % 2),      # 1-2 failures (max sum 9+2=11 <= 10)
-                i % 3,            # 0-2 failure streak (all pass Gate 3)
+                10 + (i % 10),  # 10-19 injections (rolling_20 capped at 20)
+                6 + (i % 4),  # 6-9 successes (ensures sum constraint)
+                1 + (i % 2),  # 1-2 failures (max sum 9+2=11 <= 10)
+                i % 3,  # 0-2 failure streak (all pass Gate 3)
             )
 
         try:
@@ -777,7 +775,8 @@ class TestPromotionLargeBatch:
 
             # Count actual promotions (excluding any failures)
             promoted_count = sum(
-                1 for p in result.patterns_promoted
+                1
+                for p in result.patterns_promoted
                 if p.promoted_at is not None and not p.dry_run
             )
             assert promoted_count == batch_size, (
@@ -853,10 +852,10 @@ class TestPromotionLargeBatch:
                 "provisional",
                 [session_id],
                 datetime.now(UTC),
-                10 if is_eligible else 3,    # Eligible: 10, Ineligible: 3 (fails Gate 1)
+                10 if is_eligible else 3,  # Eligible: 10, Ineligible: 3 (fails Gate 1)
                 8 if is_eligible else 2,
                 2 if is_eligible else 1,
-                0 if is_eligible else 5,     # Ineligible also fails Gate 3
+                0 if is_eligible else 5,  # Ineligible also fails Gate 3
             )
 
         try:
@@ -875,8 +874,10 @@ class TestPromotionLargeBatch:
             # Verify only eligible patterns from this test were promoted
             # Filter to only our test patterns (other residual patterns may exist)
             promoted_ids = {
-                p.pattern_id for p in result.patterns_promoted
-                if p.promoted_at is not None and not p.dry_run
+                p.pattern_id
+                for p in result.patterns_promoted
+                if p.promoted_at is not None
+                and not p.dry_run
                 and p.pattern_id in pattern_ids  # Only our test patterns
             }
             assert promoted_ids == set(eligible_ids), (
@@ -966,11 +967,15 @@ class TestPromotionMetricsAccuracy:
             assert snapshot.failure_streak == failure_streak, (
                 f"Expected failure_streak {failure_streak}, got {snapshot.failure_streak}"
             )
-            assert abs(snapshot.success_rate_rolling_20 - expected_success_rate) < 0.0001, (
+            assert (
+                abs(snapshot.success_rate_rolling_20 - expected_success_rate) < 0.0001
+            ), (
                 f"Expected success_rate {expected_success_rate:.4f}, "
                 f"got {snapshot.success_rate_rolling_20:.4f}"
             )
-            assert snapshot.disabled is False, "Pattern should not be marked as disabled"
+            assert snapshot.disabled is False, (
+                "Pattern should not be marked as disabled"
+            )
 
         finally:
             await db_conn.execute(
@@ -1013,8 +1018,8 @@ class TestPromotionMetricsAccuracy:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            5,    # At minimum injection count
-            3,    # Exactly 60% (boundary)
+            5,  # At minimum injection count
+            3,  # Exactly 60% (boundary)
             2,
             0,
         )
@@ -1068,7 +1073,7 @@ class TestPromotionZeroToleranceMode:
 
         # Create patterns with different failure streaks
         test_cases = [
-            (0, True),   # 0 failures - SHOULD pass in zero-tolerance
+            (0, True),  # 0 failures - SHOULD pass in zero-tolerance
             (1, False),  # 1 failure - should fail
             (2, False),  # 2 failures - should fail
         ]
@@ -1168,7 +1173,10 @@ class TestPromotionZeroToleranceMode:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            10, 9, 1, 0,  # 0 streak
+            10,
+            9,
+            1,
+            0,  # 0 streak
         )
 
         # Pattern with exactly 1 streak
@@ -1191,7 +1199,10 @@ class TestPromotionZeroToleranceMode:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            10, 9, 1, 1,  # 1 streak
+            10,
+            9,
+            1,
+            1,  # 1 streak
         )
 
         try:
@@ -1261,7 +1272,10 @@ class TestPromotionPartialFailure:
                 "provisional",
                 [session_id],
                 datetime.now(UTC),
-                10, 8, 2, 0,
+                10,
+                8,
+                2,
+                0,
             )
 
         try:
@@ -1278,10 +1292,13 @@ class TestPromotionPartialFailure:
 
             # Count successful promotions
             successful = sum(
-                1 for p in result.patterns_promoted
+                1
+                for p in result.patterns_promoted
                 if p.promoted_at is not None and "failed" not in p.reason
             )
-            assert successful == 5, f"Expected 5 successful promotions, got {successful}"
+            assert successful == 5, (
+                f"Expected 5 successful promotions, got {successful}"
+            )
 
         finally:
             await db_conn.execute(
@@ -1328,7 +1345,10 @@ class TestPromotionPartialFailure:
                 "provisional",
                 [session_id],
                 datetime.now(UTC),
-                10, 8, 2, 0,
+                10,
+                8,
+                2,
+                0,
             )
 
         try:
@@ -1415,7 +1435,10 @@ class TestPromotionKafkaEvents:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            15, 12, 3, 0,
+            15,
+            12,
+            3,
+            0,
         )
 
         try:
@@ -1491,7 +1514,10 @@ class TestPromotionKafkaEvents:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            10, 9, 1, 0,
+            10,
+            9,
+            1,
+            0,
         )
 
         try:
@@ -1553,7 +1579,10 @@ class TestPromotionKafkaEvents:
             "provisional",
             [session_id],
             datetime.now(UTC),
-            10, 8, 2, 0,
+            10,
+            8,
+            2,
+            0,
         )
 
         try:

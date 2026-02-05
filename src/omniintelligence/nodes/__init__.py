@@ -146,8 +146,41 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_extraction_compute.node import (
         NodePatternExtractionCompute as NodePatternExtractionCompute,
     )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        ROLLING_WINDOW_SIZE as ROLLING_WINDOW_SIZE,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        ClaudeCodeSessionOutcome as ClaudeCodeSessionOutcome,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        ClaudeSessionOutcome as ClaudeSessionOutcome,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        EnumOutcomeRecordingStatus as EnumOutcomeRecordingStatus,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        ModelSessionOutcomeResult as ModelSessionOutcomeResult,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        ProtocolPatternRepository as ProtocolPatternRepository,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        SessionOutcomeInput as SessionOutcomeInput,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        record_session_outcome as record_session_outcome,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect import (
+        update_pattern_rolling_metrics as update_pattern_rolling_metrics,
+    )
     from omniintelligence.nodes.node_pattern_matching_compute.node import (
         NodePatternMatchingCompute as NodePatternMatchingCompute,
+    )
+    from omniintelligence.nodes.node_pattern_promotion_effect import (
+        NodePatternPromotionEffect as NodePatternPromotionEffect,
     )
     from omniintelligence.nodes.node_quality_scoring_compute.node import (
         NodeQualityScoringCompute as NodeQualityScoringCompute,
@@ -157,23 +190,6 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_success_criteria_matcher_compute.node import (
         NodeSuccessCriteriaMatcherCompute as NodeSuccessCriteriaMatcherCompute,
-    )
-
-    from omniintelligence.nodes.node_pattern_feedback_effect import (
-        ROLLING_WINDOW_SIZE as ROLLING_WINDOW_SIZE,
-        ClaudeCodeSessionOutcome as ClaudeCodeSessionOutcome,
-        ClaudeSessionOutcome as ClaudeSessionOutcome,
-        EnumOutcomeRecordingStatus as EnumOutcomeRecordingStatus,
-        ModelSessionOutcomeResult as ModelSessionOutcomeResult,
-        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
-        ProtocolPatternRepository as ProtocolPatternRepository,
-        SessionOutcomeInput as SessionOutcomeInput,
-        record_session_outcome as record_session_outcome,
-        update_pattern_rolling_metrics as update_pattern_rolling_metrics,
-    )
-
-    from omniintelligence.nodes.node_pattern_promotion_effect import (
-        NodePatternPromotionEffect as NodePatternPromotionEffect,
     )
 
 

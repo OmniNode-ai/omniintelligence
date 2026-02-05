@@ -24,7 +24,6 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
-
 from omnibase_core.enums.pattern_learning import (
     EnumPatternLearningStatus,
     EnumPatternLifecycleState,
@@ -48,7 +47,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.models import (
 from tests.unit.nodes.node_pattern_learning_compute.handlers.conftest import (
     make_training_item,
 )
-
 
 # =============================================================================
 # Canary Tests - Pipeline Wiring Golden Path
@@ -518,7 +516,9 @@ class TestAggregatePatternsDeterminismContract:
             parameters={},
             promotion_threshold=0.5,
         )
-        baseline_learned_ids = [p.pattern_id for p in baseline_result["learned_patterns"]]
+        baseline_learned_ids = [
+            p.pattern_id for p in baseline_result["learned_patterns"]
+        ]
         baseline_candidate_ids = [
             p.pattern_id for p in baseline_result["candidate_patterns"]
         ]

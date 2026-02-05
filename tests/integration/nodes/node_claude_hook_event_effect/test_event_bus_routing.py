@@ -35,7 +35,6 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
 
 from .conftest import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 
-
 # =============================================================================
 # Test Classes
 # =============================================================================
@@ -214,9 +213,8 @@ class TestUserPromptSubmitFullFlow:
             assert output_event["session_id"] == sample_user_prompt_event.session_id
 
             assert "correlation_id" in output_event
-            assert (
-                output_event["correlation_id"]
-                == str(sample_user_prompt_event.correlation_id)
+            assert output_event["correlation_id"] == str(
+                sample_user_prompt_event.correlation_id
             )
 
             assert "intent_category" in output_event

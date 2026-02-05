@@ -23,8 +23,9 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
     extract_features,
     extract_features_batch,
 )
-from omniintelligence.nodes.node_pattern_learning_compute.models import TrainingDataItemDict
-
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    TrainingDataItemDict,
+)
 
 # =============================================================================
 # Test Data Helpers
@@ -161,14 +162,14 @@ def my_function(x: int) -> int:
 
     def test_python_extracts_class_and_function_names(self) -> None:
         """Extraction includes class and function names in keywords."""
-        code = '''
+        code = """
 class MyClass:
     def my_method(self):
         pass
 
 def standalone_function():
     pass
-'''
+"""
         item = make_training_item("names_test", code, "python")
 
         result = extract_features(item)
@@ -211,13 +212,13 @@ def func_two(a: str, b: str) -> str:
 
     def test_python_extracts_base_classes(self) -> None:
         """Extraction includes inherited base class names."""
-        code = '''
+        code = """
 class ChildClass(ParentClass, Mixin):
     pass
 
 class AnotherChild(BaseModel):
     pass
-'''
+"""
         item = make_training_item("base_class_test", code, "python")
 
         result = extract_features(item)
@@ -229,7 +230,7 @@ class AnotherChild(BaseModel):
 
     def test_python_extracts_decorators(self) -> None:
         """Extraction includes decorator names."""
-        code = '''
+        code = """
 @dataclass
 @frozen
 class MyDataClass:
@@ -239,7 +240,7 @@ class MyDataClass:
 @lru_cache
 def cached_property(self):
     pass
-'''
+"""
         item = make_training_item("decorator_test", code, "python")
 
         result = extract_features(item)
@@ -286,11 +287,11 @@ class TestNonPythonHandling:
 
     def test_non_python_returns_minimal_features(self) -> None:
         """Non-Python language returns minimal/empty features without crashing."""
-        code = '''
+        code = """
 function hello() {
     console.log("Hello");
 }
-'''
+"""
         item = make_training_item("js_item", code, "javascript", ["js_label"])
 
         result = extract_features(item)
@@ -418,7 +419,7 @@ class TestNormalization:
 
     def test_normalization_applied_correctly(self) -> None:
         """Identifiers are normalized (lowercase, sorted, deduped)."""
-        code = '''
+        code = """
 class MyClass:
     pass
 
@@ -430,7 +431,7 @@ def my_func():
 
 def ANOTHER_FUNC():
     pass
-'''
+"""
         item = make_training_item("norm_test", code, "python")
 
         result = extract_features(item)
@@ -448,7 +449,7 @@ def ANOTHER_FUNC():
 
     def test_keywords_sorted_alphabetically(self) -> None:
         """Keywords are sorted in alphabetical order."""
-        code = '''
+        code = """
 def zebra():
     pass
 
@@ -457,7 +458,7 @@ def apple():
 
 def mango():
     pass
-'''
+"""
         item = make_training_item("sort_test", code, "python")
 
         result = extract_features(item)
@@ -473,14 +474,14 @@ def mango():
 
     def test_mixed_case_identifiers_normalized(self) -> None:
         """Mixed case identifiers are all lowercased."""
-        code = '''
+        code = """
 class MyClassName:
     def MY_METHOD(self):
         pass
 
 CONSTANT = 1
 myVariable = 2
-'''
+"""
         item = make_training_item("case_test", code, "python")
 
         result = extract_features(item)
@@ -527,7 +528,7 @@ class NodeMyCompute(NodeCompute):
 
     def test_onex_base_classes_detected(self) -> None:
         """ONEX base classes (NodeCompute, NodeEffect, etc.) are detected."""
-        code = '''
+        code = """
 class MyCompute(NodeCompute):
     pass
 
@@ -539,7 +540,7 @@ class MyReducer(NodeReducer):
 
 class MyOrchestrator(NodeOrchestrator):
     pass
-'''
+"""
         item = make_training_item("onex_bases_test", code, "python")
 
         result = extract_features(item)
@@ -553,14 +554,14 @@ class MyOrchestrator(NodeOrchestrator):
 
     def test_onex_keywords_detected(self) -> None:
         """ONEX pattern keywords (frozen, forbid, etc.) are detected."""
-        code = '''
+        code = """
 from pydantic import Field
 from typing import Final, ClassVar, Protocol
 
 class MyModel:
     model_config = {"frozen": True, "extra": "forbid"}
     class_var: ClassVar[int] = 0
-'''
+"""
         item = make_training_item("onex_keywords_test", code, "python")
 
         result = extract_features(item)
@@ -572,12 +573,12 @@ class MyModel:
 
     def test_basemodel_inheritance_detected(self) -> None:
         """Pydantic BaseModel inheritance is detected."""
-        code = '''
+        code = """
 from pydantic import BaseModel
 
 class MyModel(BaseModel):
     name: str
-'''
+"""
         item = make_training_item("basemodel_test", code, "python")
 
         result = extract_features(item)
@@ -587,14 +588,14 @@ class MyModel(BaseModel):
 
     def test_non_onex_code_has_no_pattern_indicators(self) -> None:
         """Code without ONEX patterns has empty pattern_indicators."""
-        code = '''
+        code = """
 def simple_function(x, y):
     return x + y
 
 class RegularClass:
     def __init__(self):
         self.value = 0
-'''
+"""
         item = make_training_item("no_onex_test", code, "python")
 
         result = extract_features(item)
@@ -634,9 +635,9 @@ class TestEdgeCases:
 
     def test_comment_only_code(self) -> None:
         """Comment-only code is valid Python."""
-        code = '''# This is a comment
+        code = """# This is a comment
 # Another comment
-'''
+"""
         item = make_training_item("comment_only", code, "python")
 
         result = extract_features(item)
@@ -708,7 +709,7 @@ class TestEdgeCases:
 
     def test_deeply_nested_code(self) -> None:
         """Deeply nested code is handled correctly."""
-        code = '''
+        code = """
 def deeply_nested():
     if True:
         for i in range(10):
@@ -719,7 +720,7 @@ def deeply_nested():
                             pass
                 except:
                     pass
-'''
+"""
         item = make_training_item("nested_code", code, "python")
 
         result = extract_features(item)

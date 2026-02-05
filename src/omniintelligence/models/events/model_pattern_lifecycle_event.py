@@ -9,6 +9,7 @@ No separate "Approved" event exists - the reducer decides and emits intent.
 
 Ticket: OMN-1805
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -58,9 +59,7 @@ class ModelPatternLifecycleEvent(BaseModel):
         default=None,
         description="Gate values at the time of decision",
     )
-    occurred_at: datetime = Field(
-        ..., description="When the transition was requested"
-    )
+    occurred_at: datetime = Field(..., description="When the transition was requested")
 
 
 __all__ = ["ModelPatternLifecycleEvent"]

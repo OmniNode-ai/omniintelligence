@@ -14,25 +14,24 @@ NOTE: This file intentionally contains violations for testing.
 # ruff: noqa: F401
 
 # VIOLATION: confluent_kafka import
-from confluent_kafka import Consumer, Producer
-
-# VIOLATION: qdrant_client import
-from qdrant_client import QdrantClient
-
-# VIOLATION: neo4j import
-from neo4j import GraphDatabase
+# VIOLATION: aiofiles import
+import aiofiles
 
 # VIOLATION: asyncpg import
 import asyncpg
 
 # VIOLATION: httpx import
 import httpx
+from confluent_kafka import Consumer, Producer
 
 # VIOLATION: httpx submodule import
 from httpx import AsyncClient
 
-# VIOLATION: aiofiles import
-import aiofiles
+# VIOLATION: neo4j import
+from neo4j import GraphDatabase
+
+# VIOLATION: qdrant_client import
+from qdrant_client import QdrantClient
 
 
 async def connect_to_kafka() -> Producer:
@@ -73,10 +72,9 @@ async def read_file_async(path: str) -> str:
 # =========================================================================
 
 # VIOLATION: httpx import with alias
-import httpx as http_client
-
 # VIOLATION: confluent_kafka with alias
 import confluent_kafka as ck
+import httpx as http_client
 
 
 async def make_aliased_http_request(url: str) -> str:

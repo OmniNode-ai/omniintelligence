@@ -45,7 +45,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_sta
     EnumPatternState,
 )
 
-
 # =============================================================================
 # Validation Result Model
 # =============================================================================
@@ -84,6 +83,7 @@ class TransitionValidationResult:
     to_state: EnumPatternState
     error_message: str | None
     valid_targets: list[EnumPatternState]
+
 
 # =============================================================================
 # Constants

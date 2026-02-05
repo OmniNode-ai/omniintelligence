@@ -39,7 +39,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
     StructuralFeaturesDict,
 )
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================
@@ -566,12 +565,8 @@ class TestClusterPatternsDeterminism:
         for i in range(len(result_forward)):
             assert result_forward[i]["cluster_id"] == result_reverse[i]["cluster_id"]
             assert result_forward[i]["member_ids"] == result_reverse[i]["member_ids"]
-            assert (
-                result_forward[i]["cluster_id"] == result_scrambled[i]["cluster_id"]
-            )
-            assert (
-                result_forward[i]["member_ids"] == result_scrambled[i]["member_ids"]
-            )
+            assert result_forward[i]["cluster_id"] == result_scrambled[i]["cluster_id"]
+            assert result_forward[i]["member_ids"] == result_scrambled[i]["member_ids"]
 
 
 # =============================================================================
@@ -672,12 +667,14 @@ class TestClusterPatternsDeterminismContract:
 
             # Assert identical cluster structure
             for i in range(len(canonical_result)):
-                assert shuffled_result[i]["cluster_id"] == canonical_result[i]["cluster_id"], (
-                    f"Iteration {iteration}, cluster {i}: cluster_id mismatch"
-                )
-                assert shuffled_result[i]["member_ids"] == canonical_result[i]["member_ids"], (
-                    f"Iteration {iteration}, cluster {i}: member_ids mismatch"
-                )
+                assert (
+                    shuffled_result[i]["cluster_id"]
+                    == canonical_result[i]["cluster_id"]
+                ), f"Iteration {iteration}, cluster {i}: cluster_id mismatch"
+                assert (
+                    shuffled_result[i]["member_ids"]
+                    == canonical_result[i]["member_ids"]
+                ), f"Iteration {iteration}, cluster {i}: member_ids mismatch"
                 assert (
                     shuffled_result[i]["centroid_features"]["item_id"]
                     == canonical_result[i]["centroid_features"]["item_id"]
@@ -1086,9 +1083,7 @@ class TestClusterPatternsInputValidation:
     ) -> None:
         """Exceeding max_input_items should raise PatternLearningValidationError."""
         # Create more items than the limit
-        features_list = [
-            make_features(item_id=f"item-{i}") for i in range(10)
-        ]
+        features_list = [make_features(item_id=f"item-{i}") for i in range(10)]
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
             cluster_patterns(features_list, max_input_items=5)
@@ -1203,9 +1198,7 @@ class TestClusterPatternsReplayArtifact:
         mock_replay_emitter: MagicMock,
     ) -> None:
         """Every input item should appear in cluster_assignment_map."""
-        features = [
-            make_features(item_id=f"item-{i}") for i in range(5)
-        ]
+        features = [make_features(item_id=f"item-{i}") for i in range(5)]
 
         cluster_patterns(features, threshold=0.99, replay_emitter=mock_replay_emitter)
 
@@ -1550,7 +1543,9 @@ class TestClusterPatternsLabelAgreement:
         features = [
             make_features(item_id="a", pattern_indicators=("NodeCompute", "frozen")),
             make_features(item_id="b", pattern_indicators=("NodeCompute",)),
-            make_features(item_id="c", pattern_indicators=("frozen",)),  # no NodeCompute
+            make_features(
+                item_id="c", pattern_indicators=("frozen",)
+            ),  # no NodeCompute
         ]
 
         result = cluster_patterns(features, threshold=0.0)

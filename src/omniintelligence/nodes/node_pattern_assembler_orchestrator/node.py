@@ -2,6 +2,7 @@
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/9
 # Status: Interface defined, implementation pending
 """Pattern Assembler Orchestrator - STUB orchestrator for pattern assembly."""
+
 from __future__ import annotations
 
 import warnings

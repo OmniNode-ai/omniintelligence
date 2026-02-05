@@ -21,7 +21,6 @@ import pytest
 from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState
 from omniintelligence.testing import MockPatternStore
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -384,8 +383,12 @@ class TestLineageTrackingSignatureHash:
         )
 
         # Act
-        version_a = await mock_store.get_latest_version(domain=domain, signature_hash=hash_a)
-        version_b = await mock_store.get_latest_version(domain=domain, signature_hash=hash_b)
+        version_a = await mock_store.get_latest_version(
+            domain=domain, signature_hash=hash_a
+        )
+        version_b = await mock_store.get_latest_version(
+            domain=domain, signature_hash=hash_b
+        )
 
         # Assert - independent version tracking
         assert version_a == 3

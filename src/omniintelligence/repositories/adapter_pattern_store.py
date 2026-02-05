@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import yaml
-
 from omnibase_core.models.contracts import ModelDbRepositoryContract
 from omnibase_core.types.typed_dict_pattern_storage_metadata import (
     TypedDictPatternStorageMetadata,
@@ -222,7 +221,9 @@ class AdapterPatternStore:
                 "confidence": confidence,
                 "quality_score": quality_score,
                 "status": state.value,
-                "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
+                "source_session_ids": f"{{{correlation_id}}}"
+                if correlation_id
+                else "{}",
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
                 # supersedes: omitted - optional with no default, will be None
@@ -500,7 +501,9 @@ class AdapterPatternStore:
                 "confidence": confidence,
                 "quality_score": quality_score,
                 "status": state.value,
-                "source_session_ids": f"{{{correlation_id}}}" if correlation_id else "{}",
+                "source_session_ids": f"{{{correlation_id}}}"
+                if correlation_id
+                else "{}",
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
             },

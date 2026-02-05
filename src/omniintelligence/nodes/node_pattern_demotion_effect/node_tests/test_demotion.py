@@ -62,7 +62,6 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelEffectiveThresholds,
 )
 
-
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================
@@ -311,14 +310,16 @@ class TestMinimumInjectionCount:
         The success rate gate requires minimum injection count. With only 9 injections
         (below the 10 minimum), the low success rate gate cannot trigger.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 9,
-            "success_count_rolling_20": 2,  # 22% success rate (below 40%)
-            "failure_count_rolling_20": 7,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 9,
+                "success_count_rolling_20": 2,  # 22% success rate (below 40%)
+                "failure_count_rolling_20": 7,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         # Should NOT demote - insufficient data for success rate check
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
@@ -327,14 +328,16 @@ class TestMinimumInjectionCount:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with exactly 10 injections can be demoted for low success rate."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 3,  # 30% success rate (below 40%)
-            "failure_count_rolling_20": 7,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 3,  # 30% success rate (below 40%)
+                "failure_count_rolling_20": 7,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "low_success_rate" in reason
@@ -343,14 +346,16 @@ class TestMinimumInjectionCount:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with 20 injections and low success rate should be demoted."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 20,
-            "success_count_rolling_20": 5,  # 25% success rate (below 40%)
-            "failure_count_rolling_20": 15,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 20,
+                "success_count_rolling_20": 5,  # 25% success rate (below 40%)
+                "failure_count_rolling_20": 15,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "low_success_rate" in reason
@@ -359,14 +364,16 @@ class TestMinimumInjectionCount:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with None injection count is treated as 0 (no demotion)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": None,
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 10,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": None,
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 10,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None  # Cannot demote with insufficient data
 
@@ -394,14 +401,16 @@ class TestSuccessRateGate:
     ) -> None:
         """Pattern with 30% success rate (below 40%) should be demoted."""
         # 30% success rate: 3 successes, 7 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 3,
-            "failure_count_rolling_20": 7,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 3,
+                "failure_count_rolling_20": 7,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "low_success_rate" in reason
@@ -415,14 +424,16 @@ class TestSuccessRateGate:
         The gate uses < threshold, so exactly 40% does not trigger demotion.
         """
         # Exactly 40%: 4 successes, 6 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 4,
-            "failure_count_rolling_20": 6,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 4,
+                "failure_count_rolling_20": 6,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
 
@@ -431,14 +442,16 @@ class TestSuccessRateGate:
     ) -> None:
         """Pattern with 50% success rate should NOT be demoted."""
         # 50% success rate: 5 successes, 5 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": 5,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": 5,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
 
@@ -447,14 +460,16 @@ class TestSuccessRateGate:
     ) -> None:
         """Success rate check is skipped if injection count < 10."""
         # Low success rate but insufficient data
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,  # Below 10
-            "success_count_rolling_20": 1,  # 20% success rate
-            "failure_count_rolling_20": 4,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,  # Below 10
+                "success_count_rolling_20": 1,  # 20% success rate
+                "failure_count_rolling_20": 4,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
 
@@ -481,14 +496,16 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with exactly 5 consecutive failures (at threshold) should be demoted."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,  # 70% success rate (good overall)
-            "failure_count_rolling_20": 3,
-            "failure_streak": 5,  # At threshold - demote
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,  # 70% success rate (good overall)
+                "failure_count_rolling_20": 3,
+                "failure_streak": 5,  # At threshold - demote
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "failure_streak" in reason
@@ -498,14 +515,16 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with 7 consecutive failures (above threshold) should be demoted."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 7,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 7,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "failure_streak" in reason
@@ -515,14 +534,16 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with 4 consecutive failures (below threshold) should NOT be demoted."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,  # 80% success rate
-            "failure_count_rolling_20": 2,
-            "failure_streak": 4,  # Below threshold
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,  # 80% success rate
+                "failure_count_rolling_20": 2,
+                "failure_streak": 4,  # Below threshold
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
 
@@ -530,14 +551,16 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with None failure streak is treated as 0."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": None,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": None,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None  # 0 < 5, no failure streak demotion
 
@@ -553,14 +576,16 @@ class TestFailureStreakGate:
         Unlike the success rate gate, failure streak doesn't require minimum
         injection count - 5 consecutive failures is enough signal.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,  # Below 10
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 5,
-            "failure_streak": 5,  # High streak
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,  # Below 10
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 5,
+                "failure_streak": 5,  # High streak
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "failure_streak" in reason
@@ -583,14 +608,16 @@ class TestManualDisableGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Disabled pattern should be demoted regardless of metrics."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 0,  # No data
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-            "is_disabled": True,  # HARD TRIGGER
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 0,  # No data
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+                "is_disabled": True,  # HARD TRIGGER
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason == "manual_disable"
 
@@ -598,14 +625,16 @@ class TestManualDisableGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Disabled pattern with excellent metrics should still be demoted."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 20,
-            "success_count_rolling_20": 18,  # 90% success rate
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-            "is_disabled": True,  # HARD TRIGGER overrides everything
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 20,
+                "success_count_rolling_20": 18,  # 90% success rate
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+                "is_disabled": True,  # HARD TRIGGER overrides everything
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason == "manual_disable"
 
@@ -613,14 +642,16 @@ class TestManualDisableGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Disabled patterns get 'manual_disable' reason."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 2,  # Low success rate too
-            "failure_count_rolling_20": 8,
-            "failure_streak": 7,  # High streak too
-            "is_disabled": True,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 2,  # Low success rate too
+                "failure_count_rolling_20": 8,
+                "failure_streak": 7,  # High streak too
+                "is_disabled": True,
+                "promoted_at": None,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         # Manual disable takes priority
         assert reason == "manual_disable"
@@ -837,7 +868,8 @@ class TestCooldownLogic:
                 DemotablePattern(
                     id=uuid4(),
                     pattern_signature=f"recent_{i}",
-                    promoted_at=datetime.now(UTC) - timedelta(hours=12),  # Within cooldown
+                    promoted_at=datetime.now(UTC)
+                    - timedelta(hours=12),  # Within cooldown
                     injection_count_rolling_20=15,
                     success_count_rolling_20=3,
                     failure_count_rolling_20=12,
@@ -871,23 +903,29 @@ class TestCooldownLogic:
 
     def test_is_cooldown_active_true_when_within_period(self) -> None:
         """is_cooldown_active returns True when within cooldown period."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(hours=12),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(hours=12),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is True
 
     def test_is_cooldown_active_false_when_expired(self) -> None:
         """is_cooldown_active returns False when cooldown expired."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(hours=48),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(hours=48),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is False
 
     def test_is_cooldown_active_false_when_promoted_at_none(self) -> None:
         """is_cooldown_active returns False when promoted_at is None."""
-        pattern = MockRecord({
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": None,
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is False
 
     def test_default_cooldown_hours_is_24(self) -> None:
@@ -1072,8 +1110,7 @@ class TestDryRunMode:
 
         # Only fetch query executed (no UPDATE)
         execute_queries = [
-            q for q in mock_repository.queries_executed
-            if "UPDATE" in q[0]
+            q for q in mock_repository.queries_executed if "UPDATE" in q[0]
         ]
         assert len(execute_queries) == 0
         assert result.dry_run is True
@@ -1670,58 +1707,72 @@ class TestCalculateSuccessRate:
 
     def test_calculates_50_percent_rate(self) -> None:
         """Calculates 50% success rate correctly."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": 5,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": 5,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.5
 
     def test_calculates_100_percent_rate(self) -> None:
         """Calculates 100% success rate correctly."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 10,
-            "failure_count_rolling_20": 0,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 10,
+                "failure_count_rolling_20": 0,
+            }
+        )
         assert calculate_success_rate(pattern) == 1.0
 
     def test_calculates_0_percent_rate(self) -> None:
         """Calculates 0% success rate correctly."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 10,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 10,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
     def test_returns_zero_when_no_outcomes(self) -> None:
         """Returns 0.0 when no outcomes recorded (division by zero protection)."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 0,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 0,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
     def test_handles_none_values(self) -> None:
         """Handles None values by treating them as 0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": None,
-            "failure_count_rolling_20": None,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": None,
+                "failure_count_rolling_20": None,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
     def test_clamps_rate_to_max_1(self) -> None:
         """Success rate is clamped to maximum 1.0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 10,
-            "failure_count_rolling_20": -5,  # Negative would cause > 1.0
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 10,
+                "failure_count_rolling_20": -5,  # Negative would cause > 1.0
+            }
+        )
         assert calculate_success_rate(pattern) == 1.0
 
     def test_clamps_rate_to_min_0(self) -> None:
         """Success rate is clamped to minimum 0.0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": -3,  # Negative success
-            "failure_count_rolling_20": 10,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": -3,  # Negative success
+                "failure_count_rolling_20": 10,
+            }
+        )
         result = calculate_success_rate(pattern)
         assert result >= 0.0
 
@@ -1738,14 +1789,16 @@ class TestBuildGateSnapshot:
     def test_builds_snapshot_with_all_fields(self) -> None:
         """Builds snapshot with all fields populated correctly."""
         promoted_at = datetime.now(UTC) - timedelta(hours=36)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 12,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 1,
-            "is_disabled": False,
-            "promoted_at": promoted_at,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 12,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 1,
+                "is_disabled": False,
+                "promoted_at": promoted_at,
+            }
+        )
 
         snapshot = build_gate_snapshot(pattern)
 
@@ -1760,14 +1813,16 @@ class TestBuildGateSnapshot:
     def test_hours_since_promotion_calculated_correctly(self) -> None:
         """hours_since_promotion is calculated correctly."""
         promoted_at = datetime.now(UTC) - timedelta(hours=24)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": promoted_at,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": promoted_at,
+            }
+        )
 
         snapshot = build_gate_snapshot(pattern)
         assert snapshot.hours_since_promotion is not None
@@ -1775,28 +1830,32 @@ class TestBuildGateSnapshot:
 
     def test_hours_since_promotion_none_when_no_timestamp(self) -> None:
         """hours_since_promotion is None when promoted_at is None."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
 
         snapshot = build_gate_snapshot(pattern)
         assert snapshot.hours_since_promotion is None
 
     def test_snapshot_is_frozen_model(self) -> None:
         """Snapshot is immutable (frozen model)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
 
         snapshot = build_gate_snapshot(pattern)
 
@@ -1864,44 +1923,56 @@ class TestIsCooldownActive:
 
     def test_true_when_within_cooldown_period(self) -> None:
         """Returns True when pattern was promoted within cooldown period."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(hours=12),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(hours=12),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is True
 
     def test_false_when_cooldown_expired(self) -> None:
         """Returns False when cooldown period has elapsed."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(hours=48),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(hours=48),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is False
 
     def test_false_when_promoted_at_is_none(self) -> None:
         """Returns False when promoted_at is None (no cooldown applies)."""
-        pattern = MockRecord({
-            "promoted_at": None,
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": None,
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is False
 
     def test_boundary_just_before_expiry(self) -> None:
         """Returns True when just before cooldown expiry."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(hours=23, minutes=59),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(hours=23, minutes=59),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is True
 
     def test_boundary_just_after_expiry(self) -> None:
         """Returns False when just after cooldown expiry."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(hours=24, minutes=1),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(hours=24, minutes=1),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=24) is False
 
     def test_zero_cooldown_hours(self) -> None:
         """Returns False when cooldown_hours is 0 (no cooldown)."""
-        pattern = MockRecord({
-            "promoted_at": datetime.now(UTC) - timedelta(minutes=1),
-        })
+        pattern = MockRecord(
+            {
+                "promoted_at": datetime.now(UTC) - timedelta(minutes=1),
+            }
+        )
         assert is_cooldown_active(pattern, cooldown_hours=0) is False
 
 
@@ -1922,26 +1993,30 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns 'manual_disable' for disabled patterns."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-            "is_disabled": True,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+                "is_disabled": True,
+            }
+        )
         assert get_demotion_reason(pattern, default_thresholds) == "manual_disable"
 
     def test_returns_failure_streak_reason(
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns failure streak reason when failure_streak >= threshold."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 6,
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 6,
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason == "failure_streak: 6 consecutive failures"
 
@@ -1949,13 +2024,15 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns low success rate reason when rate < threshold."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 3,  # 20%
-            "failure_count_rolling_20": 12,
-            "failure_streak": 0,
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 3,  # 20%
+                "failure_count_rolling_20": 12,
+                "failure_streak": 0,
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "low_success_rate" in reason
@@ -1965,39 +2042,45 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns None when pattern passes all gates."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 10,  # 67%
-            "failure_count_rolling_20": 5,
-            "failure_streak": 2,  # Below 5
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 10,  # 67%
+                "failure_count_rolling_20": 5,
+                "failure_streak": 2,  # Below 5
+                "is_disabled": False,
+            }
+        )
         assert get_demotion_reason(pattern, default_thresholds) is None
 
     def test_priority_manual_disable_over_failure_streak(
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """manual_disable takes priority over failure_streak."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 10,
-            "failure_streak": 10,  # Would trigger failure_streak
-            "is_disabled": True,   # But manual_disable takes priority
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 10,
+                "failure_streak": 10,  # Would trigger failure_streak
+                "is_disabled": True,  # But manual_disable takes priority
+            }
+        )
         assert get_demotion_reason(pattern, default_thresholds) == "manual_disable"
 
     def test_priority_failure_streak_over_low_success_rate(
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """failure_streak takes priority over low_success_rate."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 3,  # 20% - would trigger low_success_rate
-            "failure_count_rolling_20": 12,
-            "failure_streak": 7,  # But failure_streak takes priority
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 3,  # 20% - would trigger low_success_rate
+                "failure_count_rolling_20": 12,
+                "failure_streak": 7,  # But failure_streak takes priority
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "failure_streak" in reason
@@ -2225,40 +2308,48 @@ class TestNumericalEdgeCases:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with negative injection count cannot trigger success rate gate."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": -5,
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 10,
-            "failure_streak": 0,
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": -5,
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 10,
+                "failure_streak": 0,
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None  # Cannot meet injection count requirement
 
     def test_negative_success_count(self) -> None:
         """Negative success count produces valid clamped rate."""
-        pattern = MockRecord({
-            "success_count_rolling_20": -3,
-            "failure_count_rolling_20": 10,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": -3,
+                "failure_count_rolling_20": 10,
+            }
+        )
         rate = calculate_success_rate(pattern)
         assert 0.0 <= rate <= 1.0
 
     def test_negative_failure_count_clamped(self) -> None:
         """Negative failure count is clamped to valid range."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": -2,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": -2,
+            }
+        )
         rate = calculate_success_rate(pattern)
         assert rate == 1.0  # Clamped to max
 
     def test_very_large_counts(self) -> None:
         """Very large counts are handled correctly without overflow."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 800_000,
-            "failure_count_rolling_20": 200_000,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 800_000,
+                "failure_count_rolling_20": 200_000,
+            }
+        )
         rate = calculate_success_rate(pattern)
         assert abs(rate - 0.8) < 1e-9
 
@@ -2267,13 +2358,15 @@ class TestNumericalEdgeCases:
     ) -> None:
         """Success rate at 39.9% triggers demotion."""
         # 399/1000 = 0.399 (just below 0.4)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 1000,
-            "success_count_rolling_20": 399,
-            "failure_count_rolling_20": 601,
-            "failure_streak": 0,
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 1000,
+                "success_count_rolling_20": 399,
+                "failure_count_rolling_20": 601,
+                "failure_streak": 0,
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "low_success_rate" in reason
@@ -2283,13 +2376,15 @@ class TestNumericalEdgeCases:
     ) -> None:
         """Success rate at exactly 40% does NOT trigger demotion."""
         # 400/1000 = 0.400 (exactly at threshold)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 1000,
-            "success_count_rolling_20": 400,
-            "failure_count_rolling_20": 600,
-            "failure_streak": 0,
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 1000,
+                "success_count_rolling_20": 400,
+                "failure_count_rolling_20": 600,
+                "failure_streak": 0,
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
 
@@ -2297,13 +2392,15 @@ class TestNumericalEdgeCases:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Failure streak of 4 does NOT trigger demotion."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 4,  # Below 5
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 4,  # Below 5
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None
 
@@ -2311,13 +2408,15 @@ class TestNumericalEdgeCases:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Failure streak of 5 DOES trigger demotion."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 5,  # At threshold
-            "is_disabled": False,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 5,  # At threshold
+                "is_disabled": False,
+            }
+        )
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is not None
         assert "failure_streak" in reason
@@ -2523,16 +2622,18 @@ class TestDemotePatternDirect:
                 failure_streak=0,
             )
         )
-        pattern_data = MockRecord({
-            "id": sample_pattern_id,
-            "pattern_signature": "test_sig",
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 3,
-            "failure_count_rolling_20": 12,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern_data = MockRecord(
+            {
+                "id": sample_pattern_id,
+                "pattern_signature": "test_sig",
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 3,
+                "failure_count_rolling_20": 12,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
 
         result = await demote_pattern(
             repository=mock_repository,
@@ -2573,16 +2674,18 @@ class TestDemotePatternDirect:
                 failure_streak=0,
             )
         )
-        pattern_data = MockRecord({
-            "id": sample_pattern_id,
-            "pattern_signature": "test_sig",
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 3,
-            "failure_count_rolling_20": 12,
-            "failure_streak": 0,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern_data = MockRecord(
+            {
+                "id": sample_pattern_id,
+                "pattern_signature": "test_sig",
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 3,
+                "failure_count_rolling_20": 12,
+                "failure_streak": 0,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
 
         result = await demote_pattern(
             repository=mock_repository,
@@ -2618,16 +2721,18 @@ class TestDemotePatternDirect:
                 failure_streak=1,
             )
         )
-        pattern_data = MockRecord({
-            "id": sample_pattern_id,
-            "pattern_signature": "test_sig",
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 3,
-            "failure_count_rolling_20": 12,
-            "failure_streak": 1,
-            "is_disabled": False,
-            "promoted_at": None,
-        })
+        pattern_data = MockRecord(
+            {
+                "id": sample_pattern_id,
+                "pattern_signature": "test_sig",
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 3,
+                "failure_count_rolling_20": 12,
+                "failure_streak": 1,
+                "is_disabled": False,
+                "promoted_at": None,
+            }
+        )
 
         result = await demote_pattern(
             repository=mock_repository,

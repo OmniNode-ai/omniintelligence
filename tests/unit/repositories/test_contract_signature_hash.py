@@ -188,9 +188,7 @@ class TestLineageOperationsWhereClauseUsesSignatureHash:
                 sql,
                 re.IGNORECASE | re.DOTALL,
             )
-            assert where_match, (
-                f"Operation '{op_name}': Could not find WHERE clause"
-            )
+            assert where_match, f"Operation '{op_name}': Could not find WHERE clause"
 
             where_clause = where_match.group(1)
             # Check for signature_hash = :signature_hash pattern

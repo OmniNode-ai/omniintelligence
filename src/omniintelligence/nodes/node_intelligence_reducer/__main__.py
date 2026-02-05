@@ -52,9 +52,9 @@ def run_health_server(host: str = "0.0.0.0", port: int = 8000) -> HTTPServer:
     Returns:
         HTTPServer instance for shutdown management.
     """
-    from http.server import BaseHTTPRequestHandler
     import json
     import threading
+    from http.server import BaseHTTPRequestHandler
 
     class HealthHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:

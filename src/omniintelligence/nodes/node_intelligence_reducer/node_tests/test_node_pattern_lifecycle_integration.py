@@ -27,7 +27,6 @@ import logging
 from uuid import UUID
 
 import pytest
-
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omnibase_core.models.reducer.model_intent import ModelIntent
 from omnibase_core.models.reducer.payloads.model_extension_payloads import (
@@ -38,14 +37,14 @@ from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
-    ERROR_INVALID_FROM_STATE,
     ERROR_INVALID_TRANSITION,
     ERROR_INVALID_TRIGGER,
     ERROR_STATE_MISMATCH,
     VALID_TRANSITIONS,
 )
-from omniintelligence.nodes.node_intelligence_reducer.node import NodeIntelligenceReducer
-
+from omniintelligence.nodes.node_intelligence_reducer.node import (
+    NodeIntelligenceReducer,
+)
 
 # =============================================================================
 # Pytest Fixtures
@@ -574,7 +573,9 @@ class TestIntentVerificationViaNode:
         assert output.result["success"] is True
         intent = output.intents[0]
         assert isinstance(intent.payload, ModelPayloadExtension)
-        assert intent.payload.extension_type == "omniintelligence.pattern_lifecycle_update"
+        assert (
+            intent.payload.extension_type == "omniintelligence.pattern_lifecycle_update"
+        )
         assert intent.payload.plugin_name == "omniintelligence"
 
     async def test_intent_payload_contains_update_pattern_status_fields(
@@ -724,7 +725,14 @@ class TestOutputStructureVerification:
 
         # Assert - Result dict structure
         assert isinstance(output.result, dict)
-        expected_keys = {"fsm_type", "success", "pattern_id", "from_status", "to_status", "trigger"}
+        expected_keys = {
+            "fsm_type",
+            "success",
+            "pattern_id",
+            "from_status",
+            "to_status",
+            "trigger",
+        }
         assert expected_keys.issubset(output.result.keys())
 
     async def test_success_output_intents_is_tuple(

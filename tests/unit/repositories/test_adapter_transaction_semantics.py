@@ -22,7 +22,7 @@ implementation that honors the `conn` parameter.
 """
 
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -155,9 +155,7 @@ class TestAdapterTransactionSemantics:
         warning_messages = [
             r.message for r in caplog.records if r.levelno == logging.WARNING
         ]
-        conn_warnings = [
-            m for m in warning_messages if "conn parameter ignored" in m
-        ]
+        conn_warnings = [m for m in warning_messages if "conn parameter ignored" in m]
 
         assert len(conn_warnings) == 1, (
             f"Expected exactly 1 conn warning, got {len(conn_warnings)}. "
@@ -189,9 +187,7 @@ class TestAdapterTransactionSemantics:
         warning_messages = [
             r.message for r in caplog.records if r.levelno == logging.WARNING
         ]
-        conn_warnings = [
-            m for m in warning_messages if "conn parameter ignored" in m
-        ]
+        conn_warnings = [m for m in warning_messages if "conn parameter ignored" in m]
 
         assert len(conn_warnings) == 0, (
             f"Expected no conn warnings when conn=None, got: {conn_warnings}"
@@ -223,9 +219,7 @@ class TestAdapterTransactionSemantics:
         warning_messages = [
             r.message for r in caplog.records if r.levelno == logging.WARNING
         ]
-        conn_warnings = [
-            m for m in warning_messages if "conn parameter ignored" in m
-        ]
+        conn_warnings = [m for m in warning_messages if "conn parameter ignored" in m]
 
         assert len(conn_warnings) == 1, (
             f"Expected exactly 1 conn warning, got {len(conn_warnings)}. "
@@ -259,9 +253,7 @@ class TestAdapterTransactionSemantics:
         warning_messages = [
             r.message for r in caplog.records if r.levelno == logging.WARNING
         ]
-        conn_warnings = [
-            m for m in warning_messages if "conn parameter ignored" in m
-        ]
+        conn_warnings = [m for m in warning_messages if "conn parameter ignored" in m]
 
         assert len(conn_warnings) == 1, (
             f"Expected exactly 1 conn warning shared across methods, "
@@ -291,9 +283,7 @@ class TestAdapterTransactionSemantics:
         warning_messages = [
             r.message for r in caplog.records if r.levelno == logging.WARNING
         ]
-        conn_warnings = [
-            m for m in warning_messages if "conn parameter ignored" in m
-        ]
+        conn_warnings = [m for m in warning_messages if "conn parameter ignored" in m]
 
         assert len(conn_warnings) == 2, (
             f"Expected 2 conn warnings (one per adapter), got {len(conn_warnings)}. "

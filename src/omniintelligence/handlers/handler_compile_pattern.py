@@ -14,7 +14,7 @@ Ticket: OMN-1672
 from __future__ import annotations
 
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 from omniintelligence.utils.injection_safety import (
@@ -60,7 +60,9 @@ def format_pattern_snippet(
         Formatted markdown snippet with compiler version stamp.
     """
     # Truncate long names with ellipsis indicator
-    display_name = pattern_name[:100] + "..." if len(pattern_name) > 100 else pattern_name
+    display_name = (
+        pattern_name[:100] + "..." if len(pattern_name) > 100 else pattern_name
+    )
 
     # Limit keywords to first 10, add ellipsis if truncated
     if not keywords:

@@ -714,7 +714,9 @@ async def handle_store_pattern(
             "Auto-incrementing version for existing lineage",
             extra={
                 "domain": input_data.domain,
-                "signature": input_data.signature[:50] if input_data.signature else None,
+                "signature": input_data.signature[:50]
+                if input_data.signature
+                else None,
                 "signature_hash": input_data.signature_hash,
                 "latest_version": latest_version,
                 "new_version": version,
@@ -727,7 +729,9 @@ async def handle_store_pattern(
             "First version in new lineage",
             extra={
                 "domain": input_data.domain,
-                "signature": input_data.signature[:50] if input_data.signature else None,
+                "signature": input_data.signature[:50]
+                if input_data.signature
+                else None,
                 "signature_hash": input_data.signature_hash,
                 "version": version,
             },
@@ -770,7 +774,9 @@ async def handle_store_pattern(
             "Using atomic store_with_version_transition for version > 1",
             extra={
                 "domain": input_data.domain,
-                "signature": input_data.signature[:50] if input_data.signature else None,
+                "signature": input_data.signature[:50]
+                if input_data.signature
+                else None,
                 "signature_hash": input_data.signature_hash,
                 "version": version,
             },
@@ -798,7 +804,9 @@ async def handle_store_pattern(
             "Using store_pattern for first version",
             extra={
                 "domain": input_data.domain,
-                "signature": input_data.signature[:50] if input_data.signature else None,
+                "signature": input_data.signature[:50]
+                if input_data.signature
+                else None,
                 "signature_hash": input_data.signature_hash,
                 "version": version,
             },

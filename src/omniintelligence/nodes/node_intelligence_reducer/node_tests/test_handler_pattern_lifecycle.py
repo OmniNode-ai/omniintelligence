@@ -37,12 +37,10 @@ from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     ERROR_GUARD_CONDITION_FAILED,
-    ERROR_INVALID_FROM_STATE,
     ERROR_INVALID_TRANSITION,
     ERROR_INVALID_TRIGGER,
     ERROR_STATE_MISMATCH,
     GUARD_CONDITIONS,
-    VALID_STATES,
     VALID_TRANSITIONS,
     VALID_TRIGGERS,
     PatternLifecycleTransitionResult,
@@ -54,7 +52,6 @@ from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_l
 from omniintelligence.nodes.node_intelligence_reducer.models.model_payload_update_pattern_status import (
     ModelPayloadUpdatePatternStatus,
 )
-
 
 # =============================================================================
 # Test Class: Valid Transitions

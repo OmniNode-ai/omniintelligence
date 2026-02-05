@@ -780,7 +780,9 @@ async def _send_to_dlq(
         topic_env_prefix: Environment prefix for topic (required).
     """
     # Build DLQ topic name: {original_topic}.dlq
-    original_topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"
+    original_topic = (
+        f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"
+    )
     dlq_topic = f"{original_topic}.dlq"
 
     try:

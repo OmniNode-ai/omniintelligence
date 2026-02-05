@@ -27,7 +27,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets impor
     SIGNATURE_VERSION,
 )
 
-
 # =============================================================================
 # Signature Versioning Tests
 # =============================================================================
@@ -47,8 +46,9 @@ class TestSignatureVersioning:
 
         # Pattern: vX.Y.Z where X, Y, Z are non-negative integers
         semver_pattern = r"^v\d+\.\d+\.\d+$"
-        assert re.match(semver_pattern, SIGNATURE_VERSION), \
+        assert re.match(semver_pattern, SIGNATURE_VERSION), (
             f"SIGNATURE_VERSION '{SIGNATURE_VERSION}' does not match vX.Y.Z format"
+        )
 
     def test_signature_version_is_v1(self) -> None:
         """Current SIGNATURE_VERSION should be v1.0.0."""
@@ -82,8 +82,7 @@ class TestSimilarityWeights:
     def test_weights_sum_to_one(self) -> None:
         """All similarity weights must sum to exactly 1.0."""
         total = sum(DEFAULT_SIMILARITY_WEIGHTS.values())
-        assert total == pytest.approx(1.0), \
-            f"Weights sum to {total}, expected 1.0"
+        assert total == pytest.approx(1.0), f"Weights sum to {total}, expected 1.0"
 
     def test_has_all_required_keys(self) -> None:
         """DEFAULT_SIMILARITY_WEIGHTS should have all 5 component keys."""
@@ -123,8 +122,9 @@ class TestSimilarityWeights:
     def test_weights_are_floats(self) -> None:
         """All weights should be float values."""
         for key, weight in DEFAULT_SIMILARITY_WEIGHTS.items():
-            assert isinstance(weight, float), \
+            assert isinstance(weight, float), (
                 f"Weight for '{key}' is not float: {type(weight)}"
+            )
 
     def test_weights_dict_is_not_empty(self) -> None:
         """DEFAULT_SIMILARITY_WEIGHTS should not be empty."""
@@ -133,10 +133,21 @@ class TestSimilarityWeights:
     def test_weight_priorities_make_sense(self) -> None:
         """Weights should follow expected priority order."""
         # keyword > pattern > structural > label > context
-        assert DEFAULT_SIMILARITY_WEIGHTS["keyword"] > DEFAULT_SIMILARITY_WEIGHTS["pattern"]
-        assert DEFAULT_SIMILARITY_WEIGHTS["pattern"] > DEFAULT_SIMILARITY_WEIGHTS["structural"]
-        assert DEFAULT_SIMILARITY_WEIGHTS["structural"] > DEFAULT_SIMILARITY_WEIGHTS["label"]
-        assert DEFAULT_SIMILARITY_WEIGHTS["label"] > DEFAULT_SIMILARITY_WEIGHTS["context"]
+        assert (
+            DEFAULT_SIMILARITY_WEIGHTS["keyword"]
+            > DEFAULT_SIMILARITY_WEIGHTS["pattern"]
+        )
+        assert (
+            DEFAULT_SIMILARITY_WEIGHTS["pattern"]
+            > DEFAULT_SIMILARITY_WEIGHTS["structural"]
+        )
+        assert (
+            DEFAULT_SIMILARITY_WEIGHTS["structural"]
+            > DEFAULT_SIMILARITY_WEIGHTS["label"]
+        )
+        assert (
+            DEFAULT_SIMILARITY_WEIGHTS["label"] > DEFAULT_SIMILARITY_WEIGHTS["context"]
+        )
 
 
 # =============================================================================
@@ -382,7 +393,9 @@ class TestModuleExports:
 
     def test_all_constants_importable(self) -> None:
         """All documented constants should be importable."""
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers import presets
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+            presets,
+        )
 
         expected_exports = [
             "DEFAULT_CLUSTERING_THRESHOLD",
@@ -402,7 +415,9 @@ class TestModuleExports:
 
     def test_exports_match_all(self) -> None:
         """Module __all__ should include all documented constants."""
-        from omniintelligence.nodes.node_pattern_learning_compute.handlers import presets
+        from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+            presets,
+        )
 
         expected_exports = {
             "DEFAULT_CLUSTERING_THRESHOLD",
