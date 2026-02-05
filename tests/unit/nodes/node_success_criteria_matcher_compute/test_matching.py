@@ -18,7 +18,6 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
-    MISSING,
     CriteriaMatchingValidationError,
     match_criteria,
     handle_success_criteria_compute,

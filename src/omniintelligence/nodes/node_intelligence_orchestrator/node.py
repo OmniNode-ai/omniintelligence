@@ -23,6 +23,7 @@ Design Decisions:
     - Declarative Execution: Workflows defined in workflow_coordination
     - Llama Index Integration: Uses Llama Index for workflow orchestration
 """
+
 from __future__ import annotations
 
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator

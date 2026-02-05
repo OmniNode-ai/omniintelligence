@@ -285,34 +285,26 @@ class TestResolveFieldPathValidationErrors:
     def test_negative_index_raises_error(self) -> None:
         """Negative index in path should raise validation error."""
         data = {"items": [1, 2, 3]}
-        with pytest.raises(
-            CriteriaMatchingValidationError, match="invalid characters"
-        ):
+        with pytest.raises(CriteriaMatchingValidationError, match="invalid characters"):
             resolve_field_path(data, "items.-1")
 
     def test_special_characters_in_token_raises_error(self) -> None:
         """Special characters in token should raise validation error."""
         data = {"key": "value"}
         # Hyphen is not allowed (only alphanumeric + underscore)
-        with pytest.raises(
-            CriteriaMatchingValidationError, match="invalid characters"
-        ):
+        with pytest.raises(CriteriaMatchingValidationError, match="invalid characters"):
             resolve_field_path(data, "key-name")
 
     def test_space_in_token_raises_error(self) -> None:
         """Space in token should raise validation error."""
         data = {"key name": "value"}
-        with pytest.raises(
-            CriteriaMatchingValidationError, match="invalid characters"
-        ):
+        with pytest.raises(CriteriaMatchingValidationError, match="invalid characters"):
             resolve_field_path(data, "key name")
 
     def test_brackets_in_token_raises_error(self) -> None:
         """Bracket syntax should raise validation error (use dots)."""
         data = {"items": [1, 2, 3]}
-        with pytest.raises(
-            CriteriaMatchingValidationError, match="invalid characters"
-        ):
+        with pytest.raises(CriteriaMatchingValidationError, match="invalid characters"):
             resolve_field_path(data, "items[0]")
 
 

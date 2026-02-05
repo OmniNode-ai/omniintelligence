@@ -8,6 +8,7 @@ is a violation that will cause race conditions and audit log gaps.
 
 Ticket: OMN-1805
 """
+
 from __future__ import annotations
 
 import logging
@@ -104,7 +105,9 @@ def _scan_file_for_violations(file_path: Path) -> list[str]:
             matched_text = match.group()
             if len(matched_text) > 50:
                 matched_text = matched_text[:50] + "..."
-            violations.append(f"{file_path.name}:{line_num}: Found forbidden pattern: {matched_text}")
+            violations.append(
+                f"{file_path.name}:{line_num}: Found forbidden pattern: {matched_text}"
+            )
 
     return violations
 
@@ -163,7 +166,8 @@ class TestPatternStatusDirectUpdate:
         """
         project_root = _get_project_root()
         effect_handler = (
-            project_root / "src/omniintelligence/nodes/node_pattern_lifecycle_effect/handlers/handler_transition.py"
+            project_root
+            / "src/omniintelligence/nodes/node_pattern_lifecycle_effect/handlers/handler_transition.py"
         )
         assert effect_handler.exists(), (
             f"Effect node handler not found at {effect_handler}. "
@@ -178,7 +182,8 @@ class TestPatternStatusDirectUpdate:
         """
         project_root = _get_project_root()
         effect_handler = (
-            project_root / "src/omniintelligence/nodes/node_pattern_lifecycle_effect/handlers/handler_transition.py"
+            project_root
+            / "src/omniintelligence/nodes/node_pattern_lifecycle_effect/handlers/handler_transition.py"
         )
 
         if not effect_handler.exists():

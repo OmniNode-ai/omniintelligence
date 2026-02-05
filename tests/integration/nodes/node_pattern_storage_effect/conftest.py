@@ -255,9 +255,15 @@ def kafka_publisher_adapter(event_bus: Any) -> EventBusKafkaPublisherAdapter:
 # =============================================================================
 
 TEST_TOPIC_PREFIX: str = "test"
-TOPIC_PATTERN_STORED: str = f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-stored.v1"
-TOPIC_PATTERN_PROMOTED: str = f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-promoted.v1"
-TOPIC_PATTERN_LEARNED: str = f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-learned.v1"
+TOPIC_PATTERN_STORED: str = (
+    f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-stored.v1"
+)
+TOPIC_PATTERN_PROMOTED: str = (
+    f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-promoted.v1"
+)
+TOPIC_PATTERN_LEARNED: str = (
+    f"{TEST_TOPIC_PREFIX}.onex.evt.omniintelligence.pattern-learned.v1"
+)
 
 
 @pytest.fixture

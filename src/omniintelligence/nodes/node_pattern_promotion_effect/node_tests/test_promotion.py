@@ -232,52 +232,62 @@ class TestGate1InjectionCount:
 
     def test_meets_criteria_fails_when_injection_count_zero(self) -> None:
         """Pattern with 0 injections fails Gate 1."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 0,
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 0,
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_fails_when_injection_count_below_minimum(self) -> None:
         """Pattern with 4 injections (below minimum 5) fails Gate 1."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 4,
-            "success_count_rolling_20": 4,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 4,
+                "success_count_rolling_20": 4,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_passes_when_injection_count_at_minimum(self) -> None:
         """Pattern with exactly 5 injections (at minimum) passes Gate 1."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,
-            "success_count_rolling_20": 4,  # 80% success rate
-            "failure_count_rolling_20": 1,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,
+                "success_count_rolling_20": 4,  # 80% success rate
+                "failure_count_rolling_20": 1,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_passes_when_injection_count_above_minimum(self) -> None:
         """Pattern with 20 injections (above minimum) passes Gate 1."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 20,
-            "success_count_rolling_20": 15,  # 75% success rate
-            "failure_count_rolling_20": 5,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 20,
+                "success_count_rolling_20": 15,  # 75% success rate
+                "failure_count_rolling_20": 5,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_handles_none_injection_count(self) -> None:
         """Pattern with None injection count is treated as 0."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": None,
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": None,
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_min_injection_count_constant_is_five(self) -> None:
@@ -302,86 +312,102 @@ class TestGate2SuccessRate:
     def test_meets_criteria_fails_when_success_rate_below_60_percent(self) -> None:
         """Pattern with 50% success rate (below 60%) fails Gate 2."""
         # 50% success rate: 5 successes, 5 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": 5,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": 5,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_fails_when_success_rate_at_59_percent(self) -> None:
         """Pattern with ~59% success rate (just below 60%) fails Gate 2."""
         # 59.4% success rate: 19 successes, 13 failures (19/32 = 0.594)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 32,
-            "success_count_rolling_20": 19,
-            "failure_count_rolling_20": 13,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 32,
+                "success_count_rolling_20": 19,
+                "failure_count_rolling_20": 13,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_passes_when_success_rate_at_60_percent(self) -> None:
         """Pattern with exactly 60% success rate passes Gate 2."""
         # Exactly 60%: 6 successes, 4 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 6,
-            "failure_count_rolling_20": 4,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 6,
+                "failure_count_rolling_20": 4,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_passes_when_success_rate_above_60_percent(self) -> None:
         """Pattern with 80% success rate passes Gate 2."""
         # 80% success rate: 8 successes, 2 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_passes_when_100_percent_success_rate(self) -> None:
         """Pattern with 100% success rate passes Gate 2."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 10,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 10,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_fails_when_no_outcomes_recorded(self) -> None:
         """Pattern with 0 successes and 0 failures fails (division by zero protection)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_handles_none_success_count(self) -> None:
         """Pattern with None success count is treated as 0."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": None,
-            "failure_count_rolling_20": 5,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": None,
+                "failure_count_rolling_20": 5,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_handles_none_failure_count(self) -> None:
         """Pattern with None failure count is treated as 0."""
         # 100% success rate with None failures treated as 0
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 10,
-            "failure_count_rolling_20": None,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 10,
+                "failure_count_rolling_20": None,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_min_success_rate_constant_is_0_6(self) -> None:
@@ -405,62 +431,74 @@ class TestGate3FailureStreak:
 
     def test_meets_criteria_fails_when_failure_streak_at_max(self) -> None:
         """Pattern with exactly 3 consecutive failures (at max) fails Gate 3."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,  # 70% success rate
-            "failure_count_rolling_20": 3,
-            "failure_streak": 3,  # At max
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,  # 70% success rate
+                "failure_count_rolling_20": 3,
+                "failure_streak": 3,  # At max
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_fails_when_failure_streak_above_max(self) -> None:
         """Pattern with 5 consecutive failures (above max) fails Gate 3."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 5,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 5,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_passes_when_failure_streak_below_max(self) -> None:
         """Pattern with 2 consecutive failures (below max) passes Gate 3."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 2,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 2,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_passes_when_failure_streak_is_zero(self) -> None:
         """Pattern with 0 consecutive failures passes Gate 3."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_passes_when_failure_streak_is_one(self) -> None:
         """Pattern with 1 consecutive failure passes Gate 3."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 1,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 1,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_handles_none_failure_streak(self) -> None:
         """Pattern with None failure streak is treated as 0."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,
-            "failure_count_rolling_20": 3,
-            "failure_streak": None,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,
+                "failure_count_rolling_20": 3,
+                "failure_streak": None,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_max_failure_streak_constant_is_three(self) -> None:
@@ -485,52 +523,62 @@ class TestAllGatesCombined:
         # Gate 1: 5 injections (minimum)
         # Gate 2: 60% success rate (minimum)
         # Gate 3: 2 failure streak (below max)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,
-            "success_count_rolling_20": 3,  # 60%: 3/(3+2)
-            "failure_count_rolling_20": 2,
-            "failure_streak": 2,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,
+                "success_count_rolling_20": 3,  # 60%: 3/(3+2)
+                "failure_count_rolling_20": 2,
+                "failure_streak": 2,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_meets_criteria_fails_first_gate_only(self) -> None:
         """Pattern fails only Gate 1 (injection count)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 4,  # Below minimum
-            "success_count_rolling_20": 4,  # 100% success
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 4,  # Below minimum
+                "success_count_rolling_20": 4,  # 100% success
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_fails_second_gate_only(self) -> None:
         """Pattern fails only Gate 2 (success rate)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,  # Above minimum
-            "success_count_rolling_20": 4,  # 40% success (below 60%)
-            "failure_count_rolling_20": 6,
-            "failure_streak": 0,  # No recent failures
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,  # Above minimum
+                "success_count_rolling_20": 4,  # 40% success (below 60%)
+                "failure_count_rolling_20": 6,
+                "failure_streak": 0,  # No recent failures
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_fails_third_gate_only(self) -> None:
         """Pattern fails only Gate 3 (failure streak)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,  # Above minimum
-            "success_count_rolling_20": 8,  # 80% success (above 60%)
-            "failure_count_rolling_20": 2,
-            "failure_streak": 3,  # At max
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,  # Above minimum
+                "success_count_rolling_20": 8,  # 80% success (above 60%)
+                "failure_count_rolling_20": 2,
+                "failure_streak": 3,  # At max
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_meets_criteria_fails_all_gates(self) -> None:
         """Pattern fails all three gates."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 2,  # Below minimum
-            "success_count_rolling_20": 1,  # 33% success (below 60%)
-            "failure_count_rolling_20": 2,
-            "failure_streak": 5,  # Above max
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 2,  # Below minimum
+                "success_count_rolling_20": 1,  # 33% success (below 60%)
+                "failure_count_rolling_20": 2,
+                "failure_streak": 5,  # Above max
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
 
@@ -545,42 +593,52 @@ class TestCalculateSuccessRate:
 
     def test_calculates_50_percent_rate(self) -> None:
         """Calculates 50% success rate correctly."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": 5,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": 5,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.5
 
     def test_calculates_100_percent_rate(self) -> None:
         """Calculates 100% success rate correctly."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 10,
-            "failure_count_rolling_20": 0,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 10,
+                "failure_count_rolling_20": 0,
+            }
+        )
         assert calculate_success_rate(pattern) == 1.0
 
     def test_calculates_0_percent_rate(self) -> None:
         """Calculates 0% success rate correctly."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 10,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 10,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
     def test_returns_zero_when_no_outcomes(self) -> None:
         """Returns 0.0 when no outcomes recorded (division by zero protection)."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 0,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 0,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
     def test_handles_none_values(self) -> None:
         """Handles None values by treating them as 0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": None,
-            "failure_count_rolling_20": None,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": None,
+                "failure_count_rolling_20": None,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
 
@@ -595,12 +653,14 @@ class TestBuildGateSnapshot:
 
     def test_builds_snapshot_with_all_fields(self) -> None:
         """Builds snapshot with all fields populated correctly."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 12,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 1,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 12,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 1,
+            }
+        )
 
         snapshot = build_gate_snapshot(pattern)
 
@@ -612,12 +672,14 @@ class TestBuildGateSnapshot:
 
     def test_snapshot_is_frozen_model(self) -> None:
         """Snapshot is immutable (frozen model)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
 
         snapshot = build_gate_snapshot(pattern)
 
@@ -668,8 +730,7 @@ class TestDryRunMode:
 
         # Assert: Only fetch query executed (no UPDATE)
         execute_queries = [
-            q for q in mock_repository.queries_executed
-            if "UPDATE" in q[0]
+            q for q in mock_repository.queries_executed if "UPDATE" in q[0]
         ]
         assert len(execute_queries) == 0
         assert result.dry_run is True
@@ -875,7 +936,9 @@ class TestActualPromotion:
         assert result.patterns_eligible == 1
         assert len(result.patterns_promoted) == 1
         # Promotion succeeded via fallback
-        assert result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
+        assert (
+            result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
+        )
         assert result.patterns_promoted[0].promoted_at is not None
         # Database updated directly (fallback mode)
         assert mock_repository.patterns[sample_pattern_id].status == "validated"
@@ -1249,14 +1312,16 @@ class TestPromotePatternDirect:
                 failure_streak=0,
             )
         )
-        pattern_data = MockRecord({
-            "id": sample_pattern_id,
-            "pattern_signature": "test_sig",
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern_data = MockRecord(
+            {
+                "id": sample_pattern_id,
+                "pattern_signature": "test_sig",
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
 
         # Act
         result = await promote_pattern(
@@ -1297,14 +1362,16 @@ class TestPromotePatternDirect:
                 failure_streak=0,
             )
         )
-        pattern_data = MockRecord({
-            "id": sample_pattern_id,
-            "pattern_signature": "test_sig",
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern_data = MockRecord(
+            {
+                "id": sample_pattern_id,
+                "pattern_signature": "test_sig",
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
 
         # Act
         result = await promote_pattern(
@@ -1339,14 +1406,16 @@ class TestPromotePatternDirect:
                 failure_streak=1,
             )
         )
-        pattern_data = MockRecord({
-            "id": sample_pattern_id,
-            "pattern_signature": "test_sig",
-            "injection_count_rolling_20": 15,
-            "success_count_rolling_20": 12,
-            "failure_count_rolling_20": 3,
-            "failure_streak": 1,
-        })
+        pattern_data = MockRecord(
+            {
+                "id": sample_pattern_id,
+                "pattern_signature": "test_sig",
+                "injection_count_rolling_20": 15,
+                "success_count_rolling_20": 12,
+                "failure_count_rolling_20": 3,
+                "failure_streak": 1,
+            }
+        )
 
         # Act
         result = await promote_pattern(
@@ -1553,7 +1622,9 @@ class TestEdgeCases:
             mock_repository.add_pattern(
                 PromotablePattern(
                     id=uuid4(),
-                    injection_count_rolling_20=10 if i % 2 == 0 else 3,  # Alternating eligibility
+                    injection_count_rolling_20=10
+                    if i % 2 == 0
+                    else 3,  # Alternating eligibility
                     success_count_rolling_20=8 if i % 2 == 0 else 3,
                     failure_count_rolling_20=2,
                     failure_streak=0,
@@ -1578,14 +1649,16 @@ class TestEdgeCases:
 
     def test_pattern_with_extra_keys_handled_gracefully(self) -> None:
         """Pattern dict with extra keys is handled correctly."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-            "extra_field": "ignored",
-            "another_extra": 123,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+                "extra_field": "ignored",
+                "another_extra": 123,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     @pytest.mark.asyncio
@@ -1634,7 +1707,9 @@ class TestEdgeCases:
 
         # Promotion succeeded via fallback
         assert len(result.patterns_promoted) == 1
-        assert result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
+        assert (
+            result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
+        )
         assert result.patterns_promoted[0].promoted_at is not None
 
         # Database status WAS updated (fallback mode)
@@ -1667,21 +1742,26 @@ class TestConfigurableThresholds:
         - Passes default: 7 >= 5
         - Fails custom: 7 < 10
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 7,
-            "success_count_rolling_20": 6,  # 86% success rate
-            "failure_count_rolling_20": 1,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 7,
+                "success_count_rolling_20": 6,  # 86% success rate
+                "failure_count_rolling_20": 1,
+                "failure_streak": 0,
+            }
+        )
 
         # Passes with default threshold
         assert meets_promotion_criteria(pattern) is True
 
         # Fails with stricter threshold
-        assert meets_promotion_criteria(
-            pattern,
-            min_injection_count=10,
-        ) is False
+        assert (
+            meets_promotion_criteria(
+                pattern,
+                min_injection_count=10,
+            )
+            is False
+        )
 
     def test_custom_min_injection_count_more_lenient(self) -> None:
         """Pattern fails default threshold (5) but passes custom lenient threshold (2).
@@ -1690,21 +1770,26 @@ class TestConfigurableThresholds:
         - Fails default: 3 < 5
         - Passes custom: 3 >= 2
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 3,
-            "success_count_rolling_20": 3,  # 100% success rate
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 3,
+                "success_count_rolling_20": 3,  # 100% success rate
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
 
         # Fails with default threshold
         assert meets_promotion_criteria(pattern) is False
 
         # Passes with lenient threshold
-        assert meets_promotion_criteria(
-            pattern,
-            min_injection_count=2,
-        ) is True
+        assert (
+            meets_promotion_criteria(
+                pattern,
+                min_injection_count=2,
+            )
+            is True
+        )
 
     def test_custom_min_success_rate_more_strict(self) -> None:
         """Pattern passes default threshold (0.6) but fails custom stricter threshold (0.8).
@@ -1714,21 +1799,26 @@ class TestConfigurableThresholds:
         - Fails custom: 0.65 < 0.8
         """
         # 65% success rate: 13 successes, 7 failures (13/20 = 0.65)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 20,
-            "success_count_rolling_20": 13,
-            "failure_count_rolling_20": 7,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 20,
+                "success_count_rolling_20": 13,
+                "failure_count_rolling_20": 7,
+                "failure_streak": 0,
+            }
+        )
 
         # Passes with default threshold
         assert meets_promotion_criteria(pattern) is True
 
         # Fails with stricter threshold
-        assert meets_promotion_criteria(
-            pattern,
-            min_success_rate=0.8,
-        ) is False
+        assert (
+            meets_promotion_criteria(
+                pattern,
+                min_success_rate=0.8,
+            )
+            is False
+        )
 
     def test_custom_min_success_rate_more_lenient(self) -> None:
         """Pattern fails default threshold (0.6) but passes custom lenient threshold (0.4).
@@ -1738,21 +1828,26 @@ class TestConfigurableThresholds:
         - Passes custom: 0.5 >= 0.4
         """
         # 50% success rate: 5 successes, 5 failures
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": 5,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": 5,
+                "failure_streak": 0,
+            }
+        )
 
         # Fails with default threshold
         assert meets_promotion_criteria(pattern) is False
 
         # Passes with lenient threshold
-        assert meets_promotion_criteria(
-            pattern,
-            min_success_rate=0.4,
-        ) is True
+        assert (
+            meets_promotion_criteria(
+                pattern,
+                min_success_rate=0.4,
+            )
+            is True
+        )
 
     def test_custom_max_failure_streak_more_strict(self) -> None:
         """Pattern passes default threshold (3) but fails custom stricter threshold (2).
@@ -1761,21 +1856,26 @@ class TestConfigurableThresholds:
         - Passes default: 2 < 3
         - Fails custom: 2 >= 2
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,  # 80% success rate
-            "failure_count_rolling_20": 2,
-            "failure_streak": 2,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,  # 80% success rate
+                "failure_count_rolling_20": 2,
+                "failure_streak": 2,
+            }
+        )
 
         # Passes with default threshold
         assert meets_promotion_criteria(pattern) is True
 
         # Fails with stricter threshold (max_failure_streak=2 means 2+ fails)
-        assert meets_promotion_criteria(
-            pattern,
-            max_failure_streak=2,
-        ) is False
+        assert (
+            meets_promotion_criteria(
+                pattern,
+                max_failure_streak=2,
+            )
+            is False
+        )
 
     def test_custom_max_failure_streak_more_lenient(self) -> None:
         """Pattern fails default threshold (3) but passes custom lenient threshold (5).
@@ -1784,21 +1884,26 @@ class TestConfigurableThresholds:
         - Fails default: 4 >= 3
         - Passes custom: 4 < 5
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 7,  # 70% success rate
-            "failure_count_rolling_20": 3,
-            "failure_streak": 4,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 7,  # 70% success rate
+                "failure_count_rolling_20": 3,
+                "failure_streak": 4,
+            }
+        )
 
         # Fails with default threshold
         assert meets_promotion_criteria(pattern) is False
 
         # Passes with lenient threshold
-        assert meets_promotion_criteria(
-            pattern,
-            max_failure_streak=5,
-        ) is True
+        assert (
+            meets_promotion_criteria(
+                pattern,
+                max_failure_streak=5,
+            )
+            is True
+        )
 
     @pytest.mark.asyncio
     async def test_check_and_promote_with_custom_thresholds(
@@ -1916,12 +2021,14 @@ class TestEdgeCasesNumerical:
         Negative values should not be possible in production, but if they
         somehow occur, the pattern should fail the injection count gate.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": -5,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": -5,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
         # -5 < 5 (minimum), so Gate 1 fails
         assert meets_promotion_criteria(pattern) is False
 
@@ -1931,12 +2038,14 @@ class TestEdgeCasesNumerical:
         With negative success count, the calculated rate will be negative or
         otherwise invalid. The pattern should fail the success rate gate.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": -3,
-            "failure_count_rolling_20": 10,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": -3,
+                "failure_count_rolling_20": 10,
+                "failure_streak": 0,
+            }
+        )
         # success_rate = -3 / (-3 + 10) = -3/7 ≈ -0.43 < 0.6, Gate 2 fails
         assert meets_promotion_criteria(pattern) is False
 
@@ -1947,12 +2056,14 @@ class TestEdgeCasesNumerical:
         would exceed 1.0 without defensive bounds checking. The function now
         clamps the result to [0.0, 1.0].
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": -2,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": -2,
+                "failure_streak": 0,
+            }
+        )
         # success_rate = 5 / (5 + -2) = 5/3 ≈ 1.67, but clamped to 1.0
         # Defensive bounds checking ensures invalid data cannot produce rates > 1.0
         rate = calculate_success_rate(pattern)
@@ -1964,12 +2075,14 @@ class TestEdgeCasesNumerical:
         A negative failure streak (if somehow possible) would pass the
         failure_streak < max_failure_streak check.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": -1,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": -1,
+            }
+        )
         # -1 < 3 (max), so Gate 3 passes
         assert meets_promotion_criteria(pattern) is True
 
@@ -1978,12 +2091,14 @@ class TestEdgeCasesNumerical:
 
         Even with invalid data, the pattern should not be promoted.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": -10,
-            "success_count_rolling_20": -5,
-            "failure_count_rolling_20": -5,
-            "failure_streak": -1,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": -10,
+                "success_count_rolling_20": -5,
+                "failure_count_rolling_20": -5,
+                "failure_streak": -1,
+            }
+        )
         # Gate 1: -10 < 5 fails
         assert meets_promotion_criteria(pattern) is False
 
@@ -1997,12 +2112,14 @@ class TestEdgeCasesNumerical:
         This is a data inconsistency: how can there be outcomes without
         injections? The pattern should still fail Gate 1.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 0,  # No injections
-            "success_count_rolling_20": 5,   # But somehow has successes
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 0,  # No injections
+                "success_count_rolling_20": 5,  # But somehow has successes
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
         # Gate 1: 0 < 5 fails (regardless of success rate)
         assert meets_promotion_criteria(pattern) is False
 
@@ -2012,12 +2129,14 @@ class TestEdgeCasesNumerical:
         This is the data inconsistency mentioned in the handler code at
         lines 389-403. The handler logs this as a potential issue.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,  # Sufficient injections
-            "success_count_rolling_20": 0,     # No outcomes
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,  # Sufficient injections
+                "success_count_rolling_20": 0,  # No outcomes
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         # Gate 1: 10 >= 5 passes
         # Gate 2: total_outcomes = 0, returns False (division by zero protection)
         assert meets_promotion_criteria(pattern) is False
@@ -2028,12 +2147,14 @@ class TestEdgeCasesNumerical:
         This could happen if some injections haven't been resolved yet.
         Should still pass if other gates are met.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 20,  # 20 injections
-            "success_count_rolling_20": 6,     # Only 10 resolved
-            "failure_count_rolling_20": 4,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 20,  # 20 injections
+                "success_count_rolling_20": 6,  # Only 10 resolved
+                "failure_count_rolling_20": 4,
+                "failure_streak": 0,
+            }
+        )
         # Gate 1: 20 >= 5 passes
         # Gate 2: 6/(6+4) = 0.6 = 60% passes
         # Gate 3: 0 < 3 passes
@@ -2049,12 +2170,14 @@ class TestEdgeCasesNumerical:
         Verifies that 60% (0.6) exactly passes the >= comparison.
         """
         # Exactly 60%: 3/5 = 0.6
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,
-            "success_count_rolling_20": 3,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,
+                "success_count_rolling_20": 3,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 0,
+            }
+        )
         rate = calculate_success_rate(pattern)
         assert rate == 0.6  # Exact equality
         assert meets_promotion_criteria(pattern) is True
@@ -2065,12 +2188,14 @@ class TestEdgeCasesNumerical:
         Uses values that produce a rate just under 0.6.
         """
         # 599/1000 = 0.599 (just below 0.6)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 1000,
-            "success_count_rolling_20": 599,
-            "failure_count_rolling_20": 401,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 1000,
+                "success_count_rolling_20": 599,
+                "failure_count_rolling_20": 401,
+                "failure_streak": 0,
+            }
+        )
         rate = calculate_success_rate(pattern)
         assert rate < 0.6
         assert meets_promotion_criteria(pattern) is False
@@ -2081,54 +2206,64 @@ class TestEdgeCasesNumerical:
         Uses values that produce a rate just over 0.6.
         """
         # 601/1000 = 0.601 (just above 0.6)
-        pattern = MockRecord({
-            "injection_count_rolling_20": 1000,
-            "success_count_rolling_20": 601,
-            "failure_count_rolling_20": 399,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 1000,
+                "success_count_rolling_20": 601,
+                "failure_count_rolling_20": 399,
+                "failure_streak": 0,
+            }
+        )
         rate = calculate_success_rate(pattern)
         assert rate > 0.6
         assert meets_promotion_criteria(pattern) is True
 
     def test_failure_streak_boundary_at_2_passes(self) -> None:
         """Pattern with failure_streak=2 passes Gate 3 (just below max=3)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 2,  # 2 < 3, passes
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 2,  # 2 < 3, passes
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     def test_failure_streak_boundary_at_3_fails(self) -> None:
         """Pattern with failure_streak=3 fails Gate 3 (exactly at max=3)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 3,  # 3 >= 3, fails
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 3,  # 3 >= 3, fails
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_injection_count_boundary_at_4_fails(self) -> None:
         """Pattern with injection_count=4 fails Gate 1 (just below min=5)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 4,  # 4 < 5, fails
-            "success_count_rolling_20": 4,
-            "failure_count_rolling_20": 0,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 4,  # 4 < 5, fails
+                "success_count_rolling_20": 4,
+                "failure_count_rolling_20": 0,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is False
 
     def test_injection_count_boundary_at_5_passes(self) -> None:
         """Pattern with injection_count=5 passes Gate 1 (exactly at min=5)."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 5,  # 5 >= 5, passes
-            "success_count_rolling_20": 4,
-            "failure_count_rolling_20": 1,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 5,  # 5 >= 5, passes
+                "success_count_rolling_20": 4,
+                "failure_count_rolling_20": 1,
+                "failure_streak": 0,
+            }
+        )
         assert meets_promotion_criteria(pattern) is True
 
     # -------------------------------------------------------------------------
@@ -2140,12 +2275,14 @@ class TestEdgeCasesNumerical:
 
         Ensures no integer overflow issues with large values.
         """
-        pattern = MockRecord({
-            "injection_count_rolling_20": 1_000_000,
-            "success_count_rolling_20": 800_000,
-            "failure_count_rolling_20": 200_000,
-            "failure_streak": 0,
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 1_000_000,
+                "success_count_rolling_20": 800_000,
+                "failure_count_rolling_20": 200_000,
+                "failure_streak": 0,
+            }
+        )
         # success_rate = 800000 / 1000000 = 0.8
         rate = calculate_success_rate(pattern)
         assert abs(rate - 0.8) < 1e-9
@@ -2153,12 +2290,14 @@ class TestEdgeCasesNumerical:
 
     def test_large_failure_streak_fails(self) -> None:
         """Pattern with very large failure streak fails Gate 3."""
-        pattern = MockRecord({
-            "injection_count_rolling_20": 10,
-            "success_count_rolling_20": 8,
-            "failure_count_rolling_20": 2,
-            "failure_streak": 1_000_000,  # Very large streak
-        })
+        pattern = MockRecord(
+            {
+                "injection_count_rolling_20": 10,
+                "success_count_rolling_20": 8,
+                "failure_count_rolling_20": 2,
+                "failure_streak": 1_000_000,  # Very large streak
+            }
+        )
         # 1_000_000 >= 3, Gate 3 fails
         assert meets_promotion_criteria(pattern) is False
 
@@ -2174,44 +2313,54 @@ class TestCalculateSuccessRateEdgeCases:
 
     def test_division_by_zero_returns_zero(self) -> None:
         """Explicitly verify division by zero returns 0.0, not an exception."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 0,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 0,
+            }
+        )
         # Should not raise ZeroDivisionError
         result = calculate_success_rate(pattern)
         assert result == 0.0
 
     def test_only_successes_returns_1(self) -> None:
         """Pattern with all successes returns 1.0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 100,
-            "failure_count_rolling_20": 0,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 100,
+                "failure_count_rolling_20": 0,
+            }
+        )
         assert calculate_success_rate(pattern) == 1.0
 
     def test_only_failures_returns_0(self) -> None:
         """Pattern with all failures returns 0.0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 0,
-            "failure_count_rolling_20": 100,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 0,
+                "failure_count_rolling_20": 100,
+            }
+        )
         assert calculate_success_rate(pattern) == 0.0
 
     def test_missing_success_key_treated_as_zero(self) -> None:
         """Missing success_count key is treated as 0."""
-        pattern = MockRecord({
-            "failure_count_rolling_20": 10,
-        })
+        pattern = MockRecord(
+            {
+                "failure_count_rolling_20": 10,
+            }
+        )
         # success = 0 (missing), failure = 10
         # rate = 0 / 10 = 0.0
         assert calculate_success_rate(pattern) == 0.0
 
     def test_missing_failure_key_treated_as_zero(self) -> None:
         """Missing failure_count key is treated as 0."""
-        pattern = MockRecord({
-            "success_count_rolling_20": 10,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 10,
+            }
+        )
         # success = 10, failure = 0 (missing)
         # rate = 10 / 10 = 1.0
         assert calculate_success_rate(pattern) == 1.0
@@ -2227,10 +2376,12 @@ class TestCalculateSuccessRateEdgeCases:
         Without defensive bounds checking, this would produce rate > 1.0.
         The function now clamps to the valid [0.0, 1.0] range.
         """
-        pattern = MockRecord({
-            "success_count_rolling_20": 10,
-            "failure_count_rolling_20": -5,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 10,
+                "failure_count_rolling_20": -5,
+            }
+        )
         # total = 10 + (-5) = 5
         # rate = 10 / 5 = 2.0, but clamped to 1.0
         result = calculate_success_rate(pattern)
@@ -2241,10 +2392,12 @@ class TestCalculateSuccessRateEdgeCases:
 
         success + failure = 0 triggers division by zero protection.
         """
-        pattern = MockRecord({
-            "success_count_rolling_20": 5,
-            "failure_count_rolling_20": -5,
-        })
+        pattern = MockRecord(
+            {
+                "success_count_rolling_20": 5,
+                "failure_count_rolling_20": -5,
+            }
+        )
         # total = 5 + (-5) = 0
         # Division by zero protection returns 0.0
         result = calculate_success_rate(pattern)

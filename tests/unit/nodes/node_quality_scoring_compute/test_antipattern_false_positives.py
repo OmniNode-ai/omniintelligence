@@ -50,7 +50,10 @@ def process(data: list[str] = []) -> list[str]:
         result_actual = score_code_quality(code_with_actual_antipattern, "python")
 
         # Comment version should have higher patterns score (no anti-pattern)
-        assert result_comment["dimensions"]["patterns"] > result_actual["dimensions"]["patterns"]
+        assert (
+            result_comment["dimensions"]["patterns"]
+            > result_actual["dimensions"]["patterns"]
+        )
 
     def test_mutable_default_in_docstring_not_flagged(self) -> None:
         """Anti-pattern = {} in docstring should not be flagged."""
@@ -78,7 +81,10 @@ def process(data: dict[str, int] = {}) -> dict[str, int]:
         result_actual = score_code_quality(code_with_actual_antipattern, "python")
 
         # Docstring version should have higher patterns score
-        assert result_docstring["dimensions"]["patterns"] > result_actual["dimensions"]["patterns"]
+        assert (
+            result_docstring["dimensions"]["patterns"]
+            > result_actual["dimensions"]["patterns"]
+        )
 
     def test_kwargs_in_comment_not_flagged(self) -> None:
         """The **kwargs pattern in comment should not be flagged."""
@@ -97,7 +103,10 @@ def process(name: str, **kwargs) -> str:
         result_actual = score_code_quality(code_with_actual_antipattern, "python")
 
         # Comment version should have higher patterns score
-        assert result_comment["dimensions"]["patterns"] > result_actual["dimensions"]["patterns"]
+        assert (
+            result_comment["dimensions"]["patterns"]
+            > result_actual["dimensions"]["patterns"]
+        )
 
     def test_any_type_in_docstring_not_flagged(self) -> None:
         """Type Any mentioned in docstring should not be flagged."""
@@ -127,7 +136,10 @@ def process(data: Any) -> list:
         result_actual = score_code_quality(code_with_actual_antipattern, "python")
 
         # Docstring version should have higher patterns score
-        assert result_docstring["dimensions"]["patterns"] > result_actual["dimensions"]["patterns"]
+        assert (
+            result_docstring["dimensions"]["patterns"]
+            > result_actual["dimensions"]["patterns"]
+        )
 
     def test_dict_str_any_in_string_literal_not_flagged(self) -> None:
         """dict[str, Any] in string literal should not be flagged."""
@@ -147,7 +159,10 @@ def process(data: dict[str, Any]) -> None:
         result_actual = score_code_quality(code_with_actual_antipattern, "python")
 
         # String version should have higher patterns score
-        assert result_string["dimensions"]["patterns"] > result_actual["dimensions"]["patterns"]
+        assert (
+            result_string["dimensions"]["patterns"]
+            > result_actual["dimensions"]["patterns"]
+        )
 
 
 class TestStripCommentsAndStrings:
@@ -196,7 +211,7 @@ other_msg = 'Also avoid **kwargs'
 
     def test_handles_hash_in_string(self) -> None:
         """Hash character inside string should not be treated as comment start."""
-        content = '''url = "http://example.com#anchor"  # This is a comment'''
+        content = """url = "http://example.com#anchor"  # This is a comment"""
         stripped = _strip_comments_and_strings(content)
 
         # The URL string should be stripped, but the structure preserved
@@ -289,11 +304,11 @@ def foo(items: list | None = None):
 
     def test_ignores_dict_in_comment(self) -> None:
         """= {} in comment should be ignored (comments not in AST)."""
-        code = '''
+        code = """
 def foo(data: dict | None = None):
     # Note: don't use data={} as default
     pass
-'''
+"""
         tree = ast.parse(code)
         count = _count_mutable_default_arguments(tree)
         assert count == 0

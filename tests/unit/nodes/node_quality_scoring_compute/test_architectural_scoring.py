@@ -47,7 +47,10 @@ def public_function() -> int:
         result_without = score_code_quality(without_all, "python")
 
         # Module with __all__ should score better on architectural dimension
-        assert result_with["dimensions"]["architectural"] >= result_without["dimensions"]["architectural"]
+        assert (
+            result_with["dimensions"]["architectural"]
+            >= result_without["dimensions"]["architectural"]
+        )
 
     def test_imports_inside_functions_penalized(self) -> None:
         """Imports inside functions (circular import risk) should be penalized."""
@@ -70,7 +73,10 @@ def process() -> str:
         result_risky = score_code_quality(circular_risk, "python")
 
         # Imports inside functions should lower architectural score
-        assert result_clean["dimensions"]["architectural"] > result_risky["dimensions"]["architectural"]
+        assert (
+            result_clean["dimensions"]["architectural"]
+            > result_risky["dimensions"]["architectural"]
+        )
 
     def test_import_grouping_bonus(self) -> None:
         """Properly grouped imports should receive a bonus."""
@@ -95,7 +101,10 @@ import json
         result_ungrouped = score_code_quality(ungrouped_imports, "python")
 
         # Grouped imports should score better
-        assert result_grouped["dimensions"]["architectural"] >= result_ungrouped["dimensions"]["architectural"]
+        assert (
+            result_grouped["dimensions"]["architectural"]
+            >= result_ungrouped["dimensions"]["architectural"]
+        )
 
     def test_handler_pattern_detection(self) -> None:
         """Handler pattern (private typed functions) should be rewarded."""
@@ -127,7 +136,10 @@ def validate_input(value):
         result_no_handler = score_code_quality(no_handler_pattern, "python")
 
         # Handler pattern should score better on architectural dimension
-        assert result_handler["dimensions"]["architectural"] >= result_no_handler["dimensions"]["architectural"]
+        assert (
+            result_handler["dimensions"]["architectural"]
+            >= result_no_handler["dimensions"]["architectural"]
+        )
 
     def test_class_organization_matters(self) -> None:
         """Proper class organization (ClassVar at top) should score better."""
@@ -159,7 +171,10 @@ class Model:
         result_bad = score_code_quality(poorly_organized, "python")
 
         # Well organized class should score better
-        assert result_good["dimensions"]["architectural"] >= result_bad["dimensions"]["architectural"]
+        assert (
+            result_good["dimensions"]["architectural"]
+            >= result_bad["dimensions"]["architectural"]
+        )
 
     def test_multiple_inheritance_still_penalized(self) -> None:
         """Multiple inheritance should still be penalized (existing check preserved)."""
@@ -177,7 +192,10 @@ class Child(Parent1, Parent2, Mixin):
         result_multiple = score_code_quality(multiple_inheritance, "python")
 
         # Multiple inheritance should lower score
-        assert result_single["dimensions"]["architectural"] > result_multiple["dimensions"]["architectural"]
+        assert (
+            result_single["dimensions"]["architectural"]
+            > result_multiple["dimensions"]["architectural"]
+        )
 
     def test_import_after_code_still_penalized(self) -> None:
         """Imports after code should still be penalized (existing check preserved)."""
@@ -199,7 +217,10 @@ import sys
         result_after = score_code_quality(imports_after_code, "python")
 
         # Imports at top should score better
-        assert result_top["dimensions"]["architectural"] > result_after["dimensions"]["architectural"]
+        assert (
+            result_top["dimensions"]["architectural"]
+            > result_after["dimensions"]["architectural"]
+        )
 
     def test_comprehensive_architectural_score(self) -> None:
         """Test comprehensive architectural scoring with all factors."""
@@ -236,7 +257,7 @@ def _transform_output(raw: dict) -> list:
     """Transform output internally."""
     return list(raw.keys())
 '''
-        poor_architecture = '''
+        poor_architecture = """
 def public_func():
     import os
     result = {}
@@ -249,12 +270,15 @@ class Multi(Base1, Base2, Base3):
 
 x = 1
 import sys
-'''
+"""
         result_excellent = score_code_quality(excellent_architecture, "python")
         result_poor = score_code_quality(poor_architecture, "python")
 
         # Excellent architecture should score significantly higher
-        assert result_excellent["dimensions"]["architectural"] > result_poor["dimensions"]["architectural"]
+        assert (
+            result_excellent["dimensions"]["architectural"]
+            > result_poor["dimensions"]["architectural"]
+        )
         # The gap should be substantial given all the architectural issues in poor code
         assert (
             result_excellent["dimensions"]["architectural"]

@@ -248,7 +248,8 @@ def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
                 return MISSING
             current = current[token]
 
-    return current
+    # Cast needed because 'current' is typed as Any from dict traversal
+    return cast("MaybeJsonValue", current)
 
 
 # =============================================================================
@@ -465,7 +466,9 @@ def _evaluate_criterion(
 
     # Determine actual_value for output (None if MISSING)
     # Cast needed because mypy doesn't narrow MaybeJsonValue after MISSING check
-    actual_for_output: JsonValue | None = None if actual is MISSING else cast(JsonValue, actual)
+    actual_for_output: JsonValue | None = (
+        None if actual is MISSING else cast(JsonValue, actual)
+    )
 
     return CriterionMatchResultDict(
         criterion_id=criterion_id,
@@ -501,7 +504,10 @@ def _apply_numeric_operator(
         return False, f"cannot compare: {get_type_name(actual)} is not numeric"
 
     if not isinstance(expected, int | float) or isinstance(expected, bool):
-        return False, f"cannot compare: expected {get_type_name(expected)} is not numeric"
+        return (
+            False,
+            f"cannot compare: expected {get_type_name(expected)} is not numeric",
+        )
 
     # Perform comparison
     if operator == EnumCriteriaOperator.GREATER_THAN:
@@ -552,7 +558,10 @@ def _apply_contains(
             found = not found
         if found:
             return True, f"'{_safe_repr(actual)}' {op_name} '{search_str}'"
-        return False, f"'{_safe_repr(actual)}' does not satisfy {op_name} '{search_str}'"
+        return (
+            False,
+            f"'{_safe_repr(actual)}' does not satisfy {op_name} '{search_str}'",
+        )
 
     # Sequence/set membership
     if isinstance(actual, list | tuple | set):

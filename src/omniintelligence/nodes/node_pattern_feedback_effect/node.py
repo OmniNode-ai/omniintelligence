@@ -41,9 +41,7 @@ class NodePatternFeedbackEffect(NodeEffect):
     def __init__(self, container: ModelONEXContainer) -> None:
         super().__init__(container)
 
-    async def execute(
-        self, request: ClaudeSessionOutcome
-    ) -> ModelSessionOutcomeResult:
+    async def execute(self, request: ClaudeSessionOutcome) -> ModelSessionOutcomeResult:
         """Execute the effect node to record session outcome.
 
         Delegates to record_session_outcome handler with registry-wired repository.

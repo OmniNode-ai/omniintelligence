@@ -22,8 +22,7 @@ Reference:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest

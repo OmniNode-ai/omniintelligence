@@ -67,9 +67,7 @@ def insight_identity_key(insight: ModelCodebaseInsight) -> str:
             return f"{base}files:{files_key}"
 
         case EnumInsightType.ERROR_PATTERN:
-            primary_file = (
-                insight.evidence_files[0] if insight.evidence_files else "_"
-            )
+            primary_file = insight.evidence_files[0] if insight.evidence_files else "_"
             desc_hash = hashlib.md5(
                 insight.description.encode(), usedforsecurity=False
             ).hexdigest()[:8]

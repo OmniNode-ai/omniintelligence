@@ -480,7 +480,9 @@ class TestDeduplicatePatternsDeterminism:
         result1 = deduplicate_patterns(clusters)
         result2 = deduplicate_patterns(clusters)
 
-        assert len(result1["deduplicated_clusters"]) == len(result2["deduplicated_clusters"])
+        assert len(result1["deduplicated_clusters"]) == len(
+            result2["deduplicated_clusters"]
+        )
         assert result1["merged_count"] == result2["merged_count"]
 
         # Same surviving clusters in same order
@@ -561,7 +563,9 @@ class TestDeduplicatePatternsDeterminismContract:
 
         # Get baseline result
         baseline_result = deduplicate_patterns(clusters, similarity_threshold=0.85)
-        baseline_ids = [c["cluster_id"] for c in baseline_result["deduplicated_clusters"]]
+        baseline_ids = [
+            c["cluster_id"] for c in baseline_result["deduplicated_clusters"]
+        ]
 
         # Run 10 iterations with random shuffles
         random.seed(42)  # For reproducibility
@@ -778,7 +782,9 @@ class TestDeduplicationReplayInvariants:
         sig = generate_pattern_signature(cluster)
 
         # Assert exact golden hash (computed once, frozen forever)
-        expected_hash = "f627fa55ebd8499dea29b6c42c5ed0f91acfe4ba9eb9328b7ff1cdb70b720684"
+        expected_hash = (
+            "f627fa55ebd8499dea29b6c42c5ed0f91acfe4ba9eb9328b7ff1cdb70b720684"
+        )
         assert sig["signature"] == expected_hash, (
             f"Signature hash drift detected! "
             f"Expected {expected_hash}, got {sig['signature']}. "

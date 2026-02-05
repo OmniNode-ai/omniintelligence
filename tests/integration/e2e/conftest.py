@@ -138,8 +138,7 @@ async def delete_kafka_topics(
         from aiokafka.admin import AIOKafkaAdminClient
     except ImportError:
         _cleanup_logger.warning(
-            "aiokafka.admin not available - cannot delete topics. "
-            "Topics to delete: %s",
+            "aiokafka.admin not available - cannot delete topics. Topics to delete: %s",
             topics_list,
         )
         return [], [(t, "aiokafka.admin not available") for t in topics_list]

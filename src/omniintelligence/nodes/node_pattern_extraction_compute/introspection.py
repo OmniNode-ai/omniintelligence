@@ -60,7 +60,9 @@ class PatternExtractionMetadataLoader:
     """
 
     node_name: str = "pattern_extraction_compute"
-    node_version: ModelSemVer = field(default_factory=lambda: ModelSemVer(major=1, minor=0, patch=0))
+    node_version: ModelSemVer = field(
+        default_factory=lambda: ModelSemVer(major=1, minor=0, patch=0)
+    )
     node_description: str = (
         "Compute node that analyzes Claude Code session data to extract patterns "
         "and insights about codebases. Detects file access patterns, error patterns, "

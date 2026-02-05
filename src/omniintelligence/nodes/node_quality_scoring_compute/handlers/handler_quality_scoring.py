@@ -179,66 +179,182 @@ MULTIPLE_INHERITANCE_PENALTY: Final[float] = 0.3
 DEFAULT_ARCHITECTURAL_SCORE: Final[float] = 0.7  # Default for simple modules
 
 # New architectural check constants
-MISSING_ALL_EXPORTS_PENALTY: Final[float] = 0.15  # Penalty for missing __all__ in modules with exports
-IMPORTS_INSIDE_FUNCTION_PENALTY: Final[float] = 0.25  # Penalty per import inside functions (circular import risk)
-IMPORT_GROUPING_BONUS: Final[float] = 0.1  # Bonus for properly grouped imports (stdlib, third-party, local)
-HANDLER_PATTERN_BONUS: Final[float] = 0.1  # Bonus for following handler pattern (private pure functions)
+MISSING_ALL_EXPORTS_PENALTY: Final[float] = (
+    0.15  # Penalty for missing __all__ in modules with exports
+)
+IMPORTS_INSIDE_FUNCTION_PENALTY: Final[float] = (
+    0.25  # Penalty per import inside functions (circular import risk)
+)
+IMPORT_GROUPING_BONUS: Final[float] = (
+    0.1  # Bonus for properly grouped imports (stdlib, third-party, local)
+)
+HANDLER_PATTERN_BONUS: Final[float] = (
+    0.1  # Bonus for following handler pattern (private pure functions)
+)
 CLASS_ORGANIZATION_PENALTY: Final[float] = 0.15  # Penalty for poor class organization
 
 # Handler pattern constants
-MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = 2  # Minimum private pure functions for full handler pattern bonus
-PARTIAL_HANDLER_BONUS_MULTIPLIER: Final[float] = 0.5  # Partial credit for 1 typed private function
+MIN_HANDLER_FUNCTIONS_FOR_BONUS: Final[int] = (
+    2  # Minimum private pure functions for full handler pattern bonus
+)
+PARTIAL_HANDLER_BONUS_MULTIPLIER: Final[float] = (
+    0.5  # Partial credit for 1 typed private function
+)
 
 # Local package name for import categorization (derived from module's package)
-LOCAL_PACKAGE_NAME: Final[str] = __name__.split(".")[0] if __name__ != "__main__" else "omniintelligence"
+LOCAL_PACKAGE_NAME: Final[str] = (
+    __name__.split(".")[0] if __name__ != "__main__" else "omniintelligence"
+)
 
 # Import grouping detection - common stdlib modules
 # This is not exhaustive but covers the most commonly used modules
-STDLIB_MODULES: Final[frozenset[str]] = frozenset({
-    # Core language and builtins
-    "abc", "ast", "atexit", "builtins",
-    # Data types and structures
-    "array", "binascii", "bisect", "calendar", "collections", "copy", "dataclasses",
-    "datetime", "decimal", "enum", "fractions", "graphlib", "heapq", "operator",
-    "pprint", "queue", "statistics", "struct", "types",
-    # String and text processing
-    "codecs", "difflib", "fnmatch", "gettext", "glob", "html", "linecache",
-    "locale", "re", "string", "textwrap", "unicodedata",
-    # File and I/O
-    "fileinput", "io", "mmap", "os", "pathlib", "shutil", "tempfile",
-    # Compression and archiving
-    "bz2", "gzip", "lzma", "tarfile", "zipfile", "zlib",
-    # Persistence and serialization
-    "configparser", "csv", "dbm", "json", "netrc", "pickle", "plistlib",
-    "shelve", "sqlite3", "xdrlib", "xml",
-    # Cryptography and hashing
-    "base64", "hashlib", "hmac", "secrets",
-    # Concurrency and parallelism
-    "asyncio", "concurrent", "contextvars", "multiprocessing",
-    "sched", "signal", "subprocess", "threading",
-    # Networking
-    "email", "ftplib", "http", "imaplib", "poplib", "smtplib", "socket",
-    "socketserver", "ssl", "urllib",
-    # Introspection and debugging
-    "dis", "faulthandler", "gc", "inspect", "pdb", "profile", "sys",
-    "trace", "traceback", "tracemalloc",
-    # Functional programming
-    "functools", "itertools",
-    # Logging and warnings
-    "logging", "warnings",
-    # Type hints and annotations
-    "typing", "typing_extensions",
-    # Testing
-    "doctest", "unittest",
-    # Import system
-    "importlib", "pkgutil",
-    # Other utilities
-    "argparse", "contextlib", "getopt", "getpass", "math", "optparse",
-    "platform", "random", "shlex", "time", "uuid", "weakref",
-    # Terminal and OS-specific (platform-dependent availability)
-    "curses", "crypt", "msvcrt", "ntpath", "posix", "posixpath",
-    "genericpath", "pty", "syslog", "termios", "tty", "winreg", "winsound",
-})
+STDLIB_MODULES: Final[frozenset[str]] = frozenset(
+    {
+        # Core language and builtins
+        "abc",
+        "ast",
+        "atexit",
+        "builtins",
+        # Data types and structures
+        "array",
+        "binascii",
+        "bisect",
+        "calendar",
+        "collections",
+        "copy",
+        "dataclasses",
+        "datetime",
+        "decimal",
+        "enum",
+        "fractions",
+        "graphlib",
+        "heapq",
+        "operator",
+        "pprint",
+        "queue",
+        "statistics",
+        "struct",
+        "types",
+        # String and text processing
+        "codecs",
+        "difflib",
+        "fnmatch",
+        "gettext",
+        "glob",
+        "html",
+        "linecache",
+        "locale",
+        "re",
+        "string",
+        "textwrap",
+        "unicodedata",
+        # File and I/O
+        "fileinput",
+        "io",
+        "mmap",
+        "os",
+        "pathlib",
+        "shutil",
+        "tempfile",
+        # Compression and archiving
+        "bz2",
+        "gzip",
+        "lzma",
+        "tarfile",
+        "zipfile",
+        "zlib",
+        # Persistence and serialization
+        "configparser",
+        "csv",
+        "dbm",
+        "json",
+        "netrc",
+        "pickle",
+        "plistlib",
+        "shelve",
+        "sqlite3",
+        "xdrlib",
+        "xml",
+        # Cryptography and hashing
+        "base64",
+        "hashlib",
+        "hmac",
+        "secrets",
+        # Concurrency and parallelism
+        "asyncio",
+        "concurrent",
+        "contextvars",
+        "multiprocessing",
+        "sched",
+        "signal",
+        "subprocess",
+        "threading",
+        # Networking
+        "email",
+        "ftplib",
+        "http",
+        "imaplib",
+        "poplib",
+        "smtplib",
+        "socket",
+        "socketserver",
+        "ssl",
+        "urllib",
+        # Introspection and debugging
+        "dis",
+        "faulthandler",
+        "gc",
+        "inspect",
+        "pdb",
+        "profile",
+        "sys",
+        "trace",
+        "traceback",
+        "tracemalloc",
+        # Functional programming
+        "functools",
+        "itertools",
+        # Logging and warnings
+        "logging",
+        "warnings",
+        # Type hints and annotations
+        "typing",
+        "typing_extensions",
+        # Testing
+        "doctest",
+        "unittest",
+        # Import system
+        "importlib",
+        "pkgutil",
+        # Other utilities
+        "argparse",
+        "contextlib",
+        "getopt",
+        "getpass",
+        "math",
+        "optparse",
+        "platform",
+        "random",
+        "shlex",
+        "time",
+        "uuid",
+        "weakref",
+        # Terminal and OS-specific (platform-dependent availability)
+        "curses",
+        "crypt",
+        "msvcrt",
+        "ntpath",
+        "posix",
+        "posixpath",
+        "genericpath",
+        "pty",
+        "syslog",
+        "termios",
+        "tty",
+        "winreg",
+        "winsound",
+    }
+)
 
 # Baseline scores
 # Rationale: 0.3 is low but nonzero, acknowledging code has some structure despite parse failures
@@ -329,7 +445,9 @@ def score_code_quality(
 
     # Check if language is supported for full analysis
     if normalized_language not in SUPPORTED_LANGUAGES:
-        return _create_unsupported_language_result(normalized_language, effective_threshold)
+        return _create_unsupported_language_result(
+            normalized_language, effective_threshold
+        )
 
     try:
         # Compute dimension scores
@@ -550,7 +668,9 @@ def _compute_maintainability_score(tree: ast.AST) -> float:
                 # Dunder methods (__init__, __str__, __repr__, etc.) are standard Python
                 # conventions and should receive full score
                 scores.append(1.0)
-            elif node.name.startswith("_"):  # Private is acceptable but slightly lower score
+            elif node.name.startswith(
+                "_"
+            ):  # Private is acceptable but slightly lower score
                 scores.append(0.9)
             elif re.match(r"^[a-z][a-z0-9_]*$", node.name):  # Public snake_case
                 scores.append(1.0)
@@ -628,7 +748,9 @@ def _compute_documentation_score(tree: ast.AST, content: str) -> float:
     has_docstring = 0
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Module):
+        if isinstance(
+            node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Module
+        ):
             needs_docstring += 1
             docstring = ast.get_docstring(node)
             if docstring:
@@ -682,7 +804,9 @@ def _compute_temporal_relevance_score(content: str) -> float:
 
     # Score calculation: fewer indicators = higher score
     # Max penalty at 10+ indicators
-    penalty = min(stale_indicators * STALENESS_PENALTY_PER_INDICATOR, MAX_STALENESS_PENALTY)
+    penalty = min(
+        stale_indicators * STALENESS_PENALTY_PER_INDICATOR, MAX_STALENESS_PENALTY
+    )
     return max(0.0, 1.0 - penalty)
 
 
@@ -719,7 +843,9 @@ def _compute_architectural_score(tree: ast.AST) -> float:
         if isinstance(node, ast.Import | ast.ImportFrom):
             if seen_non_import:
                 import_after_code += 1
-        elif not isinstance(node, ast.Expr):  # Skip module docstring (Expr with Constant)
+        elif not isinstance(
+            node, ast.Expr
+        ):  # Skip module docstring (Expr with Constant)
             seen_non_import = True
 
     import_org_score = max(0.0, 1.0 - import_after_code * IMPORT_AFTER_CODE_PENALTY)
@@ -871,7 +997,9 @@ def _check_import_grouping(tree: ast.AST) -> bool:
         if not seen_categories or seen_categories[-1] != category:
             # Check for category backtracking (e.g., local then stdlib)
             if category in seen_categories:
-                return False  # Category appeared before, now appears again - not grouped
+                return (
+                    False  # Category appeared before, now appears again - not grouped
+                )
             seen_categories.append(category)
 
     return True
@@ -974,7 +1102,11 @@ def _check_class_organization(tree: ast.AST) -> int:
                 elif isinstance(item, ast.AnnAssign) and seen_method:
                     # Annotated assignment after method - could be ClassVar out of place
                     if item.annotation:
-                        ann_str = ast.unparse(item.annotation) if hasattr(ast, "unparse") else ""
+                        ann_str = (
+                            ast.unparse(item.annotation)
+                            if hasattr(ast, "unparse")
+                            else ""
+                        )
                         if "ClassVar" in ann_str:
                             issues += 1
                 elif isinstance(item, ast.Assign) and seen_method:
@@ -1052,7 +1184,9 @@ def _generate_recommendations(dimensions: DimensionScores) -> list[str]:
 # =============================================================================
 
 
-def _round_dimension_scores(dimensions: DimensionScores, decimals: int = 4) -> DimensionScores:
+def _round_dimension_scores(
+    dimensions: DimensionScores, decimals: int = 4
+) -> DimensionScores:
     """Round all dimension scores to specified decimal places.
 
     This function explicitly constructs a DimensionScores TypedDict with rounded
@@ -1102,9 +1236,7 @@ def _validate_weights(weights: dict[str, float]) -> None:
 
     total = sum(weights.values())
     if not (0.99 <= total <= 1.01):
-        raise QualityScoringValidationError(
-            f"Weights must sum to 1.0, got {total:.4f}"
-        )
+        raise QualityScoringValidationError(f"Weights must sum to 1.0, got {total:.4f}")
 
     for key, value in weights.items():
         if not (0.0 <= value <= 1.0):

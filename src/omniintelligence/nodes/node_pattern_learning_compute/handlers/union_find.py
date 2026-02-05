@@ -134,7 +134,9 @@ class UnionFind:
             0
         """
         if x < 0 or x >= self._n:
-            raise IndexError(f"Index {x} out of bounds for UnionFind with {self._n} elements")
+            raise IndexError(
+                f"Index {x} out of bounds for UnionFind with {self._n} elements"
+            )
 
         # Pass 1: Find root
         root = x

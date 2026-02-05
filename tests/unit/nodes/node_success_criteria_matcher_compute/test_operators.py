@@ -108,7 +108,9 @@ class TestEqualsOperator:
 
     def test_list_equality(self) -> None:
         """List values that are equal should match."""
-        matched, reason = apply_operator([1, 2, 3], EnumCriteriaOperator.EQUALS, [1, 2, 3])
+        matched, reason = apply_operator(
+            [1, 2, 3], EnumCriteriaOperator.EQUALS, [1, 2, 3]
+        )
         assert matched is True
         assert "equals" in reason.lower()
 
@@ -143,13 +145,17 @@ class TestNotEqualsOperator:
 
     def test_different_values_match(self) -> None:
         """Different values should match for not_equals."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.NOT_EQUALS, "world")
+        matched, reason = apply_operator(
+            "hello", EnumCriteriaOperator.NOT_EQUALS, "world"
+        )
         assert matched is True
         assert "does not equal" in reason.lower()
 
     def test_same_values_fail(self) -> None:
         """Same values should fail for not_equals."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.NOT_EQUALS, "hello")
+        matched, reason = apply_operator(
+            "hello", EnumCriteriaOperator.NOT_EQUALS, "hello"
+        )
         assert matched is False
         assert "equals" in reason.lower()
 
@@ -175,7 +181,9 @@ class TestNotEqualsOperator:
 
     def test_missing_value_fails(self) -> None:
         """MISSING value should fail not_equals comparison."""
-        matched, reason = apply_operator(MISSING, EnumCriteriaOperator.NOT_EQUALS, "value")
+        matched, reason = apply_operator(
+            MISSING, EnumCriteriaOperator.NOT_EQUALS, "value"
+        )
         assert matched is False
         assert "missing" in reason.lower()
 
@@ -328,7 +336,9 @@ class TestGreaterOrEqualOperator:
 
     def test_float_equal(self) -> None:
         """Equal float should match greater_or_equal."""
-        matched, reason = apply_operator(3.14, EnumCriteriaOperator.GREATER_OR_EQUAL, 3.14)
+        matched, reason = apply_operator(
+            3.14, EnumCriteriaOperator.GREATER_OR_EQUAL, 3.14
+        )
         assert matched is True
 
     def test_non_numeric_fails(self) -> None:
@@ -339,7 +349,9 @@ class TestGreaterOrEqualOperator:
 
     def test_missing_fails(self) -> None:
         """MISSING value should fail with reason."""
-        matched, reason = apply_operator(MISSING, EnumCriteriaOperator.GREATER_OR_EQUAL, 5)
+        matched, reason = apply_operator(
+            MISSING, EnumCriteriaOperator.GREATER_OR_EQUAL, 5
+        )
         assert matched is False
         assert "missing" in reason.lower()
 
@@ -398,23 +410,31 @@ class TestContainsOperator:
 
     def test_string_contains_substring(self) -> None:
         """String containing substring should match."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.CONTAINS, "world")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.CONTAINS, "world"
+        )
         assert matched is True
         assert "contains" in reason.lower()
 
     def test_string_contains_at_start(self) -> None:
         """String containing substring at start should match."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.CONTAINS, "hello")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.CONTAINS, "hello"
+        )
         assert matched is True
 
     def test_string_contains_exact(self) -> None:
         """String equal to search term should match (contains itself)."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.CONTAINS, "hello")
+        matched, reason = apply_operator(
+            "hello", EnumCriteriaOperator.CONTAINS, "hello"
+        )
         assert matched is True
 
     def test_string_not_contains_fails(self) -> None:
         """String not containing substring should fail."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.CONTAINS, "foo")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.CONTAINS, "foo"
+        )
         assert matched is False
         assert "does not satisfy" in reason.lower()
 
@@ -437,7 +457,9 @@ class TestContainsOperator:
 
     def test_list_contains_string(self) -> None:
         """List containing string should match."""
-        matched, reason = apply_operator(["a", "b", "c"], EnumCriteriaOperator.CONTAINS, "b")
+        matched, reason = apply_operator(
+            ["a", "b", "c"], EnumCriteriaOperator.CONTAINS, "b"
+        )
         assert matched is True
 
     def test_tuple_contains_element(self) -> None:
@@ -452,19 +474,25 @@ class TestContainsOperator:
 
     def test_dict_contains_key(self) -> None:
         """Dict containing key should match (checks keys, not values)."""
-        matched, reason = apply_operator({"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, "a")
+        matched, reason = apply_operator(
+            {"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, "a"
+        )
         assert matched is True
         assert "dict keys" in reason.lower()
 
     def test_dict_not_contains_key_fails(self) -> None:
         """Dict not containing key should fail."""
-        matched, reason = apply_operator({"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, "c")
+        matched, reason = apply_operator(
+            {"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, "c"
+        )
         assert matched is False
         assert "not in dict keys" in reason.lower()
 
     def test_dict_contains_checks_keys_not_values(self) -> None:
         """Dict contains should check keys, not values."""
-        matched, reason = apply_operator({"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, 1)
+        matched, reason = apply_operator(
+            {"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, 1
+        )
         # 1 is a value, not a key
         assert matched is False
 
@@ -482,7 +510,9 @@ class TestContainsOperator:
 
     def test_missing_fails(self) -> None:
         """MISSING value should fail with reason."""
-        matched, reason = apply_operator(MISSING, EnumCriteriaOperator.CONTAINS, "value")
+        matched, reason = apply_operator(
+            MISSING, EnumCriteriaOperator.CONTAINS, "value"
+        )
         assert matched is False
         assert "missing" in reason.lower()
 
@@ -503,36 +533,48 @@ class TestNotContainsOperator:
 
     def test_string_not_contains_substring(self) -> None:
         """String not containing substring should match."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.NOT_CONTAINS, "foo")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.NOT_CONTAINS, "foo"
+        )
         assert matched is True
         assert "not_contains" in reason.lower()
 
     def test_string_contains_substring_fails(self) -> None:
         """String containing substring should fail not_contains."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.NOT_CONTAINS, "world")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.NOT_CONTAINS, "world"
+        )
         assert matched is False
         assert "does not satisfy" in reason.lower()
 
     def test_list_not_contains_element(self) -> None:
         """List not containing element should match."""
-        matched, reason = apply_operator([1, 2, 3], EnumCriteriaOperator.NOT_CONTAINS, 4)
+        matched, reason = apply_operator(
+            [1, 2, 3], EnumCriteriaOperator.NOT_CONTAINS, 4
+        )
         assert matched is True
         assert "not_contains" in reason.lower()
 
     def test_list_contains_element_fails(self) -> None:
         """List containing element should fail not_contains."""
-        matched, reason = apply_operator([1, 2, 3], EnumCriteriaOperator.NOT_CONTAINS, 2)
+        matched, reason = apply_operator(
+            [1, 2, 3], EnumCriteriaOperator.NOT_CONTAINS, 2
+        )
         assert matched is False
 
     def test_dict_not_contains_key(self) -> None:
         """Dict not containing key should match."""
-        matched, reason = apply_operator({"a": 1}, EnumCriteriaOperator.NOT_CONTAINS, "b")
+        matched, reason = apply_operator(
+            {"a": 1}, EnumCriteriaOperator.NOT_CONTAINS, "b"
+        )
         assert matched is True
         assert "not_contains" in reason.lower()
 
     def test_dict_contains_key_fails(self) -> None:
         """Dict containing key should fail not_contains."""
-        matched, reason = apply_operator({"a": 1}, EnumCriteriaOperator.NOT_CONTAINS, "a")
+        matched, reason = apply_operator(
+            {"a": 1}, EnumCriteriaOperator.NOT_CONTAINS, "a"
+        )
         assert matched is False
 
     def test_unsupported_type_fails(self) -> None:
@@ -543,7 +585,9 @@ class TestNotContainsOperator:
 
     def test_missing_fails(self) -> None:
         """MISSING value should fail with reason."""
-        matched, reason = apply_operator(MISSING, EnumCriteriaOperator.NOT_CONTAINS, "value")
+        matched, reason = apply_operator(
+            MISSING, EnumCriteriaOperator.NOT_CONTAINS, "value"
+        )
         assert matched is False
         assert "missing" in reason.lower()
 
@@ -570,22 +614,30 @@ class TestRegexOperator:
 
     def test_regex_anchor_start(self) -> None:
         """Regex with start anchor should work."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.REGEX, r"^hello")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.REGEX, r"^hello"
+        )
         assert matched is True
 
     def test_regex_anchor_end(self) -> None:
         """Regex with end anchor should work."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.REGEX, r"world$")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.REGEX, r"world$"
+        )
         assert matched is True
 
     def test_regex_full_match(self) -> None:
         """Regex for full string match."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.REGEX, r"^hello$")
+        matched, reason = apply_operator(
+            "hello", EnumCriteriaOperator.REGEX, r"^hello$"
+        )
         assert matched is True
 
     def test_regex_full_match_fails(self) -> None:
         """Regex for full string match that fails."""
-        matched, reason = apply_operator("hello world", EnumCriteriaOperator.REGEX, r"^hello$")
+        matched, reason = apply_operator(
+            "hello world", EnumCriteriaOperator.REGEX, r"^hello$"
+        )
         assert matched is False
 
     def test_regex_case_sensitive(self) -> None:
@@ -595,7 +647,9 @@ class TestRegexOperator:
 
     def test_regex_case_insensitive_flag(self) -> None:
         """Regex with case-insensitive flag."""
-        matched, reason = apply_operator("HELLO", EnumCriteriaOperator.REGEX, r"(?i)hello")
+        matched, reason = apply_operator(
+            "HELLO", EnumCriteriaOperator.REGEX, r"(?i)hello"
+        )
         assert matched is True
 
     def test_regex_special_characters(self) -> None:
@@ -629,7 +683,9 @@ class TestRegexOperator:
 
     def test_invalid_regex_pattern_fails(self) -> None:
         """Invalid regex pattern should fail (when called directly via apply_operator)."""
-        matched, reason = apply_operator("test", EnumCriteriaOperator.REGEX, r"[invalid")
+        matched, reason = apply_operator(
+            "test", EnumCriteriaOperator.REGEX, r"[invalid"
+        )
         assert matched is False
         assert "invalid regex" in reason.lower()
 
@@ -713,7 +769,9 @@ class TestIsNotNullOperator:
 
     def test_string_is_not_null(self) -> None:
         """String value should match is_not_null."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, reason = apply_operator(
+            "hello", EnumCriteriaOperator.IS_NOT_NULL, None
+        )
         assert matched is True
         assert "not null" in reason.lower()
 
@@ -751,7 +809,9 @@ class TestIsNotNullOperator:
 
     def test_missing_fails_is_not_null(self) -> None:
         """MISSING value should fail is_not_null."""
-        matched, reason = apply_operator(MISSING, EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, reason = apply_operator(
+            MISSING, EnumCriteriaOperator.IS_NOT_NULL, None
+        )
         assert matched is False
         assert "missing" in reason.lower()
 
@@ -794,6 +854,8 @@ class TestMissingSentinel:
 
     def test_missing_is_not_null_returns_specific_reason(self) -> None:
         """MISSING with is_not_null should return specific 'missing' reason."""
-        matched, reason = apply_operator(MISSING, EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, reason = apply_operator(
+            MISSING, EnumCriteriaOperator.IS_NOT_NULL, None
+        )
         assert matched is False
         assert reason == "value is missing"

@@ -647,9 +647,9 @@ class TestFixtureValidation:
     def test_pure_node_fixture_is_pure(self, pure_node_example: Path) -> None:
         """Verify pure node fixture passes purity check."""
         result = check_node_purity(pure_node_example)
-        assert (
-            result.is_pure
-        ), f"Pure fixture should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"Pure fixture should be pure, violations: {result.violations}"
+        )
         assert not result.is_stub
         assert result.node_class_name == "NodeTestPureCompute"
         assert result.base_class == "NodeCompute"
@@ -911,7 +911,9 @@ class NodeTest(NodeCompute):
         file_path.write_text(code)
         result = check_node_purity(file_path)
         assert not result.is_stub
-        assert result.is_pure, f"Node with interface method should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"Node with interface method should be pure, violations: {result.violations}"
+        )
 
 
 # =========================================================================
@@ -938,9 +940,9 @@ class TestRealNodeFiles:
 
         result = check_node_purity(node_path)
         assert not result.is_stub, "intelligence_orchestrator should not be a stub"
-        assert (
-            result.is_pure
-        ), f"intelligence_orchestrator should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"intelligence_orchestrator should be pure, violations: {result.violations}"
+        )
         assert result.node_class_name == "NodeIntelligenceOrchestrator"
         assert result.base_class == "NodeOrchestrator"
 
@@ -952,9 +954,9 @@ class TestRealNodeFiles:
 
         result = check_node_purity(node_path)
         assert not result.is_stub, "intelligence_reducer should not be a stub"
-        assert (
-            result.is_pure
-        ), f"intelligence_reducer should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"intelligence_reducer should be pure, violations: {result.violations}"
+        )
         assert result.node_class_name == "NodeIntelligenceReducer"
         assert result.base_class == "NodeReducer"
 
@@ -975,9 +977,9 @@ class TestRealNodeFiles:
 
             result = check_node_purity(node_path)
             assert result.is_stub, f"{node_name} should be detected as stub"
-            assert (
-                result.is_pure
-            ), f"Stub node {node_name} should pass purity check (skipped)"
+            assert result.is_pure, (
+                f"Stub node {node_name} should pass purity check (skipped)"
+            )
 
     def test_all_non_stub_nodes_are_pure(self, nodes_directory: Path) -> None:
         """All non-stub nodes should pass purity checks.
@@ -1023,9 +1025,9 @@ class TestRealNodeFiles:
 
         if impure_results:
             report_lines = [
-                f"\n{'='*70}",
+                f"\n{'=' * 70}",
                 "PURITY VIOLATIONS DETECTED",
-                f"{'='*70}",
+                f"{'=' * 70}",
                 f"Found {len(impure_results)} impure node(s):\n",
             ]
 
@@ -1039,12 +1041,12 @@ class TestRealNodeFiles:
 
             report_lines.extend(
                 [
-                    f"{'='*70}",
+                    f"{'=' * 70}",
                     "ACTION REQUIRED:",
                     "  - Non-stub node.py files must be pure shells",
                     "  - Move business logic to handlers or other modules",
                     "  - Mark as stub (is_stub: ClassVar[bool] = True) if intentional",
-                    f"{'='*70}",
+                    f"{'=' * 70}",
                 ]
             )
 
@@ -1067,9 +1069,9 @@ class TestPuritySummaryReport:
         stub_count = 0
         impure_count = 0
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("NODE PURITY REPORT")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         for path, result in sorted(results.items()):
             status = (
@@ -1079,7 +1081,9 @@ class TestPuritySummaryReport:
 
             # Short path for display
             try:
-                short_path = Path(path).relative_to(nodes_directory.parent.parent.parent)
+                short_path = Path(path).relative_to(
+                    nodes_directory.parent.parent.parent
+                )
             except ValueError:
                 short_path = Path(path)
             print(f"{icon} {short_path}")
@@ -1093,12 +1097,12 @@ class TestPuritySummaryReport:
                 for v in result.violations[:3]:  # Show first 3 violations
                     print(f"    - {v.rule.value}: {v.message}")
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"SUMMARY: {len(results)} nodes checked")
         print(f"  [P] Pure:   {pure_count}")
         print(f"  [S] Stub:   {stub_count}")
         print(f"  [!] Impure: {impure_count}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         # This test always passes - it's informational
         assert True

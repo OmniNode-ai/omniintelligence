@@ -694,9 +694,7 @@ def compute_learning_metrics(
     # Use scores from deduplicated clusters only for mean calculations
     deduplicated_ids = {c["cluster_id"] for c in final_clusters}
     deduplicated_scores = [
-        confidence_scores[cid]
-        for cid in deduplicated_ids
-        if cid in confidence_scores
+        confidence_scores[cid] for cid in deduplicated_ids if cid in confidence_scores
     ]
 
     if deduplicated_scores:
@@ -837,9 +835,7 @@ def _cluster_to_learned_pattern(
 
     # Map pattern_type string to enum
     pattern_type_str = cluster["pattern_type"].lower()
-    pattern_type = _PATTERN_TYPE_MAP.get(
-        pattern_type_str, EnumPatternType.CODE_PATTERN
-    )
+    pattern_type = _PATTERN_TYPE_MAP.get(pattern_type_str, EnumPatternType.CODE_PATTERN)
 
     # Derive category from pattern_type
     category = _derive_category(pattern_type)

@@ -43,7 +43,9 @@ from omniintelligence.nodes.node_pattern_storage_effect.models import (
     ModelPatternMetricsSnapshot,
     PatternStorageGovernance,
 )
-from omniintelligence.nodes.node_pattern_storage_effect.node import NodePatternStorageEffect
+from omniintelligence.nodes.node_pattern_storage_effect.node import (
+    NodePatternStorageEffect,
+)
 
 from .conftest import (
     KAFKA_AVAILABLE,
@@ -224,10 +226,13 @@ class TestIdempotencyIntegration:
             conn=None,
         )
 
-        original_stored_at = mock_pattern_store.patterns[input_data.pattern_id]["stored_at"]
+        original_stored_at = mock_pattern_store.patterns[input_data.pattern_id][
+            "stored_at"
+        ]
 
         # Wait a tiny bit to ensure time has moved
         import asyncio
+
         await asyncio.sleep(0.001)
 
         result2 = await handle_store_pattern(
@@ -237,7 +242,10 @@ class TestIdempotencyIntegration:
         )
 
         # Original timestamp preserved in store
-        assert mock_pattern_store.patterns[input_data.pattern_id]["stored_at"] == original_stored_at
+        assert (
+            mock_pattern_store.patterns[input_data.pattern_id]["stored_at"]
+            == original_stored_at
+        )
 
     async def test_different_pattern_id_creates_new_version(
         self,
@@ -258,7 +266,9 @@ class TestIdempotencyIntegration:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result1 = await handle_store_pattern(input1, pattern_store=mock_pattern_store, conn=None)
+        result1 = await handle_store_pattern(
+            input1, pattern_store=mock_pattern_store, conn=None
+        )
 
         # Second pattern in same lineage
         input2 = create_valid_input(
@@ -266,7 +276,9 @@ class TestIdempotencyIntegration:
             signature_hash=signature_hash,
             domain=domain,
         )
-        result2 = await handle_store_pattern(input2, pattern_store=mock_pattern_store, conn=None)
+        result2 = await handle_store_pattern(
+            input2, pattern_store=mock_pattern_store, conn=None
+        )
 
         # Versions should increment
         assert result1.version == 1
@@ -392,8 +404,12 @@ class TestPromotePatternIntegration:
 
         # Verify transition recorded
         assert len(mock_state_manager.transitions) == 1
-        assert mock_state_manager.transitions[0].from_state == EnumPatternState.CANDIDATE
-        assert mock_state_manager.transitions[0].to_state == EnumPatternState.PROVISIONAL
+        assert (
+            mock_state_manager.transitions[0].from_state == EnumPatternState.CANDIDATE
+        )
+        assert (
+            mock_state_manager.transitions[0].to_state == EnumPatternState.PROVISIONAL
+        )
 
     async def test_promote_provisional_to_validated(
         self,
@@ -629,7 +645,9 @@ class TestEventPublishingIntegration:
                     "confidence": result.metrics_snapshot.confidence,
                     "match_count": result.metrics_snapshot.match_count,
                     "success_rate": result.metrics_snapshot.success_rate,
-                } if result.metrics_snapshot else None,
+                }
+                if result.metrics_snapshot
+                else None,
             }
 
             await kafka_publisher_adapter.publish(
@@ -711,7 +729,9 @@ class TestNodePatternStorageEffectIntegration:
         - Contract-driven dispatch works
         - Result contains expected fields
         """
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+        from omnibase_core.models.container.model_onex_container import (
+            ModelONEXContainer,
+        )
 
         container = ModelONEXContainer()
         node = NodePatternStorageEffect(container)
@@ -739,7 +759,9 @@ class TestNodePatternStorageEffectIntegration:
         - execute() returns success envelope
         - event contains expected fields
         """
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+        from omnibase_core.models.container.model_onex_container import (
+            ModelONEXContainer,
+        )
 
         container = ModelONEXContainer()
         node = NodePatternStorageEffect(container)
@@ -767,7 +789,9 @@ class TestNodePatternStorageEffectIntegration:
         - execute() returns success envelope
         - event contains expected fields
         """
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+        from omnibase_core.models.container.model_onex_container import (
+            ModelONEXContainer,
+        )
 
         container = ModelONEXContainer()
         node = NodePatternStorageEffect(container)
@@ -799,7 +823,9 @@ class TestNodePatternStorageEffectIntegration:
         - publish_topics returns topic list
         - supported_operations returns operation names
         """
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+        from omnibase_core.models.container.model_onex_container import (
+            ModelONEXContainer,
+        )
 
         container = ModelONEXContainer()
         node = NodePatternStorageEffect(container)
@@ -837,7 +863,9 @@ class TestEndToEndWorkflow:
         - Pattern can be promoted to VALIDATED via execute()
         - All states are tracked correctly
         """
-        from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+        from omnibase_core.models.container.model_onex_container import (
+            ModelONEXContainer,
+        )
 
         container = ModelONEXContainer()
         node = NodePatternStorageEffect(container)
@@ -930,7 +958,9 @@ class TestEndToEndWorkflow:
             domain=domain,
             confidence=0.75,
         )
-        result_v1 = await handle_store_pattern(input_v1, pattern_store=mock_pattern_store, conn=None)
+        result_v1 = await handle_store_pattern(
+            input_v1, pattern_store=mock_pattern_store, conn=None
+        )
         mock_state_manager.set_state(result_v1.pattern_id, EnumPatternState.CANDIDATE)
 
         await handle_promote_pattern(
@@ -948,7 +978,9 @@ class TestEndToEndWorkflow:
             domain=domain,
             confidence=0.9,
         )
-        result_v2 = await handle_store_pattern(input_v2, pattern_store=mock_pattern_store, conn=None)
+        result_v2 = await handle_store_pattern(
+            input_v2, pattern_store=mock_pattern_store, conn=None
+        )
 
         # Verify versions
         assert result_v1.version == 1
@@ -959,7 +991,10 @@ class TestEndToEndWorkflow:
         assert mock_pattern_store.patterns[result_v2.pattern_id]["is_current"] is True
 
         # V1 is still PROVISIONAL in state manager
-        assert mock_state_manager.states[result_v1.pattern_id] == EnumPatternState.PROVISIONAL
+        assert (
+            mock_state_manager.states[result_v1.pattern_id]
+            == EnumPatternState.PROVISIONAL
+        )
 
 
 # =============================================================================

@@ -411,9 +411,7 @@ class TestTC2FailurePatternsIncludeErrorContext:
             assert sig_info.signature_version is not None, (
                 "Signature version should be set"
             )
-            assert len(sig_info.signature_inputs) > 0, (
-                "Signature should have inputs"
-            )
+            assert len(sig_info.signature_inputs) > 0, "Signature should have inputs"
 
 
 # =============================================================================

@@ -74,9 +74,7 @@ class TestCompilePatternValidInput:
         assert result is not None
         assert isinstance(result, CompilationResult)
 
-    def test_compilation_result_has_snippet(
-        self, valid_pattern_data: dict
-    ) -> None:
+    def test_compilation_result_has_snippet(self, valid_pattern_data: dict) -> None:
         """CompilationResult contains non-empty snippet."""
         from omniintelligence.handlers.handler_compile_pattern import compile_pattern
 
@@ -86,9 +84,7 @@ class TestCompilePatternValidInput:
         assert result.snippet
         assert len(result.snippet) > 0
 
-    def test_compilation_result_has_token_count(
-        self, valid_pattern_data: dict
-    ) -> None:
+    def test_compilation_result_has_token_count(self, valid_pattern_data: dict) -> None:
         """CompilationResult contains positive token count."""
         from omniintelligence.handlers.handler_compile_pattern import compile_pattern
 
@@ -98,9 +94,7 @@ class TestCompilePatternValidInput:
         assert isinstance(result.token_count, int)
         assert result.token_count > 0
 
-    def test_compilation_result_has_timestamp(
-        self, valid_pattern_data: dict
-    ) -> None:
+    def test_compilation_result_has_timestamp(self, valid_pattern_data: dict) -> None:
         """CompilationResult contains UTC timestamp."""
         from omniintelligence.handlers.handler_compile_pattern import compile_pattern
 
@@ -126,9 +120,7 @@ class TestCompilePatternValidInput:
         assert result is not None
         assert result.compiler_version == COMPILER_VERSION
 
-    def test_snippet_contains_pattern_info(
-        self, valid_pattern_data: dict
-    ) -> None:
+    def test_snippet_contains_pattern_info(self, valid_pattern_data: dict) -> None:
         """Compiled snippet contains pattern information."""
         from omniintelligence.handlers.handler_compile_pattern import compile_pattern
 
@@ -259,7 +251,9 @@ class TestFormatPatternSnippetVersionStamp:
 
     def test_version_stamp_at_start(self) -> None:
         """Version stamp appears at the start of snippet."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         snippet = format_pattern_snippet(
             pattern_name="Test",
@@ -284,7 +278,9 @@ class TestFormatPatternSnippetNameTruncation:
 
     def test_truncates_long_pattern_name(self) -> None:
         """Pattern name longer than 100 chars is truncated with ellipsis."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         long_name = "A" * 150
         snippet = format_pattern_snippet(
@@ -303,7 +299,9 @@ class TestFormatPatternSnippetNameTruncation:
 
     def test_does_not_truncate_short_name(self) -> None:
         """Pattern name under 100 chars is not truncated and has no ellipsis."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         short_name = "Short Pattern Name"
         snippet = format_pattern_snippet(
@@ -321,7 +319,9 @@ class TestFormatPatternSnippetNameTruncation:
 
     def test_truncates_exactly_at_100(self) -> None:
         """Pattern name is truncated to exactly 100 characters plus ellipsis."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         # Name with 120 characters
         long_name = "X" * 120
@@ -341,7 +341,9 @@ class TestFormatPatternSnippetNameTruncation:
 
     def test_exactly_100_chars_has_no_ellipsis(self) -> None:
         """Pattern name with exactly 100 chars is not truncated and has no ellipsis."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         # Name with exactly 100 characters
         exact_name = "Y" * 100
@@ -371,7 +373,9 @@ class TestFormatPatternSnippetKeywordLimiting:
 
     def test_limits_keywords_to_ten(self, many_keywords: list[str]) -> None:
         """Keywords list is limited to first 10 with ellipsis indicator."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         assert len(many_keywords) > 10
 
@@ -397,7 +401,9 @@ class TestFormatPatternSnippetKeywordLimiting:
 
     def test_accepts_fewer_than_ten_keywords(self) -> None:
         """Fewer than 10 keywords are all included without ellipsis."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         keywords = ["one", "two", "three"]
         snippet = format_pattern_snippet(
@@ -417,7 +423,9 @@ class TestFormatPatternSnippetKeywordLimiting:
 
     def test_handles_empty_keywords(self) -> None:
         """Empty keywords list shows 'none' without ellipsis."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         snippet = format_pattern_snippet(
             pattern_name="Test",
@@ -434,7 +442,9 @@ class TestFormatPatternSnippetKeywordLimiting:
 
     def test_accepts_tuple_keywords(self) -> None:
         """Keywords can be a tuple (not just list)."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         keywords = ("one", "two", "three")
         snippet = format_pattern_snippet(
@@ -461,7 +471,9 @@ class TestFormatPatternSnippetFormatting:
 
     def test_includes_domain_info(self) -> None:
         """Snippet includes domain name and ID."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         snippet = format_pattern_snippet(
             pattern_name="Test",
@@ -478,7 +490,9 @@ class TestFormatPatternSnippetFormatting:
 
     def test_formats_confidence_as_percentage(self) -> None:
         """Confidence is formatted as percentage."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         snippet = format_pattern_snippet(
             pattern_name="Test",
@@ -494,7 +508,9 @@ class TestFormatPatternSnippetFormatting:
 
     def test_formats_quality_as_percentage(self) -> None:
         """Quality score is formatted as percentage."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         snippet = format_pattern_snippet(
             pattern_name="Test",
@@ -510,7 +526,9 @@ class TestFormatPatternSnippetFormatting:
 
     def test_ends_with_separator(self) -> None:
         """Snippet ends with markdown separator."""
-        from omniintelligence.handlers.handler_compile_pattern import format_pattern_snippet
+        from omniintelligence.handlers.handler_compile_pattern import (
+            format_pattern_snippet,
+        )
 
         snippet = format_pattern_snippet(
             pattern_name="Test",

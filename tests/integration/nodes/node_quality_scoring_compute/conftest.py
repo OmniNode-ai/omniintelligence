@@ -29,7 +29,9 @@ from typing import Final
 import pytest
 
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
-from omniintelligence.nodes.node_quality_scoring_compute import NodeQualityScoringCompute
+from omniintelligence.nodes.node_quality_scoring_compute import (
+    NodeQualityScoringCompute,
+)
 
 
 # =============================================================================
@@ -101,7 +103,7 @@ DOCUMENTATION_MIN_SCORE: Final[float] = 0.5
 # These define assertion boundaries, not quality tiers. See overlap explanation above.
 
 HIGH_QUALITY_MIN_SCORE: Final[float] = 0.6  # Floor for "high quality" assertions
-LOW_QUALITY_MAX_SCORE: Final[float] = 0.7   # Ceiling for "low quality" assertions
+LOW_QUALITY_MAX_SCORE: Final[float] = 0.7  # Ceiling for "low quality" assertions
 MODERATE_QUALITY_MIN_SCORE: Final[float] = 0.4  # Lower bound for moderate quality
 MODERATE_QUALITY_MAX_SCORE: Final[float] = 0.85  # Upper bound for moderate quality
 
@@ -119,10 +121,10 @@ PROCESSING_TIME_LARGE_MS: Final[float] = 2000.0
 # Expected scores for code with known patterns or anti-patterns
 
 FROZEN_MODEL_MIN_PATTERNS_SCORE: Final[float] = 0.7  # Frozen Pydantic models
-TYPEDDICT_MIN_PATTERNS_SCORE: Final[float] = 0.5     # TypedDict usage
-TODO_MAX_TEMPORAL_SCORE: Final[float] = 0.7          # Code with TODO/FIXME markers
-DOCSTRINGS_MIN_DOC_SCORE: Final[float] = 0.7         # Well-documented code
-HIGH_COMPLEXITY_MAX_SCORE: Final[float] = 0.6        # Deeply nested/complex code
+TYPEDDICT_MIN_PATTERNS_SCORE: Final[float] = 0.5  # TypedDict usage
+TODO_MAX_TEMPORAL_SCORE: Final[float] = 0.7  # Code with TODO/FIXME markers
+DOCSTRINGS_MIN_DOC_SCORE: Final[float] = 0.7  # Well-documented code
+HIGH_COMPLEXITY_MAX_SCORE: Final[float] = 0.6  # Deeply nested/complex code
 
 
 # =============================================================================
@@ -186,7 +188,9 @@ def onex_container() -> ModelONEXContainer:
 
 
 @pytest.fixture(scope="module")
-def quality_scoring_node(onex_container: ModelONEXContainer) -> NodeQualityScoringCompute:
+def quality_scoring_node(
+    onex_container: ModelONEXContainer,
+) -> NodeQualityScoringCompute:
     """Instantiate a NodeQualityScoringCompute node for testing.
 
     Args:
@@ -274,7 +278,7 @@ def low_quality_code() -> str:
     Returns:
         Low quality Python code with issues for testing.
     """
-    return '''# TODO: Fix this later
+    return """# TODO: Fix this later
 # FIXME: Performance issues
 # XXX: Deprecated approach
 
@@ -302,7 +306,7 @@ class badclass:
     def method4(self): pass
     def method5(self): pass
     model_config = {}
-'''
+"""
 
 
 @pytest.fixture

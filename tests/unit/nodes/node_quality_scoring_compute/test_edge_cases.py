@@ -73,7 +73,7 @@ def greet(name: str) -> str:
 
     def test_deeply_nested_code(self) -> None:
         """Deeply nested code should score lower on complexity."""
-        nested = '''
+        nested = """
 def deep():
     if True:
         for i in range(10):
@@ -83,15 +83,18 @@ def deep():
                         if j > 2:
                             return j
                 break
-'''
-        flat = '''
+"""
+        flat = """
 def flat():
     return 42
-'''
+"""
         result_nested = score_code_quality(nested, "python")
         result_flat = score_code_quality(flat, "python")
 
-        assert result_flat["dimensions"]["complexity"] > result_nested["dimensions"]["complexity"]
+        assert (
+            result_flat["dimensions"]["complexity"]
+            > result_nested["dimensions"]["complexity"]
+        )
 
     def test_async_functions(self) -> None:
         """Async functions should be scored correctly."""
@@ -153,10 +156,10 @@ class Example:
 
     def test_no_functions_high_temporal_relevance(self) -> None:
         """Code with no staleness indicators should get high temporal_relevance score."""
-        code = '''
+        code = """
 CONSTANT = 42
 data = {"key": "value"}
-'''
+"""
         result = score_code_quality(code, "python")
 
         # No TODO/FIXME/deprecated markers means high temporal relevance (1.0)
@@ -183,19 +186,22 @@ class AnotherGoodClass:
 
     def test_list_comprehensions_count_as_complexity(self) -> None:
         """List comprehensions should add to complexity score."""
-        without_comprehension = '''
+        without_comprehension = """
 def simple(items: list) -> list:
     return items
-'''
-        with_comprehension = '''
+"""
+        with_comprehension = """
 def complex_comprehension(items: list) -> list:
     return [x for x in items if x > 0 for y in x if y != 0]
-'''
+"""
         result_simple = score_code_quality(without_comprehension, "python")
         result_complex = score_code_quality(with_comprehension, "python")
 
         # Comprehensions add complexity
-        assert result_simple["dimensions"]["complexity"] >= result_complex["dimensions"]["complexity"]
+        assert (
+            result_simple["dimensions"]["complexity"]
+            >= result_complex["dimensions"]["complexity"]
+        )
 
     def test_compute_error_on_unexpected_failure(self) -> None:
         """Test that QualityScoringComputeError is raised for unexpected failures."""

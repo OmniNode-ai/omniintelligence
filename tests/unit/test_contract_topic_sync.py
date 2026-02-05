@@ -82,7 +82,9 @@ def nodes_dir(project_root: Path) -> Path:
     return project_root / NODES_DIR
 
 
-def load_contract_yaml(nodes_dir: Path, node_name: str, contract_subpath: str) -> dict[str, Any]:
+def load_contract_yaml(
+    nodes_dir: Path, node_name: str, contract_subpath: str
+) -> dict[str, Any]:
     """Load a contract.yaml file for a specific node.
 
     Args:
@@ -174,7 +176,9 @@ class TestTopicConstantSync:
             contract_subpath,
         ) in TOPIC_CONSTANT_MAPPINGS:
             try:
-                contract_data = load_contract_yaml(nodes_dir, node_name, contract_subpath)
+                contract_data = load_contract_yaml(
+                    nodes_dir, node_name, contract_subpath
+                )
             except FileNotFoundError as e:
                 errors.append(f"{const_name}: Contract file not found - {e}")
                 continue
@@ -232,13 +236,17 @@ class TestTopicConstantSync:
 
         for (node_name, contract_subpath), topic_types in contracts_to_check.items():
             try:
-                contract_data = load_contract_yaml(nodes_dir, node_name, contract_subpath)
+                contract_data = load_contract_yaml(
+                    nodes_dir, node_name, contract_subpath
+                )
             except (FileNotFoundError, yaml.YAMLError):
                 # Already reported in test_topic_constants_match_contracts
                 continue
 
             for topic_type in topic_types:
-                contract_topics = extract_topics_from_contract(contract_data, topic_type)
+                contract_topics = extract_topics_from_contract(
+                    contract_data, topic_type
+                )
 
                 for topic in contract_topics:
                     if topic not in constant_values:
@@ -282,9 +290,7 @@ class TestTopicConstantValues:
 
             # Check prefix
             if prefix != "onex":
-                errors.append(
-                    f"{const_name}: Expected prefix 'onex', got {prefix!r}"
-                )
+                errors.append(f"{const_name}: Expected prefix 'onex', got {prefix!r}")
 
             # Check kind matches topic type
             expected_kind = "cmd" if topic_type == "subscribe_topics" else "evt"
@@ -309,9 +315,7 @@ class TestTopicConstantValues:
                 )
 
         if errors:
-            pytest.fail(
-                "Topic naming convention violations:\n\n" + "\n".join(errors)
-            )
+            pytest.fail("Topic naming convention violations:\n\n" + "\n".join(errors))
 
     def test_constant_names_match_topic_names(self) -> None:
         """Verify Python constant names reflect their topic names.
@@ -367,7 +371,13 @@ def test_topic_sync_summary(nodes_dir: Path) -> None:
     print("\n--- Topic Constant/Contract Sync Summary ---")
     print(f"Total topic constants validated: {len(TOPIC_CONSTANT_MAPPINGS)}")
 
-    for const_name, const_value, node_name, topic_type, contract_subpath in TOPIC_CONSTANT_MAPPINGS:
+    for (
+        const_name,
+        const_value,
+        node_name,
+        topic_type,
+        contract_subpath,
+    ) in TOPIC_CONSTANT_MAPPINGS:
         print(f"\n{const_name}:")
         print(f"  Value: {const_value}")
         print(f"  Contract: {node_name}/{contract_subpath}")

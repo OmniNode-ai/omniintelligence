@@ -98,7 +98,9 @@ class EnumCriteriaOperator(StrEnum):
 
 
 # Set of valid operator values for fast lookup
-VALID_OPERATORS: Final[frozenset[str]] = frozenset(op.value for op in EnumCriteriaOperator)
+VALID_OPERATORS: Final[frozenset[str]] = frozenset(
+    op.value for op in EnumCriteriaOperator
+)
 
 
 # =============================================================================

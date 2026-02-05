@@ -16,7 +16,9 @@ from pydantic import BaseModel, Field
 from omniintelligence.enums.enum_code_analysis import EnumAnalysisOperationType
 
 # UUID pattern for correlation_id validation
-UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+UUID_PATTERN = (
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 class ModelCodeAnalysisCompletedPayload(BaseModel):
@@ -48,7 +50,9 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
     )
     result: dict[str, Any] = Field(default_factory=dict)
     source_path: str = Field(default="", description="Path to the analyzed source")
-    quality_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Quality score")
+    quality_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Quality score"
+    )
     onex_compliance: float = Field(
         default=0.0, ge=0.0, le=1.0, description="ONEX compliance score"
     )

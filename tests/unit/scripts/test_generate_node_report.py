@@ -407,9 +407,7 @@ class TestRealNodeStubDetection:
     def nodes_directory(self) -> Path:
         """Get the path to the nodes directory."""
         test_dir = Path(__file__).parent
-        nodes_dir = (
-            test_dir.parent.parent.parent / "src" / "omniintelligence" / "nodes"
-        )
+        nodes_dir = test_dir.parent.parent.parent / "src" / "omniintelligence" / "nodes"
         if not nodes_dir.exists():
             pytest.skip(f"Nodes directory not found: {nodes_dir}")
         return nodes_dir

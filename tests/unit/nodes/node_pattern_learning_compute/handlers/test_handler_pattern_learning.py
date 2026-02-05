@@ -518,7 +518,9 @@ class TestAggregatePatternsDeterminismContract:
             parameters={},
             promotion_threshold=0.5,
         )
-        baseline_learned_ids = [p.pattern_id for p in baseline_result["learned_patterns"]]
+        baseline_learned_ids = [
+            p.pattern_id for p in baseline_result["learned_patterns"]
+        ]
         baseline_candidate_ids = [
             p.pattern_id for p in baseline_result["candidate_patterns"]
         ]

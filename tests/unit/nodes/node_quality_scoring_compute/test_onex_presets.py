@@ -129,17 +129,21 @@ class Example:
         # LENIENT uses 0.5 threshold regardless of onex_threshold=0.95
         # STRICT uses 0.8 threshold regardless of onex_threshold=0.1
         # Verify compliance is determined by preset thresholds (not manual overrides)
-        assert result_lenient["onex_compliant"] == (result_lenient["quality_score"] >= 0.5)
-        assert result_strict["onex_compliant"] == (result_strict["quality_score"] >= 0.8)
+        assert result_lenient["onex_compliant"] == (
+            result_lenient["quality_score"] >= 0.5
+        )
+        assert result_strict["onex_compliant"] == (
+            result_strict["quality_score"] >= 0.8
+        )
 
     def test_different_presets_produce_different_scores(self) -> None:
         """Same code should produce different scores with different presets."""
         # Code with decent structure but minimal documentation
-        code = '''
+        code = """
 class DataProcessor:
     def process(self, data: dict) -> list:
         return list(data.values())
-'''
+"""
 
         result_strict = score_code_quality(
             code, "python", preset=OnexStrictnessLevel.STRICT
@@ -171,7 +175,10 @@ class DataProcessor:
         )
 
         # Should produce identical results
-        assert result_no_preset["quality_score"] == result_explicit_default["quality_score"]
+        assert (
+            result_no_preset["quality_score"]
+            == result_explicit_default["quality_score"]
+        )
         assert result_no_preset["dimensions"] == result_explicit_default["dimensions"]
 
     def test_preset_with_unsupported_language(self) -> None:
@@ -213,7 +220,9 @@ class DataProcessor:
         """All preset thresholds must be in valid range [0.0, 1.0]."""
         for level in OnexStrictnessLevel:
             threshold = get_threshold_for_preset(level)
-            assert 0.0 <= threshold <= 1.0, f"{level.value} threshold {threshold} out of range"
+            assert 0.0 <= threshold <= 1.0, (
+                f"{level.value} threshold {threshold} out of range"
+            )
 
     def test_strictness_level_string_values(self) -> None:
         """OnexStrictnessLevel enum should have expected string values."""

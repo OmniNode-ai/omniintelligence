@@ -345,9 +345,7 @@ class TestEventConsumption:
 
             # Verify at least one call looked for the correct session_id
             all_calls = mock_repository.fetch.call_args_list
-            session_ids_queried = [
-                call[0][1] for call in all_calls if len(call[0]) > 1
-            ]
+            session_ids_queried = [call[0][1] for call in all_calls if len(call[0]) > 1]
             assert sample_success_event.session_id in session_ids_queried
 
         finally:
@@ -390,7 +388,9 @@ class TestEventConsumption:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="DLQ infrastructure not yet wired for this node - see OMN-1764")
+@pytest.mark.skip(
+    reason="DLQ infrastructure not yet wired for this node - see OMN-1764"
+)
 class TestDLQRouting:
     """Tests for Dead Letter Queue routing on processing failures."""
 

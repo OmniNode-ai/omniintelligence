@@ -291,29 +291,29 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1000]
   # ============================================================================
-  # RUFF - Fast Python linter and formatter
+  # RUFF - Fast Python linter and formatter (LOCAL HOOKS)
   # Validates: Linting rules (flake8, isort, pyupgrade equivalents) and formatting
-  # Scope: Production code (tools/, utils/, runtime/) and their unit tests
+  # Scope: All Python code in src/ and tests/
+  # Pattern: Uses local hooks with `language: system` for uv integration
+  # Reference: Aligned with omnibase_core configuration
   # ============================================================================
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+  - repo: local
     hooks:
-      - id: ruff
-        name: ruff (lint)
-        args: [--fix, --exit-non-zero-on-fix]
-        # types: [python] is more efficient than files regex for Python detection
-        types: [python]
-        # Covers: tools/, utils/, runtime/ source code and their tests
-        # test_log_sanitizer.py is included separately as it tests utils/log_sanitizer.py
-        # functionality but lives in tests/unit/ rather than tests/unit/tools/
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
-
       - id: ruff-format
-        name: ruff (format)
-        # types: [python] is more efficient than files regex for Python detection
-        types: [python]
-        # Same scope as ruff lint (see comment above for test_log_sanitizer.py rationale)
-        files: ^(src/omniintelligence/(tools|utils|runtime)/|tests/unit/(tools/|test_log_sanitizer\.py))
+        name: ruff format (auto-format entire codebase)
+        entry: uv run ruff format src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: ruff-fix
+        name: ruff check (auto-fix entire codebase)
+        entry: uv run ruff check --fix --exit-non-zero-on-fix src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
 
   # ============================================================================
   # MYPY - Static type checking

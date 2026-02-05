@@ -83,13 +83,13 @@ class ModelConfig(BaseModel):
 
     def test_low_score_for_antipatterns(self) -> None:
         """Code with ONEX antipatterns should score lower on patterns."""
-        bad_code = '''
+        bad_code = """
 def process(data, **kwargs):
     result = {}
     for k, v in data.items():
         result[k] = v
     return result
-'''
+"""
         result = score_code_quality(bad_code, "python")
 
         # Untyped functions with mutable defaults and **kwargs
@@ -121,7 +121,9 @@ def process(data, **kwargs):
             "patterns": 0.05,
             "architectural": 0.10,
         }
-        result_complexity = score_code_quality(code, "python", weights=complexity_weights)
+        result_complexity = score_code_quality(
+            code, "python", weights=complexity_weights
+        )
 
         # Complexity-weighted should be higher than doc-weighted for this simple code
         assert result_complexity["quality_score"] > result_doc["quality_score"]
@@ -141,7 +143,10 @@ class Example:
         result_high = score_code_quality(medium_code, "python", onex_threshold=0.95)
 
         # Same dimension scores for both
-        assert result_low["dimensions"]["patterns"] == result_high["dimensions"]["patterns"]
+        assert (
+            result_low["dimensions"]["patterns"]
+            == result_high["dimensions"]["patterns"]
+        )
 
         # Compliance is determined by: score >= threshold
         # With threshold 0.3, compliance should match score >= 0.3
