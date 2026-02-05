@@ -995,13 +995,13 @@ class TestRealNodeFiles:
         # process(). These exemptions are for nodes that properly delegate to
         # handlers but still need their interface methods defined.
         purity_exempt_nodes = {
-            # Effect nodes with execute() and registry patterns
-            "node_pattern_storage_effect",
-            "node_pattern_demotion_effect",
-            "node_pattern_feedback_effect",
-            "node_pattern_promotion_effect",
-            "node_pattern_lifecycle_effect",
-            "node_claude_hook_event_effect",
+            # NOTE: All effect nodes now refactored to pure declarative shells (OMN-1757)
+            # - node_pattern_storage_effect: removed (pure)
+            # - node_pattern_feedback_effect: removed (pure)
+            # - node_pattern_demotion_effect: removed (pure)
+            # - node_pattern_promotion_effect: removed (pure)
+            # - node_pattern_lifecycle_effect: removed (pure)
+            # - node_claude_hook_event_effect: removed (pure)
             # Compute nodes with compute() delegation
             "node_quality_scoring_compute",
             "node_semantic_analysis_compute",

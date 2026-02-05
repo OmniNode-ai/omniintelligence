@@ -25,15 +25,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
 
-from omnibase_core.integrations.claude_code import (
-    ClaudeCodeSessionOutcome,
-    ClaudeSessionOutcome,
-)
 
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
@@ -54,9 +49,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
-from omniintelligence.nodes.node_pattern_feedback_effect.registry import (
-    RegistryPatternFeedbackEffect,
-)
+from omnibase_core.nodes.node_effect import NodeEffect
 
 
 # =============================================================================
@@ -1606,104 +1599,63 @@ class TestErrorHandling:
 
 
 # =============================================================================
-# Test Class: NodePatternFeedbackEffect Tests
+# Test Class: NodePatternFeedbackEffect Declarative Pattern Tests
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestNodePatternFeedbackEffect:
-    """Tests for the NodePatternFeedbackEffect node class.
+    """Tests verifying the NodePatternFeedbackEffect declarative pattern.
 
-    These tests verify the node's execute() method behavior including:
-    - Error propagation when no repository is configured
-    - Error propagation when repository raises exceptions
-    - Successful delegation to the handler
+    With the ONEX declarative pattern (OMN-1757), the node class is a pure
+    type anchor with no custom __init__ or execute() overrides. All business
+    logic is in handlers which are invoked directly by callers/orchestrators.
+
+    These tests verify:
+    - Handler can be called directly with repository dependency
+    - Handler properly propagates errors from repository
+    - Handler returns correct results
 
     Note:
-        The node now uses registry-based dependency injection.
-        Tests must clear the registry in setup/teardown for isolation.
+        The node is now a pure declarative shell - NO constructor-based DI.
+        Callers invoke handlers directly with dependencies as parameters.
     """
 
-    @pytest.fixture(autouse=True)
-    def clear_registry(self) -> None:
-        """Clear registry before and after each test for isolation."""
-        RegistryPatternFeedbackEffect.clear()
-        yield
-        RegistryPatternFeedbackEffect.clear()
-
     @pytest.mark.asyncio
-    async def test_execute_without_repository_raises_typeerror(
+    async def test_handler_with_repository_exception_propagates(
         self,
         sample_session_id: UUID,
     ) -> None:
-        """Node without repository raises TypeError when execute is called.
+        """Handler with failing repository propagates exception to caller.
 
-        With declarative pattern, missing repository causes handler to fail
-        with TypeError (None passed to handler expecting repository protocol).
+        With declarative pattern, handlers receive dependencies as parameters.
+        Exceptions from dependencies propagate to the caller.
         """
-        # Arrange: Node without repository registered
-        container = MagicMock()
-        node = NodePatternFeedbackEffect(container)
-
-        request = ClaudeSessionOutcome(
-            session_id=sample_session_id,
-            outcome=ClaudeCodeSessionOutcome.SUCCESS,
-        )
-
-        # Assert: Registry reports no repository
-        assert RegistryPatternFeedbackEffect.has_repository() is False
-
-        # Act & Assert: Raises RuntimeError when repository not registered
-        with pytest.raises(RuntimeError, match="Pattern repository not registered"):
-            await node.execute(request)
-
-    @pytest.mark.asyncio
-    async def test_execute_with_repository_exception_propagates(
-        self,
-        sample_session_id: UUID,
-    ) -> None:
-        """Node with failing repository propagates exception to caller.
-
-        With declarative pattern, exceptions propagate rather than being caught.
-        """
-        # Arrange: Node with repository that raises
-        container = MagicMock()
-
+        # Arrange: Repository that raises on fetch
         error_message = "Database connection lost"
         error_repo = MockErrorRepository(fetch_error=ConnectionError(error_message))
-        RegistryPatternFeedbackEffect.register_repository(error_repo)
 
-        node = NodePatternFeedbackEffect(container)
-
-        request = ClaudeSessionOutcome(
-            session_id=sample_session_id,
-            outcome=ClaudeCodeSessionOutcome.SUCCESS,
-        )
-
-        # Act & Assert: Exception propagates
+        # Act & Assert: Call handler directly, exception propagates
         with pytest.raises(ConnectionError, match=error_message):
-            await node.execute(request)
+            await record_session_outcome(
+                session_id=sample_session_id,
+                success=True,
+                repository=error_repo,
+            )
 
     @pytest.mark.asyncio
-    async def test_execute_success_delegates_to_handler(
+    async def test_handler_success_with_repository(
         self,
         mock_repository: MockPatternRepository,
         sample_session_id: UUID,
         sample_pattern_id: UUID,
     ) -> None:
-        """Node with working repository delegates to handler and returns SUCCESS.
+        """Handler with working repository returns SUCCESS.
 
-        When repository is properly registered and injections exist, the node
-        should successfully delegate to record_session_outcome and return
-        the handler's result.
+        With declarative pattern, callers invoke the handler directly
+        with the repository as a parameter dependency.
         """
-        # Arrange: Register repository with registry
-        RegistryPatternFeedbackEffect.register_repository(mock_repository)
-
-        container = MagicMock()
-        node = NodePatternFeedbackEffect(container)
-
-        # Add pattern and injection to repository
+        # Arrange: Add pattern and injection to repository
         mock_repository.add_pattern(
             PatternState(
                 id=sample_pattern_id,
@@ -1720,14 +1672,12 @@ class TestNodePatternFeedbackEffect:
             )
         )
 
-        # Use ClaudeSessionOutcome as the node's new input type
-        request = ClaudeSessionOutcome(
+        # Act: Call handler directly with repository dependency
+        result = await record_session_outcome(
             session_id=sample_session_id,
-            outcome=ClaudeCodeSessionOutcome.SUCCESS,
+            success=True,
+            repository=mock_repository,
         )
-
-        # Act
-        result = await node.execute(request)
 
         # Assert
         assert result.status == EnumOutcomeRecordingStatus.SUCCESS
@@ -1735,7 +1685,29 @@ class TestNodePatternFeedbackEffect:
         assert result.patterns_updated == 1
         assert sample_pattern_id in result.pattern_ids
         assert result.error_message is None
-        assert RegistryPatternFeedbackEffect.has_repository() is True
+
+    def test_node_is_pure_declarative_shell(self) -> None:
+        """Verify node class is a pure type anchor with no custom code.
+
+        The declarative pattern requires:
+        - No __init__ override (uses base class only)
+        - No execute() override (routing via contract.yaml)
+        - Class body contains only docstring/comment
+        """
+        import inspect
+
+        # Get the class source
+        source = inspect.getsource(NodePatternFeedbackEffect)
+
+        # Verify no __init__ definition
+        assert "def __init__" not in source, "Node should not override __init__"
+
+        # Verify no execute definition
+        assert "def execute" not in source, "Node should not override execute"
+        assert "async def execute" not in source, "Node should not override execute"
+
+        # Verify it inherits from NodeEffect
+        assert issubclass(NodePatternFeedbackEffect, NodeEffect)
 
 
 # =============================================================================

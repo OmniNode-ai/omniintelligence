@@ -7,7 +7,7 @@ models, handlers, and protocols. The node persists learned patterns
 with governance enforcement and state promotion capabilities.
 
 Key Components:
-    - NodePatternStorageEffect: Main effect node for pattern storage
+    - NodePatternStorageEffect: Pure declarative effect node (thin shell)
     - ModelPatternStorageInput: Input from pattern-learned.v1 events
     - ModelPatternStoredEvent: Output for pattern-stored.v1 events
     - ModelPatternPromotedEvent: Output for pattern-promoted.v1 events
@@ -25,56 +25,33 @@ State Transitions:
     - CANDIDATE -> PROVISIONAL: Pattern passes verification
     - PROVISIONAL -> VALIDATED: Pattern meets all validation criteria
 
-Usage:
+Usage (Declarative Pattern):
     from omniintelligence.nodes.node_pattern_storage_effect import (
         NodePatternStorageEffect,
+        handle_store_pattern,
+        handle_promote_pattern,
         ModelPatternStorageInput,
         EnumPatternState,
     )
 
-    # Create and wire the node
+    # Create node via container (pure declarative shell)
+    from omnibase_core.models.container import ModelONEXContainer
+    container = ModelONEXContainer()
     node = NodePatternStorageEffect(container)
-    node.set_pattern_store(pattern_store)
-    node.set_state_manager(state_manager)
 
-    # Store a pattern via declarative execute()
-    result = await node.execute(
-        operation="store_pattern",
-        input_data={
-            "pattern_id": str(uuid4()),
-            "signature": "def.*return.*None",
-            "signature_hash": "abc123",
-            "domain": "code_patterns",
-            "confidence": 0.85,
-        },
-    )
-    assert result["success"] is True
-    assert result["event_type"] == "pattern_stored"
-
-    # Promote a pattern via declarative execute()
-    result = await node.execute(
-        operation="promote_pattern",
-        input_data={
-            "pattern_id": str(pattern_id),
-            "to_state": "provisional",
-            "reason": "Pattern met verification criteria",
-        },
-    )
-    assert result["success"] is True
-    assert result["event_type"] == "pattern_promoted"
-
-    # Use declarative contract loading
-    from omniintelligence.nodes.node_pattern_storage_effect import (
-        ContractLoader,
-        get_contract_loader,
+    # Handlers are called directly with their dependencies
+    result = await handle_store_pattern(
+        input_data=ModelPatternStorageInput(...),
+        pattern_store=pattern_store_impl,
+        conn=db_conn,
     )
 
-    loader = get_contract_loader()
-    handler = loader.resolve_handler("store_pattern")
-    topics = loader.subscribe_topics
+    # For event-driven execution, use RuntimeHostProcess
+    # which reads handler_routing from contract.yaml
 
 Reference:
     - OMN-1668: Pattern storage effect node implementation
+    - OMN-1757: Refactor to declarative pattern
 """
 
 # State transition constants and validation (canonical source: constants.py)

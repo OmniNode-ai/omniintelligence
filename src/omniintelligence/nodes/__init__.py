@@ -39,14 +39,6 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_promotion_effect",
         "NodePatternPromotionEffect",
     ),
-    "RegistryPatternPromotionEffect": (
-        "omniintelligence.nodes.node_pattern_promotion_effect",
-        "RegistryPatternPromotionEffect",
-    ),
-    "ServiceHandlerRegistry": (
-        "omniintelligence.nodes.node_pattern_promotion_effect",
-        "ServiceHandlerRegistry",
-    ),
     "ClaudeSessionOutcome": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ClaudeSessionOutcome",
@@ -182,8 +174,6 @@ if TYPE_CHECKING:
 
     from omniintelligence.nodes.node_pattern_promotion_effect import (
         NodePatternPromotionEffect as NodePatternPromotionEffect,
-        RegistryPatternPromotionEffect as RegistryPatternPromotionEffect,
-        ServiceHandlerRegistry as ServiceHandlerRegistry,
     )
 
 
@@ -213,8 +203,6 @@ __all__ = [
     "NodeSuccessCriteriaMatcherCompute",
     # Protocols
     "ProtocolPatternRepository",
-    "RegistryPatternPromotionEffect",
-    "ServiceHandlerRegistry",
     "SessionOutcomeInput",
     # Handler functions
     "record_session_outcome",
