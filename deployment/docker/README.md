@@ -309,14 +309,15 @@ where reproducibility and image size matter.
 ```bash
 # Build wheel from omniintelligence root
 uv build --wheel
-# Output: dist/omniintelligence-0.1.0-py3-none-any.whl
+# Output: dist/omniintelligence-<version>-py3-none-any.whl
 ```
 
 ```dockerfile
 # In Dockerfile.runtime (production)
-COPY omniintelligence-0.1.0-py3-none-any.whl /tmp/
-RUN uv pip install --system --no-cache /tmp/omniintelligence-0.1.0-py3-none-any.whl \
-    && rm /tmp/omniintelligence-0.1.0-py3-none-any.whl
+# Use wildcard to avoid hardcoding the version
+COPY dist/omniintelligence-*.whl /tmp/
+RUN uv pip install --system --no-cache /tmp/omniintelligence-*.whl \
+    && rm /tmp/omniintelligence-*.whl
 ```
 
 **Tradeoff**: Clean, reproducible, minimal image. Requires wheel rebuild on
@@ -337,13 +338,13 @@ docker build \
 
 ```dockerfile
 # In Dockerfile.runtime
-FROM python:3.12-slim as base
+FROM python:3.12-slim AS base
 # ... base setup ...
 
-# Install omniintelligence from sibling repo context
+# Install omniintelligence from sibling repo context (non-editable for CI/CD)
 COPY --from=omniintelligence pyproject.toml /opt/omniintelligence/pyproject.toml
 COPY --from=omniintelligence src/ /opt/omniintelligence/src/
-RUN uv pip install --system --no-cache -e /opt/omniintelligence
+RUN uv pip install --system --no-cache /opt/omniintelligence
 ```
 
 **Tradeoff**: Cleanest CI/CD integration, but requires Docker BuildKit and

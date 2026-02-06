@@ -25,9 +25,10 @@ import pytest
 # Constants
 # =========================================================================
 
+# Relative to project root; resolved via project_root fixture in tests.
 NODES_DIR = Path("src/omniintelligence/nodes")
 
-# All node directories that MUST be importable for HandlerPluginLoader.
+# All 17 node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
@@ -51,14 +52,12 @@ EXPECTED_NODE_DIRS = [
 
 # Handler functions/classes that HandlerPluginLoader resolves dynamically.
 # Each entry: (module_path, attribute_name).
+# node_intelligence_orchestrator is excluded (uses workflow_coordination, no handlers/).
 HANDLER_ENTRY_POINTS = [
+    # --- Compute nodes ---
     (
         "omniintelligence.nodes.node_quality_scoring_compute.handlers",
         "handle_quality_scoring_compute",
-    ),
-    (
-        "omniintelligence.nodes.node_claude_hook_event_effect.handlers",
-        "HandlerClaudeHookEvent",
     ),
     (
         "omniintelligence.nodes.node_intent_classifier_compute.handlers",
@@ -73,12 +72,55 @@ HANDLER_ENTRY_POINTS = [
         "HandlerPatternLearning",
     ),
     (
+        "omniintelligence.nodes.node_pattern_matching_compute.handlers",
+        "handle_pattern_matching_compute",
+    ),
+    (
         "omniintelligence.nodes.node_semantic_analysis_compute.handlers",
         "handle_semantic_analysis_compute",
     ),
     (
+        "omniintelligence.nodes.node_execution_trace_parser_compute.handlers",
+        "handle_trace_parsing_compute",
+    ),
+    (
+        "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers",
+        "handle_success_criteria_compute",
+    ),
+    # --- Effect nodes ---
+    (
+        "omniintelligence.nodes.node_claude_hook_event_effect.handlers",
+        "HandlerClaudeHookEvent",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_storage_effect.handlers",
+        "route_storage_operation",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_promotion_effect.handlers",
+        "check_and_promote_patterns",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_demotion_effect.handlers",
+        "check_and_demote_patterns",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_feedback_effect.handlers",
+        "record_session_outcome",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers",
+        "apply_transition",
+    ),
+    # --- Reducer ---
+    (
         "omniintelligence.nodes.node_intelligence_reducer.handlers",
         "handle_pattern_lifecycle_transition",
+    ),
+    # --- Orchestrator (with handler routing) ---
+    (
+        "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers",
+        "handle_pattern_assembly_orchestrate",
     ),
 ]
 
