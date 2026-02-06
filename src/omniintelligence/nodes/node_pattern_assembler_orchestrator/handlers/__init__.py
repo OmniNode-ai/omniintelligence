@@ -21,6 +21,7 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.excepti
     PatternAssemblerOrchestratorError,
     PatternAssemblyError,
     TraceParsingError,
+    UnexpectedWorkflowError,
     WorkflowTimeoutError,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate import (
@@ -59,5 +60,6 @@ __all__ = [
     "PatternAssemblerOrchestratorError",
     "PatternAssemblyError",
     "TraceParsingError",
+    "UnexpectedWorkflowError",
     "WorkflowTimeoutError",
 ]

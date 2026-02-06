@@ -150,6 +150,11 @@ error_handling:
       description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
+    - name: "UnexpectedWorkflowError"
+      error_code: "PAO_009"
+      description: "Unexpected error during workflow execution"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
 health_check:
   enabled: true
   endpoint: "/health"
