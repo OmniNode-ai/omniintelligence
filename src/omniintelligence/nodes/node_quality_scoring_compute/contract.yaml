@@ -65,6 +65,17 @@ operations:
 #   - Define analyze(), get_metrics(), get_recommendations() interface
 #   - Uncomment dependency below
 # =============================================================================
+# Handler Routing (Declarative Pattern)
+# =====================================
+# Compute nodes use a single handler for all operations.
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "score_quality"
+      handler:
+        function: "handle_quality_scoring_compute"
+        module: "omniintelligence.nodes.node_quality_scoring_compute.handlers"
+        type: "sync"
 dependencies: []
 # Future dependency (when #13 is implemented):
 # - name: "quality_analyzer"
