@@ -226,7 +226,10 @@ class TestContractHandlerImports:
             node_type = data.get("node_type", "")
             has_handler_routing = "handler_routing" in data
 
-            if not has_handler_routing and node_type not in HANDLER_ROUTING_EXEMPT_TYPES:
+            if (
+                not has_handler_routing
+                and node_type not in HANDLER_ROUTING_EXEMPT_TYPES
+            ):
                 missing.append(
                     f"{node_name} ({node_type}): missing handler_routing section"
                 )
