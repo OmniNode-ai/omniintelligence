@@ -20,7 +20,6 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers import 
     handle_pattern_assembly_orchestrate,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
-    ModelPatternAssemblyInput,
     ModelPatternAssemblyOutput,
 )
 
@@ -58,15 +57,9 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
         Returns:
             Output dictionary from ModelPatternAssemblyOutput.
         """
-        # Parse input into typed model
-        typed_input = ModelPatternAssemblyInput(**input_data)
-
-        # Delegate to handler
         result: ModelPatternAssemblyOutput = await handle_pattern_assembly_orchestrate(
-            typed_input
+            input_data
         )
-
-        # Return as dictionary
         return result.model_dump()
 
 

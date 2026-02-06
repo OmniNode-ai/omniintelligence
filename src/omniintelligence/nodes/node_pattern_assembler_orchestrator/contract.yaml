@@ -72,9 +72,9 @@ workflow_coordination:
           step_config:
             internal_handler: "handler_pattern_assembly.assemble_pattern"
     coordination_rules:
-      execution_mode: parallel
-      parallel_execution_allowed: true
-      max_parallel_branches: 4
+      execution_mode: sequential
+      parallel_execution_allowed: false
+      max_parallel_branches: 1
       failure_recovery_strategy: retry
       max_retries: 3
       timeout_ms: 120000

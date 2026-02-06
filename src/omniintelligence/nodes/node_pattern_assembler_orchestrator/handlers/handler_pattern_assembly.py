@@ -130,9 +130,10 @@ def assemble_pattern(
 
         return assembled_pattern, component_results, metadata
 
-    except Exception as e:
-        # Return structured error output per ONEX handler pattern
-        # Domain errors are returned, not raised
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        # Domain/data errors - return structured output per ONEX handler pattern.
+        # Invariant violations (e.g., SchemaCorruptionError) and other fatal
+        # exceptions are NOT caught here and will propagate to halt orchestration.
         logger.error(
             "Pattern assembly failed: %s",
             str(e),
@@ -205,7 +206,6 @@ def _extract_pattern_structure(
         Tuple of (trigger, actions, conditions).
     """
     trace_events = context.get("trace_events", [])
-    content = context.get("content", "")
     primary_intent = context.get("primary_intent", "unknown")
 
     # Extract trigger from first event or content

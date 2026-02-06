@@ -92,6 +92,10 @@ class ModelPatternAssemblyOutput(BaseModel):
         ...,
         description="Whether pattern assembly succeeded",
     )
+    correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for end-to-end tracing",
+    )
     assembled_pattern: AssembledPatternOutputDict = Field(
         default_factory=lambda: AssembledPatternOutputDict(),
         description="The assembled pattern with typed fields",

@@ -16,10 +16,13 @@ Correlation ID: Threaded through all operations for end-to-end tracing.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import Any
+
+from pydantic import ValidationError
 
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.exceptions import (
     InvalidInputError,
@@ -41,13 +44,9 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
     AssembledPatternOutputDict,
     AssemblyMetadataDict,
     ComponentResultsDict,
+    ModelPatternAssemblyInput,
     ModelPatternAssemblyOutput,
 )
-
-if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
-        ModelPatternAssemblyInput,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ DEFAULT_TIMEOUT_SECONDS = 120
 
 
 async def handle_pattern_assembly_orchestrate(
-    input_data: ModelPatternAssemblyInput,
+    input_data: ModelPatternAssemblyInput | dict[str, Any],
     trace_parser_node: ProtocolComputeNode | None = None,
     intent_classifier_node: ProtocolComputeNode | None = None,
     criteria_matcher_node: ProtocolComputeNode | None = None,
@@ -68,7 +67,7 @@ async def handle_pattern_assembly_orchestrate(
     It coordinates the complete workflow and returns structured output.
 
     Args:
-        input_data: Input containing raw data and assembly parameters.
+        input_data: Input dict or typed model containing raw data and assembly parameters.
         trace_parser_node: Optional trace parser compute node.
         intent_classifier_node: Optional intent classifier compute node.
         criteria_matcher_node: Optional criteria matcher compute node.
@@ -82,37 +81,46 @@ async def handle_pattern_assembly_orchestrate(
         and returned as structured output with success=False.
     """
     start_time = time.perf_counter()
-    correlation_id = input_data.correlation_id
-
-    logger.debug(
-        "Starting pattern assembly orchestration",
-        extra={"correlation_id": correlation_id},
-    )
+    correlation_id: str | None = None
 
     try:
+        # Parse input into typed model if needed (inside handler for structured error handling)
+        if isinstance(input_data, dict):
+            input_data = ModelPatternAssemblyInput(**input_data)
+
+        correlation_id = input_data.correlation_id
+
+        logger.debug(
+            "Starting pattern assembly orchestration",
+            extra={"correlation_id": correlation_id},
+        )
+
         # Validate input
         _validate_input(input_data)
 
-        # Execute the workflow
-        workflow_result = await execute_workflow_async(
-            input_data=input_data,
-            trace_parser_node=trace_parser_node,
-            intent_classifier_node=intent_classifier_node,
-            criteria_matcher_node=criteria_matcher_node,
-        )
-
-        # Check for timeout
-        elapsed = _elapsed_time_seconds(start_time)
-        if elapsed > timeout_seconds:
+        # Execute the workflow with enforced timeout
+        try:
+            workflow_result = await asyncio.wait_for(
+                execute_workflow_async(
+                    input_data=input_data,
+                    trace_parser_node=trace_parser_node,
+                    intent_classifier_node=intent_classifier_node,
+                    criteria_matcher_node=criteria_matcher_node,
+                ),
+                timeout=timeout_seconds,
+            )
+        except TimeoutError:
+            elapsed = _elapsed_time_seconds(start_time)
             raise WorkflowTimeoutError(
                 f"Workflow exceeded timeout: {elapsed:.1f}s > {timeout_seconds}s"
-            )
+            ) from None
 
         # Check workflow success
         if not workflow_result.get("success", False):
             return _create_workflow_error_output(
                 workflow_result=workflow_result,
                 processing_time=_elapsed_time_ms(start_time),
+                correlation_id=correlation_id,
             )
 
         # Build assembly context from results
@@ -130,6 +138,7 @@ async def handle_pattern_assembly_orchestrate(
         if metadata.get("status") == "assembly_failed":
             return ModelPatternAssemblyOutput(
                 success=False,
+                correlation_id=correlation_id,
                 assembled_pattern=assembled_pattern,
                 component_results=component_results,
                 metadata=metadata,
@@ -145,10 +154,20 @@ async def handle_pattern_assembly_orchestrate(
 
         return ModelPatternAssemblyOutput(
             success=True,
+            correlation_id=correlation_id,
             assembled_pattern=assembled_pattern,
             component_results=component_results,
             metadata=metadata,
         )
+
+    except ValidationError as e:
+        processing_time = _elapsed_time_ms(start_time)
+        logger.warning(
+            "Input schema validation failed: %s",
+            str(e),
+            extra={"correlation_id": correlation_id},
+        )
+        return _create_validation_error_output(str(e), processing_time, correlation_id)
 
     except InvalidInputError as e:
         processing_time = _elapsed_time_ms(start_time)
@@ -157,7 +176,7 @@ async def handle_pattern_assembly_orchestrate(
             str(e),
             extra={"correlation_id": correlation_id},
         )
-        return _create_validation_error_output(str(e), processing_time)
+        return _create_validation_error_output(str(e), processing_time, correlation_id)
 
     except WorkflowTimeoutError as e:
         processing_time = _elapsed_time_ms(start_time)
@@ -166,7 +185,7 @@ async def handle_pattern_assembly_orchestrate(
             str(e),
             extra={"correlation_id": correlation_id},
         )
-        return _create_timeout_error_output(str(e), processing_time)
+        return _create_timeout_error_output(str(e), processing_time, correlation_id)
 
     except PatternAssemblerOrchestratorError as e:
         processing_time = _elapsed_time_ms(start_time)
@@ -176,7 +195,7 @@ async def handle_pattern_assembly_orchestrate(
             str(e),
             extra={"correlation_id": correlation_id},
         )
-        return _create_domain_error_output(e, processing_time)
+        return _create_domain_error_output(e, processing_time, correlation_id)
 
     except Exception as e:
         processing_time = _safe_elapsed_time_ms(start_time)
@@ -187,7 +206,9 @@ async def handle_pattern_assembly_orchestrate(
                 str(e),
                 extra={"correlation_id": correlation_id},
             )
-        return _create_safe_error_output(f"Unhandled error: {e}", processing_time)
+        return _create_safe_error_output(
+            f"Unhandled error: {e}", processing_time, correlation_id
+        )
 
 
 def _validate_input(input_data: ModelPatternAssemblyInput) -> None:
@@ -212,12 +233,14 @@ def _validate_input(input_data: ModelPatternAssemblyInput) -> None:
 def _create_workflow_error_output(
     workflow_result: WorkflowResultDict,
     processing_time: float,
+    correlation_id: str | None = None,
 ) -> ModelPatternAssemblyOutput:
     """Create output for workflow execution errors.
 
     Args:
         workflow_result: The failed workflow result.
         processing_time: Processing time before error.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         ModelPatternAssemblyOutput indicating workflow failure.
@@ -227,6 +250,7 @@ def _create_workflow_error_output(
 
     return ModelPatternAssemblyOutput(
         success=False,
+        correlation_id=correlation_id,
         assembled_pattern=AssembledPatternOutputDict(),
         component_results=ComponentResultsDict(),
         metadata=AssemblyMetadataDict(
@@ -240,18 +264,21 @@ def _create_workflow_error_output(
 def _create_validation_error_output(
     error_message: str,
     processing_time: float,
+    correlation_id: str | None = None,
 ) -> ModelPatternAssemblyOutput:
     """Create output for validation errors.
 
     Args:
         error_message: Description of the validation error.
         processing_time: Processing time before error.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         ModelPatternAssemblyOutput indicating validation failure.
     """
     return ModelPatternAssemblyOutput(
         success=False,
+        correlation_id=correlation_id,
         assembled_pattern=AssembledPatternOutputDict(),
         component_results=ComponentResultsDict(),
         metadata=AssemblyMetadataDict(
@@ -265,18 +292,21 @@ def _create_validation_error_output(
 def _create_timeout_error_output(
     error_message: str,
     processing_time: float,
+    correlation_id: str | None = None,
 ) -> ModelPatternAssemblyOutput:
     """Create output for timeout errors.
 
     Args:
         error_message: Description of the timeout.
         processing_time: Processing time before timeout.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         ModelPatternAssemblyOutput indicating timeout failure.
     """
     return ModelPatternAssemblyOutput(
         success=False,
+        correlation_id=correlation_id,
         assembled_pattern=AssembledPatternOutputDict(),
         component_results=ComponentResultsDict(),
         metadata=AssemblyMetadataDict(
@@ -290,18 +320,21 @@ def _create_timeout_error_output(
 def _create_domain_error_output(
     error: PatternAssemblerOrchestratorError,
     processing_time: float,
+    correlation_id: str | None = None,
 ) -> ModelPatternAssemblyOutput:
     """Create output for domain-specific errors.
 
     Args:
         error: The domain error.
         processing_time: Processing time before error.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         ModelPatternAssemblyOutput indicating domain error.
     """
     return ModelPatternAssemblyOutput(
         success=False,
+        correlation_id=correlation_id,
         assembled_pattern=AssembledPatternOutputDict(),
         component_results=ComponentResultsDict(),
         metadata=AssemblyMetadataDict(
@@ -315,6 +348,7 @@ def _create_domain_error_output(
 def _create_safe_error_output(
     error_message: str,
     processing_time: float,
+    correlation_id: str | None = None,
 ) -> ModelPatternAssemblyOutput:
     """Create output for unexpected errors.
 
@@ -323,33 +357,22 @@ def _create_safe_error_output(
     Args:
         error_message: Description of the error.
         processing_time: Processing time before error.
+        correlation_id: Correlation ID for tracing.
 
     Returns:
         ModelPatternAssemblyOutput indicating unexpected failure.
     """
-    try:
-        return ModelPatternAssemblyOutput(
-            success=False,
-            assembled_pattern=AssembledPatternOutputDict(),
-            component_results=ComponentResultsDict(),
-            metadata=AssemblyMetadataDict(
-                processing_time_ms=int(processing_time),
-                status="error",
-                warnings=[f"Unexpected error: {error_message}"],
-            ),
-        )
-    except Exception:
-        # Absolute fallback - construct minimal valid output
-        return ModelPatternAssemblyOutput(
-            success=False,
-            assembled_pattern=AssembledPatternOutputDict(),
-            component_results=ComponentResultsDict(),
-            metadata=AssemblyMetadataDict(
-                processing_time_ms=int(processing_time),
-                status="critical_error",
-                warnings=["Critical error during output construction"],
-            ),
-        )
+    return ModelPatternAssemblyOutput(
+        success=False,
+        correlation_id=correlation_id,
+        assembled_pattern=AssembledPatternOutputDict(),
+        component_results=ComponentResultsDict(),
+        metadata=AssemblyMetadataDict(
+            processing_time_ms=int(processing_time),
+            status="error",
+            warnings=[f"Unexpected error: {error_message}"],
+        ),
+    )
 
 
 def _elapsed_time_ms(start_time: float) -> float:
