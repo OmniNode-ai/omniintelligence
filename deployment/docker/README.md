@@ -375,8 +375,8 @@ dependency group:
 # Minimal install (handler classes only, no ML/DB)
 uv pip install --system -e .
 
-# Full install (all infrastructure deps)
-uv pip install --system --group core -e .
+# Full install (all infrastructure deps via uv sync)
+uv sync --group core
 ```
 
 For the runtime container, the minimal install is sufficient since
