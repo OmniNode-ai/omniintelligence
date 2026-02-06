@@ -85,13 +85,24 @@ omnimemory consumes for graph storage.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_PATTERN_STORED_V1: str = "onex.evt.omniintelligence.pattern-stored.v1"
+"""
+TEMP_BOOTSTRAP: Topic suffix for pattern storage events (OUTPUT).
+
+Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-stored.v1
+
+NodePatternStorageEffect publishes when a pattern is stored in the database.
+
+Deletion ticket: OMN-1546
+"""
+
 TOPIC_SUFFIX_PATTERN_PROMOTED_V1: str = "onex.evt.omniintelligence.pattern-promoted.v1"
 """
 TEMP_BOOTSTRAP: Topic suffix for pattern promotion events (OUTPUT).
 
 Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-promoted.v1
 
-NodePatternPromotionEffect publishes when a provisional pattern is promoted
+NodePatternStorageEffect publishes when a pattern is promoted
 to validated status based on rolling window success metrics.
 
 Deletion ticket: OMN-1546
@@ -142,4 +153,5 @@ __all__ = [
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
     "TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1",
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
+    "TOPIC_SUFFIX_PATTERN_STORED_V1",
 ]

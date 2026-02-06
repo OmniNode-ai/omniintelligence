@@ -156,6 +156,17 @@ configuration:
 #   - Node should implement the protocol interface
 #   - Uncomment dependency below
 # =============================================================================
+# Handler Routing (Declarative Pattern)
+# =====================================
+# Compute nodes use a single handler for all extraction operations.
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "extract_patterns"
+      handler:
+        function: "extract_all_patterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        type: "sync"
 dependencies: []
 # Future dependency (when protocol is implemented):
 # - name: "pattern_extractor"

@@ -167,6 +167,22 @@ configuration:
 #   - Node should implement the protocol interface
 #   - Uncomment dependency below
 # =============================================================================
+# Handler Routing (Declarative Pattern)
+# =====================================
+# Compute nodes use a single handler for classification operations.
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "classify_intent"
+      handler:
+        function: "handle_intent_classification"
+        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
+        type: "sync"
+    - operation: "analyze_semantics"
+      handler:
+        function: "handle_intent_classification"
+        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
+        type: "sync"
 dependencies: []
 # Future dependency (when OMN-1478 is implemented):
 # - name: "intent_classifier"
