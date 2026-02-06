@@ -1,0 +1,64 @@
+<!-- HANDSHAKE_METADATA
+source: omnibase_core/architecture-handshakes/repos/omniintelligence.md
+source_version: 0.15.0
+source_sha256: 52fd5ac06ccc6b74ac639d666e4451b949f4a4f3de380d9457d7f2bdca23c007
+installed_at: 2026-02-06T20:29:16Z
+installed_by: jonah
+-->
+
+# OmniNode Architecture – Constraint Map (omniintelligence)
+
+> **Role**: Intelligence platform – code quality, pattern learning, semantic analysis
+> **Handshake Version**: 0.1.0
+
+## Core Principles
+
+- Declarative nodes, imperative handlers
+- Thin shell pattern (<100 lines per node)
+- Correlation IDs threaded through all operations
+- Effect nodes never block on Kafka
+
+## This Repo Contains
+
+- Claude Code hook event processing
+- Pattern learning (extraction, clustering, lifecycle)
+- Quality scoring with ONEX compliance
+- Intent classification (pure computation)
+- Semantic code analysis
+
+**Note**: Vector storage (Qdrant) and graph operations (Memgraph) are in `omnimemory`.
+
+## Rules the Agent Must Obey
+
+1. **Node classes must be thin shells** (<100 lines) - Logic belongs in handlers
+2. **Effect nodes must NEVER block on Kafka** - Kafka is optional; operations must succeed without it
+3. **All event schemas are frozen** (`frozen=True`) - Events are immutable after emission
+4. **Handlers must return structured errors, not raise** - Domain errors are data, not exceptions
+5. **`correlation_id` must be threaded through all operations** - End-to-end tracing required
+6. **No hardcoded environment variables** - All config via `.env` or Pydantic Settings
+
+## Non-Goals (DO NOT)
+
+- ❌ No developer convenience over strictness - Boilerplate is acceptable if it enforces boundaries
+- ❌ No framework agnosticism - This is ONEX-native, no abstraction layers
+- ❌ No flexibility over determinism - One way to do things
+- ❌ No minimal code - Explicit is better than clever
+- ❌ No backwards compatibility - No deprecation periods, no shims
+
+## Thin Shell Pattern
+
+```python
+# CORRECT - ~22 lines, delegates to handler
+class NodeQualityScoringCompute(NodeCompute[Input, Output]):
+    async def compute(self, input_data: Input) -> Output:
+        return handle_quality_scoring_compute(input_data)
+```
+
+## Node Types
+
+| Type | Purpose | Output |
+|------|---------|--------|
+| Orchestrator | Coordinate workflows | `events[]`, `intents[]` |
+| Reducer | FSM state transitions | `projections[]` |
+| Compute | Pure data processing | `result` (required) |
+| Effect | External I/O | `events[]` |

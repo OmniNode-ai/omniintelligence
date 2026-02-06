@@ -569,11 +569,42 @@ jobs:
           echo "Running cross-repo validation (Kafka import guard)..."
           uv run python -m omnibase_core.validation.cross_repo --policy .cross-repo-policy.yaml
 
+  # ============================================================================
+  # Architecture Handshake Verification
+  # ============================================================================
+  check-handshake:
+    name: Verify Architecture Handshake
+    runs-on: ubuntu-latest
+    # Skip on fork PRs - forks may not have access to cross-repo checkout
+    # Runs on: push events, workflow_dispatch, and PRs from the same repo
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout omnibase_core
+        uses: actions/checkout@v4
+        with:
+          repository: OmniNode-ai/omnibase_core
+          path: omnibase_core
+
+      - name: Verify handshake is current
+        run: |
+          echo "::group::Architecture Handshake Verification"
+          if [ ! -f "./omnibase_core/architecture-handshakes/check-handshake.sh" ]; then
+            echo "::error::check-handshake.sh not found in omnibase_core"
+            exit 1
+          fi
+          echo "Verifying .claude/architecture-handshake.md matches source in omnibase_core..."
+          echo ""
+          ./omnibase_core/architecture-handshakes/check-handshake.sh ./omnibase_core
+          echo "::endgroup::"
+
   # Summary job - aggregates all job results
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [changes, pre-commit, scope-alignment, lint, type-check, test-unit, contract-validation, io-audit, cross-repo-validation]
+    needs: [changes, pre-commit, scope-alignment, lint, type-check, test-unit, contract-validation, io-audit, cross-repo-validation, check-handshake]
     if: always()
 
     steps:
@@ -587,6 +618,7 @@ jobs:
           contracts="${{ needs.contract-validation.result }}"
           ioaudit="${{ needs.io-audit.result }}"
           crossrepo="${{ needs.cross-repo-validation.result }}"
+          handshake="${{ needs.check-handshake.result }}"
           production_code_changed="${{ needs.changes.outputs.production_code }}"
 
           # Status emoji mapping
@@ -655,9 +687,16 @@ jobs:
           echo "| Contract Validation | $(get_status_icon $contracts) | \`$contracts\` |" >> $GITHUB_STEP_SUMMARY
           echo "| I/O Audit | $(get_status_icon $ioaudit) | \`$ioaudit\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Cross-Repo Validation | $(get_status_icon $crossrepo) | \`$crossrepo\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture Handshake | $(get_status_icon $handshake) | \`$handshake\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Overall status - production code jobs can be skipped if no relevant changes
+          # check-handshake is skipped on fork PRs (acceptable when skipped)
+          is_handshake_acceptable() {
+            local result="$1"
+            [[ "$result" == "success" ]] || [[ "$result" == "skipped" ]]
+          }
+
           if is_acceptable "$precommit" "false" && \
              is_acceptable "$scopealign" "false" && \
              is_acceptable "$lint" "true" && \
@@ -665,7 +704,8 @@ jobs:
              is_acceptable "$unittest" "true" && \
              is_acceptable "$contracts" "false" && \
              is_acceptable "$ioaudit" "false" && \
-             is_acceptable "$crossrepo" "false"; then
+             is_acceptable "$crossrepo" "false" && \
+             is_handshake_acceptable "$handshake"; then
             echo "### :rocket: All CI checks passed!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Ready for review and merge." >> $GITHUB_STEP_SUMMARY
