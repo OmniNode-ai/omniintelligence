@@ -118,7 +118,8 @@ Thumbs.db
 
 # Project specific
 *.local.md
-.claude/
+.claude/*
+!.claude/architecture-handshake.md
 
 # Sphinx documentation
 docs/_build/
