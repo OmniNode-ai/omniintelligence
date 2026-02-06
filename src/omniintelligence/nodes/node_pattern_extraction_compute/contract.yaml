@@ -158,13 +158,33 @@ configuration:
 # =============================================================================
 # Handler Routing (Declarative Pattern)
 # =====================================
-# Compute nodes use a single handler for all extraction operations.
+# Each declared operation maps to its specific handler function via operation_match routing.
 handler_routing:
-  routing_strategy: "single_handler"
+  routing_strategy: "operation_match"
   handlers:
     - operation: "extract_patterns"
       handler:
         function: "extract_all_patterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        type: "sync"
+    - operation: "extract_file_patterns"
+      handler:
+        function: "extract_file_access_patterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        type: "sync"
+    - operation: "extract_error_patterns"
+      handler:
+        function: "extract_error_patterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        type: "sync"
+    - operation: "extract_architecture_patterns"
+      handler:
+        function: "extract_architecture_patterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        type: "sync"
+    - operation: "extract_tool_patterns"
+      handler:
+        function: "extract_tool_patterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
         type: "sync"
 dependencies: []

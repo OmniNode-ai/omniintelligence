@@ -169,7 +169,7 @@ configuration:
 # =============================================================================
 # Handler Routing (Declarative Pattern)
 # =====================================
-# Compute nodes use a single handler for classification operations.
+# Each declared operation maps to its corresponding handler function.
 handler_routing:
   routing_strategy: "operation_match"
   handlers:
@@ -180,7 +180,12 @@ handler_routing:
         type: "sync"
     - operation: "analyze_semantics"
       handler:
-        function: "handle_intent_classification"
+        function: "analyze_semantics"
+        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
+        type: "sync"
+    - operation: "map_semantic_to_intent_boost"
+      handler:
+        function: "map_semantic_to_intent_boost"
         module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
         type: "sync"
 dependencies: []

@@ -240,6 +240,96 @@ class TestContractHandlerImports:
                 + "\n".join(f"  - {m}" for m in missing)
             )
 
+    def test_entry_point_imports_resolve(
+        self, all_contract_data: list[tuple[Path, dict[str, Any]]]
+    ) -> None:
+        """Verify every handler_routing entry_point module and function resolve."""
+        errors: list[str] = []
+
+        for contract_path, data in all_contract_data:
+            node_name = data.get("name", contract_path.parent.name)
+            handler_routing = data.get("handler_routing")
+
+            if handler_routing is None:
+                continue
+
+            entry_point = handler_routing.get("entry_point")
+            if entry_point is None:
+                continue
+
+            module_path = entry_point.get("module", "")
+            function_name = entry_point.get("function", "")
+
+            if not module_path:
+                errors.append(f"{node_name}: entry_point has no module path")
+                continue
+
+            try:
+                module = importlib.import_module(module_path)
+            except ImportError as e:
+                errors.append(
+                    f"{node_name}: Cannot import entry_point module "
+                    f"'{module_path}': {e}"
+                )
+                continue
+
+            if function_name and not hasattr(module, function_name):
+                errors.append(
+                    f"{node_name}: entry_point function '{function_name}' "
+                    f"not found in module '{module_path}'"
+                )
+
+        if errors:
+            pytest.fail(
+                f"Entry point import failures ({len(errors)}):\n"
+                + "\n".join(f"  - {e}" for e in errors)
+            )
+
+    def test_default_handler_imports_resolve(
+        self, all_contract_data: list[tuple[Path, dict[str, Any]]]
+    ) -> None:
+        """Verify every handler_routing default_handler module and function resolve."""
+        errors: list[str] = []
+
+        for contract_path, data in all_contract_data:
+            node_name = data.get("name", contract_path.parent.name)
+            handler_routing = data.get("handler_routing")
+
+            if handler_routing is None:
+                continue
+
+            default_handler = handler_routing.get("default_handler")
+            if default_handler is None:
+                continue
+
+            module_path = default_handler.get("module", "")
+            function_name = default_handler.get("function", "")
+
+            if not module_path:
+                errors.append(f"{node_name}: default_handler has no module path")
+                continue
+
+            try:
+                module = importlib.import_module(module_path)
+            except ImportError as e:
+                errors.append(
+                    f"{node_name}: Cannot import default_handler module "
+                    f"'{module_path}': {e}"
+                )
+                continue
+
+            if function_name and not hasattr(module, function_name):
+                errors.append(
+                    f"{node_name}: default_handler function "
+                    f"'{function_name}' not found in module '{module_path}'"
+                )
+
+        if errors:
+            pytest.fail(
+                f"Default handler import failures ({len(errors)}):\n"
+                + "\n".join(f"  - {e}" for e in errors)
+            )
+
     def test_no_duplicate_contract_files(self, nodes_dir: Path) -> None:
         """Verify no node directory has multiple contract.yaml files.
 
