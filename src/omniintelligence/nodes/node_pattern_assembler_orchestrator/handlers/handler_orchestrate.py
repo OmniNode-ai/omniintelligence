@@ -24,6 +24,11 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers._timing import (
+    elapsed_time_ms,
+    elapsed_time_seconds,
+    safe_elapsed_time_ms,
+)
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.exceptions import (
     InvalidInputError,
     PatternAssemblerOrchestratorError,
@@ -110,7 +115,7 @@ async def handle_pattern_assembly_orchestrate(
                 timeout=timeout_seconds,
             )
         except TimeoutError:
-            elapsed = _elapsed_time_seconds(start_time)
+            elapsed = elapsed_time_seconds(start_time)
             raise WorkflowTimeoutError(
                 f"Workflow exceeded timeout: {elapsed:.1f}s > {timeout_seconds}s"
             ) from None
@@ -119,7 +124,7 @@ async def handle_pattern_assembly_orchestrate(
         if not workflow_result.get("success", False):
             return _create_workflow_error_output(
                 workflow_result=workflow_result,
-                processing_time=_elapsed_time_ms(start_time),
+                processing_time=elapsed_time_ms(start_time),
                 correlation_id=correlation_id,
             )
 
@@ -148,7 +153,7 @@ async def handle_pattern_assembly_orchestrate(
             "Pattern assembly orchestration completed successfully: "
             "pattern_id=%s, duration_ms=%.2f",
             assembled_pattern.get("pattern_id"),
-            _elapsed_time_ms(start_time),
+            elapsed_time_ms(start_time),
             extra={"correlation_id": correlation_id},
         )
 
@@ -161,7 +166,7 @@ async def handle_pattern_assembly_orchestrate(
         )
 
     except ValidationError as e:
-        processing_time = _elapsed_time_ms(start_time)
+        processing_time = elapsed_time_ms(start_time)
         logger.warning(
             "Input schema validation failed: %s",
             str(e),
@@ -170,7 +175,7 @@ async def handle_pattern_assembly_orchestrate(
         return _create_validation_error_output(str(e), processing_time, correlation_id)
 
     except InvalidInputError as e:
-        processing_time = _elapsed_time_ms(start_time)
+        processing_time = elapsed_time_ms(start_time)
         logger.warning(
             "Input validation failed: %s",
             str(e),
@@ -179,7 +184,7 @@ async def handle_pattern_assembly_orchestrate(
         return _create_validation_error_output(str(e), processing_time, correlation_id)
 
     except WorkflowTimeoutError as e:
-        processing_time = _elapsed_time_ms(start_time)
+        processing_time = elapsed_time_ms(start_time)
         logger.error(
             "Workflow timeout: %s",
             str(e),
@@ -188,7 +193,7 @@ async def handle_pattern_assembly_orchestrate(
         return _create_timeout_error_output(str(e), processing_time, correlation_id)
 
     except PatternAssemblerOrchestratorError as e:
-        processing_time = _elapsed_time_ms(start_time)
+        processing_time = elapsed_time_ms(start_time)
         logger.error(
             "Orchestrator error (%s): %s",
             e.error_code.value,
@@ -198,7 +203,7 @@ async def handle_pattern_assembly_orchestrate(
         return _create_domain_error_output(e, processing_time, correlation_id)
 
     except Exception as e:
-        processing_time = _safe_elapsed_time_ms(start_time)
+        processing_time = safe_elapsed_time_ms(start_time)
         # Log with exception info, but suppress logging failures
         with contextlib.suppress(Exception):
             logger.exception(
@@ -373,24 +378,6 @@ def _create_safe_error_output(
             warnings=[f"Unexpected error: {error_message}"],
         ),
     )
-
-
-def _elapsed_time_ms(start_time: float) -> float:
-    """Calculate elapsed time in milliseconds."""
-    return (time.perf_counter() - start_time) * 1000
-
-
-def _elapsed_time_seconds(start_time: float) -> float:
-    """Calculate elapsed time in seconds."""
-    return time.perf_counter() - start_time
-
-
-def _safe_elapsed_time_ms(start_time: float) -> float:
-    """Safely calculate elapsed time, returning 0 on error."""
-    try:
-        return _elapsed_time_ms(start_time)
-    except Exception:
-        return 0.0
 
 
 __all__ = [

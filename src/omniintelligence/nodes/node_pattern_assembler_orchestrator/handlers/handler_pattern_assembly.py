@@ -20,6 +20,9 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers._timing import (
+    elapsed_time_ms,
+)
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.protocols import (
     AssemblyContextDict,
     WorkflowResultDict,
@@ -117,7 +120,7 @@ def assemble_pattern(
         component_results = _build_component_results(context, workflow_result)
 
         # Build metadata
-        processing_time = _elapsed_time_ms(start_time)
+        processing_time = elapsed_time_ms(start_time)
         metadata = _build_assembly_metadata(workflow_result, processing_time)
 
         logger.debug(
@@ -139,7 +142,7 @@ def assemble_pattern(
             str(e),
             extra={"correlation_id": correlation_id},
         )
-        processing_time = _elapsed_time_ms(start_time)
+        processing_time = elapsed_time_ms(start_time)
         return _create_assembly_error_output(str(e), workflow_result, processing_time)
 
 
@@ -480,11 +483,6 @@ def _build_assembly_metadata(
         status="completed" if workflow_result.get("success", False) else "failed",
         warnings=[],
     )
-
-
-def _elapsed_time_ms(start_time: float) -> float:
-    """Calculate elapsed time in milliseconds."""
-    return (time.perf_counter() - start_time) * 1000
 
 
 def _create_assembly_error_output(

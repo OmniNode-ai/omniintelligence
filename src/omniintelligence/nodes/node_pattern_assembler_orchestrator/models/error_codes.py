@@ -56,6 +56,10 @@ class EnumPatternAssemblerErrorCode(str, Enum):
     INVALID_INPUT_ERROR = "PAO_008"
     """Input validation failed - invalid or missing required fields."""
 
+    # PAO_009: Unexpected Workflow Error
+    UNEXPECTED_WORKFLOW_ERROR = "PAO_009"
+    """Unexpected/unclassified error during workflow execution."""
+
     @classmethod
     def from_error_name(cls, error_name: str) -> "EnumPatternAssemblerErrorCode":
         """
@@ -79,6 +83,7 @@ class EnumPatternAssemblerErrorCode(str, Enum):
             "WorkflowTimeoutError": cls.WORKFLOW_TIMEOUT_ERROR,
             "DependencyResolutionError": cls.DEPENDENCY_RESOLUTION_ERROR,
             "InvalidInputError": cls.INVALID_INPUT_ERROR,
+            "UnexpectedWorkflowError": cls.UNEXPECTED_WORKFLOW_ERROR,
         }
         if error_name not in name_mapping:
             raise ValueError(f"Unknown error name: {error_name}")

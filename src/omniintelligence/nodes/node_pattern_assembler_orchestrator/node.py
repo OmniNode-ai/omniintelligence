@@ -57,6 +57,7 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
         Returns:
             Output dictionary from ModelPatternAssemblyOutput.
         """
+        # Handler guarantees structured output (never raises); model_dump() is safe.
         result: ModelPatternAssemblyOutput = await handle_pattern_assembly_orchestrate(
             input_data
         )

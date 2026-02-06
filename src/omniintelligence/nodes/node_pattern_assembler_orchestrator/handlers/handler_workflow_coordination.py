@@ -16,6 +16,9 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers._timing import (
+    elapsed_time_ms,
+)
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.exceptions import (
     CriteriaMatchingError,
     IntentClassificationError,
@@ -206,7 +209,7 @@ async def execute_workflow_async(
             )
 
         # All steps succeeded
-        total_duration = _elapsed_time_ms(start_time)
+        total_duration = elapsed_time_ms(start_time)
 
         logger.debug(
             "Workflow execution completed successfully: duration_ms=%.2f",
@@ -286,7 +289,7 @@ async def execute_workflow_async(
             intent_result=intent_result,
             criteria_result=criteria_result,
             error_message=f"Unexpected error: {e}",
-            error_code="PAO_005",
+            error_code="PAO_009",
         )
 
 
@@ -326,7 +329,7 @@ async def _execute_trace_parsing(
             error_events=[],
             timing_data={},
             metadata={"event_count": 0, "error_count": 0},
-            duration_ms=_elapsed_time_ms(start_time),
+            duration_ms=elapsed_time_ms(start_time),
         )
 
     # If we have a trace parser node, use it
@@ -368,7 +371,7 @@ async def _execute_trace_parsing(
             error_events=[e.model_dump() for e in result.error_events],
             timing_data=result.timing_data.model_dump() if result.timing_data else {},
             metadata=result.metadata.model_dump() if result.metadata else {},
-            duration_ms=_elapsed_time_ms(start_time),
+            duration_ms=elapsed_time_ms(start_time),
         )
 
     # No node available - simulate success with input data as events
@@ -378,7 +381,7 @@ async def _execute_trace_parsing(
         error_events=[],
         timing_data={},
         metadata={"event_count": len(traces), "error_count": 0, "simulated": True},
-        duration_ms=_elapsed_time_ms(start_time),
+        duration_ms=elapsed_time_ms(start_time),
     )
 
 
@@ -420,7 +423,7 @@ async def _execute_intent_classification(
             confidence=0.0,
             secondary_intents=[],
             classification_metadata={"empty_content": True},
-            duration_ms=_elapsed_time_ms(start_time),
+            duration_ms=elapsed_time_ms(start_time),
         )
 
     # If we have an intent classifier node, use it
@@ -459,7 +462,7 @@ async def _execute_intent_classification(
             confidence=result.confidence or 0.0,
             secondary_intents=result.secondary_intents or [],
             classification_metadata=result.metadata or {},
-            duration_ms=_elapsed_time_ms(start_time),
+            duration_ms=elapsed_time_ms(start_time),
         )
 
     # No node available - simulate success with default intent
@@ -469,7 +472,7 @@ async def _execute_intent_classification(
         confidence=0.8,
         secondary_intents=["debugging"],
         classification_metadata={"simulated": True},
-        duration_ms=_elapsed_time_ms(start_time),
+        duration_ms=elapsed_time_ms(start_time),
     )
 
 
@@ -513,7 +516,7 @@ async def _execute_criteria_matching(
             match_score=1.0,  # No criteria means no failures
             overall_success=True,
             metadata={"no_criteria": True},
-            duration_ms=_elapsed_time_ms(start_time),
+            duration_ms=elapsed_time_ms(start_time),
         )
 
     # If we have a criteria matcher node, use it
@@ -547,7 +550,7 @@ async def _execute_criteria_matching(
             match_score=result.match_score or 0.0,
             overall_success=result.overall_success or False,
             metadata=result.metadata or {},
-            duration_ms=_elapsed_time_ms(start_time),
+            duration_ms=elapsed_time_ms(start_time),
         )
 
     # No node available - simulate success
@@ -560,7 +563,7 @@ async def _execute_criteria_matching(
         match_score=1.0,
         overall_success=True,
         metadata={"simulated": True},
-        duration_ms=_elapsed_time_ms(start_time),
+        duration_ms=elapsed_time_ms(start_time),
     )
 
 
@@ -670,7 +673,7 @@ def _create_failed_workflow_result(
     """
     return WorkflowResultDict(
         success=False,
-        total_duration_ms=_elapsed_time_ms(start_time),
+        total_duration_ms=elapsed_time_ms(start_time),
         step_results=step_results,
         trace_result=trace_result,
         intent_result=intent_result,
@@ -678,11 +681,6 @@ def _create_failed_workflow_result(
         error_message=error_message,
         error_code=error_code,
     )
-
-
-def _elapsed_time_ms(start_time: float) -> float:
-    """Calculate elapsed time in milliseconds."""
-    return (time.perf_counter() - start_time) * 1000
 
 
 __all__ = [

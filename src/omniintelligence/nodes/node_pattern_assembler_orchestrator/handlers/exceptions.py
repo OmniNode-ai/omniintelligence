@@ -116,6 +116,17 @@ class InvalidInputError(PatternAssemblerOrchestratorError):
     error_code = EnumPatternAssemblerErrorCode.INVALID_INPUT_ERROR
 
 
+class UnexpectedWorkflowError(PatternAssemblerOrchestratorError):
+    """Unexpected error during workflow execution (PAO_009).
+
+    Raised when an unclassified or unexpected error occurs during
+    workflow coordination that does not match any known error type.
+    This is recoverable as the cause may be transient.
+    """
+
+    error_code = EnumPatternAssemblerErrorCode.UNEXPECTED_WORKFLOW_ERROR
+
+
 __all__ = [
     "CriteriaMatchingError",
     "DependencyResolutionError",
@@ -125,5 +136,6 @@ __all__ = [
     "PatternAssemblerOrchestratorError",
     "PatternAssemblyError",
     "TraceParsingError",
+    "UnexpectedWorkflowError",
     "WorkflowTimeoutError",
 ]
