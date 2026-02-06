@@ -966,9 +966,8 @@ class TestRealNodeFiles:
         # Note: node_pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
         # Note: node_execution_trace_parser_compute was implemented in OMN-1427
-        stub_nodes = [
-            "node_pattern_assembler_orchestrator",
-        ]
+        # Note: node_pattern_assembler_orchestrator was implemented in OMN-1428
+        stub_nodes: list[str] = []
 
         for node_name in stub_nodes:
             node_path = nodes_directory / node_name / "node.py"

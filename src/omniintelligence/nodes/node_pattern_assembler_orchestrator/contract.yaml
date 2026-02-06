@@ -23,6 +23,19 @@ output_model:
   name: "ModelPatternAssemblyOutput"
   module: "omniintelligence.nodes.node_pattern_assembler_orchestrator.models"
   description: "Output containing assembled pattern and metadata."
+# Handler Routing Configuration
+# =============================
+handler_routing:
+  routing_strategy: "orchestration"
+  handlers:
+    - operation: "orchestrate_assembly"
+      handler:
+        function: "handle_pattern_assembly_orchestrate"
+        module: "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate"
+        type: "async"
+      description: "Main orchestration entry point for pattern assembly workflow"
+# Workflow Coordination
+# =====================
 workflow_coordination:
   workflow_definition:
     workflow_metadata:
@@ -52,15 +65,16 @@ workflow_coordination:
           step_config:
             compute_node: "success_criteria_matcher_compute"
         - node_id: "assemble_pattern"
-          node_type: COMPUTE_GENERIC
-          description: "Assemble final pattern from parsed traces and matched criteria"
+          node_type: INTERNAL
+          description: "Assemble final pattern from parsed traces and matched criteria (handled internally
+            by orchestrator)"
           depends_on: ["match_criteria"]
           step_config:
-            compute_node: "pattern_assembler_compute"
+            internal_handler: "handler_pattern_assembly.assemble_pattern"
     coordination_rules:
-      execution_mode: parallel
-      parallel_execution_allowed: true
-      max_parallel_branches: 4
+      execution_mode: sequential
+      parallel_execution_allowed: false
+      max_parallel_branches: 1
       failure_recovery_strategy: retry
       max_retries: 3
       timeout_ms: 120000
@@ -77,10 +91,8 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.node_success_criteria_matcher_compute"
     description: "Success criteria matching compute node"
-  - name: "pattern_assembler_compute"
-    type: "node"
-    module: "omniintelligence.nodes.pattern_assembler_compute"
-    description: "Pattern assembly compute node - assembles final pattern from components"
+    # Note: pattern_assembler step is handled internally by the orchestrator
+    # via handler_pattern_assembly.assemble_pattern
 # Error Handling Configuration
 # ============================
 error_handling:
@@ -138,6 +150,11 @@ error_handling:
       description: "Input validation failed"
       recoverable: false
       retry_strategy: "none"
+    - name: "UnexpectedWorkflowError"
+      error_code: "PAO_009"
+      description: "Unexpected error during workflow execution"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
 health_check:
   enabled: true
   endpoint: "/health"
@@ -145,7 +162,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-10-02"
-  updated: "2026-01-18"
+  updated: "2026-02-05"
   tags:
     - "ONEX"
     - "orchestrator"
