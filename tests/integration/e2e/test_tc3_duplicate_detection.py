@@ -259,7 +259,6 @@ class TestTC3DuplicateDetection:
 
     def test_deduplication_threshold_affects_merge_count(
         self,
-        _pattern_learning_handler: HandlerPatternLearning,
     ) -> None:
         """Test that deduplication threshold affects how many patterns are merged.
 
