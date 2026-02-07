@@ -366,13 +366,15 @@ print('Handler imports OK')
 
 ### Package Dependencies
 
-The base `pip install omniintelligence` (PEP 621 dependencies) installs only
-lightweight runtime deps (pydantic, httpx, pyyaml, etc.). Heavy deps like
-torch, sentence-transformers, and database drivers are in the `core`
-dependency group:
+The base `pip install omniintelligence` (PEP 621 dependencies) installs
+runtime deps including pydantic, httpx, pyyaml, and confluent-kafka. Note
+that `confluent-kafka` is a C extension wrapping librdkafka; on slim
+container images (e.g., `python:3.12-slim`) you may need build tools or a
+pre-built wheel. Heavy ML and database deps like torch, sentence-transformers,
+asyncpg, and qdrant-client are in the `core` dependency group:
 
 ```bash
-# Minimal install (handler classes only, no ML/DB)
+# Minimal install (handler classes + Kafka client, no ML/DB)
 uv pip install --system -e .
 
 # Full install (all infrastructure deps via uv sync)
@@ -380,8 +382,9 @@ uv sync --group core
 ```
 
 For the runtime container, the minimal install is sufficient since
-`RuntimeHostProcess` provides its own infrastructure (Kafka, PostgreSQL)
-connections.
+`RuntimeHostProcess` provides its own infrastructure (PostgreSQL, etc.)
+connections. Kafka connectivity is included in the base install because
+handler modules import Kafka types at module load time.
 
 ## Production Deployment
 
