@@ -114,11 +114,17 @@ def _extract_handler_entry_points(
 
     # entry_point (if present)
     ep = handler_routing.get("entry_point")
-    if ep and isinstance(ep, dict):
+    if ep is not None:
+        if not isinstance(ep, dict):
+            raise AssertionError(
+                f"handler_routing.entry_point must be a mapping, "
+                f"got {type(ep).__name__}"
+            )
         module = ep.get("module", "")
         function = ep.get("function", "")
-        if module and function:
-            entry_points.append((module, function))
+        if not (module and function):
+            raise AssertionError(f"entry_point missing module/function: {ep!r}")
+        entry_points.append((module, function))
 
     # handlers list
     handlers_raw = handler_routing.get("handlers") or []
@@ -158,11 +164,17 @@ def _extract_handler_entry_points(
 
     # default_handler (if present)
     dh = handler_routing.get("default_handler")
-    if dh and isinstance(dh, dict):
+    if dh is not None:
+        if not isinstance(dh, dict):
+            raise AssertionError(
+                f"handler_routing.default_handler must be a mapping, "
+                f"got {type(dh).__name__}"
+            )
         module = dh.get("module", "")
         function = dh.get("function", "")
-        if module and function:
-            entry_points.append((module, function))
+        if not (module and function):
+            raise AssertionError(f"default_handler missing module/function: {dh!r}")
+        entry_points.append((module, function))
 
     return entry_points
 

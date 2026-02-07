@@ -120,11 +120,11 @@ def generate_pattern_signature(
         # Extract and normalize pattern indicators (lowercase, dedupe, sort)
         indicators_raw = centroid["pattern_indicators"]
         indicators_normalized = sorted({ind.lower() for ind in indicators_raw})
-    except KeyError as e:
+    except (KeyError, TypeError, AttributeError) as e:
         return PatternSignatureResultDict(
             success=False,
             result=None,
-            error_message=f"Malformed cluster: missing required key {e}",
+            error_message=f"Malformed cluster: {e}",
         )
 
     # Build signature inputs tuple
