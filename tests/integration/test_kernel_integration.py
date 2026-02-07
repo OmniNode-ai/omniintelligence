@@ -94,6 +94,11 @@ def _extract_handler_entry_points(
     if not handler_routing:
         return []
 
+    if not isinstance(handler_routing, dict):
+        raise AssertionError(
+            f"handler_routing must be a mapping, got {type(handler_routing).__name__}"
+        )
+
     entry_points: list[tuple[str, str]] = []
 
     # entry_point (if present)
@@ -105,20 +110,40 @@ def _extract_handler_entry_points(
             entry_points.append((module, function))
 
     # handlers list
-    for handler_def in handler_routing.get("handlers", []):
+    handlers_raw = handler_routing.get("handlers") or []
+    if not isinstance(handlers_raw, list):
+        raise AssertionError(
+            f"handler_routing.handlers must be a list, "
+            f"got {type(handlers_raw).__name__}"
+        )
+
+    for handler_def in handlers_raw:
+        if not isinstance(handler_def, dict):
+            raise AssertionError(
+                f"handler_routing.handlers entries must be mappings, "
+                f"got {type(handler_def).__name__}: {handler_def!r}"
+            )
+
         # Standard format: handler: {module, function}
         handler_inner = handler_def.get("handler")
         if isinstance(handler_inner, dict):
             module = handler_inner.get("module", "")
             function = handler_inner.get("function", "")
-            if module and function:
-                entry_points.append((module, function))
+            if not (module and function):
+                raise AssertionError(
+                    f"handler entry missing module/function: {handler_def!r}"
+                )
+            entry_points.append((module, function))
         else:
             # Legacy format: handler_module + handler_class
             module = handler_def.get("handler_module", "")
             cls = handler_def.get("handler_class", "")
-            if module and cls:
-                entry_points.append((module, cls))
+            if not (module and cls):
+                raise AssertionError(
+                    f"legacy handler entry missing "
+                    f"handler_module/handler_class: {handler_def!r}"
+                )
+            entry_points.append((module, cls))
 
     # default_handler (if present)
     dh = handler_routing.get("default_handler")
@@ -364,10 +389,11 @@ class TestKernelBootsWithIntelligencePlugin:
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
         """All subscribe_topics from effect node contracts must wire to EventBusInmemory."""
-        # Collect all subscribe topics across all contracts
+        # Collect all subscribe topics across all contracts (deduplicated)
         all_subscribe_topics: list[str] = []
         for _path, data in contracts:
             all_subscribe_topics.extend(_extract_subscribe_topics(data))
+        all_subscribe_topics = list(dict.fromkeys(all_subscribe_topics))
 
         assert len(all_subscribe_topics) > 0, (
             "No subscribe_topics found in any contract — "
@@ -408,10 +434,11 @@ class TestKernelBootsWithIntelligencePlugin:
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
         """Verify publish/subscribe round-trip on intelligence topics."""
-        # Collect all publish topics (outbound events from effect nodes)
+        # Collect all publish topics (outbound events from effect nodes, deduplicated)
         all_publish_topics: list[str] = []
         for _path, data in contracts:
             all_publish_topics.extend(_extract_publish_topics(data))
+        all_publish_topics = list(dict.fromkeys(all_publish_topics))
 
         if not all_publish_topics:
             pytest.skip("No publish_topics found")
@@ -448,9 +475,9 @@ class TestKernelBootsWithIntelligencePlugin:
             # Wait deterministically for delivery
             await asyncio.wait_for(delivered.wait(), timeout=1.0)
 
-            assert len(received) == 1, (
-                f"Expected 1 message on {test_topic}, received {len(received)}"
-            )
+            assert (
+                len(received) == 1
+            ), f"Expected 1 message on {test_topic}, received {len(received)}"
 
             await unsub()
         finally:

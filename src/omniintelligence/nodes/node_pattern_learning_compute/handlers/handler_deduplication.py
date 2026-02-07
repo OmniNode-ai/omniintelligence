@@ -107,18 +107,25 @@ def generate_pattern_signature(
             error_message="Cannot generate signature for empty cluster",
         )
 
-    centroid = cluster["centroid_features"]
-    pattern_type = cluster["pattern_type"]
+    try:
+        centroid = cluster["centroid_features"]
+        pattern_type = cluster["pattern_type"]
 
-    # Extract and normalize keywords (lowercase, dedupe, sort, limit to 20)
-    keywords_raw = centroid["keywords"]
-    keywords_normalized = sorted({kw.lower() for kw in keywords_raw})[
-        :_SIGNATURE_MAX_KEYWORDS
-    ]
+        # Extract and normalize keywords (lowercase, dedupe, sort, limit to 20)
+        keywords_raw = centroid["keywords"]
+        keywords_normalized = sorted({kw.lower() for kw in keywords_raw})[
+            :_SIGNATURE_MAX_KEYWORDS
+        ]
 
-    # Extract and normalize pattern indicators (lowercase, dedupe, sort)
-    indicators_raw = centroid["pattern_indicators"]
-    indicators_normalized = sorted({ind.lower() for ind in indicators_raw})
+        # Extract and normalize pattern indicators (lowercase, dedupe, sort)
+        indicators_raw = centroid["pattern_indicators"]
+        indicators_normalized = sorted({ind.lower() for ind in indicators_raw})
+    except KeyError as e:
+        return PatternSignatureResultDict(
+            success=False,
+            result=None,
+            error_message=f"Malformed cluster: missing required key {e}",
+        )
 
     # Build signature inputs tuple
     # Format: pattern_type, then keywords, then indicators
