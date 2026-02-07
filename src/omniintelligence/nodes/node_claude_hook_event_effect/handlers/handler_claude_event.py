@@ -482,7 +482,7 @@ async def _classify_intent(
         classifier: Intent classifier.
 
     Returns:
-        Dict with intent_category, confidence, and secondary_intents.
+        Dict with intent_category, confidence, keywords, and secondary_intents.
     """
     from omniintelligence.nodes.node_intent_classifier_compute.models import (
         ModelIntentClassificationInput,

@@ -162,6 +162,39 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result.keywords == ["authentication", "bug", "login"]
 
     @pytest.mark.asyncio
+    async def test_with_mock_classifier_secondary_intents(
+        self, sample_user_prompt_event: ModelClaudeCodeHookEvent
+    ) -> None:
+        """Test handling with mock classifier returning secondary intents with keywords."""
+        mock_classifier = MagicMock()
+
+        mock_output = MagicMock()
+        mock_output.intent_category = "debugging"
+        mock_output.confidence = 0.88
+        mock_output.keywords = ["auth", "error"]
+        mock_output.secondary_intents = [
+            {"intent_category": "code_review", "confidence": 0.45, "keywords": ["review"]},
+            {"intent_category": "refactoring", "confidence": 0.30, "keywords": []},
+        ]
+
+        mock_classifier.compute = AsyncMock(return_value=mock_output)
+
+        result = await handle_user_prompt_submit(
+            event=sample_user_prompt_event,
+            intent_classifier=mock_classifier,
+        )
+
+        assert result.status == EnumHookProcessingStatus.SUCCESS
+        assert result.intent_result is not None
+        assert result.intent_result.keywords == ["auth", "error"]
+        assert len(result.intent_result.secondary_intents) == 2
+        assert result.intent_result.secondary_intents[0]["intent_category"] == "code_review"
+        assert result.intent_result.secondary_intents[0]["confidence"] == 0.45
+        assert result.intent_result.secondary_intents[0]["keywords"] == ["review"]
+        assert result.intent_result.secondary_intents[1]["intent_category"] == "refactoring"
+        assert result.intent_result.secondary_intents[1]["keywords"] == []
+
+    @pytest.mark.asyncio
     async def test_with_mock_kafka_producer(
         self, sample_user_prompt_event: ModelClaudeCodeHookEvent
     ) -> None:
