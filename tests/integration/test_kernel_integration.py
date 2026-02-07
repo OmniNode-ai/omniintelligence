@@ -68,7 +68,10 @@ def _discover_contracts() -> list[tuple[Path, dict[str, Any]]]:
         with open(contract_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         if not isinstance(data, dict):
-            continue
+            raise AssertionError(
+                f"{contract_path}: contract.yaml must be a mapping, "
+                f"got {type(data).__name__}"
+            )
         contracts.append((contract_path, data))
     return contracts
 
@@ -158,7 +161,10 @@ def _extract_subscribe_topics(data: dict[str, Any]) -> list[str]:
     event_bus = data.get("event_bus") or {}
     if not event_bus.get("event_bus_enabled"):
         return []
-    return event_bus.get("subscribe_topics") or []
+    topics = event_bus.get("subscribe_topics") or []
+    if not isinstance(topics, list):
+        raise AssertionError("subscribe_topics must be a list")
+    return topics
 
 
 def _extract_publish_topics(data: dict[str, Any]) -> list[str]:
@@ -170,7 +176,10 @@ def _extract_publish_topics(data: dict[str, Any]) -> list[str]:
     event_bus = data.get("event_bus") or {}
     if not event_bus.get("event_bus_enabled"):
         return []
-    return event_bus.get("publish_topics") or []
+    topics = event_bus.get("publish_topics") or []
+    if not isinstance(topics, list):
+        raise AssertionError("publish_topics must be a list")
+    return topics
 
 
 # =============================================================================
@@ -420,10 +429,12 @@ class TestKernelBootsWithIntelligencePlugin:
 
             # Subscribe to first publish topic and verify message delivery
             received: list[Any] = []
+            delivered = asyncio.Event()
             test_topic = all_publish_topics[0]
 
             async def _capture_handler(msg: Any) -> None:
                 received.append(msg)
+                delivered.set()
 
             unsub = await bus.subscribe(test_topic, identity, _capture_handler)
 
@@ -434,11 +445,8 @@ class TestKernelBootsWithIntelligencePlugin:
                 b'{"event_type": "test", "correlation_id": "00000000-0000-0000-0000-000000000000"}',
             )
 
-            # Wait for message delivery with condition polling instead of fixed sleep
-            for _ in range(50):
-                if received:
-                    break
-                await asyncio.sleep(0.01)
+            # Wait deterministically for delivery
+            await asyncio.wait_for(delivered.wait(), timeout=1.0)
 
             assert len(received) == 1, (
                 f"Expected 1 message on {test_topic}, received {len(received)}"
