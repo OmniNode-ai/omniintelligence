@@ -424,9 +424,15 @@ class TestRealNodeStubDetection:
         # Note: pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
         # Note: execution_trace_parser_compute was implemented in OMN-1427
-        known_stubs = [
-            "node_pattern_assembler_orchestrator",
+        # Note: node_pattern_assembler_orchestrator was implemented as thin shell orchestrator
+        known_stubs: list[str] = [
+            # All previously-stub nodes have been implemented.
+            # Add new stub node names here as they are introduced.
         ]
+
+        if not known_stubs:
+            # No known stubs remain -- test is a placeholder for future stubs.
+            return
 
         for node_name in known_stubs:
             node_path = nodes_directory / node_name / "node.py"
@@ -445,6 +451,7 @@ class TestRealNodeStubDetection:
         # Note: pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
         # Note: execution_trace_parser_compute was implemented in OMN-1427
+        # Note: node_pattern_assembler_orchestrator was implemented as thin shell orchestrator
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",
@@ -455,6 +462,7 @@ class TestRealNodeStubDetection:
             "node_pattern_matching_compute",
             "node_success_criteria_matcher_compute",
             "node_execution_trace_parser_compute",
+            "node_pattern_assembler_orchestrator",
         ]
 
         for node_name in known_non_stubs:

@@ -69,7 +69,9 @@ _SIGNATURE_MAX_KEYWORDS: Final[int] = 20
 # =============================================================================
 
 
-def generate_pattern_signature(cluster: PatternClusterDict) -> PatternSignatureResultDict:
+def generate_pattern_signature(
+    cluster: PatternClusterDict,
+) -> PatternSignatureResultDict:
     """Generate versioned, deterministic signature for a pattern cluster.
 
     STABILITY CONTRACT:
