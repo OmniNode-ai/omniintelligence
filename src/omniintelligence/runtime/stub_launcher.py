@@ -109,7 +109,11 @@ async def run_stub(node_type: str, node_name: str | None = None) -> None:
         signal.signal(signal.SIGTERM, lambda *_: shutdown_event.set())
         signal.signal(signal.SIGINT, lambda *_: shutdown_event.set())
 
-    health_port = int(os.getenv("HEALTH_PORT", "8000"))
+    try:
+        health_port = int(os.getenv("HEALTH_PORT", "8000"))
+    except ValueError:
+        logger.warning("Invalid HEALTH_PORT value, using default 8000")
+        health_port = 8000
     health_server = _run_health_server(service_name, port=health_port)
 
     try:
