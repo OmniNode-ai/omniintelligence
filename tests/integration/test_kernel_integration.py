@@ -153,7 +153,7 @@ def _extract_subscribe_topics(data: dict[str, Any]) -> list[str]:
     Returns:
         List of topic strings, empty if event_bus is disabled.
     """
-    event_bus = data.get("event_bus", {})
+    event_bus = data.get("event_bus") or {}
     if not event_bus.get("event_bus_enabled"):
         return []
     return event_bus.get("subscribe_topics", [])
@@ -165,7 +165,7 @@ def _extract_publish_topics(data: dict[str, Any]) -> list[str]:
     Returns:
         List of topic strings, empty if event_bus is disabled.
     """
-    event_bus = data.get("event_bus", {})
+    event_bus = data.get("event_bus") or {}
     if not event_bus.get("event_bus_enabled"):
         return []
     return event_bus.get("publish_topics", [])
