@@ -463,7 +463,7 @@ class TestKernelBootsWithIntelligencePlugin:
                 continue
 
             effect_count += 1
-            event_bus = data.get("event_bus", {})
+            event_bus = data.get("event_bus") or {}
             if not event_bus.get("event_bus_enabled"):
                 errors.append(f"{node_name}: EFFECT_GENERIC without event_bus_enabled")
 
