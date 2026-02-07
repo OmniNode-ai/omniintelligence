@@ -424,11 +424,8 @@ class TestRealNodeStubDetection:
         # Note: pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
         # Note: execution_trace_parser_compute was implemented in OMN-1427
-        # Note: node_pattern_assembler_orchestrator was implemented as thin shell orchestrator
-        known_stubs: list[str] = [
-            # All previously-stub nodes have been implemented.
-            # Add new stub node names here as they are introduced.
-        ]
+        # Note: pattern_assembler_orchestrator was implemented in OMN-1428
+        known_stubs: list[str] = []
 
         if not known_stubs:
             # No known stubs remain -- test is a placeholder for future stubs.
@@ -451,7 +448,7 @@ class TestRealNodeStubDetection:
         # Note: pattern_matching_compute was implemented in OMN-1424
         # Note: success_criteria_matcher_compute was implemented in OMN-1426
         # Note: execution_trace_parser_compute was implemented in OMN-1427
-        # Note: node_pattern_assembler_orchestrator was implemented as thin shell orchestrator
+        # Note: pattern_assembler_orchestrator was implemented in OMN-1428
         known_non_stubs = [
             "intelligence_orchestrator",
             "intelligence_reducer",

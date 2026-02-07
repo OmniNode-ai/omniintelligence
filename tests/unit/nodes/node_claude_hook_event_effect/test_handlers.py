@@ -115,6 +115,7 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.intent_category == "unknown"
         assert result.intent_result.confidence == 0.0
+        assert result.intent_result.keywords == []
         assert result.intent_result.emitted_to_kafka is False
 
     @pytest.mark.asyncio
@@ -144,6 +145,7 @@ class TestHandleUserPromptSubmit:
         mock_output = MagicMock()
         mock_output.intent_category = "debugging"
         mock_output.confidence = 0.92
+        mock_output.keywords = ["authentication", "bug", "login"]
         mock_output.secondary_intents = []
 
         mock_classifier.compute = AsyncMock(return_value=mock_output)
@@ -157,6 +159,50 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.intent_category == "debugging"
         assert result.intent_result.confidence == 0.92
+        assert result.intent_result.keywords == ["authentication", "bug", "login"]
+
+    @pytest.mark.asyncio
+    async def test_with_mock_classifier_secondary_intents(
+        self, sample_user_prompt_event: ModelClaudeCodeHookEvent
+    ) -> None:
+        """Test handling with mock classifier returning secondary intents with keywords."""
+        mock_classifier = MagicMock()
+
+        mock_output = MagicMock()
+        mock_output.intent_category = "debugging"
+        mock_output.confidence = 0.88
+        mock_output.keywords = ["auth", "error"]
+        mock_output.secondary_intents = [
+            {
+                "intent_category": "code_review",
+                "confidence": 0.45,
+                "keywords": ["review"],
+            },
+            {"intent_category": "refactoring", "confidence": 0.30, "keywords": []},
+        ]
+
+        mock_classifier.compute = AsyncMock(return_value=mock_output)
+
+        result = await handle_user_prompt_submit(
+            event=sample_user_prompt_event,
+            intent_classifier=mock_classifier,
+        )
+
+        assert result.status == EnumHookProcessingStatus.SUCCESS
+        assert result.intent_result is not None
+        assert result.intent_result.keywords == ["auth", "error"]
+        assert len(result.intent_result.secondary_intents) == 2
+        assert (
+            result.intent_result.secondary_intents[0]["intent_category"]
+            == "code_review"
+        )
+        assert result.intent_result.secondary_intents[0]["confidence"] == 0.45
+        assert result.intent_result.secondary_intents[0]["keywords"] == ["review"]
+        assert (
+            result.intent_result.secondary_intents[1]["intent_category"]
+            == "refactoring"
+        )
+        assert result.intent_result.secondary_intents[1]["keywords"] == []
 
     @pytest.mark.asyncio
     async def test_with_mock_kafka_producer(
@@ -176,6 +222,12 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.emitted_to_kafka is True
         mock_producer.publish.assert_called_once()
+
+        # Verify keywords field is included in Kafka payload
+        call_kwargs = mock_producer.publish.call_args
+        kafka_payload = call_kwargs.kwargs.get("value") or call_kwargs[1].get("value")
+        assert "keywords" in kafka_payload
+        assert isinstance(kafka_payload["keywords"], list)
 
     @pytest.mark.asyncio
     async def test_partial_failure_on_kafka_error(

@@ -103,7 +103,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 
 **Orchestrators**:
 - `NodeIntelligenceOrchestrator` - Main workflow coordination (contract-driven)
-- `NodePatternAssemblerOrchestrator` - Pattern assembly from traces (stub)
+- `NodePatternAssemblerOrchestrator` - Pattern assembly from traces
 
 **Reducer**:
 - `NodeIntelligenceReducer` - Unified FSM handler (ingestion, pattern_learning, quality_assessment)
@@ -113,10 +113,10 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 - `NodeSemanticAnalysisCompute` - Semantic code analysis
 - `NodePatternExtractionCompute` - Extract patterns from code
 - `NodePatternLearningCompute` - ML pattern learning pipeline
-- `NodePatternMatchingCompute` - Match patterns against code (stub)
+- `NodePatternMatchingCompute` - Match patterns against code
 - `NodeIntentClassifierCompute` - User prompt intent classification
-- `NodeExecutionTraceParserCompute` - Parse execution traces (stub)
-- `NodeSuccessCriteriaMatcherCompute` - Match success criteria (stub)
+- `NodeExecutionTraceParserCompute` - Parse execution traces
+- `NodeSuccessCriteriaMatcherCompute` - Match success criteria
 
 **Effect Nodes**:
 - `NodeClaudeHookEventEffect` - Process Claude Code hook events
@@ -124,6 +124,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 - `NodePatternPromotionEffect` - Promote patterns (provisional → validated)
 - `NodePatternDemotionEffect` - Demote patterns (validated → deprecated)
 - `NodePatternFeedbackEffect` - Record session outcomes and metrics
+- `NodePatternLifecycleEffect` - Atomic pattern lifecycle transitions with audit trail
 
 ---
 
