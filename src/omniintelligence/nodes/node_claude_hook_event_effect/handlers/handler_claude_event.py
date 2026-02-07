@@ -389,6 +389,7 @@ async def handle_user_prompt_submit(
     # Step 1: Classify intent (if classifier available)
     intent_category = "unknown"
     confidence = 0.0
+    keywords: list[str] = []
     secondary_intents: list[dict[str, Any]] = []
 
     if intent_classifier is not None:
@@ -401,6 +402,7 @@ async def handle_user_prompt_submit(
             )
             intent_category = classification_result.get("intent_category", "unknown")
             confidence = classification_result.get("confidence", 0.0)
+            keywords = classification_result.get("keywords", [])
             secondary_intents = classification_result.get("secondary_intents", [])
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
@@ -418,6 +420,7 @@ async def handle_user_prompt_submit(
                 session_id=event.session_id,
                 intent_category=intent_category,
                 confidence=confidence,
+                keywords=keywords,
                 correlation_id=event.correlation_id,
                 producer=kafka_producer,
                 topic_env_prefix=topic_env_prefix,
@@ -439,6 +442,7 @@ async def handle_user_prompt_submit(
     intent_result = ModelIntentResult(
         intent_category=intent_category,
         confidence=confidence,
+        keywords=keywords,
         secondary_intents=secondary_intents,
         emitted_to_kafka=emitted_to_kafka,
     )
@@ -478,7 +482,7 @@ async def _classify_intent(
         classifier: Intent classifier.
 
     Returns:
-        Dict with intent_category, confidence, and secondary_intents.
+        Dict with intent_category, confidence, keywords, and secondary_intents.
     """
     from omniintelligence.nodes.node_intent_classifier_compute.models import (
         ModelIntentClassificationInput,
@@ -498,10 +502,12 @@ async def _classify_intent(
     return {
         "intent_category": result.intent_category,
         "confidence": result.confidence,
+        "keywords": list(result.keywords) if result.keywords else [],
         "secondary_intents": [
             {
-                "intent_category": si.intent_category,
-                "confidence": si.confidence,
+                "intent_category": si.get("intent_category", "unknown"),
+                "confidence": si.get("confidence", 0.0),
+                "keywords": list(si.get("keywords", [])),
             }
             for si in (result.secondary_intents or [])
         ],
@@ -512,6 +518,7 @@ async def _emit_intent_to_kafka(
     session_id: str,
     intent_category: str,
     confidence: float,
+    keywords: list[str],
     correlation_id: UUID,
     producer: ProtocolKafkaPublisher,
     *,
@@ -524,6 +531,7 @@ async def _emit_intent_to_kafka(
         session_id: Session ID.
         intent_category: Classified intent category.
         confidence: Classification confidence.
+        keywords: Keywords extracted from intent classification.
         correlation_id: Correlation ID for tracing.
         producer: Kafka producer implementing ProtocolKafkaPublisher.
         topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
@@ -541,6 +549,7 @@ async def _emit_intent_to_kafka(
         "correlation_id": str(correlation_id),
         "intent_category": intent_category,
         "confidence": confidence,
+        "keywords": keywords,
         "timestamp": datetime.now(UTC).isoformat(),
     }
 

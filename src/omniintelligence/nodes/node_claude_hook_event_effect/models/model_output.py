@@ -65,6 +65,10 @@ class ModelIntentResult(BaseModel):
         le=1.0,
         description="Confidence score for the classification (0.0-1.0)",
     )
+    keywords: list[str] = Field(
+        default_factory=list,
+        description="Keywords extracted from intent classification",
+    )
     secondary_intents: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Secondary intents with lower confidence",

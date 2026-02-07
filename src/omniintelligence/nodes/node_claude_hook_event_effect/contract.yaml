@@ -188,6 +188,28 @@ published_events:
     trigger: "UserPromptSubmit processed successfully"
     description: "Emitted when a user prompt intent is successfully classified. Consumed by omnimemory
       for graph storage."
+    payload_fields:
+      - name: "event_type"
+        type: "string"
+        description: "Always 'IntentClassified'"
+      - name: "session_id"
+        type: "string"
+        description: "Session ID from the hook event"
+      - name: "correlation_id"
+        type: "string"
+        description: "Correlation ID for distributed tracing"
+      - name: "intent_category"
+        type: "string"
+        description: "Classified intent category (e.g., debugging, code_generation)"
+      - name: "confidence"
+        type: "float"
+        description: "Classification confidence score (0.0-1.0)"
+      - name: "keywords"
+        type: "list[str]"
+        description: "Keywords extracted from intent classification (added in OMN-1626)"
+      - name: "timestamp"
+        type: "string"
+        description: "ISO-8601 timestamp of when the event was emitted"
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
@@ -300,7 +322,7 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-01-23"
-  updated: "2026-01-23"
+  updated: "2026-02-07"
   tags:
     - effect
     - claude-code
@@ -311,3 +333,6 @@ metadata:
     - ticket: "OMN-1456"
       url: "https://linear.app/omninode/issue/OMN-1456"
       description: "Unified Claude Code hook endpoint"
+    - ticket: "OMN-1626"
+      url: "https://linear.app/omninode/issue/OMN-1626"
+      description: "Add keywords field to intent-classified.v1 event payload"
