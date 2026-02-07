@@ -505,8 +505,8 @@ async def _classify_intent(
         "keywords": list(result.keywords) if result.keywords else [],
         "secondary_intents": [
             {
-                "intent_category": si.intent_category,
-                "confidence": si.confidence,
+                "intent_category": si.get("intent_category", "unknown"),
+                "confidence": si.get("confidence", 0.0),
                 "keywords": list(si.get("keywords", [])),
             }
             for si in (result.secondary_intents or [])
