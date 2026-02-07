@@ -230,7 +230,7 @@ ignore = [
 "src/omniintelligence/audit/io_audit.py" = ["N802"]
 "tests/unit/test_node_purity.py" = ["N802"]
 # BaseHTTPRequestHandler requires do_GET method name
-"src/omniintelligence/nodes/*/__main__.py" = ["N802"]
+"src/omniintelligence/runtime/stub_launcher.py" = ["N802"]
 # __init__.py files re-export for public API
 "src/omniintelligence/tools/__init__.py" = ["F401"]
 # Test intentionally catches broad exceptions for validation error testing

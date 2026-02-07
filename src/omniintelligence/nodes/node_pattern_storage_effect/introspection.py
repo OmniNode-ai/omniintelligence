@@ -184,7 +184,7 @@ class PatternStorageIntrospection(MixinNodeIntrospection):
     @classmethod
     def get_cli_entrypoint(cls) -> str:
         """Return CLI entrypoint command."""
-        return "python -m omniintelligence.nodes.node_pattern_storage_effect"
+        return "python -m omniintelligence.runtime.stub_launcher --node-type effect --node-name node_pattern_storage_effect"
 
 
 # Convenience function for direct introspection access
