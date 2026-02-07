@@ -173,7 +173,11 @@ class TestHandleUserPromptSubmit:
         mock_output.confidence = 0.88
         mock_output.keywords = ["auth", "error"]
         mock_output.secondary_intents = [
-            {"intent_category": "code_review", "confidence": 0.45, "keywords": ["review"]},
+            {
+                "intent_category": "code_review",
+                "confidence": 0.45,
+                "keywords": ["review"],
+            },
             {"intent_category": "refactoring", "confidence": 0.30, "keywords": []},
         ]
 
@@ -188,10 +192,16 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.keywords == ["auth", "error"]
         assert len(result.intent_result.secondary_intents) == 2
-        assert result.intent_result.secondary_intents[0]["intent_category"] == "code_review"
+        assert (
+            result.intent_result.secondary_intents[0]["intent_category"]
+            == "code_review"
+        )
         assert result.intent_result.secondary_intents[0]["confidence"] == 0.45
         assert result.intent_result.secondary_intents[0]["keywords"] == ["review"]
-        assert result.intent_result.secondary_intents[1]["intent_category"] == "refactoring"
+        assert (
+            result.intent_result.secondary_intents[1]["intent_category"]
+            == "refactoring"
+        )
         assert result.intent_result.secondary_intents[1]["keywords"] == []
 
     @pytest.mark.asyncio
