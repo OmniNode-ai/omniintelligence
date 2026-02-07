@@ -2,10 +2,12 @@
 """
 OmniIntelligence Runtime Package.
 
-Provides configuration and registry components for the OmniIntelligence runtime host.
+Provides configuration, registry, and plugin components for the OmniIntelligence
+runtime host.
 
 This package contains:
     - ModelIntelligenceRuntimeConfig: Application-level runtime configuration
+    - PluginIntelligence: Domain plugin for ONEX kernel initialization
     - IntelligenceNodeRegistry: Node registration and discovery (Phase 6)
 
 Usage:
@@ -14,6 +16,7 @@ Usage:
         ModelEventBusConfig,
         ModelHandlerConfig,
         ModelTopicConfig,
+        PluginIntelligence,
     )
 
     # Load from YAML file
@@ -21,6 +24,11 @@ Usage:
 
     # Load from environment
     config = ModelIntelligenceRuntimeConfig.from_environment()
+
+    # Register plugin with kernel
+    from omnibase_infra.runtime.protocol_domain_plugin import RegistryDomainPlugin
+    registry = RegistryDomainPlugin()
+    registry.register(PluginIntelligence())
 
 Note:
     This package does NOT contain:
@@ -40,6 +48,7 @@ from omniintelligence.runtime.model_runtime_config import (
     ModelRuntimeProfileConfig,
     ModelTopicConfig,
 )
+from omniintelligence.runtime.plugin import PluginIntelligence
 
 __all__ = [
     "EnumHandlerType",
@@ -49,4 +58,5 @@ __all__ = [
     "ModelIntelligenceRuntimeConfig",
     "ModelRuntimeProfileConfig",
     "ModelTopicConfig",
+    "PluginIntelligence",
 ]
