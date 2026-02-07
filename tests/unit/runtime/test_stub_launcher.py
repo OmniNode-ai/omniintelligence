@@ -112,7 +112,7 @@ class TestRunStubServiceName:
         """node_type alone -> intelligence-{node_type}."""
         captured: list[str] = []
 
-        def capture(name: str, **kwargs: object) -> MagicMock:
+        def capture(name: str, **_kwargs: object) -> MagicMock:
             captured.append(name)
             return _fake_server()
 
@@ -133,7 +133,7 @@ class TestRunStubServiceName:
         """node_name overrides -> intelligence-{node_name}."""
         captured: list[str] = []
 
-        def capture(name: str, **kwargs: object) -> MagicMock:
+        def capture(name: str, **_kwargs: object) -> MagicMock:
             captured.append(name)
             return _fake_server()
 
@@ -161,7 +161,7 @@ class TestHealthPortFallback:
         """Invalid HEALTH_PORT should fall back to 8000."""
         captured_ports: list[int] = []
 
-        def capture(name: str, **kwargs: object) -> MagicMock:
+        def capture(_name: str, **kwargs: object) -> MagicMock:
             captured_ports.append(kwargs.get("port", -1))
             return _fake_server()
 
@@ -183,7 +183,7 @@ class TestHealthPortFallback:
         """Valid HEALTH_PORT should be passed through."""
         captured_ports: list[int] = []
 
-        def capture(name: str, **kwargs: object) -> MagicMock:
+        def capture(_name: str, **kwargs: object) -> MagicMock:
             captured_ports.append(kwargs.get("port", -1))
             return _fake_server()
 
