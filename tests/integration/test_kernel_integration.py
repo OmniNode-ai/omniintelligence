@@ -42,6 +42,17 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 NODES_DIR = _PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
 
 # Total number of node contracts expected in this repository.
+# Inventory (17 nodes):
+#   Orchestrators (2): node_intelligence_orchestrator, node_pattern_assembler_orchestrator
+#   Reducers (1):      node_intelligence_reducer
+#   Compute (8):       node_quality_scoring_compute, node_semantic_analysis_compute,
+#                      node_pattern_extraction_compute, node_pattern_learning_compute,
+#                      node_pattern_matching_compute, node_intent_classifier_compute,
+#                      node_execution_trace_parser_compute, node_success_criteria_matcher_compute
+#   Effect (6):        node_claude_hook_event_effect, node_pattern_storage_effect,
+#                      node_pattern_promotion_effect, node_pattern_demotion_effect,
+#                      node_pattern_feedback_effect, node_pattern_lifecycle_effect
+# Update this constant and inventory when adding or removing nodes.
 EXPECTED_CONTRACT_COUNT = 17
 
 # Node types exempt from handler_routing (use workflow_coordination / inline FSM).
@@ -412,12 +423,11 @@ class TestKernelBootsWithIntelligencePlugin:
                 version="v1",
             )
 
+            async def _noop_handler(msg: Any) -> None:
+                pass
+
             unsubscribes = []
             for topic in all_subscribe_topics:
-
-                async def _noop_handler(msg: Any) -> None:
-                    pass
-
                 unsub = await bus.subscribe(topic, identity, _noop_handler)
                 unsubscribes.append(unsub)
 
