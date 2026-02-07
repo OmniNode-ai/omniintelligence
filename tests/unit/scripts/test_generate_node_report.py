@@ -432,7 +432,7 @@ class TestRealNodeStubDetection:
 
         if not known_stubs:
             # No known stubs remain -- test is a placeholder for future stubs.
-            return
+            pytest.skip("No known stub nodes to test - all have been implemented")
 
         for node_name in known_stubs:
             node_path = nodes_directory / node_name / "node.py"

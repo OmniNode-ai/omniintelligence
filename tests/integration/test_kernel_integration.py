@@ -485,9 +485,9 @@ class TestKernelBootsWithIntelligencePlugin:
             # Wait deterministically for delivery
             await asyncio.wait_for(delivered.wait(), timeout=1.0)
 
-            assert (
-                len(received) == 1
-            ), f"Expected 1 message on {test_topic}, received {len(received)}"
+            assert len(received) == 1, (
+                f"Expected 1 message on {test_topic}, received {len(received)}"
+            )
 
             await unsub()
         finally:
