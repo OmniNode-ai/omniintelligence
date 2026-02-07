@@ -267,6 +267,125 @@ docker volume rm \
   omniintelligence_redpanda_data
 ```
 
+## Runtime Container Integration
+
+The `omnibase_infra` runtime container (`RuntimeHostProcess`) needs to import
+omniintelligence handler classes dynamically via `HandlerPluginLoader`. This
+requires the package to be installed in the container's Python environment.
+
+### Verified Integration Patterns
+
+#### Option A: Editable Install (Development)
+
+Mount the omniintelligence source and install editable. Best for local
+development where you want live code changes reflected immediately.
+
+```dockerfile
+# In Dockerfile.runtime (development variant)
+COPY omniintelligence/ /opt/omniintelligence/
+RUN uv pip install --system --no-cache -e /opt/omniintelligence
+```
+
+Or via docker-compose volume mount:
+
+```yaml
+# docker-compose.dev.yml
+services:
+  runtime:
+    volumes:
+      - ../omniintelligence:/opt/omniintelligence
+    command: >
+      sh -c "uv pip install --system -e /opt/omniintelligence && exec python -m omnibase_infra.runtime"
+```
+
+**Tradeoff**: Fast iteration, but requires source volume mount. Not suitable
+for production images.
+
+#### Option B: Wheel Install (Production)
+
+Build a wheel and install it in the runtime container. Best for production
+where reproducibility and image size matter.
+
+```bash
+# Build wheel from omniintelligence root
+uv build --wheel
+# Output: dist/omniintelligence-<version>-py3-none-any.whl
+```
+
+```dockerfile
+# In Dockerfile.runtime (production)
+# Use wildcard to avoid hardcoding the version
+COPY dist/omniintelligence-*.whl /tmp/
+RUN uv pip install --system --no-cache /tmp/omniintelligence-*.whl \
+    && rm /tmp/omniintelligence-*.whl
+```
+
+**Tradeoff**: Clean, reproducible, minimal image. Requires wheel rebuild on
+every source change.
+
+#### Option C: Multi-Repo Docker Build Context (CI/CD)
+
+Use Docker's multi-context builds to include both repos in a single build.
+Best for CI/CD pipelines where both repos are checked out.
+
+```bash
+# Build with both repos as context
+docker build \
+  -f omnibase_infra/Dockerfile.runtime \
+  --build-context omniintelligence=./omniintelligence \
+  ./omnibase_infra
+```
+
+```dockerfile
+# In Dockerfile.runtime
+FROM python:3.12-slim AS base
+# ... base setup ...
+
+# Install omniintelligence from sibling repo context (non-editable for CI/CD)
+COPY --from=omniintelligence pyproject.toml /opt/omniintelligence/pyproject.toml
+COPY --from=omniintelligence src/ /opt/omniintelligence/src/
+RUN uv pip install --system --no-cache /opt/omniintelligence
+```
+
+**Tradeoff**: Cleanest CI/CD integration, but requires Docker BuildKit and
+both repos available at build time.
+
+### Verifying Installation
+
+After installing omniintelligence in the runtime container, verify handler
+discovery works:
+
+```bash
+# Inside the container
+python -c "
+from omniintelligence.nodes.node_quality_scoring_compute.handlers import handle_quality_scoring_compute
+from omniintelligence.nodes.node_claude_hook_event_effect.handlers import HandlerClaudeHookEvent
+print('Handler imports OK')
+"
+```
+
+### Package Dependencies
+
+The base `pip install omniintelligence` (PEP 621 dependencies) installs
+runtime deps including pydantic, httpx, pyyaml, and confluent-kafka. Note
+that `confluent-kafka` is a C extension wrapping librdkafka; on slim
+container images (e.g., `python:3.12-slim`) you may need build tools or a
+pre-built wheel. Heavy ML and database deps like torch, sentence-transformers,
+asyncpg, and qdrant-client are in the `core` dependency group:
+
+```bash
+# Minimal install (handler classes + Kafka client, no ML/DB)
+uv pip install --system -e .
+
+# Full install (all infrastructure deps via uv sync)
+uv sync --group core
+```
+
+For the runtime container, the minimal install is sufficient since
+`RuntimeHostProcess` provides its own infrastructure (PostgreSQL, etc.)
+connections. Kafka connectivity is included in the base install because
+handler modules import Kafka types at module load time.
+
 ## Production Deployment
 
 ### Security
