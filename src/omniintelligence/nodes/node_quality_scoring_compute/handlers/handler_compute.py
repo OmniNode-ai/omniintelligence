@@ -164,11 +164,20 @@ def _execute_scoring(
 
     processing_time = (time.perf_counter() - start_time) * 1000
 
+    # If the scorer returned a structured validation error, propagate it
+    if not result["success"]:
+        return _create_validation_error_output(
+            result["recommendations"][0]
+            if result["recommendations"]
+            else "Validation failed",
+            processing_time,
+        )
+
     # Check against minimum quality threshold
     meets_threshold = result["quality_score"] >= input_data.min_quality_threshold
 
     return ModelQualityScoringOutput(
-        success=result["success"] and meets_threshold,
+        success=meets_threshold,
         quality_score=result["quality_score"],
         dimensions=result["dimensions"],
         onex_compliant=result["onex_compliant"],

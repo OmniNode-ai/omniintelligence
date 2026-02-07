@@ -427,6 +427,10 @@ class TestRealNodeStubDetection:
         # Note: pattern_assembler_orchestrator was implemented in OMN-1428
         known_stubs: list[str] = []
 
+        if not known_stubs:
+            # No known stubs remain -- test is a placeholder for future stubs.
+            pytest.skip("No known stub nodes to test - all have been implemented")
+
         for node_name in known_stubs:
             node_path = nodes_directory / node_name / "node.py"
             if node_path.exists():
