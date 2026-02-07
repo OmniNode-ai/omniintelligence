@@ -67,6 +67,8 @@ def _discover_contracts() -> list[tuple[Path, dict[str, Any]]]:
     for contract_path in sorted(NODES_DIR.glob("*/contract.yaml")):
         with open(contract_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
+        if not isinstance(data, dict):
+            continue
         contracts.append((contract_path, data))
     return contracts
 
@@ -156,7 +158,7 @@ def _extract_subscribe_topics(data: dict[str, Any]) -> list[str]:
     event_bus = data.get("event_bus") or {}
     if not event_bus.get("event_bus_enabled"):
         return []
-    return event_bus.get("subscribe_topics", [])
+    return event_bus.get("subscribe_topics") or []
 
 
 def _extract_publish_topics(data: dict[str, Any]) -> list[str]:
@@ -168,7 +170,7 @@ def _extract_publish_topics(data: dict[str, Any]) -> list[str]:
     event_bus = data.get("event_bus") or {}
     if not event_bus.get("event_bus_enabled"):
         return []
-    return event_bus.get("publish_topics", [])
+    return event_bus.get("publish_topics") or []
 
 
 # =============================================================================
@@ -432,9 +434,11 @@ class TestKernelBootsWithIntelligencePlugin:
                 b'{"event_type": "test", "correlation_id": "00000000-0000-0000-0000-000000000000"}',
             )
 
-            # Allow message delivery (EventBusInmemory dispatches synchronously
-            # but some implementations may use async callbacks)
-            await asyncio.sleep(0.05)
+            # Wait for message delivery with condition polling instead of fixed sleep
+            for _ in range(50):
+                if received:
+                    break
+                await asyncio.sleep(0.01)
 
             assert len(received) == 1, (
                 f"Expected 1 message on {test_topic}, received {len(received)}"
