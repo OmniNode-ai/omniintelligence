@@ -115,9 +115,7 @@ async def wire_intelligence_handlers(
         else:
             # Verify function-based handlers are importable
             if not callable(handler_attr):
-                raise ImportError(
-                    f"{attr_name} in {module_path} is not callable"
-                )
+                raise ImportError(f"{attr_name} in {module_path} is not callable")
             logger.debug(
                 "Verified %s importable (correlation_id=%s)",
                 attr_name,

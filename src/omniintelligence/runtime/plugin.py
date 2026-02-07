@@ -255,8 +255,7 @@ class PluginIntelligence:
                 await self._pool.close()
             except Exception as cleanup_error:
                 logger.warning(
-                    "Cleanup failed for PostgreSQL pool close: %s "
-                    "(correlation_id=%s)",
+                    "Cleanup failed for PostgreSQL pool close: %s (correlation_id=%s)",
                     cleanup_error,
                     correlation_id,
                 )
@@ -285,9 +284,7 @@ class PluginIntelligence:
         if self._pool is None:
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=(
-                    "Cannot wire handlers: PostgreSQL pool not initialized"
-                ),
+                error_message=("Cannot wire handlers: PostgreSQL pool not initialized"),
             )
 
         try:
@@ -374,6 +371,7 @@ class PluginIntelligence:
             )
 
         try:
+
             async def _noop_handler(_msg: Any) -> None:
                 """Placeholder handler for topic subscription."""
                 logger.debug(

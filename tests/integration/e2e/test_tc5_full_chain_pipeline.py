@@ -346,8 +346,7 @@ class TestTC5FullChainPipeline:
 
             # Consistency: success + failure <= injection_count
             total_outcomes = (
-                row["success_count_rolling_20"]
-                + row["failure_count_rolling_20"]
+                row["success_count_rolling_20"] + row["failure_count_rolling_20"]
             )
             assert total_outcomes <= row["injection_count_rolling_20"] + 1, (
                 f"Pattern {sig_hash}: success({row['success_count_rolling_20']}) + "

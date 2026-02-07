@@ -162,9 +162,7 @@ class TestPluginIntelligence:
             f"or POSTGRES_PASSWORD not set"
         ),
     )
-    async def test_shutdown_closes_pool(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_shutdown_closes_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Shutdown should close the PostgreSQL pool and clear state."""
         monkeypatch.setenv("POSTGRES_HOST", POSTGRES_HOST)
         monkeypatch.setenv("POSTGRES_PORT", str(POSTGRES_PORT))
@@ -177,9 +175,7 @@ class TestPluginIntelligence:
 
         # Initialize first
         init_result = await plugin.initialize(config)
-        assert init_result.success, (
-            f"Initialize failed: {init_result.error_message}"
-        )
+        assert init_result.success, f"Initialize failed: {init_result.error_message}"
         assert plugin.postgres_pool is not None
 
         # Shutdown

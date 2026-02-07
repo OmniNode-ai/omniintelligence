@@ -458,9 +458,7 @@ class TestDLQRouting:
             "\tIs the server running on host 192.168.86.200 and accepting\n"
             "\tTCP/IP connections on port 5436?"
         )
-        failing_repo.execute = AsyncMock(
-            side_effect=ConnectionError(error_detail)
-        )
+        failing_repo.execute = AsyncMock(side_effect=ConnectionError(error_detail))
 
         session_id = uuid4()
         correlation_id = uuid4()

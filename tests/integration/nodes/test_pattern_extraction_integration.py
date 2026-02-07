@@ -355,7 +355,9 @@ async def test_parallel_execution_performance() -> None:
     times: list[int] = []
     for _ in range(5):
         result = await handle_pattern_assembly_orchestrate(input_data)
-        assert result.success is True, f"Expected success, got metadata: {result.metadata}"
+        assert result.success is True, (
+            f"Expected success, got metadata: {result.metadata}"
+        )
         assert result.metadata is not None
         times.append(result.metadata.get("processing_time_ms", 0))
 
