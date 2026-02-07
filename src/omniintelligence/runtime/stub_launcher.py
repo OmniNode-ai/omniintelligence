@@ -27,7 +27,6 @@ import json
 import logging
 import os
 import signal
-import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
