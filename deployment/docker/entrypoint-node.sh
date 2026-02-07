@@ -29,11 +29,11 @@ NODE_TYPE="${1:-}"
 case "$NODE_TYPE" in
     orchestrator)
         echo "Starting Intelligence Orchestrator Node..."
-        exec python -m omniintelligence.nodes.node_intelligence_orchestrator
+        exec python -m omniintelligence.runtime.stub_launcher --node-type orchestrator
         ;;
     reducer)
         echo "Starting Intelligence Reducer Node..."
-        exec python -m omniintelligence.nodes.node_intelligence_reducer
+        exec python -m omniintelligence.runtime.stub_launcher --node-type reducer
         ;;
     compute|effect)
         if [ -z "$NODE_NAME" ]; then
@@ -41,7 +41,7 @@ case "$NODE_TYPE" in
             exit 1
         fi
         echo "Starting $NODE_TYPE node: $NODE_NAME..."
-        exec python -m "omniintelligence.nodes.${NODE_NAME}"
+        exec python -m omniintelligence.runtime.stub_launcher --node-type "$NODE_TYPE" --node-name "$NODE_NAME"
         ;;
     *)
         echo "ERROR: Unknown node type: $NODE_TYPE"
