@@ -124,6 +124,8 @@ async def run_stub(node_type: str, node_name: str | None = None) -> None:
         shutdown_thread = threading.Thread(target=health_server.shutdown)
         shutdown_thread.start()
         shutdown_thread.join(timeout=5.0)
+        if shutdown_thread.is_alive():
+            logger.warning("Health server shutdown timed out after 5s")
         logger.info("%s shutdown complete", service_name)
 
 
