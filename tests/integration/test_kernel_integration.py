@@ -251,7 +251,9 @@ class TestKernelBootsWithIntelligencePlugin:
         assert len(contracts) == EXPECTED_CONTRACT_COUNT, (
             f"Expected {EXPECTED_CONTRACT_COUNT} contracts, "
             f"found {len(contracts)}: "
-            f"{[p.parent.name for p, _ in contracts]}"
+            f"{[p.parent.name for p, _ in contracts]}. "
+            f"If you added or removed a node, update EXPECTED_CONTRACT_COUNT "
+            f"and the inventory comment in this file."
         )
 
     def test_every_contract_has_name_and_node_type(
@@ -355,7 +357,9 @@ class TestKernelBootsWithIntelligencePlugin:
             if entry_points:
                 nodes_with_handlers += 1
 
-        # 15 = 17 total - 1 orchestrator (no routing) - 1 reducer (no routing)
+        # 15 = 17 total - 1 exempt orchestrator (intelligence_orchestrator)
+        #                 - 1 exempt reducer (intelligence_reducer)
+        # Note: node_pattern_assembler_orchestrator has handler_routing so is NOT exempt.
         assert nodes_with_handlers >= 15, (
             f"Expected at least 15 nodes with handler entry points, "
             f"found {nodes_with_handlers}"
