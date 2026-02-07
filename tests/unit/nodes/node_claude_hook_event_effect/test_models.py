@@ -151,13 +151,23 @@ class TestModelIntentResult:
         result = ModelIntentResult(
             intent_category="debugging",
             confidence=0.92,
+            keywords=["authentication", "bug"],
             secondary_intents=[{"intent_category": "code_review", "confidence": 0.45}],
             emitted_to_kafka=True,
         )
         assert result.intent_category == "debugging"
         assert result.confidence == 0.92
+        assert result.keywords == ["authentication", "bug"]
         assert len(result.secondary_intents) == 1
         assert result.emitted_to_kafka is True
+
+    def test_keywords_defaults_to_empty_list(self) -> None:
+        """Test that keywords defaults to empty list when omitted."""
+        result = ModelIntentResult(
+            intent_category="debugging",
+            confidence=0.85,
+        )
+        assert result.keywords == []
 
     def test_confidence_bounds(self) -> None:
         """Test confidence must be between 0.0 and 1.0."""

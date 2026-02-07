@@ -115,6 +115,7 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.intent_category == "unknown"
         assert result.intent_result.confidence == 0.0
+        assert result.intent_result.keywords == []
         assert result.intent_result.emitted_to_kafka is False
 
     @pytest.mark.asyncio
@@ -144,6 +145,7 @@ class TestHandleUserPromptSubmit:
         mock_output = MagicMock()
         mock_output.intent_category = "debugging"
         mock_output.confidence = 0.92
+        mock_output.keywords = ["authentication", "bug", "login"]
         mock_output.secondary_intents = []
 
         mock_classifier.compute = AsyncMock(return_value=mock_output)
@@ -157,6 +159,7 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.intent_category == "debugging"
         assert result.intent_result.confidence == 0.92
+        assert result.intent_result.keywords == ["authentication", "bug", "login"]
 
     @pytest.mark.asyncio
     async def test_with_mock_kafka_producer(
@@ -176,6 +179,12 @@ class TestHandleUserPromptSubmit:
         assert result.intent_result is not None
         assert result.intent_result.emitted_to_kafka is True
         mock_producer.publish.assert_called_once()
+
+        # Verify keywords field is included in Kafka payload
+        call_kwargs = mock_producer.publish.call_args
+        kafka_payload = call_kwargs.kwargs.get("value") or call_kwargs[1].get("value")
+        assert "keywords" in kafka_payload
+        assert isinstance(kafka_payload["keywords"], list)
 
     @pytest.mark.asyncio
     async def test_partial_failure_on_kafka_error(
