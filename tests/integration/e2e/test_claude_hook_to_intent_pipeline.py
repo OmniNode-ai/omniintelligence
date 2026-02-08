@@ -60,7 +60,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
 )
 from tests.fixtures.topic_constants import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
 from tests.integration.conftest import RealKafkaPublisher
-from tests.integration.e2e.conftest import requires_e2e_kafka
+from tests.integration.e2e.conftest import requires_e2e_kafka, wait_for_message
 
 # =============================================================================
 # Markers
@@ -340,13 +340,16 @@ class TestClaudeHookToIntentPipelineInmemory:
                 expected_session_id=session_id,
             )
 
-            # Verify message key is the session_id (used for partitioning)
-            if output_message.key is not None:
-                key_str = output_message.key.decode("utf-8")
-                assert key_str == session_id, (
-                    f"Message key should be session_id for partitioning: "
-                    f"expected '{session_id}', got '{key_str}'"
-                )
+            # Verify message key is the session_id (used for partitioning).
+            # EventBusInmemory preserves keys, and the adapter always encodes them.
+            assert output_message.key is not None, (
+                "Message key must be set (session_id for Kafka partitioning)"
+            )
+            key_str = output_message.key.decode("utf-8")
+            assert key_str == session_id, (
+                f"Message key should be session_id for partitioning: "
+                f"expected '{session_id}', got '{key_str}'"
+            )
 
             # Verify event history for debugging
             history = await event_bus.get_event_history(topic=output_topic)
@@ -471,7 +474,8 @@ class TestClaudeHookToIntentPipelineInmemory:
         """Test that non-UserPromptSubmit events do not produce IntentClassified.
 
         SessionStart, Stop, and other event types should be handled as no-ops
-        and must NOT emit events to the output topic.
+        and must NOT emit events to the output topic. Tests both SESSION_START
+        and STOP to validate the routing else-branch for multiple event types.
         """
         event_bus = EventBusInmemory(environment="e2e_test", group="pipeline-test-noop")
         adapter = _EventBusKafkaPublisherAdapter(event_bus)
@@ -495,7 +499,7 @@ class TestClaudeHookToIntentPipelineInmemory:
                 output_topic, node_identity, capture_output
             )
 
-            # Process a SessionStart event (should be no-op)
+            # --- SessionStart (should be no-op) ---
             session_start = ModelClaudeCodeHookEvent(
                 event_type=EnumClaudeCodeHookEventType.SESSION_START,
                 session_id="session-noop-test",
@@ -506,19 +510,40 @@ class TestClaudeHookToIntentPipelineInmemory:
                 ),
             )
 
-            result = await route_hook_event(
+            result_start = await route_hook_event(
                 event=session_start,
                 kafka_producer=adapter,
                 topic_env_prefix="e2e_test",
                 publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
             )
 
-            assert result.status == EnumHookProcessingStatus.SUCCESS
-            assert result.intent_result is None, (
-                "No-op events must not produce intent_result"
+            assert result_start.status == EnumHookProcessingStatus.SUCCESS
+            assert result_start.intent_result is None, (
+                "SessionStart must not produce intent_result"
             )
 
-            # Verify no output events were published
+            # --- Stop (should also be no-op) ---
+            stop_event = ModelClaudeCodeHookEvent(
+                event_type=EnumClaudeCodeHookEventType.STOP,
+                session_id="session-noop-test",
+                correlation_id=uuid4(),
+                timestamp_utc=datetime.now(UTC),
+                payload=ModelClaudeCodeHookEventPayload(),
+            )
+
+            result_stop = await route_hook_event(
+                event=stop_event,
+                kafka_producer=adapter,
+                topic_env_prefix="e2e_test",
+                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+            )
+
+            assert result_stop.status == EnumHookProcessingStatus.SUCCESS
+            assert result_stop.intent_result is None, (
+                "Stop must not produce intent_result"
+            )
+
+            # Verify no output events were published for either no-op event
             assert len(received_messages) == 0, (
                 f"No-op events must not produce output events, "
                 f"but {len(received_messages)} were published"
@@ -621,8 +646,6 @@ class TestClaudeHookToIntentPipelineRealKafka:
         assert len(publisher.published_events) == 1
 
         # Stage 5: Consumer reads from real Kafka broker
-        from tests.integration.e2e.test_kafka_integration import wait_for_message
-
         received = await wait_for_message(
             consumer=e2e_kafka_consumer,
             topic=full_output_topic,

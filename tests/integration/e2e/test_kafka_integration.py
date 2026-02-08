@@ -20,14 +20,13 @@ Reference:
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 from uuid import uuid4
 
 import pytest
 
 from tests.integration.conftest import RealKafkaPublisher
-from tests.integration.e2e.conftest import requires_e2e_kafka
+from tests.integration.e2e.conftest import requires_e2e_kafka, wait_for_message
 
 # =============================================================================
 # Constants
@@ -152,66 +151,6 @@ async def test_topic_prefix_provides_isolation(
 # =============================================================================
 # Kafka Consumer Verification Tests
 # =============================================================================
-
-
-async def wait_for_message(
-    consumer: Any,
-    topic: str,
-    timeout_seconds: float = 10.0,
-    poll_interval_ms: int = 500,
-) -> dict[str, Any]:
-    """Wait for a message on topic, raising AssertionError if not received.
-
-    This helper polls the Kafka consumer with explicit timeouts and retry logic
-    to reliably receive messages in E2E tests. Unlike relying on async iteration
-    timeout behavior, this provides deterministic failure when messages aren't
-    received.
-
-    Args:
-        consumer: AIOKafkaConsumer instance (already started and subscribed).
-        topic: The topic to wait for a message on.
-        timeout_seconds: Maximum time to wait for a message (default: 10s).
-        poll_interval_ms: Time between poll attempts in milliseconds (default: 500ms).
-
-    Returns:
-        Dictionary with 'key', 'value', and 'topic' from the received message.
-
-    Raises:
-        AssertionError: If no message is received within the timeout period.
-    """
-    import time
-
-    start_time = time.monotonic()
-    max_attempts = int((timeout_seconds * 1000) / poll_interval_ms)
-
-    for attempt in range(max_attempts):
-        # Use getmany for explicit polling with timeout
-        # This returns a dict of {TopicPartition: [messages]}
-        records = await consumer.getmany(timeout_ms=poll_interval_ms, max_records=10)
-
-        for tp, messages in records.items():
-            for msg in messages:
-                if msg.topic == topic:
-                    return {
-                        "key": msg.key.decode("utf-8") if msg.key else None,
-                        "value": json.loads(msg.value.decode("utf-8")),
-                        "topic": msg.topic,
-                    }
-
-        # Check if we've exceeded our timeout
-        elapsed = time.monotonic() - start_time
-        if elapsed >= timeout_seconds:
-            break
-
-    # Calculate actual elapsed time for the error message
-    elapsed = time.monotonic() - start_time
-    raise AssertionError(
-        f"Kafka consumer did not receive message on topic '{topic}' "
-        f"within {timeout_seconds}s timeout (elapsed: {elapsed:.2f}s, "
-        f"attempts: {max_attempts}). This indicates a real infrastructure "
-        f"issue - the message was not delivered to the broker or the consumer "
-        f"failed to read it."
-    )
 
 
 @pytest.mark.asyncio
