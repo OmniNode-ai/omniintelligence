@@ -374,8 +374,7 @@ class PluginIntelligence:
         except Exception as e:
             duration = time.time() - start_time
             logger.exception(
-                "Failed to wire intelligence dispatch engine "
-                "(correlation_id=%s)",
+                "Failed to wire intelligence dispatch engine (correlation_id=%s)",
                 correlation_id,
             )
             return ModelDomainPluginResult.failed(
@@ -428,7 +427,10 @@ class PluginIntelligence:
 
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
                 handler = topic_handlers[topic]
-                is_dispatched = topic == TOPIC_CLAUDE_HOOK_EVENT and self._dispatch_engine is not None
+                is_dispatched = (
+                    topic == TOPIC_CLAUDE_HOOK_EVENT
+                    and self._dispatch_engine is not None
+                )
 
                 logger.info(
                     "Subscribing to intelligence topic: %s "
@@ -505,8 +507,7 @@ class PluginIntelligence:
         async def _noop_handler(_msg: Any) -> None:
             """Placeholder handler for topics not yet routed via dispatch."""
             logger.debug(
-                "Intelligence event received on noop handler "
-                "(correlation_id=%s)",
+                "Intelligence event received on noop handler (correlation_id=%s)",
                 correlation_id,
             )
 

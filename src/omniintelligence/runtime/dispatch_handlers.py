@@ -52,9 +52,7 @@ logger = logging.getLogger(__name__)
 #
 # Usage: when calling dispatch(), pass the alias instead of the raw topic.
 
-DISPATCH_ALIAS_CLAUDE_HOOK = (
-    "onex.commands.omniintelligence.claude-hook-event.v1"
-)
+DISPATCH_ALIAS_CLAUDE_HOOK = "onex.commands.omniintelligence.claude-hook-event.v1"
 """Dispatch-compatible alias for TOPIC_CLAUDE_HOOK_EVENT."""
 
 
@@ -122,8 +120,7 @@ def create_claude_hook_dispatch_handler(
                 return ""
         else:
             logger.warning(
-                "Unexpected payload type %s for claude-hook-event "
-                "(correlation_id=%s)",
+                "Unexpected payload type %s for claude-hook-event (correlation_id=%s)",
                 type(payload).__name__,
                 ctx_correlation_id,
             )
@@ -204,8 +201,7 @@ def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
     engine.freeze()
 
     logger.info(
-        "Intelligence dispatch engine created and frozen "
-        "(routes=%d, handlers=%d)",
+        "Intelligence dispatch engine created and frozen (routes=%d, handlers=%d)",
         engine.route_count,
         engine.handler_count,
     )

@@ -231,8 +231,7 @@ class TestPluginStartConsumersDispatch:
         await plugin.start_consumers(config)
 
         non_hook_topics = [
-            t for t in INTELLIGENCE_SUBSCRIBE_TOPICS
-            if t != TOPIC_CLAUDE_HOOK_EVENT
+            t for t in INTELLIGENCE_SUBSCRIBE_TOPICS if t != TOPIC_CLAUDE_HOOK_EVENT
         ]
 
         for topic in non_hook_topics:
@@ -240,8 +239,7 @@ class TestPluginStartConsumersDispatch:
             assert sub is not None
             handler_name = getattr(sub.on_message, "__qualname__", "")
             assert "noop" in handler_name.lower(), (
-                f"Topic {topic} should use noop handler, "
-                f"got handler: {handler_name}"
+                f"Topic {topic} should use noop handler, got handler: {handler_name}"
             )
 
 
