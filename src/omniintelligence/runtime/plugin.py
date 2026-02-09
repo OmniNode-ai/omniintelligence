@@ -535,7 +535,11 @@ class PluginIntelligence:
             }
 
         for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
-            if _topic_alias_map is not None and _engine is not None and topic in _topic_alias_map:
+            if (
+                _topic_alias_map is not None
+                and _engine is not None
+                and topic in _topic_alias_map
+            ):
                 handlers[topic] = create_dispatch_callback(
                     engine=_engine,
                     dispatch_topic=_topic_alias_map[topic],
