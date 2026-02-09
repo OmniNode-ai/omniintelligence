@@ -2483,6 +2483,62 @@ class TestEffectivenessScore:
         assert result.status == EnumOutcomeRecordingStatus.ALREADY_RECORDED
         assert result.effectiveness_scores == {}
 
+    @pytest.mark.asyncio
+    async def test_score_graceful_degradation_on_scoring_failure(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Handler returns SUCCESS with empty scores when scoring raises."""
+        # Arrange: Pattern and injection in place
+        pattern = PatternState(
+            id=sample_pattern_id,
+            injection_count_rolling_20=5,
+            success_count_rolling_20=3,
+            failure_count_rolling_20=2,
+            quality_score=0.5,
+        )
+        mock_repository.add_pattern(pattern)
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Patch update_effectiveness_scores to raise
+        original_execute = mock_repository.execute
+
+        call_count = 0
+
+        async def failing_execute(query: str, *args: Any) -> str:
+            nonlocal call_count
+            # Let the first execute calls through (marking injections + rolling metrics)
+            # Fail on the effectiveness score UPDATE (contains quality_score and injection_count_rolling_20)
+            if (
+                "UPDATE learned_patterns" in query
+                and "quality_score" in query
+                and "injection_count_rolling_20" in query
+            ):
+                raise RuntimeError("Simulated DB failure on effectiveness scoring")
+            return await original_execute(query, *args)
+
+        mock_repository.execute = failing_execute  # type: ignore[assignment]
+
+        # Act
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        # Assert: Critical operations succeeded, scoring degraded gracefully
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert result.effectiveness_scores == {}
+        assert result.patterns_updated > 0
+
 
 # =============================================================================
 # Test Class: update_effectiveness_scores Direct Tests (OMN-2077)

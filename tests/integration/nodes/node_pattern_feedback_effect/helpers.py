@@ -25,7 +25,7 @@ Usage:
             conn=db_conn,
             pattern_count=2,
             injection_count=3,
-            success_count=8,
+            starting_success_count=8,
         )
         # ... invoke handler ...
         await assert_score_updated(db_conn, scenario.pattern_ids[0], expected=0.75)

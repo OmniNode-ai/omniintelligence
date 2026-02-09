@@ -233,7 +233,8 @@ SET
         WHEN injection_count_rolling_20 > 0
         THEN success_count_rolling_20::FLOAT / injection_count_rolling_20::FLOAT
         ELSE 0.5
-    END
+    END,
+    updated_at = NOW()
 WHERE id = ANY($1)
 """
 
