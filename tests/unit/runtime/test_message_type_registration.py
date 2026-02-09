@@ -7,7 +7,7 @@ Validates:
     - Registration happens correctly with proper categories and domains
     - Registry is queryable after freeze via has_message_type() and get_entry()
     - Registration after freeze() raises ModelOnexError
-    - Fan-out registration for ModelPatternLifecycleEvent (2 handlers)
+    - ModelPatternLifecycleEvent is COMMAND with lifecycle effect handler
     - validate_startup() returns no errors for a clean registry
 
 Related:

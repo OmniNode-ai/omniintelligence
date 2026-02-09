@@ -16,8 +16,6 @@ Design:
     - ``handler_id`` matches the node directory name
     - ``category`` follows topic naming: ``.cmd.`` -> COMMAND, ``.evt.`` -> EVENT
     - Reducer FSM payloads use COMMAND category (internal dispatch)
-    - Fan-out registration (multiple handlers for one type) uses repeated
-      ``register_simple()`` calls, which trigger the merge path
 
 Related:
     - OMN-2039: Register intelligence message types in RegistryMessageType
@@ -122,7 +120,7 @@ def register_intelligence_message_types(
     registered.append("ModelPatternLifecycleTransitionedEvent")
 
     # =========================================================================
-    # Kafka Command Models (consumed by effect nodes) -- COMMAND category
+    # Kafka Command/Event Models (consumed by effect nodes)
     # =========================================================================
 
     # 6. Claude Code hook event (cmd topic)
