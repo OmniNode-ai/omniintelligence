@@ -3,13 +3,14 @@
 """Unit tests for PluginIntelligence dispatch engine wiring.
 
 Validates:
-    - wire_dispatchers() creates and stores dispatch engine
-    - start_consumers() uses dispatch callback for claude-hook-event
-    - start_consumers() uses noop for session-outcome and pattern-lifecycle
+    - wire_dispatchers() creates and stores dispatch engine with 3 dispatchers
+    - start_consumers() uses dispatch callback for all 3 intelligence topics
+    - start_consumers() uses noop for all topics when engine is not wired
     - Dispatch engine is cleared on shutdown
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
+    - OMN-2032: Register all 3 intelligence dispatchers
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ import pytest
 from omniintelligence.runtime.plugin import (
     INTELLIGENCE_SUBSCRIBE_TOPICS,
     TOPIC_CLAUDE_HOOK_EVENT,
+    TOPIC_PATTERN_LIFECYCLE,
+    TOPIC_SESSION_OUTCOME,
     PluginIntelligence,
 )
 
@@ -119,26 +122,26 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.is_frozen
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_one_route(self) -> None:
-        """Phase 1: engine should have exactly 1 route (claude-hook-event)."""
+    async def test_wire_dispatchers_engine_has_three_routes(self) -> None:
+        """Engine should have exactly 3 routes (one per intelligence topic)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await plugin.wire_dispatchers(config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 1
+        assert plugin._dispatch_engine.route_count == 3
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_one_handler(self) -> None:
-        """Phase 1: engine should have exactly 1 handler."""
+    async def test_wire_dispatchers_engine_has_three_handlers(self) -> None:
+        """Engine should have exactly 3 handlers (one per intelligence topic)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await plugin.wire_dispatchers(config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 1
+        assert plugin._dispatch_engine.handler_count == 3
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:
@@ -239,8 +242,8 @@ class TestPluginStartConsumersDispatch:
         await sub.on_message(payload)
 
     @pytest.mark.asyncio
-    async def test_other_topics_use_noop(self) -> None:
-        """Session-outcome and pattern-lifecycle topics should use noop."""
+    async def test_all_topics_use_dispatch_callback(self) -> None:
+        """All 3 intelligence topics should use dispatch callback (not noop)."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
@@ -248,17 +251,60 @@ class TestPluginStartConsumersDispatch:
         await plugin.wire_dispatchers(config)
         await plugin.start_consumers(config)
 
-        non_hook_topics = [
-            t for t in INTELLIGENCE_SUBSCRIBE_TOPICS if t != TOPIC_CLAUDE_HOOK_EVENT
-        ]
-
-        for topic in non_hook_topics:
+        for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
             sub = event_bus.get_subscription(topic)
             assert sub is not None
             handler_name = getattr(sub.on_message, "__qualname__", "")
-            assert "noop" in handler_name.lower(), (
-                f"Topic {topic} should use noop handler, got handler: {handler_name}"
+            assert "noop" not in handler_name.lower(), (
+                f"Topic {topic} should use dispatch callback, "
+                f"got handler: {handler_name}"
             )
+
+    @pytest.mark.asyncio
+    async def test_session_outcome_dispatch_processes_message(self) -> None:
+        """Dispatching a message through session-outcome should reach the handler."""
+        event_bus = _StubEventBus()
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await plugin.wire_dispatchers(config)
+        await plugin.start_consumers(config)
+
+        sub = event_bus.get_subscription(TOPIC_SESSION_OUTCOME)
+        assert sub is not None
+
+        payload = {
+            "session_id": str(uuid4()),
+            "success": True,
+            "correlation_id": str(uuid4()),
+        }
+
+        # Pass as dict (inmemory event bus style) - should not raise
+        await sub.on_message(payload)
+
+    @pytest.mark.asyncio
+    async def test_pattern_lifecycle_dispatch_processes_message(self) -> None:
+        """Dispatching a message through pattern-lifecycle should reach the handler."""
+        event_bus = _StubEventBus()
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await plugin.wire_dispatchers(config)
+        await plugin.start_consumers(config)
+
+        sub = event_bus.get_subscription(TOPIC_PATTERN_LIFECYCLE)
+        assert sub is not None
+
+        payload = {
+            "pattern_id": str(uuid4()),
+            "from_status": "provisional",
+            "to_status": "validated",
+            "trigger": "promote",
+            "correlation_id": str(uuid4()),
+        }
+
+        # Pass as dict (inmemory event bus style) - should not raise
+        await sub.on_message(payload)
 
 
 # =============================================================================

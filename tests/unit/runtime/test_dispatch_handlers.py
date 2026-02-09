@@ -12,6 +12,7 @@ Validates:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
+    - OMN-2032: Register all 3 intelligence dispatchers
 """
 
 from __future__ import annotations
@@ -25,9 +26,13 @@ import pytest
 
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
+    DISPATCH_ALIAS_PATTERN_LIFECYCLE,
+    DISPATCH_ALIAS_SESSION_OUTCOME,
     create_claude_hook_dispatch_handler,
     create_dispatch_callback,
     create_intelligence_dispatch_engine,
+    create_pattern_lifecycle_dispatch_handler,
+    create_session_outcome_dispatch_handler,
 )
 
 # =============================================================================
@@ -94,6 +99,34 @@ class TestTopicAlias:
         """Dispatch alias must preserve the claude-hook-event name."""
         assert "claude-hook-event" in DISPATCH_ALIAS_CLAUDE_HOOK
 
+    # --- Session Outcome alias ---
+
+    def test_session_outcome_alias_contains_commands_segment(self) -> None:
+        """Session outcome alias must contain .commands. for from_topic()."""
+        assert ".commands." in DISPATCH_ALIAS_SESSION_OUTCOME
+
+    def test_session_outcome_alias_matches_intelligence_domain(self) -> None:
+        """Session outcome alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_SESSION_OUTCOME
+
+    def test_session_outcome_alias_preserves_event_name(self) -> None:
+        """Session outcome alias must preserve the session-outcome name."""
+        assert "session-outcome" in DISPATCH_ALIAS_SESSION_OUTCOME
+
+    # --- Pattern Lifecycle alias ---
+
+    def test_pattern_lifecycle_alias_contains_commands_segment(self) -> None:
+        """Pattern lifecycle alias must contain .commands. for from_topic()."""
+        assert ".commands." in DISPATCH_ALIAS_PATTERN_LIFECYCLE
+
+    def test_pattern_lifecycle_alias_matches_intelligence_domain(self) -> None:
+        """Pattern lifecycle alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_PATTERN_LIFECYCLE
+
+    def test_pattern_lifecycle_alias_preserves_event_name(self) -> None:
+        """Pattern lifecycle alias must preserve the transition name."""
+        assert "pattern-lifecycle-transition" in DISPATCH_ALIAS_PATTERN_LIFECYCLE
+
 
 # =============================================================================
 # Tests: Dispatch Engine Factory
@@ -108,15 +141,15 @@ class TestCreateIntelligenceDispatchEngine:
         engine = create_intelligence_dispatch_engine()
         assert engine.is_frozen
 
-    def test_engine_has_one_handler(self) -> None:
-        """Phase 1: exactly one handler registered."""
+    def test_engine_has_three_handlers(self) -> None:
+        """All 3 intelligence domain handlers must be registered."""
         engine = create_intelligence_dispatch_engine()
-        assert engine.handler_count == 1
+        assert engine.handler_count == 3
 
-    def test_engine_has_one_route(self) -> None:
-        """Phase 1: exactly one route registered."""
+    def test_engine_has_three_routes(self) -> None:
+        """All 3 intelligence domain routes must be registered."""
         engine = create_intelligence_dispatch_engine()
-        assert engine.route_count == 1
+        assert engine.route_count == 3
 
 
 # =============================================================================
@@ -192,6 +225,238 @@ class TestClaudeHookDispatchHandler:
         )
 
         with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+
+# =============================================================================
+# Tests: Session Outcome Handler
+# =============================================================================
+
+
+class TestSessionOutcomeDispatchHandler:
+    """Validate the bridge handler for session outcome events."""
+
+    @pytest.mark.asyncio
+    async def test_handler_processes_dict_payload(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should parse dict payload and return empty string."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": "test-session-001",
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_non_dict_payload(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError for non-dict payloads."""
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload="not a dict payload",
+            correlation_id=correlation_id,
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_handler_rejects_dict_missing_session_id(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError when dict payload lacks session_id."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="missing required field 'session_id'"):
+            await handler(envelope, context)
+
+
+# =============================================================================
+# Tests: Pattern Lifecycle Handler
+# =============================================================================
+
+
+class TestPatternLifecycleDispatchHandler:
+    """Validate the bridge handler for pattern lifecycle transition events."""
+
+    @pytest.mark.asyncio
+    async def test_handler_processes_dict_payload(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should parse dict payload and return empty string."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "pattern_id": "pat-001",
+                "from_status": "PROVISIONAL",
+                "to_status": "VALIDATED",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_non_dict_payload(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError for non-dict payloads."""
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=12345,
+            correlation_id=correlation_id,
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_handler_rejects_dict_missing_pattern_id(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError when dict payload lacks pattern_id."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "from_status": "PROVISIONAL",
+                "to_status": "VALIDATED",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="missing required field 'pattern_id'"):
             await handler(envelope, context)
 
 
