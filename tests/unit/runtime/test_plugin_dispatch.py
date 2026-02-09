@@ -7,10 +7,12 @@ Validates:
     - start_consumers() uses dispatch callback for all 3 intelligence topics
     - start_consumers() uses noop for all topics when engine is not wired
     - Dispatch engine is cleared on shutdown
+    - INTELLIGENCE_SUBSCRIBE_TOPICS is contract-driven (OMN-2033)
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
     - OMN-2032: Register all 3 intelligence dispatchers
+    - OMN-2033: Move intelligence topics to contract.yaml declarations
 """
 
 from __future__ import annotations
@@ -25,11 +27,17 @@ import pytest
 
 from omniintelligence.runtime.plugin import (
     INTELLIGENCE_SUBSCRIBE_TOPICS,
-    TOPIC_CLAUDE_HOOK_EVENT,
-    TOPIC_PATTERN_LIFECYCLE,
-    TOPIC_SESSION_OUTCOME,
     PluginIntelligence,
 )
+
+# ---------------------------------------------------------------------------
+# Per-topic constants for tests that verify specific subscription behaviour.
+# These MUST match the subscribe_topics declared in the corresponding
+# effect node contract.yaml files (source of truth).
+# ---------------------------------------------------------------------------
+TOPIC_CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
+TOPIC_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
+TOPIC_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
 # =============================================================================
 # Stubs

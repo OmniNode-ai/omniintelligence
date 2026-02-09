@@ -58,15 +58,15 @@ logger = logging.getLogger(__name__)
 # Usage: when calling dispatch(), pass the alias instead of the raw topic.
 
 DISPATCH_ALIAS_CLAUDE_HOOK = "onex.commands.omniintelligence.claude-hook-event.v1"
-"""Dispatch-compatible alias for TOPIC_CLAUDE_HOOK_EVENT."""
+"""Dispatch-compatible alias for claude-hook-event canonical topic."""
 
 DISPATCH_ALIAS_SESSION_OUTCOME = "onex.commands.omniintelligence.session-outcome.v1"
-"""Dispatch-compatible alias for TOPIC_SESSION_OUTCOME."""
+"""Dispatch-compatible alias for session-outcome canonical topic."""
 
 DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
     "onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
 )
-"""Dispatch-compatible alias for TOPIC_PATTERN_LIFECYCLE."""
+"""Dispatch-compatible alias for pattern-lifecycle canonical topic."""
 
 
 # =============================================================================

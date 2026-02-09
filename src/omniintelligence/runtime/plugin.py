@@ -20,6 +20,12 @@ Design Pattern:
     This follows the dependency inversion principle - the kernel depends
     on the abstract ProtocolDomainPlugin protocol, not this concrete class.
 
+Topic Discovery (OMN-2033):
+    Subscribe topics are declared in individual effect node ``contract.yaml``
+    files under ``event_bus.subscribe_topics`` and collected at import time
+    via ``collect_subscribe_topics_from_contracts()``.  There are no
+    hardcoded topic lists in this module.
+
 Configuration:
     The plugin activates based on environment variables:
     - POSTGRES_HOST: Required for plugin activation (pattern storage needs DB)
@@ -53,6 +59,7 @@ Example Usage:
 Related:
     - OMN-1978: Integration test: kernel boots with PluginIntelligence
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
+    - OMN-2033: Move intelligence topics to contract.yaml declarations
 """
 
 from __future__ import annotations
@@ -73,27 +80,27 @@ from omnibase_infra.runtime.protocol_domain_plugin import (
     ProtocolDomainPlugin,
 )
 
+from omniintelligence.runtime.contract_topics import (
+    canonical_topic_to_dispatch_alias,
+    collect_subscribe_topics_from_contracts,
+)
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# Intelligence Kafka Topics
+# Intelligence Kafka Topics (contract-driven, OMN-2033)
 # =============================================================================
+# Topics are declared in individual effect node contract.yaml files under
+# event_bus.subscribe_topics.  This list is populated at import time by
+# scanning those contracts via importlib.resources.
+#
+# Source contracts:
+#   - node_claude_hook_event_effect/contract.yaml
+#   - node_pattern_feedback_effect/contract.yaml
+#   - node_pattern_lifecycle_effect/contract.yaml
 
-TOPIC_CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
-"""Input topic for Claude Code hook events."""
-
-TOPIC_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
-"""Input topic for session outcome events."""
-
-TOPIC_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-"""Input topic for pattern lifecycle transition commands."""
-
-INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = [
-    TOPIC_CLAUDE_HOOK_EVENT,
-    TOPIC_SESSION_OUTCOME,
-    TOPIC_PATTERN_LIFECYCLE,
-]
-"""All input topics the intelligence plugin subscribes to."""
+INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = collect_subscribe_topics_from_contracts()
+"""All input topics the intelligence plugin subscribes to (contract-driven)."""
 
 
 class PluginIntelligence:
@@ -492,9 +499,13 @@ class PluginIntelligence:
     ) -> dict[str, Callable[[Any], Awaitable[None]]]:
         """Build handler map for each intelligence topic.
 
-        Returns a dict mapping topic -> async callback. All 3 intelligence
+        Returns a dict mapping topic -> async callback. All intelligence
         topics use the dispatch engine when available (OMN-2032); without
         the engine, all topics fall back to a noop placeholder.
+
+        Topic -> dispatch alias conversion is handled generically by
+        ``canonical_topic_to_dispatch_alias`` (OMN-2033), removing the
+        need for per-topic constant mappings.
 
         Args:
             correlation_id: Correlation ID for tracing in noop handler.
@@ -513,36 +524,23 @@ class PluginIntelligence:
 
         handlers: dict[str, Callable[[Any], Awaitable[None]]] = {}
 
-        # Topic -> dispatch alias mapping for dispatch engine routing.
-        # _engine is captured as a local to allow mypy to narrow the type
-        # (self._dispatch_engine is Optional and mypy cannot infer the
-        # transitive guard through _topic_alias_map).
-        _topic_alias_map: dict[str, str] | None = None
+        # Dispatch engine routing: convert canonical topics (.cmd.) to
+        # dispatch-compatible aliases (.commands.) generically.
+        # _engine is captured as a local to allow mypy to narrow the type.
         _engine: MessageDispatchEngine | None = None
         if self._dispatch_engine is not None:
             from omniintelligence.runtime.dispatch_handlers import (
-                DISPATCH_ALIAS_CLAUDE_HOOK,
-                DISPATCH_ALIAS_PATTERN_LIFECYCLE,
-                DISPATCH_ALIAS_SESSION_OUTCOME,
                 create_dispatch_callback,
             )
 
             _engine = self._dispatch_engine
-            _topic_alias_map = {
-                TOPIC_CLAUDE_HOOK_EVENT: DISPATCH_ALIAS_CLAUDE_HOOK,
-                TOPIC_SESSION_OUTCOME: DISPATCH_ALIAS_SESSION_OUTCOME,
-                TOPIC_PATTERN_LIFECYCLE: DISPATCH_ALIAS_PATTERN_LIFECYCLE,
-            }
 
         for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
-            if (
-                _topic_alias_map is not None
-                and _engine is not None
-                and topic in _topic_alias_map
-            ):
+            if _engine is not None:
+                dispatch_alias = canonical_topic_to_dispatch_alias(topic)
                 handlers[topic] = create_dispatch_callback(
                     engine=_engine,
-                    dispatch_topic=_topic_alias_map[topic],
+                    dispatch_topic=dispatch_alias,
                 )
             else:
                 handlers[topic] = _noop_handler
@@ -659,8 +657,5 @@ _: ProtocolDomainPlugin = PluginIntelligence()
 
 __all__: list[str] = [
     "INTELLIGENCE_SUBSCRIBE_TOPICS",
-    "TOPIC_CLAUDE_HOOK_EVENT",
-    "TOPIC_PATTERN_LIFECYCLE",
-    "TOPIC_SESSION_OUTCOME",
     "PluginIntelligence",
 ]
