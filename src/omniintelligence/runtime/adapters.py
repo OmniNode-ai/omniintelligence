@@ -25,13 +25,39 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
     import asyncpg
 
+    from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification import (
+        ModelClassificationConfig,
+    )
+    from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
+        ModelIntentClassificationInput,
+    )
+    from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_output import (
+        ModelIntentClassificationOutput,
+    )
+
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Adapter Protocols
+# =============================================================================
+
+
+@runtime_checkable
+class ProtocolEventBusPublish(Protocol):
+    """Minimal protocol for event bus publish capability.
+
+    Matches the publish signature used by EventBusKafka and EventBusInmemory.
+    """
+
+    async def publish(self, *, topic: str, key: bytes | None, value: bytes) -> None: ...
+
 
 # =============================================================================
 # SQL Constants (idempotency store)
@@ -188,7 +214,7 @@ class AdapterKafkaPublisher:
 
     __slots__ = ("_event_bus",)
 
-    def __init__(self, event_bus: Any) -> None:
+    def __init__(self, event_bus: ProtocolEventBusPublish) -> None:
         self._event_bus = event_bus
 
     async def publish(
@@ -227,7 +253,7 @@ class AdapterIntentClassifier:
 
     def __init__(
         self,
-        config: Any | None = None,
+        config: ModelClassificationConfig | None = None,
     ) -> None:
         from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
             DEFAULT_CLASSIFICATION_CONFIG,
@@ -237,8 +263,8 @@ class AdapterIntentClassifier:
 
     async def compute(
         self,
-        input_data: Any,
-    ) -> Any:
+        input_data: ModelIntentClassificationInput,
+    ) -> ModelIntentClassificationOutput:
         """Classify user intent via TF-IDF.
 
         Args:
@@ -262,4 +288,5 @@ __all__ = [
     "AdapterIntentClassifier",
     "AdapterKafkaPublisher",
     "AdapterPatternRepositoryPostgres",
+    "ProtocolEventBusPublish",
 ]

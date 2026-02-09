@@ -118,15 +118,17 @@ def collect_publish_topics_for_dispatch(
     }
 
     if node_packages is not None:
-        # Override: scan provided packages, use package tail as key
+        # Override: prefer known dispatch keys, fall back to package-tail derivation
+        _package_to_key = {v: k for k, v in _DISPATCH_KEY_TO_PACKAGE.items()}
         result: dict[str, str] = {}
         for package in node_packages:
             topics = _read_publish_topics(package)
             if topics:
-                key = (
+                key = _package_to_key.get(
+                    package,
                     package.rsplit(".", 1)[-1]
                     .replace("node_", "")
-                    .replace("_effect", "")
+                    .replace("_effect", ""),
                 )
                 result[key] = topics[0]
         return result
@@ -169,17 +171,19 @@ def canonical_topic_to_dispatch_alias(topic: str) -> str:
 # ============================================================================
 
 
-def _read_subscribe_topics(package: str) -> list[str]:
-    """Read ``event_bus.subscribe_topics`` from a node package's contract.
+def _read_event_bus_topics(package: str, field: str) -> list[str]:
+    """Read a topic list from a node package's ``event_bus`` contract section.
 
+    Shared implementation for both subscribe and publish topic discovery.
     Uses ``importlib.resources`` for ONEX I/O audit compliance.
 
     Args:
         package: Fully-qualified Python package path containing
             a ``contract.yaml`` file.
+        field: Topic field name (``"subscribe_topics"`` or ``"publish_topics"``).
 
     Returns:
-        List of subscribe topic strings (empty if event bus is disabled).
+        List of topic strings (empty if event bus is disabled or field absent).
     """
     package_files = importlib.resources.files(package)
     contract_file = package_files.joinpath("contract.yaml")
@@ -206,62 +210,25 @@ def _read_subscribe_topics(package: str) -> list[str]:
     if not event_bus.get("event_bus_enabled", False):
         return []
 
-    topics: list[str] = event_bus.get("subscribe_topics", [])
+    topics: list[str] = event_bus.get(field, [])
     if topics:
         logger.debug(
-            "Discovered subscribe_topics from %s: %s",
+            "Discovered %s from %s: %s",
+            field,
             package,
             topics,
         )
     return topics
+
+
+def _read_subscribe_topics(package: str) -> list[str]:
+    """Read ``event_bus.subscribe_topics`` from a node package's contract."""
+    return _read_event_bus_topics(package, "subscribe_topics")
 
 
 def _read_publish_topics(package: str) -> list[str]:
-    """Read ``event_bus.publish_topics`` from a node package's contract.
-
-    Uses ``importlib.resources`` for ONEX I/O audit compliance.
-
-    Args:
-        package: Fully-qualified Python package path containing
-            a ``contract.yaml`` file.
-
-    Returns:
-        List of publish topic strings (empty if event bus is disabled or
-        no publish topics are declared).
-    """
-    package_files = importlib.resources.files(package)
-    contract_file = package_files.joinpath("contract.yaml")
-    content = contract_file.read_text()
-    contract: Any = yaml.safe_load(content)
-
-    if not isinstance(contract, dict):
-        logger.warning(
-            "contract.yaml in %s is not a valid mapping (got %s), skipping",
-            package,
-            type(contract).__name__,
-        )
-        return []
-
-    event_bus = contract.get("event_bus", {})
-    if not isinstance(event_bus, dict):
-        logger.warning(
-            "event_bus in %s contract.yaml is not a mapping (got %s), skipping",
-            package,
-            type(event_bus).__name__,
-        )
-        return []
-
-    if not event_bus.get("event_bus_enabled", False):
-        return []
-
-    topics: list[str] = event_bus.get("publish_topics", [])
-    if topics:
-        logger.debug(
-            "Discovered publish_topics from %s: %s",
-            package,
-            topics,
-        )
-    return topics
+    """Read ``event_bus.publish_topics`` from a node package's contract."""
+    return _read_event_bus_topics(package, "publish_topics")
 
 
 __all__ = [
