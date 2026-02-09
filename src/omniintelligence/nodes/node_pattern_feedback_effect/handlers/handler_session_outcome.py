@@ -332,6 +332,8 @@ async def record_session_outcome(
     2. Mark them as processed with the outcome
     3. Compute and store contribution heuristics for each injection
     4. Update rolling metrics for all unique patterns involved
+    5. Recompute effectiveness scores (quality_score) from updated rolling metrics
+    6. Return result with status, counts, pattern_ids, and effectiveness scores
 
     Args:
         session_id: The Claude Code session ID.
@@ -343,7 +345,7 @@ async def record_session_outcome(
             Defaults to EQUAL_SPLIT. See EnumHeuristicMethod for options.
 
     Returns:
-        ModelSessionOutcomeResult with status and counts of updated records.
+        ModelSessionOutcomeResult with status, counts, and effectiveness scores.
 
     Raises:
         Exception: Propagates database errors for caller to handle.
