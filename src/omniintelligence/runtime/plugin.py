@@ -243,6 +243,9 @@ class PluginIntelligence:
             )
 
             # Register intelligence message types (OMN-2039)
+            # NOTE: This creates a plugin-local registry for the intelligence
+            # domain only.  Cross-domain validation requires a kernel-level
+            # shared registry (future enhancement).
             from omnibase_infra.runtime.registry import RegistryMessageType
 
             from omniintelligence.runtime.message_type_registration import (

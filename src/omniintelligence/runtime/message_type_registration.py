@@ -145,23 +145,15 @@ def register_intelligence_message_types(
     )
     registered.append("ModelPatternStorageInput")
 
-    # 8. Pattern lifecycle event -- fan-out to TWO handlers
-    #    Topic: onex.evt.omniintelligence.pattern-lifecycle-event.v1
-    #    First registration creates the entry.
+    # 8. Pattern lifecycle event (cmd topic)
+    #    Topic: onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
+    #    Published by promotion/demotion effects, consumed by lifecycle effect.
     registry.register_simple(
         message_type="ModelPatternLifecycleEvent",
-        handler_id="node_pattern_promotion_effect",
-        category=EnumMessageCategory.EVENT,
+        handler_id="node_pattern_lifecycle_effect",
+        category=EnumMessageCategory.COMMAND,
         domain=INTELLIGENCE_DOMAIN,
-        description="Pattern lifecycle event consumed by promotion and demotion effects",
-    )
-    #    Second registration merges the additional handler (fan-out).
-    registry.register_simple(
-        message_type="ModelPatternLifecycleEvent",
-        handler_id="node_pattern_demotion_effect",
-        category=EnumMessageCategory.EVENT,
-        domain=INTELLIGENCE_DOMAIN,
-        description="Pattern lifecycle event consumed by promotion and demotion effects",
+        description="Pattern lifecycle event command consumed by lifecycle effect node",
     )
     registered.append("ModelPatternLifecycleEvent")
 
