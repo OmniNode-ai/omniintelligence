@@ -68,7 +68,7 @@ class RegistryClaudeHookEventEffect:
             handler = RegistryClaudeHookEventEffect.create_handler(
                 kafka_publisher=kafka_producer,
                 intent_classifier=intent_classifier,  # optional
-                topic_env_prefix="dev",
+                publish_topic="onex.evt.omniintelligence.intent-classified.v1",
             )
 
             # Register handler for later retrieval
@@ -90,7 +90,7 @@ class RegistryClaudeHookEventEffect:
         *,
         kafka_publisher: ProtocolKafkaPublisher,
         intent_classifier: ProtocolIntentClassifier | None = None,
-        topic_env_prefix: str = "dev",
+        publish_topic: str | None = None,
     ) -> HandlerClaudeHookEvent:
         """Create a handler with explicit dependencies.
 
@@ -100,7 +100,8 @@ class RegistryClaudeHookEventEffect:
         Args:
             kafka_publisher: REQUIRED Kafka publisher for event emission.
             intent_classifier: Optional intent classifier compute node.
-            topic_env_prefix: Environment prefix for Kafka topics (e.g., "dev", "prod").
+            publish_topic: Full Kafka topic for publishing classified intents.
+                Source of truth is the contract's event_bus.publish_topics.
 
         Returns:
             Configured HandlerClaudeHookEvent instance.
@@ -112,7 +113,7 @@ class RegistryClaudeHookEventEffect:
             >>> handler = RegistryClaudeHookEventEffect.create_handler(
             ...     kafka_publisher=kafka_producer,
             ...     intent_classifier=classifier,
-            ...     topic_env_prefix="dev",
+            ...     publish_topic="onex.evt.omniintelligence.intent-classified.v1",
             ... )
         """
         # Import here to avoid circular imports
@@ -131,7 +132,7 @@ class RegistryClaudeHookEventEffect:
         return HandlerClaudeHookEvent(
             kafka_publisher=kafka_publisher,
             intent_classifier=intent_classifier,
-            topic_env_prefix=topic_env_prefix,
+            publish_topic=publish_topic,
         )
 
     @staticmethod

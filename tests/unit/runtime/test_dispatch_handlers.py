@@ -13,6 +13,7 @@ Validates:
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
     - OMN-2032: Register all 3 intelligence dispatchers
+    - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -60,6 +62,39 @@ def sample_claude_hook_payload() -> dict[str, Any]:
     }
 
 
+@pytest.fixture
+def mock_repository() -> MagicMock:
+    """Mock ProtocolPatternRepository for dispatch handler tests."""
+    repo = MagicMock()
+    repo.fetch = AsyncMock(return_value=[])
+    repo.fetchrow = AsyncMock(return_value=None)
+    repo.execute = AsyncMock(return_value="UPDATE 0")
+    return repo
+
+
+@pytest.fixture
+def mock_idempotency_store() -> MagicMock:
+    """Mock ProtocolIdempotencyStore for dispatch handler tests."""
+    store = MagicMock()
+    store.exists = AsyncMock(return_value=False)
+    store.record = AsyncMock(return_value=None)
+    store.check_and_record = AsyncMock(return_value=False)
+    return store
+
+
+@pytest.fixture
+def mock_intent_classifier() -> MagicMock:
+    """Mock ProtocolIntentClassifier for dispatch handler tests."""
+    classifier = MagicMock()
+    mock_output = MagicMock()
+    mock_output.intent_category = "unknown"
+    mock_output.confidence = 0.0
+    mock_output.keywords = []
+    mock_output.secondary_intents = []
+    classifier.compute = AsyncMock(return_value=mock_output)
+    return classifier
+
+
 @dataclass
 class _MockEventMessage:
     """Mock event bus message implementing ProtocolEventMessage interface."""
@@ -77,6 +112,86 @@ class _MockEventMessage:
 
     async def nack(self) -> None:
         self._nacked = True
+
+
+# =============================================================================
+# Tests: Protocol Conformance (dispatch_handlers locals vs handler canonicals)
+# =============================================================================
+# dispatch_handlers.py duplicates four protocols to avoid circular imports.
+# These tests verify the local copies have not diverged from the canonical
+# definitions in handler modules. If a handler protocol gains or renames a
+# method, these tests will fail, signalling that the dispatch_handlers copy
+# must be updated.
+
+
+class TestProtocolConformance:
+    """Verify dispatch_handlers protocols match canonical handler protocols."""
+
+    @staticmethod
+    def _abstract_methods(proto: type) -> set[str]:
+        """Extract the set of protocol method names via __protocol_attrs__."""
+        # runtime_checkable Protocol stores checked attrs here
+        return set(getattr(proto, "__protocol_attrs__", set()))
+
+    def test_pattern_repository_matches_lifecycle_handler(self) -> None:
+        """Local ProtocolPatternRepository must match lifecycle handler's."""
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            ProtocolPatternRepository as CanonicalRepo,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolPatternRepository as LocalRepo,
+        )
+
+        canonical = self._abstract_methods(CanonicalRepo)
+        local = self._abstract_methods(LocalRepo)
+        assert local == canonical, (
+            f"ProtocolPatternRepository diverged: local={local}, canonical={canonical}"
+        )
+
+    def test_idempotency_store_matches_lifecycle_handler(self) -> None:
+        """Local ProtocolIdempotencyStore must match lifecycle handler's."""
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            ProtocolIdempotencyStore as CanonicalStore,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolIdempotencyStore as LocalStore,
+        )
+
+        canonical = self._abstract_methods(CanonicalStore)
+        local = self._abstract_methods(LocalStore)
+        assert local == canonical, (
+            f"ProtocolIdempotencyStore diverged: local={local}, canonical={canonical}"
+        )
+
+    def test_intent_classifier_matches_hook_handler(self) -> None:
+        """Local ProtocolIntentClassifier must match hook handler's."""
+        from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
+            ProtocolIntentClassifier as CanonicalClassifier,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolIntentClassifier as LocalClassifier,
+        )
+
+        canonical = self._abstract_methods(CanonicalClassifier)
+        local = self._abstract_methods(LocalClassifier)
+        assert local == canonical, (
+            f"ProtocolIntentClassifier diverged: local={local}, canonical={canonical}"
+        )
+
+    def test_kafka_publisher_matches_hook_handler(self) -> None:
+        """Local ProtocolKafkaPublisher must match hook handler's."""
+        from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
+            ProtocolKafkaPublisher as CanonicalPublisher,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolKafkaPublisher as LocalPublisher,
+        )
+
+        canonical = self._abstract_methods(CanonicalPublisher)
+        local = self._abstract_methods(LocalPublisher)
+        assert local == canonical, (
+            f"ProtocolKafkaPublisher diverged: local={local}, canonical={canonical}"
+        )
 
 
 # =============================================================================
@@ -136,19 +251,46 @@ class TestTopicAlias:
 class TestCreateIntelligenceDispatchEngine:
     """Validate dispatch engine creation and configuration."""
 
-    def test_engine_is_frozen(self) -> None:
+    def test_engine_is_frozen(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
         """Engine must be frozen after factory call."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
         assert engine.is_frozen
 
-    def test_engine_has_three_handlers(self) -> None:
+    def test_engine_has_three_handlers(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
         """All 3 intelligence domain handlers must be registered."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
         assert engine.handler_count == 3
 
-    def test_engine_has_three_routes(self) -> None:
+    def test_engine_has_three_routes(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
         """All 3 intelligence domain routes must be registered."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
         assert engine.route_count == 3
 
 
@@ -165,6 +307,7 @@ class TestClaudeHookDispatchHandler:
         self,
         sample_claude_hook_payload: dict[str, Any],
         correlation_id: UUID,
+        mock_intent_classifier: MagicMock,
     ) -> None:
         """Handler should parse dict payload as ModelClaudeCodeHookEvent."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -178,6 +321,7 @@ class TestClaudeHookDispatchHandler:
         )
 
         handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_intent_classifier,
             correlation_id=correlation_id,
         )
 
@@ -201,6 +345,7 @@ class TestClaudeHookDispatchHandler:
     async def test_handler_raises_for_unexpected_payload_type(
         self,
         correlation_id: UUID,
+        mock_intent_classifier: MagicMock,
     ) -> None:
         """Handler should raise ValueError for unparseable payloads."""
         from omnibase_core.models.effect.model_effect_context import (
@@ -211,6 +356,7 @@ class TestClaudeHookDispatchHandler:
         )
 
         handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_intent_classifier,
             correlation_id=correlation_id,
         )
 
@@ -240,6 +386,7 @@ class TestSessionOutcomeDispatchHandler:
     async def test_handler_processes_dict_payload(
         self,
         correlation_id: UUID,
+        mock_repository: MagicMock,
     ) -> None:
         """Handler should parse dict payload and return empty string."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -253,12 +400,13 @@ class TestSessionOutcomeDispatchHandler:
         )
 
         handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
             correlation_id=correlation_id,
         )
 
         envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
             payload={
-                "session_id": "test-session-001",
+                "session_id": str(uuid4()),
                 "success": True,
                 "correlation_id": str(correlation_id),
             },
@@ -279,6 +427,7 @@ class TestSessionOutcomeDispatchHandler:
     async def test_handler_raises_for_non_dict_payload(
         self,
         correlation_id: UUID,
+        mock_repository: MagicMock,
     ) -> None:
         """Handler should raise ValueError for non-dict payloads."""
         from omnibase_core.models.effect.model_effect_context import (
@@ -289,6 +438,7 @@ class TestSessionOutcomeDispatchHandler:
         )
 
         handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
             correlation_id=correlation_id,
         )
 
@@ -308,6 +458,7 @@ class TestSessionOutcomeDispatchHandler:
     async def test_handler_rejects_dict_missing_session_id(
         self,
         correlation_id: UUID,
+        mock_repository: MagicMock,
     ) -> None:
         """Handler should raise ValueError when dict payload lacks session_id."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -321,6 +472,7 @@ class TestSessionOutcomeDispatchHandler:
         )
 
         handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
             correlation_id=correlation_id,
         )
 
@@ -355,6 +507,8 @@ class TestPatternLifecycleDispatchHandler:
     async def test_handler_processes_dict_payload(
         self,
         correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
     ) -> None:
         """Handler should parse dict payload and return empty string."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -368,14 +522,17 @@ class TestPatternLifecycleDispatchHandler:
         )
 
         handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
             correlation_id=correlation_id,
         )
 
         envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
             payload={
-                "pattern_id": "pat-001",
-                "from_status": "PROVISIONAL",
-                "to_status": "VALIDATED",
+                "pattern_id": str(uuid4()),
+                "request_id": str(uuid4()),
+                "from_status": "provisional",
+                "to_status": "validated",
                 "correlation_id": str(correlation_id),
             },
             correlation_id=correlation_id,
@@ -395,6 +552,8 @@ class TestPatternLifecycleDispatchHandler:
     async def test_handler_raises_for_non_dict_payload(
         self,
         correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
     ) -> None:
         """Handler should raise ValueError for non-dict payloads."""
         from omnibase_core.models.effect.model_effect_context import (
@@ -405,6 +564,8 @@ class TestPatternLifecycleDispatchHandler:
         )
 
         handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
             correlation_id=correlation_id,
         )
 
@@ -421,9 +582,52 @@ class TestPatternLifecycleDispatchHandler:
             await handler(envelope, context)
 
     @pytest.mark.asyncio
+    async def test_handler_raises_for_invalid_session_uuid(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError with clear message for invalid UUID."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": "not-a-valid-uuid",
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Invalid UUID for 'session_id'"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
     async def test_handler_rejects_dict_missing_pattern_id(
         self,
         correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
     ) -> None:
         """Handler should raise ValueError when dict payload lacks pattern_id."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -437,13 +641,15 @@ class TestPatternLifecycleDispatchHandler:
         )
 
         handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
             correlation_id=correlation_id,
         )
 
         envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
             payload={
-                "from_status": "PROVISIONAL",
-                "to_status": "VALIDATED",
+                "from_status": "provisional",
+                "to_status": "validated",
                 "correlation_id": str(correlation_id),
             },
             correlation_id=correlation_id,
@@ -459,6 +665,101 @@ class TestPatternLifecycleDispatchHandler:
         with pytest.raises(ValueError, match="missing required field 'pattern_id'"):
             await handler(envelope, context)
 
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_invalid_lifecycle_status(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError with clear message for invalid enum."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "pattern_id": str(uuid4()),
+                "request_id": str(uuid4()),
+                "from_status": "nonexistent_status",
+                "to_status": "validated",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(
+            ValueError, match="Invalid lifecycle status for 'from_status'"
+        ):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_invalid_transition_at(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError with clear message for invalid datetime."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "pattern_id": str(uuid4()),
+                "request_id": str(uuid4()),
+                "from_status": "provisional",
+                "to_status": "validated",
+                "transition_at": "not-a-datetime",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(
+            ValueError, match="Invalid ISO datetime for 'transition_at'"
+        ):
+            await handler(envelope, context)
+
 
 # =============================================================================
 # Tests: Event Bus Dispatch Callback
@@ -472,9 +773,16 @@ class TestCreateDispatchCallback:
     async def test_callback_dispatches_json_message(
         self,
         sample_claude_hook_payload: dict[str, Any],
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
     ) -> None:
         """Callback should deserialize bytes, dispatch, and ack."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
 
         callback = create_dispatch_callback(
             engine=engine,
@@ -491,9 +799,18 @@ class TestCreateDispatchCallback:
         assert not msg._nacked
 
     @pytest.mark.asyncio
-    async def test_callback_nacks_on_invalid_json(self) -> None:
+    async def test_callback_nacks_on_invalid_json(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
         """Callback should nack the message if JSON parsing fails."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
 
         callback = create_dispatch_callback(
             engine=engine,
@@ -513,9 +830,16 @@ class TestCreateDispatchCallback:
     async def test_callback_handles_dict_message(
         self,
         sample_claude_hook_payload: dict[str, Any],
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
     ) -> None:
         """Callback should handle plain dict messages (inmemory event bus)."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
 
         callback = create_dispatch_callback(
             engine=engine,
@@ -535,9 +859,16 @@ class TestCreateDispatchCallback:
         self,
         sample_claude_hook_payload: dict[str, Any],
         correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
     ) -> None:
         """Callback should extract correlation_id from payload if present."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
 
         callback = create_dispatch_callback(
             engine=engine,
@@ -554,9 +885,18 @@ class TestCreateDispatchCallback:
         assert msg._acked
 
     @pytest.mark.asyncio
-    async def test_callback_nacks_on_dispatch_failure(self) -> None:
+    async def test_callback_nacks_on_dispatch_failure(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
         """Callback should nack when dispatch result indicates failure."""
-        engine = create_intelligence_dispatch_engine()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
 
         # Use a topic with no matching route to trigger a dispatch failure
         callback = create_dispatch_callback(

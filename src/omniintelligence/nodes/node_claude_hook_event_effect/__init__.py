@@ -37,8 +37,7 @@ Usage (Declarative Pattern):
         event=hook_event,
         intent_classifier=classifier_impl,
         kafka_producer=producer_impl,
-        topic_env_prefix="dev",
-        publish_topic_suffix="onex.evt.omniintelligence.intent-classified.v1",
+        publish_topic="onex.evt.omniintelligence.intent-classified.v1",
     )
 
     # For event-driven execution, use RuntimeHostProcess

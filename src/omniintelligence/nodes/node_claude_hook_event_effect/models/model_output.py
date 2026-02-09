@@ -39,7 +39,7 @@ class EnumKafkaEmissionStatus(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     NO_PRODUCER = "no_producer_available"
-    NO_TOPIC_SUFFIX = "no_topic_suffix_configured"
+    NO_TOPIC = "no_topic_configured"
 
 
 class ModelIntentResult(BaseModel):
