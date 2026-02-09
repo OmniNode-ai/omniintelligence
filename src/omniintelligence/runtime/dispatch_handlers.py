@@ -371,8 +371,27 @@ def create_pattern_lifecycle_dispatch_handler(
         # Parse transition fields from payload
         pattern_id = UUID(str(raw_pattern_id))
         request_id = UUID(str(payload.get("request_id", uuid4())))
-        from_status = EnumPatternLifecycleStatus(payload["from_status"])
-        to_status = EnumPatternLifecycleStatus(payload["to_status"])
+
+        raw_from_status = payload.get("from_status")
+        if raw_from_status is None:
+            msg = (
+                f"Pattern lifecycle payload missing required field 'from_status' "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        raw_to_status = payload.get("to_status")
+        if raw_to_status is None:
+            msg = (
+                f"Pattern lifecycle payload missing required field 'to_status' "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        from_status = EnumPatternLifecycleStatus(raw_from_status)
+        to_status = EnumPatternLifecycleStatus(raw_to_status)
         trigger = payload.get("trigger", "dispatch")
 
         # Parse optional transition_at or default to now

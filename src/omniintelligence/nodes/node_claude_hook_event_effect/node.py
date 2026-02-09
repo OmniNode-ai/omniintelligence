@@ -16,7 +16,7 @@ Design Decisions:
     - NO custom logic: Pure declarative shell
 
 Handlers receive their dependencies directly via parameters:
-    - route_hook_event(event, intent_classifier, kafka_producer, topic_env_prefix)
+    - route_hook_event(event, intent_classifier, kafka_producer, publish_topic)
     - handle_user_prompt_submit(event, intent_classifier, kafka_producer, ...)
     - handle_no_op(event)
 
@@ -44,7 +44,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
 
     Dependency Injection:
         Handlers are invoked by callers with their dependencies
-        (intent_classifier, kafka_producer, topic_env_prefix). This node
+        (intent_classifier, kafka_producer, publish_topic). This node
         contains NO instance variables for handlers or dependencies.
 
     Example:
@@ -66,8 +66,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
             event=hook_event,
             intent_classifier=classifier_impl,
             kafka_producer=producer_impl,
-            topic_env_prefix="dev",
-            publish_topic_suffix="onex.evt.omniintelligence.intent-classified.v1",
+            publish_topic="onex.evt.omniintelligence.intent-classified.v1",
         )
 
         # Or use RuntimeHostProcess for event-driven execution

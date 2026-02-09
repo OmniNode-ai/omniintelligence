@@ -18,6 +18,7 @@ import pytest
 
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
+    collect_publish_topics_for_dispatch,
     collect_subscribe_topics_from_contracts,
 )
 
@@ -101,6 +102,46 @@ class TestPluginTopicListIsContractDriven:
 
         contract_topics = collect_subscribe_topics_from_contracts()
         assert len(INTELLIGENCE_SUBSCRIBE_TOPICS) == len(contract_topics)
+
+
+# =============================================================================
+# Tests: collect_publish_topics_for_dispatch
+# =============================================================================
+
+
+class TestCollectPublishTopicsForDispatch:
+    """Validate contract-driven publish topic collection for dispatch engine."""
+
+    def test_returns_dict(self) -> None:
+        """Return type must be a dict."""
+        result = collect_publish_topics_for_dispatch()
+        assert isinstance(result, dict)
+
+    def test_contains_claude_hook_key(self) -> None:
+        """Must contain 'claude_hook' key for intent classification events."""
+        result = collect_publish_topics_for_dispatch()
+        assert "claude_hook" in result
+
+    def test_contains_lifecycle_key(self) -> None:
+        """Must contain 'lifecycle' key for transition events."""
+        result = collect_publish_topics_for_dispatch()
+        assert "lifecycle" in result
+
+    def test_claude_hook_topic_is_evt(self) -> None:
+        """Claude hook publish topic must be an .evt. topic."""
+        result = collect_publish_topics_for_dispatch()
+        assert ".evt." in result["claude_hook"]
+
+    def test_lifecycle_topic_is_evt(self) -> None:
+        """Lifecycle publish topic must be an .evt. topic."""
+        result = collect_publish_topics_for_dispatch()
+        assert ".evt." in result["lifecycle"]
+
+    def test_all_values_are_strings(self) -> None:
+        """All publish topic values must be strings."""
+        result = collect_publish_topics_for_dispatch()
+        for key, value in result.items():
+            assert isinstance(value, str), f"Value for '{key}' is not a string: {value}"
 
 
 # =============================================================================
