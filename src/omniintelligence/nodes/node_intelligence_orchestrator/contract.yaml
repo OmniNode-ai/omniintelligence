@@ -96,6 +96,38 @@ workflow_coordination:
       checkpoint_interval_ms: 10000
       state_persistence_enabled: true
       rollback_enabled: true
+# Handler Routing Configuration (OMN-2034)
+# ==========================================
+# Defines handler routing for intent reception from the intelligence reducer.
+# The orchestrator receives ModelIntent events and logs them for observability.
+handler_routing:
+  routing_strategy: "intent_type_match"
+  handlers:
+    - operation: "receive_intent"
+      handler:
+        function: "handle_receive_intent"
+        module: "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent"
+        type: "sync"
+      description: "Receive and log a single intent from the reducer"
+    - operation: "receive_intents"
+      handler:
+        function: "handle_receive_intents"
+        module: "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent"
+        type: "sync"
+      description: "Receive and log a batch of intents from reducer output"
+# Intent Reception Configuration (OMN-2034)
+# ==========================================
+# Declares the orchestrator as a consumer of reducer intents.
+# This proves the intent channel works end-to-end with a minimal contract.
+intent_reception:
+  enabled: true
+  source: "node_intelligence_reducer"
+  intent_types:
+    - "extension"
+  receipt_model:
+    name: "ModelIntentReceipt"
+    module: "omniintelligence.nodes.node_intelligence_orchestrator.models"
+  description: "Receives intents emitted by the intelligence reducer for logging and observability"
 # Consumed Events
 # ===============
 consumed_events:
