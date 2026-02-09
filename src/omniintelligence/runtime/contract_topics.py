@@ -127,7 +127,23 @@ def _read_subscribe_topics(package: str) -> list[str]:
     content = contract_file.read_text()
     contract: dict[str, Any] = yaml.safe_load(content)
 
+    if not isinstance(contract, dict):
+        logger.warning(
+            "contract.yaml in %s is not a valid mapping (got %s), skipping",
+            package,
+            type(contract).__name__,
+        )
+        return []
+
     event_bus = contract.get("event_bus", {})
+    if not isinstance(event_bus, dict):
+        logger.warning(
+            "event_bus in %s contract.yaml is not a mapping (got %s), skipping",
+            package,
+            type(event_bus).__name__,
+        )
+        return []
+
     if not event_bus.get("event_bus_enabled", False):
         return []
 
