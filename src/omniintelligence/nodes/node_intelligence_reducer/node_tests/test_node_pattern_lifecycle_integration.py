@@ -6,7 +6,7 @@ Tests the full node `process()` method for PATTERN_LIFECYCLE FSM transitions.
 Unlike unit tests that test handlers directly, these integration tests exercise:
     1. The node's routing logic (ModelReducerInputPatternLifecycle detection)
     2. Handler delegation (_handle_pattern_lifecycle method)
-    3. ModelReducerOutput construction with result dict and intents
+    3. ModelReducerOutput construction with typed ModelIntelligenceState result and intents
     4. ModelIntent building with correct intent_type, target, and payload
     5. Error path handling and output structure
 
@@ -14,7 +14,7 @@ Test organization:
 1. Successful Transitions via Node - All 6 valid FSM transitions (PROVISIONAL is legacy)
 2. Failed Transitions via Node - Invalid state, trigger, transition, guard
 3. Intent Verification via Node - intent_type, target, payload structure
-4. Output Structure Verification - Result dict and intents tuple
+4. Output Structure Verification - Typed ModelIntelligenceState result and intents tuple
 5. Logging Verification (Optional) - Warning on rejection, info on acceptance
 
 Reference:
@@ -41,6 +41,9 @@ from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_l
     ERROR_INVALID_TRIGGER,
     ERROR_STATE_MISMATCH,
     VALID_TRANSITIONS,
+)
+from omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state import (
+    ModelIntelligenceState,
 )
 from omniintelligence.nodes.node_intelligence_reducer.node import (
     NodeIntelligenceReducer,
@@ -87,7 +90,7 @@ class TestSuccessfulTransitionsViaNode:
 
     These tests verify that when a valid transition is requested through
     the node's process() method:
-        - output.result["success"] is True
+        - output.result.success is True
         - output.intents contains exactly one intent
         - Intent has correct intent_type, target, and payload
     """
@@ -113,10 +116,10 @@ class TestSuccessfulTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "provisional"
-        assert output.result["to_status"] == "validated"
-        assert output.result["trigger"] == "promote"
+        assert output.result.success is True
+        assert output.result.from_status == "provisional"
+        assert output.result.to_status == "validated"
+        assert output.result.trigger == "promote"
         assert len(output.intents) == 1
 
     async def test_candidate_to_validated_via_promote_direct(
@@ -136,10 +139,10 @@ class TestSuccessfulTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "validated"
-        assert output.result["trigger"] == "promote_direct"
+        assert output.result.success is True
+        assert output.result.from_status == "candidate"
+        assert output.result.to_status == "validated"
+        assert output.result.trigger == "promote_direct"
         assert len(output.intents) == 1
 
     async def test_candidate_to_deprecated_via_deprecate(
@@ -159,9 +162,9 @@ class TestSuccessfulTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "deprecated"
+        assert output.result.success is True
+        assert output.result.from_status == "candidate"
+        assert output.result.to_status == "deprecated"
         assert len(output.intents) == 1
 
     async def test_provisional_to_deprecated_via_deprecate(
@@ -181,9 +184,9 @@ class TestSuccessfulTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "provisional"
-        assert output.result["to_status"] == "deprecated"
+        assert output.result.success is True
+        assert output.result.from_status == "provisional"
+        assert output.result.to_status == "deprecated"
         assert len(output.intents) == 1
 
     async def test_validated_to_deprecated_via_deprecate(
@@ -203,9 +206,9 @@ class TestSuccessfulTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "validated"
-        assert output.result["to_status"] == "deprecated"
+        assert output.result.success is True
+        assert output.result.from_status == "validated"
+        assert output.result.to_status == "deprecated"
         assert len(output.intents) == 1
 
     async def test_deprecated_to_candidate_via_manual_reenable_admin(
@@ -229,10 +232,10 @@ class TestSuccessfulTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "deprecated"
-        assert output.result["to_status"] == "candidate"
-        assert output.result["trigger"] == "manual_reenable"
+        assert output.result.success is True
+        assert output.result.from_status == "deprecated"
+        assert output.result.to_status == "candidate"
+        assert output.result.trigger == "manual_reenable"
         assert len(output.intents) == 1
 
     async def test_all_valid_transitions_via_process(
@@ -259,13 +262,13 @@ class TestSuccessfulTransitionsViaNode:
             output = await reducer_node.process(input_data)
 
             # Assert success
-            assert output.result["success"] is True, (
+            assert output.result.success is True, (
                 f"Transition {from_status} + {trigger} -> {expected_to} failed: "
                 f"result={output.result}"
             )
-            assert output.result["from_status"] == from_status
-            assert output.result["to_status"] == expected_to
-            assert output.result["trigger"] == trigger
+            assert output.result.from_status == from_status
+            assert output.result.to_status == expected_to
+            assert output.result.trigger == trigger
             assert len(output.intents) == 1, (
                 f"Expected 1 intent for {from_status} + {trigger}, "
                 f"got {len(output.intents)}"
@@ -284,8 +287,8 @@ class TestFailedTransitionsViaNode:
 
     These tests verify that when an invalid transition is requested through
     the node's process() method:
-        - output.result["success"] is False
-        - output.result contains error_code and error_message
+        - output.result.success is False
+        - output.result.error_code and output.result.error_message are populated
         - output.intents is empty
     """
 
@@ -323,9 +326,9 @@ class TestFailedTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - Error output
-        assert output.result["success"] is False
-        assert output.result["error_code"] == ERROR_INVALID_TRIGGER
-        assert "unknown_trigger" in output.result["error_message"]
+        assert output.result.success is False
+        assert output.result.error_code == ERROR_INVALID_TRIGGER
+        assert "unknown_trigger" in output.result.error_message
 
         # Assert - No intents
         assert len(output.intents) == 0
@@ -351,10 +354,10 @@ class TestFailedTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - Error output
-        assert output.result["success"] is False
-        assert output.result["error_code"] == ERROR_INVALID_TRANSITION
-        assert "validated" in output.result["error_message"]
-        assert "promote_direct" in output.result["error_message"]
+        assert output.result.success is False
+        assert output.result.error_code == ERROR_INVALID_TRANSITION
+        assert "validated" in output.result.error_message
+        assert "promote_direct" in output.result.error_message
 
         # Assert - No intents
         assert len(output.intents) == 0
@@ -380,10 +383,10 @@ class TestFailedTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - Error output with STATE_MISMATCH
-        assert output.result["success"] is False
-        assert output.result["error_code"] == ERROR_STATE_MISMATCH
-        assert "validated" in output.result["error_message"]  # Expected
-        assert "deprecated" in output.result["error_message"]  # Provided
+        assert output.result.success is False
+        assert output.result.error_code == ERROR_STATE_MISMATCH
+        assert "validated" in output.result.error_message  # Expected
+        assert "deprecated" in output.result.error_message  # Provided
 
         # Assert - No intents
         assert len(output.intents) == 0
@@ -409,10 +412,10 @@ class TestFailedTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - Error output with GUARD_CONDITION_FAILED
-        assert output.result["success"] is False
-        assert output.result["error_code"] == ERROR_GUARD_CONDITION_FAILED
-        assert "admin" in output.result["error_message"]
-        assert "handler" in output.result["error_message"]
+        assert output.result.success is False
+        assert output.result.error_code == ERROR_GUARD_CONDITION_FAILED
+        assert "admin" in output.result.error_message
+        assert "handler" in output.result.error_message
 
         # Assert - No intents
         assert len(output.intents) == 0
@@ -435,18 +438,18 @@ class TestFailedTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is False
-        assert output.result["error_code"] == ERROR_GUARD_CONDITION_FAILED
-        assert "system" in output.result["error_message"]
+        assert output.result.success is False
+        assert output.result.error_code == ERROR_GUARD_CONDITION_FAILED
+        assert "system" in output.result.error_message
         assert len(output.intents) == 0
 
-    async def test_error_output_contains_pattern_id(
+    async def test_error_output_contains_entity_id(
         self,
         reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
         sample_pattern_id: str,
     ) -> None:
-        """Test that error output still contains pattern_id for tracing.
+        """Test that error output still contains entity_id for tracing.
 
         Uses an invalid transition (wrong to_status) since invalid status
         strings are now rejected at model creation time via enum types.
@@ -462,9 +465,9 @@ class TestFailedTransitionsViaNode:
         # Act
         output = await reducer_node.process(input_data)
 
-        # Assert - pattern_id preserved in error output
-        assert output.result["success"] is False
-        assert output.result["pattern_id"] == sample_pattern_id
+        # Assert - entity_id preserved in error output
+        assert output.result.success is False
+        assert output.result.entity_id == sample_pattern_id
 
     async def test_error_output_contains_transition_details(
         self,
@@ -483,10 +486,10 @@ class TestFailedTransitionsViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - All transition details in error output
-        assert output.result["success"] is False
-        assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "deprecated"
-        assert output.result["trigger"] == "promote_direct"
+        assert output.result.success is False
+        assert output.result.from_status == "candidate"
+        assert output.result.to_status == "deprecated"
+        assert output.result.trigger == "promote_direct"
 
 
 # =============================================================================
@@ -523,7 +526,7 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
+        assert output.result.success is True
         assert len(output.intents) == 1
         intent = output.intents[0]
         assert isinstance(intent, ModelIntent)
@@ -548,7 +551,7 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
+        assert output.result.success is True
         intent = output.intents[0]
         # Target format: postgres://patterns/{pattern_id}
         assert f"postgres://patterns/{sample_pattern_id}" == intent.target
@@ -570,7 +573,7 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
+        assert output.result.success is True
         intent = output.intents[0]
         assert isinstance(intent.payload, ModelPayloadExtension)
         assert (
@@ -603,7 +606,7 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        assert output.result["success"] is True
+        assert output.result.success is True
         # Payload is wrapped in ModelPayloadExtension, data is in .data field
         payload_data = output.intents[0].payload.data
 
@@ -704,15 +707,15 @@ class TestOutputStructureVerification:
     """Integration tests verifying ModelReducerOutput structure.
 
     These tests ensure the output from node.process() has the correct
-    structure with all required fields.
+    structure with a typed ModelIntelligenceState result and all required fields.
     """
 
-    async def test_success_output_has_result_dict(
+    async def test_success_output_has_typed_result(
         self,
         reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
     ) -> None:
-        """Test that successful output has result dict with expected keys."""
+        """Test that successful output has a ModelIntelligenceState result with expected attributes."""
         # Arrange
         input_data = make_reducer_input(
             from_status="candidate",
@@ -723,17 +726,20 @@ class TestOutputStructureVerification:
         # Act
         output = await reducer_node.process(input_data)
 
-        # Assert - Result dict structure
-        assert isinstance(output.result, dict)
-        expected_keys = {
+        # Assert - Result is a typed ModelIntelligenceState
+        assert isinstance(output.result, ModelIntelligenceState)
+        expected_attrs = [
             "fsm_type",
             "success",
-            "pattern_id",
+            "entity_id",
             "from_status",
             "to_status",
             "trigger",
-        }
-        assert expected_keys.issubset(output.result.keys())
+        ]
+        for attr in expected_attrs:
+            assert hasattr(output.result, attr), (
+                f"ModelIntelligenceState missing expected attribute: {attr}"
+            )
 
     async def test_success_output_intents_is_tuple(
         self,
@@ -755,12 +761,12 @@ class TestOutputStructureVerification:
         assert isinstance(output.intents, tuple)
         assert len(output.intents) == 1
 
-    async def test_error_output_has_result_dict_with_error_fields(
+    async def test_error_output_has_typed_result_with_error_fields(
         self,
         reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
     ) -> None:
-        """Test that error output has result dict with error fields.
+        """Test that error output has a ModelIntelligenceState result with error fields.
 
         Uses invalid transition (wrong trigger) since invalid status strings
         are now rejected at model creation time via enum types.
@@ -775,11 +781,11 @@ class TestOutputStructureVerification:
         # Act
         output = await reducer_node.process(input_data)
 
-        # Assert - Result dict with error fields
-        assert isinstance(output.result, dict)
-        assert output.result["success"] is False
-        assert "error_code" in output.result
-        assert "error_message" in output.result
+        # Assert - Typed result with error fields
+        assert isinstance(output.result, ModelIntelligenceState)
+        assert output.result.success is False
+        assert output.result.error_code is not None
+        assert output.result.error_message is not None
 
     async def test_error_output_intents_is_empty_tuple(
         self,
@@ -805,13 +811,13 @@ class TestOutputStructureVerification:
         assert isinstance(output.intents, tuple)
         assert len(output.intents) == 0
 
-    async def test_pattern_id_preserved_in_both_success_and_error(
+    async def test_entity_id_preserved_in_both_success_and_error(
         self,
         reducer_node: NodeIntelligenceReducer,
         make_reducer_input,
         sample_pattern_id: str,
     ) -> None:
-        """Test that pattern_id is always in result dict for tracing."""
+        """Test that entity_id is always in result for tracing."""
         # Success case
         success_input = make_reducer_input(
             pattern_id=sample_pattern_id,
@@ -820,7 +826,7 @@ class TestOutputStructureVerification:
             trigger="promote_direct",
         )
         success_output = await reducer_node.process(success_input)
-        assert success_output.result["pattern_id"] == sample_pattern_id
+        assert success_output.result.entity_id == sample_pattern_id
 
         # Error case - Use invalid transition (wrong to_status)
         error_input = make_reducer_input(
@@ -830,7 +836,7 @@ class TestOutputStructureVerification:
             trigger="promote_direct",
         )
         error_output = await reducer_node.process(error_input)
-        assert error_output.result["pattern_id"] == sample_pattern_id
+        assert error_output.result.entity_id == sample_pattern_id
 
 
 # =============================================================================
@@ -871,7 +877,7 @@ class TestLoggingVerification:
             output = await reducer_node.process(input_data)
 
         # Assert - Output is error
-        assert output.result["success"] is False
+        assert output.result.success is False
 
         # Assert - Warning was logged
         assert any(
@@ -898,7 +904,7 @@ class TestLoggingVerification:
             output = await reducer_node.process(input_data)
 
         # Assert - Output is success
-        assert output.result["success"] is True
+        assert output.result.success is True
 
         # Assert - Info was logged
         assert any(
@@ -993,10 +999,10 @@ class TestCaseSensitivityViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - Normalized in result
-        assert output.result["success"] is True
-        assert output.result["from_status"] == "candidate"
-        assert output.result["to_status"] == "validated"
-        assert output.result["trigger"] == "promote_direct"
+        assert output.result.success is True
+        assert output.result.from_status == "candidate"
+        assert output.result.to_status == "validated"
+        assert output.result.trigger == "promote_direct"
 
     async def test_uppercase_normalized_in_intent_payload(
         self,
@@ -1015,7 +1021,7 @@ class TestCaseSensitivityViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert - Normalized in payload data
-        assert output.result["success"] is True
+        assert output.result.success is True
         payload_data = output.intents[0].payload.data
         assert payload_data["from_status"] == "candidate"
         assert payload_data["to_status"] == "validated"
@@ -1048,7 +1054,7 @@ class TestNodeInstanceBehavior:
             trigger="promote_direct",
         )
         output1 = await reducer_node.process(input1)
-        assert output1.result["success"] is True
+        assert output1.result.success is True
 
         # Second transition (different pattern, different transition)
         input2 = make_reducer_input(
@@ -1058,7 +1064,7 @@ class TestNodeInstanceBehavior:
             trigger="promote",
         )
         output2 = await reducer_node.process(input2)
-        assert output2.result["success"] is True
+        assert output2.result.success is True
 
         # Third transition (error case - invalid transition, wrong trigger)
         input3 = make_reducer_input(
@@ -1068,7 +1074,7 @@ class TestNodeInstanceBehavior:
             trigger="promote",  # Wrong trigger, should be "deprecate"
         )
         output3 = await reducer_node.process(input3)
-        assert output3.result["success"] is False
+        assert output3.result.success is False
 
     async def test_node_instance_is_stateless_between_calls(
         self,
@@ -1087,7 +1093,7 @@ class TestNodeInstanceBehavior:
             trigger="promote",  # Wrong trigger
         )
         error_output = await reducer_node.process(error_input)
-        assert error_output.result["success"] is False
+        assert error_output.result.success is False
 
         # Second: Success call (should not be affected by previous error)
         success_input = make_reducer_input(
@@ -1096,5 +1102,5 @@ class TestNodeInstanceBehavior:
             trigger="promote_direct",
         )
         success_output = await reducer_node.process(success_input)
-        assert success_output.result["success"] is True
+        assert success_output.result.success is True
         assert len(success_output.intents) == 1

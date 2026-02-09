@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 from uuid import uuid4
 
 from omnibase_core.enums import EnumReductionType
@@ -30,6 +29,9 @@ from omnibase_core.models.reducer.payloads.model_extension_payloads import (
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
     handle_pattern_lifecycle_transition,
 )
+from omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state import (
+    ModelIntelligenceState,
+)
 from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
     ModelReducerInputPatternLifecycle,
 )
@@ -39,19 +41,19 @@ logger = logging.getLogger(__name__)
 
 def handle_pattern_lifecycle_process(
     input_data: ModelReducerInputPatternLifecycle,
-) -> ModelReducerOutput[dict[str, Any]]:
+) -> ModelReducerOutput[ModelIntelligenceState]:
     """Handle PATTERN_LIFECYCLE FSM transitions and build reducer output.
 
     This handler:
     1. Delegates to handle_pattern_lifecycle_transition for FSM validation
-    2. Builds ModelReducerOutput with appropriate result and intents
+    2. Builds ModelReducerOutput with ModelIntelligenceState result and intents
     3. Logs transition acceptance or rejection with correlation context
 
     Args:
         input_data: Pattern lifecycle transition request.
 
     Returns:
-        ModelReducerOutput with state and intents.
+        ModelReducerOutput with typed state and intents.
     """
     start_time = time.perf_counter()
     result = handle_pattern_lifecycle_transition(input_data)
@@ -72,16 +74,16 @@ def handle_pattern_lifecycle_process(
             },
         )
         return ModelReducerOutput(
-            result={
-                "fsm_type": "PATTERN_LIFECYCLE",
-                "success": False,
-                "error_code": result.error_code,
-                "error_message": result.error_message,
-                "pattern_id": input_data.payload.pattern_id,
-                "from_status": result.from_status,
-                "to_status": result.to_status,
-                "trigger": result.trigger,
-            },
+            result=ModelIntelligenceState(
+                fsm_type="PATTERN_LIFECYCLE",
+                entity_id=input_data.payload.pattern_id,
+                success=False,
+                from_status=result.from_status,
+                to_status=result.to_status,
+                trigger=result.trigger,
+                error_code=result.error_code,
+                error_message=result.error_message,
+            ),
             operation_id=uuid4(),
             reduction_type=EnumReductionType.TRANSFORM,
             processing_time_ms=processing_time_ms,
@@ -116,14 +118,14 @@ def handle_pattern_lifecycle_process(
     )
 
     return ModelReducerOutput(
-        result={
-            "fsm_type": "PATTERN_LIFECYCLE",
-            "success": True,
-            "pattern_id": input_data.payload.pattern_id,
-            "from_status": result.from_status,
-            "to_status": result.to_status,
-            "trigger": result.trigger,
-        },
+        result=ModelIntelligenceState(
+            fsm_type="PATTERN_LIFECYCLE",
+            entity_id=input_data.payload.pattern_id,
+            success=True,
+            from_status=result.from_status,
+            to_status=result.to_status,
+            trigger=result.trigger,
+        ),
         operation_id=uuid4(),
         reduction_type=EnumReductionType.TRANSFORM,
         processing_time_ms=processing_time_ms,
