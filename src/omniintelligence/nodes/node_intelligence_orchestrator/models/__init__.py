@@ -1,5 +1,8 @@
 """Models for Intelligence Orchestrator Node."""
 
+from omniintelligence.nodes.node_intelligence_orchestrator.models.model_intent_receipt import (
+    ModelIntentReceipt,
+)
 from omniintelligence.nodes.node_intelligence_orchestrator.models.model_orchestrator_input import (
     ModelOrchestratorInput,
     OrchestratorContextDict,
@@ -17,6 +20,7 @@ from omniintelligence.nodes.node_intelligence_orchestrator.models.model_orchestr
 __all__ = [
     "IntentMetadataDict",
     "IntentPayloadDict",
+    "ModelIntentReceipt",
     "ModelOrchestratorInput",
     "ModelOrchestratorOutput",
     "OrchestratorContextDict",

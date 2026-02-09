@@ -454,7 +454,7 @@ state_machine:
 # IMPLEMENTATION STATUS AND TODO TRACKING
 # =============================================================================
 # This section tracks pending implementation work for the intelligence reducer.
-# Status: PARTIAL - Core models complete, intent emission pending.
+# Status: Core models, intent emission, and state model complete.
 #
 # COMPLETED:
 #   - [x] Typed input models (ModelReducerInput discriminated union)
@@ -462,38 +462,35 @@ state_machine:
 #   - [x] Typed output models (ModelReducerOutput, ModelReducerIntent, ModelReducerMetadata)
 #   - [x] Idempotency hash using only validated fields (entity_id, fsm_type, action)
 #   - [x] Validation rules for required fields
+#   - [x] Intent emission integration with orchestrator (OMN-2034)
+#   - [x] State model for pure reducer pattern (ModelIntelligenceState)
 #
 # PENDING:
-#   - [ ] Intent emission integration with orchestrator
-#   - [ ] State model for pure reducer pattern (ModelIntelligenceState)
 #   - [ ] Action enum to restrict valid actions per FSM type
 #
-# Intent Emission Configuration (PENDING)
-# =======================================
-# When implementing intent-based workflow triggering, enable this configuration:
+# Intent Emission Configuration (OMN-2034)
+# ==========================================
+# Reducer emits typed intents for the orchestrator to receive.
+# Currently active for PATTERN_LIFECYCLE via handler_process.py.
+# Uses ModelPayloadExtension from omnibase_core for extension payloads.
+intent_emission:
+  enabled: true
+  target: "node_intelligence_orchestrator"
+  intents:
+    - intent_type: "extension"
+      target_pattern: "postgres://patterns/{pattern_id}"
+      payload_model: "ModelPayloadExtension"
+      payload_module: "omnibase_core.models.reducer.payloads.model_extension_payloads"
+      description: "Pattern lifecycle update intent for orchestrator reception"
 #
-# intent_emission:
-#   enabled: true
-#   intents:
-#     - intent_type: "workflow.trigger"
-#       target_pattern: "orchestrator://intelligence/{operation_type}"
-#       payload_model: "ModelReducerIntentPayload"
-#       payload_module: "omniintelligence.nodes.node_intelligence_reducer.models"
-#       description: "Trigger workflow execution in orchestrator"
-#     - intent_type: "event.publish"
-#       target_pattern: "kafka://{topic}"
-#       payload_model: "ModelReducerIntentPayload"
-#       payload_module: "omniintelligence.nodes.node_intelligence_reducer.models"
-#       description: "Publish event to Kafka"
-#
-# State Model Configuration (PENDING)
-# ===================================
-# When implementing pure reducer pattern with immutable state:
-#
-# state_model:
-#   name: "ModelIntelligenceState"
-#   module: "omniintelligence.nodes.node_intelligence_reducer.models"
-#   description: "Immutable state model for pure reducer pattern"
+# State Model Configuration
+# =========================
+# Implemented: ModelIntelligenceState is the T_Output for ModelReducerOutput.
+# See: omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state
+state_model:
+  name: "ModelIntelligenceState"
+  module: "omniintelligence.nodes.node_intelligence_reducer.models"
+  description: "Immutable FSM state snapshot for pure reducer pattern"
 # Validation Configuration
 # ========================
 # Note: fsm_type validation values correspond to EnumFSMType enum values.
