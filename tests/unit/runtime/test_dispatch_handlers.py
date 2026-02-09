@@ -715,6 +715,52 @@ class TestPatternLifecycleDispatchHandler:
         with pytest.raises(ValueError, match="Invalid lifecycle status for 'from_status'"):
             await handler(envelope, context)
 
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_invalid_transition_at(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError with clear message for invalid datetime."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "pattern_id": str(uuid4()),
+                "request_id": str(uuid4()),
+                "from_status": "provisional",
+                "to_status": "validated",
+                "transition_at": "not-a-datetime",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Invalid ISO datetime for 'transition_at'"):
+            await handler(envelope, context)
+
 
 # =============================================================================
 # Tests: Event Bus Dispatch Callback

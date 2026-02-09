@@ -450,7 +450,16 @@ def create_pattern_lifecycle_dispatch_handler(
             if isinstance(raw_transition_at, datetime):
                 transition_at = raw_transition_at
             else:
-                transition_at = datetime.fromisoformat(str(raw_transition_at))
+                try:
+                    transition_at = datetime.fromisoformat(str(raw_transition_at))
+                except ValueError as e:
+                    msg = (
+                        f"Invalid ISO datetime for 'transition_at': "
+                        f"{raw_transition_at!r} "
+                        f"(correlation_id={ctx_correlation_id})"
+                    )
+                    logger.warning(msg)
+                    raise ValueError(msg) from e
         else:
             transition_at = datetime.now(UTC)
 
