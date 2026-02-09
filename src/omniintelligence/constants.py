@@ -55,6 +55,11 @@ Used in:
 #
 # The dispatch engine reads canonical topics from contract.yaml and uses them
 # directly (no env prefix). These constants match the contract declarations.
+#
+# NOTE: The TOPIC_SUFFIX_ prefix is a legacy naming artifact. The dispatch engine
+# uses these as canonical topics (no prefix), but handler_promotion and
+# handler_demotion still concatenate them as suffixes with topic_env_prefix.
+# The names will be removed entirely with OMN-1546; renaming is not worthwhile.
 # =============================================================================
 
 TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = (

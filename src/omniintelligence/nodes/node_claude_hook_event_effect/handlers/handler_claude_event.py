@@ -428,7 +428,7 @@ async def handle_user_prompt_submit(
     elif kafka_producer is None:
         metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value
     else:
-        metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_TOPIC_SUFFIX.value
+        metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_TOPIC.value
 
     # Build intent result
     intent_result = ModelIntentResult(
