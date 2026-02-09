@@ -221,6 +221,29 @@ WHERE injection_id = $1
   AND contribution_heuristic IS NULL
 """
 
+# SQL for recomputing effectiveness score (quality_score) from rolling metrics
+# Runs AFTER rolling metrics are updated so it reads the new values.
+# Formula: success_count / injection_count (pure success ratio)
+# Default: 0.5 when no injections recorded (neutral prior)
+# Returns the updated scores for inclusion in handler result.
+SQL_UPDATE_EFFECTIVENESS_SCORE = """
+UPDATE learned_patterns
+SET
+    quality_score = CASE
+        WHEN injection_count_rolling_20 > 0
+        THEN success_count_rolling_20::FLOAT / injection_count_rolling_20::FLOAT
+        ELSE 0.5
+    END
+WHERE id = ANY($1)
+"""
+
+# SQL for fetching effectiveness scores after update
+SQL_FETCH_EFFECTIVENESS_SCORES = """
+SELECT id, quality_score
+FROM learned_patterns
+WHERE id = ANY($1)
+"""
+
 
 # =============================================================================
 # Type Definitions
@@ -464,12 +487,30 @@ async def record_session_outcome(
         },
     )
 
+    # Step 6: Recompute effectiveness scores from updated rolling metrics
+    effectiveness_scores: dict[UUID, float] = {}
+    if pattern_ids:
+        effectiveness_scores = await update_effectiveness_scores(
+            pattern_ids=pattern_ids,
+            repository=repository,
+        )
+
+    logger.debug(
+        "Updated effectiveness scores",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "scores": {str(k): v for k, v in effectiveness_scores.items()},
+        },
+    )
+
     return ModelSessionOutcomeResult(
         status=EnumOutcomeRecordingStatus.SUCCESS,
         session_id=session_id,
         injections_updated=injections_updated,
         patterns_updated=patterns_updated,
         pattern_ids=pattern_ids,
+        effectiveness_scores=effectiveness_scores,
         recorded_at=datetime.now(UTC),
         error_message=None,
     )
@@ -591,6 +632,41 @@ async def update_pattern_rolling_metrics(
     return _parse_update_count(status)
 
 
+async def update_effectiveness_scores(
+    pattern_ids: list[UUID],
+    *,
+    repository: ProtocolPatternRepository,
+) -> dict[UUID, float]:
+    """Recompute effectiveness scores from rolling metrics and return updated values.
+
+    This function recalculates the quality_score for each pattern based on
+    current rolling window metrics. It should be called AFTER rolling metrics
+    have been updated so the computation reflects the latest outcome.
+
+    Formula:
+        quality_score = success_count_rolling_20 / injection_count_rolling_20
+        Falls back to 0.5 (neutral prior) when injection_count is 0.
+
+    Args:
+        pattern_ids: List of pattern UUIDs to update.
+        repository: Database repository implementing ProtocolPatternRepository.
+
+    Returns:
+        Dictionary mapping pattern UUID to updated effectiveness score.
+        Empty dict if no patterns provided.
+    """
+    if not pattern_ids:
+        return {}
+
+    # Step 1: Recompute quality_score in the database
+    await repository.execute(SQL_UPDATE_EFFECTIVENESS_SCORE, pattern_ids)
+
+    # Step 2: Fetch updated scores
+    rows = await repository.fetch(SQL_FETCH_EFFECTIVENESS_SCORES, pattern_ids)
+
+    return {row["id"]: float(row["quality_score"]) for row in rows}
+
+
 def _parse_update_count(status: str | None) -> int:
     """Parse the row count from a PostgreSQL status string.
 
@@ -636,5 +712,6 @@ __all__ = [
     "compute_and_store_heuristics",
     "event_to_handler_args",
     "record_session_outcome",
+    "update_effectiveness_scores",
     "update_pattern_rolling_metrics",
 ]
