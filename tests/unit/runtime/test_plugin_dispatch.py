@@ -350,6 +350,7 @@ class TestPluginStartConsumersDispatch:
 
         payload = {
             "pattern_id": str(uuid4()),
+            "request_id": str(uuid4()),
             "from_status": "provisional",
             "to_status": "validated",
             "trigger": "promote",

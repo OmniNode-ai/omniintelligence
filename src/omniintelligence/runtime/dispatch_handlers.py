@@ -370,7 +370,16 @@ def create_pattern_lifecycle_dispatch_handler(
 
         # Parse transition fields from payload
         pattern_id = UUID(str(raw_pattern_id))
-        request_id = UUID(str(payload.get("request_id", uuid4())))
+
+        raw_request_id = payload.get("request_id")
+        if raw_request_id is None:
+            msg = (
+                f"Pattern lifecycle payload missing required field 'request_id' "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+        request_id = UUID(str(raw_request_id))
 
         raw_from_status = payload.get("from_status")
         if raw_from_status is None:
