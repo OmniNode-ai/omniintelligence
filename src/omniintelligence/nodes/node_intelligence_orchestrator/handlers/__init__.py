@@ -11,6 +11,7 @@ Ticket: OMN-2034
 
 from omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent import (
     handle_receive_intent,
+    handle_receive_intents,
 )
 
-__all__ = ["handle_receive_intent"]
+__all__ = ["handle_receive_intent", "handle_receive_intents"]
