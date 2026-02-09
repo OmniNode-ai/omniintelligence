@@ -4,21 +4,20 @@
 
 This module provides bridge handlers that adapt between the MessageDispatchEngine
 handler signature and existing Intelligence domain handlers. It also defines
-topic alias mappings needed because ONEX canonical topic naming uses `.cmd.`
-and `.evt.` segments, which EnumMessageCategory.from_topic() does not yet
-recognize (it expects `.commands.` and `.events.`).
+topic alias mappings needed because ONEX canonical topic naming uses ``.cmd.``
+and ``.evt.`` segments, which EnumMessageCategory.from_topic() does not yet
+recognize (it expects ``.commands.`` and ``.events.``).
 
 Design Decisions:
     - Topic aliases are a temporary bridge until EnumMessageCategory.from_topic()
-      is updated to handle `.cmd.` / `.evt.` short forms.
+      is updated to handle ``.cmd.`` / ``.evt.`` short forms.
     - Bridge handlers adapt (envelope, context) -> existing handler interfaces.
-    - The dispatch engine is created per-plugin (not kernel-managed) for Phase 1.
+    - The dispatch engine is created per-plugin (not kernel-managed).
     - message_types=None on handler registration accepts all message types in
-      the category -- correct for Phase 1 where we route by topic, not type.
-    - Session-outcome and pattern-lifecycle handlers are Phase 1 stubs that
-      validate the payload shape and reject malformed payloads with ValueError.
-      Full dependency injection (database repository, kafka producer) is
-      deferred to Phase 2.
+      the category -- correct when routing by topic, not type.
+    - All required dependencies (repository, idempotency_store, intent_classifier)
+      must be provided -- no fallback stubs. If deps are missing, the plugin
+      must not start consumers.
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
@@ -31,8 +30,9 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-from collections.abc import Awaitable, Callable
-from typing import Any
+from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
@@ -46,6 +46,47 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
 from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Dependency Protocols (structural typing for dispatch handler deps)
+# =============================================================================
+# These mirror the protocols defined in handler files. They are repeated here
+# to avoid circular imports between dispatch_handlers and handler modules.
+
+
+@runtime_checkable
+class ProtocolPatternRepository(Protocol):
+    """Database repository protocol (asyncpg-style)."""
+
+    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]: ...
+    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None: ...
+    async def execute(self, query: str, *args: Any) -> str: ...
+
+
+@runtime_checkable
+class ProtocolIdempotencyStore(Protocol):
+    """Idempotency key tracking protocol."""
+
+    async def exists(self, request_id: UUID) -> bool: ...
+    async def record(self, request_id: UUID) -> None: ...
+    async def check_and_record(self, request_id: UUID) -> bool: ...
+
+
+@runtime_checkable
+class ProtocolIntentClassifier(Protocol):
+    """Intent classification protocol."""
+
+    async def compute(self, input_data: Any) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolKafkaPublisher(Protocol):
+    """Kafka event publishing protocol."""
+
+    async def publish(
+        self, topic: str, key: str, value: dict[str, Any]
+    ) -> None: ...
+
 
 # =============================================================================
 # Topic Alias Mapping
@@ -76,6 +117,9 @@ DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
 
 def create_claude_hook_dispatch_handler(
     *,
+    intent_classifier: ProtocolIntentClassifier,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -87,12 +131,10 @@ def create_claude_hook_dispatch_handler(
     handler signature. The handler extracts the payload from the envelope,
     parses it as a ModelClaudeCodeHookEvent, and delegates to route_hook_event().
 
-    Dependencies (kafka_producer, intent_classifier) are not wired in Phase 1.
-    The handler processes the event with classification and logging but without
-    Kafka emission. This is intentional: Phase 1 validates the dispatch path,
-    Phase 2 adds full dependency injection.
-
     Args:
+        intent_classifier: REQUIRED intent classifier for user prompt analysis.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for intent classification events (from contract).
         correlation_id: Optional fixed correlation ID for tracing.
 
     Returns:
@@ -145,11 +187,11 @@ def create_claude_hook_dispatch_handler(
             ctx_correlation_id,
         )
 
-        # Delegate to existing handler (Phase 1: no kafka_producer, no intent_classifier)
         result = await route_hook_event(
             event=event,
-            intent_classifier=None,
-            kafka_producer=None,
+            intent_classifier=intent_classifier,
+            kafka_producer=kafka_producer,
+            publish_topic=publish_topic,
         )
 
         logger.info(
@@ -172,6 +214,7 @@ def create_claude_hook_dispatch_handler(
 
 def create_session_outcome_dispatch_handler(
     *,
+    repository: ProtocolPatternRepository,
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -181,13 +224,10 @@ def create_session_outcome_dispatch_handler(
 
     Returns an async handler function compatible with MessageDispatchEngine's
     handler signature. The handler extracts the payload from the envelope,
-    validates its shape, and logs the session outcome for tracing.
-
-    Phase 1 (OMN-2032): No database repository is injected. The handler
-    validates the dispatch path and logs receipt. Full dependency injection
-    (repository for record_session_outcome) is deferred to Phase 2.
+    maps it to handler args, and delegates to record_session_outcome().
 
     Args:
+        repository: REQUIRED database repository for pattern feedback recording.
         correlation_id: Optional fixed correlation ID for tracing.
 
     Returns:
@@ -198,37 +238,62 @@ def create_session_outcome_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> session outcome logging (Phase 1)."""
+        """Bridge handler: envelope -> record_session_outcome()."""
+        from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
+            record_session_outcome,
+        )
+
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
         )
 
         payload = envelope.payload
 
-        if isinstance(payload, dict):
-            session_id = payload.get("session_id")
-            if session_id is None:
-                msg = (
-                    f"Session outcome payload missing required field 'session_id' "
-                    f"(correlation_id={ctx_correlation_id})"
-                )
-                logger.warning(msg)
-                raise ValueError(msg)
-            success = payload.get("success")
-            logger.info(
-                "Session outcome received via dispatch engine "
-                "(session_id=%s, success=%s, correlation_id=%s)",
-                session_id,
-                success,
-                ctx_correlation_id,
-            )
-        else:
+        if not isinstance(payload, dict):
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
                 f"for session-outcome (correlation_id={ctx_correlation_id})"
             )
             logger.warning(msg)
             raise ValueError(msg)
+
+        # Extract required fields
+        raw_session_id = payload.get("session_id")
+        if raw_session_id is None:
+            msg = (
+                f"Session outcome payload missing required field 'session_id' "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        session_id = UUID(str(raw_session_id))
+        success = bool(payload.get("success", False))
+        failure_reason = payload.get("failure_reason")
+
+        logger.info(
+            "Dispatching session-outcome via MessageDispatchEngine "
+            "(session_id=%s, success=%s, correlation_id=%s)",
+            session_id,
+            success,
+            ctx_correlation_id,
+        )
+
+        result = await record_session_outcome(
+            session_id=session_id,
+            success=success,
+            failure_reason=failure_reason,
+            repository=repository,
+            correlation_id=ctx_correlation_id,
+        )
+
+        logger.info(
+            "Session outcome processed via dispatch engine "
+            "(session_id=%s, patterns_affected=%d, correlation_id=%s)",
+            session_id,
+            result.patterns_updated,
+            ctx_correlation_id,
+        )
 
         return ""
 
@@ -242,6 +307,10 @@ def create_session_outcome_dispatch_handler(
 
 def create_pattern_lifecycle_dispatch_handler(
     *,
+    repository: ProtocolPatternRepository,
+    idempotency_store: ProtocolIdempotencyStore,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -251,14 +320,13 @@ def create_pattern_lifecycle_dispatch_handler(
 
     Returns an async handler function compatible with MessageDispatchEngine's
     handler signature. The handler extracts the payload from the envelope,
-    validates its shape, and logs the transition for tracing.
-
-    Phase 1 (OMN-2032): No database repository or idempotency store is
-    injected. The handler validates the dispatch path and logs receipt.
-    Full dependency injection (repository for apply_transition) is deferred
-    to Phase 2.
+    maps it to transition parameters, and delegates to apply_transition().
 
     Args:
+        repository: REQUIRED database repository for pattern state management.
+        idempotency_store: REQUIRED idempotency store for deduplication.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for transition events (from contract).
         correlation_id: Optional fixed correlation ID for tracing.
 
     Returns:
@@ -269,33 +337,19 @@ def create_pattern_lifecycle_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> pattern lifecycle logging (Phase 1)."""
+        """Bridge handler: envelope -> apply_transition()."""
+        from omniintelligence.enums import EnumPatternLifecycleStatus
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
+            apply_transition,
+        )
+
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
         )
 
         payload = envelope.payload
 
-        if isinstance(payload, dict):
-            pattern_id = payload.get("pattern_id")
-            if pattern_id is None:
-                msg = (
-                    f"Pattern lifecycle payload missing required field 'pattern_id' "
-                    f"(correlation_id={ctx_correlation_id})"
-                )
-                logger.warning(msg)
-                raise ValueError(msg)
-            from_status = payload.get("from_status")
-            to_status = payload.get("to_status")
-            logger.info(
-                "Pattern lifecycle transition received via dispatch engine "
-                "(pattern_id=%s, from=%s, to=%s, correlation_id=%s)",
-                pattern_id,
-                from_status,
-                to_status,
-                ctx_correlation_id,
-            )
-        else:
+        if not isinstance(payload, dict):
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
                 f"for pattern-lifecycle-transition "
@@ -303,6 +357,68 @@ def create_pattern_lifecycle_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg)
+
+        # Extract required fields
+        raw_pattern_id = payload.get("pattern_id")
+        if raw_pattern_id is None:
+            msg = (
+                f"Pattern lifecycle payload missing required field 'pattern_id' "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        # Parse transition fields from payload
+        pattern_id = UUID(str(raw_pattern_id))
+        request_id = UUID(str(payload.get("request_id", uuid4())))
+        from_status = EnumPatternLifecycleStatus(payload["from_status"])
+        to_status = EnumPatternLifecycleStatus(payload["to_status"])
+        trigger = payload.get("trigger", "dispatch")
+
+        # Parse optional transition_at or default to now
+        raw_transition_at = payload.get("transition_at")
+        if raw_transition_at is not None:
+            if isinstance(raw_transition_at, datetime):
+                transition_at = raw_transition_at
+            else:
+                transition_at = datetime.fromisoformat(str(raw_transition_at))
+        else:
+            transition_at = datetime.now(UTC)
+
+        logger.info(
+            "Dispatching pattern-lifecycle-transition via MessageDispatchEngine "
+            "(pattern_id=%s, from=%s, to=%s, correlation_id=%s)",
+            pattern_id,
+            from_status,
+            to_status,
+            ctx_correlation_id,
+        )
+
+        result = await apply_transition(
+            repository=repository,
+            idempotency_store=idempotency_store,
+            producer=kafka_producer,
+            request_id=request_id,
+            correlation_id=ctx_correlation_id,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            trigger=trigger,
+            actor=payload.get("actor", "dispatch"),
+            reason=payload.get("reason"),
+            gate_snapshot=payload.get("gate_snapshot"),
+            transition_at=transition_at,
+            publish_topic=publish_topic if kafka_producer else None,
+        )
+
+        logger.info(
+            "Pattern lifecycle transition processed via dispatch engine "
+            "(pattern_id=%s, success=%s, duplicate=%s, correlation_id=%s)",
+            pattern_id,
+            result.success,
+            result.duplicate,
+            ctx_correlation_id,
+        )
 
         return ""
 
@@ -314,32 +430,52 @@ def create_pattern_lifecycle_dispatch_handler(
 # =============================================================================
 
 
-def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
+def create_intelligence_dispatch_engine(
+    *,
+    repository: ProtocolPatternRepository,
+    idempotency_store: ProtocolIdempotencyStore,
+    intent_classifier: ProtocolIntentClassifier,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topics: dict[str, str] | None = None,
+) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
     Creates the engine, registers all 3 intelligence domain handlers and
     routes, and freezes it. The engine is ready for dispatch after this call.
 
-    Dispatchers registered (OMN-2032):
-        1. claude-hook-event: Claude Code hook event processing
-        2. session-outcome: Session feedback recording (Phase 1 stub)
-        3. pattern-lifecycle-transition: Pattern lifecycle transitions (Phase 1 stub)
+    All required dependencies must be provided. If any are missing, the caller
+    should not start consumers.
+
+    Args:
+        repository: REQUIRED database repository.
+        idempotency_store: REQUIRED idempotency store.
+        intent_classifier: REQUIRED intent classifier.
+        kafka_producer: Optional Kafka publisher (graceful degradation).
+        publish_topics: Optional mapping of handler name to publish topic.
+            Keys: "claude_hook", "lifecycle". Values: full topic strings
+            from contract event_bus.publish_topics.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
     """
+    topics = publish_topics or {}
+
     engine = MessageDispatchEngine(
         logger=logging.getLogger(f"{__name__}.dispatch_engine"),
     )
 
     # --- Handler 1: claude-hook-event ---
-    claude_hook_handler = create_claude_hook_dispatch_handler()
+    claude_hook_handler = create_claude_hook_dispatch_handler(
+        intent_classifier=intent_classifier,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get("claude_hook"),
+    )
     engine.register_handler(
         handler_id="intelligence-claude-hook-handler",
         handler=claude_hook_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
-        message_types=None,  # Accept all message types in Phase 1
+        message_types=None,
     )
     engine.register_route(
         ModelDispatchRoute(
@@ -354,13 +490,15 @@ def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
     )
 
     # --- Handler 2: session-outcome ---
-    session_outcome_handler = create_session_outcome_dispatch_handler()
+    session_outcome_handler = create_session_outcome_dispatch_handler(
+        repository=repository,
+    )
     engine.register_handler(
         handler_id="intelligence-session-outcome-handler",
         handler=session_outcome_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
-        message_types=None,  # Accept all message types in Phase 1
+        message_types=None,
     )
     engine.register_route(
         ModelDispatchRoute(
@@ -369,20 +507,24 @@ def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-session-outcome-handler",
             description=(
-                "Routes session-outcome commands to the intelligence handler. "
-                "Phase 1: logging stub. Phase 2: full record_session_outcome."
+                "Routes session-outcome commands to record_session_outcome handler."
             ),
         )
     )
 
     # --- Handler 3: pattern-lifecycle-transition ---
-    pattern_lifecycle_handler = create_pattern_lifecycle_dispatch_handler()
+    pattern_lifecycle_handler = create_pattern_lifecycle_dispatch_handler(
+        repository=repository,
+        idempotency_store=idempotency_store,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get("lifecycle"),
+    )
     engine.register_handler(
         handler_id="intelligence-pattern-lifecycle-handler",
         handler=pattern_lifecycle_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
-        message_types=None,  # Accept all message types in Phase 1
+        message_types=None,
     )
     engine.register_route(
         ModelDispatchRoute(
@@ -391,8 +533,7 @@ def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-pattern-lifecycle-handler",
             description=(
-                "Routes pattern-lifecycle-transition commands to the intelligence "
-                "handler. Phase 1: logging stub. Phase 2: full apply_transition."
+                "Routes pattern-lifecycle-transition commands to apply_transition handler."
             ),
         )
     )

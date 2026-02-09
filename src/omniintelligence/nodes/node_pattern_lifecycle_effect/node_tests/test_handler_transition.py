@@ -940,7 +940,7 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            topic_env_prefix="test",
+            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
         )
 
         # Assert
@@ -979,7 +979,7 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            topic_env_prefix="test",
+            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
         )
 
         # Assert
@@ -1019,7 +1019,7 @@ class TestKafkaEvents:
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_event_topic_uses_env_prefix(
+    async def test_event_topic_uses_publish_topic(
         self,
         mock_repository: MockPatternRepository,
         mock_idempotency_store: MockIdempotencyStore,
@@ -1029,9 +1029,10 @@ class TestKafkaEvents:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """Event topic uses correct environment prefix."""
+        """Event topic matches the publish_topic parameter."""
         # Arrange
         mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        publish_topic = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 
         # Act
         await apply_transition(
@@ -1045,12 +1046,12 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            topic_env_prefix="prod",
+            publish_topic=publish_topic,
         )
 
         # Assert
         topic, _, _ = mock_producer.published_events[0]
-        assert topic.startswith("prod.")
+        assert topic == publish_topic
 
 
 # =============================================================================
@@ -1098,7 +1099,7 @@ class TestErrorHandling:
         assert result.transition_id is None
 
     @pytest.mark.asyncio
-    async def test_producer_without_topic_env_prefix_returns_failure(
+    async def test_producer_without_publish_topic_returns_failure(
         self,
         mock_repository: MockPatternRepository,
         mock_idempotency_store: MockIdempotencyStore,
@@ -1108,7 +1109,7 @@ class TestErrorHandling:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """Failure returned when producer is provided but topic_env_prefix is None.
+        """Failure returned when producer is provided but publish_topic is None.
 
         Note: This validation now happens at function entry (fail-fast) and returns
         a structured error result rather than raising ValueError. This ensures the
@@ -1129,14 +1130,14 @@ class TestErrorHandling:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            topic_env_prefix=None,  # But topic_env_prefix is None
+            publish_topic=None,  # But publish_topic is None
         )
 
         # Assert
         assert result.success is False
         assert result.duplicate is False
         assert result.error_message is not None
-        assert "topic_env_prefix" in result.error_message
+        assert "publish_topic" in result.error_message
         assert result.transition_id is None
         # Verify no database operations occurred (fail-fast)
         assert len(mock_repository.patterns) == 0  # Pattern was never added

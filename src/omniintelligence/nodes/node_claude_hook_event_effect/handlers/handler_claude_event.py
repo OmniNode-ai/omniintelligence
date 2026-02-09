@@ -94,13 +94,13 @@ class HandlerClaudeHookEvent:
     Attributes:
         kafka_publisher: Kafka publisher for event emission (REQUIRED for full functionality).
         intent_classifier: Intent classifier compute node (OPTIONAL).
-        topic_env_prefix: Environment prefix for Kafka topics.
+        publish_topic: Full Kafka publish topic from contract (OPTIONAL).
 
     Example:
         >>> handler = HandlerClaudeHookEvent(
         ...     kafka_publisher=kafka_producer,
         ...     intent_classifier=classifier,
-        ...     topic_env_prefix="dev",
+        ...     publish_topic="onex.evt.omniintelligence.intent-classified.v1",
         ... )
         >>> result = await handler.handle(event)
     """
@@ -110,14 +110,15 @@ class HandlerClaudeHookEvent:
         *,
         kafka_publisher: ProtocolKafkaPublisher,
         intent_classifier: ProtocolIntentClassifier | None = None,
-        topic_env_prefix: str = "dev",
+        publish_topic: str | None = None,
     ) -> None:
         """Initialize handler with explicit dependencies.
 
         Args:
             kafka_publisher: REQUIRED Kafka publisher for event emission.
             intent_classifier: Optional intent classifier compute node.
-            topic_env_prefix: Environment prefix for Kafka topics.
+            publish_topic: Full Kafka topic for publishing classified intents.
+                Source of truth is the contract's event_bus.publish_topics.
 
         Raises:
             ValueError: If kafka_publisher is None.
@@ -127,7 +128,7 @@ class HandlerClaudeHookEvent:
 
         self._kafka_publisher = kafka_publisher
         self._intent_classifier = intent_classifier
-        self._topic_env_prefix = topic_env_prefix
+        self._publish_topic = publish_topic
 
     @property
     def kafka_publisher(self) -> ProtocolKafkaPublisher:
@@ -140,9 +141,9 @@ class HandlerClaudeHookEvent:
         return self._intent_classifier
 
     @property
-    def topic_env_prefix(self) -> str:
-        """Get the Kafka topic environment prefix."""
-        return self._topic_env_prefix
+    def publish_topic(self) -> str | None:
+        """Get the Kafka publish topic."""
+        return self._publish_topic
 
     async def handle(self, event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         """Handle a Claude Code hook event.
@@ -160,7 +161,7 @@ class HandlerClaudeHookEvent:
             event=event,
             intent_classifier=self._intent_classifier,
             kafka_producer=self._kafka_publisher,
-            topic_env_prefix=self._topic_env_prefix,
+            publish_topic=self._publish_topic,
         )
 
 
@@ -174,8 +175,7 @@ async def route_hook_event(
     *,
     intent_classifier: ProtocolIntentClassifier | None = None,
     kafka_producer: ProtocolKafkaPublisher | None = None,
-    topic_env_prefix: str = "dev",
-    publish_topic_suffix: str | None = None,
+    publish_topic: str | None = None,
 ) -> ModelClaudeHookResult:
     """Route a Claude Code hook event to the appropriate handler.
 
@@ -187,10 +187,8 @@ async def route_hook_event(
         intent_classifier: Optional intent classifier compute node implementing
             ProtocolIntentClassifier.
         kafka_producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-        publish_topic_suffix: Topic suffix from contract's event_bus.publish_topics
-            (e.g., "onex.evt.omniintelligence.intent-classified.v1").
-            Contract-driven per OMN-1551.
+        publish_topic: Full Kafka topic for publishing classified intents.
+            Source of truth is the contract's event_bus.publish_topics.
 
     Returns:
         ModelClaudeHookResult with processing outcome.
@@ -204,8 +202,7 @@ async def route_hook_event(
                 event=event,
                 intent_classifier=intent_classifier,
                 kafka_producer=kafka_producer,
-                topic_env_prefix=topic_env_prefix,
-                publish_topic_suffix=publish_topic_suffix,
+                publish_topic=publish_topic,
             )
         else:
             # All other event types are no-op for now
@@ -299,7 +296,7 @@ def _extract_prompt_from_payload(
 def _determine_processing_status(
     emitted_to_kafka: bool,
     kafka_producer: ProtocolKafkaPublisher | None,
-    publish_topic_suffix: str | None,
+    publish_topic: str | None,
 ) -> EnumHookProcessingStatus:
     """Determine the overall processing status based on Kafka emission outcome.
 
@@ -309,17 +306,17 @@ def _determine_processing_status(
     Status Logic:
     -------------
     - SUCCESS: Either Kafka emission succeeded, OR Kafka was not configured
-      (no producer or no topic suffix). In the latter case, we successfully
+      (no producer or no publish topic). In the latter case, we successfully
       completed everything that was configured to run.
 
     - PARTIAL: Kafka emission failed despite having both a producer AND topic
-      suffix configured. This indicates the handler partially succeeded
+      configured. This indicates the handler partially succeeded
       (intent classification worked) but the downstream emission failed.
 
     Args:
         emitted_to_kafka: Whether the event was successfully emitted to Kafka.
         kafka_producer: The Kafka producer, or None if not configured.
-        publish_topic_suffix: The topic suffix, or None if not configured.
+        publish_topic: The full publish topic, or None if not configured.
 
     Returns:
         EnumHookProcessingStatus.SUCCESS if emission succeeded or was not
@@ -332,7 +329,7 @@ def _determine_processing_status(
 
     # If emission failed but Kafka was fully configured (both producer and topic),
     # mark as partial - we completed classification but failed on emission
-    if kafka_producer is not None and publish_topic_suffix is not None:
+    if kafka_producer is not None and publish_topic is not None:
         return EnumHookProcessingStatus.PARTIAL
 
     # Kafka was not fully configured, so we successfully completed what was asked
@@ -344,8 +341,7 @@ async def handle_user_prompt_submit(
     *,
     intent_classifier: ProtocolIntentClassifier | None = None,
     kafka_producer: ProtocolKafkaPublisher | None = None,
-    topic_env_prefix: str = "dev",
-    publish_topic_suffix: str | None = None,
+    publish_topic: str | None = None,
 ) -> ModelClaudeHookResult:
     """Handle UserPromptSubmit events with intent classification.
 
@@ -359,10 +355,8 @@ async def handle_user_prompt_submit(
         intent_classifier: Intent classifier compute node implementing
             ProtocolIntentClassifier (optional for testing).
         kafka_producer: Kafka producer implementing ProtocolKafkaPublisher (optional).
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-        publish_topic_suffix: Topic suffix from contract's event_bus.publish_topics
-            (e.g., "onex.evt.omniintelligence.intent-classified.v1").
-            Contract-driven per OMN-1551.
+        publish_topic: Full Kafka topic for publishing classified intents.
+            Source of truth is the contract's event_bus.publish_topics.
 
     Returns:
         ModelClaudeHookResult with intent classification results.
@@ -411,10 +405,10 @@ async def handle_user_prompt_submit(
     else:
         metadata["classification_source"] = "no_classifier_available"
 
-    # Step 2: Emit to Kafka (if producer and topic suffix available)
+    # Step 2: Emit to Kafka (if producer and topic available)
     # Graph storage is handled downstream by omnimemory consuming this event
     emitted_to_kafka = False
-    if kafka_producer is not None and publish_topic_suffix is not None:
+    if kafka_producer is not None and publish_topic is not None:
         try:
             await _emit_intent_to_kafka(
                 session_id=event.session_id,
@@ -423,13 +417,11 @@ async def handle_user_prompt_submit(
                 keywords=keywords,
                 correlation_id=event.correlation_id,
                 producer=kafka_producer,
-                topic_env_prefix=topic_env_prefix,
-                topic_suffix=publish_topic_suffix,
+                topic=publish_topic,
             )
             emitted_to_kafka = True
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.SUCCESS.value
-            metadata["kafka_topic_suffix"] = publish_topic_suffix
-            metadata["kafka_topic_full"] = f"{topic_env_prefix}.{publish_topic_suffix}"
+            metadata["kafka_topic"] = publish_topic
         except Exception as e:
             metadata["kafka_emission_error"] = str(e)
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
@@ -451,7 +443,7 @@ async def handle_user_prompt_submit(
     status = _determine_processing_status(
         emitted_to_kafka=emitted_to_kafka,
         kafka_producer=kafka_producer,
-        publish_topic_suffix=publish_topic_suffix,
+        publish_topic=publish_topic,
     )
 
     return ModelClaudeHookResult(
@@ -522,8 +514,7 @@ async def _emit_intent_to_kafka(
     correlation_id: UUID,
     producer: ProtocolKafkaPublisher,
     *,
-    topic_env_prefix: str = "dev",
-    topic_suffix: str,
+    topic: str,
 ) -> None:
     """Emit the classified intent to Kafka.
 
@@ -534,15 +525,9 @@ async def _emit_intent_to_kafka(
         keywords: Keywords extracted from intent classification.
         correlation_id: Correlation ID for tracing.
         producer: Kafka producer implementing ProtocolKafkaPublisher.
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-        topic_suffix: Topic suffix from contract's event_bus.publish_topics
-            (e.g., "onex.evt.omniintelligence.intent-classified.v1").
-            Contract-driven per OMN-1551.
+        topic: Full Kafka topic name for intent classification events.
+            Source of truth is the contract's event_bus.publish_topics.
     """
-    # Build topic name with environment prefix using ONEX naming convention
-    # Topic suffix loaded from contract.yaml event_bus.publish_topics (OMN-1551)
-    topic = f"{topic_env_prefix}.{topic_suffix}"
-
     event_payload = {
         "event_type": "IntentClassified",
         "session_id": session_id,

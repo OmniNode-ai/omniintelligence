@@ -87,6 +87,63 @@ def collect_subscribe_topics_from_contracts(
     return all_topics
 
 
+def collect_publish_topics_for_dispatch(
+    *,
+    node_packages: list[str] | None = None,
+) -> dict[str, str]:
+    """Collect publish topics from contracts and map to dispatch engine keys.
+
+    Reads ``event_bus.publish_topics`` from intelligence effect node contracts
+    and returns a dict compatible with
+    ``create_intelligence_dispatch_engine(publish_topics=...)``.
+
+    The mapping from package to dispatch key is:
+        - ``node_claude_hook_event_effect`` → ``"claude_hook"``
+        - ``node_pattern_lifecycle_effect`` → ``"lifecycle"``
+
+    Only the first publish topic per contract is used (each contract declares
+    exactly one publish topic).
+
+    Args:
+        node_packages: Override list of node packages to scan.  Defaults to
+            the built-in intelligence effect nodes that publish events.
+
+    Returns:
+        Dict mapping handler key to full publish topic string.
+        Empty dict if no publish topics are declared.
+    """
+    _DISPATCH_KEY_TO_PACKAGE: dict[str, str] = {
+        "claude_hook": "omniintelligence.nodes.node_claude_hook_event_effect",
+        "lifecycle": "omniintelligence.nodes.node_pattern_lifecycle_effect",
+    }
+
+    if node_packages is not None:
+        # Override: scan provided packages, use package tail as key
+        result: dict[str, str] = {}
+        for package in node_packages:
+            topics = _read_publish_topics(package)
+            if topics:
+                key = package.rsplit(".", 1)[-1].replace("node_", "").replace(
+                    "_effect", ""
+                )
+                result[key] = topics[0]
+        return result
+
+    result = {}
+    for key, package in _DISPATCH_KEY_TO_PACKAGE.items():
+        topics = _read_publish_topics(package)
+        if topics:
+            result[key] = topics[0]
+
+    logger.debug(
+        "Collected %d publish topics for dispatch engine: %s",
+        len(result),
+        result,
+    )
+
+    return result
+
+
 def canonical_topic_to_dispatch_alias(topic: str) -> str:
     """Convert ONEX canonical topic naming to dispatch engine format.
 
@@ -157,7 +214,46 @@ def _read_subscribe_topics(package: str) -> list[str]:
     return topics
 
 
+def _read_publish_topics(package: str) -> list[str]:
+    """Read ``event_bus.publish_topics`` from a node package's contract.
+
+    Uses ``importlib.resources`` for ONEX I/O audit compliance.
+
+    Args:
+        package: Fully-qualified Python package path containing
+            a ``contract.yaml`` file.
+
+    Returns:
+        List of publish topic strings (empty if event bus is disabled or
+        no publish topics are declared).
+    """
+    package_files = importlib.resources.files(package)
+    contract_file = package_files.joinpath("contract.yaml")
+    content = contract_file.read_text()
+    contract: Any = yaml.safe_load(content)
+
+    if not isinstance(contract, dict):
+        return []
+
+    event_bus = contract.get("event_bus", {})
+    if not isinstance(event_bus, dict):
+        return []
+
+    if not event_bus.get("event_bus_enabled", False):
+        return []
+
+    topics: list[str] = event_bus.get("publish_topics", [])
+    if topics:
+        logger.debug(
+            "Discovered publish_topics from %s: %s",
+            package,
+            topics,
+        )
+    return topics
+
+
 __all__ = [
     "canonical_topic_to_dispatch_alias",
+    "collect_publish_topics_for_dispatch",
     "collect_subscribe_topics_from_contracts",
 ]

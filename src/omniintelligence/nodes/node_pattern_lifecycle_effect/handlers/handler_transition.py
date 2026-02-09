@@ -66,7 +66,6 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
-from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
@@ -303,7 +302,7 @@ async def apply_transition(
     reason: str | None = None,
     gate_snapshot: ModelGateSnapshot | dict[str, Any] | None = None,
     transition_at: datetime,
-    topic_env_prefix: str | None = None,
+    publish_topic: str | None = None,
     conn: ProtocolPatternRepository | None = None,
 ) -> ModelTransitionResult:
     """Apply a pattern status transition with atomicity and idempotency.
@@ -345,16 +344,17 @@ async def apply_transition(
         reason: Human-readable reason (optional).
         gate_snapshot: Gate values at decision time (optional).
         transition_at: When to record as transition time.
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., 'dev',
-            'staging', 'prod'). Required when producer is provided; can be
-            None if producer is None (no Kafka emission).
+        publish_topic: Full Kafka topic for publishing transition events.
+            Source of truth is the contract's event_bus.publish_topics.
+            Required when producer is provided; can be None if producer
+            is None (no Kafka emission).
         conn: Optional external connection for caller-managed transactions.
             If provided, all database operations use this connection.
             If None, operations use the repository directly.
 
     Returns:
         ModelTransitionResult with transition outcome. On validation failure
-        (e.g., PROVISIONAL guard, missing topic_env_prefix), returns result
+        (e.g., PROVISIONAL guard, missing publish_topic), returns result
         with success=False and descriptive error_message rather than raising.
     """
     logger.info(
@@ -395,13 +395,13 @@ async def apply_transition(
             "A meaningful trigger is required for audit trail integrity.",
         )
 
-    # Step 0b: Validate topic_env_prefix when Kafka producer is available
+    # Step 0b: Validate publish_topic when Kafka producer is available
     # This validation MUST happen before any database operations for fail-fast
     # semantics. We validate early to avoid partial-success states where DB
     # operations succeed but we can't emit events due to missing config.
-    if producer is not None and topic_env_prefix is None:
+    if producer is not None and publish_topic is None:
         logger.warning(
-            "topic_env_prefix required when producer is available",
+            "publish_topic required when producer is available",
             extra={
                 "correlation_id": str(correlation_id),
                 "request_id": str(request_id),
@@ -417,10 +417,10 @@ async def apply_transition(
             from_status=from_status,
             to_status=to_status,
             transition_id=None,
-            reason="Configuration error: topic_env_prefix required with Kafka producer",
+            reason="Configuration error: publish_topic required with Kafka producer",
             transitioned_at=None,
-            error_message="topic_env_prefix is required when Kafka producer is available. "
-            "Provide environment prefix (e.g., 'dev', 'staging', 'prod').",
+            error_message="publish_topic is required when Kafka producer is available. "
+            "Provide the full topic from the contract's event_bus.publish_topics.",
         )
 
     # Step 1: PROVISIONAL guard - reject transitions TO provisional
@@ -607,10 +607,10 @@ async def apply_transition(
     # Step 5: Emit Kafka event (if producer available)
     # Kafka failures do NOT fail the main operation - the database transition
     # already succeeded. Failed events are routed to DLQ for later processing.
-    # Note: topic_env_prefix is validated at function entry (Step 0b) for fail-fast.
+    # Note: publish_topic is validated at function entry (Step 0b) for fail-fast.
     if producer is not None:
-        # Type narrowing: Step 0b validates topic_env_prefix when producer is available
-        assert topic_env_prefix is not None  # Validated at function entry
+        # Type narrowing: Step 0b validates publish_topic when producer is available
+        assert publish_topic is not None  # Validated at function entry
         try:
             await _emit_transition_event(
                 producer=producer,
@@ -624,7 +624,7 @@ async def apply_transition(
                 transitioned_at=transition_at,
                 request_id=request_id,
                 correlation_id=correlation_id,
-                topic_env_prefix=topic_env_prefix,
+                topic=publish_topic,
             )
         except Exception as kafka_exc:
             # Kafka failure - log with sanitization and route to DLQ
@@ -657,7 +657,7 @@ async def apply_transition(
                 transitioned_at=transition_at,
                 request_id=request_id,
                 correlation_id=correlation_id,
-                topic_env_prefix=topic_env_prefix,
+                topic=publish_topic,
                 error_message=sanitized_error,
             )
 
@@ -685,11 +685,11 @@ async def _emit_transition_event(
     transitioned_at: datetime,
     request_id: UUID,
     correlation_id: UUID,
-    topic_env_prefix: str,
+    topic: str,
 ) -> None:
     """Emit a pattern-lifecycle-transitioned event to Kafka.
 
-    Internal function - assumes topic_env_prefix has been validated by caller.
+    Internal function - assumes topic has been validated by caller.
 
     Args:
         producer: Kafka producer implementing ProtocolKafkaPublisher.
@@ -703,11 +703,8 @@ async def _emit_transition_event(
         transitioned_at: When the transition occurred.
         request_id: Idempotency key.
         correlation_id: For distributed tracing.
-        topic_env_prefix: Environment prefix for topic (required).
+        topic: Full Kafka topic for the transition event.
     """
-    # Build topic name with environment prefix
-    topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"
-
     # Build event payload using the model
     event = ModelPatternLifecycleTransitionedEvent(
         event_type="PatternLifecycleTransitioned",
@@ -754,11 +751,11 @@ async def _send_to_dlq(
     request_id: UUID,
     correlation_id: UUID,
     error_message: str,
-    topic_env_prefix: str,
+    topic: str,
 ) -> None:
     """Send failed event to Dead Letter Queue with sanitized error message.
 
-    Internal function - assumes topic_env_prefix has been validated by caller.
+    Internal function - assumes topic has been validated by caller.
 
     DLQ events are sanitized to prevent secrets from leaking during debugging
     and error analysis. This function is best-effort: DLQ send failures are
@@ -777,12 +774,10 @@ async def _send_to_dlq(
         request_id: Idempotency key.
         correlation_id: For distributed tracing.
         error_message: Sanitized error message (must be pre-sanitized by caller).
-        topic_env_prefix: Environment prefix for topic (required).
+        topic: Full Kafka topic for the transition event.
     """
     # Build DLQ topic name: {original_topic}.dlq
-    original_topic = (
-        f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1}"
-    )
+    original_topic = topic
     dlq_topic = f"{original_topic}.dlq"
 
     try:

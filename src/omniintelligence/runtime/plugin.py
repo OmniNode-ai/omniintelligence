@@ -381,17 +381,20 @@ class PluginIntelligence:
         self,
         config: ModelDomainPluginConfig,
     ) -> ModelDomainPluginResult:
-        """Wire intelligence domain dispatchers with MessageDispatchEngine.
+        """Wire intelligence domain dispatchers with real dependencies.
 
-        Creates a plugin-local MessageDispatchEngine and registers all 3
-        intelligence domain handlers and routes. The engine is frozen after
-        registration and stored for use in start_consumers().
+        Creates protocol adapters from infrastructure (asyncpg pool, event bus),
+        reads publish topics from contracts, and builds a MessageDispatchEngine
+        with all 3 intelligence domain handlers wired to real business logic.
 
-        Dispatchers registered (OMN-2032):
-            1. claude-hook-event: Claude Code hook event processing
-            2. session-outcome: Session feedback recording (Phase 1 stub)
-            3. pattern-lifecycle-transition: Pattern lifecycle transitions
-               (Phase 1 stub)
+        Dispatchers registered:
+            1. claude-hook-event → route_hook_event() with classifier + publisher
+            2. session-outcome → record_session_outcome() with DB repository
+            3. pattern-lifecycle-transition → apply_transition() with DB + idempotency
+
+        All required dependencies (repository, idempotency store, intent classifier)
+        are created from the PostgreSQL pool. If the pool is not initialized,
+        this method fails fast. Kafka publisher is optional (graceful degradation).
 
         Args:
             config: Plugin configuration.
@@ -399,6 +402,15 @@ class PluginIntelligence:
         Returns:
             Result indicating success/failure and dispatchers registered.
         """
+        from omniintelligence.runtime.adapters import (
+            AdapterIdempotencyStorePostgres,
+            AdapterIntentClassifier,
+            AdapterKafkaPublisher,
+            AdapterPatternRepositoryPostgres,
+        )
+        from omniintelligence.runtime.contract_topics import (
+            collect_publish_topics_for_dispatch,
+        )
         from omniintelligence.runtime.dispatch_handlers import (
             create_intelligence_dispatch_engine,
         )
@@ -406,23 +418,60 @@ class PluginIntelligence:
         start_time = time.time()
         correlation_id = config.correlation_id
 
+        if self._pool is None:
+            return ModelDomainPluginResult.failed(
+                plugin_id=self.plugin_id,
+                error_message=(
+                    "Cannot wire dispatchers: PostgreSQL pool not initialized"
+                ),
+            )
+
         try:
-            self._dispatch_engine = create_intelligence_dispatch_engine()
+            # Create required protocol adapters from pool
+            repository = AdapterPatternRepositoryPostgres(self._pool)
+
+            idempotency_store = AdapterIdempotencyStorePostgres(self._pool)
+            await idempotency_store.ensure_table()
+
+            intent_classifier = AdapterIntentClassifier()
+
+            # Kafka publisher: optional (graceful degradation in handlers)
+            kafka_publisher = None
+            if hasattr(config.event_bus, "publish"):
+                kafka_publisher = AdapterKafkaPublisher(config.event_bus)
+
+            # Read publish topics from contract.yaml declarations
+            publish_topics = collect_publish_topics_for_dispatch()
+
+            self._dispatch_engine = create_intelligence_dispatch_engine(
+                repository=repository,
+                idempotency_store=idempotency_store,
+                intent_classifier=intent_classifier,
+                kafka_producer=kafka_publisher,
+                publish_topics=publish_topics,
+            )
 
             duration = time.time() - start_time
             logger.info(
                 "Intelligence dispatch engine wired "
-                "(routes=%d, handlers=%d, correlation_id=%s)",
+                "(routes=%d, handlers=%d, kafka=%s, correlation_id=%s)",
                 self._dispatch_engine.route_count,
                 self._dispatch_engine.handler_count,
+                kafka_publisher is not None,
                 correlation_id,
+                extra={"publish_topics": publish_topics},
             )
 
             return ModelDomainPluginResult(
                 plugin_id=self.plugin_id,
                 success=True,
                 message="Intelligence dispatch engine wired",
-                resources_created=["dispatch_engine"],
+                resources_created=[
+                    "dispatch_engine",
+                    "repository_adapter",
+                    "idempotency_store",
+                    "intent_classifier",
+                ],
                 duration_seconds=duration,
             )
 
@@ -444,16 +493,10 @@ class PluginIntelligence:
     ) -> ModelDomainPluginResult:
         """Start intelligence event consumers.
 
-        Subscribes to intelligence input topics:
-        - onex.cmd.omniintelligence.claude-hook-event.v1 (dispatch engine)
-        - onex.cmd.omniintelligence.session-outcome.v1 (dispatch engine)
-        - onex.cmd.omniintelligence.pattern-lifecycle-transition.v1 (dispatch engine)
-
-        All 3 topics are routed through MessageDispatchEngine when the
-        dispatch engine is available (OMN-2032). Without the engine,
-        topics fall back to noop handlers.
-
-        Uses duck typing to check for subscribe capability on event_bus.
+        Subscribes to intelligence input topics via MessageDispatchEngine.
+        All topics are routed through the dispatch engine — there is no
+        noop fallback. If the dispatch engine is not wired, consumers
+        are not started (returns skipped).
 
         Args:
             config: Plugin configuration with event_bus.
@@ -464,6 +507,13 @@ class PluginIntelligence:
         start_time = time.time()
         correlation_id = config.correlation_id
 
+        # Strict gating: no dispatch engine = no consumers
+        if self._dispatch_engine is None:
+            return ModelDomainPluginResult.skipped(
+                plugin_id=self.plugin_id,
+                reason="Dispatch engine not wired; consumers not started",
+            )
+
         # Duck typing: check for subscribe capability
         if not hasattr(config.event_bus, "subscribe"):
             return ModelDomainPluginResult.skipped(
@@ -472,23 +522,17 @@ class PluginIntelligence:
             )
 
         try:
-            # Build per-topic handler map
+            # Build per-topic handler map (dispatch engine guaranteed non-None)
             topic_handlers = self._build_topic_handlers(correlation_id)
 
             unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
 
-            dispatched_topics: list[str] = []
-            noop_topics: list[str] = []
-
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
                 handler = topic_handlers[topic]
-                is_dispatched = self._dispatch_engine is not None
-
                 logger.info(
                     "Subscribing to intelligence topic: %s "
-                    "(mode=%s, correlation_id=%s)",
+                    "(mode=dispatch_engine, correlation_id=%s)",
                     topic,
-                    "dispatch_engine" if is_dispatched else "noop",
                     correlation_id,
                 )
                 unsub = await config.event_bus.subscribe(
@@ -498,20 +542,13 @@ class PluginIntelligence:
                 )
                 unsubscribe_callbacks.append(unsub)
 
-                if is_dispatched:
-                    dispatched_topics.append(topic)
-                else:
-                    noop_topics.append(topic)
-
             self._unsubscribe_callbacks = unsubscribe_callbacks
 
             duration = time.time() - start_time
             logger.info(
                 "Intelligence consumers started: %d topics "
-                "(%d dispatched, %d noop, correlation_id=%s)",
+                "(all dispatched, correlation_id=%s)",
                 len(INTELLIGENCE_SUBSCRIBE_TOPICS),
-                len(dispatched_topics),
-                len(noop_topics),
                 correlation_id,
             )
 
@@ -520,8 +557,7 @@ class PluginIntelligence:
                 success=True,
                 message=(
                     f"Intelligence consumers started "
-                    f"({len(dispatched_topics)} dispatched, "
-                    f"{len(noop_topics)} noop)"
+                    f"({len(INTELLIGENCE_SUBSCRIBE_TOPICS)} dispatched)"
                 ),
                 duration_seconds=duration,
                 unsubscribe_callbacks=unsubscribe_callbacks,
@@ -546,50 +582,40 @@ class PluginIntelligence:
         """Build handler map for each intelligence topic.
 
         Returns a dict mapping topic -> async callback. All intelligence
-        topics use the dispatch engine when available (OMN-2032); without
-        the engine, all topics fall back to a noop placeholder.
+        topics are routed through the dispatch engine. This method must
+        only be called when ``self._dispatch_engine`` is not None
+        (enforced by ``start_consumers()``).
 
         Topic -> dispatch alias conversion is handled generically by
-        ``canonical_topic_to_dispatch_alias`` (OMN-2033), removing the
-        need for per-topic constant mappings.
+        ``canonical_topic_to_dispatch_alias`` (OMN-2033).
 
         Args:
-            correlation_id: Correlation ID for tracing in noop handler.
+            correlation_id: Correlation ID for tracing.
 
         Returns:
             Dict mapping each INTELLIGENCE_SUBSCRIBE_TOPICS entry to a handler.
-        """
 
-        async def _noop_handler(_msg: Any) -> None:
-            """Placeholder handler for topics not yet routed via dispatch."""
-            logger.debug(
-                "Intelligence event received on noop handler "
-                "(subscription_correlation_id=%s)",
-                correlation_id,
+        Raises:
+            RuntimeError: If dispatch engine is not wired (invariant violation).
+        """
+        if self._dispatch_engine is None:
+            raise RuntimeError(
+                "_build_topic_handlers called without dispatch engine "
+                f"(correlation_id={correlation_id})"
             )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            create_dispatch_callback,
+        )
 
         handlers: dict[str, Callable[[Any], Awaitable[None]]] = {}
 
-        # Dispatch engine routing: convert canonical topics (.cmd.) to
-        # dispatch-compatible aliases (.commands.) generically.
-        # _engine is captured as a local to allow mypy to narrow the type.
-        _engine: MessageDispatchEngine | None = None
-        if self._dispatch_engine is not None:
-            from omniintelligence.runtime.dispatch_handlers import (
-                create_dispatch_callback,
-            )
-
-            _engine = self._dispatch_engine
-
         for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
-            if _engine is not None:
-                dispatch_alias = canonical_topic_to_dispatch_alias(topic)
-                handlers[topic] = create_dispatch_callback(
-                    engine=_engine,
-                    dispatch_topic=dispatch_alias,
-                )
-            else:
-                handlers[topic] = _noop_handler
+            dispatch_alias = canonical_topic_to_dispatch_alias(topic)
+            handlers[topic] = create_dispatch_callback(
+                engine=self._dispatch_engine,
+                dispatch_topic=dispatch_alias,
+            )
 
         return handlers
 

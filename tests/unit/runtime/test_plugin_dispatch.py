@@ -5,7 +5,7 @@
 Validates:
     - wire_dispatchers() creates and stores dispatch engine with 3 dispatchers
     - start_consumers() uses dispatch callback for all 3 intelligence topics
-    - start_consumers() uses noop for all topics when engine is not wired
+    - start_consumers() returns skipped when engine is not wired (no noop fallback)
     - Dispatch engine is cleared on shutdown
     - INTELLIGENCE_SUBSCRIBE_TOPICS is contract-driven (OMN-2033)
 
@@ -13,6 +13,7 @@ Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
     - OMN-2032: Register all 3 intelligence dispatchers
     - OMN-2033: Move intelligence topics to contract.yaml declarations
+    - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -109,6 +110,36 @@ def _make_config(
     )
 
 
+def _make_mock_pool() -> MagicMock:
+    """Create a mock asyncpg pool with async methods.
+
+    The mock pool is used to satisfy wire_dispatchers() which creates
+    protocol adapters from the pool. The key methods needed:
+    - execute: For AdapterIdempotencyStorePostgres.ensure_table()
+    - fetchrow: For AdapterPatternRepositoryPostgres
+    - fetch: For AdapterPatternRepositoryPostgres
+    """
+    pool = MagicMock()
+    pool.execute = AsyncMock(return_value="CREATE TABLE")
+    pool.fetchrow = AsyncMock(return_value=None)
+    pool.fetch = AsyncMock(return_value=[])
+    pool.close = AsyncMock()
+    return pool
+
+
+async def _wire_plugin(
+    plugin: PluginIntelligence,
+    config: Any,
+) -> Any:
+    """Wire dispatchers on a plugin with a mocked pool.
+
+    Sets plugin._pool to a mock and calls wire_dispatchers().
+    Returns the wire_dispatchers result.
+    """
+    plugin._pool = _make_mock_pool()
+    return await plugin.wire_dispatchers(config)
+
+
 # =============================================================================
 # Tests: wire_dispatchers
 # =============================================================================
@@ -123,7 +154,7 @@ class TestPluginWireDispatchers:
         plugin = PluginIntelligence()
         config = _make_config()
 
-        result = await plugin.wire_dispatchers(config)
+        result = await _wire_plugin(plugin, config)
 
         assert result.success, f"wire_dispatchers failed: {result.error_message}"
         assert plugin._dispatch_engine is not None
@@ -135,7 +166,7 @@ class TestPluginWireDispatchers:
         plugin = PluginIntelligence()
         config = _make_config()
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
         assert plugin._dispatch_engine.route_count == 3
@@ -146,7 +177,7 @@ class TestPluginWireDispatchers:
         plugin = PluginIntelligence()
         config = _make_config()
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
         assert plugin._dispatch_engine.handler_count == 3
@@ -157,14 +188,28 @@ class TestPluginWireDispatchers:
         plugin = PluginIntelligence()
         config = _make_config()
 
-        result = await plugin.wire_dispatchers(config)
+        result = await _wire_plugin(plugin, config)
 
         assert "dispatch_engine" in result.resources_created
+
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_returns_failed_without_pool(self) -> None:
+        """wire_dispatchers should return failed result when pool is None."""
+        plugin = PluginIntelligence()
+        config = _make_config()
+
+        # Do not set plugin._pool -- leave it None
+        result = await plugin.wire_dispatchers(config)
+
+        assert not result.success
+        assert "pool not initialized" in result.error_message.lower()
+        assert plugin._dispatch_engine is None
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_failed_on_engine_error(self) -> None:
         """wire_dispatchers should return failed result when engine creation raises."""
         plugin = PluginIntelligence()
+        plugin._pool = _make_mock_pool()
         config = _make_config()
 
         with patch(
@@ -193,7 +238,7 @@ class TestPluginStartConsumersDispatch:
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         result = await plugin.start_consumers(config)
 
         assert result.success
@@ -210,7 +255,7 @@ class TestPluginStartConsumersDispatch:
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         await plugin.start_consumers(config)
 
         sub = event_bus.get_subscription(TOPIC_CLAUDE_HOOK_EVENT)
@@ -231,7 +276,7 @@ class TestPluginStartConsumersDispatch:
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         await plugin.start_consumers(config)
 
         sub = event_bus.get_subscription(TOPIC_CLAUDE_HOOK_EVENT)
@@ -256,7 +301,7 @@ class TestPluginStartConsumersDispatch:
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         await plugin.start_consumers(config)
 
         for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
@@ -275,7 +320,7 @@ class TestPluginStartConsumersDispatch:
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         await plugin.start_consumers(config)
 
         sub = event_bus.get_subscription(TOPIC_SESSION_OUTCOME)
@@ -297,7 +342,7 @@ class TestPluginStartConsumersDispatch:
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         await plugin.start_consumers(config)
 
         sub = event_bus.get_subscription(TOPIC_PATTERN_LIFECYCLE)
@@ -320,27 +365,33 @@ class TestPluginStartConsumersDispatch:
 # =============================================================================
 
 
-class TestPluginStartConsumersNoop:
-    """Validate fallback behavior when dispatch engine is not wired."""
+class TestPluginStartConsumersSkipped:
+    """Validate skipped behavior when dispatch engine is not wired."""
 
     @pytest.mark.asyncio
-    async def test_all_topics_use_noop_without_engine(self) -> None:
-        """Without wire_dispatchers, all topics should use noop."""
+    async def test_returns_skipped_without_engine(self) -> None:
+        """Without wire_dispatchers, start_consumers should return skipped."""
+        plugin = PluginIntelligence()
+        config = _make_config()
+
+        # Skip wire_dispatchers -- go straight to start_consumers
+        result = await plugin.start_consumers(config)
+
+        # skipped() returns success=True with a skip message
+        assert result.success
+        assert "skipped" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_no_subscriptions_without_engine(self) -> None:
+        """Without wire_dispatchers, no topics should be subscribed."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
         # Skip wire_dispatchers -- go straight to start_consumers
-        result = await plugin.start_consumers(config)
+        await plugin.start_consumers(config)
 
-        assert result.success
-
-        for sub in event_bus.subscriptions:
-            handler_name = getattr(sub.on_message, "__qualname__", "")
-            assert "noop" in handler_name.lower(), (
-                f"Topic {sub.topic} should use noop handler without engine, "
-                f"got: {handler_name}"
-            )
+        assert len(event_bus.subscriptions) == 0
 
 
 # =============================================================================
@@ -357,7 +408,7 @@ class TestPluginShutdownClearsEngine:
         plugin = PluginIntelligence()
         config = _make_config()
 
-        await plugin.wire_dispatchers(config)
+        await _wire_plugin(plugin, config)
         assert plugin._dispatch_engine is not None
 
         await plugin.shutdown(config)
