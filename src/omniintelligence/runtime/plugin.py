@@ -11,6 +11,7 @@ The plugin handles:
     - Pattern lifecycle management handler wiring
     - Session feedback processing handler wiring
     - Claude hook event processing handler wiring
+    - MessageDispatchEngine wiring for topic-based routing (OMN-2031)
     - Kafka topic subscriptions for intelligence events
 
 Design Pattern:
@@ -51,6 +52,7 @@ Example Usage:
 
 Related:
     - OMN-1978: Integration test: kernel boots with PluginIntelligence
+    - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
 """
 
 from __future__ import annotations
@@ -63,6 +65,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import asyncpg
+    from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
 
 from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginConfig,
@@ -123,6 +126,7 @@ class PluginIntelligence:
         self._unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._shutdown_in_progress: bool = False
         self._services_registered: list[str] = []
+        self._dispatch_engine: MessageDispatchEngine | None = None
 
     @property
     def plugin_id(self) -> str:
@@ -324,22 +328,60 @@ class PluginIntelligence:
         self,
         config: ModelDomainPluginConfig,
     ) -> ModelDomainPluginResult:
-        """Wire dispatchers (intentionally skipped for intelligence domain).
+        """Wire intelligence domain dispatchers with MessageDispatchEngine.
 
-        Intelligence domain does not currently use MessageDispatchEngine.
-        Event routing is handled via direct Kafka subscriptions in
-        start_consumers().
+        Creates a plugin-local MessageDispatchEngine and registers the
+        claude-hook-event handler and route. The engine is frozen after
+        registration and stored for use in start_consumers().
+
+        Phase 1 (OMN-2031): Only claude-hook-event topic is routed through
+        the dispatch engine. Session-outcome and pattern-lifecycle topics
+        remain on noop handlers until validated end-to-end.
 
         Args:
-            config: Plugin configuration (unused).
+            config: Plugin configuration.
 
         Returns:
-            Skipped result indicating dispatchers are deferred.
+            Result indicating success/failure and dispatchers registered.
         """
-        return ModelDomainPluginResult.skipped(
-            plugin_id=self.plugin_id,
-            reason="Dispatchers deferred for intelligence domain",
+        from omniintelligence.runtime.dispatch_handlers import (
+            create_intelligence_dispatch_engine,
         )
+
+        start_time = time.time()
+        correlation_id = config.correlation_id
+
+        try:
+            self._dispatch_engine = create_intelligence_dispatch_engine()
+
+            duration = time.time() - start_time
+            logger.info(
+                "Intelligence dispatch engine wired "
+                "(routes=%d, handlers=%d, correlation_id=%s)",
+                self._dispatch_engine.route_count,
+                self._dispatch_engine.handler_count,
+                correlation_id,
+            )
+
+            return ModelDomainPluginResult(
+                plugin_id=self.plugin_id,
+                success=True,
+                message="Intelligence dispatch engine wired",
+                resources_created=["dispatch_engine"],
+                duration_seconds=duration,
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.exception(
+                "Failed to wire intelligence dispatch engine (correlation_id=%s)",
+                correlation_id,
+            )
+            return ModelDomainPluginResult.failed(
+                plugin_id=self.plugin_id,
+                error_message=str(e),
+                duration_seconds=duration,
+            )
 
     async def start_consumers(
         self,
@@ -348,9 +390,13 @@ class PluginIntelligence:
         """Start intelligence event consumers.
 
         Subscribes to intelligence input topics:
-        - onex.cmd.omniintelligence.claude-hook-event.v1
-        - onex.cmd.omniintelligence.session-outcome.v1
-        - onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
+        - onex.cmd.omniintelligence.claude-hook-event.v1 (dispatch engine)
+        - onex.cmd.omniintelligence.session-outcome.v1 (noop - Phase 2)
+        - onex.cmd.omniintelligence.pattern-lifecycle-transition.v1 (noop - Phase 2)
+
+        The claude-hook-event topic is routed through MessageDispatchEngine
+        (Pattern B) when the dispatch engine is available. Other topics
+        remain on placeholder handlers until Phase 2 validates the pattern.
 
         Uses duck typing to check for subscribe capability on event_bus.
 
@@ -371,42 +417,60 @@ class PluginIntelligence:
             )
 
         try:
-
-            async def _noop_handler(_msg: Any) -> None:
-                """Placeholder handler for topic subscription."""
-                logger.debug(
-                    "Intelligence event received (correlation_id=%s)",
-                    correlation_id,
-                )
+            # Build per-topic handler map
+            topic_handlers = self._build_topic_handlers(correlation_id)
 
             unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
 
+            dispatched_topics: list[str] = []
+            noop_topics: list[str] = []
+
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+                handler = topic_handlers[topic]
+                is_dispatched = (
+                    topic == TOPIC_CLAUDE_HOOK_EVENT
+                    and self._dispatch_engine is not None
+                )
+
                 logger.info(
-                    "Subscribing to intelligence topic: %s (correlation_id=%s)",
+                    "Subscribing to intelligence topic: %s "
+                    "(mode=%s, correlation_id=%s)",
                     topic,
+                    "dispatch_engine" if is_dispatched else "noop",
                     correlation_id,
                 )
                 unsub = await config.event_bus.subscribe(
                     topic=topic,
                     group_id=f"{config.consumer_group}-intelligence",
-                    on_message=_noop_handler,
+                    on_message=handler,
                 )
                 unsubscribe_callbacks.append(unsub)
+
+                if is_dispatched:
+                    dispatched_topics.append(topic)
+                else:
+                    noop_topics.append(topic)
 
             self._unsubscribe_callbacks = unsubscribe_callbacks
 
             duration = time.time() - start_time
             logger.info(
-                "Intelligence consumers started: %d topics (correlation_id=%s)",
+                "Intelligence consumers started: %d topics "
+                "(%d dispatched, %d noop, correlation_id=%s)",
                 len(INTELLIGENCE_SUBSCRIBE_TOPICS),
+                len(dispatched_topics),
+                len(noop_topics),
                 correlation_id,
             )
 
             return ModelDomainPluginResult(
                 plugin_id=self.plugin_id,
                 success=True,
-                message=f"Intelligence consumers started ({len(INTELLIGENCE_SUBSCRIBE_TOPICS)} topics)",
+                message=(
+                    f"Intelligence consumers started "
+                    f"({len(dispatched_topics)} dispatched, "
+                    f"{len(noop_topics)} noop)"
+                ),
                 duration_seconds=duration,
                 unsubscribe_callbacks=unsubscribe_callbacks,
             )
@@ -422,6 +486,49 @@ class PluginIntelligence:
                 error_message=str(e),
                 duration_seconds=duration,
             )
+
+    def _build_topic_handlers(
+        self,
+        correlation_id: Any,
+    ) -> dict[str, Callable[[Any], Awaitable[None]]]:
+        """Build handler map for each intelligence topic.
+
+        Returns a dict mapping topic -> async callback. The claude-hook-event
+        topic uses the dispatch engine when available; other topics use a
+        noop placeholder.
+
+        Args:
+            correlation_id: Correlation ID for tracing in noop handler.
+
+        Returns:
+            Dict mapping each INTELLIGENCE_SUBSCRIBE_TOPICS entry to a handler.
+        """
+
+        async def _noop_handler(_msg: Any) -> None:
+            """Placeholder handler for topics not yet routed via dispatch."""
+            logger.debug(
+                "Intelligence event received on noop handler "
+                "(subscription_correlation_id=%s)",
+                correlation_id,
+            )
+
+        handlers: dict[str, Callable[[Any], Awaitable[None]]] = {}
+
+        for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+            if topic == TOPIC_CLAUDE_HOOK_EVENT and self._dispatch_engine is not None:
+                from omniintelligence.runtime.dispatch_handlers import (
+                    DISPATCH_ALIAS_CLAUDE_HOOK,
+                    create_dispatch_callback,
+                )
+
+                handlers[topic] = create_dispatch_callback(
+                    engine=self._dispatch_engine,
+                    dispatch_topic=DISPATCH_ALIAS_CLAUDE_HOOK,
+                )
+            else:
+                handlers[topic] = _noop_handler
+
+        return handlers
 
     async def shutdown(
         self,
@@ -500,6 +607,7 @@ class PluginIntelligence:
             self._pool = None
 
         self._services_registered = []
+        self._dispatch_engine = None
 
         duration = time.time() - start_time
 
