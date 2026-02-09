@@ -276,11 +276,11 @@ class TestSessionOutcomeDispatchHandler:
         assert isinstance(result, str)
 
     @pytest.mark.asyncio
-    async def test_handler_handles_non_dict_payload_gracefully(
+    async def test_handler_raises_for_non_dict_payload(
         self,
         correlation_id: UUID,
     ) -> None:
-        """Handler should handle non-dict payloads without raising (Phase 1 stub)."""
+        """Handler should raise ValueError for non-dict payloads."""
         from omnibase_core.models.effect.model_effect_context import (
             ModelEffectContext,
         )
@@ -301,9 +301,46 @@ class TestSessionOutcomeDispatchHandler:
             envelope_id=uuid4(),
         )
 
-        # Phase 1 stubs log and return, they do not raise
-        result = await handler(envelope, context)
-        assert isinstance(result, str)
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_handler_rejects_dict_missing_session_id(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError when dict payload lacks session_id."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="missing required field 'session_id'"):
+            await handler(envelope, context)
 
 
 # =============================================================================
@@ -355,11 +392,11 @@ class TestPatternLifecycleDispatchHandler:
         assert isinstance(result, str)
 
     @pytest.mark.asyncio
-    async def test_handler_handles_non_dict_payload_gracefully(
+    async def test_handler_raises_for_non_dict_payload(
         self,
         correlation_id: UUID,
     ) -> None:
-        """Handler should handle non-dict payloads without raising (Phase 1 stub)."""
+        """Handler should raise ValueError for non-dict payloads."""
         from omnibase_core.models.effect.model_effect_context import (
             ModelEffectContext,
         )
@@ -380,9 +417,47 @@ class TestPatternLifecycleDispatchHandler:
             envelope_id=uuid4(),
         )
 
-        # Phase 1 stubs log and return, they do not raise
-        result = await handler(envelope, context)
-        assert isinstance(result, str)
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_handler_rejects_dict_missing_pattern_id(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError when dict payload lacks pattern_id."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "from_status": "PROVISIONAL",
+                "to_status": "VALIDATED",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="missing required field 'pattern_id'"):
+            await handler(envelope, context)
 
 
 # =============================================================================

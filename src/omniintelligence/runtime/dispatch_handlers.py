@@ -16,8 +16,9 @@ Design Decisions:
     - message_types=None on handler registration accepts all message types in
       the category -- correct for Phase 1 where we route by topic, not type.
     - Session-outcome and pattern-lifecycle handlers are Phase 1 stubs that
-      validate the payload shape and log receipt. Full dependency injection
-      (database repository, kafka producer) is deferred to Phase 2.
+      validate the payload shape and reject malformed payloads with ValueError.
+      Full dependency injection (database repository, kafka producer) is
+      deferred to Phase 2.
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
@@ -206,6 +207,13 @@ def create_session_outcome_dispatch_handler(
 
         if isinstance(payload, dict):
             session_id = payload.get("session_id")
+            if session_id is None:
+                msg = (
+                    f"Session outcome payload missing required field 'session_id' "
+                    f"(correlation_id={ctx_correlation_id})"
+                )
+                logger.warning(msg)
+                raise ValueError(msg)
             success = payload.get("success")
             logger.info(
                 "Session outcome received via dispatch engine "
@@ -215,12 +223,12 @@ def create_session_outcome_dispatch_handler(
                 ctx_correlation_id,
             )
         else:
-            logger.info(
-                "Session outcome received via dispatch engine "
-                "(payload_type=%s, correlation_id=%s)",
-                type(payload).__name__,
-                ctx_correlation_id,
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for session-outcome (correlation_id={ctx_correlation_id})"
             )
+            logger.warning(msg)
+            raise ValueError(msg)
 
         return ""
 
@@ -270,6 +278,13 @@ def create_pattern_lifecycle_dispatch_handler(
 
         if isinstance(payload, dict):
             pattern_id = payload.get("pattern_id")
+            if pattern_id is None:
+                msg = (
+                    f"Pattern lifecycle payload missing required field 'pattern_id' "
+                    f"(correlation_id={ctx_correlation_id})"
+                )
+                logger.warning(msg)
+                raise ValueError(msg)
             from_status = payload.get("from_status")
             to_status = payload.get("to_status")
             logger.info(
@@ -281,12 +296,13 @@ def create_pattern_lifecycle_dispatch_handler(
                 ctx_correlation_id,
             )
         else:
-            logger.info(
-                "Pattern lifecycle transition received via dispatch engine "
-                "(payload_type=%s, correlation_id=%s)",
-                type(payload).__name__,
-                ctx_correlation_id,
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for pattern-lifecycle-transition "
+                f"(correlation_id={ctx_correlation_id})"
             )
+            logger.warning(msg)
+            raise ValueError(msg)
 
         return ""
 
