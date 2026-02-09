@@ -231,6 +231,7 @@ class TestPluginStartConsumersDispatch:
             "event_type": "UserPromptSubmit",
             "session_id": "test-session",
             "correlation_id": str(uuid4()),
+            "timestamp_utc": "2025-01-15T10:30:00Z",
             "payload": {"prompt": "test prompt"},
         }
 

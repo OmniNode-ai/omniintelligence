@@ -111,20 +111,19 @@ def create_claude_hook_dispatch_handler(
             try:
                 event = ModelClaudeCodeHookEvent(**payload)
             except Exception as e:
-                logger.warning(
-                    "Failed to parse payload as ModelClaudeCodeHookEvent: %s "
-                    "(correlation_id=%s)",
-                    e,
-                    ctx_correlation_id,
+                msg = (
+                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                    f"(correlation_id={ctx_correlation_id})"
                 )
-                return ""
+                logger.warning(msg)
+                raise ValueError(msg) from e
         else:
-            logger.warning(
-                "Unexpected payload type %s for claude-hook-event (correlation_id=%s)",
-                type(payload).__name__,
-                ctx_correlation_id,
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for claude-hook-event (correlation_id={ctx_correlation_id})"
             )
-            return ""
+            logger.warning(msg)
+            raise ValueError(msg)
 
         logger.info(
             "Dispatching claude-hook-event via MessageDispatchEngine "

@@ -48,6 +48,7 @@ def sample_claude_hook_payload() -> dict[str, Any]:
         "event_type": "UserPromptSubmit",
         "session_id": "test-session-001",
         "correlation_id": "12345678-1234-1234-1234-123456789abc",
+        "timestamp_utc": "2025-01-15T10:30:00Z",
         "payload": {
             "prompt": "What does this function do?",
         },
@@ -164,11 +165,11 @@ class TestClaudeHookDispatchHandler:
         assert isinstance(result, str)
 
     @pytest.mark.asyncio
-    async def test_handler_handles_unexpected_payload_type(
+    async def test_handler_raises_for_unexpected_payload_type(
         self,
         correlation_id: UUID,
     ) -> None:
-        """Handler should log warning and return empty string for bad payloads."""
+        """Handler should raise ValueError for unparseable payloads."""
         from omnibase_core.models.effect.model_effect_context import (
             ModelEffectContext,
         )
@@ -190,8 +191,8 @@ class TestClaudeHookDispatchHandler:
             envelope_id=uuid4(),
         )
 
-        result = await handler(envelope, context)
-        assert result == ""
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
 
 
 # =============================================================================
@@ -256,8 +257,13 @@ class TestCreateDispatchCallback:
             dispatch_topic=DISPATCH_ALIAS_CLAUDE_HOOK,
         )
 
+        metrics_before = engine.get_structured_metrics()
+
         # InMemoryEventBus may pass dicts directly
         await callback(sample_claude_hook_payload)
+
+        metrics_after = engine.get_structured_metrics()
+        assert metrics_after.total_dispatches == metrics_before.total_dispatches + 1
 
     @pytest.mark.asyncio
     async def test_callback_extracts_correlation_id_from_payload(
