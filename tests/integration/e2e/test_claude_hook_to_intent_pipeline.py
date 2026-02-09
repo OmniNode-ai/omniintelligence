@@ -293,8 +293,7 @@ class TestClaudeHookToIntentPipelineInmemory:
             result = await route_hook_event(
                 event=event,
                 kafka_producer=adapter,
-                topic_env_prefix="e2e_test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=f"e2e_test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}",
             )
 
             # Verify handler succeeded
@@ -424,14 +423,12 @@ class TestClaudeHookToIntentPipelineInmemory:
             result_a = await route_hook_event(
                 event=event_a,
                 kafka_producer=adapter,
-                topic_env_prefix="e2e_test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=f"e2e_test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}",
             )
             result_b = await route_hook_event(
                 event=event_b,
                 kafka_producer=adapter,
-                topic_env_prefix="e2e_test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=f"e2e_test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}",
             )
 
             assert result_a.status == EnumHookProcessingStatus.SUCCESS
@@ -513,8 +510,7 @@ class TestClaudeHookToIntentPipelineInmemory:
             result_start = await route_hook_event(
                 event=session_start,
                 kafka_producer=adapter,
-                topic_env_prefix="e2e_test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=f"e2e_test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}",
             )
 
             assert result_start.status == EnumHookProcessingStatus.SUCCESS
@@ -534,8 +530,7 @@ class TestClaudeHookToIntentPipelineInmemory:
             result_stop = await route_hook_event(
                 event=stop_event,
                 kafka_producer=adapter,
-                topic_env_prefix="e2e_test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=f"e2e_test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}",
             )
 
             assert result_stop.status == EnumHookProcessingStatus.SUCCESS
@@ -632,8 +627,7 @@ class TestClaudeHookToIntentPipelineRealKafka:
         result = await route_hook_event(
             event=event,
             kafka_producer=publisher,
-            topic_env_prefix=f"{e2e_topic_prefix}pipeline_{test_run_id}",
-            publish_topic_suffix=topic_suffix,
+            publish_topic=full_output_topic,
         )
 
         assert result.status == EnumHookProcessingStatus.SUCCESS, (
@@ -695,8 +689,7 @@ class TestClaudeHookToIntentPipelineRealKafka:
         result = await route_hook_event(
             event=event,
             kafka_producer=e2e_kafka_publisher,
-            topic_env_prefix="e2e_test_correlation",
-            publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+            publish_topic=f"e2e_test_correlation.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}",
         )
 
         assert result.status == EnumHookProcessingStatus.SUCCESS
