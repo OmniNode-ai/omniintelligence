@@ -90,6 +90,10 @@ def register_intelligence_message_types(
     registered.append("ModelPatternStoredEvent")
 
     # 3. Pattern promoted event
+    #    handler_id is node_pattern_storage_effect (the storage code path that
+    #    performs the promotion write).  node_pattern_promotion_effect also emits
+    #    this event type but is NOT registered here because the registry tracks
+    #    the *consuming* handler, not all producers.
     registry.register_simple(
         message_type="ModelPatternPromotedEvent",
         handler_id="node_pattern_storage_effect",

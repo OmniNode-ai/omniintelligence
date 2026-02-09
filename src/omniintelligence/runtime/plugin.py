@@ -305,6 +305,8 @@ class PluginIntelligence:
         """Clean up resources if initialization fails."""
         correlation_id = config.correlation_id
 
+        self._message_type_registry = None
+
         if self._pool is not None:
             try:
                 await self._pool.close()
