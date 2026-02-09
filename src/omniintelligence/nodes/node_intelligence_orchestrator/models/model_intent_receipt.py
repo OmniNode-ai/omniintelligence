@@ -64,7 +64,7 @@ class ModelIntentReceipt(BaseModel):
         description="Human-readable description of the receipt",
     )
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
 
 __all__ = ["ModelIntentReceipt"]

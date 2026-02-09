@@ -21,6 +21,9 @@ from uuid import UUID
 
 import pytest
 from omnibase_core.models.reducer.model_intent import ModelIntent
+from omnibase_core.models.reducer.payloads.model_extension_payloads import (
+    ModelPayloadExtension,
+)
 
 from omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent import (
     handle_receive_intent,
@@ -139,7 +142,7 @@ class TestReducerToOrchestratorIntentChannel:
         intent = reducer_output.intents[0]
         assert isinstance(intent, ModelIntent)
         assert intent.intent_type == "extension"
-        assert f"postgres://patterns/{sample_pattern_id}" == intent.target
+        assert intent.target == f"postgres://patterns/{sample_pattern_id}"
 
         # Step 4: Orchestrator receives the intent
         receipt = handle_receive_intent(
@@ -281,8 +284,8 @@ class TestReducerToOrchestratorIntentChannel:
 
         # Verify payload contains pattern lifecycle data
         payload = intent.payload
-        assert hasattr(payload, "data")
-        data = payload.data  # type: ignore[union-attr]
+        assert isinstance(payload, ModelPayloadExtension)
+        data = payload.data
 
         # The intent data should contain pattern lifecycle details
         assert data.get("pattern_id") == sample_pattern_id

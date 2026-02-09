@@ -19,6 +19,8 @@ Design:
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -35,6 +37,7 @@ class ModelIntelligenceState(BaseModel):
         from_status: Source state before the transition.
         to_status: Target state after the transition (or attempted target on failure).
         trigger: The action/trigger that caused the transition.
+        correlation_id: Correlation ID for end-to-end distributed tracing.
         error_code: Machine-readable error code (populated on failure only).
         error_message: Human-readable error message (populated on failure only).
     """
@@ -63,6 +66,10 @@ class ModelIntelligenceState(BaseModel):
         ...,
         description="Action/trigger that caused the transition",
     )
+    correlation_id: UUID | None = Field(
+        default=None,
+        description="Correlation ID for end-to-end distributed tracing",
+    )
     error_code: str | None = Field(
         default=None,
         description="Machine-readable error code (failure only)",
@@ -72,7 +79,7 @@ class ModelIntelligenceState(BaseModel):
         description="Human-readable error message (failure only)",
     )
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
 
 __all__ = ["ModelIntelligenceState"]
