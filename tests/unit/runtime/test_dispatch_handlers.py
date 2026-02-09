@@ -281,3 +281,29 @@ class TestCreateDispatchCallback:
         # Should not raise and should use the payload's correlation_id
         await callback(msg)
         assert msg._acked
+
+    @pytest.mark.asyncio
+    async def test_callback_nacks_on_dispatch_failure(self) -> None:
+        """Callback should nack when dispatch result indicates failure."""
+        engine = create_intelligence_dispatch_engine()
+
+        # Use a topic with no matching route to trigger a dispatch failure
+        callback = create_dispatch_callback(
+            engine=engine,
+            dispatch_topic="onex.commands.nonexistent.topic.v1",
+        )
+
+        msg = _MockEventMessage(
+            value=json.dumps(
+                {
+                    "event_type": "UserPromptSubmit",
+                    "session_id": "test-session",
+                    "payload": {"prompt": "test"},
+                }
+            ).encode("utf-8"),
+        )
+
+        await callback(msg)
+
+        assert msg._nacked, "Message should be nacked on dispatch failure"
+        assert not msg._acked

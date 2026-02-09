@@ -300,9 +300,20 @@ def create_dispatch_callback(
                 msg_correlation_id,
             )
 
-            # Ack on success
-            if hasattr(msg, "ack"):
-                await msg.ack()
+            # Gate ack/nack on dispatch status
+            if result.is_successful():
+                if hasattr(msg, "ack"):
+                    await msg.ack()
+            else:
+                logger.warning(
+                    "Dispatch failed (status=%s, error=%s), nacking message "
+                    "(correlation_id=%s)",
+                    result.status,
+                    result.error_message,
+                    msg_correlation_id,
+                )
+                if hasattr(msg, "nack"):
+                    await msg.nack()
 
         except Exception as e:
             logger.exception(
