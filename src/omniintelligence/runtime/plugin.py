@@ -243,6 +243,9 @@ class PluginIntelligence:
             )
 
             # Register intelligence message types (OMN-2039)
+            # NOTE: This creates a plugin-local registry for the intelligence
+            # domain only.  Cross-domain validation requires a kernel-level
+            # shared registry (future enhancement).
             from omnibase_infra.runtime.registry import RegistryMessageType
 
             from omniintelligence.runtime.message_type_registration import (
@@ -301,6 +304,8 @@ class PluginIntelligence:
     async def _cleanup_on_failure(self, config: ModelDomainPluginConfig) -> None:
         """Clean up resources if initialization fails."""
         correlation_id = config.correlation_id
+
+        self._message_type_registry = None
 
         if self._pool is not None:
             try:

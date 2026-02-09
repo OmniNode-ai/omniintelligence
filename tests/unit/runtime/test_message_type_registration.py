@@ -7,7 +7,7 @@ Validates:
     - Registration happens correctly with proper categories and domains
     - Registry is queryable after freeze via has_message_type() and get_entry()
     - Registration after freeze() raises ModelOnexError
-    - Fan-out registration for ModelPatternLifecycleEvent (2 handlers)
+    - ModelPatternLifecycleEvent is COMMAND with lifecycle effect handler
     - validate_startup() returns no errors for a clean registry
 
 Related:
@@ -166,11 +166,11 @@ class TestCategoryAssignment:
         "ModelPatternDeprecatedEvent",
         "ModelPatternLifecycleTransitionedEvent",
         "ModelPatternStorageInput",
-        "ModelPatternLifecycleEvent",
     ]
 
     COMMAND_TYPES = [
         "ModelClaudeCodeHookEvent",
+        "ModelPatternLifecycleEvent",
         "ModelPayloadUpdatePatternStatus",
         "ClaudeSessionOutcome",
         "ModelIngestionPayload",
@@ -213,6 +213,7 @@ class TestHandlerIds:
         "ModelPatternLifecycleTransitionedEvent": ("node_pattern_lifecycle_effect",),
         "ModelClaudeCodeHookEvent": ("node_claude_hook_event_effect",),
         "ModelPatternStorageInput": ("node_pattern_storage_effect",),
+        "ModelPatternLifecycleEvent": ("node_pattern_lifecycle_effect",),
         "ModelPayloadUpdatePatternStatus": ("node_pattern_lifecycle_effect",),
         "ClaudeSessionOutcome": ("node_pattern_feedback_effect",),
         "ModelIngestionPayload": ("node_intelligence_reducer",),
@@ -241,22 +242,29 @@ class TestHandlerIds:
 
 
 # =============================================================================
-# Fan-Out Registration
+# Lifecycle Event Registration
 # =============================================================================
 
 
-class TestFanOut:
-    """Verify fan-out registration for ModelPatternLifecycleEvent."""
+class TestLifecycleEventRegistration:
+    """Verify ModelPatternLifecycleEvent is registered as COMMAND with lifecycle handler."""
 
-    def test_lifecycle_event_has_two_handlers(
+    def test_lifecycle_event_has_single_handler(
         self, frozen_registry: RegistryMessageType
     ) -> None:
-        """ModelPatternLifecycleEvent routes to both promotion and demotion."""
+        """ModelPatternLifecycleEvent routes to lifecycle effect (the consumer)."""
         entry = frozen_registry.get_entry("ModelPatternLifecycleEvent")
         assert entry is not None
-        assert len(entry.handler_ids) == 2
-        assert "node_pattern_promotion_effect" in entry.handler_ids
-        assert "node_pattern_demotion_effect" in entry.handler_ids
+        assert len(entry.handler_ids) == 1
+        assert "node_pattern_lifecycle_effect" in entry.handler_ids
+
+    def test_lifecycle_event_is_command(
+        self, frozen_registry: RegistryMessageType
+    ) -> None:
+        """ModelPatternLifecycleEvent is COMMAND (topic is .cmd.)."""
+        entry = frozen_registry.get_entry("ModelPatternLifecycleEvent")
+        assert entry is not None
+        assert EnumMessageCategory.COMMAND in entry.allowed_categories
 
 
 # =============================================================================
@@ -309,7 +317,6 @@ class TestStartupValidation:
             "node_pattern_storage_effect",
             "node_pattern_demotion_effect",
             "node_pattern_lifecycle_effect",
-            "node_pattern_promotion_effect",
             "node_pattern_feedback_effect",
             "node_intelligence_reducer",
         }
@@ -343,8 +350,8 @@ class TestRegistryProperties:
 
     def test_handler_count(self, frozen_registry: RegistryMessageType) -> None:
         """Registry tracks the correct number of unique handlers."""
-        # 7 unique handler IDs across all 13 registrations
-        assert frozen_registry.handler_count == 7
+        # 6 unique handler IDs across all 13 registrations
+        assert frozen_registry.handler_count == 6
 
     def test_domain_count(self, frozen_registry: RegistryMessageType) -> None:
         """Registry tracks exactly 1 domain (intelligence)."""

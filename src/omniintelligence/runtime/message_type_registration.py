@@ -16,8 +16,6 @@ Design:
     - ``handler_id`` matches the node directory name
     - ``category`` follows topic naming: ``.cmd.`` -> COMMAND, ``.evt.`` -> EVENT
     - Reducer FSM payloads use COMMAND category (internal dispatch)
-    - Fan-out registration (multiple handlers for one type) uses repeated
-      ``register_simple()`` calls, which trigger the merge path
 
 Related:
     - OMN-2039: Register intelligence message types in RegistryMessageType
@@ -92,6 +90,10 @@ def register_intelligence_message_types(
     registered.append("ModelPatternStoredEvent")
 
     # 3. Pattern promoted event
+    #    handler_id is node_pattern_storage_effect (the storage code path that
+    #    performs the promotion write).  node_pattern_promotion_effect also emits
+    #    this event type but is NOT registered here because the registry tracks
+    #    the *consuming* handler, not all producers.
     registry.register_simple(
         message_type="ModelPatternPromotedEvent",
         handler_id="node_pattern_storage_effect",
@@ -122,7 +124,7 @@ def register_intelligence_message_types(
     registered.append("ModelPatternLifecycleTransitionedEvent")
 
     # =========================================================================
-    # Kafka Command Models (consumed by effect nodes) -- COMMAND category
+    # Kafka Command/Event Models (consumed by effect nodes)
     # =========================================================================
 
     # 6. Claude Code hook event (cmd topic)
@@ -145,23 +147,15 @@ def register_intelligence_message_types(
     )
     registered.append("ModelPatternStorageInput")
 
-    # 8. Pattern lifecycle event -- fan-out to TWO handlers
-    #    Topic: onex.evt.omniintelligence.pattern-lifecycle-event.v1
-    #    First registration creates the entry.
+    # 8. Pattern lifecycle event (cmd topic)
+    #    Topic: onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
+    #    Published by promotion/demotion effects, consumed by lifecycle effect.
     registry.register_simple(
         message_type="ModelPatternLifecycleEvent",
-        handler_id="node_pattern_promotion_effect",
-        category=EnumMessageCategory.EVENT,
+        handler_id="node_pattern_lifecycle_effect",
+        category=EnumMessageCategory.COMMAND,
         domain=INTELLIGENCE_DOMAIN,
-        description="Pattern lifecycle event consumed by promotion and demotion effects",
-    )
-    #    Second registration merges the additional handler (fan-out).
-    registry.register_simple(
-        message_type="ModelPatternLifecycleEvent",
-        handler_id="node_pattern_demotion_effect",
-        category=EnumMessageCategory.EVENT,
-        domain=INTELLIGENCE_DOMAIN,
-        description="Pattern lifecycle event consumed by promotion and demotion effects",
+        description="Pattern lifecycle event command consumed by lifecycle effect node",
     )
     registered.append("ModelPatternLifecycleEvent")
 
