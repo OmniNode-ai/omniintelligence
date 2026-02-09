@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -148,6 +149,22 @@ class TestPluginWireDispatchers:
         result = await plugin.wire_dispatchers(config)
 
         assert "dispatch_engine" in result.resources_created
+
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_returns_failed_on_engine_error(self) -> None:
+        """wire_dispatchers should return failed result when engine creation raises."""
+        plugin = PluginIntelligence()
+        config = _make_config()
+
+        with patch(
+            "omniintelligence.runtime.dispatch_handlers.create_intelligence_dispatch_engine",
+            side_effect=RuntimeError("handler registration failed"),
+        ):
+            result = await plugin.wire_dispatchers(config)
+
+        assert not result.success
+        assert "handler registration failed" in result.error_message
+        assert plugin._dispatch_engine is None
 
 
 # =============================================================================
