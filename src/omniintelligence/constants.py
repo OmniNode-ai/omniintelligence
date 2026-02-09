@@ -63,7 +63,7 @@ TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = (
 """
 TEMP_BOOTSTRAP: Canonical topic for Claude Code hook events (INPUT).
 
-Canonical topic:onex.cmd.omniintelligence.claude-hook-event.v1
+Canonical topic: onex.cmd.omniintelligence.claude-hook-event.v1
 
 omniclaude publishes Claude Code hook events to this topic.
 RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
@@ -77,7 +77,7 @@ TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
 """
 TEMP_BOOTSTRAP: Canonical topic for intent classification events (OUTPUT).
 
-Canonical topic:onex.evt.omniintelligence.intent-classified.v1
+Canonical topic: onex.evt.omniintelligence.intent-classified.v1
 
 NodeClaudeHookEventEffect publishes classified intents to this topic.
 omnimemory consumes for graph storage.
@@ -89,7 +89,7 @@ TOPIC_SUFFIX_PATTERN_STORED_V1: str = "onex.evt.omniintelligence.pattern-stored.
 """
 TEMP_BOOTSTRAP: Canonical topic for pattern storage events (OUTPUT).
 
-Canonical topic:onex.evt.omniintelligence.pattern-stored.v1
+Canonical topic: onex.evt.omniintelligence.pattern-stored.v1
 
 NodePatternStorageEffect publishes when a pattern is stored in the database.
 
@@ -100,7 +100,7 @@ TOPIC_SUFFIX_PATTERN_PROMOTED_V1: str = "onex.evt.omniintelligence.pattern-promo
 """
 TEMP_BOOTSTRAP: Canonical topic for pattern promotion events (OUTPUT).
 
-Canonical topic:onex.evt.omniintelligence.pattern-promoted.v1
+Canonical topic: onex.evt.omniintelligence.pattern-promoted.v1
 
 NodePatternStorageEffect publishes when a pattern is promoted
 from candidate to active status based on confidence thresholds
@@ -115,7 +115,7 @@ TOPIC_SUFFIX_PATTERN_DEPRECATED_V1: str = (
 """
 TEMP_BOOTSTRAP: Canonical topic for pattern deprecation events (OUTPUT).
 
-Canonical topic:onex.evt.omniintelligence.pattern-deprecated.v1
+Canonical topic: onex.evt.omniintelligence.pattern-deprecated.v1
 
 NodePatternDemotionEffect publishes when a validated pattern is deprecated,
 e.g., due to rolling-window success metrics, failure streaks, or manual disable,
@@ -130,7 +130,7 @@ TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1: str = (
 """
 TEMP_BOOTSTRAP: Canonical topic for pattern lifecycle transition events (OUTPUT).
 
-Canonical topic:onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1
+Canonical topic: onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1
 
 NodePatternLifecycleEffect publishes when a pattern status transition is applied,
 providing the single source of truth for pattern status changes with full audit trail.
