@@ -488,12 +488,25 @@ async def record_session_outcome(
     )
 
     # Step 6: Recompute effectiveness scores from updated rolling metrics
+    # Graceful degradation: if scoring fails, the critical operations
+    # (marking injections recorded + updating rolling metrics) already
+    # succeeded. Log and continue with empty scores.
     effectiveness_scores: dict[UUID, float] = {}
     if pattern_ids:
-        effectiveness_scores = await update_effectiveness_scores(
-            pattern_ids=pattern_ids,
-            repository=repository,
-        )
+        try:
+            effectiveness_scores = await update_effectiveness_scores(
+                pattern_ids=pattern_ids,
+                repository=repository,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to update effectiveness scores (non-critical)",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "session_id": str(session_id),
+                    "pattern_count": len(pattern_ids),
+                },
+            )
 
     logger.debug(
         "Updated effectiveness scores",
