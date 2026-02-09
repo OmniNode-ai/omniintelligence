@@ -108,15 +108,15 @@ class TestCreateIntelligenceDispatchEngine:
         engine = create_intelligence_dispatch_engine()
         assert engine.is_frozen
 
-    def test_engine_has_one_handler(self) -> None:
-        """Phase 1: exactly one handler registered."""
+    def test_engine_has_three_handlers(self) -> None:
+        """All 3 intelligence domain handlers must be registered."""
         engine = create_intelligence_dispatch_engine()
-        assert engine.handler_count == 1
+        assert engine.handler_count == 3
 
-    def test_engine_has_one_route(self) -> None:
-        """Phase 1: exactly one route registered."""
+    def test_engine_has_three_routes(self) -> None:
+        """All 3 intelligence domain routes must be registered."""
         engine = create_intelligence_dispatch_engine()
-        assert engine.route_count == 1
+        assert engine.route_count == 3
 
 
 # =============================================================================

@@ -15,9 +15,13 @@ Design Decisions:
     - The dispatch engine is created per-plugin (not kernel-managed) for Phase 1.
     - message_types=None on handler registration accepts all message types in
       the category -- correct for Phase 1 where we route by topic, not type.
+    - Session-outcome and pattern-lifecycle handlers are Phase 1 stubs that
+      validate the payload shape and log receipt. Full dependency injection
+      (database repository, kafka producer) is deferred to Phase 2.
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
+    - OMN-2032: Register all 3 intelligence dispatchers
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -54,6 +58,14 @@ logger = logging.getLogger(__name__)
 
 DISPATCH_ALIAS_CLAUDE_HOOK = "onex.commands.omniintelligence.claude-hook-event.v1"
 """Dispatch-compatible alias for TOPIC_CLAUDE_HOOK_EVENT."""
+
+DISPATCH_ALIAS_SESSION_OUTCOME = "onex.commands.omniintelligence.session-outcome.v1"
+"""Dispatch-compatible alias for TOPIC_SESSION_OUTCOME."""
+
+DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
+    "onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
+)
+"""Dispatch-compatible alias for TOPIC_PATTERN_LIFECYCLE."""
 
 
 # =============================================================================
@@ -153,6 +165,135 @@ def create_claude_hook_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Session Outcome
+# =============================================================================
+
+
+def create_session_outcome_dispatch_handler(
+    *,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for session outcome events.
+
+    Returns an async handler function compatible with MessageDispatchEngine's
+    handler signature. The handler extracts the payload from the envelope,
+    validates its shape, and logs the session outcome for tracing.
+
+    Phase 1 (OMN-2032): No database repository is injected. The handler
+    validates the dispatch path and logs receipt. Full dependency injection
+    (repository for record_session_outcome) is deferred to Phase 2.
+
+    Args:
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> session outcome logging (Phase 1)."""
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        if isinstance(payload, dict):
+            session_id = payload.get("session_id")
+            success = payload.get("success")
+            logger.info(
+                "Session outcome received via dispatch engine "
+                "(session_id=%s, success=%s, correlation_id=%s)",
+                session_id,
+                success,
+                ctx_correlation_id,
+            )
+        else:
+            logger.info(
+                "Session outcome received via dispatch engine "
+                "(payload_type=%s, correlation_id=%s)",
+                type(payload).__name__,
+                ctx_correlation_id,
+            )
+
+        return ""
+
+    return _handle
+
+
+# =============================================================================
+# Bridge Handler: Pattern Lifecycle Transition
+# =============================================================================
+
+
+def create_pattern_lifecycle_dispatch_handler(
+    *,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for pattern lifecycle transition commands.
+
+    Returns an async handler function compatible with MessageDispatchEngine's
+    handler signature. The handler extracts the payload from the envelope,
+    validates its shape, and logs the transition for tracing.
+
+    Phase 1 (OMN-2032): No database repository or idempotency store is
+    injected. The handler validates the dispatch path and logs receipt.
+    Full dependency injection (repository for apply_transition) is deferred
+    to Phase 2.
+
+    Args:
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> pattern lifecycle logging (Phase 1)."""
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        if isinstance(payload, dict):
+            pattern_id = payload.get("pattern_id")
+            from_status = payload.get("from_status")
+            to_status = payload.get("to_status")
+            logger.info(
+                "Pattern lifecycle transition received via dispatch engine "
+                "(pattern_id=%s, from=%s, to=%s, correlation_id=%s)",
+                pattern_id,
+                from_status,
+                to_status,
+                ctx_correlation_id,
+            )
+        else:
+            logger.info(
+                "Pattern lifecycle transition received via dispatch engine "
+                "(payload_type=%s, correlation_id=%s)",
+                type(payload).__name__,
+                ctx_correlation_id,
+            )
+
+        return ""
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -160,11 +301,13 @@ def create_claude_hook_dispatch_handler(
 def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers the claude-hook-event handler and route,
-    and freezes it. The engine is ready for dispatch after this call.
+    Creates the engine, registers all 3 intelligence domain handlers and
+    routes, and freezes it. The engine is ready for dispatch after this call.
 
-    Phase 1: Only claude-hook-event is routed. Session-outcome and
-    pattern-lifecycle topics will be added in Phase 2.
+    Dispatchers registered (OMN-2032):
+        1. claude-hook-event: Claude Code hook event processing
+        2. session-outcome: Session feedback recording (Phase 1 stub)
+        3. pattern-lifecycle-transition: Pattern lifecycle transitions (Phase 1 stub)
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -173,17 +316,15 @@ def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
         logger=logging.getLogger(f"{__name__}.dispatch_engine"),
     )
 
-    # Register handler for claude-hook-event
-    handler = create_claude_hook_dispatch_handler()
+    # --- Handler 1: claude-hook-event ---
+    claude_hook_handler = create_claude_hook_dispatch_handler()
     engine.register_handler(
         handler_id="intelligence-claude-hook-handler",
-        handler=handler,
+        handler=claude_hook_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,  # Accept all message types in Phase 1
     )
-
-    # Register route matching the dispatch alias topic
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-claude-hook-route",
@@ -191,8 +332,51 @@ def create_intelligence_dispatch_engine() -> MessageDispatchEngine:
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-claude-hook-handler",
             description=(
-                "Routes claude-hook-event commands to the intelligence handler. "
-                "Phase 1: topic-level routing only."
+                "Routes claude-hook-event commands to the intelligence handler."
+            ),
+        )
+    )
+
+    # --- Handler 2: session-outcome ---
+    session_outcome_handler = create_session_outcome_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-session-outcome-handler",
+        handler=session_outcome_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,  # Accept all message types in Phase 1
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-session-outcome-route",
+            topic_pattern=DISPATCH_ALIAS_SESSION_OUTCOME,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-session-outcome-handler",
+            description=(
+                "Routes session-outcome commands to the intelligence handler. "
+                "Phase 1: logging stub. Phase 2: full record_session_outcome."
+            ),
+        )
+    )
+
+    # --- Handler 3: pattern-lifecycle-transition ---
+    pattern_lifecycle_handler = create_pattern_lifecycle_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-pattern-lifecycle-handler",
+        handler=pattern_lifecycle_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,  # Accept all message types in Phase 1
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-lifecycle-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_LIFECYCLE,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-pattern-lifecycle-handler",
+            description=(
+                "Routes pattern-lifecycle-transition commands to the intelligence "
+                "handler. Phase 1: logging stub. Phase 2: full apply_transition."
             ),
         )
     )
@@ -330,7 +514,11 @@ def create_dispatch_callback(
 
 __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
+    "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
+    "DISPATCH_ALIAS_SESSION_OUTCOME",
     "create_claude_hook_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
+    "create_pattern_lifecycle_dispatch_handler",
+    "create_session_outcome_dispatch_handler",
 ]

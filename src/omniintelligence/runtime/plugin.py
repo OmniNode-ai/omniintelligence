@@ -330,13 +330,15 @@ class PluginIntelligence:
     ) -> ModelDomainPluginResult:
         """Wire intelligence domain dispatchers with MessageDispatchEngine.
 
-        Creates a plugin-local MessageDispatchEngine and registers the
-        claude-hook-event handler and route. The engine is frozen after
+        Creates a plugin-local MessageDispatchEngine and registers all 3
+        intelligence domain handlers and routes. The engine is frozen after
         registration and stored for use in start_consumers().
 
-        Phase 1 (OMN-2031): Only claude-hook-event topic is routed through
-        the dispatch engine. Session-outcome and pattern-lifecycle topics
-        remain on noop handlers until validated end-to-end.
+        Dispatchers registered (OMN-2032):
+            1. claude-hook-event: Claude Code hook event processing
+            2. session-outcome: Session feedback recording (Phase 1 stub)
+            3. pattern-lifecycle-transition: Pattern lifecycle transitions
+               (Phase 1 stub)
 
         Args:
             config: Plugin configuration.
@@ -391,12 +393,12 @@ class PluginIntelligence:
 
         Subscribes to intelligence input topics:
         - onex.cmd.omniintelligence.claude-hook-event.v1 (dispatch engine)
-        - onex.cmd.omniintelligence.session-outcome.v1 (noop - Phase 2)
-        - onex.cmd.omniintelligence.pattern-lifecycle-transition.v1 (noop - Phase 2)
+        - onex.cmd.omniintelligence.session-outcome.v1 (dispatch engine)
+        - onex.cmd.omniintelligence.pattern-lifecycle-transition.v1 (dispatch engine)
 
-        The claude-hook-event topic is routed through MessageDispatchEngine
-        (Pattern B) when the dispatch engine is available. Other topics
-        remain on placeholder handlers until Phase 2 validates the pattern.
+        All 3 topics are routed through MessageDispatchEngine when the
+        dispatch engine is available (OMN-2032). Without the engine,
+        topics fall back to noop handlers.
 
         Uses duck typing to check for subscribe capability on event_bus.
 
@@ -427,10 +429,7 @@ class PluginIntelligence:
 
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
                 handler = topic_handlers[topic]
-                is_dispatched = (
-                    topic == TOPIC_CLAUDE_HOOK_EVENT
-                    and self._dispatch_engine is not None
-                )
+                is_dispatched = self._dispatch_engine is not None
 
                 logger.info(
                     "Subscribing to intelligence topic: %s "
@@ -493,9 +492,9 @@ class PluginIntelligence:
     ) -> dict[str, Callable[[Any], Awaitable[None]]]:
         """Build handler map for each intelligence topic.
 
-        Returns a dict mapping topic -> async callback. The claude-hook-event
-        topic uses the dispatch engine when available; other topics use a
-        noop placeholder.
+        Returns a dict mapping topic -> async callback. All 3 intelligence
+        topics use the dispatch engine when available (OMN-2032); without
+        the engine, all topics fall back to a noop placeholder.
 
         Args:
             correlation_id: Correlation ID for tracing in noop handler.
@@ -514,16 +513,27 @@ class PluginIntelligence:
 
         handlers: dict[str, Callable[[Any], Awaitable[None]]] = {}
 
-        for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
-            if topic == TOPIC_CLAUDE_HOOK_EVENT and self._dispatch_engine is not None:
-                from omniintelligence.runtime.dispatch_handlers import (
-                    DISPATCH_ALIAS_CLAUDE_HOOK,
-                    create_dispatch_callback,
-                )
+        # Topic -> dispatch alias mapping for dispatch engine routing
+        _topic_alias_map: dict[str, str] | None = None
+        if self._dispatch_engine is not None:
+            from omniintelligence.runtime.dispatch_handlers import (
+                DISPATCH_ALIAS_CLAUDE_HOOK,
+                DISPATCH_ALIAS_PATTERN_LIFECYCLE,
+                DISPATCH_ALIAS_SESSION_OUTCOME,
+                create_dispatch_callback,
+            )
 
+            _topic_alias_map = {
+                TOPIC_CLAUDE_HOOK_EVENT: DISPATCH_ALIAS_CLAUDE_HOOK,
+                TOPIC_SESSION_OUTCOME: DISPATCH_ALIAS_SESSION_OUTCOME,
+                TOPIC_PATTERN_LIFECYCLE: DISPATCH_ALIAS_PATTERN_LIFECYCLE,
+            }
+
+        for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+            if _topic_alias_map is not None and topic in _topic_alias_map:
                 handlers[topic] = create_dispatch_callback(
                     engine=self._dispatch_engine,
-                    dispatch_topic=DISPATCH_ALIAS_CLAUDE_HOOK,
+                    dispatch_topic=_topic_alias_map[topic],
                 )
             else:
                 handlers[topic] = _noop_handler
