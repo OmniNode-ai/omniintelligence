@@ -268,6 +268,8 @@ def create_dispatch_callback(
                     type(msg).__name__,
                     msg_correlation_id,
                 )
+                if hasattr(msg, "nack"):
+                    await msg.nack()
                 return
 
             # Extract correlation_id from payload if available

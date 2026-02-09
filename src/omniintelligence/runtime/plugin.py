@@ -507,7 +507,8 @@ class PluginIntelligence:
         async def _noop_handler(_msg: Any) -> None:
             """Placeholder handler for topics not yet routed via dispatch."""
             logger.debug(
-                "Intelligence event received on noop handler (correlation_id=%s)",
+                "Intelligence event received on noop handler "
+                "(subscription_correlation_id=%s)",
                 correlation_id,
             )
 
