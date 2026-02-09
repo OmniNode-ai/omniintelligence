@@ -513,8 +513,12 @@ class PluginIntelligence:
 
         handlers: dict[str, Callable[[Any], Awaitable[None]]] = {}
 
-        # Topic -> dispatch alias mapping for dispatch engine routing
+        # Topic -> dispatch alias mapping for dispatch engine routing.
+        # _engine is captured as a local to allow mypy to narrow the type
+        # (self._dispatch_engine is Optional and mypy cannot infer the
+        # transitive guard through _topic_alias_map).
         _topic_alias_map: dict[str, str] | None = None
+        _engine: MessageDispatchEngine | None = None
         if self._dispatch_engine is not None:
             from omniintelligence.runtime.dispatch_handlers import (
                 DISPATCH_ALIAS_CLAUDE_HOOK,
@@ -523,6 +527,7 @@ class PluginIntelligence:
                 create_dispatch_callback,
             )
 
+            _engine = self._dispatch_engine
             _topic_alias_map = {
                 TOPIC_CLAUDE_HOOK_EVENT: DISPATCH_ALIAS_CLAUDE_HOOK,
                 TOPIC_SESSION_OUTCOME: DISPATCH_ALIAS_SESSION_OUTCOME,
@@ -530,9 +535,9 @@ class PluginIntelligence:
             }
 
         for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
-            if _topic_alias_map is not None and topic in _topic_alias_map:
+            if _topic_alias_map is not None and _engine is not None and topic in _topic_alias_map:
                 handlers[topic] = create_dispatch_callback(
-                    engine=self._dispatch_engine,
+                    engine=_engine,
                     dispatch_topic=_topic_alias_map[topic],
                 )
             else:
