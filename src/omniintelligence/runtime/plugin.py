@@ -8,6 +8,7 @@ Intelligence-specific initialization code for kernel bootstrap.
 
 The plugin handles:
     - PostgreSQL pool creation for pattern storage
+    - Message type registration with RegistryMessageType (OMN-2039)
     - Pattern lifecycle management handler wiring
     - Session feedback processing handler wiring
     - Claude hook event processing handler wiring
@@ -60,6 +61,7 @@ Related:
     - OMN-1978: Integration test: kernel boots with PluginIntelligence
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
     - OMN-2033: Move intelligence topics to contract.yaml declarations
+    - OMN-2039: Register intelligence message types in RegistryMessageType
 """
 
 from __future__ import annotations
@@ -73,6 +75,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import asyncpg
     from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
+    from omnibase_infra.runtime.registry import RegistryMessageType
 
 from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginConfig,
@@ -134,6 +137,7 @@ class PluginIntelligence:
         self._shutdown_in_progress: bool = False
         self._services_registered: list[str] = []
         self._dispatch_engine: MessageDispatchEngine | None = None
+        self._message_type_registry: RegistryMessageType | None = None
 
     @property
     def plugin_id(self) -> str:
@@ -149,6 +153,11 @@ class PluginIntelligence:
     def postgres_pool(self) -> asyncpg.Pool | None:
         """Return the PostgreSQL pool (for external access)."""
         return self._pool
+
+    @property
+    def message_type_registry(self) -> RegistryMessageType | None:
+        """Return the message type registry (for external access)."""
+        return self._message_type_registry
 
     def should_activate(self, config: ModelDomainPluginConfig) -> bool:
         """Check if Intelligence should activate based on environment.
@@ -231,6 +240,38 @@ class PluginIntelligence:
                     "port": os.getenv("POSTGRES_PORT", "5432"),
                     "database": os.getenv("POSTGRES_DATABASE", "omninode_bridge"),
                 },
+            )
+
+            # Register intelligence message types (OMN-2039)
+            from omnibase_infra.runtime.registry import RegistryMessageType
+
+            from omniintelligence.runtime.message_type_registration import (
+                register_intelligence_message_types,
+            )
+
+            registry = RegistryMessageType()
+            registered_types = register_intelligence_message_types(registry)
+            registry.freeze()
+
+            # Validate startup -- log warnings but do not fail init
+            warnings = registry.validate_startup()
+            if warnings:
+                for warning in warnings:
+                    logger.warning(
+                        "Message type registry warning: %s (correlation_id=%s)",
+                        warning,
+                        correlation_id,
+                    )
+
+            self._message_type_registry = registry
+            resources_created.append("message_type_registry")
+
+            logger.info(
+                "Intelligence message type registry created and frozen "
+                "(types=%d, warnings=%d, correlation_id=%s)",
+                len(registered_types),
+                len(warnings),
+                correlation_id,
             )
 
             duration = time.time() - start_time
@@ -625,6 +666,7 @@ class PluginIntelligence:
 
         self._services_registered = []
         self._dispatch_engine = None
+        self._message_type_registry = None
 
         duration = time.time() - start_time
 
