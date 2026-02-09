@@ -125,7 +125,7 @@ def _read_subscribe_topics(package: str) -> list[str]:
     package_files = importlib.resources.files(package)
     contract_file = package_files.joinpath("contract.yaml")
     content = contract_file.read_text()
-    contract: dict[str, Any] = yaml.safe_load(content)
+    contract: Any = yaml.safe_load(content)
 
     if not isinstance(contract, dict):
         logger.warning(
