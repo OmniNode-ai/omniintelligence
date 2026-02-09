@@ -123,8 +123,10 @@ def collect_publish_topics_for_dispatch(
         for package in node_packages:
             topics = _read_publish_topics(package)
             if topics:
-                key = package.rsplit(".", 1)[-1].replace("node_", "").replace(
-                    "_effect", ""
+                key = (
+                    package.rsplit(".", 1)[-1]
+                    .replace("node_", "")
+                    .replace("_effect", "")
                 )
                 result[key] = topics[0]
         return result

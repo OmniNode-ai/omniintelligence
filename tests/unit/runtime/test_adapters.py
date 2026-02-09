@@ -197,9 +197,7 @@ class TestAdapterIdempotencyStorePostgres:
         assert result is True
 
     @pytest.mark.asyncio()
-    async def test_exists_returns_false_when_no_row(
-        self, mock_pool: MagicMock
-    ) -> None:
+    async def test_exists_returns_false_when_no_row(self, mock_pool: MagicMock) -> None:
         """exists() returns False when pool.fetchrow returns None."""
         mock_pool.fetchrow.return_value = None
         request_id = uuid4()
@@ -211,9 +209,7 @@ class TestAdapterIdempotencyStorePostgres:
         assert result is False
 
     @pytest.mark.asyncio()
-    async def test_record_delegates_insert_to_pool(
-        self, mock_pool: MagicMock
-    ) -> None:
+    async def test_record_delegates_insert_to_pool(self, mock_pool: MagicMock) -> None:
         """record() delegates INSERT to pool.execute."""
         request_id = uuid4()
 
@@ -287,9 +283,7 @@ class TestAdapterKafkaPublisher:
     ) -> None:
         """publish() encodes key as UTF-8 bytes."""
         adapter = AdapterKafkaPublisher(mock_event_bus)
-        await adapter.publish(
-            topic="test.topic", key="my-key", value={"a": 1}
-        )
+        await adapter.publish(topic="test.topic", key="my-key", value={"a": 1})
 
         call_kwargs = mock_event_bus.publish.call_args
         assert call_kwargs.kwargs["key"] == b"my-key"
@@ -347,9 +341,7 @@ class TestAdapterKafkaPublisher:
         """publish() uses default=str for non-JSON-serializable values (e.g. UUID)."""
         adapter = AdapterKafkaPublisher(mock_event_bus)
         test_uuid = uuid4()
-        await adapter.publish(
-            topic="t", key="k", value={"id": test_uuid}
-        )
+        await adapter.publish(topic="t", key="k", value={"id": test_uuid})
 
         call_kwargs = mock_event_bus.publish.call_args
         value_bytes = call_kwargs.kwargs["value"]

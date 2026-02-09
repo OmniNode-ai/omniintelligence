@@ -166,9 +166,7 @@ class AdapterIdempotencyStorePostgres:
         # INSERT ... ON CONFLICT DO NOTHING RETURNING request_id
         # If the row was inserted (new), RETURNING yields the row.
         # If conflict (duplicate), RETURNING yields nothing.
-        row = await self._pool.fetchrow(
-            SQL_IDEMPOTENCY_CHECK_AND_RECORD, request_id
-        )
+        row = await self._pool.fetchrow(SQL_IDEMPOTENCY_CHECK_AND_RECORD, request_id)
         return row is None  # None = conflict = duplicate
 
 
@@ -210,9 +208,7 @@ class AdapterKafkaPublisher:
             value, separators=(",", ":"), ensure_ascii=False, default=str
         ).encode("utf-8")
         key_bytes = key.encode("utf-8") if key else None
-        await self._event_bus.publish(
-            topic=topic, key=key_bytes, value=value_bytes
-        )
+        await self._event_bus.publish(topic=topic, key=key_bytes, value=value_bytes)
 
 
 # =============================================================================

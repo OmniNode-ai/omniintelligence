@@ -83,9 +83,7 @@ class ProtocolIntentClassifier(Protocol):
 class ProtocolKafkaPublisher(Protocol):
     """Kafka event publishing protocol."""
 
-    async def publish(
-        self, topic: str, key: str, value: dict[str, Any]
-    ) -> None: ...
+    async def publish(self, topic: str, key: str, value: dict[str, Any]) -> None: ...
 
 
 # =============================================================================

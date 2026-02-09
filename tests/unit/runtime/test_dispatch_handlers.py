@@ -145,8 +145,7 @@ class TestProtocolConformance:
         canonical = self._abstract_methods(CanonicalRepo)
         local = self._abstract_methods(LocalRepo)
         assert local == canonical, (
-            f"ProtocolPatternRepository diverged: "
-            f"local={local}, canonical={canonical}"
+            f"ProtocolPatternRepository diverged: local={local}, canonical={canonical}"
         )
 
     def test_idempotency_store_matches_lifecycle_handler(self) -> None:
@@ -161,8 +160,7 @@ class TestProtocolConformance:
         canonical = self._abstract_methods(CanonicalStore)
         local = self._abstract_methods(LocalStore)
         assert local == canonical, (
-            f"ProtocolIdempotencyStore diverged: "
-            f"local={local}, canonical={canonical}"
+            f"ProtocolIdempotencyStore diverged: local={local}, canonical={canonical}"
         )
 
     def test_intent_classifier_matches_hook_handler(self) -> None:
@@ -177,8 +175,7 @@ class TestProtocolConformance:
         canonical = self._abstract_methods(CanonicalClassifier)
         local = self._abstract_methods(LocalClassifier)
         assert local == canonical, (
-            f"ProtocolIntentClassifier diverged: "
-            f"local={local}, canonical={canonical}"
+            f"ProtocolIntentClassifier diverged: local={local}, canonical={canonical}"
         )
 
     def test_kafka_publisher_matches_hook_handler(self) -> None:
@@ -193,8 +190,7 @@ class TestProtocolConformance:
         canonical = self._abstract_methods(CanonicalPublisher)
         local = self._abstract_methods(LocalPublisher)
         assert local == canonical, (
-            f"ProtocolKafkaPublisher diverged: "
-            f"local={local}, canonical={canonical}"
+            f"ProtocolKafkaPublisher diverged: local={local}, canonical={canonical}"
         )
 
 
@@ -669,7 +665,6 @@ class TestPatternLifecycleDispatchHandler:
         with pytest.raises(ValueError, match="missing required field 'pattern_id'"):
             await handler(envelope, context)
 
-
     @pytest.mark.asyncio
     async def test_handler_raises_for_invalid_lifecycle_status(
         self,
@@ -712,7 +707,9 @@ class TestPatternLifecycleDispatchHandler:
             envelope_id=uuid4(),
         )
 
-        with pytest.raises(ValueError, match="Invalid lifecycle status for 'from_status'"):
+        with pytest.raises(
+            ValueError, match="Invalid lifecycle status for 'from_status'"
+        ):
             await handler(envelope, context)
 
     @pytest.mark.asyncio
@@ -758,7 +755,9 @@ class TestPatternLifecycleDispatchHandler:
             envelope_id=uuid4(),
         )
 
-        with pytest.raises(ValueError, match="Invalid ISO datetime for 'transition_at'"):
+        with pytest.raises(
+            ValueError, match="Invalid ISO datetime for 'transition_at'"
+        ):
             await handler(envelope, context)
 
 
