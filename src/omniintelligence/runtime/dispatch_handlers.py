@@ -267,7 +267,15 @@ def create_session_outcome_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        session_id = UUID(str(raw_session_id))
+        try:
+            session_id = UUID(str(raw_session_id))
+        except ValueError as e:
+            msg = (
+                f"Invalid UUID for 'session_id': {raw_session_id!r} "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
         success = bool(payload.get("success", False))
         failure_reason = payload.get("failure_reason")
 
@@ -369,7 +377,15 @@ def create_pattern_lifecycle_dispatch_handler(
             raise ValueError(msg)
 
         # Parse transition fields from payload
-        pattern_id = UUID(str(raw_pattern_id))
+        try:
+            pattern_id = UUID(str(raw_pattern_id))
+        except ValueError as e:
+            msg = (
+                f"Invalid UUID for 'pattern_id': {raw_pattern_id!r} "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
 
         raw_request_id = payload.get("request_id")
         if raw_request_id is None:
@@ -379,7 +395,15 @@ def create_pattern_lifecycle_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg)
-        request_id = UUID(str(raw_request_id))
+        try:
+            request_id = UUID(str(raw_request_id))
+        except ValueError as e:
+            msg = (
+                f"Invalid UUID for 'request_id': {raw_request_id!r} "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
 
         raw_from_status = payload.get("from_status")
         if raw_from_status is None:
@@ -399,8 +423,25 @@ def create_pattern_lifecycle_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        from_status = EnumPatternLifecycleStatus(raw_from_status)
-        to_status = EnumPatternLifecycleStatus(raw_to_status)
+        try:
+            from_status = EnumPatternLifecycleStatus(raw_from_status)
+        except ValueError as e:
+            msg = (
+                f"Invalid lifecycle status for 'from_status': {raw_from_status!r} "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
+
+        try:
+            to_status = EnumPatternLifecycleStatus(raw_to_status)
+        except ValueError as e:
+            msg = (
+                f"Invalid lifecycle status for 'to_status': {raw_to_status!r} "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
         trigger = payload.get("trigger", "dispatch")
 
         # Parse optional transition_at or default to now

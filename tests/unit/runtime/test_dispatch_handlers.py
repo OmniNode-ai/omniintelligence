@@ -115,6 +115,90 @@ class _MockEventMessage:
 
 
 # =============================================================================
+# Tests: Protocol Conformance (dispatch_handlers locals vs handler canonicals)
+# =============================================================================
+# dispatch_handlers.py duplicates four protocols to avoid circular imports.
+# These tests verify the local copies have not diverged from the canonical
+# definitions in handler modules. If a handler protocol gains or renames a
+# method, these tests will fail, signalling that the dispatch_handlers copy
+# must be updated.
+
+
+class TestProtocolConformance:
+    """Verify dispatch_handlers protocols match canonical handler protocols."""
+
+    @staticmethod
+    def _abstract_methods(proto: type) -> set[str]:
+        """Extract the set of protocol method names via __protocol_attrs__."""
+        # runtime_checkable Protocol stores checked attrs here
+        return set(getattr(proto, "__protocol_attrs__", set()))
+
+    def test_pattern_repository_matches_lifecycle_handler(self) -> None:
+        """Local ProtocolPatternRepository must match lifecycle handler's."""
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            ProtocolPatternRepository as CanonicalRepo,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolPatternRepository as LocalRepo,
+        )
+
+        canonical = self._abstract_methods(CanonicalRepo)
+        local = self._abstract_methods(LocalRepo)
+        assert local == canonical, (
+            f"ProtocolPatternRepository diverged: "
+            f"local={local}, canonical={canonical}"
+        )
+
+    def test_idempotency_store_matches_lifecycle_handler(self) -> None:
+        """Local ProtocolIdempotencyStore must match lifecycle handler's."""
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            ProtocolIdempotencyStore as CanonicalStore,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolIdempotencyStore as LocalStore,
+        )
+
+        canonical = self._abstract_methods(CanonicalStore)
+        local = self._abstract_methods(LocalStore)
+        assert local == canonical, (
+            f"ProtocolIdempotencyStore diverged: "
+            f"local={local}, canonical={canonical}"
+        )
+
+    def test_intent_classifier_matches_hook_handler(self) -> None:
+        """Local ProtocolIntentClassifier must match hook handler's."""
+        from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
+            ProtocolIntentClassifier as CanonicalClassifier,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolIntentClassifier as LocalClassifier,
+        )
+
+        canonical = self._abstract_methods(CanonicalClassifier)
+        local = self._abstract_methods(LocalClassifier)
+        assert local == canonical, (
+            f"ProtocolIntentClassifier diverged: "
+            f"local={local}, canonical={canonical}"
+        )
+
+    def test_kafka_publisher_matches_hook_handler(self) -> None:
+        """Local ProtocolKafkaPublisher must match hook handler's."""
+        from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
+            ProtocolKafkaPublisher as CanonicalPublisher,
+        )
+        from omniintelligence.runtime.dispatch_handlers import (
+            ProtocolKafkaPublisher as LocalPublisher,
+        )
+
+        canonical = self._abstract_methods(CanonicalPublisher)
+        local = self._abstract_methods(LocalPublisher)
+        assert local == canonical, (
+            f"ProtocolKafkaPublisher diverged: "
+            f"local={local}, canonical={canonical}"
+        )
+
+
+# =============================================================================
 # Tests: Topic Alias
 # =============================================================================
 
@@ -502,6 +586,47 @@ class TestPatternLifecycleDispatchHandler:
             await handler(envelope, context)
 
     @pytest.mark.asyncio
+    async def test_handler_raises_for_invalid_session_uuid(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError with clear message for invalid UUID."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": "not-a-valid-uuid",
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Invalid UUID for 'session_id'"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
     async def test_handler_rejects_dict_missing_pattern_id(
         self,
         correlation_id: UUID,
@@ -542,6 +667,52 @@ class TestPatternLifecycleDispatchHandler:
         )
 
         with pytest.raises(ValueError, match="missing required field 'pattern_id'"):
+            await handler(envelope, context)
+
+
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_invalid_lifecycle_status(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError with clear message for invalid enum."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_lifecycle_dispatch_handler(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "pattern_id": str(uuid4()),
+                "request_id": str(uuid4()),
+                "from_status": "nonexistent_status",
+                "to_status": "validated",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Invalid lifecycle status for 'from_status'"):
             await handler(envelope, context)
 
 
