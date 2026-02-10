@@ -1,4 +1,4 @@
--- Migration: 008_create_pattern_lifecycle_audit
+-- Migration: 010_create_pattern_lifecycle_audit
 -- Description: Create pattern_lifecycle_transitions table for auditing pattern status changes
 -- Author: omniintelligence
 -- Date: 2026-02-02
@@ -27,9 +27,11 @@ CREATE TABLE IF NOT EXISTS pattern_lifecycle_transitions (
     pattern_id UUID NOT NULL REFERENCES learned_patterns(id) ON DELETE RESTRICT,
 
     -- State transition
-    from_status VARCHAR(20) NOT NULL,
-    to_status VARCHAR(20) NOT NULL,
-    trigger VARCHAR(50) NOT NULL,
+    from_status VARCHAR(20) NOT NULL
+        CHECK (from_status IN ('candidate', 'provisional', 'validated', 'deprecated')),
+    to_status VARCHAR(20) NOT NULL
+        CHECK (to_status IN ('candidate', 'provisional', 'validated', 'deprecated')),
+    transition_trigger VARCHAR(50) NOT NULL,
 
     -- Tracing and attribution
     correlation_id UUID,
@@ -65,7 +67,7 @@ CREATE INDEX IF NOT EXISTS idx_pattern_lifecycle_correlation_id
 
 -- Query by trigger type (for metrics on promotion/demotion rates)
 CREATE INDEX IF NOT EXISTS idx_pattern_lifecycle_trigger
-    ON pattern_lifecycle_transitions(trigger);
+    ON pattern_lifecycle_transitions(transition_trigger);
 
 -- Query by status transition (for analyzing transition patterns)
 CREATE INDEX IF NOT EXISTS idx_pattern_lifecycle_from_to_status
@@ -82,7 +84,7 @@ COMMENT ON COLUMN pattern_lifecycle_transitions.request_id IS 'Request ID for id
 COMMENT ON COLUMN pattern_lifecycle_transitions.pattern_id IS 'Reference to the pattern that transitioned. Uses ON DELETE RESTRICT to preserve audit trail.';
 COMMENT ON COLUMN pattern_lifecycle_transitions.from_status IS 'Previous status before transition (candidate, provisional, validated, deprecated)';
 COMMENT ON COLUMN pattern_lifecycle_transitions.to_status IS 'New status after transition (candidate, provisional, validated, deprecated)';
-COMMENT ON COLUMN pattern_lifecycle_transitions.trigger IS 'Event or condition that triggered the transition';
+COMMENT ON COLUMN pattern_lifecycle_transitions.transition_trigger IS 'Event or condition that triggered the transition';
 COMMENT ON COLUMN pattern_lifecycle_transitions.correlation_id IS 'Distributed tracing ID for linking across services';
 COMMENT ON COLUMN pattern_lifecycle_transitions.actor IS 'Entity that initiated the transition (system, user, agent)';
 COMMENT ON COLUMN pattern_lifecycle_transitions.reason IS 'Human-readable explanation for the transition';

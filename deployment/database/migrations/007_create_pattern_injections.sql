@@ -1,4 +1,4 @@
--- Migration: 006_create_pattern_injections
+-- Migration: 007_create_pattern_injections
 -- Description: Create pattern_injections table for tracking injection events with A/B experiment support
 -- Author: omniintelligence
 -- Date: 2026-01-30
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS pattern_injections (
 
     -- Compiled content (what was actually injected)
     compiled_content TEXT,
-    compiled_token_count INT,
+    compiled_token_count INT CHECK (compiled_token_count >= 0),
 
     -- Outcome tracking
     outcome_recorded BOOLEAN NOT NULL DEFAULT FALSE,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS pattern_injections (
     -- Contribution heuristic (for pattern attribution)
     contribution_heuristic JSONB,
     heuristic_method VARCHAR(50),
-    heuristic_confidence FLOAT,
+    heuristic_confidence FLOAT CHECK (heuristic_confidence >= 0.0 AND heuristic_confidence <= 1.0),
 
     -- Auditing
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

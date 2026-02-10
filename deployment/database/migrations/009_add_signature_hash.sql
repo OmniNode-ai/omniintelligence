@@ -1,10 +1,10 @@
--- Migration: 008_add_signature_hash
+-- Migration: 009_add_signature_hash
 -- Description: Add signature_hash column for stable pattern identity (SHA256)
 -- Author: omniintelligence
 -- Date: 2026-02-02
 -- Ticket: OMN-1780
 --
--- Dependencies: 005_create_learned_patterns.sql
+-- Dependencies: 005_create_learned_patterns.sql, 000_extensions.sql (pgcrypto for digest())
 -- Note: signature_hash provides a stable identity hash (SHA256) for lineage tracking,
 --       while pattern_signature retains the raw signature text. This separation allows
 --       the signature format to evolve without breaking lineage identity.
@@ -13,7 +13,7 @@
 -- Add signature_hash Column
 -- ============================================================================
 
--- Add column with temporary default for backfill (will be set to NOT NULL after backfill)
+-- Add column as nullable for backfill (will be set to NOT NULL after backfill)
 ALTER TABLE learned_patterns
     ADD COLUMN IF NOT EXISTS signature_hash TEXT;
 
@@ -21,11 +21,11 @@ ALTER TABLE learned_patterns
 -- Backfill Existing Data
 -- ============================================================================
 
--- Backfill signature_hash from pattern_signature for existing rows
--- Note: For existing data, we use pattern_signature as the hash value.
---       New patterns will compute a proper SHA256 hash in the application layer.
+-- Backfill signature_hash by computing SHA256 of pattern_signature for existing rows
+-- Note: Uses pgcrypto digest() (available from 000_extensions.sql) to produce the same
+--       SHA256 hex format that the application layer uses for new patterns.
 UPDATE learned_patterns
-SET signature_hash = pattern_signature
+SET signature_hash = encode(digest(pattern_signature, 'sha256'), 'hex')
 WHERE signature_hash IS NULL;
 
 -- ============================================================================

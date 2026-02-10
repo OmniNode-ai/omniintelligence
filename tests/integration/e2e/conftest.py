@@ -346,7 +346,7 @@ _project_root = os.path.dirname(
 async def _check_signature_hash_column_exists(conn: Any) -> bool:
     """Check if the signature_hash column exists in learned_patterns table.
 
-    This function detects whether migration 008_add_signature_hash has been applied.
+    This function detects whether migration 009_add_signature_hash has been applied.
 
     Args:
         conn: asyncpg.Connection to the database.
@@ -515,7 +515,7 @@ async def e2e_db_conn_with_signature_hash(
     """Database connection fixture that requires signature_hash column.
 
     This fixture wraps e2e_db_conn and skips the test if the signature_hash
-    column doesn't exist (migration 008 not applied).
+    column doesn't exist (migration 009 not applied).
 
     Use this fixture for tests that depend on the signature_hash column.
 
@@ -533,7 +533,7 @@ async def e2e_db_conn_with_signature_hash(
     if not signature_hash_available:
         pytest.skip(
             "signature_hash column not found in learned_patterns table. "
-            "Run migration 008_add_signature_hash.sql first."
+            "Run migration 009_add_signature_hash.sql first."
         )
 
     yield e2e_db_conn
@@ -555,7 +555,7 @@ async def _cleanup_e2e_test_data(
     since E2E tests use existing production domains (e.g., code_generation).
 
     The function is backward compatible with databases that don't have the
-    signature_hash column (migration 008 not applied).
+    signature_hash column (migration 009 not applied).
 
     **Fallback Pattern Matching**:
     When signature_hash column doesn't exist, the fallback uses a "contains" match
@@ -579,7 +579,7 @@ async def _cleanup_e2e_test_data(
     # Build the appropriate query based on schema version
     # Note: Only uses signature patterns for cleanup to avoid deleting production data
     if use_signature_hash:
-        # Use signature_hash (preferred - migration 008 applied)
+        # Use signature_hash (preferred - migration 009 applied)
         # signature_hash values start with E2E_SIGNATURE_PREFIX
         # (e.g., 'test_e2e_<hash>')
         #
@@ -600,7 +600,7 @@ async def _cleanup_e2e_test_data(
         like_pattern = f"{E2E_SIGNATURE_PREFIX}%"
         fallback_pattern = f"%{E2E_SIGNATURE_CONTAINS}%"
     else:
-        # Fallback: use pattern_signature (migration 008 not applied)
+        # Fallback: use pattern_signature (migration 009 not applied)
         # pattern_signature values contain E2E_SIGNATURE_CONTAINS
         # (e.g., 'def e2e_test_pattern_...')
         # Uses "contains" match since the E2E marker is in the middle
