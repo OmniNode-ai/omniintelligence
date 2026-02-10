@@ -1,4 +1,4 @@
--- Rollback: 007_create_disabled_patterns_current_view
+-- Rollback: 008_create_disabled_patterns_current_view
 -- Description: Drop disabled_patterns_current materialized view
 -- Author: omniintelligence
 -- Date: 2026-01-30
