@@ -1,8 +1,8 @@
 <!-- HANDSHAKE_METADATA
 source: omnibase_core/architecture-handshakes/repos/omniintelligence.md
-source_version: 0.15.0
-source_sha256: 52fd5ac06ccc6b74ac639d666e4451b949f4a4f3de380d9457d7f2bdca23c007
-installed_at: 2026-02-06T20:29:16Z
+source_version: 0.16.0
+source_sha256: 16fef6d817424057ed81b940c80acf88b0ee5f31835f01b5c8d7abf4349b9bcf
+installed_at: 2026-02-09T23:45:07Z
 installed_by: jonah
 -->
 
@@ -11,12 +11,23 @@ installed_by: jonah
 > **Role**: Intelligence platform – code quality, pattern learning, semantic analysis
 > **Handshake Version**: 0.1.0
 
+## Platform-Wide Rules
+
+1. **No backwards compatibility** - Breaking changes always acceptable. No deprecation periods, shims, or migration paths.
+2. **Delete old code immediately** - Never leave deprecated code "for reference." If unused, delete it.
+3. **No speculative refactors** - Only make changes that are directly requested or clearly necessary.
+4. **No silent schema changes** - All schema changes must be explicit and deliberate.
+5. **Frozen event schemas** - All models crossing boundaries (events, intents, actions, envelopes, projections) must use `frozen=True`. Internal mutable state is fine.
+6. **Explicit timestamps** - Never use `datetime.now()` defaults. Inject timestamps explicitly.
+7. **No hardcoded configuration** - All config via `.env` or Pydantic Settings. No localhost defaults.
+8. **Kafka is required infrastructure** - Use async/non-blocking patterns. Never block the calling thread waiting for Kafka acks.
+9. **No `# type: ignore` without justification** - Requires explanation comment and ticket reference.
+
 ## Core Principles
 
 - Declarative nodes, imperative handlers
 - Thin shell pattern (<100 lines per node)
 - Correlation IDs threaded through all operations
-- Effect nodes never block on Kafka
 
 ## This Repo Contains
 
@@ -31,11 +42,8 @@ installed_by: jonah
 ## Rules the Agent Must Obey
 
 1. **Node classes must be thin shells** (<100 lines) - Logic belongs in handlers
-2. **Effect nodes must NEVER block on Kafka** - Kafka is optional; operations must succeed without it
-3. **All event schemas are frozen** (`frozen=True`) - Events are immutable after emission
-4. **Handlers must return structured errors, not raise** - Domain errors are data, not exceptions
-5. **`correlation_id` must be threaded through all operations** - End-to-end tracing required
-6. **No hardcoded environment variables** - All config via `.env` or Pydantic Settings
+2. **Handlers must return structured errors, not raise** - Domain errors are data, not exceptions
+3. **`correlation_id` must be threaded through all operations** - End-to-end tracing required
 
 ## Non-Goals (DO NOT)
 
@@ -43,7 +51,6 @@ installed_by: jonah
 - ❌ No framework agnosticism - This is ONEX-native, no abstraction layers
 - ❌ No flexibility over determinism - One way to do things
 - ❌ No minimal code - Explicit is better than clever
-- ❌ No backwards compatibility - No deprecation periods, no shims
 
 ## Thin Shell Pattern
 

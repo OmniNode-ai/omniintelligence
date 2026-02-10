@@ -90,7 +90,8 @@ handler_routing:
 # =============================================================================
 io_operations:
   - operation: "record_session_outcome"
-    description: "Record a session outcome, update rolling window metrics, and recompute effectiveness scores"
+    description: "Record a session outcome, update rolling window metrics, and recompute effectiveness
+      scores"
     input_fields:
       - session_id
       - success
