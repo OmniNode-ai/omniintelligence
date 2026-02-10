@@ -569,6 +569,22 @@ jobs:
           echo "Running cross-repo validation (Kafka import guard)..."
           uv run python -m omnibase_core.validation.cross_repo --policy .cross-repo-policy.yaml
 
+  # Migration freeze enforcement - blocks new migrations when .migration_freeze exists
+  # Part of DB-per-repo refactor (OMN-2055), tracking: OMN-2072
+  # Deliberately unconditional: no path-filter gating or `needs: changes` dependency.
+  # The freeze must be enforced on every PR regardless of which files changed.
+  migration-freeze:
+    name: Migration Freeze Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check migration freeze
+        run: ./scripts/check_migration_freeze.sh --ci
+
   # ============================================================================
   # Architecture Handshake Verification
   # ============================================================================
@@ -604,7 +620,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [changes, pre-commit, scope-alignment, lint, type-check, test-unit, contract-validation, io-audit, cross-repo-validation, check-handshake]
+    needs: [changes, pre-commit, scope-alignment, lint, type-check, test-unit, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake]
     if: always()
 
     steps:
@@ -618,6 +634,7 @@ jobs:
           contracts="${{ needs.contract-validation.result }}"
           ioaudit="${{ needs.io-audit.result }}"
           crossrepo="${{ needs.cross-repo-validation.result }}"
+          migrationfreeze="${{ needs.migration-freeze.result }}"
           handshake="${{ needs.check-handshake.result }}"
           production_code_changed="${{ needs.changes.outputs.production_code }}"
 
@@ -687,6 +704,7 @@ jobs:
           echo "| Contract Validation | $(get_status_icon $contracts) | \`$contracts\` |" >> $GITHUB_STEP_SUMMARY
           echo "| I/O Audit | $(get_status_icon $ioaudit) | \`$ioaudit\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Cross-Repo Validation | $(get_status_icon $crossrepo) | \`$crossrepo\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Migration Freeze | $(get_status_icon $migrationfreeze) | \`$migrationfreeze\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Architecture Handshake | $(get_status_icon $handshake) | \`$handshake\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -705,6 +723,7 @@ jobs:
              is_acceptable "$contracts" "false" && \
              is_acceptable "$ioaudit" "false" && \
              is_acceptable "$crossrepo" "false" && \
+             is_acceptable "$migrationfreeze" "false" && \
              is_handshake_acceptable "$handshake"; then
             echo "### :rocket: All CI checks passed!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

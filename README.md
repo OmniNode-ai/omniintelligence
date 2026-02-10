@@ -160,6 +160,17 @@ This project is a migration from the legacy `omniarchon` system. See:
 - [Migration Steps](docs/migrations/omniarchon_to_omniintelligence.md#6-migration-steps)
 - [Testing Strategy](docs/migrations/omniarchon_to_omniintelligence.md#7-testing--validation)
 
+## Migration Freeze
+
+A schema freeze is currently active for this repository as part of the DB-per-repo refactor ([OMN-2055](https://linear.app/omninode/issue/OMN-2055)). While `.migration_freeze` exists at the repo root, **no new migrations may be added** to `deployment/database/migrations/`.
+
+**Allowed during freeze:**
+- Migration moves (reorg between repos)
+- Ownership fixes (table transfers)
+- Rollback bug fixes (DB-SPLIT-01 refactor phase)
+
+**To lift the freeze:** remove `.migration_freeze` once DB boundary work for omniintelligence is complete.
+
 ## License
 
 Copyright © 2024 OmniNode Team

@@ -336,6 +336,26 @@ repos:
   - repo: local
     hooks:
       # --------------------------------------------------------------------------
+      # Migration Freeze Check - Block new migrations during DB-per-repo refactor
+      # Validates: No new .sql files added to deployment/database/migrations/
+      # Scope: Only triggers when migration files or .migration_freeze change
+      # Purpose: Enforces schema freeze (OMN-2055) while .migration_freeze exists
+      # --------------------------------------------------------------------------
+      - id: migration-freeze-check
+        name: migration freeze check
+        entry: ./scripts/check_migration_freeze.sh
+        language: system
+        pass_filenames: false
+        # Trigger when migration files or the freeze file itself change.
+        # Note: pre-commit sees deletions in the changeset, so deleting
+        # .migration_freeze will trigger this hook. The script then checks
+        # [ ! -f .migration_freeze ] at runtime and exits 0, which means
+        # removing the freeze file + adding a migration in the same commit
+        # is intentionally allowed (freeze is lifted).
+        files: ^(deployment/database/migrations/|\.migration_freeze)
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
       # Contract Linter - ONEX contract YAML validation
       # Validates: Node contracts against canonical Pydantic models
       # Scope: Main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
