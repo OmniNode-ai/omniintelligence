@@ -38,7 +38,11 @@ if [ "$MODE" = "--ci" ]; then
     # Detect added (A), renamed (R), or copied (C) files in the migrations directory.
     # Modified (M) files are intentionally allowed — fixing existing
     # migrations (rollback bug fixes, comment tweaks) is safe during freeze.
-    NEW_MIGRATIONS=$(git diff --name-status "origin/${BASE_BRANCH}...HEAD" -- "$MIGRATIONS_DIR" \
+    # Copies (C) are blocked because they create new files in the directory;
+    # cross-repo migration moves appear as Added (A) since git has no
+    # visibility into the source repo, so they are also caught and must be
+    # coordinated with the freeze owner (see .migration_freeze).
+    NEW_MIGRATIONS=$(git diff --name-status "origin/${BASE_BRANCH}..HEAD" -- "$MIGRATIONS_DIR" \
         | grep -E '^[ARC]' | awk '{print $NF}' || true)
 else
     # Pre-commit mode: check staged files
