@@ -52,9 +52,31 @@
 
 No resolution plans needed — all FK targets are tables owned by omniintelligence.
 
+## Migration Dependency Order
+
+All migrations declare dependencies in their SQL headers. Every dependency targets an intra-service migration:
+
+| Migration | Declared Dependency | Target Service |
+|-----------|-------------------|----------------|
+| 002 (`fsm_state_history`) | 001 (`fsm_state`) | omniintelligence |
+| 003 (`workflow_executions`) | 001 (trigger function) | omniintelligence |
+| 005 (`learned_patterns`) | 004 (`domain_taxonomy`) | omniintelligence |
+| 006 (`pattern_disable_events`) | 005 (`learned_patterns`) | omniintelligence |
+| 006 (`pattern_injections`) | 005 (`learned_patterns`) | omniintelligence |
+| 007 (`disabled_patterns_current`) | 006 (`pattern_disable_events`) | omniintelligence |
+| 008 (`add_signature_hash`) | 005 (`learned_patterns`) | omniintelligence |
+| 008 (`pattern_lifecycle_audit`) | 005 (`learned_patterns`) | omniintelligence |
+
+**No cross-service migration dependencies found.**
+
+## Duplicate Migration Numbering
+
+Two prefix collisions exist: `006_*` (2 files) and `008_*` (2 files).
+
+**Impact**: None. Within each pair, both files depend only on earlier migrations (005) and are independent of each other. All DDL statements use idempotent syntax (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`), so execution order between same-numbered files is irrelevant.
+
 ## Notes
 
 - The `fsm_state_history` table has a **trigger** relationship with `fsm_state` (records are inserted via `record_fsm_state_history()` trigger on `fsm_state`), but no FK constraint.
 - The `workflow_executions` table reuses the `update_fsm_state_updated_at()` trigger function from migration 001, but has no FK to `fsm_state`.
 - The `disabled_patterns_current` materialized view reads from `pattern_disable_events` but has no FK constraints (views cannot have FKs).
-- Migration numbering has two instances of duplicate prefixes (two `006_*` files, two `008_*` files). This does not affect FK analysis but may warrant cleanup.
