@@ -25,26 +25,31 @@ echo "Migration freeze is ACTIVE ($FREEZE_FILE exists)"
 MODE="${1:-precommit}"
 
 if [ "$MODE" = "--ci" ]; then
-    # CI mode: compare against base branch
+    # CI mode: compare against base branch.
+    # Note: GITHUB_BASE_REF is only set for pull_request events.
+    # On push-to-main events, this falls back to "main", and the diff
+    # origin/main...HEAD may be empty (HEAD == origin/main). This is
+    # acceptable because PRs are the primary merge path; direct pushes
+    # to main are restricted by branch protection.
     BASE_BRANCH="${GITHUB_BASE_REF:-main}"
     # Defensive fetch: ensure origin/<base> ref is up-to-date even if
     # the CI runner's checkout didn't fully resolve it.
     git fetch origin "${BASE_BRANCH}" --quiet 2>/dev/null || true
-    # Detect added (A) or renamed (R) files in the migrations directory.
+    # Detect added (A), renamed (R), or copied (C) files in the migrations directory.
     # Modified (M) files are intentionally allowed — fixing existing
     # migrations (rollback bug fixes, comment tweaks) is safe during freeze.
     NEW_MIGRATIONS=$(git diff --name-status "origin/${BASE_BRANCH}...HEAD" -- "$MIGRATIONS_DIR" \
-        | grep -E '^[AR]' | awk '{print $NF}' || true)
+        | grep -E '^[ARC]' | awk '{print $NF}' || true)
 else
     # Pre-commit mode: check staged files
     NEW_MIGRATIONS=$(git diff --cached --name-status -- "$MIGRATIONS_DIR" \
-        | grep -E '^[AR]' | awk '{print $NF}' || true)
+        | grep -E '^[ARC]' | awk '{print $NF}' || true)
 fi
 
 if [ -n "$NEW_MIGRATIONS" ]; then
     echo ""
     echo "ERROR: Migration freeze violation!"
-    echo "Blocked: new migration files (A=added) or renames (R) while $FREEZE_FILE exists."
+    echo "Blocked: new migration files (A=added), renames (R), or copies (C) while $FREEZE_FILE exists."
     echo "Allowed: modifications (M) to existing migrations (bug fixes, comments)."
     echo ""
     echo "Violating files:"

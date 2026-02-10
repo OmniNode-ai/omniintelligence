@@ -571,6 +571,8 @@ jobs:
 
   # Migration freeze enforcement - blocks new migrations when .migration_freeze exists
   # Part of DB-per-repo refactor (OMN-2055), tracking: OMN-2072
+  # Deliberately unconditional: no path-filter gating or `needs: changes` dependency.
+  # The freeze must be enforced on every PR regardless of which files changed.
   migration-freeze:
     name: Migration Freeze Check
     runs-on: ubuntu-latest
