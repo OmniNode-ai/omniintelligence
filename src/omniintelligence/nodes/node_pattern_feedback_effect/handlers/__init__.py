@@ -48,6 +48,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_sessio
     compute_and_store_heuristics,
     event_to_handler_args,
     record_session_outcome,
+    update_effectiveness_scores,
     update_pattern_rolling_metrics,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
@@ -69,5 +70,6 @@ __all__ = [
     "compute_recency_weighted",
     "event_to_handler_args",
     "record_session_outcome",
+    "update_effectiveness_scores",
     "update_pattern_rolling_metrics",
 ]

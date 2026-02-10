@@ -61,7 +61,8 @@ output_model:
 #   3. Find all pattern_injections for this session that haven't been processed
 #   4. Mark injections as recorded with the outcome
 #   5. Update rolling_20 metrics for all unique patterns involved (decay approximation)
-#   6. Return ModelSessionOutcomeResult with status, counts, and pattern_ids
+#   6. Recompute effectiveness score (quality_score) from updated rolling metrics
+#   7. Return ModelSessionOutcomeResult with status, counts, pattern_ids, and effectiveness_scores
 # =============================================================================
 handler_routing:
   routing_strategy: "operation_match"
@@ -80,6 +81,7 @@ handler_routing:
         - injections_updated
         - patterns_updated
         - pattern_ids
+        - effectiveness_scores
         - recorded_at
         - error_message
 
@@ -88,7 +90,8 @@ handler_routing:
 # =============================================================================
 io_operations:
   - operation: "record_session_outcome"
-    description: "Record a session outcome and update rolling window metrics for the associated pattern"
+    description: "Record a session outcome, update rolling window metrics, and recompute effectiveness
+      scores"
     input_fields:
       - session_id
       - success
@@ -100,6 +103,7 @@ io_operations:
       - injections_updated
       - patterns_updated
       - pattern_ids
+      - effectiveness_scores
       - recorded_at
       - error_message
 
@@ -175,6 +179,8 @@ capabilities:
     description: "Write session outcome records to PostgreSQL"
   - name: "pattern_metrics"
     description: "Update rolling window metrics for pattern learning feedback"
+  - name: "effectiveness_scoring"
+    description: "Recompute pattern effectiveness scores (quality_score) from rolling metrics"
   - name: "session_outcome"
     description: "Record and track session success/failure outcomes"
 
@@ -185,7 +191,7 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-01-30"
-  updated: "2026-01-30"
+  updated: "2026-02-10"
   tags:
     - effect
     - pattern-learning
@@ -196,3 +202,6 @@ metadata:
     - ticket: "OMN-1678"
       url: "https://linear.app/omninode/issue/OMN-1678"
       description: "Rolling window metric updates for session outcomes"
+    - ticket: "OMN-2077"
+      url: "https://linear.app/omninode/issue/OMN-2077"
+      description: "Pattern feedback consumption + effectiveness scoring"

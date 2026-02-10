@@ -31,7 +31,8 @@ class ModelSessionOutcomeResult(BaseModel):
     """Result of recording a session outcome.
 
     This model represents the outcome of processing a session feedback
-    request, including how many patterns were updated and any errors.
+    request, including how many patterns were updated, their new
+    effectiveness scores, and any errors.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -55,6 +56,13 @@ class ModelSessionOutcomeResult(BaseModel):
     pattern_ids: list[UUID] = Field(
         default_factory=list,
         description="List of pattern IDs that were updated",
+    )
+    effectiveness_scores: dict[UUID, float] | None = Field(
+        default_factory=dict,
+        description="Mapping of pattern UUID to updated effectiveness score (quality_score). "
+        "Score is success_count_rolling_20 / injection_count_rolling_20, range [0.0, 1.0]. "
+        "None indicates scoring failed (caller should treat as degraded). "
+        "Empty dict ({}) indicates no patterns were eligible for scoring.",
     )
     recorded_at: datetime | None = Field(
         default=None,
