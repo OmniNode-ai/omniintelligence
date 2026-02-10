@@ -178,21 +178,28 @@ class MockPatternRepository:
             count = sum(1 for inj in self.injections if inj.session_id == session_id)
             return [MockRecord({"count": count})]
 
-        # Handle: Fetch effectiveness scores for patterns
+        # Handle: UPDATE ... RETURNING effectiveness scores (atomic recompute)
         if (
-            "quality_score" in query
-            and "learned_patterns" in query
-            and "SELECT" in query
+            "UPDATE learned_patterns" in query
+            and "quality_score" in query
+            and "injection_count_rolling_20" in query
         ):
             pattern_ids = args[0]
             results = []
             for pid in pattern_ids:
                 if pid in self.patterns:
+                    p = self.patterns[pid]
+                    if p.injection_count_rolling_20 > 0:
+                        p.quality_score = (
+                            p.success_count_rolling_20 / p.injection_count_rolling_20
+                        )
+                    else:
+                        p.quality_score = 0.5
                     results.append(
                         MockRecord(
                             {
                                 "id": pid,
-                                "quality_score": self.patterns[pid].quality_score,
+                                "quality_score": p.quality_score,
                             }
                         )
                     )
@@ -285,26 +292,6 @@ class MockPatternRepository:
                     inj.contribution_heuristic = weights_json
                     inj.heuristic_method = method
                     inj.heuristic_confidence = confidence
-                    count += 1
-            return f"UPDATE {count}"
-
-        # Handle: Update effectiveness scores (quality_score) from rolling metrics
-        if (
-            "UPDATE learned_patterns" in query
-            and "quality_score" in query
-            and "injection_count_rolling_20" in query
-        ):
-            pattern_ids = args[0]
-            count = 0
-            for pid in pattern_ids:
-                if pid in self.patterns:
-                    p = self.patterns[pid]
-                    if p.injection_count_rolling_20 > 0:
-                        p.quality_score = (
-                            p.success_count_rolling_20 / p.injection_count_rolling_20
-                        )
-                    else:
-                        p.quality_score = 0.5
                     count += 1
             return f"UPDATE {count}"
 
@@ -2508,25 +2495,22 @@ class TestEffectivenessScore:
             )
         )
 
-        # Patch update_effectiveness_scores to raise
-        original_execute = mock_repository.execute
+        # Patch fetch to raise on the effectiveness scoring RETURNING query
+        original_fetch = mock_repository.fetch
 
-        call_count = 0
-
-        async def failing_execute(query: str, *args: Any) -> str:
-            nonlocal call_count
-            # Let the first execute calls through (marking injections + rolling metrics)
-            # Fail on the effectiveness score UPDATE (contains quality_score and injection_count_rolling_20)
+        async def failing_fetch(query: str, *args: Any) -> list:
+            # Let other fetch calls through (e.g., injection lookups)
+            # Fail on the effectiveness score UPDATE...RETURNING query
             if (
                 "UPDATE learned_patterns" in query
                 and "quality_score" in query
                 and "injection_count_rolling_20" in query
             ):
                 raise RuntimeError("Simulated DB failure on effectiveness scoring")
-            return await original_execute(query, *args)
+            return await original_fetch(query, *args)
 
-        # Monkey-patch execute for fault-injection test; type mismatch is intentional (OMN-2077)
-        mock_repository.execute = failing_execute  # type: ignore[assignment]
+        # Monkey-patch fetch for fault-injection test; type mismatch is intentional (OMN-2077)
+        mock_repository.fetch = failing_fetch  # type: ignore[assignment]
 
         # Act
         result = await record_session_outcome(

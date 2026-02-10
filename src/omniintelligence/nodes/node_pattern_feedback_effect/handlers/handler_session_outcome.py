@@ -222,11 +222,13 @@ WHERE injection_id = $1
 """
 
 # SQL for recomputing effectiveness score (quality_score) from rolling metrics
+# and returning the updated values in a single atomic operation.
 # Runs AFTER rolling metrics are updated so it reads the new values.
 # Formula: success_count / injection_count (pure success ratio)
 # Default: 0.5 when no injections recorded (neutral prior)
-# Returns the updated scores for inclusion in handler result.
-SQL_UPDATE_EFFECTIVENESS_SCORE = """
+# Uses RETURNING to avoid a separate SELECT and eliminate any
+# concurrency window between write and read.
+SQL_UPDATE_AND_RETURN_EFFECTIVENESS_SCORES = """
 UPDATE learned_patterns
 SET
     quality_score = CASE
@@ -236,13 +238,7 @@ SET
     END,
     updated_at = NOW()
 WHERE id = ANY($1)
-"""
-
-# SQL for fetching effectiveness scores after update
-SQL_FETCH_EFFECTIVENESS_SCORES = """
-SELECT id, quality_score
-FROM learned_patterns
-WHERE id = ANY($1)
+RETURNING id, quality_score
 """
 
 
@@ -691,11 +687,10 @@ async def update_effectiveness_scores(
     if not pattern_ids:
         return {}
 
-    # Step 1: Recompute quality_score in the database
-    await repository.execute(SQL_UPDATE_EFFECTIVENESS_SCORE, pattern_ids)
-
-    # Step 2: Fetch updated scores
-    rows = await repository.fetch(SQL_FETCH_EFFECTIVENESS_SCORES, pattern_ids)
+    # Recompute quality_score and return updated values in a single atomic query
+    rows = await repository.fetch(
+        SQL_UPDATE_AND_RETURN_EFFECTIVENESS_SCORES, pattern_ids
+    )
 
     return {row["id"]: float(row["quality_score"]) for row in rows}
 
