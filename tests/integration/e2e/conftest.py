@@ -346,7 +346,7 @@ _project_root = os.path.dirname(
 async def _check_signature_hash_column_exists(conn: Any) -> bool:
     """Check if the signature_hash column exists in learned_patterns table.
 
-    This function detects whether migration 008_add_signature_hash has been applied.
+    This function detects whether migration 009_add_signature_hash has been applied.
 
     Args:
         conn: asyncpg.Connection to the database.
@@ -533,7 +533,7 @@ async def e2e_db_conn_with_signature_hash(
     if not signature_hash_available:
         pytest.skip(
             "signature_hash column not found in learned_patterns table. "
-            "Run migration 008_add_signature_hash.sql first."
+            "Run migration 009_add_signature_hash.sql first."
         )
 
     yield e2e_db_conn

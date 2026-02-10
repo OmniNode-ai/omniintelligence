@@ -1,7 +1,7 @@
 """Unit tests for EnumInjectionContext and EnumCohort.
 
 This module validates that the Python enums match the database CHECK constraints
-defined in migration 006_create_pattern_injections.sql.
+defined in migration 007_create_pattern_injections.sql.
 
 Ticket: OMN-1670
 """
@@ -229,7 +229,7 @@ class TestInjectionMigrationFile:
     @pytest.fixture
     def migration_path(self, migrations_dir: Path) -> Path:
         """Path to the pattern_injections migration."""
-        return migrations_dir / "006_create_pattern_injections.sql"
+        return migrations_dir / "007_create_pattern_injections.sql"
 
     def test_migration_file_exists(self, migration_path: Path) -> None:
         """Verify the migration file exists."""

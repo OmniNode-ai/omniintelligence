@@ -230,7 +230,7 @@ async def create_test_pattern(
     if not has_signature_hash:
         pytest.skip(
             "signature_hash column not found in learned_patterns table. "
-            "Run migration 008_add_signature_hash.sql first."
+            "Run migration 009_add_signature_hash.sql first."
         )
 
     if pattern_id is None:

@@ -33,12 +33,12 @@ class EnumInjectionContext(str, Enum):
         >>> assert context.value == "SessionStart"
 
     Note:
-        Values match the CHECK constraint in migration 006_create_pattern_injections.sql.
+        Values match the CHECK constraint in migration 007_create_pattern_injections.sql.
         If you add values here, update the SQL constraint too.
 
     See Also:
         - omnibase_core.enums.hooks.claude_code.EnumClaudeCodeHookEventType
-        - deployment/database/migrations/006_create_pattern_injections.sql
+        - deployment/database/migrations/007_create_pattern_injections.sql
     """
 
     SESSION_START = "SessionStart"
@@ -110,11 +110,11 @@ class EnumCohort(str, Enum):
         >>> assert cohort.value == "treatment"
 
     Note:
-        Values match the CHECK constraint in migration 006_create_pattern_injections.sql.
+        Values match the CHECK constraint in migration 007_create_pattern_injections.sql.
         If you add values here, update the SQL constraint too.
 
     See Also:
-        - deployment/database/migrations/006_create_pattern_injections.sql
+        - deployment/database/migrations/007_create_pattern_injections.sql
         - ~/.claude/plans/elegant-waddling-hinton.md (A/B experiment design)
     """
 
