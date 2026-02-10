@@ -522,10 +522,10 @@ async def record_session_outcome(
             "correlation_id": str(correlation_id) if correlation_id else None,
             "session_id": str(session_id),
             "scores": (
-            {str(k): v for k, v in effectiveness_scores.items()}
-            if effectiveness_scores is not None
-            else None
-        ),
+                {str(k): v for k, v in effectiveness_scores.items()}
+                if effectiveness_scores is not None
+                else None
+            ),
         },
     )
 
