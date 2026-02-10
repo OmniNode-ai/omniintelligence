@@ -13,7 +13,7 @@
 -- Add signature_hash Column
 -- ============================================================================
 
--- Add column with temporary default for backfill (will be set to NOT NULL after backfill)
+-- Add column as nullable for backfill (will be set to NOT NULL after backfill)
 ALTER TABLE learned_patterns
     ADD COLUMN IF NOT EXISTS signature_hash TEXT;
 
@@ -21,11 +21,11 @@ ALTER TABLE learned_patterns
 -- Backfill Existing Data
 -- ============================================================================
 
--- Backfill signature_hash from pattern_signature for existing rows
--- Note: For existing data, we use pattern_signature as the hash value.
---       New patterns will compute a proper SHA256 hash in the application layer.
+-- Backfill signature_hash by computing SHA256 of pattern_signature for existing rows
+-- Note: Uses pgcrypto digest() (available from 000_extensions.sql) to produce the same
+--       SHA256 hex format that the application layer uses for new patterns.
 UPDATE learned_patterns
-SET signature_hash = pattern_signature
+SET signature_hash = encode(digest(pattern_signature, 'sha256'), 'hex')
 WHERE signature_hash IS NULL;
 
 -- ============================================================================

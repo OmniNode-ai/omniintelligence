@@ -264,7 +264,7 @@ INSERT INTO pattern_lifecycle_transitions (
     pattern_id,
     from_status,
     to_status,
-    trigger,
+    transition_trigger,
     actor,
     reason,
     gate_snapshot,

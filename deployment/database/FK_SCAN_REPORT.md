@@ -9,7 +9,7 @@
 
 **Result: All foreign keys are intra-service. No cross-service FK violations found.**
 
-- Migrations scanned: 11
+- Migrations scanned: 11 (000 through 010, including 000_extensions which creates no tables)
 - Tables created: 8 (+ 1 materialized view)
 - FK declarations found: 5
 - Cross-service FKs: **0**
