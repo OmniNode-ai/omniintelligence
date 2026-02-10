@@ -33,8 +33,8 @@
 | # | Migration | Source Table | FK Column | Target Table | Target Column | Cascade | Intra-Service |
 |---|-----------|-------------|-----------|--------------|---------------|---------|---------------|
 | 1 | 005 | `learned_patterns` | `domain_id` | `domain_taxonomy` | `domain_id` | ON DELETE RESTRICT ON UPDATE CASCADE | YES |
-| 2 | 005 | `learned_patterns` | `supersedes` | `learned_patterns` | `id` | (default) | YES (self-ref) |
-| 3 | 005 | `learned_patterns` | `superseded_by` | `learned_patterns` | `id` | (default) | YES (self-ref) |
+| 2 | 005 | `learned_patterns` | `supersedes` | `learned_patterns` | `id` | NO ACTION (PostgreSQL default) | YES (self-ref) |
+| 3 | 005 | `learned_patterns` | `superseded_by` | `learned_patterns` | `id` | NO ACTION (PostgreSQL default) | YES (self-ref) |
 | 4 | 006 | `pattern_disable_events` | `pattern_id` | `learned_patterns` | `id` | ON DELETE RESTRICT ON UPDATE CASCADE | YES |
 | 5 | 008 | `pattern_lifecycle_transitions` | `pattern_id` | `learned_patterns` | `id` | ON DELETE RESTRICT | YES |
 
