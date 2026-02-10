@@ -2490,7 +2490,7 @@ class TestEffectivenessScore:
         sample_session_id: UUID,
         sample_pattern_id: UUID,
     ) -> None:
-        """Handler returns SUCCESS with empty scores when scoring raises."""
+        """Handler returns SUCCESS with None scores when scoring raises."""
         # Arrange: Pattern and injection in place
         pattern = PatternState(
             id=sample_pattern_id,
@@ -2535,9 +2535,9 @@ class TestEffectivenessScore:
             repository=mock_repository,
         )
 
-        # Assert: Critical operations succeeded, scoring degraded gracefully
+        # Assert: Critical operations succeeded, scoring failure surfaced via None
         assert result.status == EnumOutcomeRecordingStatus.SUCCESS
-        assert result.effectiveness_scores == {}
+        assert result.effectiveness_scores is None
         assert result.patterns_updated > 0
 
 

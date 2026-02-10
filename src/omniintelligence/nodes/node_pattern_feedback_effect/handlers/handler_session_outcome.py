@@ -491,10 +491,11 @@ async def record_session_outcome(
     )
 
     # Step 6: Recompute effectiveness scores from updated rolling metrics
-    # Graceful degradation: if scoring fails, the critical operations
-    # (marking injections recorded + updating rolling metrics) already
-    # succeeded. Log and continue with empty scores.
-    effectiveness_scores: dict[UUID, float] = {}
+    # If scoring fails, the critical operations (marking injections recorded
+    # + updating rolling metrics) already succeeded. We signal the failure
+    # to the caller via None (distinct from {} which means "no patterns to
+    # score") so they can detect persistent scoring degradation.
+    effectiveness_scores: dict[UUID, float] | None = {}
     if pattern_ids:
         try:
             effectiveness_scores = await update_effectiveness_scores(
@@ -502,9 +503,12 @@ async def record_session_outcome(
                 repository=repository,
             )
         except Exception:
-            logger.exception(
-                "Failed to update effectiveness scores (non-critical)",
+            effectiveness_scores = None
+            logger.warning(
+                "Effectiveness scoring failed — critical path unaffected, "
+                "scores will be stale until next successful recomputation",
                 extra={
+                    "event": "effectiveness_scoring_failed",
                     "correlation_id": str(correlation_id) if correlation_id else None,
                     "session_id": str(session_id),
                     "pattern_count": len(pattern_ids),
@@ -516,7 +520,11 @@ async def record_session_outcome(
         extra={
             "correlation_id": str(correlation_id) if correlation_id else None,
             "session_id": str(session_id),
-            "scores": {str(k): v for k, v in effectiveness_scores.items()},
+            "scores": (
+            {str(k): v for k, v in effectiveness_scores.items()}
+            if effectiveness_scores is not None
+            else None
+        ),
         },
     )
 

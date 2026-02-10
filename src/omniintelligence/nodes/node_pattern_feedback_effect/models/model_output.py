@@ -57,10 +57,12 @@ class ModelSessionOutcomeResult(BaseModel):
         default_factory=list,
         description="List of pattern IDs that were updated",
     )
-    effectiveness_scores: dict[UUID, float] = Field(
+    effectiveness_scores: dict[UUID, float] | None = Field(
         default_factory=dict,
         description="Mapping of pattern UUID to updated effectiveness score (quality_score). "
-        "Score is success_count_rolling_20 / injection_count_rolling_20, range [0.0, 1.0].",
+        "Score is success_count_rolling_20 / injection_count_rolling_20, range [0.0, 1.0]. "
+        "None indicates scoring failed (caller should treat as degraded). "
+        "Empty dict ({}) indicates no patterns were eligible for scoring.",
     )
     recorded_at: datetime | None = Field(
         default=None,
