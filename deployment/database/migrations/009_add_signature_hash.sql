@@ -4,7 +4,7 @@
 -- Date: 2026-02-02
 -- Ticket: OMN-1780
 --
--- Dependencies: 005_create_learned_patterns.sql
+-- Dependencies: 005_create_learned_patterns.sql, 000_extensions.sql (pgcrypto for digest())
 -- Note: signature_hash provides a stable identity hash (SHA256) for lineage tracking,
 --       while pattern_signature retains the raw signature text. This separation allows
 --       the signature format to evolve without breaking lineage identity.
