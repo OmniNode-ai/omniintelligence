@@ -2525,6 +2525,7 @@ class TestEffectivenessScore:
                 raise RuntimeError("Simulated DB failure on effectiveness scoring")
             return await original_execute(query, *args)
 
+        # Monkey-patch execute for fault-injection test; type mismatch is intentional (OMN-2077)
         mock_repository.execute = failing_execute  # type: ignore[assignment]
 
         # Act
