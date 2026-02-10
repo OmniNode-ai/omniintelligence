@@ -403,6 +403,7 @@ async def record_session_outcome(
                 injections_updated=0,
                 patterns_updated=0,
                 pattern_ids=[],
+                effectiveness_scores={},
                 recorded_at=None,
                 error_message=None,
             )
@@ -421,6 +422,7 @@ async def record_session_outcome(
                 injections_updated=0,
                 patterns_updated=0,
                 pattern_ids=[],
+                effectiveness_scores={},
                 recorded_at=None,
                 error_message=None,
             )
