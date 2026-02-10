@@ -85,6 +85,7 @@ async def create_test_pattern(
         The UUID of the created pattern.
     """
     pid = pattern_id or uuid4()
+    # conn typed as object for test genericity; runtime is always asyncpg.Connection (OMN-2077)
     await conn.execute(  # type: ignore[union-attr]
         """
         INSERT INTO learned_patterns (
@@ -146,6 +147,7 @@ async def create_test_injection(
         The UUID of the created injection.
     """
     iid = injection_id or uuid4()
+    # conn typed as object for test genericity; runtime is always asyncpg.Connection (OMN-2077)
     await conn.execute(  # type: ignore[union-attr]
         """
         INSERT INTO pattern_injections (
@@ -181,6 +183,7 @@ async def fetch_pattern_score(conn: object, pattern_id: UUID) -> float:
     Raises:
         ValueError: If pattern not found.
     """
+    # conn typed as object for test genericity; runtime is always asyncpg.Connection (OMN-2077)
     rows = await conn.fetch(  # type: ignore[union-attr]
         "SELECT quality_score FROM learned_patterns WHERE id = $1",
         pattern_id,

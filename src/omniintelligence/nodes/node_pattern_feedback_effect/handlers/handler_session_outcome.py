@@ -663,6 +663,12 @@ async def update_effectiveness_scores(
         quality_score = success_count_rolling_20 / injection_count_rolling_20
         Falls back to 0.5 (neutral prior) when injection_count is 0.
 
+    The 0.5 default is a deliberate neutral prior: new patterns with no
+    injection history are treated as neither good nor bad. This prevents
+    cold-start bias in pattern ranking and promotion decisions.
+
+    Score range: 0.0 (all failures) to 1.0 (all successes).
+
     Args:
         pattern_ids: List of pattern UUIDs to update.
         repository: Database repository implementing ProtocolPatternRepository.
