@@ -3,7 +3,7 @@
 **Ticket**: OMN-2067 (DB-SPLIT-03)
 **Parent**: OMN-2054
 **Date**: 2026-02-10
-**Repo**: omniintelligence2
+**Repo**: omniintelligence
 
 ## Summary
 
@@ -24,9 +24,9 @@
 | `domain_taxonomy` | 004 | Table |
 | `learned_patterns` | 005 | Table |
 | `pattern_disable_events` | 006 | Table |
-| `pattern_injections` | 006 | Table |
-| `disabled_patterns_current` | 007 | Materialized View |
-| `pattern_lifecycle_transitions` | 008 | Table |
+| `pattern_injections` | 007 | Table |
+| `disabled_patterns_current` | 008 | Materialized View |
+| `pattern_lifecycle_transitions` | 010 | Table |
 
 ## FK Declarations
 
@@ -36,7 +36,7 @@
 | 2 | 005 | `learned_patterns` | `supersedes` | `learned_patterns` | `id` | NO ACTION (PostgreSQL default) | YES (self-ref) |
 | 3 | 005 | `learned_patterns` | `superseded_by` | `learned_patterns` | `id` | NO ACTION (PostgreSQL default) | YES (self-ref) |
 | 4 | 006 | `pattern_disable_events` | `pattern_id` | `learned_patterns` | `id` | ON DELETE RESTRICT ON UPDATE CASCADE | YES |
-| 5 | 008 | `pattern_lifecycle_transitions` | `pattern_id` | `learned_patterns` | `id` | ON DELETE RESTRICT | YES |
+| 5 | 010 | `pattern_lifecycle_transitions` | `pattern_id` | `learned_patterns` | `id` | ON DELETE RESTRICT | YES |
 
 ## Application-Level References (No FK Constraint)
 
@@ -62,18 +62,12 @@ All migrations declare dependencies in their SQL headers. Every dependency targe
 | 003 (`workflow_executions`) | 001 (trigger function) | omniintelligence |
 | 005 (`learned_patterns`) | 004 (`domain_taxonomy`) | omniintelligence |
 | 006 (`pattern_disable_events`) | 005 (`learned_patterns`) | omniintelligence |
-| 006 (`pattern_injections`) | 005 (`learned_patterns`) | omniintelligence |
-| 007 (`disabled_patterns_current`) | 006 (`pattern_disable_events`) | omniintelligence |
-| 008 (`add_signature_hash`) | 005 (`learned_patterns`) | omniintelligence |
-| 008 (`pattern_lifecycle_audit`) | 005 (`learned_patterns`) | omniintelligence |
+| 007 (`pattern_injections`) | 005 (`learned_patterns`) | omniintelligence |
+| 008 (`disabled_patterns_current`) | 006 (`pattern_disable_events`) | omniintelligence |
+| 009 (`add_signature_hash`) | 005 (`learned_patterns`) | omniintelligence |
+| 010 (`pattern_lifecycle_audit`) | 005 (`learned_patterns`) | omniintelligence |
 
 **No cross-service migration dependencies found.**
-
-## Duplicate Migration Numbering
-
-Two prefix collisions exist: `006_*` (2 files) and `008_*` (2 files).
-
-**Impact**: None. Within each pair, both files depend only on earlier migrations (005) and are independent of each other. All DDL statements use idempotent syntax (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`), so execution order between same-numbered files is irrelevant.
 
 ## Notes
 

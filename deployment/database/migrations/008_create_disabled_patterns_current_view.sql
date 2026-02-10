@@ -1,4 +1,4 @@
--- Migration: 007_create_disabled_patterns_current_view
+-- Migration: 008_create_disabled_patterns_current_view
 -- Description: Materialized view computing current disabled patterns from event log
 -- Author: omniintelligence
 -- Date: 2026-01-30

@@ -1,4 +1,4 @@
--- Migration: 008_add_signature_hash
+-- Migration: 009_add_signature_hash
 -- Description: Add signature_hash column for stable pattern identity (SHA256)
 -- Author: omniintelligence
 -- Date: 2026-02-02

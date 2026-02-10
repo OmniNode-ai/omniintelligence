@@ -1,4 +1,4 @@
--- Migration: 008_create_pattern_lifecycle_audit
+-- Migration: 010_create_pattern_lifecycle_audit
 -- Description: Create pattern_lifecycle_transitions table for auditing pattern status changes
 -- Author: omniintelligence
 -- Date: 2026-02-02

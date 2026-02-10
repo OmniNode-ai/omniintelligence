@@ -1,4 +1,4 @@
--- Migration: 006_create_pattern_injections
+-- Migration: 007_create_pattern_injections
 -- Description: Create pattern_injections table for tracking injection events with A/B experiment support
 -- Author: omniintelligence
 -- Date: 2026-01-30
