@@ -507,6 +507,7 @@ async def record_session_outcome(
             logger.warning(
                 "Effectiveness scoring failed — critical path unaffected, "
                 "scores will be stale until next successful recomputation",
+                exc_info=True,
                 extra={
                     "event": "effectiveness_scoring_failed",
                     "correlation_id": str(correlation_id) if correlation_id else None,
