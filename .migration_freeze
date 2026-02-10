@@ -6,10 +6,11 @@
 # Allowed during freeze:
 #   - Migration moves (reorg between repos)
 #   - Ownership fixes (table transfers)
-#   - Rollback bug fixes (DB-SPLIT-01)
+#   - Rollback bug fixes (DB-SPLIT-01 refactor phase)
 #
 # To lift the freeze: remove this file once DB boundary work for omniintelligence is complete.
 #
+# Enforcement: CI job (migration-freeze) + pre-commit hook (migration-freeze-check)
 # Tracking: OMN-2072
 # Parent:   OMN-2055
 # Created:  2026-02-10

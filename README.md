@@ -167,7 +167,7 @@ A schema freeze is currently active for this repository as part of the DB-per-re
 **Allowed during freeze:**
 - Migration moves (reorg between repos)
 - Ownership fixes (table transfers)
-- Rollback bug fixes
+- Rollback bug fixes (DB-SPLIT-01 refactor phase)
 
 **To lift the freeze:** remove `.migration_freeze` once DB boundary work for omniintelligence is complete.
 
