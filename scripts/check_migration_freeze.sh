@@ -27,7 +27,12 @@ MODE="${1:-precommit}"
 if [ "$MODE" = "--ci" ]; then
     # CI mode: compare against base branch
     BASE_BRANCH="${GITHUB_BASE_REF:-main}"
-    # Detect added (A) or renamed (R) files in the migrations directory
+    # Defensive fetch: ensure origin/<base> ref is up-to-date even if
+    # the CI runner's checkout didn't fully resolve it.
+    git fetch origin "${BASE_BRANCH}" --quiet 2>/dev/null || true
+    # Detect added (A) or renamed (R) files in the migrations directory.
+    # Modified (M) files are intentionally allowed — fixing existing
+    # migrations (rollback bug fixes, comment tweaks) is safe during freeze.
     NEW_MIGRATIONS=$(git diff --name-status "origin/${BASE_BRANCH}...HEAD" -- "$MIGRATIONS_DIR" \
         | grep -E '^[AR]' | awk '{print $NF}' || true)
 else
@@ -39,12 +44,13 @@ fi
 if [ -n "$NEW_MIGRATIONS" ]; then
     echo ""
     echo "ERROR: Migration freeze violation!"
-    echo "New migration files are blocked while $FREEZE_FILE exists:"
+    echo "Blocked: new migration files (A=added) or renames (R) while $FREEZE_FILE exists."
+    echo "Allowed: modifications (M) to existing migrations (bug fixes, comments)."
     echo ""
+    echo "Violating files:"
     echo "$NEW_MIGRATIONS" | sed 's/^/  /'
     echo ""
-    echo "Allowed during freeze: moves, ownership fixes, rollback bug fixes."
-    echo "See $FREEZE_FILE for details."
+    echo "See $FREEZE_FILE for details on the active freeze."
     exit 1
 fi
 

@@ -346,7 +346,12 @@ repos:
         entry: ./scripts/check_migration_freeze.sh
         language: system
         pass_filenames: false
-        # Trigger when migration files or the freeze file itself change
+        # Trigger when migration files or the freeze file itself change.
+        # Note: pre-commit sees deletions in the changeset, so deleting
+        # .migration_freeze will trigger this hook. The script then checks
+        # [ ! -f .migration_freeze ] at runtime and exits 0, which means
+        # removing the freeze file + adding a migration in the same commit
+        # is intentionally allowed (freeze is lifted).
         files: ^(deployment/database/migrations/|\.migration_freeze)
         stages: [pre-commit]
 
