@@ -61,7 +61,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
@@ -74,6 +73,7 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,
     ModelTransitionResult,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -90,61 +90,6 @@ PROVISIONAL_STATUS: EnumPatternLifecycleStatus = EnumPatternLifecycleStatus.PROV
 # =============================================================================
 # Protocol Definitions
 # =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    This protocol defines the interface required for database operations
-    in the transition handler. It supports both asyncpg connections and
-    mock implementations for testing.
-
-    The methods mirror asyncpg.Connection semantics:
-        - fetch: Execute query and return list of Records
-        - fetchrow: Execute query and return single Record or None
-        - execute: Execute query and return status string (e.g., "UPDATE 1")
-
-    Note:
-        Parameters use asyncpg-style positional placeholders ($1, $2, etc.)
-        rather than named parameters.
-    """
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
-        """Execute a query and return all results as Records.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            List of record objects with dict-like access to columns.
-        """
-        ...
-
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
-        """Execute a query and return first row, or None.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Single record or None if no rows.
-        """
-        ...
-
-    async def execute(self, query: str, *args: Any) -> str:
-        """Execute a query and return the status string.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Status string from PostgreSQL (e.g., "UPDATE 1", "INSERT 0 1").
-        """
-        ...
 
 
 @runtime_checkable

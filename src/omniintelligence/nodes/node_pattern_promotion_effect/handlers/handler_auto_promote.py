@@ -43,11 +43,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol, TypedDict, runtime_checkable
+from typing import Any, TypedDict
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
+from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
@@ -74,28 +75,6 @@ MIN_SUCCESS_RATE: float = 0.6
 
 MAX_FAILURE_STREAK: int = 3
 """Maximum consecutive failures allowed for promotion eligibility."""
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations."""
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
-        """Execute a query and return all results."""
-        ...
-
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
-        """Execute a query and return first row, or None."""
-        ...
-
-    async def execute(self, query: str, *args: Any) -> str:
-        """Execute a query and return the status string."""
-        ...
 
 
 # =============================================================================

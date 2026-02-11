@@ -46,11 +46,12 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
-from typing import Any, Protocol, TypedDict, runtime_checkable
+from typing import Any, NotRequired, Protocol, TypedDict, runtime_checkable
 from uuid import UUID
 
 from omnibase_core.enums.pattern_learning import EnumEvidenceTier
+
+from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
@@ -68,26 +69,6 @@ _TIER_WEIGHT_MAP: dict[str, int] = {
 # =============================================================================
 # Protocol Definitions
 # =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    Mirrors asyncpg.Connection semantics for database operations.
-    """
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
-        """Execute a query and return all results."""
-        ...
-
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
-        """Execute a query and return first row, or None."""
-        ...
-
-    async def execute(self, query: str, *args: Any) -> str:
-        """Execute a query and return the status string."""
-        ...
 
 
 @runtime_checkable
@@ -190,6 +171,7 @@ class BindSessionResult(TypedDict):
     patterns_updated: int
     attributions_created: int
     bindings: list[AttributionBindingResult]
+    error_message: NotRequired[str | None]
 
 
 # =============================================================================
@@ -307,9 +289,25 @@ async def handle_attribution_binding(
         )
 
     if run_id_override is not None and run_result_override is None:
-        raise ValueError(
-            "run_result_override is required when run_id_override is provided. "
-            "Expected one of: 'success', 'partial', 'failure'."
+        logger.warning(
+            "run_result_override required when run_id_override is provided",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "session_id": str(session_id),
+                "run_id_override": str(run_id_override),
+            },
+        )
+        return BindSessionResult(
+            session_id=session_id,
+            patterns_processed=0,
+            patterns_updated=0,
+            attributions_created=0,
+            bindings=[],
+            error_message=(
+                "run_result_override is required when run_id_override "
+                "is provided. Expected one of: 'success', 'partial', "
+                "'failure'."
+            ),
         )
 
     logger.info(
