@@ -13,6 +13,9 @@
 -- Add evidence_tier column
 -- ============================================================================
 
+-- Note: CHECK enforces lowercase values. All writers MUST use EnumEvidenceTier.value
+-- (which produces lowercase). Case-mismatched writes (e.g., 'OBSERVED') will be
+-- rejected by PostgreSQL with a check constraint violation.
 ALTER TABLE learned_patterns
 ADD COLUMN IF NOT EXISTS evidence_tier TEXT NOT NULL DEFAULT 'unmeasured'
     CONSTRAINT check_evidence_tier_valid CHECK (

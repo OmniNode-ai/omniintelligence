@@ -41,14 +41,20 @@ Reference:
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.protocols import ProtocolPatternRepository
+
+if TYPE_CHECKING:
+    from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+        ProtocolIdempotencyStore,
+        ProtocolKafkaPublisher,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -306,9 +312,9 @@ async def _build_enriched_gate_snapshot(
 async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
-    apply_transition_fn: Any,  # Callable - typed as Any to avoid circular import
-    idempotency_store: Any,  # ProtocolIdempotencyStore from lifecycle handler
-    producer: Any | None = None,  # ProtocolKafkaPublisher
+    apply_transition_fn: Callable[..., Any],
+    idempotency_store: ProtocolIdempotencyStore,
+    producer: ProtocolKafkaPublisher | None = None,
     correlation_id: UUID | None = None,
     publish_topic: str | None = None,
 ) -> AutoPromoteCheckResult:
