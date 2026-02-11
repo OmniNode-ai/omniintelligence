@@ -649,12 +649,43 @@ class TestGateSnapshotEnrichment:
 
 
 class TestProtocolConformance:
-    """Verify mocks conform to protocols."""
+    """Verify mock implementations satisfy protocol contracts.
+
+    Each mock used in this test module must satisfy the corresponding
+    ``@runtime_checkable`` protocol that the handler declares.  These
+    tests catch accidental method-signature drift between mocks and
+    the real protocol definitions.
+    """
 
     def test_mock_repository_implements_protocol(self) -> None:
+        """MockPatternRepository satisfies ProtocolPatternRepository."""
+        from omniintelligence.protocols import ProtocolPatternRepository
+
+        repo = MockPatternRepository()
+        assert isinstance(repo, ProtocolPatternRepository)
+
+    def test_mock_repository_implements_protocol_via_handler_reexport(self) -> None:
+        """MockPatternRepository also satisfies the handler's re-exported protocol.
+
+        handler_auto_promote imports ProtocolPatternRepository from
+        omniintelligence.protocols.  This test verifies the import path
+        used by the handler itself resolves to the same protocol.
+        """
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
             ProtocolPatternRepository,
         )
 
         repo = MockPatternRepository()
+        assert isinstance(repo, ProtocolPatternRepository)
+
+    def test_mock_repository_with_constructor_args_implements_protocol(self) -> None:
+        """MockPatternRepository with attribution_count/latest_run_result args
+        still satisfies the protocol (constructor params must not break conformance).
+        """
+        from omniintelligence.protocols import ProtocolPatternRepository
+
+        repo = MockPatternRepository(
+            attribution_count=5,
+            latest_run_result="success",
+        )
         assert isinstance(repo, ProtocolPatternRepository)
