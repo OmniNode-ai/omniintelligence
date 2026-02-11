@@ -378,9 +378,9 @@ class TestPatternLearningIntrospection:
         assert entrypoint.startswith("python -m")
 
     def test_get_cli_entrypoint_correct_module(self) -> None:
-        """CLI entrypoint references correct module."""
+        """CLI entrypoint references correct node."""
         entrypoint = PatternLearningIntrospection.get_cli_entrypoint()
-        assert "omniintelligence.nodes.node_pattern_learning_compute" in entrypoint
+        assert "node_pattern_learning_compute" in entrypoint
 
 
 # =============================================================================
