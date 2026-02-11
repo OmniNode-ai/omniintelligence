@@ -24,6 +24,7 @@ Ticket: OMN-1978
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.metadata import entry_points
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -210,3 +211,39 @@ class TestPluginIntelligence:
             "Shutdown before initialize should succeed, "
             f"got error: {result.error_message}"
         )
+
+
+@pytest.mark.integration
+class TestEntryPointDiscovery:
+    """Validate that PluginIntelligence is discoverable via entry_points."""
+
+    def test_entry_point_discoverable(self) -> None:
+        """Entry point 'intelligence' must exist in onex.domain_plugins group."""
+        eps = entry_points(group="onex.domain_plugins")
+        names = [ep.name for ep in eps]
+        assert "intelligence" in names, (
+            f"'intelligence' not found in onex.domain_plugins entry points. "
+            f"Found: {names}"
+        )
+
+    def test_entry_point_loads_plugin_class(self) -> None:
+        """Loading the entry point must return the PluginIntelligence class."""
+        eps = entry_points(group="onex.domain_plugins")
+        matches = [ep for ep in eps if ep.name == "intelligence"]
+        assert matches, "No 'intelligence' entry point found"
+        loaded = matches[0].load()
+        assert loaded is PluginIntelligence, (
+            f"Expected PluginIntelligence class, got {loaded!r}"
+        )
+
+    def test_entry_point_plugin_satisfies_protocol(self) -> None:
+        """Instantiating the loaded class must satisfy ProtocolDomainPlugin."""
+        eps = entry_points(group="onex.domain_plugins")
+        matches = [ep for ep in eps if ep.name == "intelligence"]
+        assert matches, "No 'intelligence' entry point found"
+        cls = matches[0].load()
+        plugin = cls()
+        assert isinstance(plugin, ProtocolDomainPlugin), (
+            f"Instance of {cls.__name__} does not satisfy ProtocolDomainPlugin"
+        )
+        assert plugin.plugin_id == "intelligence"
