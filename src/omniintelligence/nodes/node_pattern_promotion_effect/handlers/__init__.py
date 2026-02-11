@@ -54,13 +54,13 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
     MIN_INJECTION_COUNT,
     MIN_SUCCESS_RATE,
     ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     build_gate_snapshot,
     calculate_success_rate,
     check_and_promote_patterns,
     meets_promotion_criteria,
     promote_pattern,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 
 __all__: list[str] = [
     "AutoPromoteCheckResult",

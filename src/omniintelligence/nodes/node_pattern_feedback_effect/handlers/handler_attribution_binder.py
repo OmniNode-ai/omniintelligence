@@ -46,43 +46,17 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, NotRequired, Protocol, TypedDict, runtime_checkable
+from typing import NotRequired, TypedDict
 from uuid import UUID
 
 from omnibase_core.enums.pattern_learning import EnumEvidenceTier
 
-from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
-
-# =============================================================================
-# Tier Weight Mapping (for SQL monotonic comparison)
-# =============================================================================
-
-_TIER_WEIGHT_MAP: dict[str, int] = {
-    tier.value: tier.get_numeric_value() for tier in EnumEvidenceTier
-}
-"""Maps evidence tier string values to numeric weights for SQL CASE expressions."""
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Protocol for Kafka event publishers."""
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, Any],
-    ) -> None:
-        """Publish an event to a Kafka topic."""
-        ...
+_VALID_RUN_RESULTS: frozenset[str] = frozenset({"success", "partial", "failure"})
+"""Permitted values for run_result_override."""
 
 
 # =============================================================================
@@ -143,6 +117,17 @@ FROM pattern_injections
 WHERE session_id = $1
   AND run_id IS NOT NULL
 ORDER BY injected_at DESC
+LIMIT 1
+"""
+
+# Look up run_result from a previous attribution record for the same run_id.
+# Used when run_id is found in pattern_injections but run_result is unknown.
+SQL_GET_RUN_RESULT_FROM_ATTRIBUTION = """
+SELECT measured_attribution_json->>'run_result' AS run_result
+FROM pattern_measured_attributions
+WHERE run_id = $1
+  AND measured_attribution_json->>'run_result' IS NOT NULL
+ORDER BY created_at DESC
 LIMIT 1
 """
 
@@ -310,6 +295,31 @@ async def handle_attribution_binding(
             ),
         )
 
+    if (
+        run_result_override is not None
+        and run_result_override not in _VALID_RUN_RESULTS
+    ):
+        logger.warning(
+            "Invalid run_result_override value",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "session_id": str(session_id),
+                "run_result_override": run_result_override,
+                "valid_values": sorted(_VALID_RUN_RESULTS),
+            },
+        )
+        return BindSessionResult(
+            session_id=session_id,
+            patterns_processed=0,
+            patterns_updated=0,
+            attributions_created=0,
+            bindings=[],
+            error_message=(
+                f"Invalid run_result_override: '{run_result_override}'. "
+                f"Expected one of: {', '.join(sorted(_VALID_RUN_RESULTS))}."
+            ),
+        )
+
     logger.info(
         "Binding session patterns to measurements",
         extra={
@@ -326,9 +336,13 @@ async def handle_attribution_binding(
         run_row = await conn.fetchrow(SQL_GET_SESSION_RUN_ID, session_id)
         if run_row is not None:
             run_id = run_row["run_id"]
-            # run_result must be fetched separately or passed by caller
-            # For now, having a run_id without explicit result means OBSERVED
-            run_result = None
+            # Look up run_result from a previous attribution for this run_id.
+            # A single pipeline run has one result, so if any prior pattern's
+            # attribution recorded the result, we reuse it.
+            result_row = await conn.fetchrow(
+                SQL_GET_RUN_RESULT_FROM_ATTRIBUTION, run_id
+            )
+            run_result = result_row["run_result"] if result_row else None
 
     bindings: list[AttributionBindingResult] = []
     patterns_updated = 0

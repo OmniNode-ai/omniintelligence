@@ -45,4 +45,29 @@ class ProtocolPatternRepository(Protocol):
         ...
 
 
-__all__ = ["ProtocolPatternRepository"]
+@runtime_checkable
+class ProtocolKafkaPublisher(Protocol):
+    """Protocol for Kafka event publishers.
+
+    Defines a simplified interface for publishing events to Kafka topics.
+    This protocol uses a dict-based value for flexibility, with serialization
+    handled by the implementation.
+    """
+
+    async def publish(
+        self,
+        topic: str,
+        key: str,
+        value: dict[str, Any],
+    ) -> None:
+        """Publish an event to a Kafka topic.
+
+        Args:
+            topic: Target Kafka topic name.
+            key: Message key for partitioning.
+            value: Event payload as a dictionary (serialized by implementation).
+        """
+        ...
+
+
+__all__ = ["ProtocolKafkaPublisher", "ProtocolPatternRepository"]
