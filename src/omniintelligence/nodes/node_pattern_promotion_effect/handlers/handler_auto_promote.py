@@ -347,9 +347,10 @@ async def handle_auto_promote_check(
         repository: Database repository for pattern queries.
         apply_transition_fn: The ``apply_transition`` function from
             handler_transition.py. Injected to avoid circular imports.
-        idempotency_store: Optional idempotency store for transition
-            deduplication. When None, passed through to apply_transition_fn
-            which handles the None case.
+        idempotency_store: Idempotency store for transition deduplication.
+            Required when apply_transition_fn is the real apply_transition().
+            May be None for testing with mock apply_transition_fn that
+            ignores this parameter.
         producer: Optional Kafka producer for transition events.
         correlation_id: Optional correlation ID for tracing.
         publish_topic: Kafka topic for transition events (required if producer).

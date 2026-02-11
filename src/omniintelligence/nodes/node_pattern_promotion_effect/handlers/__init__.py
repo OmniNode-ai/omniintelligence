@@ -19,9 +19,8 @@ Promotion Gates (all must pass):
     4. Disabled Gate: Pattern not in disabled_patterns_current
 
 Usage:
+    from omniintelligence.protocols import ProtocolPatternRepository, ProtocolKafkaPublisher
     from omniintelligence.nodes.node_pattern_promotion_effect.handlers import (
-        ProtocolPatternRepository,
-        ProtocolKafkaPublisher,
         check_and_promote_patterns,
         meets_promotion_criteria,
     )
@@ -59,7 +58,6 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
     meets_promotion_criteria,
     promote_pattern,
 )
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 __all__: list[str] = [
     "AutoPromoteCheckResult",
@@ -67,8 +65,6 @@ __all__: list[str] = [
     "MAX_FAILURE_STREAK",
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     "build_gate_snapshot",
     "calculate_success_rate",
     "handle_auto_promote_check",

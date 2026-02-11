@@ -8,16 +8,12 @@ lifecycle effect node.
 
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     ProtocolIdempotencyStore,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     apply_transition,
 )
 
 __all__ = [
-    # Protocols
+    # Protocols (locally defined)
     "ProtocolIdempotencyStore",
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     # Handler functions
     "apply_transition",
 ]
