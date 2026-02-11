@@ -328,7 +328,7 @@ async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
     apply_transition_fn: Callable[..., Any],
-    idempotency_store: ProtocolIdempotencyStore,
+    idempotency_store: ProtocolIdempotencyStore | None = None,
     producer: ProtocolKafkaPublisher | None = None,
     correlation_id: UUID | None = None,
     publish_topic: str | None = None,
@@ -347,7 +347,9 @@ async def handle_auto_promote_check(
         repository: Database repository for pattern queries.
         apply_transition_fn: The ``apply_transition`` function from
             handler_transition.py. Injected to avoid circular imports.
-        idempotency_store: Idempotency store for transition deduplication.
+        idempotency_store: Optional idempotency store for transition
+            deduplication. When None, passed through to apply_transition_fn
+            which handles the None case.
         producer: Optional Kafka producer for transition events.
         correlation_id: Optional correlation ID for tracing.
         publish_topic: Kafka topic for transition events (required if producer).
@@ -547,7 +549,6 @@ __all__ = [
     "MIN_INJECTION_COUNT_PROVISIONAL",
     "MIN_INJECTION_COUNT_VALIDATED",
     "MIN_SUCCESS_RATE",
-    "ProtocolPatternRepository",
     "handle_auto_promote_check",
     "meets_candidate_to_provisional_criteria",
     "meets_provisional_to_validated_criteria",

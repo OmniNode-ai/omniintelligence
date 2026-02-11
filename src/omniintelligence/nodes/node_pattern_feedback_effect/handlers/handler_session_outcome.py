@@ -489,6 +489,7 @@ async def record_session_outcome(
     # If attribution binding fails, the critical operations (marking injections
     # recorded + updating rolling metrics + effectiveness scores) already succeeded.
     # We log the failure but do not fail the overall operation.
+    attribution_binding_failed = False
     if pattern_ids:
         try:
             await handle_attribution_binding(
@@ -498,6 +499,7 @@ async def record_session_outcome(
                 correlation_id=correlation_id,
             )
         except Exception:
+            attribution_binding_failed = True
             logger.warning(
                 "Attribution binding failed — critical path unaffected, "
                 "evidence tiers will be updated on next successful binding",
@@ -518,6 +520,7 @@ async def record_session_outcome(
         pattern_ids=pattern_ids,
         effectiveness_scores=effectiveness_scores,
         recorded_at=datetime.now(UTC),
+        attribution_binding_failed=attribution_binding_failed,
         error_message=None,
     )
 
@@ -719,7 +722,6 @@ def _parse_update_count(status: str | None) -> int:
 __all__ = [
     "ROLLING_WINDOW_SIZE",
     "HandlerArgs",
-    "ProtocolPatternRepository",
     "compute_and_store_heuristics",
     "event_to_handler_args",
     "record_session_outcome",

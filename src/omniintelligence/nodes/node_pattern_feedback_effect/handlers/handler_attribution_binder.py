@@ -528,7 +528,6 @@ async def _bind_single_pattern(
 __all__ = [
     "AttributionBindingResult",
     "BindSessionResult",
-    "ProtocolPatternRepository",
     "handle_attribution_binding",
     "compute_evidence_tier",
 ]

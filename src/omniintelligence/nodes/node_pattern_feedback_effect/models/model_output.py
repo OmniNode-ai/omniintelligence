@@ -68,6 +68,12 @@ class ModelSessionOutcomeResult(BaseModel):
         default=None,
         description="Timestamp when outcome was recorded",
     )
+    attribution_binding_failed: bool = Field(
+        default=False,
+        description="True if the L1 attribution binding step failed. "
+        "When True, evidence tiers were not updated for this session. "
+        "The critical path (metrics, scores) still succeeded.",
+    )
     error_message: str | None = Field(
         default=None,
         description="Error message if status=ERROR",

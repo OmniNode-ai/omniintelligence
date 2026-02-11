@@ -36,7 +36,6 @@ from omnibase_core.nodes.node_effect import NodeEffect
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-    ProtocolPatternRepository,
     compute_and_store_heuristics,
     record_session_outcome,
     update_effectiveness_scores,
@@ -51,6 +50,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation

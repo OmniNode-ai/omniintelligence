@@ -50,7 +50,6 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attrib
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
     ROLLING_WINDOW_SIZE,
-    ProtocolPatternRepository,
     compute_and_store_heuristics,
     event_to_handler_args,
     record_session_outcome,
@@ -70,7 +69,6 @@ __all__ = [
     "BindSessionResult",
     "ROLLING_WINDOW_SIZE",
     "ContributionWeights",
-    "ProtocolPatternRepository",
     "apply_heuristic",
     "handle_attribution_binding",
     "compute_and_store_heuristics",

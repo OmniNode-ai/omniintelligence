@@ -81,7 +81,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 from uuid import UUID, uuid4
 
 from omniintelligence.models.domain import ModelGateSnapshot
@@ -90,6 +90,7 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelPromotionCheckResult,
     ModelPromotionResult,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
@@ -148,78 +149,6 @@ validates transitions against contract.yaml FSM, and emits intents for the effec
 
 Reference: OMN-1805
 """
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    This protocol defines the minimal interface required for database operations
-    in the promotion handler. It is intentionally generic to support both
-    asyncpg connections and mock implementations for testing.
-
-    The methods mirror asyncpg.Connection semantics:
-        - fetch: Execute query and return list of Records
-        - execute: Execute query and return status string (e.g., "UPDATE 5")
-
-    Note:
-        Parameters use asyncpg-style positional placeholders ($1, $2, etc.)
-        rather than named parameters.
-    """
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
-        """Execute a query and return all results as Records.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            List of record objects with dict-like access to columns.
-        """
-        ...
-
-    async def execute(self, query: str, *args: Any) -> str:
-        """Execute a query and return the status string.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Status string from PostgreSQL (e.g., "UPDATE 5", "INSERT 0 1").
-        """
-        ...
-
-
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Protocol for Kafka event publishers.
-
-    Defines a simplified interface for publishing events to Kafka topics.
-    This protocol uses a dict-based value for flexibility, with serialization
-    handled by the implementation.
-    """
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, Any],
-    ) -> None:
-        """Publish an event to a Kafka topic.
-
-        Args:
-            topic: Target Kafka topic name.
-            key: Message key for partitioning.
-            value: Event payload as a dictionary (serialized by implementation).
-        """
-        ...
 
 
 # =============================================================================
@@ -844,8 +773,6 @@ __all__ = [
     "MIN_SUCCESS_RATE",
     "SQL_PROMOTE_PATTERN",
     "TOPIC_SUFFIX_PATTERN_LIFECYCLE_CMD_V1",
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     "build_gate_snapshot",
     "calculate_success_rate",
     "check_and_promote_patterns",

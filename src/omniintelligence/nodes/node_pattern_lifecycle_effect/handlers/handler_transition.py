@@ -896,7 +896,5 @@ def _parse_update_count(status: str | None) -> int:
 
 __all__ = [
     "ProtocolIdempotencyStore",
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     "apply_transition",
 ]
