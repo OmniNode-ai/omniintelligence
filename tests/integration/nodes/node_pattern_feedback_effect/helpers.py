@@ -36,6 +36,7 @@ Reference:
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
@@ -85,25 +86,30 @@ async def create_test_pattern(
         The UUID of the created pattern.
     """
     pid = pattern_id or uuid4()
+    signature = f"test-signature-{pid}"
+    signature_hash = (
+        f"test_feedback_{hashlib.sha256(signature.encode()).hexdigest()[:32]}"
+    )
     # conn typed as object for test genericity; runtime is always asyncpg.Connection (OMN-2077)
     await conn.execute(  # type: ignore[union-attr]
         """
         INSERT INTO learned_patterns (
-            id, pattern_signature, domain_id, domain_version,
+            id, pattern_signature, signature_hash, domain_id, domain_version,
             domain_candidates, confidence, status,
             source_session_ids, quality_score,
             injection_count_rolling_20, success_count_rolling_20,
             failure_count_rolling_20, failure_streak
         ) VALUES (
-            $1, $2, $3, $4,
-            $5::jsonb, $6, $7,
-            $8, $9,
-            $10, $11,
-            $12, $13
+            $1, $2, $3, $4, $5,
+            $6::jsonb, $7, $8,
+            $9, $10,
+            $11, $12,
+            $13, $14
         )
         """,
         pid,
-        f"test-signature-{pid}",
+        signature,
+        signature_hash,
         domain_id,
         "1.0.0",
         "[]",
