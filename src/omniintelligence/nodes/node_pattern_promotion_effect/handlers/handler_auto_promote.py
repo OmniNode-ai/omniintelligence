@@ -82,6 +82,14 @@ MIN_SUCCESS_RATE: float = 0.6
 MAX_FAILURE_STREAK: int = 3
 """Maximum consecutive failures allowed for promotion eligibility."""
 
+_VALID_EVIDENCE_TIERS: frozenset[str] = frozenset(
+    {"unmeasured", "observed", "measured", "verified"}
+)
+"""Valid evidence tier values matching EvidenceTierLiteral."""
+
+_VALID_RUN_RESULTS: frozenset[str] = frozenset({"success", "partial", "failure"})
+"""Valid pipeline run result values matching RunResultLiteral."""
+
 
 # =============================================================================
 # SQL Queries
@@ -273,7 +281,11 @@ async def _build_enriched_gate_snapshot(
         ModelGateSnapshot with evidence tier fields populated.
     """
     pattern_id = pattern["id"]
-    evidence_tier = pattern.get("evidence_tier", "unmeasured")
+    raw_evidence_tier = pattern.get("evidence_tier", "unmeasured")
+    # Validate against known values to prevent Pydantic ValidationError
+    evidence_tier = (
+        raw_evidence_tier if raw_evidence_tier in _VALID_EVIDENCE_TIERS else None
+    )
 
     # Count measured attributions
     attribution_count = 0
@@ -284,12 +296,13 @@ async def _build_enriched_gate_snapshot(
     except Exception:
         logger.debug("Failed to count attributions for gate snapshot", exc_info=True)
 
-    # Get latest run result
+    # Get latest run result (validate against known values)
     latest_run_result = None
     try:
         run_row = await conn.fetchrow(SQL_LATEST_RUN_RESULT, pattern_id)
         if run_row:
-            latest_run_result = run_row.get("run_result")
+            raw_result = run_row.get("run_result")
+            latest_run_result = raw_result if raw_result in _VALID_RUN_RESULTS else None
     except Exception:
         logger.debug("Failed to get latest run result for gate snapshot", exc_info=True)
 

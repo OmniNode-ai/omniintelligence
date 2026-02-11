@@ -51,7 +51,7 @@ from uuid import UUID
 
 from omnibase_core.enums.pattern_learning import EnumEvidenceTier
 
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
+from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +295,27 @@ async def handle_attribution_binding(
             ),
         )
 
+    if run_result_override is not None and run_id_override is None:
+        logger.warning(
+            "run_result_override provided without run_id_override",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "session_id": str(session_id),
+                "run_result_override": run_result_override,
+            },
+        )
+        return BindSessionResult(
+            session_id=session_id,
+            patterns_processed=0,
+            patterns_updated=0,
+            attributions_created=0,
+            bindings=[],
+            error_message=(
+                "run_result_override requires run_id_override. "
+                "Cannot specify a run result without a run ID."
+            ),
+        )
+
     if (
         run_result_override is not None
         and run_result_override not in _VALID_RUN_RESULTS
@@ -498,7 +519,6 @@ async def _bind_single_pattern(
 __all__ = [
     "AttributionBindingResult",
     "BindSessionResult",
-    "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",
     "handle_attribution_binding",
     "compute_evidence_tier",

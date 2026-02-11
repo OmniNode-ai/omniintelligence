@@ -660,7 +660,8 @@ async def apply_transition(
     # Note: publish_topic is validated at function entry (Step 0b) for fail-fast.
     if producer is not None:
         # Type narrowing: Step 0b validates publish_topic when producer is available
-        assert publish_topic is not None  # Validated at function entry
+        if publish_topic is None:  # pragma: no cover - guarded by Step 0b
+            raise ValueError("publish_topic is required when producer is available")
         try:
             await _emit_transition_event(
                 producer=producer,

@@ -504,6 +504,43 @@ class TestHandleAttributionBinding:
         assert result["error_message"] is not None
         assert "run_result_override" in result["error_message"]
 
+    @pytest.mark.asyncio
+    async def test_invalid_run_result_override_returns_error(
+        self,
+        pattern_id: UUID,
+        session_id: UUID,
+        repo: MockPatternRepository,
+    ) -> None:
+        """Invalid run_result_override value -> structured error."""
+        result = await handle_attribution_binding(
+            session_id=session_id,
+            pattern_ids=[pattern_id],
+            conn=repo,
+            run_id_override=uuid4(),
+            run_result_override="invalid_value",
+        )
+        assert result["patterns_processed"] == 0
+        assert result["error_message"] is not None
+        assert "Invalid run_result_override" in result["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_run_result_override_without_run_id_returns_error(
+        self,
+        pattern_id: UUID,
+        session_id: UUID,
+        repo: MockPatternRepository,
+    ) -> None:
+        """run_result_override without run_id_override -> structured error."""
+        result = await handle_attribution_binding(
+            session_id=session_id,
+            pattern_ids=[pattern_id],
+            conn=repo,
+            run_result_override="success",
+        )
+        assert result["patterns_processed"] == 0
+        assert result["error_message"] is not None
+        assert "run_id_override" in result["error_message"]
+
 
 # =============================================================================
 # Tests: Protocol Conformance
