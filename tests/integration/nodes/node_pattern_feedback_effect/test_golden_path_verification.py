@@ -630,6 +630,87 @@ class TestEventToHandlerFlow:
 
 
 # =============================================================================
+# Golden Path: Idempotent Replay (ALREADY_RECORDED)
+# =============================================================================
+
+
+class TestIdempotentReplay:
+    """Verify that recording outcome twice returns ALREADY_RECORDED.
+
+    The handler marks injections as recorded on the first call.
+    Subsequent calls for the same session must return ALREADY_RECORDED
+    without double-counting metrics or changing the effectiveness score.
+    """
+
+    @pytest.mark.integration
+    async def test_second_call_returns_already_recorded(self, txn_conn: Any) -> None:
+        """Second call with same session_id returns ALREADY_RECORDED status."""
+        scenario = await create_feedback_scenario(
+            txn_conn,
+            pattern_count=1,
+            injection_count=1,
+            starting_injection_count=10,
+            starting_success_count=8,
+            starting_failure_count=2,
+            domain_id=TEST_DOMAIN_ID,
+        )
+
+        # First call: should succeed
+        result_1 = await record_session_outcome(
+            session_id=scenario.session_id,
+            success=True,
+            repository=txn_conn,
+        )
+        assert result_1.status == EnumOutcomeRecordingStatus.SUCCESS
+
+        # Second call: same session_id, should be idempotent
+        result_2 = await record_session_outcome(
+            session_id=scenario.session_id,
+            success=True,
+            repository=txn_conn,
+        )
+        assert result_2.status == EnumOutcomeRecordingStatus.ALREADY_RECORDED
+        assert result_2.injections_updated == 0
+        assert result_2.patterns_updated == 0
+
+    @pytest.mark.integration
+    async def test_score_unchanged_after_replay(self, txn_conn: Any) -> None:
+        """Effectiveness score does not change on idempotent replay."""
+        scenario = await create_feedback_scenario(
+            txn_conn,
+            pattern_count=1,
+            injection_count=1,
+            starting_injection_count=10,
+            starting_success_count=8,
+            starting_failure_count=2,
+            domain_id=TEST_DOMAIN_ID,
+        )
+
+        # First call: record outcome and capture resulting score
+        await record_session_outcome(
+            session_id=scenario.session_id,
+            success=True,
+            repository=txn_conn,
+        )
+        score_after_first = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
+
+        # Second call: replay
+        await record_session_outcome(
+            session_id=scenario.session_id,
+            success=True,
+            repository=txn_conn,
+        )
+        score_after_second = await fetch_pattern_score(
+            txn_conn, scenario.pattern_ids[0]
+        )
+
+        # Score must be identical - no double-counting
+        assert abs(score_after_second - score_after_first) < 1e-6, (
+            f"Score changed on replay: {score_after_first} → {score_after_second}"
+        )
+
+
+# =============================================================================
 # Edge Case: No Injections
 # =============================================================================
 
