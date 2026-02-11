@@ -63,6 +63,11 @@ async def txn_conn(db_conn: Any) -> AsyncGenerator[Any, None]:
 
     Yields:
         The same asyncpg.Connection, but inside an active transaction.
+
+    Note:
+        Typed as ``Any`` because ``db_conn`` comes from the integration
+        conftest where the concrete asyncpg type is unavailable at import
+        time (the fixture may be skipped when PostgreSQL is unreachable).
     """
     txn = db_conn.transaction()
     await txn.start()
@@ -234,8 +239,10 @@ class TestSinglePatternFailureBelowCap:
         )
 
     @pytest.mark.integration
-    async def test_score_delta_smaller_than_success_case(self, txn_conn: Any) -> None:
-        """Score delta after FAILURE is positive but smaller than the SUCCESS case."""
+    async def test_score_delta_matches_expected_after_failure(
+        self, txn_conn: Any
+    ) -> None:
+        """Score delta after FAILURE matches the expected value from known metrics."""
         scenario = await create_feedback_scenario(
             txn_conn,
             pattern_count=1,
