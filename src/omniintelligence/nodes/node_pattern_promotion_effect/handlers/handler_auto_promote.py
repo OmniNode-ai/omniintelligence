@@ -53,8 +53,8 @@ from omniintelligence.protocols import ProtocolPatternRepository
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
         ProtocolIdempotencyStore,
-        ProtocolKafkaPublisher,
     )
+    from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +294,7 @@ async def _build_enriched_gate_snapshot(
         if count_row:
             attribution_count = count_row["count"]
     except Exception:
-        logger.debug("Failed to count attributions for gate snapshot", exc_info=True)
+        logger.warning("Failed to count attributions for gate snapshot", exc_info=True)
 
     # Get latest run result (validate against known values)
     latest_run_result = None
@@ -304,7 +304,9 @@ async def _build_enriched_gate_snapshot(
             raw_result = run_row.get("run_result")
             latest_run_result = raw_result if raw_result in _VALID_RUN_RESULTS else None
     except Exception:
-        logger.debug("Failed to get latest run result for gate snapshot", exc_info=True)
+        logger.warning(
+            "Failed to get latest run result for gate snapshot", exc_info=True
+        )
 
     return ModelGateSnapshot(
         success_rate_rolling_20=_calculate_success_rate(pattern),

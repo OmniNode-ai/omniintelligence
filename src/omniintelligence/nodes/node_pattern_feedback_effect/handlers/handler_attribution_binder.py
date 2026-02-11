@@ -492,6 +492,15 @@ async def _bind_single_pattern(
             pattern_id,
             computed_tier.value,
         )
+        if update_status is None:
+            logger.warning(
+                "Evidence tier update returned None status - possible connection issue",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "pattern_id": str(pattern_id),
+                    "computed_tier": computed_tier.value,
+                },
+            )
         tier_updated = "UPDATE 1" in (update_status or "")
 
         if tier_updated:
