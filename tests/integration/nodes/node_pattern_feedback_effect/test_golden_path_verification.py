@@ -26,6 +26,7 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -38,6 +39,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_sessio
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
 )
+from tests.integration.conftest import TEST_DOMAIN_ID
 
 from .helpers import (
     assert_score_updated,
@@ -47,17 +49,13 @@ from .helpers import (
     fetch_pattern_score,
 )
 
-# Use the pre-seeded domain from migrations (see tests/integration/conftest.py)
-DOMAIN_ID: str = "code_generation"
-
-
 # =============================================================================
 # Fixtures
 # =============================================================================
 
 
 @pytest_asyncio.fixture
-async def txn_conn(db_conn: Any) -> Any:
+async def txn_conn(db_conn: Any) -> AsyncGenerator[Any, None]:
     """Wrap db_conn in a transaction that auto-rolls back after each test.
 
     This provides complete test isolation: all INSERTs and UPDATEs made
@@ -98,7 +96,7 @@ class TestSinglePatternSuccessBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -122,7 +120,7 @@ class TestSinglePatternSuccessBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -149,7 +147,7 @@ class TestSinglePatternSuccessBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -172,7 +170,7 @@ class TestSinglePatternSuccessBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         score_before = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
@@ -218,7 +216,7 @@ class TestSinglePatternFailureBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -236,8 +234,8 @@ class TestSinglePatternFailureBelowCap:
         )
 
     @pytest.mark.integration
-    async def test_score_delta_is_negative(self, txn_conn: Any) -> None:
-        """Score delta after FAILURE is positive but less than before (from 0.5 default)."""
+    async def test_score_delta_smaller_than_success_case(self, txn_conn: Any) -> None:
+        """Score delta after FAILURE is positive but smaller than the SUCCESS case."""
         scenario = await create_feedback_scenario(
             txn_conn,
             pattern_count=1,
@@ -245,7 +243,7 @@ class TestSinglePatternFailureBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         score_before = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
@@ -277,7 +275,7 @@ class TestSinglePatternFailureBelowCap:
             starting_injection_count=10,
             starting_success_count=8,
             starting_failure_count=2,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         await record_session_outcome(
@@ -315,7 +313,7 @@ class TestAtCapWithDecay:
             starting_injection_count=ROLLING_WINDOW_SIZE,  # 20
             starting_success_count=15,
             starting_failure_count=5,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -343,7 +341,7 @@ class TestAtCapWithDecay:
             starting_injection_count=ROLLING_WINDOW_SIZE,  # 20
             starting_success_count=15,
             starting_failure_count=5,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -373,7 +371,7 @@ class TestAtCapWithDecay:
             starting_injection_count=ROLLING_WINDOW_SIZE,
             starting_success_count=15,
             starting_failure_count=5,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
         # Override the starting quality_score to match actual ratio
         await txn_conn.execute(
@@ -422,7 +420,7 @@ class TestMultiPatternSession:
             starting_injection_count=10,
             starting_success_count=5,
             starting_failure_count=5,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
         )
 
         result = await record_session_outcome(
@@ -458,7 +456,7 @@ class TestMultiPatternSession:
         # Pattern A: healthy (8 successes, 2 failures out of 10)
         pattern_a = await create_test_pattern(
             txn_conn,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
             injection_count=10,
             success_count=8,
             failure_count=2,
@@ -467,7 +465,7 @@ class TestMultiPatternSession:
         # Pattern B: struggling (3 successes, 7 failures out of 10)
         pattern_b = await create_test_pattern(
             txn_conn,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
             injection_count=10,
             success_count=3,
             failure_count=7,
@@ -527,7 +525,7 @@ class TestEventToHandlerFlow:
         session_id = uuid4()
         pattern_id = await create_test_pattern(
             txn_conn,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
             injection_count=10,
             success_count=7,
             failure_count=3,
@@ -589,7 +587,7 @@ class TestEventToHandlerFlow:
         session_id = uuid4()
         pattern_id = await create_test_pattern(
             txn_conn,
-            domain_id=DOMAIN_ID,
+            domain_id=TEST_DOMAIN_ID,
             injection_count=10,
             success_count=7,
             failure_count=3,
