@@ -45,8 +45,8 @@ Reference:
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
     AttributionBindingResult,
     BindSessionResult,
-    bind_injection_to_measurement,
     compute_evidence_tier,
+    handle_attribution_binding,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
     ROLLING_WINDOW_SIZE,
@@ -72,7 +72,7 @@ __all__ = [
     "ContributionWeights",
     "ProtocolPatternRepository",
     "apply_heuristic",
-    "bind_injection_to_measurement",
+    "handle_attribution_binding",
     "compute_and_store_heuristics",
     "compute_equal_split",
     "compute_evidence_tier",

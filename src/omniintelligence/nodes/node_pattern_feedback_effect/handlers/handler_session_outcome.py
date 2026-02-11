@@ -61,7 +61,7 @@ from omnibase_core.integrations.claude_code import (
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
-    bind_injection_to_measurement,
+    handle_attribution_binding,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
     apply_heuristic,
@@ -550,7 +550,7 @@ async def record_session_outcome(
     # We log the failure but do not fail the overall operation.
     if pattern_ids:
         try:
-            await bind_injection_to_measurement(
+            await handle_attribution_binding(
                 session_id=session_id,
                 pattern_ids=pattern_ids,
                 conn=repository,

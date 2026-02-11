@@ -13,7 +13,15 @@ Evidence Tier Fields (OMN-2133):
     (denormalized column, attribution binder is sole writer).
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+# Valid evidence tier values matching EnumEvidenceTier
+EvidenceTierLiteral = Literal["unmeasured", "observed", "measured", "verified"]
+
+# Valid pipeline run result values
+RunResultLiteral = Literal["success", "partial", "failure"]
 
 
 class ModelGateSnapshot(BaseModel):
@@ -46,7 +54,7 @@ class ModelGateSnapshot(BaseModel):
         default=False,
         description="Whether the pattern is currently disabled",
     )
-    evidence_tier: str | None = Field(
+    evidence_tier: EvidenceTierLiteral | None = Field(
         default=None,
         description="Evidence tier at decision time (informational). "
         "Authority is learned_patterns.evidence_tier column.",
@@ -56,7 +64,7 @@ class ModelGateSnapshot(BaseModel):
         ge=0,
         description="Number of measured attribution records for this pattern at decision time",
     )
-    latest_run_result: str | None = Field(
+    latest_run_result: RunResultLiteral | None = Field(
         default=None,
         description="Overall result of the latest pipeline run (success|partial|failure). "
         "NULL if no run data available.",

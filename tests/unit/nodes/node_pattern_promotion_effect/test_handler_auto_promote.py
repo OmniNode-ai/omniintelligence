@@ -23,7 +23,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
-    check_and_auto_promote,
+    handle_auto_promote_check,
     meets_candidate_to_provisional_criteria,
     meets_provisional_to_validated_criteria,
 )
@@ -228,7 +228,7 @@ class TestCheckAndAutoPromote:
         ) -> MockTransitionResult:
             raise AssertionError("Should not be called")
 
-        result = await check_and_auto_promote(
+        result = await handle_auto_promote_check(
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
@@ -271,7 +271,7 @@ class TestCheckAndAutoPromote:
                 to_status="provisional",
             )
 
-        result = await check_and_auto_promote(
+        result = await handle_auto_promote_check(
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
@@ -313,7 +313,7 @@ class TestCheckAndAutoPromote:
                 to_status="validated",
             )
 
-        result = await check_and_auto_promote(
+        result = await handle_auto_promote_check(
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
@@ -345,7 +345,7 @@ class TestCheckAndAutoPromote:
         ) -> MockTransitionResult:
             raise AssertionError("Should not be called")
 
-        result = await check_and_auto_promote(
+        result = await handle_auto_promote_check(
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
@@ -381,7 +381,7 @@ class TestCheckAndAutoPromote:
                 pattern_id=kwargs["pattern_id"],
             )
 
-        result = await check_and_auto_promote(
+        result = await handle_auto_promote_check(
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
@@ -416,7 +416,7 @@ class TestCheckAndAutoPromote:
                 pattern_id=kwargs["pattern_id"],
             )
 
-        result = await check_and_auto_promote(
+        result = await handle_auto_promote_check(
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
@@ -426,3 +426,20 @@ class TestCheckAndAutoPromote:
         assert result["candidates_promoted"] == 1
         assert result["provisionals_promoted"] == 1
         assert len(result["results"]) == 2
+
+
+# =============================================================================
+# Tests: Protocol Conformance
+# =============================================================================
+
+
+class TestProtocolConformance:
+    """Verify mocks conform to protocols."""
+
+    def test_mock_repository_implements_protocol(self) -> None:
+        from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
+            ProtocolPatternRepository,
+        )
+
+        repo = MockPatternRepository()
+        assert isinstance(repo, ProtocolPatternRepository)

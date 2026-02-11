@@ -26,8 +26,8 @@ from omnibase_core.enums.pattern_learning import EnumEvidenceTier
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
     ProtocolPatternRepository,
-    bind_injection_to_measurement,
     compute_evidence_tier,
+    handle_attribution_binding,
 )
 
 pytestmark = pytest.mark.unit
@@ -274,11 +274,11 @@ class TestComputeEvidenceTier:
 
 
 # =============================================================================
-# Tests: bind_injection_to_measurement (Handler)
+# Tests: handle_attribution_binding (Handler)
 # =============================================================================
 
 
-class TestBindInjectionToMeasurement:
+class TestHandleAttributionBinding:
     """Tests for the main attribution binding handler."""
 
     @pytest.mark.asyncio
@@ -287,7 +287,7 @@ class TestBindInjectionToMeasurement:
         session_id: UUID,
         repo: MockPatternRepository,
     ) -> None:
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[],
             conn=repo,
@@ -306,7 +306,7 @@ class TestBindInjectionToMeasurement:
         repo: MockPatternRepository,
     ) -> None:
         """No run_id -> tier updates to OBSERVED, no attribution JSON."""
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[pattern_id],
             conn=repo,
@@ -344,7 +344,7 @@ class TestBindInjectionToMeasurement:
         repo: MockPatternRepository,
     ) -> None:
         """run_id + success -> tier updates to MEASURED, has attribution JSON."""
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[pattern_id],
             conn=repo,
@@ -378,7 +378,7 @@ class TestBindInjectionToMeasurement:
         """Pattern at MEASURED + no run_id -> stays MEASURED (monotonic)."""
         repo.patterns[pattern_id].evidence_tier = "measured"
 
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[pattern_id],
             conn=repo,
@@ -403,7 +403,7 @@ class TestBindInjectionToMeasurement:
         repo = MockPatternRepository()
         missing_id = uuid4()
 
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[missing_id],
             conn=repo,
@@ -429,7 +429,7 @@ class TestBindInjectionToMeasurement:
         repo.patterns[p1] = PatternState(id=p1, evidence_tier="unmeasured")
         repo.patterns[p2] = PatternState(id=p2, evidence_tier="observed")
 
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[p1, p2],
             conn=repo,
@@ -452,7 +452,7 @@ class TestBindInjectionToMeasurement:
         """run_id looked up from pattern_injections when not provided."""
         repo.injection_run_ids[session_id] = run_id
 
-        result = await bind_injection_to_measurement(
+        result = await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[pattern_id],
             conn=repo,
@@ -471,7 +471,7 @@ class TestBindInjectionToMeasurement:
         repo: MockPatternRepository,
     ) -> None:
         """Verify that insert attribution and update tier use same connection."""
-        await bind_injection_to_measurement(
+        await handle_attribution_binding(
             session_id=session_id,
             pattern_ids=[pattern_id],
             conn=repo,
@@ -484,6 +484,23 @@ class TestBindInjectionToMeasurement:
         ]
         assert len(insert_queries) == 1
         assert len(update_queries) == 1
+
+    @pytest.mark.asyncio
+    async def test_run_id_override_without_result_raises(
+        self,
+        pattern_id: UUID,
+        session_id: UUID,
+        repo: MockPatternRepository,
+    ) -> None:
+        """run_id_override without run_result_override -> ValueError."""
+        with pytest.raises(ValueError, match="run_result_override is required"):
+            await handle_attribution_binding(
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+                conn=repo,
+                run_id_override=uuid4(),
+                run_result_override=None,
+            )
 
 
 # =============================================================================

@@ -184,14 +184,14 @@ class AutoPromoteCheckResult(TypedDict):
 # =============================================================================
 
 
-def meets_candidate_to_provisional_criteria(
+def _meets_promotion_criteria(
     pattern: Mapping[str, Any],
     *,
-    min_injection_count: int = MIN_INJECTION_COUNT_PROVISIONAL,
+    min_injection_count: int,
     min_success_rate: float = MIN_SUCCESS_RATE,
     max_failure_streak: int = MAX_FAILURE_STREAK,
 ) -> bool:
-    """Check if a candidate pattern meets CANDIDATE -> PROVISIONAL criteria.
+    """Check if a pattern meets promotion criteria (shared logic).
 
     Pure function. Evidence tier is pre-filtered in SQL query.
 
@@ -223,6 +223,25 @@ def meets_candidate_to_provisional_criteria(
         return False
 
     return True
+
+
+def meets_candidate_to_provisional_criteria(
+    pattern: Mapping[str, Any],
+    *,
+    min_injection_count: int = MIN_INJECTION_COUNT_PROVISIONAL,
+    min_success_rate: float = MIN_SUCCESS_RATE,
+    max_failure_streak: int = MAX_FAILURE_STREAK,
+) -> bool:
+    """Check if a candidate pattern meets CANDIDATE -> PROVISIONAL criteria.
+
+    Pure function. Evidence tier is pre-filtered in SQL query.
+    """
+    return _meets_promotion_criteria(
+        pattern,
+        min_injection_count=min_injection_count,
+        min_success_rate=min_success_rate,
+        max_failure_streak=max_failure_streak,
+    )
 
 
 def meets_provisional_to_validated_criteria(
@@ -235,37 +254,13 @@ def meets_provisional_to_validated_criteria(
     """Check if a provisional pattern meets PROVISIONAL -> VALIDATED criteria.
 
     Pure function. Evidence tier is pre-filtered in SQL query.
-    Same logic as meets_candidate_to_provisional_criteria but with
-    higher injection threshold.
-
-    Args:
-        pattern: Pattern record containing rolling metrics.
-        min_injection_count: Minimum injections required.
-        min_success_rate: Minimum success rate (0.0-1.0).
-        max_failure_streak: Maximum consecutive failures.
-
-    Returns:
-        True if pattern meets all metric gates.
     """
-    injection_count = pattern.get("injection_count_rolling_20", 0) or 0
-    success_count = pattern.get("success_count_rolling_20", 0) or 0
-    failure_count = pattern.get("failure_count_rolling_20", 0) or 0
-    failure_streak = pattern.get("failure_streak", 0) or 0
-
-    if injection_count < min_injection_count:
-        return False
-
-    total_outcomes = success_count + failure_count
-    if total_outcomes == 0:
-        return False
-
-    if (success_count / total_outcomes) < min_success_rate:
-        return False
-
-    if failure_streak >= max_failure_streak:
-        return False
-
-    return True
+    return _meets_promotion_criteria(
+        pattern,
+        min_injection_count=min_injection_count,
+        min_success_rate=min_success_rate,
+        max_failure_streak=max_failure_streak,
+    )
 
 
 def _calculate_success_rate(pattern: Mapping[str, Any]) -> float:
@@ -329,7 +324,7 @@ async def _build_enriched_gate_snapshot(
 # =============================================================================
 
 
-async def check_and_auto_promote(
+async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
     apply_transition_fn: Any,  # Callable - typed as Any to avoid circular import
@@ -553,7 +548,7 @@ __all__ = [
     "MIN_INJECTION_COUNT_VALIDATED",
     "MIN_SUCCESS_RATE",
     "ProtocolPatternRepository",
-    "check_and_auto_promote",
+    "handle_auto_promote_check",
     "meets_candidate_to_provisional_criteria",
     "meets_provisional_to_validated_criteria",
 ]

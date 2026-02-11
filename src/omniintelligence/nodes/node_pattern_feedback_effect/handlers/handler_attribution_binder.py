@@ -263,7 +263,7 @@ def _parse_evidence_tier(raw: str | None) -> EnumEvidenceTier:
 # =============================================================================
 
 
-async def bind_injection_to_measurement(
+async def handle_attribution_binding(
     session_id: UUID,
     pattern_ids: list[UUID],
     *,
@@ -304,6 +304,12 @@ async def bind_injection_to_measurement(
             patterns_updated=0,
             attributions_created=0,
             bindings=[],
+        )
+
+    if run_id_override is not None and run_result_override is None:
+        raise ValueError(
+            "run_result_override is required when run_id_override is provided. "
+            "Expected one of: 'success', 'partial', 'failure'."
         )
 
     logger.info(
@@ -482,6 +488,6 @@ __all__ = [
     "BindSessionResult",
     "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",
-    "bind_injection_to_measurement",
+    "handle_attribution_binding",
     "compute_evidence_tier",
 ]

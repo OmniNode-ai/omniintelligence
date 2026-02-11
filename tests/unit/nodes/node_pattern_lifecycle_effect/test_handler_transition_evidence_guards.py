@@ -390,3 +390,28 @@ class TestNoEvidenceGateForDeprecated:
         )
 
         assert result.success is True
+
+
+# =============================================================================
+# Tests: Protocol Conformance
+# =============================================================================
+
+
+class TestProtocolConformance:
+    """Verify mocks conform to their protocols."""
+
+    def test_mock_repository_implements_protocol(self) -> None:
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            ProtocolPatternRepository,
+        )
+
+        repo = MockPatternRepository(pattern_id=uuid4(), status="candidate")
+        assert isinstance(repo, ProtocolPatternRepository)
+
+    def test_mock_idempotency_store_implements_protocol(self) -> None:
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+            ProtocolIdempotencyStore,
+        )
+
+        store = MockIdempotencyStore()
+        assert isinstance(store, ProtocolIdempotencyStore)

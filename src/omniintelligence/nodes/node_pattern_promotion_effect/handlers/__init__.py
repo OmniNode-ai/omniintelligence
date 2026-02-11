@@ -45,7 +45,7 @@ Reference:
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
     AutoPromoteCheckResult,
     AutoPromoteResult,
-    check_and_auto_promote,
+    handle_auto_promote_check,
     meets_candidate_to_provisional_criteria,
     meets_provisional_to_validated_criteria,
 )
@@ -72,7 +72,7 @@ __all__: list[str] = [
     "ProtocolPatternRepository",
     "build_gate_snapshot",
     "calculate_success_rate",
-    "check_and_auto_promote",
+    "handle_auto_promote_check",
     "check_and_promote_patterns",
     "meets_candidate_to_provisional_criteria",
     "meets_promotion_criteria",
