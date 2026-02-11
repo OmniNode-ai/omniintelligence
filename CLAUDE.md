@@ -485,14 +485,6 @@ async def handle_store_pattern(
     await pattern_store.store_pattern(..., conn=conn)
 ```
 
-### Kafka Connection (CRITICAL)
-
-Use correct bootstrap servers based on context:
-- **Docker services**: `omninode-bridge-redpanda:9092`
-- **Host scripts**: `192.168.86.200:29092`
-
-See `~/.claude/CLAUDE.md` for full infrastructure topology.
-
 ### Protocol Design Guidelines
 
 To prevent protocol explosion and mock fatigue:
