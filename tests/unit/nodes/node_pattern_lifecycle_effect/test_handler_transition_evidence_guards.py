@@ -278,15 +278,105 @@ class TestEvidenceTierGuardValidated:
 class TestEvidenceTierGuardProvisional:
     """Evidence tier guard for transitions TO PROVISIONAL.
 
-    Note: The PROVISIONAL guard in handler_transition rejects transitions
-    TO provisional. However, we test the evidence tier guard separately
-    to ensure it would fire BEFORE the PROVISIONAL guard if ordering changed.
-    In practice, the PROVISIONAL guard runs first (Step 1) and blocks this.
-
-    For OMN-2133, the auto_promote handler uses apply_transition with the
-    evidence tier guard. The PROVISIONAL guard in handler_transition.py
-    still blocks direct transitions to PROVISIONAL (legacy protection).
+    The PROVISIONAL guard allows CANDIDATE -> PROVISIONAL (OMN-2133) but blocks
+    all other transitions to PROVISIONAL (legacy protection). Evidence tier
+    guards then apply: CANDIDATE -> PROVISIONAL requires evidence_tier >= OBSERVED.
     """
+
+    @pytest.mark.asyncio
+    async def test_candidate_to_provisional_with_observed_accepted(
+        self,
+        pattern_id: UUID,
+        request_id: UUID,
+        correlation_id: UUID,
+        idempotency_store: MockIdempotencyStore,
+        transition_at: datetime,
+    ) -> None:
+        """CANDIDATE->PROVISIONAL with evidence_tier=OBSERVED -> accepted."""
+        repo = MockPatternRepository(
+            pattern_id=pattern_id,
+            status="candidate",
+            evidence_tier="observed",
+        )
+
+        result = await apply_transition(
+            repository=repo,
+            idempotency_store=idempotency_store,
+            producer=None,
+            request_id=request_id,
+            correlation_id=correlation_id,
+            pattern_id=pattern_id,
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            trigger="auto_promote_evidence_gate",
+            transition_at=transition_at,
+        )
+
+        assert result.success is True
+
+    @pytest.mark.asyncio
+    async def test_candidate_to_provisional_with_unmeasured_rejected(
+        self,
+        pattern_id: UUID,
+        request_id: UUID,
+        correlation_id: UUID,
+        idempotency_store: MockIdempotencyStore,
+        transition_at: datetime,
+    ) -> None:
+        """CANDIDATE->PROVISIONAL with evidence_tier=UNMEASURED -> rejected."""
+        repo = MockPatternRepository(
+            pattern_id=pattern_id,
+            status="candidate",
+            evidence_tier="unmeasured",
+        )
+
+        result = await apply_transition(
+            repository=repo,
+            idempotency_store=idempotency_store,
+            producer=None,
+            request_id=request_id,
+            correlation_id=correlation_id,
+            pattern_id=pattern_id,
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            trigger="auto_promote_evidence_gate",
+            transition_at=transition_at,
+        )
+
+        assert result.success is False
+        assert "OBSERVED" in (result.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_validated_to_provisional_blocked_by_guard(
+        self,
+        pattern_id: UUID,
+        request_id: UUID,
+        correlation_id: UUID,
+        idempotency_store: MockIdempotencyStore,
+        transition_at: datetime,
+    ) -> None:
+        """VALIDATED->PROVISIONAL blocked by PROVISIONAL guard (non-CANDIDATE)."""
+        repo = MockPatternRepository(
+            pattern_id=pattern_id,
+            status="validated",
+            evidence_tier="measured",
+        )
+
+        result = await apply_transition(
+            repository=repo,
+            idempotency_store=idempotency_store,
+            producer=None,
+            request_id=request_id,
+            correlation_id=correlation_id,
+            pattern_id=pattern_id,
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            trigger="manual_revert",
+            transition_at=transition_at,
+        )
+
+        assert result.success is False
+        assert "PROVISIONAL guard" in (result.reason or "")
 
     @pytest.mark.asyncio
     async def test_null_evidence_tier_treated_as_unmeasured(

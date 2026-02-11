@@ -33,10 +33,11 @@ are updated and we return a StatusMismatchError.
 
 PROVISIONAL Guard:
 ------------------
-Legacy protection: transitions TO "provisional" are rejected.
-PROVISIONAL was the original bootstrap state before the CANDIDATE ->
-PROVISIONAL -> VALIDATED -> DEPRECATED lifecycle was introduced.
-New patterns should start as CANDIDATE, not PROVISIONAL.
+Legacy protection: most transitions TO "provisional" are rejected.
+The exception is CANDIDATE -> PROVISIONAL, which is the valid lifecycle
+promotion path (introduced by OMN-2133). All other transitions to
+PROVISIONAL are blocked to prevent patterns from being created directly
+as PROVISIONAL (the old bootstrap state).
 
 Kafka Publisher Optionality:
 ----------------------------
@@ -371,9 +372,13 @@ async def apply_transition(
         )
 
     # Step 1: PROVISIONAL guard - reject transitions TO provisional
-    if to_status == PROVISIONAL_STATUS:
+    # EXCEPT for CANDIDATE -> PROVISIONAL (valid lifecycle promotion, OMN-2133)
+    if (
+        to_status == PROVISIONAL_STATUS
+        and from_status != EnumPatternLifecycleStatus.CANDIDATE
+    ):
         logger.warning(
-            "PROVISIONAL guard: Rejecting transition to provisional status",
+            "PROVISIONAL guard: Rejecting non-CANDIDATE transition to provisional",
             extra={
                 "correlation_id": str(correlation_id),
                 "request_id": str(request_id),
@@ -389,10 +394,10 @@ async def apply_transition(
             from_status=from_status,
             to_status=to_status,
             transition_id=None,
-            reason="PROVISIONAL guard: Transitions to 'provisional' are not allowed",
+            reason="PROVISIONAL guard: Only CANDIDATE -> PROVISIONAL is allowed",
             transitioned_at=None,
-            error_message="Transitions to 'provisional' status are not allowed. "
-            "Use 'candidate' for new patterns.",
+            error_message="Transitions to 'provisional' status are only allowed from "
+            "'candidate'. Use CANDIDATE -> PROVISIONAL for lifecycle promotion.",
         )
 
     # Step 1c: Evidence tier guard (OMN-2133)
