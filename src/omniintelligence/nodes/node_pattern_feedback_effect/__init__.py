@@ -17,7 +17,6 @@ Related Tickets:
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     ROLLING_WINDOW_SIZE,
-    ProtocolPatternRepository,
     record_session_outcome,
     update_pattern_rolling_metrics,
 )
@@ -39,7 +38,6 @@ __all__ = [
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
     "NodePatternFeedbackEffect",
-    "ProtocolPatternRepository",
     "SessionOutcomeInput",
     "record_session_outcome",
     "update_pattern_rolling_metrics",

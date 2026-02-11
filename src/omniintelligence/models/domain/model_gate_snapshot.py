@@ -5,9 +5,23 @@ was evaluated, providing an audit trail for why a pattern was promoted.
 
 This module is placed in the shared domain models to avoid circular imports
 between the events module and the pattern promotion effect node.
+
+Evidence Tier Fields (OMN-2133):
+    evidence_tier, measured_attribution_count, and latest_run_result are
+    INFORMATIONAL fields captured at decision time for audit purposes.
+    The authoritative evidence_tier lives on learned_patterns.evidence_tier
+    (denormalized column, attribution binder is sole writer).
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+# Valid evidence tier values matching EnumEvidenceTier
+EvidenceTierLiteral = Literal["unmeasured", "observed", "measured", "verified"]
+
+# Valid pipeline run result values
+RunResultLiteral = Literal["success", "partial", "failure"]
 
 
 class ModelGateSnapshot(BaseModel):
@@ -39,6 +53,21 @@ class ModelGateSnapshot(BaseModel):
     disabled: bool = Field(
         default=False,
         description="Whether the pattern is currently disabled",
+    )
+    evidence_tier: EvidenceTierLiteral | None = Field(
+        default=None,
+        description="Evidence tier at decision time (informational). "
+        "Authority is learned_patterns.evidence_tier column.",
+    )
+    measured_attribution_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of measured attribution records for this pattern at decision time",
+    )
+    latest_run_result: RunResultLiteral | None = Field(
+        default=None,
+        description="Overall result of the latest pipeline run (success|partial|failure). "
+        "NULL if no run data available.",
     )
 
 

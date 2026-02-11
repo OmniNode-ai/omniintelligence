@@ -9,18 +9,32 @@ This is the ONLY code path that may update learned_patterns.status.
 
 Atomicity Guarantee:
 --------------------
-Every transition is applied within a single database transaction:
+When ``conn`` is provided, UPDATE and INSERT execute in the caller's transaction.
+When ``conn`` is None, operations execute independently on the repository connection.
+Callers requiring atomicity MUST provide a transactional connection.
+
     1. UPDATE learned_patterns SET status = $to_status (with status guard)
     2. INSERT INTO pattern_lifecycle_transitions (audit record)
 
-If either operation fails, both are rolled back.
+If a transactional ``conn`` is provided and either operation fails, both are
+rolled back by the caller's transaction. If ``conn`` is None, the two operations
+are independent and a failure after the UPDATE but before the INSERT could leave
+the status updated without an audit record.
 
 Idempotency:
 ------------
-Uses request_id as idempotency key:
+Uses request_id as idempotency key (when idempotency_store is provided):
     1. Before applying: check if request_id was already processed
     2. If duplicate: return success=true, duplicate=true immediately
     3. After success: record request_id to prevent replay
+
+The idempotency store is OPTIONAL. When None, idempotency checks are skipped
+and all requests are treated as new. This aligns with the optional Kafka pattern.
+
+Note: The idempotency record() call is best-effort and not part of the DB
+transaction. A crash between DB commit and record() allows replay, which is
+safe because the transition is idempotent by (pattern_id, from_status, to_status)
+check via the status guard WHERE clause.
 
 Status Guard:
 -------------
@@ -33,10 +47,11 @@ are updated and we return a StatusMismatchError.
 
 PROVISIONAL Guard:
 ------------------
-Legacy protection: transitions TO "provisional" are rejected.
-PROVISIONAL was the original bootstrap state before the CANDIDATE ->
-PROVISIONAL -> VALIDATED -> DEPRECATED lifecycle was introduced.
-New patterns should start as CANDIDATE, not PROVISIONAL.
+Legacy protection: most transitions TO "provisional" are rejected.
+The exception is CANDIDATE -> PROVISIONAL, which is the valid lifecycle
+promotion path (introduced by OMN-2133). All other transitions to
+PROVISIONAL are blocked to prevent patterns from being created directly
+as PROVISIONAL (the old bootstrap state).
 
 Kafka Publisher Optionality:
 ----------------------------
@@ -45,12 +60,13 @@ When the Kafka publisher is unavailable (None), transitions still occur in the d
 but ``PatternLifecycleTransitioned`` events are NOT emitted to Kafka.
 
 Design Principles:
-    - Atomic transactions for data integrity
-    - Request-ID-based idempotency for exactly-once semantics
+    - Transaction-scoped atomicity when caller provides ``conn``
+    - Request-ID-based idempotency for exactly-once semantics (when store provided)
     - Status guard for optimistic locking
     - PROVISIONAL guard for legacy protection
     - Protocol-based dependency injection for testability
     - Kafka event emission for downstream notification (when available)
+    - Idempotency store is optional (same pattern as Kafka producer)
     - asyncpg-style positional parameters ($1, $2, etc.)
 
 Reference:
@@ -61,10 +77,11 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
+
+from omnibase_core.enums.pattern_learning import EnumEvidenceTier
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
@@ -72,6 +89,7 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,
     ModelTransitionResult,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -88,61 +106,6 @@ PROVISIONAL_STATUS: EnumPatternLifecycleStatus = EnumPatternLifecycleStatus.PROV
 # =============================================================================
 # Protocol Definitions
 # =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    This protocol defines the interface required for database operations
-    in the transition handler. It supports both asyncpg connections and
-    mock implementations for testing.
-
-    The methods mirror asyncpg.Connection semantics:
-        - fetch: Execute query and return list of Records
-        - fetchrow: Execute query and return single Record or None
-        - execute: Execute query and return status string (e.g., "UPDATE 1")
-
-    Note:
-        Parameters use asyncpg-style positional placeholders ($1, $2, etc.)
-        rather than named parameters.
-    """
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
-        """Execute a query and return all results as Records.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            List of record objects with dict-like access to columns.
-        """
-        ...
-
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
-        """Execute a query and return first row, or None.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Single record or None if no rows.
-        """
-        ...
-
-    async def execute(self, query: str, *args: Any) -> str:
-        """Execute a query and return the status string.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Status string from PostgreSQL (e.g., "UPDATE 1", "INSERT 0 1").
-        """
-        ...
 
 
 @runtime_checkable
@@ -219,31 +182,6 @@ class ProtocolIdempotencyStore(Protocol):
         ...
 
 
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Protocol for Kafka event publishers.
-
-    Defines a simplified interface for publishing events to Kafka topics.
-    This protocol uses a dict-based value for flexibility, with serialization
-    handled by the implementation.
-    """
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, Any],
-    ) -> None:
-        """Publish an event to a Kafka topic.
-
-        Args:
-            topic: Target Kafka topic name.
-            key: Message key for partitioning.
-            value: Event payload as a dictionary (serialized by implementation).
-        """
-        ...
-
-
 # =============================================================================
 # SQL Queries
 # =============================================================================
@@ -274,9 +212,9 @@ INSERT INTO pattern_lifecycle_transitions (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 """
 
-# Check if pattern exists and get current status
+# Check if pattern exists, get current status and evidence tier
 SQL_GET_PATTERN_STATUS = """
-SELECT id, status
+SELECT id, status, evidence_tier
 FROM learned_patterns
 WHERE id = $1
 """
@@ -289,7 +227,7 @@ WHERE id = $1
 
 async def apply_transition(
     repository: ProtocolPatternRepository,
-    idempotency_store: ProtocolIdempotencyStore,
+    idempotency_store: ProtocolIdempotencyStore | None,
     producer: ProtocolKafkaPublisher | None,
     *,
     request_id: UUID,
@@ -305,32 +243,33 @@ async def apply_transition(
     publish_topic: str | None = None,
     conn: ProtocolPatternRepository | None = None,
 ) -> ModelTransitionResult:
-    """Apply a pattern status transition with atomicity and idempotency.
+    """Apply a pattern status transition with audit trail and idempotency.
 
     This is the main entry point for the transition handler. It:
     1. Validates PROVISIONAL guard (rejects to_status == "provisional")
-    2. Checks idempotency store for duplicate request_id (without recording)
-    3. Atomically: UPDATE pattern status + INSERT audit record (within transaction)
-    4. Records idempotency key AFTER successful database operations
+    2. Checks idempotency store for duplicate request_id (when store provided)
+    3. UPDATE pattern status + INSERT audit record (via ``conn`` or ``repository``)
+    4. Records idempotency key AFTER successful database operations (best-effort)
     5. Emits Kafka event (if producer available) - failures don't fail the operation
+
+    Atomicity Guarantee:
+        When ``conn`` is provided, UPDATE and INSERT execute in the caller's
+        transaction. When ``conn`` is None, operations execute independently on
+        the repository connection. Callers requiring atomicity MUST provide a
+        transactional connection.
 
     Idempotency Timing:
         The idempotency key is recorded AFTER successful database operations,
         not before. This ensures that failed operations can be retried with
-        the same request_id.
-
-    Transaction Control:
-        If ``conn`` is provided, it is used for all database operations,
-        allowing the caller to manage the transaction externally. Both the
-        UPDATE and INSERT operations will use the same connection, ensuring
-        atomicity within the caller's transaction boundary.
-
-        If ``conn`` is None, operations use the ``repository`` directly.
-        In this case, atomicity depends on the repository's implementation.
+        the same request_id. The record() call is best-effort and not part of
+        the DB transaction; see inline comments for safety rationale.
 
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
-        idempotency_store: Idempotency store for request_id deduplication.
+        idempotency_store: Optional idempotency store for request_id deduplication.
+            When None, idempotency checks are skipped and all requests are
+            treated as new. This follows the same optional-dependency pattern
+            as the Kafka producer.
         producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
             If None, Kafka events are not emitted but database transitions
             still occur.
@@ -348,9 +287,12 @@ async def apply_transition(
             Source of truth is the contract's event_bus.publish_topics.
             Required when producer is provided; can be None if producer
             is None (no Kafka emission).
-        conn: Optional external connection for caller-managed transactions.
-            If provided, all database operations use this connection.
-            If None, operations use the repository directly.
+        conn: Optional transactional connection. When provided, all DB
+            operations use this connection for transaction control (both
+            the UPDATE and INSERT execute within the caller's transaction
+            boundary, ensuring atomicity). When None, operations execute
+            on the repository directly, and each statement auto-commits
+            independently.
 
     Returns:
         ModelTransitionResult with transition outcome. On validation failure
@@ -424,9 +366,13 @@ async def apply_transition(
         )
 
     # Step 1: PROVISIONAL guard - reject transitions TO provisional
-    if to_status == PROVISIONAL_STATUS:
+    # EXCEPT for CANDIDATE -> PROVISIONAL (valid lifecycle promotion, OMN-2133)
+    if (
+        to_status == PROVISIONAL_STATUS
+        and from_status != EnumPatternLifecycleStatus.CANDIDATE
+    ):
         logger.warning(
-            "PROVISIONAL guard: Rejecting transition to provisional status",
+            "PROVISIONAL guard: Rejecting non-CANDIDATE transition to provisional",
             extra={
                 "correlation_id": str(correlation_id),
                 "request_id": str(request_id),
@@ -442,35 +388,45 @@ async def apply_transition(
             from_status=from_status,
             to_status=to_status,
             transition_id=None,
-            reason="PROVISIONAL guard: Transitions to 'provisional' are not allowed",
+            reason="PROVISIONAL guard: Only CANDIDATE -> PROVISIONAL is allowed",
             transitioned_at=None,
-            error_message="Transitions to 'provisional' status are not allowed. "
-            "Use 'candidate' for new patterns.",
+            error_message="Transitions to 'provisional' status are only allowed from "
+            "'candidate'. Use CANDIDATE -> PROVISIONAL for lifecycle promotion.",
         )
+
+    # Step 1c: Evidence tier guard (OMN-2133)
+    # Reads evidence_tier at the point of entry. The actual enforcement is deferred
+    # until after pattern lookup (Step 3), but we define the gate rules here for clarity.
+    # - to_status == PROVISIONAL requires evidence_tier >= OBSERVED
+    # - to_status == VALIDATED requires evidence_tier >= MEASURED
+    # Note: This check is performed after pattern lookup (Step 3) because we need
+    # the current evidence_tier from the database. See "Evidence tier enforcement" below.
 
     # Step 2: Check idempotency - is this a duplicate request?
     # Use exists() to check WITHOUT recording. The key will be recorded
     # AFTER successful database operations to ensure failed ops are retriable.
-    is_duplicate = await idempotency_store.exists(request_id)
-    if is_duplicate:
-        logger.info(
-            "Duplicate request_id detected - returning cached success",
-            extra={
-                "correlation_id": str(correlation_id),
-                "request_id": str(request_id),
-                "pattern_id": str(pattern_id),
-            },
-        )
-        return ModelTransitionResult(
-            success=True,
-            duplicate=True,
-            pattern_id=pattern_id,
-            from_status=from_status,
-            to_status=to_status,
-            transition_id=None,
-            reason="Duplicate request - transition already applied",
-            transitioned_at=None,
-        )
+    # When idempotency_store is None, skip check (all requests treated as new).
+    if idempotency_store is not None:
+        is_duplicate = await idempotency_store.exists(request_id)
+        if is_duplicate:
+            logger.info(
+                "Duplicate request_id detected - returning cached success",
+                extra={
+                    "correlation_id": str(correlation_id),
+                    "request_id": str(request_id),
+                    "pattern_id": str(pattern_id),
+                },
+            )
+            return ModelTransitionResult(
+                success=True,
+                duplicate=True,
+                pattern_id=pattern_id,
+                from_status=from_status,
+                to_status=to_status,
+                transition_id=None,
+                reason="Duplicate request - transition already applied",
+                transitioned_at=None,
+            )
 
     # Step 3: Verify pattern exists and check current status
     # Use conn if provided for external transaction control, otherwise use repository
@@ -497,8 +453,89 @@ async def apply_transition(
             error_message=f"Pattern with ID {pattern_id} does not exist",
         )
 
-    # Step 4: Atomic transaction - UPDATE status + INSERT audit
-    # Both operations use the same db connection for atomicity
+    # Step 3b: Evidence tier enforcement (OMN-2133)
+    # Read evidence_tier from the pattern row (added in migration 011).
+    # If null or unparseable, treat as UNMEASURED (defensive).
+    raw_evidence_tier = pattern_row.get("evidence_tier")
+    try:
+        current_evidence_tier = (
+            EnumEvidenceTier(raw_evidence_tier)
+            if raw_evidence_tier
+            else EnumEvidenceTier.UNMEASURED
+        )
+    except ValueError:
+        logger.warning(
+            "Unparseable evidence_tier, treating as UNMEASURED",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+                "raw_evidence_tier": raw_evidence_tier,
+            },
+        )
+        current_evidence_tier = EnumEvidenceTier.UNMEASURED
+
+    # Guard: CANDIDATE -> PROVISIONAL requires evidence_tier >= OBSERVED
+    if (
+        to_status == EnumPatternLifecycleStatus.PROVISIONAL
+        and current_evidence_tier < EnumEvidenceTier.OBSERVED
+    ):
+        logger.warning(
+            "Evidence tier guard: insufficient tier for PROVISIONAL",
+            extra={
+                "correlation_id": str(correlation_id),
+                "request_id": str(request_id),
+                "pattern_id": str(pattern_id),
+                "evidence_tier": current_evidence_tier.value,
+                "required_tier": EnumEvidenceTier.OBSERVED.value,
+            },
+        )
+        return ModelTransitionResult(
+            success=False,
+            duplicate=False,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            transition_id=None,
+            reason="Evidence tier guard: insufficient evidence for PROVISIONAL",
+            transitioned_at=None,
+            error_message=f"Transition to PROVISIONAL requires evidence_tier >= OBSERVED, "
+            f"but pattern has evidence_tier='{current_evidence_tier.value}'.",
+        )
+
+    # Guard: PROVISIONAL -> VALIDATED requires evidence_tier >= MEASURED
+    if (
+        to_status == EnumPatternLifecycleStatus.VALIDATED
+        and current_evidence_tier < EnumEvidenceTier.MEASURED
+    ):
+        logger.warning(
+            "Evidence tier guard: insufficient tier for VALIDATED",
+            extra={
+                "correlation_id": str(correlation_id),
+                "request_id": str(request_id),
+                "pattern_id": str(pattern_id),
+                "evidence_tier": current_evidence_tier.value,
+                "required_tier": EnumEvidenceTier.MEASURED.value,
+            },
+        )
+        return ModelTransitionResult(
+            success=False,
+            duplicate=False,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            transition_id=None,
+            reason="Evidence tier guard: insufficient evidence for VALIDATED",
+            transitioned_at=None,
+            error_message=f"Transition to VALIDATED requires evidence_tier >= MEASURED, "
+            f"but pattern has evidence_tier='{current_evidence_tier.value}'.",
+        )
+
+    # Step 4: UPDATE status + INSERT audit record
+    # Both operations use the same db handle (conn or repository).
+    # Atomicity guarantee: When conn is provided, both execute in the caller's
+    # transaction. When conn is None, operations execute independently on the
+    # repository connection - callers requiring atomicity MUST provide a
+    # transactional conn.
     transition_id = uuid4()
 
     try:
@@ -541,13 +578,26 @@ async def apply_transition(
         # Insert audit record
         # Convert gate_snapshot to JSON string if present
         # Handle both ModelGateSnapshot (Pydantic) and dict for backwards compatibility
+        # Enrich with evidence_tier from the pattern row (OMN-2133)
         if gate_snapshot is None:
-            gate_snapshot_json = None
+            # Create minimal snapshot with evidence_tier for audit trail
+            gate_snapshot_json = json.dumps(
+                {
+                    "evidence_tier": current_evidence_tier.value,
+                }
+            )
         elif isinstance(gate_snapshot, dict):
-            gate_snapshot_json = json.dumps(gate_snapshot)
+            # Enrich dict with evidence_tier if not already present
+            enriched = {**gate_snapshot}
+            if "evidence_tier" not in enriched:
+                enriched["evidence_tier"] = current_evidence_tier.value
+            gate_snapshot_json = json.dumps(enriched)
         else:
-            # ModelGateSnapshot - use Pydantic's JSON serialization
-            gate_snapshot_json = json.dumps(gate_snapshot.model_dump(mode="json"))
+            # ModelGateSnapshot - serialize and enrich with evidence_tier
+            snapshot_dict = gate_snapshot.model_dump(mode="json")
+            if snapshot_dict.get("evidence_tier") is None:
+                snapshot_dict["evidence_tier"] = current_evidence_tier.value
+            gate_snapshot_json = json.dumps(snapshot_dict)
 
         await db.execute(
             SQL_INSERT_LIFECYCLE_TRANSITION,
@@ -565,8 +615,12 @@ async def apply_transition(
         )
 
         # Step 4b: Record idempotency key AFTER successful database operations
-        # This ensures failed operations can be retried with the same request_id
-        await idempotency_store.record(request_id)
+        # This ensures failed operations can be retried with the same request_id.
+        # NOTE: Idempotency record is best-effort and not part of the DB transaction.
+        # A crash between DB commit and record() allows replay, which is safe because
+        # the transition is idempotent by (pattern_id, from_status, to_status) check.
+        if idempotency_store is not None:
+            await idempotency_store.record(request_id)
 
         logger.info(
             "Pattern lifecycle transition applied successfully",
@@ -610,7 +664,8 @@ async def apply_transition(
     # Note: publish_topic is validated at function entry (Step 0b) for fail-fast.
     if producer is not None:
         # Type narrowing: Step 0b validates publish_topic when producer is available
-        assert publish_topic is not None  # Validated at function entry
+        if publish_topic is None:  # pragma: no cover - guarded by Step 0b
+            raise ValueError("publish_topic is required when producer is available")
         try:
             await _emit_transition_event(
                 producer=producer,
@@ -870,7 +925,5 @@ def _parse_update_count(status: str | None) -> int:
 
 __all__ = [
     "ProtocolIdempotencyStore",
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     "apply_transition",
 ]

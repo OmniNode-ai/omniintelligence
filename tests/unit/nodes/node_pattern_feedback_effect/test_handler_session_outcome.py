@@ -36,7 +36,6 @@ from omnibase_core.nodes.node_effect import NodeEffect
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-    ProtocolPatternRepository,
     compute_and_store_heuristics,
     record_session_outcome,
     update_effectiveness_scores,
@@ -51,6 +50,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -296,6 +296,15 @@ class MockPatternRepository:
             return f"UPDATE {count}"
 
         return "UPDATE 0"
+
+    async def fetchrow(self, query: str, *args: Any) -> MockRecord | None:
+        """Execute a query and return first row, or None.
+
+        Added for ProtocolPatternRepository compliance (OMN-2133).
+        Delegates to fetch() and returns the first result.
+        """
+        results = await self.fetch(query, *args)
+        return results[0] if results else None
 
 
 # =============================================================================
@@ -1566,6 +1575,14 @@ class MockErrorRepository:
         if self._fetch_error is not None:
             raise self._fetch_error
         return self._fetch_results
+
+    async def fetchrow(self, _query: str, *_args: Any) -> Any:
+        """Execute fetchrow, raising RuntimeError to simulate DB failure.
+
+        MockErrorRepository is designed to simulate DB errors; fetchrow follows
+        the same pattern as fetch/execute by always raising.
+        """
+        raise RuntimeError("MockErrorRepository: simulated DB error")
 
     async def execute(self, _query: str, *_args: Any) -> str:
         """Execute query, raising configured error if present."""
