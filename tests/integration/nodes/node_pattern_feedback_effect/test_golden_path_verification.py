@@ -28,12 +28,18 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from typing import Any
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from omnibase_core.integrations.claude_code import (
+    ClaudeCodeSessionOutcome,
+    ClaudeSessionOutcome,
+)
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
     ROLLING_WINDOW_SIZE,
+    event_to_handler_args,
     record_session_outcome,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
@@ -68,6 +74,12 @@ async def txn_conn(db_conn: Any) -> AsyncGenerator[Any, None]:
         Typed as ``Any`` because ``db_conn`` comes from the integration
         conftest where the concrete asyncpg type is unavailable at import
         time (the fixture may be skipped when PostgreSQL is unreachable).
+
+        Exception safety: if ``transaction()`` or ``start()`` raises, the
+        ``try``/``finally`` block is never entered, so ``rollback()`` is
+        not called on an un-started transaction.  This is safe by Python
+        generator semantics -- only exceptions after ``yield`` trigger
+        the ``finally`` clause.
     """
     txn = db_conn.transaction()
     await txn.start()
@@ -168,6 +180,7 @@ class TestSinglePatternSuccessBelowCap:
     @pytest.mark.integration
     async def test_score_delta_is_positive(self, txn_conn: Any) -> None:
         """Score delta after SUCCESS is positive (score improved)."""
+        starting_quality = 0.5
         scenario = await create_feedback_scenario(
             txn_conn,
             pattern_count=1,
@@ -177,8 +190,15 @@ class TestSinglePatternSuccessBelowCap:
             starting_failure_count=2,
             domain_id=TEST_DOMAIN_ID,
         )
+        # Explicitly set starting quality_score to decouple from helper default
+        await txn_conn.execute(
+            "UPDATE learned_patterns SET quality_score = $1 WHERE id = $2",
+            starting_quality,
+            scenario.pattern_ids[0],
+        )
 
         score_before = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
+        assert abs(score_before - starting_quality) < 1e-6
 
         await record_session_outcome(
             session_id=scenario.session_id,
@@ -189,9 +209,8 @@ class TestSinglePatternSuccessBelowCap:
         score_after = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
         delta = score_after - score_before
 
-        # Starting quality_score=0.5 (default), new=9/11≈0.818
-        # Delta should be ≈ +0.318
-        expected_delta = (9.0 / 11.0) - 0.5
+        # Starting quality_score=0.5, new=9/11≈0.818 → delta ≈ +0.318
+        expected_delta = (9.0 / 11.0) - starting_quality
         assert abs(delta - expected_delta) < 1e-6, (
             f"Expected delta {expected_delta}, got {delta}"
         )
@@ -243,6 +262,7 @@ class TestSinglePatternFailureBelowCap:
         self, txn_conn: Any
     ) -> None:
         """Score delta after FAILURE matches the expected value from known metrics."""
+        starting_quality = 0.5
         scenario = await create_feedback_scenario(
             txn_conn,
             pattern_count=1,
@@ -252,8 +272,15 @@ class TestSinglePatternFailureBelowCap:
             starting_failure_count=2,
             domain_id=TEST_DOMAIN_ID,
         )
+        # Explicitly set starting quality_score to decouple from helper default
+        await txn_conn.execute(
+            "UPDATE learned_patterns SET quality_score = $1 WHERE id = $2",
+            starting_quality,
+            scenario.pattern_ids[0],
+        )
 
         score_before = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
+        assert abs(score_before - starting_quality) < 1e-6
 
         await record_session_outcome(
             session_id=scenario.session_id,
@@ -265,9 +292,8 @@ class TestSinglePatternFailureBelowCap:
         score_after = await fetch_pattern_score(txn_conn, scenario.pattern_ids[0])
         delta = score_after - score_before
 
-        # Starting quality_score=0.5 (default), new=8/11≈0.727
-        # Delta should be ≈ +0.227 (still positive since 8/11 > 0.5)
-        expected_delta = (8.0 / 11.0) - 0.5
+        # Starting quality_score=0.5, new=8/11≈0.727 → delta ≈ +0.227
+        expected_delta = (8.0 / 11.0) - starting_quality
         assert abs(delta - expected_delta) < 1e-6, (
             f"Expected delta {expected_delta}, got {delta}"
         )
@@ -456,8 +482,6 @@ class TestMultiPatternSession:
         self, txn_conn: Any
     ) -> None:
         """Patterns with different starting metrics get different scores."""
-        from uuid import uuid4
-
         session_id = uuid4()
 
         # Pattern A: healthy (8 successes, 2 failures out of 10)
@@ -517,17 +541,6 @@ class TestEventToHandlerFlow:
     @pytest.mark.integration
     async def test_event_consumed_and_score_updated(self, txn_conn: Any) -> None:
         """Full flow: event → map → handler → DB update → score verification."""
-        from uuid import uuid4
-
-        from omnibase_core.integrations.claude_code import (
-            ClaudeCodeSessionOutcome,
-            ClaudeSessionOutcome,
-        )
-
-        from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
-            event_to_handler_args,
-        )
-
         # Setup: pattern with known metrics
         session_id = uuid4()
         pattern_id = await create_test_pattern(
@@ -580,17 +593,6 @@ class TestEventToHandlerFlow:
     @pytest.mark.integration
     async def test_failed_event_updates_score_downward(self, txn_conn: Any) -> None:
         """FAILED event maps correctly and decreases effectiveness score."""
-        from uuid import uuid4
-
-        from omnibase_core.integrations.claude_code import (
-            ClaudeCodeSessionOutcome,
-            ClaudeSessionOutcome,
-        )
-
-        from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
-            event_to_handler_args,
-        )
-
         session_id = uuid4()
         pattern_id = await create_test_pattern(
             txn_conn,
@@ -728,8 +730,6 @@ class TestNoInjections:
     @pytest.mark.integration
     async def test_no_injections_returns_correct_status(self, txn_conn: Any) -> None:
         """Handler returns NO_INJECTIONS_FOUND when session has no injections."""
-        from uuid import uuid4
-
         result = await record_session_outcome(
             session_id=uuid4(),
             success=True,
