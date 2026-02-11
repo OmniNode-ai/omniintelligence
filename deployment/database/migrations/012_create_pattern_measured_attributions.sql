@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS pattern_measured_attributions (
     run_id UUID,
 
     -- Evidence tier computed for this attribution event
-    -- unmeasured excluded: attribution records are only created for attribution events (observed, measured, or verified)
+    -- unmeasured excluded: records are created for observed or higher tiers
     evidence_tier TEXT NOT NULL
         CONSTRAINT check_attribution_evidence_tier_valid CHECK (
             evidence_tier IN ('observed', 'measured', 'verified')
@@ -47,10 +47,10 @@ CREATE TABLE IF NOT EXISTS pattern_measured_attributions (
 
     -- Enforce: evidence_tier must be consistent with run_id presence.
     -- run_id IS NULL implies observed-only attribution.
-    -- run_id IS NOT NULL allows observed (failed/partial run), measured, or verified.
+    -- run_id IS NOT NULL requires measured or verified (a run must produce measurement data).
     CONSTRAINT check_attribution_evidence_run_consistency CHECK (
         (run_id IS NULL AND evidence_tier = 'observed')
-        OR (run_id IS NOT NULL AND evidence_tier IN ('observed', 'measured', 'verified'))
+        OR (run_id IS NOT NULL AND evidence_tier IN ('measured', 'verified'))
     ),
 
     -- Correlation tracing
@@ -106,7 +106,7 @@ COMMENT ON COLUMN pattern_measured_attributions.id IS 'Unique attribution record
 COMMENT ON COLUMN pattern_measured_attributions.pattern_id IS 'Reference to the attributed pattern. Uses ON DELETE RESTRICT to preserve audit trail.';
 COMMENT ON COLUMN pattern_measured_attributions.session_id IS 'Claude Code session that triggered this attribution';
 COMMENT ON COLUMN pattern_measured_attributions.run_id IS 'Pipeline run ID for measured attribution. NULL means OBSERVED-only (no pipeline run data).';
-COMMENT ON COLUMN pattern_measured_attributions.evidence_tier IS 'Evidence tier computed for this attribution event (observed|measured|verified). Unmeasured excluded: records only created for attribution events (observed, measured, or verified).';
+COMMENT ON COLUMN pattern_measured_attributions.evidence_tier IS 'Evidence tier computed for this attribution event (observed|measured|verified). Unmeasured excluded: records are created for observed or higher tiers.';
 COMMENT ON COLUMN pattern_measured_attributions.measured_attribution_json IS 'Full ContractMeasuredAttribution as JSON. NULL when run_id is NULL (OBSERVED-only path).';
 COMMENT ON COLUMN pattern_measured_attributions.correlation_id IS 'Distributed tracing ID for linking across services';
 COMMENT ON COLUMN pattern_measured_attributions.created_at IS 'When this attribution was recorded';
