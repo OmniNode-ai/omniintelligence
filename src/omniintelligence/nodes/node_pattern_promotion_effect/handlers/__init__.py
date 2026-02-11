@@ -42,6 +42,13 @@ Reference:
     - OMN-1679: Contribution heuristics (dependency)
 """
 
+from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
+    AutoPromoteCheckResult,
+    AutoPromoteResult,
+    check_and_auto_promote,
+    meets_candidate_to_provisional_criteria,
+    meets_provisional_to_validated_criteria,
+)
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
@@ -56,6 +63,8 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
 )
 
 __all__: list[str] = [
+    "AutoPromoteCheckResult",
+    "AutoPromoteResult",
     "MAX_FAILURE_STREAK",
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",
@@ -63,7 +72,10 @@ __all__: list[str] = [
     "ProtocolPatternRepository",
     "build_gate_snapshot",
     "calculate_success_rate",
+    "check_and_auto_promote",
     "check_and_promote_patterns",
+    "meets_candidate_to_provisional_criteria",
     "meets_promotion_criteria",
+    "meets_provisional_to_validated_criteria",
     "promote_pattern",
 ]

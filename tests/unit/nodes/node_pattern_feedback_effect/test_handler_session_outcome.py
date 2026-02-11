@@ -297,6 +297,15 @@ class MockPatternRepository:
 
         return "UPDATE 0"
 
+    async def fetchrow(self, query: str, *args: Any) -> MockRecord | None:
+        """Execute a query and return first row, or None.
+
+        Added for ProtocolPatternRepository compliance (OMN-2133).
+        Delegates to fetch() and returns the first result.
+        """
+        results = await self.fetch(query, *args)
+        return results[0] if results else None
+
 
 # =============================================================================
 # Fixtures

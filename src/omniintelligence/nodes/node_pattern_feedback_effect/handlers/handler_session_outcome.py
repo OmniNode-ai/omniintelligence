@@ -60,6 +60,9 @@ from omnibase_core.integrations.claude_code import (
 )
 
 from omniintelligence.enums import EnumHeuristicMethod
+from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
+    bind_injection_to_measurement,
+)
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
     apply_heuristic,
 )
@@ -109,6 +112,7 @@ class ProtocolPatternRepository(Protocol):
 
     The methods mirror asyncpg.Connection semantics:
         - fetch: Execute query and return list of Records
+        - fetchrow: Execute query and return single Record or None
         - execute: Execute query and return status string (e.g., "UPDATE 5")
 
     Note:
@@ -125,6 +129,18 @@ class ProtocolPatternRepository(Protocol):
 
         Returns:
             List of record objects with dict-like access to columns.
+        """
+        ...
+
+    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
+        """Execute a query and return first row, or None.
+
+        Args:
+            query: SQL query with $1, $2, etc. positional placeholders.
+            *args: Positional arguments corresponding to placeholders.
+
+        Returns:
+            Single record or None if no rows.
         """
         ...
 
@@ -329,7 +345,8 @@ async def record_session_outcome(
     3. Compute and store contribution heuristics for each injection
     4. Update rolling metrics for all unique patterns involved
     5. Recompute effectiveness scores (quality_score) from updated rolling metrics
-    6. Return result with status, counts, pattern_ids, and effectiveness scores
+    6. Bind attribution to measurement data (L1 Attribution Bridge, OMN-2133)
+    7. Return result with status, counts, pattern_ids, and effectiveness scores
 
     Args:
         session_id: The Claude Code session ID.
@@ -526,6 +543,31 @@ async def record_session_outcome(
             ),
         },
     )
+
+    # Step 7: Bind attribution to measurement data (L1 Attribution Bridge, OMN-2133)
+    # If attribution binding fails, the critical operations (marking injections
+    # recorded + updating rolling metrics + effectiveness scores) already succeeded.
+    # We log the failure but do not fail the overall operation.
+    if pattern_ids:
+        try:
+            await bind_injection_to_measurement(
+                session_id=session_id,
+                pattern_ids=pattern_ids,
+                conn=repository,
+                correlation_id=correlation_id,
+            )
+        except Exception:
+            logger.warning(
+                "Attribution binding failed — critical path unaffected, "
+                "evidence tiers will be updated on next successful binding",
+                exc_info=True,
+                extra={
+                    "event": "attribution_binding_failed",
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "session_id": str(session_id),
+                    "pattern_count": len(pattern_ids),
+                },
+            )
 
     return ModelSessionOutcomeResult(
         status=EnumOutcomeRecordingStatus.SUCCESS,

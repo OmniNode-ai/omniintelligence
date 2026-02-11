@@ -42,6 +42,12 @@ Reference:
     - OMN-1677: Pattern feedback effect node foundation
 """
 
+from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
+    AttributionBindingResult,
+    BindSessionResult,
+    bind_injection_to_measurement,
+    compute_evidence_tier,
+)
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
     ROLLING_WINDOW_SIZE,
     ProtocolPatternRepository,
@@ -60,12 +66,16 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics imp
 )
 
 __all__ = [
+    "AttributionBindingResult",
+    "BindSessionResult",
     "ROLLING_WINDOW_SIZE",
     "ContributionWeights",
     "ProtocolPatternRepository",
     "apply_heuristic",
+    "bind_injection_to_measurement",
     "compute_and_store_heuristics",
     "compute_equal_split",
+    "compute_evidence_tier",
     "compute_first_match",
     "compute_recency_weighted",
     "event_to_handler_args",

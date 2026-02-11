@@ -66,6 +66,8 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
+from omnibase_core.enums.pattern_learning import EnumEvidenceTier
+
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
@@ -274,9 +276,9 @@ INSERT INTO pattern_lifecycle_transitions (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 """
 
-# Check if pattern exists and get current status
+# Check if pattern exists, get current status and evidence tier
 SQL_GET_PATTERN_STATUS = """
-SELECT id, status
+SELECT id, status, evidence_tier
 FROM learned_patterns
 WHERE id = $1
 """
@@ -448,6 +450,14 @@ async def apply_transition(
             "Use 'candidate' for new patterns.",
         )
 
+    # Step 1c: Evidence tier guard (OMN-2133)
+    # Reads evidence_tier at the point of entry. The actual enforcement is deferred
+    # until after pattern lookup (Step 3), but we define the gate rules here for clarity.
+    # - to_status == PROVISIONAL requires evidence_tier >= OBSERVED
+    # - to_status == VALIDATED requires evidence_tier >= MEASURED
+    # Note: This check is performed after pattern lookup (Step 3) because we need
+    # the current evidence_tier from the database. See "Evidence tier enforcement" below.
+
     # Step 2: Check idempotency - is this a duplicate request?
     # Use exists() to check WITHOUT recording. The key will be recorded
     # AFTER successful database operations to ensure failed ops are retriable.
@@ -497,6 +507,83 @@ async def apply_transition(
             error_message=f"Pattern with ID {pattern_id} does not exist",
         )
 
+    # Step 3b: Evidence tier enforcement (OMN-2133)
+    # Read evidence_tier from the pattern row (added in migration 011).
+    # If null or unparseable, treat as UNMEASURED (defensive).
+    raw_evidence_tier = pattern_row.get("evidence_tier")
+    try:
+        current_evidence_tier = (
+            EnumEvidenceTier(raw_evidence_tier)
+            if raw_evidence_tier
+            else EnumEvidenceTier.UNMEASURED
+        )
+    except ValueError:
+        logger.warning(
+            "Unparseable evidence_tier, treating as UNMEASURED",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+                "raw_evidence_tier": raw_evidence_tier,
+            },
+        )
+        current_evidence_tier = EnumEvidenceTier.UNMEASURED
+
+    # Guard: CANDIDATE -> PROVISIONAL requires evidence_tier >= OBSERVED
+    if (
+        to_status == EnumPatternLifecycleStatus.PROVISIONAL
+        and current_evidence_tier < EnumEvidenceTier.OBSERVED
+    ):
+        logger.warning(
+            "Evidence tier guard: insufficient tier for PROVISIONAL",
+            extra={
+                "correlation_id": str(correlation_id),
+                "request_id": str(request_id),
+                "pattern_id": str(pattern_id),
+                "evidence_tier": current_evidence_tier.value,
+                "required_tier": EnumEvidenceTier.OBSERVED.value,
+            },
+        )
+        return ModelTransitionResult(
+            success=False,
+            duplicate=False,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            transition_id=None,
+            reason="Evidence tier guard: insufficient evidence for PROVISIONAL",
+            transitioned_at=None,
+            error_message=f"Transition to PROVISIONAL requires evidence_tier >= OBSERVED, "
+            f"but pattern has evidence_tier='{current_evidence_tier.value}'.",
+        )
+
+    # Guard: PROVISIONAL -> VALIDATED requires evidence_tier >= MEASURED
+    if (
+        to_status == EnumPatternLifecycleStatus.VALIDATED
+        and current_evidence_tier < EnumEvidenceTier.MEASURED
+    ):
+        logger.warning(
+            "Evidence tier guard: insufficient tier for VALIDATED",
+            extra={
+                "correlation_id": str(correlation_id),
+                "request_id": str(request_id),
+                "pattern_id": str(pattern_id),
+                "evidence_tier": current_evidence_tier.value,
+                "required_tier": EnumEvidenceTier.MEASURED.value,
+            },
+        )
+        return ModelTransitionResult(
+            success=False,
+            duplicate=False,
+            pattern_id=pattern_id,
+            from_status=from_status,
+            to_status=to_status,
+            transition_id=None,
+            reason="Evidence tier guard: insufficient evidence for VALIDATED",
+            transitioned_at=None,
+            error_message=f"Transition to VALIDATED requires evidence_tier >= MEASURED, "
+            f"but pattern has evidence_tier='{current_evidence_tier.value}'.",
+        )
+
     # Step 4: Atomic transaction - UPDATE status + INSERT audit
     # Both operations use the same db connection for atomicity
     transition_id = uuid4()
@@ -541,13 +628,26 @@ async def apply_transition(
         # Insert audit record
         # Convert gate_snapshot to JSON string if present
         # Handle both ModelGateSnapshot (Pydantic) and dict for backwards compatibility
+        # Enrich with evidence_tier from the pattern row (OMN-2133)
         if gate_snapshot is None:
-            gate_snapshot_json = None
+            # Create minimal snapshot with evidence_tier for audit trail
+            gate_snapshot_json = json.dumps(
+                {
+                    "evidence_tier": current_evidence_tier.value,
+                }
+            )
         elif isinstance(gate_snapshot, dict):
-            gate_snapshot_json = json.dumps(gate_snapshot)
+            # Enrich dict with evidence_tier if not already present
+            enriched = {**gate_snapshot}
+            if "evidence_tier" not in enriched:
+                enriched["evidence_tier"] = current_evidence_tier.value
+            gate_snapshot_json = json.dumps(enriched)
         else:
-            # ModelGateSnapshot - use Pydantic's JSON serialization
-            gate_snapshot_json = json.dumps(gate_snapshot.model_dump(mode="json"))
+            # ModelGateSnapshot - serialize and enrich with evidence_tier
+            snapshot_dict = gate_snapshot.model_dump(mode="json")
+            if snapshot_dict.get("evidence_tier") is None:
+                snapshot_dict["evidence_tier"] = current_evidence_tier.value
+            gate_snapshot_json = json.dumps(snapshot_dict)
 
         await db.execute(
             SQL_INSERT_LIFECYCLE_TRANSITION,
