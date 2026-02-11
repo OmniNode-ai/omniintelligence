@@ -450,7 +450,7 @@ async def _bind_single_pattern(
             run_id=run_id,
         )
 
-    current_tier = _parse_evidence_tier(row.get("evidence_tier"))
+    current_tier = _parse_evidence_tier(row["evidence_tier"])
 
     # Step 2: Compute new tier
     computed_tier = compute_evidence_tier(
@@ -492,16 +492,21 @@ async def _bind_single_pattern(
             pattern_id,
             computed_tier.value,
         )
-        if update_status is None:
-            logger.warning(
-                "Evidence tier update returned None status - possible connection issue",
+        # execute() returns a command tag string like "UPDATE 1" or "UPDATE 0".
+        # "UPDATE 0" means the WHERE clause matched no rows, which indicates
+        # a concurrent update already advanced the tier past our computed value
+        # (the monotonic SQL guard rejected the write). This is expected under
+        # concurrency and not an error.
+        if update_status == "UPDATE 0":
+            logger.debug(
+                "Evidence tier update matched no rows — tier already at or above computed value",
                 extra={
                     "correlation_id": str(correlation_id) if correlation_id else None,
                     "pattern_id": str(pattern_id),
                     "computed_tier": computed_tier.value,
                 },
             )
-        tier_updated = "UPDATE 1" in (update_status or "")
+        tier_updated = update_status == "UPDATE 1"
 
         if tier_updated:
             logger.info(

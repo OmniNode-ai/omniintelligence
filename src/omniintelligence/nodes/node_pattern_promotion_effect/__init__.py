@@ -93,9 +93,6 @@ from omniintelligence.nodes.node_pattern_promotion_effect.node import (
     NodePatternPromotionEffect,
 )
 
-# Protocols (canonical import from shared module)
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
-
 __all__ = [
     # Constants
     "MAX_FAILURE_STREAK",
@@ -113,9 +110,6 @@ __all__ = [
     "PatternPromotionErrorCode",
     "PatternPromotionIntrospection",
     "PatternPromotionMetadataLoader",
-    # Protocols (re-exported from handlers)
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     # Handlers
     "build_gate_snapshot",
     "calculate_success_rate",

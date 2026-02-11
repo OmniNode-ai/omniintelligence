@@ -30,7 +30,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
@@ -50,17 +50,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Dependency Protocols (structural typing for dispatch handler deps)
 # =============================================================================
-# These mirror the protocols defined in handler files. They are repeated here
-# to avoid circular imports between dispatch_handlers and handler modules.
+# ProtocolPatternRepository and ProtocolKafkaPublisher are imported from the
+# canonical location. ProtocolIdempotencyStore and ProtocolIntentClassifier
+# are defined locally to avoid circular imports with their handler modules
+# (handler_transition.py and handler_claude_event.py respectively).
 
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Database repository protocol (asyncpg-style)."""
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]: ...
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None: ...
-    async def execute(self, query: str, *args: Any) -> str: ...
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 
 @runtime_checkable
@@ -77,13 +72,6 @@ class ProtocolIntentClassifier(Protocol):
     """Intent classification protocol."""
 
     async def compute(self, input_data: Any) -> Any: ...
-
-
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Kafka event publishing protocol."""
-
-    async def publish(self, topic: str, key: str, value: dict[str, Any]) -> None: ...
 
 
 # =============================================================================

@@ -70,4 +70,9 @@ class ProtocolKafkaPublisher(Protocol):
         ...
 
 
+# TODO: dispatch_handlers.py maintains local copies of ProtocolIdempotencyStore
+# and ProtocolIntentClassifier to avoid circular imports with their handler modules
+# (handler_transition.py and handler_claude_event.py). If those protocols are
+# extracted here in the future, dispatch_handlers.py should import from this module.
+
 __all__ = ["ProtocolKafkaPublisher", "ProtocolPatternRepository"]

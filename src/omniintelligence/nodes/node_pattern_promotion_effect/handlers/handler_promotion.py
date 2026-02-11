@@ -656,9 +656,27 @@ async def promote_pattern(
     # Preferred mode: Event-driven promotion via Kafka -> reducer -> effect
     # Validate topic_env_prefix is provided when using Kafka
     if topic_env_prefix is None:
-        raise ValueError(
-            "topic_env_prefix is required when Kafka producer is available. "
-            "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
+        logger.error(
+            "topic_env_prefix is required when Kafka producer is available - "
+            "cannot emit lifecycle event without environment prefix",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "pattern_id": str(pattern_id),
+                "pattern_signature": pattern_signature,
+            },
+        )
+        return ModelPromotionResult(
+            pattern_id=pattern_id,
+            pattern_signature=pattern_signature,
+            from_status="provisional",
+            to_status="validated",
+            promoted_at=None,
+            reason=(
+                "configuration_error: topic_env_prefix is required when Kafka producer "
+                "is available. Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
+            ),
+            gate_snapshot=gate_snapshot,
+            dry_run=False,
         )
 
     # Emit lifecycle event to Kafka for reducer to process

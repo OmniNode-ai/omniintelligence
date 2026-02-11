@@ -60,7 +60,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "EnumOutcomeRecordingStatus",
     ),
     "ProtocolPatternRepository": (
-        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "omniintelligence.protocols",
         "ProtocolPatternRepository",
     ),
     "record_session_outcome": (
@@ -165,9 +165,6 @@ if TYPE_CHECKING:
         NodePatternFeedbackEffect as NodePatternFeedbackEffect,
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
-        ProtocolPatternRepository as ProtocolPatternRepository,
-    )
-    from omniintelligence.nodes.node_pattern_feedback_effect import (
         SessionOutcomeInput as SessionOutcomeInput,
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
@@ -190,6 +187,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_success_criteria_matcher_compute.node import (
         NodeSuccessCriteriaMatcherCompute as NodeSuccessCriteriaMatcherCompute,
+    )
+    from omniintelligence.protocols import (
+        ProtocolPatternRepository as ProtocolPatternRepository,
     )
 
 

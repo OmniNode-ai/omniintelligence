@@ -30,7 +30,11 @@ ADD COLUMN IF NOT EXISTS evidence_tier TEXT NOT NULL DEFAULT 'unmeasured'
 CREATE INDEX IF NOT EXISTS idx_learned_patterns_evidence_tier
     ON learned_patterns(evidence_tier);
 
--- Composite index for auto-promote queries: status + evidence_tier
+-- NOTE: This index complements idx_learned_patterns_promotion_candidates (migration 005)
+-- which covers (status, distinct_days_seen, quality_score) for temporal stability queries.
+-- This composite index is needed for auto-promote queries that filter by both status AND
+-- evidence_tier, avoiding a sequential scan on evidence_tier after the status filter.
+-- The additional is_current = TRUE predicate further narrows this index to active patterns only.
 CREATE INDEX IF NOT EXISTS idx_learned_patterns_status_evidence_tier
     ON learned_patterns(status, evidence_tier)
     WHERE status IN ('candidate', 'provisional') AND is_current = TRUE;

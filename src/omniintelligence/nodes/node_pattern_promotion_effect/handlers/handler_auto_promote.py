@@ -294,6 +294,11 @@ async def _build_enriched_gate_snapshot(
         if count_row:
             attribution_count = count_row["count"]
     except Exception:
+        # Broad catch intentional: asyncpg raises driver-specific exceptions
+        # (InterfaceError, PostgresError, etc.) that are not stable across
+        # versions. We log with exc_info=True so the full traceback is
+        # visible, then fall through with attribution_count=0 so promotion
+        # evaluation can still proceed with conservative defaults.
         logger.warning("Failed to count attributions for gate snapshot", exc_info=True)
 
     # Get latest run result (validate against known values)
@@ -304,6 +309,8 @@ async def _build_enriched_gate_snapshot(
             raw_result = run_row.get("run_result")
             latest_run_result = raw_result if raw_result in _VALID_RUN_RESULTS else None
     except Exception:
+        # Broad catch intentional: same rationale as attribution count above.
+        # DB errors yield latest_run_result=None (conservative default).
         logger.warning(
             "Failed to get latest run result for gate snapshot", exc_info=True
         )
@@ -348,20 +355,26 @@ async def handle_auto_promote_check(
         apply_transition_fn: The ``apply_transition`` function from
             handler_transition.py. Injected to avoid circular imports.
         idempotency_store: Idempotency store for transition deduplication.
-            Required when apply_transition_fn is the real apply_transition().
-            May be None for testing with mock apply_transition_fn that
-            ignores this parameter.
+            May be None -- ``apply_transition()`` accepts an Optional
+            idempotency store and skips deduplication when None.
+            Callers that need idempotency should pass a concrete store.
         producer: Optional Kafka producer for transition events.
-        correlation_id: Optional correlation ID for tracing.
+        correlation_id: Optional correlation ID for tracing. When None a
+            single fallback UUID is generated and reused for every
+            transition in this invocation to ensure consistent tracing.
         publish_topic: Kafka topic for transition events (required if producer).
 
     Returns:
         AutoPromoteCheckResult with per-pattern promotion details.
     """
+    # Generate the fallback correlation_id ONCE so both candidate and
+    # provisional phases share the same trace ID (M4 fix).
+    effective_correlation_id: UUID = correlation_id or uuid4()
+
     logger.info(
         "Starting evidence-gated auto-promote check",
         extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
+            "correlation_id": str(effective_correlation_id),
         },
     )
 
@@ -374,7 +387,7 @@ async def handle_auto_promote_check(
     logger.debug(
         "Fetched candidate patterns for CANDIDATE -> PROVISIONAL",
         extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
+            "correlation_id": str(effective_correlation_id),
             "pattern_count": len(candidate_patterns),
         },
     )
@@ -394,7 +407,7 @@ async def handle_auto_promote_check(
                 idempotency_store,
                 producer,
                 request_id=request_id,
-                correlation_id=correlation_id or uuid4(),
+                correlation_id=effective_correlation_id,
                 pattern_id=pattern_id,
                 from_status=EnumPatternLifecycleStatus.CANDIDATE,
                 to_status=EnumPatternLifecycleStatus.PROVISIONAL,
@@ -427,7 +440,7 @@ async def handle_auto_promote_check(
             logger.error(
                 "Failed to promote candidate pattern",
                 extra={
-                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "correlation_id": str(effective_correlation_id),
                     "pattern_id": str(pattern_id),
                     "error": str(exc),
                 },
@@ -452,7 +465,7 @@ async def handle_auto_promote_check(
     logger.debug(
         "Fetched provisional patterns for PROVISIONAL -> VALIDATED",
         extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
+            "correlation_id": str(effective_correlation_id),
             "pattern_count": len(provisional_patterns),
         },
     )
@@ -472,7 +485,7 @@ async def handle_auto_promote_check(
                 idempotency_store,
                 producer,
                 request_id=request_id,
-                correlation_id=correlation_id or uuid4(),
+                correlation_id=effective_correlation_id,
                 pattern_id=pattern_id,
                 from_status=EnumPatternLifecycleStatus.PROVISIONAL,
                 to_status=EnumPatternLifecycleStatus.VALIDATED,
@@ -505,7 +518,7 @@ async def handle_auto_promote_check(
             logger.error(
                 "Failed to promote provisional pattern",
                 extra={
-                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "correlation_id": str(effective_correlation_id),
                     "pattern_id": str(pattern_id),
                     "error": str(exc),
                 },
@@ -526,7 +539,7 @@ async def handle_auto_promote_check(
     logger.info(
         "Evidence-gated auto-promote check complete",
         extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
+            "correlation_id": str(effective_correlation_id),
             "candidates_checked": len(candidate_patterns),
             "candidates_promoted": candidates_promoted,
             "provisionals_checked": len(provisional_patterns),

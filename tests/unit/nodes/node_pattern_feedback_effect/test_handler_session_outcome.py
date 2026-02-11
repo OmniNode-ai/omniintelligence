@@ -1576,6 +1576,14 @@ class MockErrorRepository:
             raise self._fetch_error
         return self._fetch_results
 
+    async def fetchrow(self, _query: str, *_args: Any) -> Any:
+        """Execute fetchrow, raising RuntimeError to simulate DB failure.
+
+        MockErrorRepository is designed to simulate DB errors; fetchrow follows
+        the same pattern as fetch/execute by always raising.
+        """
+        raise RuntimeError("MockErrorRepository: simulated DB error")
+
     async def execute(self, _query: str, *_args: Any) -> str:
         """Execute query, raising configured error if present."""
         if self._execute_error is not None:

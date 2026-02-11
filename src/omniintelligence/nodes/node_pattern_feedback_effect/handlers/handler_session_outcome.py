@@ -125,17 +125,18 @@ WHERE session_id = $1
 """
 
 # SQL for updating rolling metrics on SUCCESS
-# - Increment injection_count (cap at ROLLING_WINDOW_SIZE)
-# - Increment success_count (cap at ROLLING_WINDOW_SIZE)
+# - Increment injection_count (cap at $2 = ROLLING_WINDOW_SIZE)
+# - Increment success_count (cap at $2)
 # - Decay failure_count if at cap (approximates sliding window)
 # - Reset failure_streak to 0
-SQL_UPDATE_METRICS_SUCCESS = f"""
+# Parameters: $1 = pattern_ids, $2 = ROLLING_WINDOW_SIZE
+SQL_UPDATE_METRICS_SUCCESS = """
 UPDATE learned_patterns
 SET
-    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
-    success_count_rolling_20 = LEAST(success_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
+    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, $2),
+    success_count_rolling_20 = LEAST(success_count_rolling_20 + 1, $2),
     failure_count_rolling_20 = CASE
-        WHEN injection_count_rolling_20 >= {ROLLING_WINDOW_SIZE} AND failure_count_rolling_20 > 0
+        WHEN injection_count_rolling_20 >= $2 AND failure_count_rolling_20 > 0
         THEN failure_count_rolling_20 - 1
         ELSE failure_count_rolling_20
     END,
@@ -145,17 +146,18 @@ WHERE id = ANY($1)
 """
 
 # SQL for updating rolling metrics on FAILURE
-# - Increment injection_count (cap at ROLLING_WINDOW_SIZE)
-# - Increment failure_count (cap at ROLLING_WINDOW_SIZE)
+# - Increment injection_count (cap at $2 = ROLLING_WINDOW_SIZE)
+# - Increment failure_count (cap at $2)
 # - Decay success_count if at cap (approximates sliding window)
 # - Increment failure_streak
-SQL_UPDATE_METRICS_FAILURE = f"""
+# Parameters: $1 = pattern_ids, $2 = ROLLING_WINDOW_SIZE
+SQL_UPDATE_METRICS_FAILURE = """
 UPDATE learned_patterns
 SET
-    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
-    failure_count_rolling_20 = LEAST(failure_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
+    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, $2),
+    failure_count_rolling_20 = LEAST(failure_count_rolling_20 + 1, $2),
     success_count_rolling_20 = CASE
-        WHEN injection_count_rolling_20 >= {ROLLING_WINDOW_SIZE} AND success_count_rolling_20 > 0
+        WHEN injection_count_rolling_20 >= $2 AND success_count_rolling_20 > 0
         THEN success_count_rolling_20 - 1
         ELSE success_count_rolling_20
     END,
@@ -459,6 +461,10 @@ async def record_session_outcome(
                 repository=repository,
             )
         except Exception:
+            # NOTE: Broad catch is intentional -- effectiveness scoring is non-critical
+            # and must not block session outcome recording. Infrastructure exceptions
+            # (asyncpg errors) are expected; programming errors will be visible via
+            # the exc_info=True traceback in logs.
             effectiveness_scores = None
             logger.warning(
                 "Effectiveness scoring failed — critical path unaffected, "
@@ -499,6 +505,10 @@ async def record_session_outcome(
                 correlation_id=correlation_id,
             )
         except Exception:
+            # NOTE: Broad catch is intentional -- attribution binding is non-critical
+            # and must not block session outcome recording. Infrastructure exceptions
+            # (asyncpg errors) are expected; programming errors will be visible via
+            # the exc_info=True traceback in logs.
             attribution_binding_failed = True
             logger.warning(
                 "Attribution binding failed — critical path unaffected, "
@@ -635,8 +645,8 @@ async def update_pattern_rolling_metrics(
     # Select appropriate SQL based on outcome
     sql = SQL_UPDATE_METRICS_SUCCESS if success else SQL_UPDATE_METRICS_FAILURE
 
-    # Execute update
-    status = await repository.execute(sql, pattern_ids)
+    # Execute update (pass ROLLING_WINDOW_SIZE as $2 parameter)
+    status = await repository.execute(sql, pattern_ids, ROLLING_WINDOW_SIZE)
 
     return _parse_update_count(status)
 

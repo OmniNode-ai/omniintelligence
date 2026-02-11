@@ -30,13 +30,20 @@ CREATE TABLE IF NOT EXISTS pattern_measured_attributions (
     run_id UUID,
 
     -- Evidence tier computed for this attribution event
+    -- unmeasured excluded: attribution records are only created for measured events
     evidence_tier TEXT NOT NULL
         CONSTRAINT check_attribution_evidence_tier_valid CHECK (
-            evidence_tier IN ('unmeasured', 'observed', 'measured', 'verified')
+            evidence_tier IN ('observed', 'measured', 'verified')
         ),
 
     -- Full measured attribution contract as JSON (nullable when run_id is NULL)
     measured_attribution_json JSONB,
+
+    -- Enforce: measured_attribution_json must be present when run_id is present
+    CONSTRAINT check_attribution_json_run_consistency CHECK (
+        (run_id IS NULL AND measured_attribution_json IS NULL)
+        OR (run_id IS NOT NULL AND measured_attribution_json IS NOT NULL)
+    ),
 
     -- Correlation tracing
     correlation_id UUID,
@@ -68,6 +75,20 @@ CREATE INDEX IF NOT EXISTS idx_pattern_attributions_correlation
     WHERE correlation_id IS NOT NULL;
 
 -- ============================================================================
+-- Idempotency constraints
+-- ============================================================================
+
+-- Idempotency: prevent duplicate attributions for same pattern+session+run
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_measured_attributions_idempotent
+    ON pattern_measured_attributions (pattern_id, session_id, run_id)
+    WHERE run_id IS NOT NULL;
+
+-- For OBSERVED path (run_id IS NULL), prevent duplicate per pattern+session
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_measured_attributions_idempotent_observed
+    ON pattern_measured_attributions (pattern_id, session_id)
+    WHERE run_id IS NULL;
+
+-- ============================================================================
 -- Comments
 -- ============================================================================
 
@@ -77,7 +98,7 @@ COMMENT ON COLUMN pattern_measured_attributions.id IS 'Unique attribution record
 COMMENT ON COLUMN pattern_measured_attributions.pattern_id IS 'Reference to the attributed pattern. Uses ON DELETE RESTRICT to preserve audit trail.';
 COMMENT ON COLUMN pattern_measured_attributions.session_id IS 'Claude Code session that triggered this attribution';
 COMMENT ON COLUMN pattern_measured_attributions.run_id IS 'Pipeline run ID for measured attribution. NULL means OBSERVED-only (no pipeline run data).';
-COMMENT ON COLUMN pattern_measured_attributions.evidence_tier IS 'Evidence tier computed for this attribution event (unmeasured|observed|measured|verified)';
+COMMENT ON COLUMN pattern_measured_attributions.evidence_tier IS 'Evidence tier computed for this attribution event (observed|measured|verified). Unmeasured excluded: records only created for measured events.';
 COMMENT ON COLUMN pattern_measured_attributions.measured_attribution_json IS 'Full ContractMeasuredAttribution as JSON. NULL when run_id is NULL (OBSERVED-only path).';
 COMMENT ON COLUMN pattern_measured_attributions.correlation_id IS 'Distributed tracing ID for linking across services';
 COMMENT ON COLUMN pattern_measured_attributions.created_at IS 'When this attribution was recorded';

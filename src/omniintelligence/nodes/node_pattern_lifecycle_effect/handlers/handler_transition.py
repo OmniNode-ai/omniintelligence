@@ -9,18 +9,32 @@ This is the ONLY code path that may update learned_patterns.status.
 
 Atomicity Guarantee:
 --------------------
-Every transition is applied within a single database transaction:
+When ``conn`` is provided, UPDATE and INSERT execute in the caller's transaction.
+When ``conn`` is None, operations execute independently on the repository connection.
+Callers requiring atomicity MUST provide a transactional connection.
+
     1. UPDATE learned_patterns SET status = $to_status (with status guard)
     2. INSERT INTO pattern_lifecycle_transitions (audit record)
 
-If either operation fails, both are rolled back.
+If a transactional ``conn`` is provided and either operation fails, both are
+rolled back by the caller's transaction. If ``conn`` is None, the two operations
+are independent and a failure after the UPDATE but before the INSERT could leave
+the status updated without an audit record.
 
 Idempotency:
 ------------
-Uses request_id as idempotency key:
+Uses request_id as idempotency key (when idempotency_store is provided):
     1. Before applying: check if request_id was already processed
     2. If duplicate: return success=true, duplicate=true immediately
     3. After success: record request_id to prevent replay
+
+The idempotency store is OPTIONAL. When None, idempotency checks are skipped
+and all requests are treated as new. This aligns with the optional Kafka pattern.
+
+Note: The idempotency record() call is best-effort and not part of the DB
+transaction. A crash between DB commit and record() allows replay, which is
+safe because the transition is idempotent by (pattern_id, from_status, to_status)
+check via the status guard WHERE clause.
 
 Status Guard:
 -------------
@@ -46,12 +60,13 @@ When the Kafka publisher is unavailable (None), transitions still occur in the d
 but ``PatternLifecycleTransitioned`` events are NOT emitted to Kafka.
 
 Design Principles:
-    - Atomic transactions for data integrity
-    - Request-ID-based idempotency for exactly-once semantics
+    - Transaction-scoped atomicity when caller provides ``conn``
+    - Request-ID-based idempotency for exactly-once semantics (when store provided)
     - Status guard for optimistic locking
     - PROVISIONAL guard for legacy protection
     - Protocol-based dependency injection for testability
     - Kafka event emission for downstream notification (when available)
+    - Idempotency store is optional (same pattern as Kafka producer)
     - asyncpg-style positional parameters ($1, $2, etc.)
 
 Reference:
@@ -212,7 +227,7 @@ WHERE id = $1
 
 async def apply_transition(
     repository: ProtocolPatternRepository,
-    idempotency_store: ProtocolIdempotencyStore,
+    idempotency_store: ProtocolIdempotencyStore | None,
     producer: ProtocolKafkaPublisher | None,
     *,
     request_id: UUID,
@@ -228,32 +243,33 @@ async def apply_transition(
     publish_topic: str | None = None,
     conn: ProtocolPatternRepository | None = None,
 ) -> ModelTransitionResult:
-    """Apply a pattern status transition with atomicity and idempotency.
+    """Apply a pattern status transition with audit trail and idempotency.
 
     This is the main entry point for the transition handler. It:
     1. Validates PROVISIONAL guard (rejects to_status == "provisional")
-    2. Checks idempotency store for duplicate request_id (without recording)
-    3. Atomically: UPDATE pattern status + INSERT audit record (within transaction)
-    4. Records idempotency key AFTER successful database operations
+    2. Checks idempotency store for duplicate request_id (when store provided)
+    3. UPDATE pattern status + INSERT audit record (via ``conn`` or ``repository``)
+    4. Records idempotency key AFTER successful database operations (best-effort)
     5. Emits Kafka event (if producer available) - failures don't fail the operation
+
+    Atomicity Guarantee:
+        When ``conn`` is provided, UPDATE and INSERT execute in the caller's
+        transaction. When ``conn`` is None, operations execute independently on
+        the repository connection. Callers requiring atomicity MUST provide a
+        transactional connection.
 
     Idempotency Timing:
         The idempotency key is recorded AFTER successful database operations,
         not before. This ensures that failed operations can be retried with
-        the same request_id.
-
-    Transaction Control:
-        If ``conn`` is provided, it is used for all database operations,
-        allowing the caller to manage the transaction externally. Both the
-        UPDATE and INSERT operations will use the same connection, ensuring
-        atomicity within the caller's transaction boundary.
-
-        If ``conn`` is None, operations use the ``repository`` directly.
-        In this case, atomicity depends on the repository's implementation.
+        the same request_id. The record() call is best-effort and not part of
+        the DB transaction; see inline comments for safety rationale.
 
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
-        idempotency_store: Idempotency store for request_id deduplication.
+        idempotency_store: Optional idempotency store for request_id deduplication.
+            When None, idempotency checks are skipped and all requests are
+            treated as new. This follows the same optional-dependency pattern
+            as the Kafka producer.
         producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
             If None, Kafka events are not emitted but database transitions
             still occur.
@@ -271,9 +287,12 @@ async def apply_transition(
             Source of truth is the contract's event_bus.publish_topics.
             Required when producer is provided; can be None if producer
             is None (no Kafka emission).
-        conn: Optional external connection for caller-managed transactions.
-            If provided, all database operations use this connection.
-            If None, operations use the repository directly.
+        conn: Optional transactional connection. When provided, all DB
+            operations use this connection for transaction control (both
+            the UPDATE and INSERT execute within the caller's transaction
+            boundary, ensuring atomicity). When None, operations execute
+            on the repository directly, and each statement auto-commits
+            independently.
 
     Returns:
         ModelTransitionResult with transition outcome. On validation failure
@@ -386,26 +405,28 @@ async def apply_transition(
     # Step 2: Check idempotency - is this a duplicate request?
     # Use exists() to check WITHOUT recording. The key will be recorded
     # AFTER successful database operations to ensure failed ops are retriable.
-    is_duplicate = await idempotency_store.exists(request_id)
-    if is_duplicate:
-        logger.info(
-            "Duplicate request_id detected - returning cached success",
-            extra={
-                "correlation_id": str(correlation_id),
-                "request_id": str(request_id),
-                "pattern_id": str(pattern_id),
-            },
-        )
-        return ModelTransitionResult(
-            success=True,
-            duplicate=True,
-            pattern_id=pattern_id,
-            from_status=from_status,
-            to_status=to_status,
-            transition_id=None,
-            reason="Duplicate request - transition already applied",
-            transitioned_at=None,
-        )
+    # When idempotency_store is None, skip check (all requests treated as new).
+    if idempotency_store is not None:
+        is_duplicate = await idempotency_store.exists(request_id)
+        if is_duplicate:
+            logger.info(
+                "Duplicate request_id detected - returning cached success",
+                extra={
+                    "correlation_id": str(correlation_id),
+                    "request_id": str(request_id),
+                    "pattern_id": str(pattern_id),
+                },
+            )
+            return ModelTransitionResult(
+                success=True,
+                duplicate=True,
+                pattern_id=pattern_id,
+                from_status=from_status,
+                to_status=to_status,
+                transition_id=None,
+                reason="Duplicate request - transition already applied",
+                transitioned_at=None,
+            )
 
     # Step 3: Verify pattern exists and check current status
     # Use conn if provided for external transaction control, otherwise use repository
@@ -509,8 +530,12 @@ async def apply_transition(
             f"but pattern has evidence_tier='{current_evidence_tier.value}'.",
         )
 
-    # Step 4: Atomic transaction - UPDATE status + INSERT audit
-    # Both operations use the same db connection for atomicity
+    # Step 4: UPDATE status + INSERT audit record
+    # Both operations use the same db handle (conn or repository).
+    # Atomicity guarantee: When conn is provided, both execute in the caller's
+    # transaction. When conn is None, operations execute independently on the
+    # repository connection - callers requiring atomicity MUST provide a
+    # transactional conn.
     transition_id = uuid4()
 
     try:
@@ -590,8 +615,12 @@ async def apply_transition(
         )
 
         # Step 4b: Record idempotency key AFTER successful database operations
-        # This ensures failed operations can be retried with the same request_id
-        await idempotency_store.record(request_id)
+        # This ensures failed operations can be retried with the same request_id.
+        # NOTE: Idempotency record is best-effort and not part of the DB transaction.
+        # A crash between DB commit and record() allows replay, which is safe because
+        # the transition is idempotent by (pattern_id, from_status, to_status) check.
+        if idempotency_store is not None:
+            await idempotency_store.record(request_id)
 
         logger.info(
             "Pattern lifecycle transition applied successfully",
