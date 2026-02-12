@@ -19,19 +19,20 @@ Reference:
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from omniintelligence.models.events.model_pattern_discovered_event import (
+        ModelPatternDiscoveredEvent,
+    )
 
 import pytest
 
-from omniintelligence.models.events.model_pattern_discovered_event import (
-    ModelPatternDiscoveredEvent,
-)
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered import (
     handle_consume_discovered,
 )
-from omniintelligence.testing import MockPatternStore
+from omniintelligence.testing import MockPatternStore, make_discovered_event
 
 # =============================================================================
 # Constants
@@ -57,29 +58,28 @@ def _make_e2e_signature_hash(base: str | None = None) -> str:
     return f"{E2E_SIG_HASH_PREFIX}{suffix}"
 
 
-def _make_discovered_event(
+def _make_e2e_discovered_event(
     **overrides: Any,
 ) -> ModelPatternDiscoveredEvent:
-    """Create a valid ModelPatternDiscoveredEvent with E2E defaults."""
+    """Create a discovered event with E2E-specific defaults.
+
+    Wraps the shared make_discovered_event factory with E2E-specific
+    values (prefixed signature_hash, E2E domain, dynamic signatures).
+    """
     discovery_id = overrides.pop("discovery_id", uuid4())
     sig_hash = overrides.pop(
         "signature_hash", _make_e2e_signature_hash(str(discovery_id))
     )
-    defaults: dict[str, Any] = {
-        "discovery_id": discovery_id,
-        "pattern_signature": f"def e2e_disc_pattern_{uuid4().hex[:8]}(): pass",
-        "signature_hash": sig_hash,
-        "domain": E2E_DISCOVERED_DOMAIN,
-        "confidence": 0.82,
-        "source_session_id": uuid4(),
-        "source_system": "e2e_test",
-        "source_agent": "test-agent",
-        "correlation_id": uuid4(),
-        "discovered_at": datetime.now(UTC),
-        "metadata": {"test": "e2e_discovered"},
-    }
-    defaults.update(overrides)
-    return ModelPatternDiscoveredEvent(**defaults)
+    return make_discovered_event(
+        discovery_id=discovery_id,
+        pattern_signature=f"def e2e_disc_pattern_{uuid4().hex[:8]}(): pass",
+        signature_hash=sig_hash,
+        domain=E2E_DISCOVERED_DOMAIN,
+        confidence=0.82,
+        source_system="e2e_test",
+        metadata={"test": "e2e_discovered"},
+        **overrides,
+    )
 
 
 # =============================================================================
@@ -101,7 +101,7 @@ class TestPatternDiscoveredMock:
 
     async def test_store_discovered_event(self) -> None:
         """A valid discovered event should be stored successfully."""
-        event = _make_discovered_event()
+        event = _make_e2e_discovered_event()
         store = MockPatternStore()
 
         result = await handle_consume_discovered(
@@ -115,7 +115,7 @@ class TestPatternDiscoveredMock:
 
     async def test_idempotent_same_discovery_id(self) -> None:
         """Same discovery_id should produce same result without duplicate."""
-        event = _make_discovered_event()
+        event = _make_e2e_discovered_event()
         store = MockPatternStore()
 
         r1 = await handle_consume_discovered(
@@ -138,11 +138,11 @@ class TestPatternDiscoveredMock:
         key (domain, signature_hash) already exists.
         """
         sig_hash = _make_e2e_signature_hash("shared_lineage")
-        event1 = _make_discovered_event(
+        event1 = _make_e2e_discovered_event(
             discovery_id=uuid4(),
             signature_hash=sig_hash,
         )
-        event2 = _make_discovered_event(
+        event2 = _make_e2e_discovered_event(
             discovery_id=uuid4(),
             signature_hash=sig_hash,
         )

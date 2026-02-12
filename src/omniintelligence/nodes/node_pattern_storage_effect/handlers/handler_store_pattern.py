@@ -548,7 +548,7 @@ async def handle_store_pattern(
     *,
     pattern_store: ProtocolPatternStore,
     conn: AsyncConnection,
-) -> ModelPatternStoredEvent:
+) -> StorePatternResult:
     """Store a learned pattern with governance enforcement.
 
     This handler implements the following invariants:
@@ -562,6 +562,10 @@ async def handle_store_pattern(
     (pattern_id, signature_hash) will return the same result without
     side effects.
 
+    Governance failures are returned as structured results (success=False)
+    rather than raised as exceptions, following the ONEX handler pattern
+    where domain errors are data, not exceptions.
+
     Args:
         input_data: The pattern to store, validated against governance rules.
         pattern_store: Pattern store implementing ProtocolPatternStore.
@@ -570,10 +574,13 @@ async def handle_store_pattern(
             the transaction boundary for atomic idempotency + storage.
 
     Returns:
-        ModelPatternStoredEvent with storage confirmation.
+        StorePatternResult with:
+            - success=True and event set on successful storage
+            - success=True, event set, and was_idempotent=True for idempotent returns
+            - success=False with governance_violations and error_message when
+              governance validation fails
 
     Raises:
-        ValueError: If governance validation fails (confidence below threshold).
         RuntimeError: If storage operation fails unexpectedly.
 
     Example:
@@ -587,8 +594,11 @@ async def handle_store_pattern(
         ...     domain="code_patterns",
         ...     confidence=0.85,
         ... )
-        >>> event = await handle_store_pattern(input_data, pattern_store=store, conn=conn)
-        >>> print(f"Stored pattern {event.pattern_id} version {event.version}")
+        >>> result = await handle_store_pattern(input_data, pattern_store=store, conn=conn)
+        >>> if result.success:
+        ...     print(f"Stored pattern {result.event.pattern_id} version {result.event.version}")
+        ... else:
+        ...     print(f"Rejected: {result.error_message}")
     """
     # -------------------------------------------------------------------------
     # Step 1: Validate governance invariants
@@ -614,7 +624,11 @@ async def handle_store_pattern(
             },
         )
         msg = f"Governance validation failed: {violation_messages}"
-        raise ValueError(msg)
+        return StorePatternResult(
+            success=False,
+            governance_violations=governance_result.violations,
+            error_message=msg,
+        )
 
     logger.debug(
         "Governance validation passed",
@@ -682,18 +696,22 @@ async def handle_store_pattern(
             },
         )
         # Return event for existing pattern (idempotent behavior)
-        return ModelPatternStoredEvent(
-            pattern_id=existing_id,
-            signature=input_data.signature,
-            signature_hash=input_data.signature_hash,
-            domain=input_data.domain,
-            version=input_data.version,
-            confidence=input_data.confidence,
-            state=EnumPatternState.CANDIDATE,
-            stored_at=idempotent_timestamp,
-            actor=input_data.metadata.actor,
-            source_run_id=input_data.metadata.source_run_id,
-            correlation_id=input_data.correlation_id,
+        return StorePatternResult(
+            success=True,
+            event=ModelPatternStoredEvent(
+                pattern_id=existing_id,
+                signature=input_data.signature,
+                signature_hash=input_data.signature_hash,
+                domain=input_data.domain,
+                version=input_data.version,
+                confidence=input_data.confidence,
+                state=EnumPatternState.CANDIDATE,
+                stored_at=idempotent_timestamp,
+                actor=input_data.metadata.actor,
+                source_run_id=input_data.metadata.source_run_id,
+                correlation_id=input_data.correlation_id,
+            ),
+            was_idempotent=True,
         )
 
     # -------------------------------------------------------------------------
@@ -875,18 +893,21 @@ async def handle_store_pattern(
     # -------------------------------------------------------------------------
     # Step 8: Return the stored event
     # -------------------------------------------------------------------------
-    return ModelPatternStoredEvent(
-        pattern_id=stored_id,
-        signature=input_data.signature,
-        signature_hash=input_data.signature_hash,
-        domain=input_data.domain,
-        version=version,
-        confidence=input_data.confidence,
-        state=initial_state,
-        stored_at=stored_at,
-        actor=input_data.metadata.actor,
-        source_run_id=input_data.metadata.source_run_id,
-        correlation_id=input_data.correlation_id,
+    return StorePatternResult(
+        success=True,
+        event=ModelPatternStoredEvent(
+            pattern_id=stored_id,
+            signature=input_data.signature,
+            signature_hash=input_data.signature_hash,
+            domain=input_data.domain,
+            version=version,
+            confidence=input_data.confidence,
+            state=initial_state,
+            stored_at=stored_at,
+            actor=input_data.metadata.actor,
+            source_run_id=input_data.metadata.source_run_id,
+            correlation_id=input_data.correlation_id,
+        ),
     )
 
 

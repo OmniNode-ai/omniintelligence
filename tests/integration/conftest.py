@@ -96,7 +96,7 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
         Tuple of (host, port).
 
     Raises:
-        ValueError: If the URL cannot be parsed.
+        ValueError: If the URL cannot be parsed or is missing required components.
     """
     parsed = urllib.parse.urlparse(url)
     if not parsed.scheme.startswith("postgres"):
@@ -104,7 +104,12 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
             f"Expected a PostgreSQL URL (scheme starting with 'postgres'), "
             f"got scheme: '{parsed.scheme}'"
         )
-    host = parsed.hostname or "localhost"
+    if not parsed.hostname:
+        raise ValueError(
+            "Invalid database URL: missing hostname. "
+            "Expected format: postgresql://user:pass@host:port/database"
+        )
+    host = parsed.hostname
     port = parsed.port or 5432
     return host, port
 

@@ -200,9 +200,16 @@ io_operations:
 #   - published_events = documentation layer (WHAT)
 #   - event_bus = runtime routing layer (WHERE)
 #
-# Topic naming: onex.{kind}.{producer}.{event-name}.v{n}
+# Topic naming: onex.{kind}[.{producer}].{event-name}.v{n}
 #   - kind=cmd for commands/inputs
 #   - kind=evt for events/outputs
+#   - {producer} segment: REQUIRED for internal single-producer topics
+#     (e.g., onex.evt.omniintelligence.pattern-learned.v1)
+#     Use when events originate from a single known service.
+#   - {producer} segment: OMITTED for multi-producer business events
+#     (e.g., onex.evt.pattern.discovered.v1)
+#     Use when events come from multiple external systems or are domain-level
+#     events that cross service boundaries.
 # =============================================================================
 published_events:
   - topic_suffix: "onex.evt.omniintelligence.pattern-stored.v1"
@@ -247,8 +254,8 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
-    - "onex.evt.omniintelligence.pattern-learned.v1"
-    - "onex.evt.pattern.discovered.v1"
+    - "onex.evt.omniintelligence.pattern-learned.v1"  # Single-producer: includes 'omniintelligence'
+    - "onex.evt.pattern.discovered.v1"  # Multi-producer: producer segment omitted
 
   # Topics this node publishes to (sends events to)
   publish_topics:

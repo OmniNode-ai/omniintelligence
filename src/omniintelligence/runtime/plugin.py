@@ -215,8 +215,22 @@ class PluginIntelligence:
                     duration_seconds=duration,
                 )
 
-            min_pool = int(os.getenv("POSTGRES_MIN_POOL_SIZE", "2"))
-            max_pool = int(os.getenv("POSTGRES_MAX_POOL_SIZE", "10"))
+            try:
+                min_pool = int(os.getenv("POSTGRES_MIN_POOL_SIZE", "2"))
+            except ValueError:
+                min_pool = 2
+                logger.warning(
+                    "Invalid POSTGRES_MIN_POOL_SIZE, using default: %d",
+                    min_pool,
+                )
+            try:
+                max_pool = int(os.getenv("POSTGRES_MAX_POOL_SIZE", "10"))
+            except ValueError:
+                max_pool = 10
+                logger.warning(
+                    "Invalid POSTGRES_MAX_POOL_SIZE, using default: %d",
+                    max_pool,
+                )
 
             self._pool = await asyncpg.create_pool(
                 db_url,

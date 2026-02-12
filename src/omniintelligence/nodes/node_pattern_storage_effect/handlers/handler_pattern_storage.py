@@ -49,6 +49,7 @@ from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     ProtocolPatternStore,
+    StorePatternResult,
     handle_store_pattern,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
@@ -272,56 +273,78 @@ class PatternStorageRouter:
                 use this connection for atomic idempotency + storage.
 
         Returns:
-            StorageOperationResult with stored event.
-
-        Raises:
-            ValueError: If input data validation fails.
+            StorageOperationResult with stored event, or failure result for
+            governance violations and validation errors.
         """
         try:
             # Convert dict to typed input model
             storage_input = ModelPatternStorageInput.model_validate(input_data)
-
-            # Call the existing handler
-            stored_event = await handle_store_pattern(
-                input_data=storage_input,
-                pattern_store=self._pattern_store,
-                conn=conn,
-            )
-
-            logger.info(
-                "Store pattern operation completed",
-                extra={
-                    "pattern_id": str(stored_event.pattern_id),
-                    "domain": stored_event.domain,
-                    "version": stored_event.version,
-                },
-            )
-
-            return StorageOperationResult(
-                operation=OPERATION_STORE_PATTERN,
-                success=True,
-                stored_event=stored_event,
-            )
-
-        except ValueError as e:
+        except (ValueError, Exception) as e:
             error_msg = str(e)
-            # Determine error code based on error type
-            # Governance failures contain "Governance validation failed"
-            if "governance" in error_msg.lower():
-                error_code = ERROR_CODE_GOVERNANCE_VIOLATION
-            else:
-                error_code = ERROR_CODE_VALIDATION_ERROR
-
             logger.warning(
-                "Store pattern validation failed",
-                extra={"error": error_msg, "error_code": error_code},
+                "Store pattern input validation failed",
+                extra={"error": error_msg, "error_code": ERROR_CODE_VALIDATION_ERROR},
             )
             return StorageOperationResult(
                 operation=OPERATION_STORE_PATTERN,
                 success=False,
-                error_code=error_code,
+                error_code=ERROR_CODE_VALIDATION_ERROR,
                 error_message=error_msg,
             )
+
+        # Guard: Ensure pattern store is initialized
+        if self._pattern_store is None:
+            logger.error(
+                "Pattern store not initialized",
+                extra={"error_code": "PATSTOR_001"},
+            )
+            return StorageOperationResult(
+                operation=OPERATION_STORE_PATTERN,
+                success=False,
+                error_code="PATSTOR_001",
+                error_message="Pattern store not initialized",
+            )
+
+        # Call the existing handler (returns structured result, not exceptions)
+        store_result: StorePatternResult = await handle_store_pattern(
+            input_data=storage_input,
+            pattern_store=self._pattern_store,
+            conn=conn,
+        )
+
+        if not store_result.success:
+            logger.warning(
+                "Store pattern governance validation failed",
+                extra={
+                    "error": store_result.error_message,
+                    "error_code": ERROR_CODE_GOVERNANCE_VIOLATION,
+                },
+            )
+            return StorageOperationResult(
+                operation=OPERATION_STORE_PATTERN,
+                success=False,
+                error_code=ERROR_CODE_GOVERNANCE_VIOLATION,
+                error_message=store_result.error_message
+                or "Governance validation failed",
+            )
+
+        stored_event = store_result.event
+        assert stored_event is not None  # Invariant: success=True implies event is set
+
+        logger.info(
+            "Store pattern operation completed",
+            extra={
+                "pattern_id": str(stored_event.pattern_id),
+                "domain": stored_event.domain,
+                "version": stored_event.version,
+            },
+        )
+
+        return StorageOperationResult(
+            operation=OPERATION_STORE_PATTERN,
+            success=True,
+            stored_event=stored_event,
+        )
 
     async def _handle_promote(
         self,
@@ -399,6 +422,19 @@ class PatternStorageRouter:
                 if isinstance(correlation_id_str, str)
                 else correlation_id_str
             )
+
+            # Guard: Ensure state manager is initialized
+            if self._state_manager is None:
+                logger.error(
+                    "State manager not initialized",
+                    extra={"error_code": "PATSTOR_002"},
+                )
+                return StorageOperationResult(
+                    operation=OPERATION_PROMOTE_PATTERN,
+                    success=False,
+                    error_code="PATSTOR_002",
+                    error_message="State manager not initialized",
+                )
 
             # Call the existing handler
             promoted_event = await handle_promote_pattern(
