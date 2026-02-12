@@ -52,6 +52,8 @@ _RESERVED_KEYS: frozenset[str] = frozenset(
     {
         # Written into additional_attributes explicitly
         "source_agent",
+        # Top-level fields consumed by the mapper (used for actor and tags)
+        "source_system",
         # Top-level ModelPatternStorageMetadata fields set by the mapper
         "source_run_id",
         "actor",

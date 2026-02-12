@@ -328,19 +328,29 @@ class PatternStorageRouter:
         )
 
         if not store_result.success:
+            # Distinguish governance violations from generic storage failures
+            has_governance_violations = bool(store_result.governance_violations)
+            if has_governance_violations:
+                error_code = ERROR_CODE_GOVERNANCE_VIOLATION
+                default_message = "Governance validation failed"
+                log_message = "Store pattern governance validation failed"
+            else:
+                error_code = "PATSTOR_003"
+                default_message = "Pattern storage failed"
+                log_message = "Store pattern operation failed"
+
             logger.warning(
-                "Store pattern governance validation failed",
+                log_message,
                 extra={
                     "error": store_result.error_message,
-                    "error_code": ERROR_CODE_GOVERNANCE_VIOLATION,
+                    "error_code": error_code,
                 },
             )
             return StorageOperationResult(
                 operation=OPERATION_STORE_PATTERN,
                 success=False,
-                error_code=ERROR_CODE_GOVERNANCE_VIOLATION,
-                error_message=store_result.error_message
-                or "Governance validation failed",
+                error_code=error_code,
+                error_message=store_result.error_message or default_message,
             )
 
         stored_event = store_result.event

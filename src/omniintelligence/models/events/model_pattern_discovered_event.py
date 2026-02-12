@@ -37,7 +37,7 @@ class ModelPatternDiscoveredEvent(BaseModel):
 
     event_type: Literal["PatternDiscovered"] = "PatternDiscovered"
     discovery_id: UUID  # Idempotency key for exact replay protection
-    pattern_signature: str = Field(max_length=500)  # Pattern content
+    pattern_signature: str = Field(min_length=1, max_length=500)  # Pattern content
     signature_hash: str = Field(min_length=1)  # SHA256 of signature for semantic dedup
     domain: str = Field(min_length=1)  # Domain classification
     # ge=0.5 matches PatternStorageGovernance.MIN_CONFIDENCE in model_pattern_state.py
