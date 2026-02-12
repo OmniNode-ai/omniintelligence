@@ -66,6 +66,7 @@ except ImportError:
     # python-dotenv not installed, rely on existing environment
     pass
 
+from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
 
 # =============================================================================
 # Database Configuration
@@ -106,35 +107,6 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
     host = parsed.hostname or "localhost"
     port = parsed.port or 5432
     return host, port
-
-
-def _safe_db_url_display(url: str) -> str:
-    """Extract hostname:port/database from a database URL, stripping credentials.
-
-    Uses urllib.parse.urlparse for safe parsing instead of fragile string
-    splitting.  Mirrors the approach in ``plugin.py::_safe_db_url_display``.
-
-    Args:
-        url: A postgresql:// connection URL, possibly containing credentials.
-
-    Returns:
-        A display-safe string in the form ``host:port/database`` (or as much
-        as can be extracted).  Falls back to ``"(url)"`` if parsing fails.
-    """
-    try:
-        parsed = urllib.parse.urlparse(url)
-        host = parsed.hostname or "unknown"
-        port = parsed.port
-        database = (parsed.path or "").lstrip("/")
-        if port and database:
-            return f"{host}:{port}/{database}"
-        if port:
-            return f"{host}:{port}"
-        if database:
-            return f"{host}/{database}"
-        return host
-    except Exception:
-        return "(url)"
 
 
 # =============================================================================

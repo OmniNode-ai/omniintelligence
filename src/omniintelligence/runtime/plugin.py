@@ -66,7 +66,6 @@ from __future__ import annotations
 import logging
 import os
 import time
-import urllib.parse
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -85,36 +84,9 @@ from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
     collect_subscribe_topics_from_contracts,
 )
+from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_db_url_display(url: str) -> str:
-    """Extract hostname:port/database from a database URL, stripping credentials.
-
-    Uses urllib.parse.urlparse for safe parsing instead of fragile string splitting.
-
-    Args:
-        url: A postgresql:// connection URL, possibly containing credentials.
-
-    Returns:
-        A display-safe string in the form ``host:port/database`` (or as much
-        as can be extracted). Falls back to ``"PostgreSQL"`` if parsing fails.
-    """
-    try:
-        parsed = urllib.parse.urlparse(url)
-        host = parsed.hostname or "unknown"
-        port = parsed.port
-        database = (parsed.path or "").lstrip("/")
-        if port and database:
-            return f"{host}:{port}/{database}"
-        if port:
-            return f"{host}:{port}"
-        if database:
-            return f"{host}/{database}"
-        return host
-    except Exception:
-        return "PostgreSQL"
 
 
 # =============================================================================

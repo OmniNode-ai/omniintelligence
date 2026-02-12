@@ -50,6 +50,7 @@ import pytest_asyncio
 _cleanup_logger = logging.getLogger(__name__)
 
 # Import shared fixtures and utilities from root integration conftest
+from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
 from tests.integration.conftest import (
     KAFKA_AVAILABLE,
     KAFKA_BOOTSTRAP_SERVERS,
@@ -59,7 +60,6 @@ from tests.integration.conftest import (
     POSTGRES_COMMAND_TIMEOUT,
     MockKafkaPublisher,
     RealKafkaPublisher,
-    _safe_db_url_display,
 )
 
 if TYPE_CHECKING:

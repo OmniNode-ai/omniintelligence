@@ -59,6 +59,11 @@ class ModelPatternDiscoveredEvent(BaseModel):
     def validate_tz_aware(cls, v: datetime) -> datetime:
         """Validate that discovered_at is timezone-aware.
 
+        Note: This check only verifies that ``tzinfo`` is present (not None).
+        It does not validate that the timezone is unambiguous -- for example,
+        datetimes with ``fold=1`` (representing the second occurrence of an
+        ambiguous local time during a DST transition) are accepted.
+
         Raises:
             ValueError: If discovered_at has no timezone info.
         """

@@ -1,5 +1,6 @@
 """Utility modules for omniintelligence."""
 
+from omniintelligence.utils.db_url import safe_db_url_display
 from omniintelligence.utils.injection_safety import (
     MAX_LINE_LENGTH,
     MAX_SNIPPET_SIZE,
@@ -19,6 +20,8 @@ from omniintelligence.utils.util_token_counter import (
 )
 
 __all__ = [
+    # Database URL display
+    "safe_db_url_display",
     # Injection safety
     "MAX_LINE_LENGTH",
     "MAX_SNIPPET_SIZE",

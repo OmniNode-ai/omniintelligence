@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Integration tests for pattern.discovered consumer.
+"""Handler-level integration tests for pattern.discovered consumer.
+
+These tests validate the handle_consume_discovered call chain (event
+creation, mapping, storage, idempotency, and lineage versioning) using
+MockPatternStore.  They do NOT require real infrastructure.
 
 Test cases:
 - Consume a discovered event and verify storage output
