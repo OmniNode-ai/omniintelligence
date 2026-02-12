@@ -40,6 +40,8 @@ from uuid import UUID
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
+from pydantic import ValidationError
+
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
     PatternNotFoundError,
@@ -79,6 +81,7 @@ ERROR_CODE_PATTERN_NOT_FOUND: Final[str] = "PATTERN_NOT_FOUND"
 ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
 ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
+ERROR_CODE_STORAGE_ERROR: Final[str] = "STORAGE_ERROR"
 
 
 # =============================================================================
@@ -279,7 +282,7 @@ class PatternStorageRouter:
         try:
             # Convert dict to typed input model
             storage_input = ModelPatternStorageInput.model_validate(input_data)
-        except (ValueError, Exception) as e:
+        except (ValidationError, ValueError) as e:
             error_msg = str(e)
             logger.warning(
                 "Store pattern input validation failed",
@@ -289,6 +292,18 @@ class PatternStorageRouter:
                 operation=OPERATION_STORE_PATTERN,
                 success=False,
                 error_code=ERROR_CODE_VALIDATION_ERROR,
+                error_message=error_msg,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            logger.warning(
+                "Store pattern unexpected error during input processing",
+                extra={"error": error_msg, "error_code": ERROR_CODE_STORAGE_ERROR},
+            )
+            return StorageOperationResult(
+                operation=OPERATION_STORE_PATTERN,
+                success=False,
+                error_code=ERROR_CODE_STORAGE_ERROR,
                 error_message=error_msg,
             )
 
@@ -616,6 +631,7 @@ __all__ = [
     "ERROR_CODE_GOVERNANCE_VIOLATION",
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
+    "ERROR_CODE_STORAGE_ERROR",
     "ERROR_CODE_VALIDATION_ERROR",
     "OPERATION_PROMOTE_PATTERN",
     "OPERATION_STORE_PATTERN",

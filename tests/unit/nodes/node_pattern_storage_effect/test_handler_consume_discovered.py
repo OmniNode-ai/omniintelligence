@@ -271,11 +271,13 @@ class TestHandleConsumeDiscovered:
             conn=None,  # type: ignore[arg-type]  # MockPatternStore ignores conn
         )
 
-        assert result.pattern_id is not None
-        assert result.domain == event.domain
-        assert result.signature == event.pattern_signature
-        assert result.signature_hash == event.signature_hash
-        assert result.correlation_id == event.correlation_id
+        assert result.success
+        assert result.event is not None
+        assert result.event.pattern_id is not None
+        assert result.event.domain == event.domain
+        assert result.event.signature == event.pattern_signature
+        assert result.event.signature_hash == event.signature_hash
+        assert result.event.correlation_id == event.correlation_id
 
     async def test_idempotent_replay_returns_same_result(self) -> None:
         """Same discovery_id processed twice should return same result."""
@@ -293,8 +295,10 @@ class TestHandleConsumeDiscovered:
             conn=None,  # type: ignore[arg-type]
         )
 
-        assert result1.pattern_id == result2.pattern_id
-        assert result1.domain == result2.domain
+        assert result1.success and result1.event is not None
+        assert result2.success and result2.event is not None
+        assert result1.event.pattern_id == result2.event.pattern_id
+        assert result1.event.domain == result2.event.domain
 
     async def test_low_confidence_rejected_at_event_creation(self) -> None:
         """Confidence below threshold is rejected by Pydantic at event creation.

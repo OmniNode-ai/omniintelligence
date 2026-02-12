@@ -28,7 +28,6 @@ from omniintelligence.models.events.model_pattern_discovered_event import (
     ModelPatternDiscoveredEvent,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
-    GovernanceResult,
     ProtocolPatternStore,
     StorePatternResult,
     handle_store_pattern,
@@ -36,7 +35,6 @@ from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_p
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
     ModelPatternStorageInput,
     ModelPatternStorageMetadata,
-    ModelPatternStoredEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,16 +124,19 @@ async def handle_consume_discovered(
     *,
     pattern_store: ProtocolPatternStore,
     conn: AsyncConnection,
-) -> ModelPatternStoredEvent | GovernanceResult:
+) -> StorePatternResult:
     """Consume a pattern.discovered event and persist it via handle_store_pattern.
 
     This handler provides a thin mapping layer between the external discovery
     event schema and the internal pattern storage pipeline. All governance,
     idempotency, and version management is delegated to handle_store_pattern.
 
-    Governance rejections are returned as GovernanceResult (valid=False) rather
-    than raised as exceptions, following the ONEX handler pattern where domain
-    errors are data, not exceptions.
+    The returned StorePatternResult contains both success and failure paths:
+    - On success: result.success is True and result.event holds the stored event.
+    - On governance rejection: result.success is False and
+      result.governance_violations holds the violation details.
+
+    Callers MUST check result.success before accessing result.event.
 
     Args:
         event: The pattern discovery event from an external system.
@@ -143,9 +144,9 @@ async def handle_consume_discovered(
         conn: Database connection for transaction control.
 
     Returns:
-        ModelPatternStoredEvent with storage confirmation on success, or
-        GovernanceResult (valid=False) when governance validation rejects
-        the pattern.
+        StorePatternResult with success/failure information. On success,
+        result.event is set. On governance rejection, result.governance_violations
+        and result.error_message are set.
 
     Raises:
         RuntimeError: If storage operation fails unexpectedly.
@@ -185,26 +186,24 @@ async def handle_consume_discovered(
                 "correlation_id": str(event.correlation_id),
             },
         )
-        return GovernanceResult(
-            valid=False,
-            violations=store_result.governance_violations or [],
-        )
+        return store_result
 
-    stored_event = store_result.event
-    assert stored_event is not None  # Invariant: success=True implies event is set
+    assert (
+        store_result.event is not None
+    )  # Invariant: success=True implies event is set
 
     logger.info(
         "Pattern.discovered event consumed and stored",
         extra={
             "discovery_id": str(event.discovery_id),
-            "pattern_id": str(stored_event.pattern_id),
-            "domain": stored_event.domain,
-            "version": stored_event.version,
+            "pattern_id": str(store_result.event.pattern_id),
+            "domain": store_result.event.domain,
+            "version": store_result.event.version,
             "correlation_id": str(event.correlation_id),
         },
     )
 
-    return stored_event
+    return store_result
 
 
 __all__ = [

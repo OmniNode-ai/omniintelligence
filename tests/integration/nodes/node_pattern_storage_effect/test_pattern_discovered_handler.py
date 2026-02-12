@@ -110,8 +110,10 @@ class TestPatternDiscoveredMock:
             conn=None,  # type: ignore[arg-type]
         )
 
-        assert result.pattern_id is not None
-        assert result.domain == event.domain
+        assert result.success
+        assert result.event is not None
+        assert result.event.pattern_id is not None
+        assert result.event.domain == event.domain
 
     async def test_idempotent_same_discovery_id(self) -> None:
         """Same discovery_id should produce same result without duplicate."""
@@ -129,7 +131,9 @@ class TestPatternDiscoveredMock:
             conn=None,  # type: ignore[arg-type]
         )
 
-        assert r1.pattern_id == r2.pattern_id
+        assert r1.success and r1.event is not None
+        assert r2.success and r2.event is not None
+        assert r1.event.pattern_id == r2.event.pattern_id
 
     async def test_different_discovery_ids_same_signature_hash(self) -> None:
         """Two events with same signature_hash but different discovery_ids.
@@ -159,8 +163,10 @@ class TestPatternDiscoveredMock:
             conn=None,  # type: ignore[arg-type]
         )
 
+        assert r1.success and r1.event is not None
+        assert r2.success and r2.event is not None
         # Different discovery_ids -> different pattern_ids
-        assert r1.pattern_id != r2.pattern_id
+        assert r1.event.pattern_id != r2.event.pattern_id
         # Same lineage -> version incremented
-        assert r1.version == 1
-        assert r2.version == 2
+        assert r1.event.version == 1
+        assert r2.event.version == 2
