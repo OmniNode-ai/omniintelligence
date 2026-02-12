@@ -149,7 +149,9 @@ async def handle_consume_discovered(
         and result.error_message are set.
 
     Raises:
-        RuntimeError: If storage operation fails unexpectedly.
+        Exception: Database errors from ProtocolPatternStore operations
+            (e.g., connection failures, constraint violations) propagate
+            uncaught from handle_store_pattern.
     """
     logger.info(
         "Consuming pattern.discovered event",

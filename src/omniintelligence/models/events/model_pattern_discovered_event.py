@@ -40,7 +40,7 @@ class ModelPatternDiscoveredEvent(BaseModel):
     pattern_signature: str = Field(max_length=500)  # Pattern content
     signature_hash: str = Field(min_length=1)  # SHA256 of signature for semantic dedup
     domain: str = Field(min_length=1)  # Domain classification
-    # ge=0.5 matches MIN_CONFIDENCE_THRESHOLD in handler_store_pattern.py
+    # ge=0.5 matches PatternStorageGovernance.MIN_CONFIDENCE in model_pattern_state.py
     confidence: float = Field(ge=0.5, le=1.0)  # Discovery confidence
     source_session_id: UUID  # Session where pattern was discovered
     source_system: str = Field(min_length=1)  # e.g., "omniclaude"
