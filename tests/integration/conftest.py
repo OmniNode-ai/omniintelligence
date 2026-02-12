@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import urllib.parse
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -96,9 +97,7 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
     Raises:
         ValueError: If the URL cannot be parsed.
     """
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
+    parsed = urllib.parse.urlparse(url)
     if not parsed.scheme.startswith("postgres"):
         raise ValueError(
             f"Expected a PostgreSQL URL (scheme starting with 'postgres'), "
@@ -107,6 +106,35 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
     host = parsed.hostname or "localhost"
     port = parsed.port or 5432
     return host, port
+
+
+def _safe_db_url_display(url: str) -> str:
+    """Extract hostname:port/database from a database URL, stripping credentials.
+
+    Uses urllib.parse.urlparse for safe parsing instead of fragile string
+    splitting.  Mirrors the approach in ``plugin.py::_safe_db_url_display``.
+
+    Args:
+        url: A postgresql:// connection URL, possibly containing credentials.
+
+    Returns:
+        A display-safe string in the form ``host:port/database`` (or as much
+        as can be extracted).  Falls back to ``"(url)"`` if parsing fails.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname or "unknown"
+        port = parsed.port
+        database = (parsed.path or "").lstrip("/")
+        if port and database:
+            return f"{host}:{port}/{database}"
+        if port:
+            return f"{host}:{port}"
+        if database:
+            return f"{host}/{database}"
+        return host
+    except Exception:
+        return "(url)"
 
 
 # =============================================================================
@@ -269,7 +297,7 @@ async def db_conn() -> AsyncGenerator[Any, None]:
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database connection failed: {e}. "
-            f"URL: {OMNIINTELLIGENCE_DB_URL.split('@')[-1] if '@' in OMNIINTELLIGENCE_DB_URL else '(url)'}"
+            f"URL: {_safe_db_url_display(OMNIINTELLIGENCE_DB_URL)}"
         )
 
     try:
@@ -321,7 +349,7 @@ async def db_pool() -> AsyncGenerator[Any, None]:
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database pool creation failed: {e}. "
-            f"URL: {OMNIINTELLIGENCE_DB_URL.split('@')[-1] if '@' in OMNIINTELLIGENCE_DB_URL else '(url)'}"
+            f"URL: {_safe_db_url_display(OMNIINTELLIGENCE_DB_URL)}"
         )
 
     try:

@@ -85,7 +85,15 @@ def _make_discovered_event(
 
 @pytest.mark.asyncio
 class TestPatternDiscoveredMock:
-    """Test consume discovered with MockPatternStore (always runnable)."""
+    """Integration-level tests for the handler -> store pipeline using mocks.
+
+    These live under integration/ because they validate the full
+    handle_consume_discovered call chain (event creation, mapping, storage,
+    idempotency, and lineage versioning).  MockPatternStore is used instead
+    of a real database so the tests are always runnable without infrastructure.
+    True end-to-end tests against PostgreSQL belong in a separate
+    ``@requires_postgres``-gated class.
+    """
 
     async def test_store_discovered_event(self) -> None:
         """A valid discovered event should be stored successfully."""

@@ -59,6 +59,7 @@ from tests.integration.conftest import (
     POSTGRES_COMMAND_TIMEOUT,
     MockKafkaPublisher,
     RealKafkaPublisher,
+    _safe_db_url_display,
 )
 
 if TYPE_CHECKING:
@@ -476,7 +477,7 @@ async def e2e_db_conn(
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database connection failed: {e}. "
-            f"URL: {OMNIINTELLIGENCE_DB_URL.split('@')[-1] if '@' in OMNIINTELLIGENCE_DB_URL else '(url)'}"
+            f"URL: {_safe_db_url_display(OMNIINTELLIGENCE_DB_URL)}"
         )
 
     try:
