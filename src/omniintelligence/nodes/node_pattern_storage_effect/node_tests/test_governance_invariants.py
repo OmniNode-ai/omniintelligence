@@ -23,6 +23,9 @@ from uuid import uuid4
 
 import pytest
 
+from omniintelligence.models.events.model_pattern_discovered_event import (
+    ModelPatternDiscoveredEvent,
+)
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     GovernanceResult,
     handle_store_pattern,
@@ -65,6 +68,32 @@ class TestGovernanceConstants:
             # intention is that this constant should never be changed
         except (TypeError, AttributeError):
             pass  # Expected behavior for truly immutable constants
+
+    def test_discovered_event_confidence_ge_matches_governance(self) -> None:
+        """ModelPatternDiscoveredEvent.confidence ge= must equal MIN_CONFIDENCE.
+
+        The Pydantic ``ge`` constraint on ``ModelPatternDiscoveredEvent.confidence``
+        and ``PatternStorageGovernance.MIN_CONFIDENCE`` encode the same invariant.
+        If one changes without the other, governance behavior silently diverges.
+
+        This test extracts the ``ge`` value from Pydantic field metadata and
+        asserts it equals the governance constant, ensuring a single source of
+        truth for the minimum confidence threshold.
+        """
+        field_info = ModelPatternDiscoveredEvent.model_fields["confidence"]
+
+        ge_constraints = [m.ge for m in field_info.metadata if hasattr(m, "ge")]
+
+        assert len(ge_constraints) == 1, (
+            f"Expected exactly one ge constraint on "
+            f"ModelPatternDiscoveredEvent.confidence, found {len(ge_constraints)}"
+        )
+        assert ge_constraints[0] == PatternStorageGovernance.MIN_CONFIDENCE, (
+            f"ModelPatternDiscoveredEvent.confidence ge={ge_constraints[0]} "
+            f"does not match PatternStorageGovernance.MIN_CONFIDENCE="
+            f"{PatternStorageGovernance.MIN_CONFIDENCE}. "
+            f"These must stay in sync."
+        )
 
 
 # =============================================================================
