@@ -33,6 +33,12 @@ from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume
 )
 from omniintelligence.testing import MockPatternStore
 
+# White-box import: _map_discovered_to_storage_input is a private helper, but
+# we intentionally test it directly to verify the field-by-field mapping from
+# ModelPatternDiscoveredEvent to ModelPatternStorageInput without going through
+# the full async handler.  This coupling is acceptable because the mapping
+# contract is critical and the function is unlikely to be relocated.
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -197,6 +203,80 @@ class TestMapDiscoveredToStorageInput:
         event = _make_discovered_event()
         result = _map_discovered_to_storage_input(event)
         assert result.metadata.learning_context == "pattern_discovery"
+
+    def test_reserved_key_with_non_string_value_silently_dropped(self) -> None:
+        """A reserved key with a non-string value is silently dropped.
+
+        When event.metadata contains a reserved key (e.g. 'source_agent')
+        whose value is not a string (e.g. an integer), the reserved-key
+        check on line 67 skips it, and then the isinstance(value, str) guard
+        on line 69 also skips it.  The net effect is a silent drop — no error,
+        no entry in additional_attributes.
+
+        This test documents the edge case so upstream bugs that send wrong
+        types for reserved keys don't go unnoticed in test coverage.
+        """
+        event = _make_discovered_event(
+            source_agent=None,  # Explicit source_agent is None, so line 80 skips it
+            metadata={"source_agent": 42},  # Reserved key with int value
+        )
+        result = _map_discovered_to_storage_input(event)
+        # The integer value is dropped by the reserved-key guard, so
+        # source_agent should not appear in additional_attributes at all.
+        assert "source_agent" not in result.metadata.additional_attributes
+
+    def test_reserved_metadata_fields_do_not_leak_into_additional_attributes(
+        self,
+    ) -> None:
+        """Top-level ModelPatternStorageMetadata field names in event.metadata
+        must be blocked by _RESERVED_KEYS to prevent key collisions.
+
+        If event.metadata contained 'actor' or 'source_run_id' with string
+        values, those could overwrite the explicit top-level fields in the
+        constructed ModelPatternStorageMetadata (since additional_attributes
+        is a separate dict, the collision is conceptual — but the name reuse
+        is confusing and should be prevented).
+        """
+        event = _make_discovered_event(
+            metadata={
+                "source_run_id": "attacker-run-id",
+                "actor": "attacker-actor",
+                "learning_context": "attacker-context",
+                "tags": "should-be-dropped",
+                "additional_attributes": "should-be-dropped",
+                "legitimate_key": "kept",
+            },
+        )
+        result = _map_discovered_to_storage_input(event)
+        attrs = result.metadata.additional_attributes
+        # Reserved keys are blocked — none of them leak into additional_attributes
+        assert "source_run_id" not in attrs
+        assert "actor" not in attrs
+        assert "learning_context" not in attrs
+        assert "tags" not in attrs
+        assert "additional_attributes" not in attrs
+        # Non-reserved string keys pass through normally
+        assert attrs["legitimate_key"] == "kept"
+
+    def test_reserved_metadata_field_with_non_string_value_silently_dropped(
+        self,
+    ) -> None:
+        """A top-level metadata field name with a non-string value is also
+        silently dropped (covered by the reserved-key guard before the
+        isinstance check is reached).
+        """
+        event = _make_discovered_event(
+            metadata={
+                "actor": 999,  # Reserved + non-string
+                "learning_context": ["list", "not", "string"],  # Reserved + non-string
+                "normal_key": "normal_value",
+            },
+        )
+        result = _map_discovered_to_storage_input(event)
+        attrs = result.metadata.additional_attributes
+        assert "actor" not in attrs
+        assert "learning_context" not in attrs
+        assert attrs["normal_key"] == "normal_value"
 
 
 # =============================================================================

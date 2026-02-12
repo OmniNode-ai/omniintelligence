@@ -57,9 +57,27 @@ def _map_discovered_to_storage_input(
     """
     # Build metadata from discovery event fields
     #
-    # Reserved keys are set explicitly below and must not be overwritten
-    # by arbitrary entries in event.metadata.
-    _RESERVED_KEYS: frozenset[str] = frozenset({"source_agent"})
+    # Reserved keys are set explicitly by this mapping function (either as
+    # top-level ModelPatternStorageMetadata fields or written into
+    # additional_attributes).  They must not be overwritten by arbitrary
+    # entries in event.metadata.
+    #
+    # NOTE: If a reserved key carries a non-string value it is dropped by
+    # the isinstance(value, str) guard below *and* skipped by this check,
+    # so the drop is silent.  This is intentional — we treat non-string
+    # reserved values the same as string ones: discard them.
+    _RESERVED_KEYS: frozenset[str] = frozenset(
+        {
+            # Written into additional_attributes explicitly
+            "source_agent",
+            # Top-level ModelPatternStorageMetadata fields set by this mapper
+            "source_run_id",
+            "actor",
+            "learning_context",
+            "tags",
+            "additional_attributes",
+        }
+    )
 
     additional_attrs: dict[str, str] = {}
     # Copy string-valued metadata entries, skipping reserved keys
