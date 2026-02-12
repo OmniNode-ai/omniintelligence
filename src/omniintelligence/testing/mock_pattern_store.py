@@ -30,7 +30,9 @@ from omnibase_core.types.typed_dict_pattern_storage_metadata import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from omniintelligence.models.events.model_pattern_discovered_event import (
+        ModelPatternDiscoveredEvent,
+    )
 
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
     ModelStateTransition,
@@ -507,6 +509,46 @@ def create_valid_pattern_input(
     )
 
 
+def make_discovered_event(
+    **overrides: Any,
+) -> ModelPatternDiscoveredEvent:
+    """Create a valid ModelPatternDiscoveredEvent with sensible defaults.
+
+    Shared factory for tests that need a valid discovery event.
+    All fields can be overridden via keyword arguments.
+
+    Args:
+        **overrides: Any ModelPatternDiscoveredEvent field to override.
+
+    Returns:
+        A valid ModelPatternDiscoveredEvent instance.
+
+    Example:
+        >>> event = make_discovered_event(confidence=0.92)
+        >>> event.confidence
+        0.92
+    """
+    from omniintelligence.models.events.model_pattern_discovered_event import (
+        ModelPatternDiscoveredEvent,
+    )
+
+    defaults: dict[str, Any] = {
+        "discovery_id": uuid4(),
+        "pattern_signature": "def example_pattern(): return True",
+        "signature_hash": "abc123def456789",
+        "domain": "code_generation",
+        "confidence": 0.85,
+        "source_session_id": uuid4(),
+        "source_system": "omniclaude",
+        "source_agent": "test-agent",
+        "correlation_id": uuid4(),
+        "discovered_at": datetime.now(UTC),
+        "metadata": {"context": "test"},
+    }
+    defaults.update(overrides)
+    return ModelPatternDiscoveredEvent(**defaults)
+
+
 def create_low_confidence_input_dict(
     confidence: float = 0.3,
     **kwargs: Any,
@@ -556,4 +598,5 @@ __all__ = [
     "MockPatternStore",
     "create_low_confidence_input_dict",
     "create_valid_pattern_input",
+    "make_discovered_event",
 ]

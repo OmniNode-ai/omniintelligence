@@ -147,6 +147,11 @@ Reference: OMN-1805
 Deletion ticket: OMN-1546
 """
 
+# NOTE: The pattern.discovered topic string lives exclusively in
+# node_pattern_storage_effect/contract.yaml (subscribe_topics).
+# No Python constant is needed because RuntimeHostProcess reads
+# the topic from the contract at startup.  Removed in OMN-2059 review.
+
 # =============================================================================
 # Exports
 # =============================================================================

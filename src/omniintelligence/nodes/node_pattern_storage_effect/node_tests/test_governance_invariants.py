@@ -23,6 +23,9 @@ from uuid import uuid4
 
 import pytest
 
+from omniintelligence.models.events.model_pattern_discovered_event import (
+    ModelPatternDiscoveredEvent,
+)
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     GovernanceResult,
     handle_store_pattern,
@@ -65,6 +68,32 @@ class TestGovernanceConstants:
             # intention is that this constant should never be changed
         except (TypeError, AttributeError):
             pass  # Expected behavior for truly immutable constants
+
+    def test_discovered_event_confidence_ge_matches_governance(self) -> None:
+        """ModelPatternDiscoveredEvent.confidence ge= must equal MIN_CONFIDENCE.
+
+        The Pydantic ``ge`` constraint on ``ModelPatternDiscoveredEvent.confidence``
+        and ``PatternStorageGovernance.MIN_CONFIDENCE`` encode the same invariant.
+        If one changes without the other, governance behavior silently diverges.
+
+        This test extracts the ``ge`` value from Pydantic field metadata and
+        asserts it equals the governance constant, ensuring a single source of
+        truth for the minimum confidence threshold.
+        """
+        field_info = ModelPatternDiscoveredEvent.model_fields["confidence"]
+
+        ge_constraints = [m.ge for m in field_info.metadata if hasattr(m, "ge")]
+
+        assert len(ge_constraints) == 1, (
+            f"Expected exactly one ge constraint on "
+            f"ModelPatternDiscoveredEvent.confidence, found {len(ge_constraints)}"
+        )
+        assert ge_constraints[0] == PatternStorageGovernance.MIN_CONFIDENCE, (
+            f"ModelPatternDiscoveredEvent.confidence ge={ge_constraints[0]} "
+            f"does not match PatternStorageGovernance.MIN_CONFIDENCE="
+            f"{PatternStorageGovernance.MIN_CONFIDENCE}. "
+            f"These must stay in sync."
+        )
 
 
 # =============================================================================
@@ -177,9 +206,11 @@ class TestMinimumConfidenceAcceptance:
             input_data, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        assert result.pattern_id is not None
-        assert result.confidence == 0.5
-        assert result.state == EnumPatternState.CANDIDATE
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.pattern_id is not None
+        assert result.event.confidence == 0.5
+        assert result.event.state == EnumPatternState.CANDIDATE
 
 
 # =============================================================================
@@ -233,10 +264,14 @@ class TestEmptySignatureRejection:
             confidence=0.85,
         )
 
-        with pytest.raises(ValueError, match="Governance validation failed"):
-            await handle_store_pattern(
-                input_data, pattern_store=mock_pattern_store, conn=mock_conn
-            )
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+
+        assert result.success is False
+        assert result.governance_violations is not None
+        assert len(result.governance_violations) > 0
+        assert any(v.rule == "SIGNATURE_REQUIRED" for v in result.governance_violations)
 
 
 # =============================================================================
@@ -289,10 +324,14 @@ class TestEmptyDomainRejection:
             confidence=0.85,
         )
 
-        with pytest.raises(ValueError, match="Governance validation failed"):
-            await handle_store_pattern(
-                input_data, pattern_store=mock_pattern_store, conn=mock_conn
-            )
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+
+        assert result.success is False
+        assert result.governance_violations is not None
+        assert len(result.governance_violations) > 0
+        assert any(v.rule == "DOMAIN_REQUIRED" for v in result.governance_violations)
 
 
 # =============================================================================
@@ -411,8 +450,10 @@ class TestHandlerGovernanceIntegration:
         )
 
         assert result is not None
-        assert result.pattern_id == input_data.pattern_id
-        assert result.state == EnumPatternState.CANDIDATE
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.pattern_id == input_data.pattern_id
+        assert result.event.state == EnumPatternState.CANDIDATE
 
     @pytest.mark.asyncio
     async def test_handler_logs_governance_violation(
@@ -435,10 +476,12 @@ class TestHandlerGovernanceIntegration:
             confidence=0.5,
         )
 
-        with pytest.raises(ValueError):
-            await handle_store_pattern(
-                input_data, pattern_store=mock_pattern_store, conn=mock_conn
-            )
+        result = await handle_store_pattern(
+            input_data, pattern_store=mock_pattern_store, conn=mock_conn
+        )
+
+        assert result.success is False
+        assert result.governance_violations is not None
 
         # Check that violation was logged (at INFO level since rejection is expected business logic)
         assert any("governance" in record.message.lower() for record in caplog.records)
@@ -460,10 +503,12 @@ class TestHandlerGovernanceIntegration:
             input_data, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        assert result.domain == "test_domain"
-        assert result.confidence == 0.75
-        assert result.signature == "test_signature_pattern"
-        assert result.version >= 1
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.domain == "test_domain"
+        assert result.event.confidence == 0.75
+        assert result.event.signature == "test_signature_pattern"
+        assert result.event.version >= 1
 
 
 # =============================================================================
@@ -535,9 +580,13 @@ class TestUniquenessInvariant:
             input2, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        assert result1.pattern_id != result2.pattern_id
-        assert result1.domain == "domain_a"
-        assert result2.domain == "domain_b"
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result1.event.pattern_id != result2.event.pattern_id
+        assert result1.event.domain == "domain_a"
+        assert result2.event.domain == "domain_b"
 
     @pytest.mark.asyncio
     async def test_different_signature_hashes_coexist(
@@ -556,7 +605,11 @@ class TestUniquenessInvariant:
             input2, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        assert result1.pattern_id != result2.pattern_id
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result1.event.pattern_id != result2.event.pattern_id
 
 
 # =============================================================================

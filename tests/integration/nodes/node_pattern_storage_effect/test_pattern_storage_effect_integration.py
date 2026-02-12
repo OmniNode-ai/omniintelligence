@@ -90,11 +90,13 @@ class TestStorePatternIntegration:
         )
 
         # Verify result
-        assert result.pattern_id == input_data.pattern_id
-        assert result.domain == "integration_test_domain"
-        assert result.confidence == 0.85
-        assert result.state == EnumPatternState.CANDIDATE
-        assert result.version == 1
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.pattern_id == input_data.pattern_id
+        assert result.event.domain == "integration_test_domain"
+        assert result.event.confidence == 0.85
+        assert result.event.state == EnumPatternState.CANDIDATE
+        assert result.event.version == 1
 
         # Verify pattern in store
         assert input_data.pattern_id in mock_pattern_store.patterns
@@ -121,8 +123,10 @@ class TestStorePatternIntegration:
             conn=None,
         )
 
-        assert result.confidence == min_confidence
-        assert result.state == EnumPatternState.CANDIDATE
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.confidence == min_confidence
+        assert result.event.state == EnumPatternState.CANDIDATE
         assert len(mock_pattern_store.patterns) == 1
 
     async def test_store_pattern_creates_audit_metadata(
@@ -151,7 +155,9 @@ class TestStorePatternIntegration:
             conn=None,
         )
 
-        stored = mock_pattern_store.patterns[result.pattern_id]
+        assert result.success is True
+        assert result.event is not None
+        stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["actor"] == "test_actor"
         assert stored["source_run_id"] == "run_12345"
         assert stored["correlation_id"] == correlation_id
@@ -202,13 +208,15 @@ class TestIdempotencyIntegration:
         )
 
         # Same pattern_id returned
-        assert result1.pattern_id == result2.pattern_id
+        assert result1.success is True and result1.event is not None
+        assert result2.success is True and result2.event is not None
+        assert result1.event.pattern_id == result2.event.pattern_id
 
         # Only one pattern stored
         assert len(mock_pattern_store.patterns) == 1
 
         # Version unchanged
-        assert result1.version == result2.version == 1
+        assert result1.event.version == result2.event.version == 1
 
     async def test_idempotent_preserves_original_timestamp(
         self,
@@ -283,12 +291,18 @@ class TestIdempotencyIntegration:
         )
 
         # Versions should increment
-        assert result1.version == 1
-        assert result2.version == 2
+        assert result1.success is True and result1.event is not None
+        assert result2.success is True and result2.event is not None
+        assert result1.event.version == 1
+        assert result2.event.version == 2
 
         # First should no longer be current
-        assert mock_pattern_store.patterns[result1.pattern_id]["is_current"] is False
-        assert mock_pattern_store.patterns[result2.pattern_id]["is_current"] is True
+        assert (
+            mock_pattern_store.patterns[result1.event.pattern_id]["is_current"] is False
+        )
+        assert (
+            mock_pattern_store.patterns[result2.event.pattern_id]["is_current"] is True
+        )
 
 
 # =============================================================================
@@ -562,21 +576,25 @@ class TestEventPublishingIntegration:
                 conn=None,
             )
 
+            assert result.success is True
+            assert result.event is not None
+            event = result.event
+
             # Publish the event (simulating what the node would do)
             event_data = {
                 "event_type": "PatternStored",
-                "pattern_id": str(result.pattern_id),
-                "domain": result.domain,
-                "signature_hash": result.signature_hash,
-                "version": result.version,
-                "confidence": result.confidence,
-                "state": result.state.value,
-                "stored_at": result.stored_at.isoformat(),
+                "pattern_id": str(event.pattern_id),
+                "domain": event.domain,
+                "signature_hash": event.signature_hash,
+                "version": event.version,
+                "confidence": event.confidence,
+                "state": event.state.value,
+                "stored_at": event.stored_at.isoformat(),
             }
 
             await kafka_publisher_adapter.publish(
                 topic=pattern_stored_topic,
-                key=str(result.pattern_id),
+                key=str(event.pattern_id),
                 value=event_data,
             )
 
@@ -584,7 +602,7 @@ class TestEventPublishingIntegration:
             assert len(received_events) == 1
             event_content = json.loads(received_events[0].value)
             assert event_content["event_type"] == "PatternStored"
-            assert event_content["pattern_id"] == str(result.pattern_id)
+            assert event_content["pattern_id"] == str(event.pattern_id)
             assert event_content["state"] == "candidate"
 
         finally:
@@ -690,15 +708,19 @@ class TestEventPublishingIntegration:
             conn=None,
         )
 
+        assert result.success is True
+        assert result.event is not None
+        event = result.event
+
         event_data = {
             "event_type": "PatternStored",
-            "pattern_id": str(result.pattern_id),
-            "domain": result.domain,
+            "pattern_id": str(event.pattern_id),
+            "domain": event.domain,
         }
 
         await kafka_publisher_adapter.publish(
             topic=pattern_stored_topic,
-            key=str(result.pattern_id),
+            key=str(event.pattern_id),
             value=event_data,
         )
 
@@ -708,7 +730,7 @@ class TestEventPublishingIntegration:
 
         # Latest event should be ours
         latest_event = json.loads(history[-1].value)
-        assert latest_event["pattern_id"] == str(result.pattern_id)
+        assert latest_event["pattern_id"] == str(event.pattern_id)
 
 
 # =============================================================================
@@ -959,10 +981,13 @@ class TestEndToEndWorkflow:
         result_v1 = await handle_store_pattern(
             input_v1, pattern_store=mock_pattern_store, conn=None
         )
-        mock_state_manager.set_state(result_v1.pattern_id, EnumPatternState.CANDIDATE)
+        assert result_v1.success is True and result_v1.event is not None
+        mock_state_manager.set_state(
+            result_v1.event.pattern_id, EnumPatternState.CANDIDATE
+        )
 
         await handle_promote_pattern(
-            pattern_id=result_v1.pattern_id,
+            pattern_id=result_v1.event.pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="V1 promoted",
             state_manager=mock_state_manager,
@@ -979,18 +1004,25 @@ class TestEndToEndWorkflow:
         result_v2 = await handle_store_pattern(
             input_v2, pattern_store=mock_pattern_store, conn=None
         )
+        assert result_v2.success is True and result_v2.event is not None
 
         # Verify versions
-        assert result_v1.version == 1
-        assert result_v2.version == 2
+        assert result_v1.event.version == 1
+        assert result_v2.event.version == 2
 
         # Verify is_current flags
-        assert mock_pattern_store.patterns[result_v1.pattern_id]["is_current"] is False
-        assert mock_pattern_store.patterns[result_v2.pattern_id]["is_current"] is True
+        assert (
+            mock_pattern_store.patterns[result_v1.event.pattern_id]["is_current"]
+            is False
+        )
+        assert (
+            mock_pattern_store.patterns[result_v2.event.pattern_id]["is_current"]
+            is True
+        )
 
         # V1 is still PROVISIONAL in state manager
         assert (
-            mock_state_manager.states[result_v1.pattern_id]
+            mock_state_manager.states[result_v1.event.pattern_id]
             == EnumPatternState.PROVISIONAL
         )
 
