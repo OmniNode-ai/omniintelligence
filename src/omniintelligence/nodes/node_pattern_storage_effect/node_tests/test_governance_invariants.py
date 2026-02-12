@@ -178,6 +178,7 @@ class TestMinimumConfidenceAcceptance:
         )
 
         assert result.success is True
+        assert result.event is not None
         assert result.event.pattern_id is not None
         assert result.event.confidence == 0.5
         assert result.event.state == EnumPatternState.CANDIDATE
@@ -421,6 +422,7 @@ class TestHandlerGovernanceIntegration:
 
         assert result is not None
         assert result.success is True
+        assert result.event is not None
         assert result.event.pattern_id == input_data.pattern_id
         assert result.event.state == EnumPatternState.CANDIDATE
 
@@ -473,6 +475,7 @@ class TestHandlerGovernanceIntegration:
         )
 
         assert result.success is True
+        assert result.event is not None
         assert result.event.domain == "test_domain"
         assert result.event.confidence == 0.75
         assert result.event.signature == "test_signature_pattern"
@@ -550,6 +553,8 @@ class TestUniquenessInvariant:
 
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         assert result1.event.pattern_id != result2.event.pattern_id
         assert result1.event.domain == "domain_a"
         assert result2.event.domain == "domain_b"
@@ -573,6 +578,8 @@ class TestUniquenessInvariant:
 
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         assert result1.event.pattern_id != result2.event.pattern_id
 
 

@@ -22,6 +22,9 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
+from omnibase_core.types.typed_dict_pattern_storage_metadata import (
+    TypedDictPatternStorageMetadata,
+)
 
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     handle_store_pattern,
@@ -73,6 +76,8 @@ class TestIdempotentStorage:
         # Should return same pattern_id
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         assert result1.event.pattern_id == result2.event.pattern_id
         assert result1.event.signature_hash == result2.event.signature_hash
 
@@ -153,6 +158,8 @@ class TestIdempotentStorage:
         # Both should show CANDIDATE state
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         assert result1.event.state == EnumPatternState.CANDIDATE
         assert result2.event.state == EnumPatternState.CANDIDATE
 
@@ -199,6 +206,8 @@ class TestNewVersionCreation:
         # Should have incremented version
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         assert result1.event.version == 1
         assert result2.event.version == 2
 
@@ -223,6 +232,7 @@ class TestNewVersionCreation:
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
             assert result.success is True
+            assert result.event is not None
             versions_created.append(result.event.version)
 
         # Versions should be 1, 2, 3, 4, 5
@@ -268,6 +278,9 @@ class TestNewVersionCreation:
         assert result1a.success is True
         assert result1b.success is True
         assert result2a.success is True
+        assert result1a.event is not None
+        assert result1b.event is not None
+        assert result2a.event is not None
         assert result1a.event.version == 1
         assert result1b.event.version == 2  # Incremented within lineage_a
         assert result2a.event.version == 1  # Independent lineage_b starts at 1
@@ -319,6 +332,8 @@ class TestImmutableHistory:
         # Both patterns should exist with original data
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         stored1 = mock_pattern_store.patterns[result1.event.pattern_id]
         stored2 = mock_pattern_store.patterns[result2.event.pattern_id]
 
@@ -349,6 +364,7 @@ class TestImmutableHistory:
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
             assert result.success is True
+            assert result.event is not None
             pattern_ids.append(result.event.pattern_id)
 
         # All three patterns should exist
@@ -380,6 +396,7 @@ class TestIsCurrentFlag:
         )
 
         assert result.success is True
+        assert result.event is not None
         stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["is_current"] is True
 
@@ -405,6 +422,7 @@ class TestIsCurrentFlag:
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
             assert result.success is True
+            assert result.event is not None
             pattern_ids.append(result.event.pattern_id)
 
         # Check is_current flags
@@ -441,6 +459,7 @@ class TestIsCurrentFlag:
 
         # Verify first is current
         assert result1.success is True
+        assert result1.event is not None
         assert (
             mock_pattern_store.patterns[result1.event.pattern_id]["is_current"] is True
         )
@@ -457,6 +476,7 @@ class TestIsCurrentFlag:
 
         # First should no longer be current
         assert result2.success is True
+        assert result2.event is not None
         assert (
             mock_pattern_store.patterns[result1.event.pattern_id]["is_current"] is False
         )
@@ -530,6 +550,10 @@ class TestLineageKey:
         assert result2.success is True
         assert result3.success is True
         assert result4.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result3.event is not None
+        assert result4.event is not None
         assert result1.event.version == 1
         assert result2.event.version == 2
 
@@ -582,6 +606,7 @@ class TestMetadataPreservation:
         )
 
         assert result.success is True
+        assert result.event is not None
         stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["actor"] == "test_actor"
         assert stored["source_run_id"] == "run_123"
@@ -603,6 +628,7 @@ class TestMetadataPreservation:
         )
 
         assert result.success is True
+        assert result.event is not None
         stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["correlation_id"] == correlation_id
 
@@ -621,6 +647,7 @@ class TestMetadataPreservation:
         )
 
         assert result.success is True
+        assert result.event is not None
         assert result.event.correlation_id == correlation_id
 
 
@@ -648,6 +675,7 @@ class TestIdempotencyEdgeCases:
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
             assert result.success is True
+            assert result.event is not None
             results.append(result.event.pattern_id)
 
         # All should return same pattern_id
@@ -686,6 +714,8 @@ class TestIdempotencyEdgeCases:
         # Should be idempotent based on (pattern_id, signature_hash)
         assert result1.success is True
         assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
         assert result1.event.pattern_id == result2.event.pattern_id
         # Original confidence should be preserved
         stored = mock_pattern_store.patterns[pattern_id]
@@ -976,7 +1006,7 @@ class TestAtomicVersionTransition:
         pattern_id = uuid4()
         correlation_id = uuid4()
         stored_at = datetime.now(UTC)
-        metadata = {
+        metadata: TypedDictPatternStorageMetadata = {
             "tags": ["test", "unit"],
             "learning_context": "unit_test",
             "additional_attributes": {"key": "value"},
