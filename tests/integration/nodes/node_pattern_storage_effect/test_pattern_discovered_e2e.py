@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Integration tests for pattern.discovered consumer (E2E with real PostgreSQL).
+"""Integration tests for pattern.discovered consumer.
+
+Two test classes:
+1. TestPatternDiscoveredMock - Pure mock tests (always runnable, no infra)
+2. TestPatternDiscoveredWithDBFixture - Mock-based tests gated on DB availability
 
 Test cases:
-- Publish mock event -> verify row exists in learned_patterns
-- Publish same discovery_id twice -> assert exactly one row
+- Consume a discovered event and verify storage output
+- Publish same discovery_id twice -> assert idempotent (same pattern_id)
 - Publish two events with same signature_hash but different discovery_ids
-  -> assert dedup behavior matches existing semantics
+  -> assert version auto-increment in the same lineage
 
 Reference:
     - OMN-2059: DB-SPLIT-08 own learned_patterns + add pattern.discovered consumer
@@ -91,32 +95,6 @@ def _make_discovered_event(
     return ModelPatternDiscoveredEvent(**defaults)
 
 
-async def _cleanup_e2e_discovered(conn: Any) -> int:
-    """Clean up E2E discovered test data from learned_patterns.
-
-    Returns number of rows deleted.
-    """
-    # First get pattern IDs to clean up pattern_injections
-    pattern_ids = await conn.fetch(
-        "SELECT id FROM learned_patterns WHERE signature_hash LIKE $1",
-        f"{E2E_SIG_HASH_PREFIX}%",
-    )
-    if pattern_ids:
-        ids_list = [row["id"] for row in pattern_ids]
-        await conn.execute(
-            "DELETE FROM pattern_injections WHERE pattern_ids && $1::uuid[]",
-            ids_list,
-        )
-
-    result = await conn.execute(
-        "DELETE FROM learned_patterns WHERE signature_hash LIKE $1",
-        f"{E2E_SIG_HASH_PREFIX}%",
-    )
-    if result and result.startswith("DELETE "):
-        return int(result.split()[1])
-    return 0
-
-
 # =============================================================================
 # Tests with MockPatternStore (no real DB required)
 # =============================================================================
@@ -194,71 +172,68 @@ class TestPatternDiscoveredMock:
 
 
 # =============================================================================
-# Tests with Real PostgreSQL (requires infrastructure)
+# Tests with MockPatternStore + db_conn fixture (integration marker)
+#
+# NOTE: These tests use MockPatternStore (in-memory) rather than a real
+# AdapterPatternStore because AdapterPatternStore requires a
+# PostgresRepositoryRuntime backed by an asyncpg Pool, which is not
+# directly compatible with the raw asyncpg.Connection from db_conn.
+#
+# The db_conn fixture is accepted but unused by MockPatternStore.
+# The tests are kept under the integration marker so they run in CI
+# alongside other integration tests and still verify the handler wiring.
+#
+# When a lightweight ProtocolPatternStore adapter that accepts a raw
+# asyncpg connection is available, these should be migrated to use it.
 # =============================================================================
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
 @requires_real_db
-class TestPatternDiscoveredRealDB:
-    """E2E tests with real PostgreSQL for pattern.discovered consumption.
+class TestPatternDiscoveredWithDBFixture:
+    """Integration tests for pattern.discovered consumption using MockPatternStore.
 
-    These tests require:
-    - OMNIINTELLIGENCE_DB_URL set in .env
-    - PostgreSQL reachable at the configured endpoint
-    - learned_patterns table with signature_hash column
+    These tests exercise the handler wiring (event mapping, idempotency, version
+    increment) with an in-memory MockPatternStore. The db_conn fixture is present
+    for infrastructure availability gating but is not used for actual SQL execution.
+
+    For real database E2E tests, use AdapterPatternStore once a raw-connection
+    compatible adapter is available.
     """
 
-    async def test_discovered_event_creates_row(self, db_conn: Any) -> None:
-        """A discovered event should create a row in learned_patterns."""
-        try:
-            # Clean up any leftover test data
-            await _cleanup_e2e_discovered(db_conn)
+    async def test_discovered_event_creates_pattern(self, db_conn: Any) -> None:
+        """A discovered event should be stored successfully via the handler."""
+        event = _make_discovered_event()
+        store = MockPatternStore()
 
-            event = _make_discovered_event()
+        result = await handle_consume_discovered(
+            event,
+            pattern_store=store,
+            conn=db_conn,
+        )
 
-            # Use a real pattern store adapter
-            from omniintelligence.testing import MockPatternStore
+        assert result.pattern_id is not None
+        assert result.domain == E2E_DISCOVERED_DOMAIN
 
-            store = MockPatternStore()
+    async def test_same_discovery_id_twice_is_idempotent(self, db_conn: Any) -> None:
+        """Same discovery_id published twice should return the same pattern_id."""
+        event = _make_discovered_event()
+        store = MockPatternStore()
 
-            result = await handle_consume_discovered(
-                event,
-                pattern_store=store,
-                conn=db_conn,
-            )
+        r1 = await handle_consume_discovered(
+            event,
+            pattern_store=store,
+            conn=db_conn,
+        )
+        r2 = await handle_consume_discovered(
+            event,
+            pattern_store=store,
+            conn=db_conn,
+        )
 
-            assert result.pattern_id is not None
-            assert result.domain == E2E_DISCOVERED_DOMAIN
-
-        finally:
-            await _cleanup_e2e_discovered(db_conn)
-
-    async def test_same_discovery_id_twice_exactly_one_row(self, db_conn: Any) -> None:
-        """Same discovery_id published twice should result in exactly one stored pattern."""
-        try:
-            await _cleanup_e2e_discovered(db_conn)
-
-            event = _make_discovered_event()
-            store = MockPatternStore()
-
-            r1 = await handle_consume_discovered(
-                event,
-                pattern_store=store,
-                conn=db_conn,
-            )
-            r2 = await handle_consume_discovered(
-                event,
-                pattern_store=store,
-                conn=db_conn,
-            )
-
-            # Idempotent: same pattern_id returned
-            assert r1.pattern_id == r2.pattern_id
-
-        finally:
-            await _cleanup_e2e_discovered(db_conn)
+        # Idempotent: same pattern_id returned
+        assert r1.pattern_id == r2.pattern_id
 
     async def test_two_events_same_sig_hash_different_discovery_ids(
         self,
@@ -269,36 +244,30 @@ class TestPatternDiscoveredRealDB:
         The dedup behavior should match existing semantics: the second event
         gets auto-incremented to version 2 in the same lineage.
         """
-        try:
-            await _cleanup_e2e_discovered(db_conn)
+        sig_hash = _make_e2e_signature_hash("shared_lineage_mock_db")
+        event1 = _make_discovered_event(
+            discovery_id=uuid4(),
+            signature_hash=sig_hash,
+        )
+        event2 = _make_discovered_event(
+            discovery_id=uuid4(),
+            signature_hash=sig_hash,
+        )
+        store = MockPatternStore()
 
-            sig_hash = _make_e2e_signature_hash("shared_lineage_real_db")
-            event1 = _make_discovered_event(
-                discovery_id=uuid4(),
-                signature_hash=sig_hash,
-            )
-            event2 = _make_discovered_event(
-                discovery_id=uuid4(),
-                signature_hash=sig_hash,
-            )
-            store = MockPatternStore()
+        r1 = await handle_consume_discovered(
+            event1,
+            pattern_store=store,
+            conn=db_conn,
+        )
+        r2 = await handle_consume_discovered(
+            event2,
+            pattern_store=store,
+            conn=db_conn,
+        )
 
-            r1 = await handle_consume_discovered(
-                event1,
-                pattern_store=store,
-                conn=db_conn,
-            )
-            r2 = await handle_consume_discovered(
-                event2,
-                pattern_store=store,
-                conn=db_conn,
-            )
-
-            # Different discovery_ids -> different pattern_ids
-            assert r1.pattern_id != r2.pattern_id
-            # Same lineage -> version incremented
-            assert r1.version == 1
-            assert r2.version == 2
-
-        finally:
-            await _cleanup_e2e_discovered(db_conn)
+        # Different discovery_ids -> different pattern_ids
+        assert r1.pattern_id != r2.pattern_id
+        # Same lineage -> version incremented
+        assert r1.version == 1
+        assert r2.version == 2

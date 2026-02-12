@@ -56,13 +56,19 @@ def _map_discovered_to_storage_input(
         ModelPatternStorageInput ready for handle_store_pattern.
     """
     # Build metadata from discovery event fields
+    #
+    # Reserved keys are set explicitly below and must not be overwritten
+    # by arbitrary entries in event.metadata.
+    _RESERVED_KEYS: frozenset[str] = frozenset({"source_agent"})
+
     additional_attrs: dict[str, str] = {}
+    # Copy string-valued metadata entries, skipping reserved keys
+    for key, value in event.metadata.items():
+        if isinstance(value, str) and key not in _RESERVED_KEYS:
+            additional_attrs[key] = value
+    # Explicit source_agent always wins over any metadata entry
     if event.source_agent is not None:
         additional_attrs["source_agent"] = event.source_agent
-    # Copy string-valued metadata entries
-    for key, value in event.metadata.items():
-        if isinstance(value, str):
-            additional_attrs[key] = value
 
     metadata = ModelPatternStorageMetadata(
         source_run_id=str(event.source_session_id),

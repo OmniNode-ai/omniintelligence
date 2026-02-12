@@ -38,11 +38,11 @@ class ModelPatternDiscoveredEvent(BaseModel):
     event_type: Literal["PatternDiscovered"] = "PatternDiscovered"
     discovery_id: UUID  # Idempotency key for exact replay protection
     pattern_signature: str = Field(max_length=500)  # Pattern content
-    signature_hash: str  # SHA256 of signature for semantic dedup
-    domain: str  # Domain classification
+    signature_hash: str = Field(min_length=1)  # SHA256 of signature for semantic dedup
+    domain: str = Field(min_length=1)  # Domain classification
     confidence: float = Field(ge=0.5, le=1.0)  # Discovery confidence
     source_session_id: UUID  # Session where pattern was discovered
-    source_system: str  # e.g., "omniclaude"
+    source_system: str = Field(min_length=1)  # e.g., "omniclaude"
     source_agent: str | None = None  # Optional agent identifier
     correlation_id: UUID  # Distributed tracing
     discovered_at: datetime  # MUST be timezone-aware

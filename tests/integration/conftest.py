@@ -99,6 +99,11 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
+    if not parsed.scheme.startswith("postgres"):
+        raise ValueError(
+            f"Expected a PostgreSQL URL (scheme starting with 'postgres'), "
+            f"got scheme: '{parsed.scheme}'"
+        )
     host = parsed.hostname or "localhost"
     port = parsed.port or 5432
     return host, port

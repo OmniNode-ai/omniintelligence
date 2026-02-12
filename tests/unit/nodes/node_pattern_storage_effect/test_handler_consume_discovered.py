@@ -179,6 +179,12 @@ class TestMapDiscoveredToStorageInput:
         result = _map_discovered_to_storage_input(event)
         assert result.metadata.additional_attributes.get("source_agent") == "my-agent"
 
+    def test_source_agent_none_omitted_from_additional_attributes(self) -> None:
+        """When source_agent is None, it should NOT appear in additional_attributes."""
+        event = _make_discovered_event(source_agent=None)
+        result = _map_discovered_to_storage_input(event)
+        assert "source_agent" not in result.metadata.additional_attributes
+
     def test_includes_discovered_tag(self) -> None:
         """Tags should include 'discovered' and source_system."""
         event = _make_discovered_event(source_system="omniclaude")
