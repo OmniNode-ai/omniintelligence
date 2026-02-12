@@ -113,6 +113,8 @@ def _map_discovered_to_storage_input(
         domain=event.domain,
         confidence=event.confidence,
         correlation_id=event.correlation_id,
+        # Initial version hint; may be overridden by handle_store_pattern's
+        # lineage versioning logic for non-first-in-lineage patterns.
         version=1,
         metadata=metadata,
         learned_at=event.discovered_at,

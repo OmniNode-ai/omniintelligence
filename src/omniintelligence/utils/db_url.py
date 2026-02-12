@@ -23,7 +23,7 @@ def safe_db_url_display(url: str) -> str:
 
     Returns:
         A display-safe string in the form ``host:port/database`` (or as much
-        as can be extracted).  Falls back to ``"(url)"`` if parsing fails.
+        as can be extracted).  Falls back to ``"(unparseable URL)"`` if parsing fails.
     """
     try:
         parsed = urllib.parse.urlparse(url)
@@ -38,7 +38,7 @@ def safe_db_url_display(url: str) -> str:
             return f"{host}/{database}"
         return host
     except Exception:
-        return "(url)"
+        return "(unparseable URL)"
 
 
 __all__ = ["safe_db_url_display"]

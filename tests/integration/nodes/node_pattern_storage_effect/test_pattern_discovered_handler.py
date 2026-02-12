@@ -6,6 +6,12 @@ These tests validate the handle_consume_discovered call chain (event
 creation, mapping, storage, idempotency, and lineage versioning) using
 MockPatternStore.  They do NOT require real infrastructure.
 
+Placement rationale: These tests live under integration/ (not unit/) because
+they exercise the full handler call chain end-to-end -- event construction,
+field mapping, governance checks, idempotency, and lineage versioning --
+rather than testing a single function in isolation.  MockPatternStore is used
+so no running database is needed, but the scope is integration-level.
+
 Test cases:
 - Consume a discovered event and verify storage output
 - Publish same discovery_id twice -> assert idempotent (same pattern_id)
