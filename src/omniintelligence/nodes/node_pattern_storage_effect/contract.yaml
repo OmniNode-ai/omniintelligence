@@ -114,6 +114,18 @@ handler_routing:
         - "update pattern status"
         - "emit pattern-promoted event"
 
+    # Consume discovered pattern - ingest from external discovery event
+    - operation: "consume_discovered_pattern"
+      handler:
+        function: "handle_consume_discovered"
+        module: "omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered"
+        type: "async"
+      description: "Consume a pattern.discovered event from external systems and store it"
+      actions:
+        - "validate discovered event"
+        - "map to storage input"
+        - "delegate to store_pattern handler"
+
   # Default handler for unrecognized operations
   default_handler:
     function: "handle_store_pattern"
@@ -236,6 +248,7 @@ event_bus:
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
     - "onex.evt.omniintelligence.pattern-learned.v1"
+    - "onex.evt.pattern.discovered.v1"
 
   # Topics this node publishes to (sends events to)
   publish_topics:
@@ -250,6 +263,11 @@ event_bus:
       schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput"
       description: "Learned pattern events from pattern_learning_compute pipeline. Contains pattern data,
         confidence scores, and learning metadata."
+      content_type: "application/json"
+    "onex.evt.pattern.discovered.v1":
+      schema_ref: "omniintelligence.models.events.model_pattern_discovered_event.ModelPatternDiscoveredEvent"
+      description: "Pattern discovery events from external systems (e.g., omniclaude). Contains pattern
+        signature, domain, confidence, and source session metadata."
       content_type: "application/json"
 
   # Metadata for published topics

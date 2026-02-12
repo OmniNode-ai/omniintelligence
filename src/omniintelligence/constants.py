@@ -147,6 +147,18 @@ Reference: OMN-1805
 Deletion ticket: OMN-1546
 """
 
+TOPIC_PATTERN_DISCOVERED_V1: str = "onex.evt.pattern.discovered.v1"
+"""
+Canonical topic for pattern discovery events (INPUT).
+
+Domain-centric topic: onex.evt.pattern.discovered.v1
+
+External systems (e.g., omniclaude) publish discovered patterns to this topic.
+NodePatternStorageEffect consumes and persists them to learned_patterns.
+
+Reference: OMN-2059
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -154,6 +166,7 @@ Deletion ticket: OMN-1546
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
+    "TOPIC_PATTERN_DISCOVERED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",

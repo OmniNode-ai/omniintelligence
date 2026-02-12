@@ -4,7 +4,7 @@
 
 This module provides pytest fixtures for end-to-end testing of the pattern
 learning pipeline using:
-- Real PostgreSQL (configured via POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DATABASE) for data integrity
+- Real PostgreSQL (configured via OMNIINTELLIGENCE_DB_URL) for data integrity
 - Real Kafka/Redpanda (configured via KAFKA_BOOTSTRAP_SERVERS) for event emission and verification
 
 Test Coverage:
@@ -14,7 +14,7 @@ Test Coverage:
     - Kafka event emission and verification
 
 Infrastructure Configuration (from .env):
-    - PostgreSQL: ${POSTGRES_HOST}:${POSTGRES_PORT} (database: ${POSTGRES_DATABASE})
+    - PostgreSQL: configured via OMNIINTELLIGENCE_DB_URL
     - Kafka/Redpanda: ${KAFKA_BOOTSTRAP_SERVERS} (external port for host access)
 
 Kafka Integration:
@@ -54,13 +54,9 @@ from tests.integration.conftest import (
     KAFKA_AVAILABLE,
     KAFKA_BOOTSTRAP_SERVERS,
     KAFKA_REQUEST_TIMEOUT_MS,
+    OMNIINTELLIGENCE_DB_URL,
     POSTGRES_AVAILABLE,
     POSTGRES_COMMAND_TIMEOUT,
-    POSTGRES_DATABASE,
-    POSTGRES_HOST,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
-    POSTGRES_USER,
     MockKafkaPublisher,
     RealKafkaPublisher,
 )
@@ -372,11 +368,8 @@ async def _check_signature_hash_column_exists(conn: Any) -> bool:
 # =============================================================================
 
 requires_e2e_postgres = pytest.mark.skipif(
-    not POSTGRES_AVAILABLE or not POSTGRES_PASSWORD,
-    reason=(
-        f"PostgreSQL not available at {POSTGRES_HOST}:{POSTGRES_PORT} "
-        "or password not set"
-    ),
+    not POSTGRES_AVAILABLE or not OMNIINTELLIGENCE_DB_URL,
+    reason=("PostgreSQL not available or OMNIINTELLIGENCE_DB_URL not set"),
 )
 """Skip marker for E2E tests requiring real PostgreSQL connectivity."""
 
@@ -408,7 +401,7 @@ async def signature_hash_available() -> bool:
         If PostgreSQL is not available, returns False (tests will skip via
         other mechanisms like requires_e2e_postgres marker).
     """
-    if not POSTGRES_PASSWORD:
+    if not OMNIINTELLIGENCE_DB_URL:
         return False
 
     try:
@@ -418,11 +411,7 @@ async def signature_hash_available() -> bool:
 
     try:
         conn: asyncpg.Connection = await asyncpg.connect(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
+            OMNIINTELLIGENCE_DB_URL,
             timeout=30,
             command_timeout=POSTGRES_COMMAND_TIMEOUT,
         )
@@ -448,7 +437,7 @@ async def e2e_db_conn(
     """Create a dedicated asyncpg connection for E2E tests with automatic cleanup.
 
     This fixture provides:
-    - Real PostgreSQL connection (configured via POSTGRES_HOST:POSTGRES_PORT env vars)
+    - Real PostgreSQL connection (configured via OMNIINTELLIGENCE_DB_URL)
     - Test isolation via E2E-prefixed signature_hash values
     - Automatic cleanup of test data after each test
     - Schema version detection via session-scoped signature_hash_available fixture
@@ -467,9 +456,9 @@ async def e2e_db_conn(
         Tests MUST use signature_hash values starting with 'test_e2e_' to ensure
         proper cleanup. Use the create_e2e_signature_hash() helper for this.
     """
-    if not POSTGRES_PASSWORD:
+    if not OMNIINTELLIGENCE_DB_URL:
         pytest.skip(
-            "POSTGRES_PASSWORD not set - add to .env file or environment. "
+            "OMNIINTELLIGENCE_DB_URL not set - add to .env file or environment. "
             "Expected .env at project root"
         )
 
@@ -480,18 +469,14 @@ async def e2e_db_conn(
 
     try:
         conn: asyncpg.Connection = await asyncpg.connect(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
+            OMNIINTELLIGENCE_DB_URL,
             timeout=30,
             command_timeout=POSTGRES_COMMAND_TIMEOUT,
         )
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database connection failed: {e}. "
-            f"Target: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+            f"URL: {OMNIINTELLIGENCE_DB_URL.split('@')[-1] if '@' in OMNIINTELLIGENCE_DB_URL else '(url)'}"
         )
 
     try:

@@ -29,11 +29,8 @@ Topic Discovery (OMN-2033):
 
 Configuration:
     The plugin activates based on environment variables:
-    - POSTGRES_HOST: Required for plugin activation (pattern storage needs DB)
-    - POSTGRES_PORT: Optional (default: 5432)
-    - POSTGRES_USER: Optional (default: postgres)
-    - POSTGRES_PASSWORD: Required when POSTGRES_HOST is set
-    - POSTGRES_DATABASE: Optional (default: omninode_bridge)
+    - OMNIINTELLIGENCE_DB_URL: Required for plugin activation (pattern storage needs DB)
+      Format: postgresql://user:password@host:port/database
 
 Example Usage:
     ```python
@@ -162,19 +159,19 @@ class PluginIntelligence:
     def should_activate(self, config: ModelDomainPluginConfig) -> bool:
         """Check if Intelligence should activate based on environment.
 
-        Returns True if POSTGRES_HOST is set, indicating PostgreSQL
+        Returns True if OMNIINTELLIGENCE_DB_URL is set, indicating PostgreSQL
         is configured for pattern storage support.
 
         Args:
             config: Plugin configuration (not used for this check).
 
         Returns:
-            True if POSTGRES_HOST environment variable is set.
+            True if OMNIINTELLIGENCE_DB_URL environment variable is set.
         """
-        postgres_host = os.getenv("POSTGRES_HOST")
-        if not postgres_host:
+        db_url = os.getenv("OMNIINTELLIGENCE_DB_URL")
+        if not db_url:
             logger.debug(
-                "Intelligence plugin inactive: POSTGRES_HOST not set "
+                "Intelligence plugin inactive: OMNIINTELLIGENCE_DB_URL not set "
                 "(correlation_id=%s)",
                 config.correlation_id,
             )
@@ -203,20 +200,26 @@ class PluginIntelligence:
         correlation_id = config.correlation_id
 
         try:
-            # Create PostgreSQL pool
-            postgres_host = os.getenv("POSTGRES_HOST")
-            postgres_dsn = (
-                f"postgresql://{os.getenv('POSTGRES_USER', 'postgres')}:"
-                f"{os.getenv('POSTGRES_PASSWORD', '')}@"
-                f"{postgres_host}:"
-                f"{os.getenv('POSTGRES_PORT', '5432')}/"
-                f"{os.getenv('POSTGRES_DATABASE', 'omninode_bridge')}"
-            )
+            # Create PostgreSQL pool from OMNIINTELLIGENCE_DB_URL
+            db_url = os.getenv("OMNIINTELLIGENCE_DB_URL")
+            if not db_url:
+                duration = time.time() - start_time
+                return ModelDomainPluginResult.failed(
+                    plugin_id=self.plugin_id,
+                    error_message=(
+                        "OMNIINTELLIGENCE_DB_URL is not set. "
+                        "Set it to a postgresql:// connection URL."
+                    ),
+                    duration_seconds=duration,
+                )
+
+            min_pool = int(os.getenv("POSTGRES_MIN_POOL_SIZE", "2"))
+            max_pool = int(os.getenv("POSTGRES_MAX_POOL_SIZE", "10"))
 
             self._pool = await asyncpg.create_pool(
-                postgres_dsn,
-                min_size=2,
-                max_size=10,
+                db_url,
+                min_size=min_pool,
+                max_size=max_pool,
             )
 
             # Validate pool creation succeeded
@@ -236,9 +239,7 @@ class PluginIntelligence:
                 "Intelligence PostgreSQL pool created (correlation_id=%s)",
                 correlation_id,
                 extra={
-                    "host": postgres_host,
-                    "port": os.getenv("POSTGRES_PORT", "5432"),
-                    "database": os.getenv("POSTGRES_DATABASE", "omninode_bridge"),
+                    "db_url": db_url.split("@")[-1] if "@" in db_url else "(url)",
                 },
             )
 
@@ -722,7 +723,9 @@ class PluginIntelligence:
         """
         if self._pool is None:
             return "disabled"
-        return "enabled (PostgreSQL)"
+        db_url = os.getenv("OMNIINTELLIGENCE_DB_URL", "")
+        host_part = db_url.split("@")[-1] if "@" in db_url else "PostgreSQL"
+        return f"enabled ({host_part})"
 
 
 # Verify protocol compliance at module load time

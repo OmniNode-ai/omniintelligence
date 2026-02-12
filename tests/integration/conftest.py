@@ -70,20 +70,8 @@ except ImportError:
 # Database Configuration
 # =============================================================================
 
-POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "192.168.86.200")
-"""PostgreSQL host address. Default: 192.168.86.200 (remote server)."""
-
-POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5436"))
-"""PostgreSQL port. Default: 5436 (external port for host access)."""
-
-POSTGRES_DATABASE: str = os.getenv("POSTGRES_DATABASE", "omninode_bridge")
-"""PostgreSQL database name. Default: omninode_bridge."""
-
-POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-"""PostgreSQL username. Default: postgres."""
-
-POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
-"""PostgreSQL password. Must be set in .env file."""
+OMNIINTELLIGENCE_DB_URL: str = os.getenv("OMNIINTELLIGENCE_DB_URL", "")
+"""PostgreSQL connection URL. Format: postgresql://user:password@host:port/database."""
 
 # Connection pool settings
 POSTGRES_MIN_POOL_SIZE: int = int(os.getenv("POSTGRES_MIN_POOL_SIZE", "2"))
@@ -94,6 +82,26 @@ POSTGRES_MAX_POOL_SIZE: int = int(os.getenv("POSTGRES_MAX_POOL_SIZE", "10"))
 
 POSTGRES_COMMAND_TIMEOUT: float = float(os.getenv("POSTGRES_COMMAND_TIMEOUT", "60.0"))
 """Default command timeout in seconds. Default: 60.0."""
+
+
+def _parse_db_url_host_port(url: str) -> tuple[str, int]:
+    """Extract host and port from a PostgreSQL connection URL.
+
+    Args:
+        url: A postgresql:// URL.
+
+    Returns:
+        Tuple of (host, port).
+
+    Raises:
+        ValueError: If the URL cannot be parsed.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 5432
+    return host, port
 
 
 # =============================================================================
@@ -131,7 +139,8 @@ TEST_DOMAIN_VERSION: str = "1.0"
 def is_postgres_available(timeout: float = 2.0) -> bool:
     """Check if PostgreSQL is reachable at the configured endpoint.
 
-    Performs a TCP socket connection test to verify network connectivity.
+    Parses OMNIINTELLIGENCE_DB_URL to extract host/port, then performs
+    a TCP socket connection test to verify network connectivity.
     Does NOT verify credentials or database existence.
 
     Args:
@@ -140,13 +149,16 @@ def is_postgres_available(timeout: float = 2.0) -> bool:
     Returns:
         True if PostgreSQL port is reachable, False otherwise.
     """
+    if not OMNIINTELLIGENCE_DB_URL:
+        return False
     try:
+        host, port = _parse_db_url_host_port(OMNIINTELLIGENCE_DB_URL)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
-        result = sock.connect_ex((POSTGRES_HOST, POSTGRES_PORT))
+        result = sock.connect_ex((host, port))
         sock.close()
         return result == 0
-    except OSError:
+    except (OSError, ValueError):
         return False
 
 
@@ -194,7 +206,7 @@ KAFKA_AVAILABLE: bool = is_kafka_available()
 
 requires_postgres = pytest.mark.skipif(
     not POSTGRES_AVAILABLE,
-    reason=f"PostgreSQL not reachable at {POSTGRES_HOST}:{POSTGRES_PORT}",
+    reason=f"PostgreSQL not reachable (OMNIINTELLIGENCE_DB_URL={'set' if OMNIINTELLIGENCE_DB_URL else 'missing'})",
 )
 """Skip marker for tests requiring PostgreSQL connectivity."""
 
@@ -204,11 +216,11 @@ requires_kafka = pytest.mark.skipif(
 )
 """Skip marker for tests requiring Kafka connectivity."""
 
-requires_password = pytest.mark.skipif(
-    not POSTGRES_PASSWORD,
-    reason="POSTGRES_PASSWORD not set in environment or .env file",
+requires_db_url = pytest.mark.skipif(
+    not OMNIINTELLIGENCE_DB_URL,
+    reason="OMNIINTELLIGENCE_DB_URL not set in environment or .env file",
 )
-"""Skip marker for tests requiring PostgreSQL password."""
+"""Skip marker for tests requiring database URL."""
 
 
 # =============================================================================
@@ -220,10 +232,8 @@ requires_password = pytest.mark.skipif(
 async def db_conn() -> AsyncGenerator[Any, None]:
     """Create a single asyncpg connection for integration tests.
 
-    Auto-configures from .env file. Skips test gracefully if:
-    - POSTGRES_PASSWORD is not set
-    - Database is not reachable
-    - Connection fails for any reason
+    Auto-configures from OMNIINTELLIGENCE_DB_URL in .env file. Skips test
+    gracefully if the URL is not set or connection fails.
 
     Yields:
         asyncpg.Connection connected to the test database.
@@ -234,9 +244,9 @@ async def db_conn() -> AsyncGenerator[Any, None]:
             result = await db_conn.fetchval("SELECT 1")
             assert result == 1
     """
-    if not POSTGRES_PASSWORD:
+    if not OMNIINTELLIGENCE_DB_URL:
         pytest.skip(
-            "POSTGRES_PASSWORD not set - add to .env file or environment. "
+            "OMNIINTELLIGENCE_DB_URL not set - add to .env file or environment. "
             f"Expected .env at: {_project_root / '.env'}"
         )
 
@@ -247,18 +257,14 @@ async def db_conn() -> AsyncGenerator[Any, None]:
 
     try:
         conn = await asyncpg.connect(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
+            OMNIINTELLIGENCE_DB_URL,
             timeout=30,
             command_timeout=POSTGRES_COMMAND_TIMEOUT,
         )
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database connection failed: {e}. "
-            f"Target: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+            f"URL: {OMNIINTELLIGENCE_DB_URL.split('@')[-1] if '@' in OMNIINTELLIGENCE_DB_URL else '(url)'}"
         )
 
     try:
@@ -274,8 +280,8 @@ async def db_pool() -> AsyncGenerator[Any, None]:
     Useful for tests that need multiple concurrent connections or
     want to test connection pool behavior.
 
-    Auto-configures from .env file. Skips test gracefully if database
-    is not available.
+    Auto-configures from OMNIINTELLIGENCE_DB_URL in .env file. Skips test
+    gracefully if the URL is not set or pool creation fails.
 
     Yields:
         asyncpg.Pool connected to the test database.
@@ -288,9 +294,9 @@ async def db_pool() -> AsyncGenerator[Any, None]:
                     result1 = await conn1.fetchval("SELECT 1")
                     result2 = await conn2.fetchval("SELECT 2")
     """
-    if not POSTGRES_PASSWORD:
+    if not OMNIINTELLIGENCE_DB_URL:
         pytest.skip(
-            "POSTGRES_PASSWORD not set - add to .env file or environment. "
+            "OMNIINTELLIGENCE_DB_URL not set - add to .env file or environment. "
             f"Expected .env at: {_project_root / '.env'}"
         )
 
@@ -301,11 +307,7 @@ async def db_pool() -> AsyncGenerator[Any, None]:
 
     try:
         pool = await asyncpg.create_pool(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
+            OMNIINTELLIGENCE_DB_URL,
             min_size=POSTGRES_MIN_POOL_SIZE,
             max_size=POSTGRES_MAX_POOL_SIZE,
             timeout=30,
@@ -314,7 +316,7 @@ async def db_pool() -> AsyncGenerator[Any, None]:
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database pool creation failed: {e}. "
-            f"Target: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+            f"URL: {OMNIINTELLIGENCE_DB_URL.split('@')[-1] if '@' in OMNIINTELLIGENCE_DB_URL else '(url)'}"
         )
 
     try:
@@ -629,15 +631,11 @@ __all__ = [
     "KAFKA_BOOTSTRAP_SERVERS",
     "KAFKA_MAX_BLOCK_MS",
     "KAFKA_REQUEST_TIMEOUT_MS",
+    "OMNIINTELLIGENCE_DB_URL",
     "POSTGRES_AVAILABLE",
     "POSTGRES_COMMAND_TIMEOUT",
-    "POSTGRES_DATABASE",
-    "POSTGRES_HOST",
     "POSTGRES_MAX_POOL_SIZE",
     "POSTGRES_MIN_POOL_SIZE",
-    "POSTGRES_PASSWORD",
-    "POSTGRES_PORT",
-    "POSTGRES_USER",
     "TEST_DOMAIN_ID",
     "TEST_DOMAIN_VERSION",
     # Publisher classes
@@ -654,8 +652,8 @@ __all__ = [
     "kafka_producer",
     "mock_kafka_publisher",
     # Skip markers
+    "requires_db_url",
     "requires_kafka",
-    "requires_password",
     "requires_postgres",
     "sample_correlation_id",
 ]

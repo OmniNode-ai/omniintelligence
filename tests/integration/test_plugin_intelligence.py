@@ -33,11 +33,8 @@ from omnibase_infra.runtime.protocol_domain_plugin import ProtocolDomainPlugin
 
 from omniintelligence.runtime.plugin import PluginIntelligence
 from tests.integration.conftest import (
+    OMNIINTELLIGENCE_DB_URL,
     POSTGRES_AVAILABLE,
-    POSTGRES_DATABASE,
-    POSTGRES_HOST,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
 )
 
 # =============================================================================
@@ -101,45 +98,39 @@ class TestPluginIntelligence:
         assert plugin.plugin_id == "intelligence"
         assert plugin.display_name == "Intelligence"
 
-    def test_should_activate_with_postgres_host(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Plugin should activate when POSTGRES_HOST is set."""
-        monkeypatch.setenv("POSTGRES_HOST", "192.168.86.200")
+    def test_should_activate_with_db_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Plugin should activate when OMNIINTELLIGENCE_DB_URL is set."""
+        monkeypatch.setenv(
+            "OMNIINTELLIGENCE_DB_URL",
+            "postgresql://postgres:pass@192.168.86.200:5436/omninode_bridge",
+        )
         plugin = PluginIntelligence()
         config = _make_config()
         assert plugin.should_activate(config) is True
 
-    def test_should_not_activate_without_postgres_host(
+    def test_should_not_activate_without_db_url(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Plugin should not activate when POSTGRES_HOST is missing."""
-        monkeypatch.delenv("POSTGRES_HOST", raising=False)
+        """Plugin should not activate when OMNIINTELLIGENCE_DB_URL is missing."""
+        monkeypatch.delenv("OMNIINTELLIGENCE_DB_URL", raising=False)
         plugin = PluginIntelligence()
         config = _make_config()
         assert plugin.should_activate(config) is False
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(
-        not POSTGRES_AVAILABLE or not POSTGRES_PASSWORD,
-        reason=(
-            f"PostgreSQL not reachable at {POSTGRES_HOST}:{POSTGRES_PORT} "
-            f"or POSTGRES_PASSWORD not set"
-        ),
+        not POSTGRES_AVAILABLE or not OMNIINTELLIGENCE_DB_URL,
+        reason="PostgreSQL not reachable or OMNIINTELLIGENCE_DB_URL not set",
     )
     async def test_initialize_creates_pool(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Initialize should create a PostgreSQL connection pool.
 
-        Requires real PostgreSQL at 192.168.86.200:5436 (or as configured).
+        Requires real PostgreSQL (configured via OMNIINTELLIGENCE_DB_URL).
         Skips gracefully if database is unavailable.
         """
-        monkeypatch.setenv("POSTGRES_HOST", POSTGRES_HOST)
-        monkeypatch.setenv("POSTGRES_PORT", str(POSTGRES_PORT))
-        monkeypatch.setenv("POSTGRES_USER", "postgres")
-        monkeypatch.setenv("POSTGRES_PASSWORD", POSTGRES_PASSWORD)
-        monkeypatch.setenv("POSTGRES_DATABASE", POSTGRES_DATABASE)
+        monkeypatch.setenv("OMNIINTELLIGENCE_DB_URL", OMNIINTELLIGENCE_DB_URL)
 
         plugin = PluginIntelligence()
         config = _make_config()
@@ -157,19 +148,12 @@ class TestPluginIntelligence:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(
-        not POSTGRES_AVAILABLE or not POSTGRES_PASSWORD,
-        reason=(
-            f"PostgreSQL not reachable at {POSTGRES_HOST}:{POSTGRES_PORT} "
-            f"or POSTGRES_PASSWORD not set"
-        ),
+        not POSTGRES_AVAILABLE or not OMNIINTELLIGENCE_DB_URL,
+        reason="PostgreSQL not reachable or OMNIINTELLIGENCE_DB_URL not set",
     )
     async def test_shutdown_closes_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Shutdown should close the PostgreSQL pool and clear state."""
-        monkeypatch.setenv("POSTGRES_HOST", POSTGRES_HOST)
-        monkeypatch.setenv("POSTGRES_PORT", str(POSTGRES_PORT))
-        monkeypatch.setenv("POSTGRES_USER", "postgres")
-        monkeypatch.setenv("POSTGRES_PASSWORD", POSTGRES_PASSWORD)
-        monkeypatch.setenv("POSTGRES_DATABASE", POSTGRES_DATABASE)
+        monkeypatch.setenv("OMNIINTELLIGENCE_DB_URL", OMNIINTELLIGENCE_DB_URL)
 
         plugin = PluginIntelligence()
         config = _make_config()
