@@ -46,7 +46,13 @@ class ModelPatternDiscoveredEvent(BaseModel):
     source_agent: str | None = None  # Optional agent identifier
     correlation_id: UUID  # Distributed tracing
     discovered_at: datetime  # MUST be timezone-aware
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Arbitrary key-value pairs. Only string values are propagated "
+            "to pattern storage; non-string values are silently dropped."
+        ),
+    )
 
     @field_validator("discovered_at")
     @classmethod

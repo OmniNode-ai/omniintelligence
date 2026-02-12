@@ -66,6 +66,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import urllib.parse
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -86,6 +87,35 @@ from omniintelligence.runtime.contract_topics import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_db_url_display(url: str) -> str:
+    """Extract hostname:port/database from a database URL, stripping credentials.
+
+    Uses urllib.parse.urlparse for safe parsing instead of fragile string splitting.
+
+    Args:
+        url: A postgresql:// connection URL, possibly containing credentials.
+
+    Returns:
+        A display-safe string in the form ``host:port/database`` (or as much
+        as can be extracted). Falls back to ``"PostgreSQL"`` if parsing fails.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname or "unknown"
+        port = parsed.port
+        database = (parsed.path or "").lstrip("/")
+        if port and database:
+            return f"{host}:{port}/{database}"
+        if port:
+            return f"{host}:{port}"
+        if database:
+            return f"{host}/{database}"
+        return host
+    except Exception:
+        return "PostgreSQL"
+
 
 # =============================================================================
 # Intelligence Kafka Topics (contract-driven, OMN-2033)
@@ -239,7 +269,7 @@ class PluginIntelligence:
                 "Intelligence PostgreSQL pool created (correlation_id=%s)",
                 correlation_id,
                 extra={
-                    "db_url": db_url.split("@")[-1] if "@" in db_url else "(url)",
+                    "db_url": _safe_db_url_display(db_url),
                 },
             )
 
@@ -724,7 +754,7 @@ class PluginIntelligence:
         if self._pool is None:
             return "disabled"
         db_url = os.getenv("OMNIINTELLIGENCE_DB_URL", "")
-        host_part = db_url.split("@")[-1] if "@" in db_url else "PostgreSQL"
+        host_part = _safe_db_url_display(db_url)
         return f"enabled ({host_part})"
 
 
