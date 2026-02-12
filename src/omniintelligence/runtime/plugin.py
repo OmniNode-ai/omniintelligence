@@ -232,10 +232,20 @@ class PluginIntelligence:
                     max_pool,
                 )
 
+            try:
+                command_timeout = float(os.getenv("POSTGRES_COMMAND_TIMEOUT", "60.0"))
+            except ValueError:
+                command_timeout = 60.0
+                logger.warning(
+                    "Invalid POSTGRES_COMMAND_TIMEOUT, using default: %s",
+                    command_timeout,
+                )
+
             self._pool = await asyncpg.create_pool(
                 db_url,
                 min_size=min_pool,
                 max_size=max_pool,
+                command_timeout=command_timeout,
             )
 
             # Validate pool creation succeeded
