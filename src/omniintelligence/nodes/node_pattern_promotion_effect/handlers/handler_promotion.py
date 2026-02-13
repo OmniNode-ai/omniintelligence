@@ -81,6 +81,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from omniintelligence.models.domain import ModelGateSnapshot
@@ -189,7 +190,7 @@ RETURNING id
 
 
 def meets_promotion_criteria(
-    pattern: Mapping[str, object],
+    pattern: Mapping[str, Any],
     *,
     min_injection_count: int = MIN_INJECTION_COUNT,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -252,7 +253,7 @@ def meets_promotion_criteria(
     return True
 
 
-def calculate_success_rate(pattern: Mapping[str, object]) -> float:
+def calculate_success_rate(pattern: Mapping[str, Any]) -> float:
     """Calculate the success rate for a pattern.
 
     Args:
@@ -279,7 +280,7 @@ def calculate_success_rate(pattern: Mapping[str, object]) -> float:
     return max(0.0, min(1.0, rate))  # Clamp to [0.0, 1.0]
 
 
-def build_gate_snapshot(pattern: Mapping[str, object]) -> ModelGateSnapshot:
+def build_gate_snapshot(pattern: Mapping[str, Any]) -> ModelGateSnapshot:
     """Build a gate snapshot from pattern data.
 
     Args:
@@ -370,7 +371,7 @@ async def check_and_promote_patterns(
     )
 
     # Step 2: Evaluate each pattern against promotion gates
-    eligible_patterns: list[Mapping[str, object]] = []
+    eligible_patterns: list[Mapping[str, Any]] = []
     for pattern in patterns:
         if meets_promotion_criteria(
             pattern,
@@ -523,7 +524,7 @@ async def promote_pattern(
     repository: ProtocolPatternRepository,
     producer: ProtocolKafkaPublisher | None,
     pattern_id: UUID,
-    pattern_data: Mapping[str, object],
+    pattern_data: Mapping[str, Any],
     correlation_id: UUID | None = None,
     *,
     topic_env_prefix: str | None = None,

@@ -11,7 +11,7 @@ Reference:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -32,11 +32,13 @@ class ProtocolPatternRepository(Protocol):
         rather than named parameters.
     """
 
-    async def fetch(self, query: str, *args: object) -> list[Mapping[str, object]]:
+    # any-ok: asyncpg Record values are dynamically typed
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
         """Execute a query and return all results as Records."""
         ...
 
-    async def fetchrow(self, query: str, *args: object) -> Mapping[str, object] | None:
+    # any-ok: asyncpg Record values are dynamically typed
+    async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
         """Execute a query and return first row, or None."""
         ...
 

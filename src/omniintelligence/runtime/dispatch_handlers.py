@@ -32,7 +32,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
@@ -72,7 +72,7 @@ class ProtocolIdempotencyStore(Protocol):
 class ProtocolIntentClassifier(Protocol):
     """Intent classification protocol."""
 
-    async def compute(self, input_data: object) -> object: ...
+    async def compute(self, input_data: Any) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
 
 
 # =============================================================================

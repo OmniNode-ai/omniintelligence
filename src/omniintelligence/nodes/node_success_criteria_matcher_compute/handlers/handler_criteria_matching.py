@@ -37,7 +37,7 @@ Example:
 from __future__ import annotations
 
 import re
-from typing import Final, cast
+from typing import Any, Final, cast
 
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.exceptions import (
     CriteriaMatchingValidationError,
@@ -228,7 +228,8 @@ def resolve_field_path(data: dict[str, object], path: str) -> MaybeJsonValue:
             )
 
     # Traverse the data structure
-    current: object = data
+    # any-ok: traverses heterogeneous nested structures (dicts/lists)
+    current: Any = data
 
     for token in tokens:
         # Check if token is a list index
@@ -257,7 +258,7 @@ def resolve_field_path(data: dict[str, object], path: str) -> MaybeJsonValue:
 
 
 def apply_operator(
-    actual: object,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     operator: EnumCriteriaOperator,
     expected: JsonValue | None,
 ) -> tuple[bool, str]:
@@ -484,7 +485,7 @@ def _evaluate_criterion(
 
 
 def _apply_numeric_operator(
-    actual: object,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     operator: EnumCriteriaOperator,
     expected: JsonValue | None,
 ) -> tuple[bool, str]:
@@ -533,7 +534,7 @@ def _apply_numeric_operator(
 
 
 def _apply_contains(
-    actual: object,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     expected: JsonValue | None,
     negate: bool,
 ) -> tuple[bool, str]:
@@ -584,7 +585,7 @@ def _apply_contains(
 
 
 def _apply_regex(
-    actual: object,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     expected: JsonValue | None,
 ) -> tuple[bool, str]:
     """Apply regex operator.
@@ -607,7 +608,7 @@ def _apply_regex(
 
 
 def _apply_compiled_regex(
-    actual: object,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     pattern: re.Pattern[str],
 ) -> tuple[bool, str]:
     """Apply a pre-compiled regex pattern.

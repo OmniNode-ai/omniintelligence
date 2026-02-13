@@ -22,7 +22,7 @@ Reference:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from omnibase_core.types.typed_dict_pattern_storage_metadata import (
@@ -510,7 +510,7 @@ def create_valid_pattern_input(
 
 
 def make_discovered_event(
-    **overrides: object,
+    **overrides: Any,  # any-ok: test factory accepts heterogeneous kwargs
 ) -> ModelPatternDiscoveredEvent:
     """Create a valid ModelPatternDiscoveredEvent with sensible defaults.
 
@@ -518,7 +518,7 @@ def make_discovered_event(
     All fields can be overridden via keyword arguments.
 
     Args:
-        **overrides: object ModelPatternDiscoveredEvent field to override.
+        **overrides: Any ModelPatternDiscoveredEvent field to override.
 
     Returns:
         A valid ModelPatternDiscoveredEvent instance.
@@ -532,7 +532,7 @@ def make_discovered_event(
         ModelPatternDiscoveredEvent,
     )
 
-    defaults: dict[str, object] = {
+    defaults: dict[str, Any] = {
         "discovery_id": uuid4(),
         "pattern_signature": "def example_pattern(): return True",
         "signature_hash": "abc123def456789",
@@ -551,8 +551,8 @@ def make_discovered_event(
 
 def create_low_confidence_input_dict(
     confidence: float = 0.3,
-    **kwargs: object,
-) -> dict[str, object]:
+    **kwargs: Any,  # any-ok: test factory accepts heterogeneous kwargs
+) -> dict[str, Any]:
     """Create input dict with low confidence for validation bypass testing.
 
     Since ModelPatternStorageInput validates at model level, we create

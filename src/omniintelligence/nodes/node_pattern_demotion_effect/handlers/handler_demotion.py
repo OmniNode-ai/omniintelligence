@@ -99,7 +99,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_DEPRECATED_V1
@@ -237,7 +237,7 @@ class ProtocolPatternRepository(Protocol):
         rather than named parameters.
     """
 
-    async def fetch(self, query: str, *args: object) -> list[Mapping[str, object]]:
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
         """Execute a query and return all results as Records.
 
         Args:
@@ -436,7 +436,7 @@ def calculate_hours_since_promotion(promoted_at: datetime | None) -> float | Non
 
 
 def is_cooldown_active(
-    pattern: Mapping[str, object],
+    pattern: Mapping[str, Any],
     cooldown_hours: int,
 ) -> bool:
     """Check if a pattern is still within its post-promotion cooldown period.
@@ -466,7 +466,7 @@ def is_cooldown_active(
 
 
 def get_demotion_reason(
-    pattern: Mapping[str, object],
+    pattern: Mapping[str, Any],
     thresholds: ModelEffectiveThresholds,
 ) -> str | None:
     """Determine the demotion reason for a pattern, if any.
@@ -517,7 +517,7 @@ def get_demotion_reason(
     return None
 
 
-def calculate_success_rate(pattern: Mapping[str, object]) -> float:
+def calculate_success_rate(pattern: Mapping[str, Any]) -> float:
     """Calculate the success rate for a pattern.
 
     Args:
@@ -544,7 +544,7 @@ def calculate_success_rate(pattern: Mapping[str, object]) -> float:
     return max(0.0, min(1.0, rate))  # Clamp to [0.0, 1.0]
 
 
-def build_gate_snapshot(pattern: Mapping[str, object]) -> ModelDemotionGateSnapshot:
+def build_gate_snapshot(pattern: Mapping[str, Any]) -> ModelDemotionGateSnapshot:
     """Build a gate snapshot from pattern data.
 
     Captures the state of all demotion gates at evaluation time for
@@ -842,7 +842,7 @@ async def demote_pattern(
     repository: ProtocolPatternRepository,  # noqa: ARG001 - kept for interface compat
     producer: ProtocolKafkaPublisher | None,
     pattern_id: UUID,
-    pattern_data: Mapping[str, object],
+    pattern_data: Mapping[str, Any],
     reason: str,
     thresholds: ModelEffectiveThresholds,
     correlation_id: UUID | None = None,

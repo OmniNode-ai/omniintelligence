@@ -42,6 +42,8 @@ import warnings
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 try:
@@ -89,7 +91,7 @@ class ModelEventEnvelope(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source: ModelEventSource
     metadata: ModelEventMetadata | None = Field(default=None)
-    payload: object = Field(..., description="Event payload")
+    payload: Any = Field(..., description="Event payload")  # any-ok: arbitrary event payload, serialized manually in to_dict()
 
     def to_dict(self) -> dict[str, object]:
         """Convert envelope to dictionary for serialization."""
@@ -557,9 +559,10 @@ class EventPublisher:
 
         # Create future for delivery callback
         loop = asyncio.get_running_loop()
-        future: asyncio.Future[object] = loop.create_future()
+        future: asyncio.Future[Any] = loop.create_future()
 
-        def delivery_callback(err: object, _msg: object) -> None:
+        # any-ok: confluent-kafka callback signature
+        def delivery_callback(err: Any, _msg: Any) -> None:
             """Delivery callback to set future result."""
             if err:
                 loop.call_soon_threadsafe(

@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -110,11 +110,11 @@ class AdapterPatternRepositoryPostgres:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def fetch(self, query: str, *args: object) -> list[Mapping[str, object]]:
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
         """Execute query and return all rows."""
         return await self._pool.fetch(query, *args)  # type: ignore[return-value]
 
-    async def fetchrow(self, query: str, *args: object) -> Mapping[str, object] | None:
+    async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
         """Execute query and return first row, or None."""
         return await self._pool.fetchrow(query, *args)  # type: ignore[return-value]
 
