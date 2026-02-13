@@ -226,6 +226,9 @@ async def route_hook_event(
 
     except Exception as e:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
+        error_metadata: dict[str, object] = {
+            "exception_type": type(e).__name__,
+        }
         return ModelClaudeHookResult(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
@@ -234,7 +237,7 @@ async def route_hook_event(
             processing_time_ms=processing_time_ms,
             processed_at=datetime.now(UTC),
             error_message=str(e),
-            metadata={"exception_type": type(e).__name__},
+            metadata=error_metadata,
         )
 
 
@@ -249,6 +252,10 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     Returns:
         ModelClaudeHookResult with status=success and no intent_result.
     """
+    noop_metadata: dict[str, object] = {
+        "handler": "no_op",
+        "reason": "event_type not yet implemented",
+    }
     return ModelClaudeHookResult(
         status=EnumHookProcessingStatus.SUCCESS,
         event_type=str(event.event_type),
@@ -258,7 +265,7 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),
         error_message=None,
-        metadata={"handler": "no_op", "reason": "event_type not yet implemented"},
+        metadata=noop_metadata,
     )
 
 
@@ -361,7 +368,7 @@ async def handle_user_prompt_submit(
     Returns:
         ModelClaudeHookResult with intent classification results.
     """
-    metadata: dict[str, str] = {"handler": "user_prompt_submit"}
+    metadata: dict[str, object] = {"handler": "user_prompt_submit"}
 
     # Extract prompt from payload
     prompt, extraction_source = _extract_prompt_from_payload(event.payload)

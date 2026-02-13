@@ -179,7 +179,10 @@ class TestSuccessfulTransitions:
         """Test transition with all optional fields populated."""
         # Arrange
         mock_repository.add_pattern(sample_pattern_id, status="provisional")
-        gate_snapshot = {
+        # Explicit dict[str, object] annotation to satisfy the gate_snapshot
+        # parameter typed as ModelGateSnapshot | dict[str, object] | None
+        # (dict is invariant in its value type).
+        gate_snapshot: dict[str, object] = {
             "injection_count_rolling_20": 15,
             "success_rate_rolling_20": 0.85,
             "failure_streak": 0,
@@ -1499,7 +1502,10 @@ class TestEdgeCases:
         """Complex gate_snapshot dict is serialized to JSON."""
         # Arrange
         mock_repository.add_pattern(sample_pattern_id, status="provisional")
-        gate_snapshot = {
+        # Explicit dict[str, object] annotation to satisfy the gate_snapshot
+        # parameter typed as ModelGateSnapshot | dict[str, object] | None
+        # (dict is invariant in its value type).
+        gate_snapshot: dict[str, object] = {
             "injection_count_rolling_20": 15,
             "success_rate_rolling_20": 0.85,
             "failure_streak": 0,
