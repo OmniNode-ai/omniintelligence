@@ -8,9 +8,9 @@ the OmniIntelligence code analysis event bus:
 - ModelCodeAnalysisFailedPayload: Failed analysis error events
 
 These models define the contracts for the following Kafka topics:
-- dev.archon-intelligence.intelligence.code-analysis-requested.v1
-- dev.archon-intelligence.intelligence.code-analysis-completed.v1
-- dev.archon-intelligence.intelligence.code-analysis-failed.v1
+- {env}.onex.cmd.omniintelligence.code-analysis-requested.v1
+- {env}.onex.evt.omniintelligence.code-analysis-completed.v1
+- {env}.onex.evt.omniintelligence.code-analysis-failed.v1
 
 Migration Note:
     These models were extracted from the monolithic

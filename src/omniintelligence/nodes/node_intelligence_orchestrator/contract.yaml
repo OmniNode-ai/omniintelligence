@@ -68,6 +68,8 @@ workflow_coordination:
           step_config:
             dispatch_strategy: "dynamic_compute_selection"
             available_compute_nodes:
+              - pattern_extraction_compute
+              - pattern_learning_compute
               - pattern_matching_compute
               - quality_scoring_compute
               - semantic_analysis_compute
@@ -99,30 +101,38 @@ workflow_coordination:
 # Consumed Events
 # ===============
 consumed_events:
-  - topic: "{env}.archon-intelligence.intelligence.code-analysis-requested.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.code-analysis-requested.v1"
     event_type: "CodeAnalysisRequested"
-  - topic: "{env}.archon-intelligence.intelligence.document-ingestion-requested.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.document-ingestion-requested.v1"
     event_type: "DocumentIngestionRequested"
-  - topic: "{env}.archon-intelligence.intelligence.pattern-learning-requested.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.pattern-learning-requested.v1"
     event_type: "PatternLearningRequested"
-  - topic: "{env}.archon-intelligence.intelligence.quality-assessment-requested.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.quality-assessment-requested.v1"
     event_type: "QualityAssessmentRequested"
 # Published Events
 # ================
 published_events:
-  - topic: "{env}.archon-intelligence.intelligence.code-analysis-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.code-analysis-completed.v1"
     event_type: "CodeAnalysisCompleted"
-  - topic: "{env}.archon-intelligence.intelligence.code-analysis-failed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.code-analysis-failed.v1"
     event_type: "CodeAnalysisFailed"
-  - topic: "{env}.archon-intelligence.intelligence.document-ingested.v1"
+  - topic: "{env}.onex.evt.omniintelligence.document-ingested.v1"
     event_type: "DocumentIngested"
-  - topic: "{env}.archon-intelligence.intelligence.pattern-learned.v1"
+  - topic: "{env}.onex.evt.omniintelligence.pattern-learned.v1"
     event_type: "PatternLearned"
-  - topic: "{env}.archon-intelligence.intelligence.quality-assessed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.quality-assessed.v1"
     event_type: "QualityAssessed"
 # Dependencies
 # ============
 dependencies:
+  - name: "pattern_extraction_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_pattern_extraction_compute"
+    description: "Compute node for pattern extraction from code."
+  - name: "pattern_learning_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_pattern_learning_compute"
+    description: "Compute node for ML pattern learning pipeline."
   - name: "pattern_matching_compute"
     type: "node"
     module: "omniintelligence.nodes.node_pattern_matching_compute"
@@ -187,7 +197,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-20"
+  updated: "2026-02-13"
   tags:
     - "ONEX"
     - "orchestrator"
