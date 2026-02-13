@@ -63,7 +63,7 @@ def collect_subscribe_topics_from_contracts(
 
     Args:
         node_packages: Override list of node packages to scan.  Defaults to
-            the three built-in intelligence effect nodes.
+            the built-in intelligence effect nodes.
 
     Returns:
         Ordered list of subscribe topic strings.

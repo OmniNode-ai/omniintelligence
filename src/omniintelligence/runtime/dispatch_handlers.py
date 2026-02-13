@@ -567,6 +567,7 @@ def create_pattern_storage_dispatch_handler(
         # Currently the handler logs receipt; full storage delegation will
         # use repository + kafka_producer when RuntimeHostProcess wiring
         # is complete for this node.
+        # TODO(OMN-2190): Wire to route_storage_operation/handle_consume_discovered
         _repo = repository
         _producer = kafka_producer
 
@@ -599,8 +600,8 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 5 intelligence domain handlers and
-    routes, and freezes it. The engine is ready for dispatch after this call.
+    Creates the engine, registers all 4 intelligence domain handlers (5 routes)
+    and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
     should not start consumers.
