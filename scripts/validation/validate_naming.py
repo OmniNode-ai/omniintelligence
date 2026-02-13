@@ -497,7 +497,8 @@ class IntelligenceNamingConventionValidator:
             try:
                 relative_path = file_path.relative_to(self.repo_path)
                 in_relevant_dir = (
-                    relative_path.parts and relative_path.parts[0] == expected_dir
+                    bool(relative_path.parts)
+                    and relative_path.parts[0] == expected_dir
                 )
             except ValueError:
                 pass

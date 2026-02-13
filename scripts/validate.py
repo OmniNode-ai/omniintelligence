@@ -16,6 +16,7 @@ import argparse
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -480,7 +481,7 @@ def main() -> int:
     # Single validator mode
     if args.validator != "all":
         # Direct function validators
-        validator_map: dict[str, object] = {
+        validator_map: dict[str, Callable[..., ValidationResult]] = {
             "clean_root": run_clean_root,
             "naming": run_naming,
             "ruff": run_ruff,
@@ -499,7 +500,7 @@ def main() -> int:
         }
 
         if args.validator in validator_map:
-            result = validator_map[args.validator](verbose=args.verbose)  # type: ignore[operator]
+            result = validator_map[args.validator](verbose=args.verbose)
         elif args.validator in standalone_validators:
             module, display = standalone_validators[args.validator]
             result = run_standalone_validator(
