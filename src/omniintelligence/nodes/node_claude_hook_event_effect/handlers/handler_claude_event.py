@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
@@ -371,6 +371,11 @@ async def handle_user_prompt_submit(
     """
     metadata: dict[str, object] = {"handler": "user_prompt_submit"}
 
+    # Resolve correlation_id: use event's if present, generate one otherwise
+    correlation_id = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
+
     # Extract prompt from payload
     prompt, extraction_source = _extract_prompt_from_payload(event.payload)
     metadata["prompt_extraction_source"] = extraction_source
@@ -380,7 +385,7 @@ async def handle_user_prompt_submit(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
+            correlation_id=correlation_id,
             intent_result=None,
             processing_time_ms=0.0,
             processed_at=datetime.now(UTC),
@@ -399,7 +404,7 @@ async def handle_user_prompt_submit(
             classification_result = await _classify_intent(
                 prompt=prompt,
                 session_id=event.session_id,
-                correlation_id=event.correlation_id,
+                correlation_id=correlation_id,
                 classifier=intent_classifier,
             )
             intent_category = classification_result.get("intent_category", "unknown")
@@ -423,7 +428,7 @@ async def handle_user_prompt_submit(
                 intent_category=intent_category,
                 confidence=confidence,
                 keywords=keywords,
-                correlation_id=event.correlation_id,
+                correlation_id=correlation_id,
                 producer=kafka_producer,
                 topic=publish_topic,
             )
@@ -458,7 +463,7 @@ async def handle_user_prompt_submit(
         status=status,
         event_type=str(event.event_type),
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
+        correlation_id=correlation_id,
         intent_result=intent_result,
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),

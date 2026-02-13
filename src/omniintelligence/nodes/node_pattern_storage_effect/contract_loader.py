@@ -245,7 +245,10 @@ class ContractLoader:
         Returns:
             Node name string.
         """
-        return self._contract.get("node_name", self._contract.get("name", "unknown"))
+        result: str = self._contract.get(
+            "node_name", self._contract.get("name", "unknown")
+        )
+        return result
 
     @property
     def node_type(self) -> str:
@@ -254,7 +257,8 @@ class ContractLoader:
         Returns:
             Node type string (e.g., EFFECT_GENERIC).
         """
-        return self._contract.get("node_type", "unknown")
+        result: str = self._contract.get("node_type", "unknown")
+        return result
 
     @property
     def handler_routing(self) -> HandlerRouting:
@@ -321,7 +325,10 @@ class ContractLoader:
             AttributeError: If function not found in module.
         """
         module = importlib.import_module(config.module)
-        return getattr(module, config.function)
+        handler: Callable[..., Any] = getattr(
+            module, config.function
+        )  # any-ok: dynamically imported
+        return handler
 
     def resolve_handler(
         self, operation: str

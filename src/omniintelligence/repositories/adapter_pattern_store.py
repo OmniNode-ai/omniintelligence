@@ -380,7 +380,8 @@ class AdapterPatternStore:
         result = await self._runtime.call("get_latest_version", *args)
 
         if result and isinstance(result, dict) and "version" in result:
-            return result["version"]
+            version: int = result["version"]
+            return version
         return None
 
     async def get_stored_at(
@@ -403,7 +404,8 @@ class AdapterPatternStore:
         result = await self._runtime.call("get_stored_at", *args)
 
         if result and isinstance(result, dict) and "created_at" in result:
-            return result["created_at"]
+            stored_at: datetime = result["created_at"]
+            return stored_at
         return None
 
     async def store_with_version_transition(
@@ -626,9 +628,7 @@ async def create_pattern_store_adapter(pool: Pool) -> AdapterPatternStore:
 # The actual runtime check happens when the adapter is used with isinstance().
 
 if TYPE_CHECKING:
-    _adapter_protocol_check: ProtocolPatternStore = AdapterPatternStore(
-        None  # type: ignore[arg-type]
-    )
+    _adapter_protocol_check: ProtocolPatternStore = AdapterPatternStore(None)
 
 
 __all__ = [
