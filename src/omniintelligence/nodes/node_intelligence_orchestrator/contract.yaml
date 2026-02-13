@@ -69,6 +69,7 @@ workflow_coordination:
             dispatch_strategy: "dynamic_compute_selection"
             available_compute_nodes:
               - pattern_extraction_compute
+              - pattern_learning_compute
               - pattern_matching_compute
               - quality_scoring_compute
               - semantic_analysis_compute
@@ -160,6 +161,10 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.node_pattern_extraction_compute"
     description: "Compute node for pattern extraction from execution traces."
+  - name: "pattern_learning_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_pattern_learning_compute"
+    description: "Compute node for ML-based pattern learning pipeline."
   - name: "pattern_matching_compute"
     type: "node"
     module: "omniintelligence.nodes.node_pattern_matching_compute"
@@ -224,7 +229,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-20"
+  updated: "2026-02-13"
   tags:
     - "ONEX"
     - "orchestrator"
