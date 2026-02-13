@@ -28,7 +28,7 @@ import copy
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import yaml
@@ -105,8 +105,8 @@ class AdapterPatternStore:
     def _build_positional_args(
         self,
         op_name: str,
-        provided: dict[str, object],
-    ) -> tuple[object, ...]:
+        provided: dict[str, Any],  # any-ok: heterogeneous param values from caller
+    ) -> tuple[Any, ...]:
         """Build positional args for runtime.call() from provided kwargs.
 
         The runtime expects positional arguments in the order defined by
@@ -525,7 +525,9 @@ class AdapterPatternStore:
         return pattern_id
 
 
-def _convert_defaults_to_schema_value(contract_dict: dict[str, object]) -> dict[str, object]:
+def _convert_defaults_to_schema_value(
+    contract_dict: dict[str, Any],  # any-ok: YAML-loaded contract data is dynamically typed
+) -> dict[str, Any]:
     """Convert plain default values to ModelSchemaValue format.
 
     The Pydantic schema expects `default` to be a ModelSchemaValue object,
@@ -540,7 +542,7 @@ def _convert_defaults_to_schema_value(contract_dict: dict[str, object]) -> dict[
     """
     from omnibase_core.models.common.model_schema_value import ModelSchemaValue
 
-    def convert_value(value: object) -> dict[str, object]:
+    def convert_value(value: Any) -> dict[str, Any]:  # any-ok: YAML values are dynamically typed
         """Convert a plain value to ModelSchemaValue dict format."""
         schema_value = ModelSchemaValue.from_value(value)
         return schema_value.model_dump()

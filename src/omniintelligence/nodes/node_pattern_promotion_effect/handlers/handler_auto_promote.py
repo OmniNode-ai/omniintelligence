@@ -159,7 +159,7 @@ class AutoPromoteResult(TypedDict):
     promoted: bool
     reason: str
     evidence_tier: str
-    gate_snapshot: dict[str, object]
+    gate_snapshot: dict[str, Any]  # any-ok: dynamically typed gate snapshot data
 
 
 class AutoPromoteCheckResult(TypedDict):
@@ -334,7 +334,7 @@ async def _build_enriched_gate_snapshot(
 async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
-    apply_transition_fn: Callable[..., object],
+    apply_transition_fn: Callable[..., Any],  # any-ok: async callable with dynamic return type
     idempotency_store: ProtocolIdempotencyStore | None = None,
     producer: ProtocolKafkaPublisher | None = None,
     correlation_id: UUID | None = None,
