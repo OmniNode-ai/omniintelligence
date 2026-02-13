@@ -204,6 +204,11 @@ async def route_hook_event(
                 kafka_producer=kafka_producer,
                 publish_topic=publish_topic,
             )
+        elif event.event_type == EnumClaudeCodeHookEventType.STOP:
+            result = await handle_stop(
+                event=event,
+                kafka_producer=kafka_producer,
+            )
         else:
             # All other event types are no-op for now
             result = handle_no_op(event)
@@ -259,6 +264,73 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         processed_at=datetime.now(UTC),
         error_message=None,
         metadata={"handler": "no_op", "reason": "event_type not yet implemented"},
+    )
+
+
+async def handle_stop(
+    event: ModelClaudeCodeHookEvent,
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+) -> ModelClaudeHookResult:
+    """Handle Stop events by triggering pattern extraction.
+
+    When a Claude Code session stops, emit a pattern learning command to
+    ``onex.cmd.omniintelligence.pattern-learning.v1`` so the intelligence
+    orchestrator can initiate pattern extraction from the session data.
+
+    This closes the gap where the intelligence orchestrator subscribes to
+    pattern-learning commands but nothing was emitting them.
+
+    Args:
+        event: The Stop hook event.
+        kafka_producer: Optional Kafka producer for emitting the command.
+
+    Returns:
+        ModelClaudeHookResult with processing outcome.
+
+    Related:
+        - OMN-2210: Wire intelligence nodes into registration + pattern extraction
+    """
+    metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
+
+    # Emit pattern learning command if Kafka is available
+    pattern_learning_topic = "onex.cmd.omniintelligence.pattern-learning.v1"
+    emitted = False
+
+    if kafka_producer is not None:
+        try:
+            command_payload = {
+                "event_type": "PatternLearningRequested",
+                "session_id": event.session_id,
+                "correlation_id": str(event.correlation_id),
+                "trigger": "session_stop",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+
+            await kafka_producer.publish(
+                topic=pattern_learning_topic,
+                key=event.session_id,
+                value=command_payload,
+            )
+            emitted = True
+            metadata["pattern_learning_emission"] = "success"
+            metadata["pattern_learning_topic"] = pattern_learning_topic
+        except Exception as e:
+            metadata["pattern_learning_emission"] = "failed"
+            metadata["pattern_learning_error"] = str(e)
+    else:
+        metadata["pattern_learning_emission"] = "no_producer"
+
+    return ModelClaudeHookResult(
+        status=EnumHookProcessingStatus.SUCCESS,
+        event_type=str(event.event_type),
+        session_id=event.session_id,
+        correlation_id=event.correlation_id,
+        intent_result=None,
+        processing_time_ms=0.0,
+        processed_at=datetime.now(UTC),
+        error_message=None,
+        metadata=metadata,
     )
 
 
@@ -550,6 +622,7 @@ __all__ = [
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
     "handle_no_op",
+    "handle_stop",
     "handle_user_prompt_submit",
     "route_hook_event",
 ]

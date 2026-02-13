@@ -138,6 +138,8 @@ class PluginIntelligence:
         self._services_registered: list[str] = []
         self._dispatch_engine: MessageDispatchEngine | None = None
         self._message_type_registry: RegistryMessageType | None = None
+        self._event_bus: Any = None
+        self._introspection_nodes: list[str] = []
 
     @property
     def plugin_id(self) -> str:
@@ -481,27 +483,47 @@ class PluginIntelligence:
                 publish_topics=publish_topics,
             )
 
+            # Store event_bus reference for introspection publishing
+            self._event_bus = config.event_bus
+
+            # Publish introspection events for all intelligence nodes
+            # (OMN-2210: Wire intelligence nodes into registration)
+            from omniintelligence.runtime.introspection import (
+                publish_intelligence_introspection,
+            )
+
+            self._introspection_nodes = await publish_intelligence_introspection(
+                event_bus=config.event_bus,
+                correlation_id=correlation_id,
+            )
+
             duration = time.time() - start_time
             logger.info(
                 "Intelligence dispatch engine wired "
-                "(routes=%d, handlers=%d, kafka=%s, correlation_id=%s)",
+                "(routes=%d, handlers=%d, kafka=%s, introspection=%d, "
+                "correlation_id=%s)",
                 self._dispatch_engine.route_count,
                 self._dispatch_engine.handler_count,
                 kafka_publisher is not None,
+                len(self._introspection_nodes),
                 correlation_id,
                 extra={"publish_topics": publish_topics},
             )
+
+            resources_created = [
+                "dispatch_engine",
+                "repository_adapter",
+                "idempotency_store",
+                "intent_classifier",
+            ]
+            if self._introspection_nodes:
+                resources_created.append("node_introspection")
 
             return ModelDomainPluginResult(
                 plugin_id=self.plugin_id,
                 success=True,
                 message="Intelligence dispatch engine wired",
-                resources_created=[
-                    "dispatch_engine",
-                    "repository_adapter",
-                    "idempotency_store",
-                    "intent_classifier",
-                ],
+                resources_created=resources_created,
                 duration_seconds=duration,
             )
 
@@ -693,6 +715,25 @@ class PluginIntelligence:
         correlation_id = config.correlation_id
         errors: list[str] = []
 
+        # Publish shutdown introspection for all intelligence nodes
+        if self._introspection_nodes:
+            try:
+                from omniintelligence.runtime.introspection import (
+                    publish_intelligence_shutdown,
+                )
+
+                await publish_intelligence_shutdown(
+                    event_bus=self._event_bus,
+                    correlation_id=correlation_id,
+                )
+            except Exception as shutdown_intro_error:
+                errors.append(f"introspection_shutdown: {shutdown_intro_error}")
+                logger.warning(
+                    "Failed to publish shutdown introspection: %s (correlation_id=%s)",
+                    shutdown_intro_error,
+                    correlation_id,
+                )
+
         # Unsubscribe from topics
         for unsub in self._unsubscribe_callbacks:
             try:
@@ -728,6 +769,8 @@ class PluginIntelligence:
         self._services_registered = []
         self._dispatch_engine = None
         self._message_type_registry = None
+        self._event_bus = None
+        self._introspection_nodes = []
 
         duration = time.time() - start_time
 

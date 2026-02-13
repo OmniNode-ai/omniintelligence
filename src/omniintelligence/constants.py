@@ -129,6 +129,21 @@ subject to cooldown/threshold gates.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1: str = (
+    "onex.cmd.omniintelligence.pattern-learning.v1"
+)
+"""
+TEMP_BOOTSTRAP: Canonical topic for pattern learning commands (INPUT).
+
+Canonical topic: onex.cmd.omniintelligence.pattern-learning.v1
+
+NodeClaudeHookEventEffect publishes this command when a session stops,
+triggering pattern extraction in the intelligence orchestrator.
+
+Reference: OMN-2210
+Deletion ticket: OMN-1546
+"""
+
 TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1: str = (
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
@@ -162,6 +177,7 @@ __all__ = [
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
+    "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
     "TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1",
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
     "TOPIC_SUFFIX_PATTERN_STORED_V1",

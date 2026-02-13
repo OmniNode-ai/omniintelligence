@@ -1,0 +1,264 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2025 OmniNode Team
+"""Intelligence node introspection registration.
+
+Publishes introspection events for all intelligence nodes during plugin
+initialization, enabling them to be discovered by the registration
+orchestrator in omnibase_infra.
+
+This module bridges the gap between intelligence nodes (which run inside
+the plugin lifecycle, not as standalone processes) and the platform
+registration system (which discovers nodes via introspection events on
+``onex.evt.platform.node-introspection.v1``).
+
+Design Decisions:
+    - Introspection is published per-node, not per-plugin. Each intelligence
+      node gets its own introspection event with its own node_id.
+    - The plugin owns the event bus reference and passes it to this module.
+    - Heartbeat is enabled for effect nodes only (they have long-running
+      consumers). Compute nodes are stateless and do not need heartbeats.
+    - Node IDs are deterministic UUIDs derived from the node name using
+      uuid5(NAMESPACE_DNS, node_name) for stable registration across restarts.
+
+Related:
+    - OMN-2210: Wire intelligence nodes into registration + pattern extraction
+    - PR #316: MixinNodeIntrospection with heartbeat and capability discovery
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any
+from uuid import UUID, uuid5
+
+from omnibase_core.enums import EnumNodeKind
+from omnibase_infra.enums import EnumIntrospectionReason
+from omnibase_infra.mixins.mixin_node_introspection import MixinNodeIntrospection
+from omnibase_infra.models.discovery import ModelIntrospectionConfig
+
+if TYPE_CHECKING:
+    from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
+
+logger = logging.getLogger(__name__)
+
+# Deterministic namespace for intelligence node IDs.
+# Using DNS namespace with "omniintelligence" prefix ensures stable UUIDs
+# across restarts while avoiding collisions with other domains.
+_NAMESPACE_INTELLIGENCE = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # NAMESPACE_DNS
+
+
+# =============================================================================
+# Intelligence Node Descriptors
+# =============================================================================
+# Each entry describes a node that should publish introspection events.
+# Fields: (node_name, node_type, version)
+
+
+class _NodeDescriptor:
+    """Describes an intelligence node for introspection registration."""
+
+    __slots__ = ("name", "node_type", "version")
+
+    def __init__(
+        self,
+        name: str,
+        node_type: EnumNodeKind,
+        version: str = "1.0.0",
+    ) -> None:
+        self.name = name
+        self.node_type = node_type
+        self.version = version
+
+    @property
+    def node_id(self) -> UUID:
+        """Deterministic node ID derived from node name."""
+        return uuid5(_NAMESPACE_INTELLIGENCE, f"omniintelligence.{self.name}")
+
+
+INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
+    # Orchestrators
+    _NodeDescriptor("node_intelligence_orchestrator", EnumNodeKind.ORCHESTRATOR),
+    _NodeDescriptor("node_pattern_assembler_orchestrator", EnumNodeKind.ORCHESTRATOR),
+    # Reducer
+    _NodeDescriptor("node_intelligence_reducer", EnumNodeKind.REDUCER),
+    # Compute nodes
+    _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_semantic_analysis_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_pattern_extraction_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_pattern_learning_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_pattern_matching_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_intent_classifier_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_execution_trace_parser_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
+    # Effect nodes
+    _NodeDescriptor("node_claude_hook_event_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_pattern_storage_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_pattern_promotion_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_pattern_demotion_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_pattern_feedback_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_pattern_lifecycle_effect", EnumNodeKind.EFFECT),
+)
+
+
+# =============================================================================
+# Introspection Publisher
+# =============================================================================
+
+
+class _IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
+    """Proxy that uses MixinNodeIntrospection to publish on behalf of a node.
+
+    Intelligence nodes are thin shells that run inside the plugin lifecycle.
+    They do not own event bus references or background tasks. This proxy
+    creates a lightweight MixinNodeIntrospection instance for each node
+    to publish startup introspection and optionally run heartbeats.
+
+    The proxy is intentionally minimal: it only provides the introspection
+    mixin surface. It does not implement any node business logic.
+    """
+
+    def __init__(
+        self,
+        descriptor: _NodeDescriptor,
+        event_bus: ProtocolEventBus | None,
+    ) -> None:
+        config = ModelIntrospectionConfig(
+            node_id=descriptor.node_id,
+            node_type=descriptor.node_type,
+            event_bus=event_bus,
+            version=descriptor.version,
+        )
+        self.initialize_introspection(config)
+        self._descriptor = descriptor
+
+
+async def publish_intelligence_introspection(
+    event_bus: Any | None,
+    *,
+    correlation_id: UUID | None = None,
+    enable_heartbeat: bool = True,
+    heartbeat_interval_seconds: float = 30.0,
+) -> list[str]:
+    """Publish introspection events for all intelligence nodes.
+
+    Creates a proxy MixinNodeIntrospection instance for each intelligence
+    node and publishes a STARTUP introspection event. For effect nodes,
+    optionally starts heartbeat tasks.
+
+    Args:
+        event_bus: Event bus implementing ProtocolEventBus for publishing
+            introspection events. If None, introspection is skipped.
+        correlation_id: Optional correlation ID for tracing.
+        enable_heartbeat: Whether to start heartbeat tasks for effect nodes.
+        heartbeat_interval_seconds: Interval between heartbeats in seconds.
+
+    Returns:
+        List of node names that successfully published introspection events.
+    """
+    if event_bus is None:
+        logger.info(
+            "Skipping intelligence introspection: no event bus available "
+            "(correlation_id=%s)",
+            correlation_id,
+        )
+        return []
+
+    registered: list[str] = []
+    proxies: list[_IntelligenceNodeIntrospectionProxy] = []
+
+    for descriptor in INTELLIGENCE_NODES:
+        try:
+            proxy = _IntelligenceNodeIntrospectionProxy(
+                descriptor=descriptor,
+                event_bus=event_bus,
+            )
+
+            success = await proxy.publish_introspection(
+                reason=EnumIntrospectionReason.STARTUP,
+                correlation_id=correlation_id,
+            )
+
+            if success:
+                registered.append(descriptor.name)
+                logger.debug(
+                    "Published introspection for %s (node_id=%s, type=%s, "
+                    "correlation_id=%s)",
+                    descriptor.name,
+                    descriptor.node_id,
+                    descriptor.node_type,
+                    correlation_id,
+                )
+
+                # Start heartbeat for effect nodes only
+                if enable_heartbeat and descriptor.node_type == EnumNodeKind.EFFECT:
+                    await proxy.start_introspection_tasks(
+                        enable_heartbeat=True,
+                        heartbeat_interval_seconds=heartbeat_interval_seconds,
+                        enable_registry_listener=False,
+                    )
+                    proxies.append(proxy)
+            else:
+                logger.warning(
+                    "Failed to publish introspection for %s (correlation_id=%s)",
+                    descriptor.name,
+                    correlation_id,
+                )
+
+        except Exception as e:
+            logger.warning(
+                "Error publishing introspection for %s: %s (correlation_id=%s)",
+                descriptor.name,
+                e,
+                correlation_id,
+            )
+
+    logger.info(
+        "Intelligence introspection published: %d/%d nodes (correlation_id=%s)",
+        len(registered),
+        len(INTELLIGENCE_NODES),
+        correlation_id,
+    )
+
+    return registered
+
+
+async def publish_intelligence_shutdown(
+    event_bus: Any | None,
+    *,
+    correlation_id: UUID | None = None,
+) -> None:
+    """Publish shutdown introspection events for all intelligence nodes.
+
+    Called during plugin shutdown to notify the registration orchestrator
+    that intelligence nodes are going offline.
+
+    Args:
+        event_bus: Event bus for publishing shutdown events.
+        correlation_id: Optional correlation ID for tracing.
+    """
+    if event_bus is None:
+        return
+
+    for descriptor in INTELLIGENCE_NODES:
+        try:
+            proxy = _IntelligenceNodeIntrospectionProxy(
+                descriptor=descriptor,
+                event_bus=event_bus,
+            )
+            await proxy.publish_introspection(
+                reason=EnumIntrospectionReason.SHUTDOWN,
+                correlation_id=correlation_id,
+            )
+        except Exception as e:
+            logger.debug(
+                "Error publishing shutdown introspection for %s: %s",
+                descriptor.name,
+                e,
+            )
+
+
+__all__ = [
+    "INTELLIGENCE_NODES",
+    "publish_intelligence_introspection",
+    "publish_intelligence_shutdown",
+]
