@@ -6,7 +6,7 @@ and workflow coordination to enable strong typing throughout the orchestration.
 
 from __future__ import annotations
 
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import Any, Protocol, TypedDict, runtime_checkable
 
 
 class StepResultDict(TypedDict, total=False):
@@ -114,7 +114,7 @@ class ProtocolComputeNode(Protocol):
     to be orchestrated.
     """
 
-    async def compute(self, input_data: object) -> object:
+    async def compute(self, input_data: Any) -> Any:  # any-ok: generic protocol for diverse compute nodes
         """Execute computation on input data.
 
         Args:
