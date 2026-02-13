@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
@@ -464,7 +464,7 @@ async def _classify_intent(
     session_id: str,
     correlation_id: UUID,
     classifier: ProtocolIntentClassifier,
-) -> dict[str, object]:
+) -> dict[str, Any]:  # any-ok: classification result has heterogeneous typed values
     """Call the intent classifier compute node.
 
     Args:

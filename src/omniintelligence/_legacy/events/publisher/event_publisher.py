@@ -203,7 +203,7 @@ class EventPublisher:
         self._circuit_breaker_open = False
 
         # Metrics
-        self.metrics: dict[str, object] = {
+        self.metrics: dict[str, Any] = {  # any-ok: counter values are int/float, accessed arithmetically
             "events_published": 0,
             "events_failed": 0,
             "events_sent_to_dlq": 0,
@@ -851,7 +851,7 @@ def create_event_publisher(
     bootstrap_servers: str,
     service_name: str,
     instance_id: str,
-    **kwargs: object,
+    **kwargs: Any,  # any-ok: factory forwarding arbitrary kwargs
 ) -> EventPublisher:
     """
     Create event publisher instance.

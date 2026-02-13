@@ -34,7 +34,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -214,7 +214,7 @@ class PatternStorageRouter:
     async def route(
         self,
         operation: str,
-        input_data: dict[str, object],
+        input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
         conn: AsyncConnection[object],
     ) -> StorageOperationResult:
@@ -261,7 +261,7 @@ class PatternStorageRouter:
 
     async def _handle_store(
         self,
-        input_data: dict[str, object],
+        input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
         conn: AsyncConnection[object],
     ) -> StorageOperationResult:
@@ -373,7 +373,7 @@ class PatternStorageRouter:
 
     async def _handle_promote(
         self,
-        input_data: dict[str, object],
+        input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
         conn: AsyncConnection[object],
     ) -> StorageOperationResult:
@@ -542,7 +542,7 @@ class PatternStorageRouter:
 
 async def route_storage_operation(
     operation: str,
-    input_data: dict[str, object],
+    input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
     *,
     pattern_store: ProtocolPatternStore,
     state_manager: ProtocolPatternStateManager,
