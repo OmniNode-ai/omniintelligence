@@ -188,8 +188,8 @@ published_events:
     full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
     event_type: "PatternLearningRequested"
     trigger: "Stop event processed (session completed)"
-    description: "Emitted when a Claude Code session stops to trigger pattern extraction in the
-      intelligence orchestrator. Published directly via kafka_producer (not event_bus)."
+    description: "Emitted when a Claude Code session stops to trigger pattern extraction in the intelligence
+      orchestrator. Published directly via kafka_producer (not event_bus)."
     payload_fields:
       - name: "event_type"
         type: "string"
