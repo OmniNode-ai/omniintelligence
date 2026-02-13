@@ -108,9 +108,7 @@ class TestHandleStop:
         """Should return success even when Kafka publish fails."""
         event = _make_stop_event()
         mock_producer = AsyncMock()
-        mock_producer.publish = AsyncMock(
-            side_effect=RuntimeError("Kafka unavailable")
-        )
+        mock_producer.publish = AsyncMock(side_effect=RuntimeError("Kafka unavailable"))
 
         result = await handle_stop(event=event, kafka_producer=mock_producer)
 
