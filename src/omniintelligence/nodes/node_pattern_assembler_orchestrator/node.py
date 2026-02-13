@@ -12,7 +12,7 @@ Workflow (4 steps):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
 
@@ -48,7 +48,9 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
         """
         super().__init__(container)
 
-    async def orchestrate(self, input_data: dict[str, object]) -> dict[str, object]:
+    async def orchestrate(  # any-ok: dict invariance — orchestrator handles heterogeneous JSON payloads
+        self, input_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Orchestrate pattern assembly by delegating to handler function.
 
         Args:

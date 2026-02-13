@@ -216,7 +216,7 @@ class PatternStorageRouter:
         operation: str,
         input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
-        conn: AsyncConnection[object],
+        conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
     ) -> StorageOperationResult:
         """Route operation to the appropriate handler.
 
@@ -263,7 +263,7 @@ class PatternStorageRouter:
         self,
         input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
-        conn: AsyncConnection[object],
+        conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
     ) -> StorageOperationResult:
         """Handle store_pattern operation.
 
@@ -375,7 +375,7 @@ class PatternStorageRouter:
         self,
         input_data: dict[str, Any],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
-        conn: AsyncConnection[object],
+        conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
     ) -> StorageOperationResult:
         """Handle promote_pattern operation.
 
@@ -546,7 +546,7 @@ async def route_storage_operation(
     *,
     pattern_store: ProtocolPatternStore,
     state_manager: ProtocolPatternStateManager,
-    conn: AsyncConnection[object],
+    conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
 ) -> dict[str, object]:
     """Entry point for contract-driven handler routing.
 

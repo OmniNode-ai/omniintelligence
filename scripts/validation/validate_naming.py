@@ -631,7 +631,7 @@ def main() -> int:
         print(f"Error: Path does not exist: {repo_path}")
         return 1
 
-    if not args.verbose:
+    if args.verbose:
         print(f"Validating naming conventions in: {repo_path}")
 
     validator = IntelligenceNamingConventionValidator(repo_path)

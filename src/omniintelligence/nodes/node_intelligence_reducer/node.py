@@ -28,6 +28,8 @@ Ticket: OMN-1805
 
 from __future__ import annotations
 
+from typing import Any
+
 from omnibase_core.models.reducer.model_reducer_input import ModelReducerInput
 from omnibase_core.models.reducer.model_reducer_output import ModelReducerOutput
 from omnibase_core.nodes.node_reducer import NodeReducer
@@ -43,7 +45,9 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 )
 
 
-class NodeIntelligenceReducer(NodeReducer[dict[str, object], ModelIntelligenceState]):
+class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deserialized JSON with mixed types
+    NodeReducer[dict[str, Any], ModelIntelligenceState],
+):
     """Intelligence reducer - FSM transitions with handler routing.
 
     This reducer processes intelligence workflows by:
@@ -63,7 +67,7 @@ class NodeIntelligenceReducer(NodeReducer[dict[str, object], ModelIntelligenceSt
 
     async def process(
         self,
-        input_data: ModelReducerInput[dict[str, object]],
+        input_data: ModelReducerInput[dict[str, Any]],
     ) -> ModelReducerOutput[ModelIntelligenceState]:
         """Process reducer input with FSM type routing.
 

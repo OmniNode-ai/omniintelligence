@@ -228,6 +228,7 @@ async def route_hook_event(
         processing_time_ms = (time.perf_counter() - start_time) * 1000
         error_metadata: dict[str, object] = {
             "exception_type": type(e).__name__,
+            "exception_message": str(e),
         }
         return ModelClaudeHookResult(
             status=EnumHookProcessingStatus.FAILED,
