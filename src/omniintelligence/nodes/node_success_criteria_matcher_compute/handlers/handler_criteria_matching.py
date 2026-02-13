@@ -174,7 +174,9 @@ def match_criteria(
 # =============================================================================
 
 
-def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:  # any-ok: dict invariance -- callers pass deserialized JSON
+def resolve_field_path(
+    data: dict[str, Any], path: str
+) -> MaybeJsonValue:  # any-ok: dict invariance -- callers pass deserialized JSON
     """Resolve a dot-notation field path from a nested data structure.
 
     Supports dictionary keys and list indices (non-negative integers).

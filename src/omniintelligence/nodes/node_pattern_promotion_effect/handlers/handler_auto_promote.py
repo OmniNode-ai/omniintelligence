@@ -334,7 +334,9 @@ async def _build_enriched_gate_snapshot(
 async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
-    apply_transition_fn: Callable[..., Any],  # any-ok: async callable with dynamic return type
+    apply_transition_fn: Callable[
+        ..., Any
+    ],  # any-ok: async callable with dynamic return type
     idempotency_store: ProtocolIdempotencyStore | None = None,
     producer: ProtocolKafkaPublisher | None = None,
     correlation_id: UUID | None = None,

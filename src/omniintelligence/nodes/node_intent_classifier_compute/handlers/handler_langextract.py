@@ -54,10 +54,18 @@ if TYPE_CHECKING:
         All fields are populated by pure computation.
         """
 
-        concepts: list[dict[str, Any]]  # any-ok: heterogeneous typed values (str names, float confidences)
-        themes: list[dict[str, Any]]  # any-ok: heterogeneous typed values (str names, float confidences)
-        domains: list[dict[str, Any]]  # any-ok: heterogeneous typed values (str names, float confidences)
-        patterns: list[dict[str, Any]]  # any-ok: heterogeneous typed values (str names, float confidences)
+        concepts: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
+        themes: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
+        domains: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
+        patterns: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
         domain_indicators: list[str]
         topic_weights: dict[str, float]
         processing_time_ms: float
@@ -789,7 +797,9 @@ def _extract_concepts(
     domain_scores: dict[str, float],
     min_confidence: float,
     config: ModelSemanticAnalysisConfig,
-) -> list[dict[str, Any]]:  # any-ok: heterogeneous typed values (str names, float confidences)
+) -> list[
+    dict[str, Any]
+]:  # any-ok: heterogeneous typed values (str names, float confidences)
     """Extract concepts from tokens based on domain analysis.
 
     Args:
@@ -839,7 +849,11 @@ def _extract_concepts(
     return concepts[:max_concepts]
 
 
-def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:  # any-ok: heterogeneous typed values (str names, float weights, list domains)
+def _detect_themes(
+    domain_indicators: list[str],
+) -> list[
+    dict[str, Any]
+]:  # any-ok: heterogeneous typed values (str names, float weights, list domains)
     """Detect themes from domain indicators.
 
     Args:

@@ -81,7 +81,9 @@ class MockPatternStore:
 
     def __init__(self) -> None:
         """Initialize the mock store with empty storage."""
-        self.patterns: dict[UUID, dict[str, Any]] = {}  # any-ok: heterogeneous pattern field values
+        self.patterns: dict[
+            UUID, dict[str, Any]
+        ] = {}  # any-ok: heterogeneous pattern field values
         self.idempotency_map: dict[tuple[UUID, str], UUID] = {}
         self._version_tracker: dict[tuple[str, str], int] = {}
         self._atomic_transitions_count: int = 0

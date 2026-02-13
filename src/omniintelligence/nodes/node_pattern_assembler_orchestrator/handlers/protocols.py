@@ -114,7 +114,9 @@ class ProtocolComputeNode(Protocol):
     to be orchestrated.
     """
 
-    async def compute(self, input_data: Any) -> Any:  # any-ok: generic protocol for diverse compute nodes
+    async def compute(
+        self, input_data: Any
+    ) -> Any:  # any-ok: generic protocol for diverse compute nodes
         """Execute computation on input data.
 
         Args:

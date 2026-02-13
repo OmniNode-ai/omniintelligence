@@ -526,7 +526,9 @@ class AdapterPatternStore:
 
 
 def _convert_defaults_to_schema_value(
-    contract_dict: dict[str, Any],  # any-ok: YAML-loaded contract data is dynamically typed
+    contract_dict: dict[
+        str, Any
+    ],  # any-ok: YAML-loaded contract data is dynamically typed
 ) -> dict[str, Any]:
     """Convert plain default values to ModelSchemaValue format.
 
@@ -542,7 +544,9 @@ def _convert_defaults_to_schema_value(
     """
     from omnibase_core.models.common.model_schema_value import ModelSchemaValue
 
-    def convert_value(value: Any) -> dict[str, Any]:  # any-ok: YAML values are dynamically typed
+    def convert_value(
+        value: Any,
+    ) -> dict[str, Any]:  # any-ok: YAML values are dynamically typed
         """Convert a plain value to ModelSchemaValue dict format."""
         schema_value = ModelSchemaValue.from_value(value)
         return schema_value.model_dump()

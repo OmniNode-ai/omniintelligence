@@ -329,7 +329,9 @@ class ProtocolContractValidator:
 
         return violations
 
-    def _validate_version_component(self, value: object, component_path: str) -> list[str]:
+    def _validate_version_component(
+        self, value: object, component_path: str
+    ) -> list[str]:
         """Validate a single version component (major, minor, or patch).
 
         Args:

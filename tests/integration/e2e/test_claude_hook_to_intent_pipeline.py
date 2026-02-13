@@ -210,7 +210,7 @@ def _validate_intent_classified_event(
     # confidence is a valid float
     assert "confidence" in event_payload, "Missing 'confidence' field"
     confidence = event_payload["confidence"]
-    assert isinstance(confidence, (int, float)), (
+    assert isinstance(confidence, int | float), (
         f"confidence must be numeric, got {type(confidence).__name__}"
     )
     assert 0.0 <= float(confidence) <= 1.0, (

@@ -90,7 +90,9 @@ class ModelEventEnvelope(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source: ModelEventSource
     metadata: ModelEventMetadata | None = Field(default=None)
-    payload: Any = Field(..., description="Event payload")  # any-ok: arbitrary event payload, serialized manually in to_dict()
+    payload: Any = Field(
+        ..., description="Event payload"
+    )  # any-ok: arbitrary event payload, serialized manually in to_dict()
 
     def to_dict(self) -> dict[str, object]:
         """Convert envelope to dictionary for serialization."""
@@ -202,7 +204,9 @@ class EventPublisher:
         self._circuit_breaker_open = False
 
         # Metrics
-        self.metrics: dict[str, Any] = {  # any-ok: counter values are int/float, accessed arithmetically
+        self.metrics: dict[
+            str, Any
+        ] = {  # any-ok: counter values are int/float, accessed arithmetically
             "events_published": 0,
             "events_failed": 0,
             "events_sent_to_dlq": 0,
