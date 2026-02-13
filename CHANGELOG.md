@@ -5,132 +5,140 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-02-13
+
+Initial release of the OmniIntelligence platform — 15 ONEX nodes providing
+code quality analysis, pattern learning, semantic analysis, and Claude Code
+hook processing as a kernel domain plugin.
 
 ### Added
 
-#### Runtime Configuration (OMN-304)
-- **IntelligenceRuntimeConfig**: Application-level configuration for the runtime host
-  - `EventBusConfig`: Kafka event bus configuration with topic management
-  - `TopicConfig`: Kafka topic configuration for commands, events, and DLQ
-  - `HandlerConfig`: Handler dependency injection configuration
-  - `RuntimeProfileConfig`: Optional node selection profiles
-  - Environment variable interpolation (`${VAR_NAME}` syntax)
-  - Factory methods: `from_yaml()`, `from_environment()`, `default_development()`, `default_production()`
-  - Validators for runtime name format and port uniqueness
-  - Helper methods: `get_handler_config()`, `has_handler()`, `to_yaml()`
-- **YAML Contract**: `runtime/contracts/runtime_config.yaml` defining configuration schema
+#### Domain Plugin Runtime
 
-### Changed
-- **Backlog Cleanup**: Canceled tickets that conflict with Runtime Host architecture
-  - OMN-369: NodeEventConsumer → Kafka consumption belongs in omnibase_infra
-  - OMN-372: Suffix removal → Redundant (nodes already in `_archived/` folder)
+- **PluginIntelligence** domain plugin with full kernel lifecycle
+  (`should_activate` / `initialize` / `wire_handlers` / `wire_dispatchers` /
+  `start_consumers` / `shutdown`)
+- Entry point registration (`onex.domain_plugins`) for automatic kernel
+  discovery via `importlib.metadata`
+- **MessageDispatchEngine** wiring with 4 handlers and 5 routes for
+  topic-based event routing
+- Contract-driven topic discovery from `contract.yaml` declarations —
+  no hardcoded topic lists
+- Message type registration via `RegistryMessageType`
+- Protocol adapters for PostgreSQL, Kafka, intent classification, and
+  idempotency tracking
 
-## [0.1.0] - 2025-12-04
+#### Compute Nodes (Pure Functions)
 
-### Added
+- **NodeQualityScoringCompute** — code quality scoring with ONEX compliance
+  checking, configurable weights, and recommendation generation
+- **NodeSemanticAnalysisCompute** — semantic code analysis
+- **NodeIntentClassifierCompute** — user prompt intent classification with
+  keyword extraction for Claude Code hook events
+- **NodePatternExtractionCompute** — extract patterns from code with tool
+  failure detection
+- **NodePatternLearningCompute** — ML pattern learning pipeline with feature
+  extraction, clustering, confidence scoring, deduplication, and orchestration
+- **NodePatternMatchingCompute** — match patterns against code
+- **NodeSuccessCriteriaMatcherCompute** — match success criteria against
+  execution outcomes
+- **NodeExecutionTraceParserCompute** — parse execution traces into
+  structured data
 
-#### Contract Linter (OMN-241)
-- **Contract Validation Tool**: CLI tool for validating ONEX contract YAML files
-  - Validates node contracts (compute, effect, reducer, orchestrator)
-  - Validates FSM subcontracts and workflow coordination contracts
-  - Structured error output with field paths
-  - JSON output mode for CI/CD integration
-  - Exit codes: 0 (success), 1 (validation errors), 2 (file errors)
-- **CI/CD Integration**: GitHub Actions workflow for contract validation
-- **Pre-commit Hooks**: Contract linter integrated with pre-commit
+#### Effect Nodes (I/O)
 
-#### Intelligence Nodes
-- **16 Intelligence Nodes**: Imported from omniarchon repository
-  - **Compute Nodes** (6): vectorization, quality_scoring, entity_extraction, relationship_detection, semantic_analysis, pattern_matching
-  - **Effect Nodes** (5): kafka_event, qdrant_vector, memgraph_graph, postgres_pattern, intelligence_api
-  - **Orchestrator Nodes** (1): intelligence_orchestrator
-  - **Reducer Nodes** (1): intelligence_reducer
-- **YAML Contracts**: Contract definitions for all migrated nodes
-- **FSM Definitions**: State machine contracts for ingestion, pattern learning, quality assessment
+- **NodeClaudeHookEventEffect** — process Claude Code hook events, route to
+  intent classification, emit to Kafka
+- **NodePatternStorageEffect** — persist patterns to PostgreSQL with
+  governance checks and idempotency
+- **NodePatternFeedbackEffect** — record session outcomes with rolling-window
+  effectiveness scoring and contribution heuristics
+- **NodePatternPromotionEffect** — promote patterns
+  (provisional -> validated) with evidence tier gating
+- **NodePatternDemotionEffect** — demote patterns
+  (validated -> deprecated) based on feedback signals
+- **NodePatternLifecycleEffect** — atomic pattern lifecycle transitions with
+  audit trail and idempotency
 
-#### Documentation
-- **CLAUDE.md**: Project-specific instructions for Claude Code
-- **Reference Documentation**: Documentation from omniarchon
-  - `OMNIARCHON_INVENTORY.md`: Detailed component inventory
-  - `QUICK_REFERENCE.md`: API reference
+#### Orchestrator Nodes
 
-#### Project Infrastructure
-- **pyproject.toml**: uv-based dependency management with dependency groups
-  - `core`: Core node system dependencies
-  - `dev`: Development and testing tools
-  - `all`: Complete dependency set
-- **GitHub Workflows**: CI/CD for linting, type checking, and testing
+- **NodePatternAssemblerOrchestrator** — assemble patterns from execution
+  traces
 
-### Architecture
+#### Reducer Nodes
 
-#### Repository Structure
-```
-src/omniintelligence/
-├── _archived/         # Archived nodes (to be refactored)
-│   ├── nodes/         # 16 intelligence nodes
-│   └── models/        # Shared models
-├── runtime/           # Runtime host configuration
-│   ├── runtime_config.py
-│   └── contracts/
-├── tools/             # CLI tools
-│   └── contract_linter/
-└── models/            # Pydantic models
-```
+- **NodeIntelligenceReducer** — unified FSM handler for ingestion,
+  pattern_learning, and quality_assessment state machines
 
-#### Node Types
-| Type | Count | Purpose |
-|------|-------|---------|
-| Compute | 6 | Pure data processing, no side effects |
-| Effect | 5 | External I/O (Kafka, DB, HTTP) |
-| Orchestrator | 1 | Coordinate workflows, route operations |
-| Reducer | 1 | Manage state, FSM transitions |
+#### Pattern Learning Pipeline
 
-### Known Limitations
+- Feature extraction with strict output contracts
+- Deterministic pattern clustering
+- Decomposed confidence scoring with component breakdown
+- Versioned signature-based deduplication
+- Pattern compilation with safety validation
+- L1 attribution binder and L2 lifecycle controller with evidence tier gating
+- Pattern lifecycle state machine
+  (`CANDIDATE` -> `PROVISIONAL` -> `VALIDATED` -> `DEPRECATED`)
+- Learned patterns repository contract and ownership model
 
-#### Blocked on omnibase_core/spi/infra
-- **IntelligenceNodeRegistry** (OMN-303): Blocked on Phase 5 (omnibase_core)
-- **Runtime Host Entrypoint** (OMN-305): Blocked on OMN-303
-- **Example Contracts** (OMN-374): Blocked on runtime architecture
+#### Database Schema
 
-#### Archived Code
-- All nodes in `_archived/` contain direct I/O imports
-- Nodes will be refactored once omnibase_spi handler protocols are available
-- Direct Kafka, Qdrant, Memgraph, PostgreSQL imports to be removed
+- Pattern storage schema with domain taxonomy
+- Pattern injections table with A/B experiment support
+- Pattern disable events table for runtime kill switch
+- Disabled patterns current materialized view
+- FSM state and history tables
+- Constraint enhancements and lifecycle state transition validation
+- FK scan report verifying all references are intra-service
+- Schema migration freeze (`.migration_freeze`)
+
+#### Event Bus Integration
+
+- Kafka topic naming: `{env}.onex.{kind}.{producer}.{event-name}.v{version}`
+- Subscribe topics: `claude-hook-event.v1`, `session-outcome.v1`,
+  `pattern-lifecycle-transition.v1`, `pattern-learned.v1`,
+  `pattern.discovered.v1`
+- Publish topics: `intent-classified.v1`, `pattern-stored.v1`,
+  `pattern-promoted.v1`, `pattern-deprecated.v1`
+- Dead letter queue routing for failed messages
+- Optional Kafka with graceful degradation — database operations succeed
+  without Kafka
+
+#### Architectural Enforcement
+
+- I/O purity audit via AST analysis — nodes enforced as thin shells (<100
+  lines, no logging, no try/except, no runtime container access)
+- AST-based transport import validator (ARCH-002) — no Kafka imports in
+  non-transport modules
+- Contract linter with Pydantic validation for all 15 node contracts
+- Pre-commit hooks for ruff, mypy strict, contract linting, and audit tests
+
+#### Testing
+
+- Unit tests for all handlers and compute nodes
+- Integration tests: kernel boots with PluginIntelligence
+- Integration tests: entry point discovery validation
+- Integration tests: pattern matching compute with pattern storage effect
+- E2E: Claude hook -> intent classification pipeline
+- E2E: full pattern learning pipeline
+- Golden path integration tests for pattern feedback verification
+
+#### Docker Deployment
+
+- Multi-stage Dockerfiles for orchestrator, reducer, compute, and effect
+  nodes
+- `docker-compose.yml` for local infrastructure (PostgreSQL, Qdrant,
+  Memgraph, Valkey, Redpanda)
+- `docker-compose.nodes.yml` for ONEX node services
+- Stub launcher with health check endpoints pending RuntimeHostProcess
+  integration
 
 ### Dependencies
-- `omnibase_core` >= 0.3.5
-- `pydantic` >= 2.0
-- `pyyaml` >= 6.0
 
-## Architecture Overview
+- `omnibase_core` ^0.16.0
+- `omnibase_infra` ^0.6.0
+- `omnibase_spi` ^0.7.0
+- Python >=3.12
 
-### From OmniArchon
-- Intelligence nodes (compute, effect, orchestrator, reducer)
-- Node contracts (YAML definitions)
-- FSM state machine contracts
-- Shared models and enums
-
-### OmniArchon Retained
-- Service implementations
-- Direct database clients
-- HTTP API servers
-- Kafka consumer loops
-
-### Architecture Benefits
-- **Before**: 1 container per node, direct I/O in nodes
-- **After**: Runtime Host pattern, handlers injected via SPI protocols
-- **Benefit**: Reduced from 10+ containers to 2-3, ~80% memory reduction
-
----
-
-## Contributing
-
-See CONTRIBUTING.md for guidelines. All changes should follow:
-- ONEX naming conventions (`Node<Name><Type>`)
-- Contract-driven development (YAML + Pydantic)
-- No direct I/O in nodes (use SPI handler protocols)
-
-## License
-
-MIT License - See LICENSE file for details
+[0.1.0]: https://github.com/OmniNode-ai/omniintelligence/releases/tag/v0.1.0
