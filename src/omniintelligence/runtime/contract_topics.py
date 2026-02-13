@@ -101,9 +101,11 @@ def collect_publish_topics_for_dispatch(
     The mapping from package to dispatch key is:
         - ``node_claude_hook_event_effect`` → ``"claude_hook"``
         - ``node_pattern_lifecycle_effect`` → ``"lifecycle"``
+        - ``node_pattern_storage_effect`` → ``"pattern_storage"``
 
-    Only the first publish topic per contract is used (each contract declares
-    exactly one publish topic).
+    Only the first publish topic per contract is used.  When a contract
+    declares multiple publish topics (e.g. ``node_pattern_storage_effect``),
+    only the first entry is returned.
 
     Args:
         node_packages: Override list of node packages to scan.  Defaults to

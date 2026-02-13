@@ -614,8 +614,8 @@ def create_intelligence_dispatch_engine(
         intent_classifier: REQUIRED intent classifier.
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
-            Keys: "claude_hook", "lifecycle". Values: full topic strings
-            from contract event_bus.publish_topics.
+            Keys: "claude_hook", "lifecycle", "pattern_storage". Values:
+            full topic strings from contract event_bus.publish_topics.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
