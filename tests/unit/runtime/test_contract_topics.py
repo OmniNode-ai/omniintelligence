@@ -29,11 +29,15 @@ from omniintelligence.runtime.contract_topics import (
 EXPECTED_CLAUDE_HOOK = "onex.cmd.omniintelligence.claude-hook-event.v1"
 EXPECTED_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
 EXPECTED_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+EXPECTED_PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
+EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_SESSION_OUTCOME,
     EXPECTED_PATTERN_LIFECYCLE,
+    EXPECTED_PATTERN_LEARNED,
+    EXPECTED_PATTERN_DISCOVERED,
 }
 
 
@@ -45,10 +49,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_three_topics(self) -> None:
-        """Exactly 3 intelligence effect nodes declare subscribe topics."""
+    def test_returns_exactly_five_topics(self) -> None:
+        """All 4 intelligence effect nodes declare 5 subscribe topics total."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 3
+        assert len(topics) == 5
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -65,8 +69,18 @@ class TestCollectSubscribeTopics:
         topics = collect_subscribe_topics_from_contracts()
         assert EXPECTED_PATTERN_LIFECYCLE in topics
 
+    def test_contains_pattern_learned_topic(self) -> None:
+        """Pattern learned topic must be discovered from storage effect contract."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert EXPECTED_PATTERN_LEARNED in topics
+
+    def test_contains_pattern_discovered_topic(self) -> None:
+        """Pattern discovered topic must be discovered from storage effect contract."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert EXPECTED_PATTERN_DISCOVERED in topics
+
     def test_all_expected_topics_present(self) -> None:
-        """All 3 expected topics must be in the discovered set."""
+        """All 5 expected topics must be in the discovered set."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 
@@ -127,6 +141,11 @@ class TestCollectPublishTopicsForDispatch:
         result = collect_publish_topics_for_dispatch()
         assert "lifecycle" in result
 
+    def test_contains_pattern_storage_key(self) -> None:
+        """Must contain 'pattern_storage' key for storage events."""
+        result = collect_publish_topics_for_dispatch()
+        assert "pattern_storage" in result
+
     def test_claude_hook_topic_is_evt(self) -> None:
         """Claude hook publish topic must be an .evt. topic."""
         result = collect_publish_topics_for_dispatch()
@@ -136,6 +155,11 @@ class TestCollectPublishTopicsForDispatch:
         """Lifecycle publish topic must be an .evt. topic."""
         result = collect_publish_topics_for_dispatch()
         assert ".evt." in result["lifecycle"]
+
+    def test_pattern_storage_topic_is_evt(self) -> None:
+        """Pattern storage publish topic must be an .evt. topic."""
+        result = collect_publish_topics_for_dispatch()
+        assert ".evt." in result["pattern_storage"]
 
     def test_all_values_are_strings(self) -> None:
         """All publish topic values must be strings."""
@@ -183,6 +207,16 @@ class TestCanonicalTopicToDispatchAlias:
         topic = "some.other.topic.v1"
         assert canonical_topic_to_dispatch_alias(topic) == topic
 
+    def test_pattern_learned_conversion(self) -> None:
+        """Pattern learned topic should convert correctly."""
+        result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_LEARNED)
+        assert result == "onex.events.omniintelligence.pattern-learned.v1"
+
+    def test_pattern_discovered_conversion(self) -> None:
+        """Pattern discovered topic should convert correctly."""
+        result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_DISCOVERED)
+        assert result == "onex.events.pattern.discovered.v1"
+
     @pytest.mark.parametrize(
         "canonical,expected_alias",
         [
@@ -198,6 +232,14 @@ class TestCanonicalTopicToDispatchAlias:
                 EXPECTED_PATTERN_LIFECYCLE,
                 "onex.commands.omniintelligence.pattern-lifecycle-transition.v1",
             ),
+            (
+                EXPECTED_PATTERN_LEARNED,
+                "onex.events.omniintelligence.pattern-learned.v1",
+            ),
+            (
+                EXPECTED_PATTERN_DISCOVERED,
+                "onex.events.pattern.discovered.v1",
+            ),
         ],
     )
     def test_all_intelligence_topics_convert_to_dispatch_aliases(
@@ -205,5 +247,50 @@ class TestCanonicalTopicToDispatchAlias:
         canonical: str,
         expected_alias: str,
     ) -> None:
-        """All 3 intelligence topics must produce correct dispatch aliases."""
+        """All 5 intelligence topics must produce correct dispatch aliases."""
         assert canonical_topic_to_dispatch_alias(canonical) == expected_alias
+
+
+# =============================================================================
+# Tests: Runtime subscribes to all topics (OMN-2189 integration)
+# =============================================================================
+
+
+class TestRuntimeTopicSubscription:
+    """Validate that the runtime subscribes to all intelligence topics.
+
+    OMN-2189 Bug 2: node_pattern_storage_effect was missing from the topic
+    scanner, so its topics were never subscribed to.
+    """
+
+    def test_storage_effect_in_node_packages(self) -> None:
+        """node_pattern_storage_effect must be in the effect node packages list."""
+        from omniintelligence.runtime.contract_topics import (
+            _INTELLIGENCE_EFFECT_NODE_PACKAGES,
+        )
+
+        assert (
+            "omniintelligence.nodes.node_pattern_storage_effect"
+            in _INTELLIGENCE_EFFECT_NODE_PACKAGES
+        )
+
+    def test_plugin_subscribes_to_at_least_four_topics(self) -> None:
+        """INTELLIGENCE_SUBSCRIBE_TOPICS must have at least 4 topics."""
+        from omniintelligence.runtime.plugin import INTELLIGENCE_SUBSCRIBE_TOPICS
+
+        assert len(INTELLIGENCE_SUBSCRIBE_TOPICS) >= 4, (
+            f"Expected at least 4 topics, got {len(INTELLIGENCE_SUBSCRIBE_TOPICS)}: "
+            f"{INTELLIGENCE_SUBSCRIBE_TOPICS}"
+        )
+
+    def test_plugin_subscribes_to_pattern_learned(self) -> None:
+        """Plugin must subscribe to pattern-learned topic."""
+        from omniintelligence.runtime.plugin import INTELLIGENCE_SUBSCRIBE_TOPICS
+
+        assert EXPECTED_PATTERN_LEARNED in INTELLIGENCE_SUBSCRIBE_TOPICS
+
+    def test_plugin_subscribes_to_pattern_discovered(self) -> None:
+        """Plugin must subscribe to pattern.discovered topic."""
+        from omniintelligence.runtime.plugin import INTELLIGENCE_SUBSCRIBE_TOPICS
+
+        assert EXPECTED_PATTERN_DISCOVERED in INTELLIGENCE_SUBSCRIBE_TOPICS

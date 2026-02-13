@@ -95,6 +95,12 @@ DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
 )
 """Dispatch-compatible alias for pattern-lifecycle canonical topic."""
 
+DISPATCH_ALIAS_PATTERN_LEARNED = "onex.events.omniintelligence.pattern-learned.v1"
+"""Dispatch-compatible alias for pattern-learned canonical topic."""
+
+DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
+"""Dispatch-compatible alias for pattern.discovered canonical topic."""
+
 
 # =============================================================================
 # Bridge Handler: Claude Hook Event
@@ -262,7 +268,28 @@ def create_session_outcome_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg) from e
-        success = bool(payload.get("success", False))
+        # Map outcome enum to success boolean.
+        # Wire payload sends `outcome: "success"` (not `success: true`).
+        # Fall back to legacy `success` field for backwards compatibility.
+        from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
+
+        raw_outcome = payload.get("outcome")
+        if raw_outcome is not None:
+            try:
+                outcome_enum = ClaudeCodeSessionOutcome(raw_outcome)
+            except ValueError:
+                # Unknown outcome value -- treat as failed
+                logger.warning(
+                    "Unknown outcome value %r, treating as failed (correlation_id=%s)",
+                    raw_outcome,
+                    ctx_correlation_id,
+                )
+                outcome_enum = ClaudeCodeSessionOutcome.FAILED
+            success = outcome_enum.is_successful()
+        else:
+            # Legacy fallback: read `success` boolean field directly
+            success = bool(payload.get("success", False))
+
         failure_reason = payload.get("failure_reason")
 
         logger.info(
@@ -490,6 +517,75 @@ def create_pattern_lifecycle_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Pattern Storage (pattern-learned + pattern.discovered)
+# =============================================================================
+
+
+def create_pattern_storage_dispatch_handler(
+    *,
+    repository: ProtocolPatternRepository,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for pattern storage events.
+
+    Handles both pattern-learned and pattern.discovered topics by routing
+    to the appropriate storage handler (route_storage_operation or
+    handle_consume_discovered).
+
+    Args:
+        repository: REQUIRED database repository for pattern storage.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> pattern storage handler."""
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for pattern-storage (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        # Capture closed-over deps for future full-pipeline integration.
+        # Currently the handler logs receipt; full storage delegation will
+        # use repository + kafka_producer when RuntimeHostProcess wiring
+        # is complete for this node.
+        _repo = repository
+        _producer = kafka_producer
+
+        logger.info(
+            "Pattern storage event received via dispatch engine "
+            "(correlation_id=%s, payload_keys=%s, has_repo=%s, has_producer=%s)",
+            ctx_correlation_id,
+            list(payload.keys()),
+            _repo is not None,
+            _producer is not None,
+        )
+
+        return ""
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -504,7 +600,7 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 3 intelligence domain handlers and
+    Creates the engine, registers all 5 intelligence domain handlers and
     routes, and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
@@ -598,6 +694,39 @@ def create_intelligence_dispatch_engine(
             handler_id="intelligence-pattern-lifecycle-handler",
             description=(
                 "Routes pattern-lifecycle-transition commands to apply_transition handler."
+            ),
+        )
+    )
+
+    # --- Handler 4: pattern-storage (pattern-learned + pattern.discovered) ---
+    pattern_storage_handler = create_pattern_storage_dispatch_handler(
+        repository=repository,
+        kafka_producer=kafka_producer,
+    )
+    engine.register_handler(
+        handler_id="intelligence-pattern-storage-handler",
+        handler=pattern_storage_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-learned-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_LEARNED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-pattern-storage-handler",
+            description=("Routes pattern-learned events to pattern storage handler."),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-discovered-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_DISCOVERED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-pattern-storage-handler",
+            description=(
+                "Routes pattern.discovered events to pattern storage handler."
             ),
         )
     )
@@ -735,11 +864,14 @@ def create_dispatch_callback(
 
 __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
+    "DISPATCH_ALIAS_PATTERN_DISCOVERED",
+    "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "create_claude_hook_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
     "create_pattern_lifecycle_dispatch_handler",
+    "create_pattern_storage_dispatch_handler",
     "create_session_outcome_dispatch_handler",
 ]

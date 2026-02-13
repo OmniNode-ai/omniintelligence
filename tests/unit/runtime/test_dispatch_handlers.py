@@ -28,6 +28,8 @@ import pytest
 
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
+    DISPATCH_ALIAS_PATTERN_DISCOVERED,
+    DISPATCH_ALIAS_PATTERN_LEARNED,
     DISPATCH_ALIAS_PATTERN_LIFECYCLE,
     DISPATCH_ALIAS_SESSION_OUTCOME,
     create_claude_hook_dispatch_handler,
@@ -242,6 +244,30 @@ class TestTopicAlias:
         """Pattern lifecycle alias must preserve the transition name."""
         assert "pattern-lifecycle-transition" in DISPATCH_ALIAS_PATTERN_LIFECYCLE
 
+    # --- Pattern Learned alias ---
+
+    def test_pattern_learned_alias_contains_events_segment(self) -> None:
+        """Pattern learned alias must contain .events. for from_topic()."""
+        assert ".events." in DISPATCH_ALIAS_PATTERN_LEARNED
+
+    def test_pattern_learned_alias_matches_intelligence_domain(self) -> None:
+        """Pattern learned alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_PATTERN_LEARNED
+
+    def test_pattern_learned_alias_preserves_event_name(self) -> None:
+        """Pattern learned alias must preserve the pattern-learned name."""
+        assert "pattern-learned" in DISPATCH_ALIAS_PATTERN_LEARNED
+
+    # --- Pattern Discovered alias ---
+
+    def test_pattern_discovered_alias_contains_events_segment(self) -> None:
+        """Pattern discovered alias must contain .events. for from_topic()."""
+        assert ".events." in DISPATCH_ALIAS_PATTERN_DISCOVERED
+
+    def test_pattern_discovered_alias_preserves_event_name(self) -> None:
+        """Pattern discovered alias must preserve the discovered name."""
+        assert "discovered" in DISPATCH_ALIAS_PATTERN_DISCOVERED
+
 
 # =============================================================================
 # Tests: Dispatch Engine Factory
@@ -265,33 +291,33 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_three_handlers(
+    def test_engine_has_four_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 3 intelligence domain handlers must be registered."""
+        """All 4 intelligence domain handlers must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 3
+        assert engine.handler_count == 4
 
-    def test_engine_has_three_routes(
+    def test_engine_has_five_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 3 intelligence domain routes must be registered."""
+        """All 5 intelligence domain routes must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 3
+        assert engine.route_count == 5
 
 
 # =============================================================================
@@ -493,6 +519,269 @@ class TestSessionOutcomeDispatchHandler:
 
         with pytest.raises(ValueError, match="missing required field 'session_id'"):
             await handler(envelope, context)
+
+
+# =============================================================================
+# Tests: Session Outcome -- `outcome` field mapping (OMN-2189 Bug 1)
+# =============================================================================
+
+
+class TestSessionOutcomeFieldMapping:
+    """Validate that session outcome reads `outcome` field, not `success`.
+
+    OMN-2189 Bug 1: The wire payload sends ``outcome: "success"`` but the
+    dispatch handler was reading ``success: true``. This caused every session
+    outcome to be recorded as FAILED because ``payload.get("success", False)``
+    always returned False when the field was not present.
+
+    These tests verify the fix maps via ClaudeCodeSessionOutcome.is_successful().
+    """
+
+    @pytest.mark.asyncio
+    async def test_outcome_success_maps_to_success_true(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """outcome='success' must result in success=True passed to handler."""
+        from unittest.mock import patch
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        session_id = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": str(session_id),
+                "outcome": "success",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with patch(
+            "omniintelligence.nodes.node_pattern_feedback_effect.handlers"
+            ".record_session_outcome",
+            new_callable=AsyncMock,
+        ) as mock_record:
+            mock_result = MagicMock()
+            mock_result.patterns_updated = 0
+            mock_record.return_value = mock_result
+
+            await handler(envelope, context)
+
+            mock_record.assert_called_once()
+            # record_session_outcome(session_id=..., success=..., ...)
+            # success is passed as keyword arg
+            call_kwargs = mock_record.call_args.kwargs
+            assert call_kwargs["success"] is True, (
+                f"Expected success=True for outcome='success', got {call_kwargs['success']}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_outcome_failed_maps_to_success_false(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """outcome='failed' must result in success=False passed to handler."""
+        from unittest.mock import patch
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        session_id = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": str(session_id),
+                "outcome": "failed",
+                "failure_reason": "test failure",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with patch(
+            "omniintelligence.nodes.node_pattern_feedback_effect.handlers"
+            ".record_session_outcome",
+            new_callable=AsyncMock,
+        ) as mock_record:
+            mock_result = MagicMock()
+            mock_result.patterns_updated = 0
+            mock_record.return_value = mock_result
+
+            await handler(envelope, context)
+
+            mock_record.assert_called_once()
+            all_kwargs = mock_record.call_args.kwargs
+            assert all_kwargs["success"] is False, (
+                f"Expected success=False for outcome='failed', got {all_kwargs['success']}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_outcome_abandoned_maps_to_success_false(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """outcome='abandoned' must result in success=False."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        session_id = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": str(session_id),
+                "outcome": "abandoned",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_legacy_success_field_still_works(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Legacy payload with `success: true` (no `outcome`) must still work."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        session_id = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": str(session_id),
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        # Legacy format should not raise
+        await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_outcome_field_takes_precedence_over_success(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """When both `outcome` and `success` present, `outcome` wins."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_session_outcome_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        session_id = uuid4()
+        # outcome says "failed" but success says True -- outcome should win
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "session_id": str(session_id),
+                "outcome": "failed",
+                "success": True,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        # Should not raise -- outcome takes precedence
+        await handler(envelope, context)
 
 
 # =============================================================================

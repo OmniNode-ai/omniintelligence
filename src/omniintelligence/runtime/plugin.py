@@ -100,6 +100,7 @@ logger = logging.getLogger(__name__)
 #   - node_claude_hook_event_effect/contract.yaml
 #   - node_pattern_feedback_effect/contract.yaml
 #   - node_pattern_lifecycle_effect/contract.yaml
+#   - node_pattern_storage_effect/contract.yaml
 
 INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = collect_subscribe_topics_from_contracts()
 """All input topics the intelligence plugin subscribes to (contract-driven)."""
