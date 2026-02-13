@@ -85,7 +85,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any  # any-ok: Coroutine[Any, Any, T] is standard async type alias
+from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type alias
+    TYPE_CHECKING,
+    Any,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (

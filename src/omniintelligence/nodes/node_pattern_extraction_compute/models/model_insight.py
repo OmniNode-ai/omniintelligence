@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from omnibase_core.types import PrimitiveValue
 from pydantic import BaseModel, Field
 
-from omnibase_core.types import PrimitiveValue
 from omniintelligence.nodes.node_pattern_extraction_compute.models.enum_insight_type import (
     EnumInsightType,
 )

@@ -569,7 +569,7 @@ def main() -> int:
             results.append(result)
 
         # Standalone omnibase_core ValidatorBase validators (non-blocking)
-        standalone_validators = [
+        standalone_validator_list: list[tuple[str, str]] = [
             ("validator_any_type", "any-type"),
             ("validator_pydantic_conventions", "pydantic"),
             ("validator_naming_convention", "naming-convention"),
@@ -577,7 +577,7 @@ def main() -> int:
             ("checker_enum_member_casing", "enum-casing"),
             ("checker_literal_duplication", "literal-duplication"),
         ]
-        for module, display_name in standalone_validators:
+        for module, display_name in standalone_validator_list:
             print(f"  Running omnibase:{display_name}...")
             result = run_standalone_validator(
                 module, display_name, verbose=args.verbose

@@ -12,7 +12,10 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any  # any-ok: test fixture factories use **kwargs: Any
+from typing import (  # any-ok: test fixture factories use **kwargs: Any
+    TYPE_CHECKING,
+    Any,
+)
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 

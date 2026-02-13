@@ -22,7 +22,9 @@ import logging
 import time
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import Any  # any-ok: _ExtractorFunc and _ConverterFunc type aliases use list[Any] for heterogeneous pattern types
+from typing import (
+    Any,  # any-ok: _ExtractorFunc and _ConverterFunc type aliases use list[Any] for heterogeneous pattern types
+)
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.exceptions import (
     PatternExtractionComputeError,
