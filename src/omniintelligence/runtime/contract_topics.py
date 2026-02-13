@@ -39,6 +39,7 @@ _INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
     "omniintelligence.nodes.node_claude_hook_event_effect",
     "omniintelligence.nodes.node_pattern_feedback_effect",
     "omniintelligence.nodes.node_pattern_lifecycle_effect",
+    "omniintelligence.nodes.node_pattern_storage_effect",
 ]
 
 
@@ -62,7 +63,7 @@ def collect_subscribe_topics_from_contracts(
 
     Args:
         node_packages: Override list of node packages to scan.  Defaults to
-            the three built-in intelligence effect nodes.
+            the built-in intelligence effect nodes.
 
     Returns:
         Ordered list of subscribe topic strings.
@@ -100,9 +101,11 @@ def collect_publish_topics_for_dispatch(
     The mapping from package to dispatch key is:
         - ``node_claude_hook_event_effect`` → ``"claude_hook"``
         - ``node_pattern_lifecycle_effect`` → ``"lifecycle"``
+        - ``node_pattern_storage_effect`` → ``"pattern_storage"``
 
-    Only the first publish topic per contract is used (each contract declares
-    exactly one publish topic).
+    Only the first publish topic per contract is used.  When a contract
+    declares multiple publish topics (e.g. ``node_pattern_storage_effect``),
+    only the first entry is returned.
 
     Args:
         node_packages: Override list of node packages to scan.  Defaults to
@@ -115,6 +118,7 @@ def collect_publish_topics_for_dispatch(
     _DISPATCH_KEY_TO_PACKAGE: dict[str, str] = {
         "claude_hook": "omniintelligence.nodes.node_claude_hook_event_effect",
         "lifecycle": "omniintelligence.nodes.node_pattern_lifecycle_effect",
+        "pattern_storage": "omniintelligence.nodes.node_pattern_storage_effect",
     }
 
     if node_packages is not None:

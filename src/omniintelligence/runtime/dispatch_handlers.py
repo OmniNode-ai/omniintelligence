@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 3 intelligence dispatchers
+    - OMN-2032: Register intelligence dispatchers (now 4 handlers, 5 routes)
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -37,6 +37,7 @@ from uuid import UUID, uuid4
 
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
+from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
 from omnibase_core.models.core.model_envelope_metadata import ModelEnvelopeMetadata
 from omnibase_core.models.dispatch.model_dispatch_route import ModelDispatchRoute
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
@@ -94,6 +95,12 @@ DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
     "onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
 )
 """Dispatch-compatible alias for pattern-lifecycle canonical topic."""
+
+DISPATCH_ALIAS_PATTERN_LEARNED = "onex.events.omniintelligence.pattern-learned.v1"
+"""Dispatch-compatible alias for pattern-learned canonical topic."""
+
+DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
+"""Dispatch-compatible alias for pattern.discovered canonical topic."""
 
 
 # =============================================================================
@@ -262,7 +269,26 @@ def create_session_outcome_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg) from e
-        success = bool(payload.get("success", False))
+        # Map outcome enum to success boolean.
+        # Wire payload sends `outcome: "success"` (not `success: true`).
+        # Fall back to legacy `success` field for backwards compatibility.
+        raw_outcome = payload.get("outcome")
+        if raw_outcome is not None:
+            try:
+                outcome_enum = ClaudeCodeSessionOutcome(raw_outcome)
+            except ValueError:
+                # Unknown outcome value -- treat as failed
+                logger.warning(
+                    "Unknown outcome value %r, treating as failed (correlation_id=%s)",
+                    raw_outcome,
+                    ctx_correlation_id,
+                )
+                outcome_enum = ClaudeCodeSessionOutcome.FAILED
+            success = outcome_enum.is_successful()
+        else:
+            # Legacy fallback: read `success` boolean field directly
+            success = bool(payload.get("success", False))
+
         failure_reason = payload.get("failure_reason")
 
         logger.info(
@@ -490,6 +516,71 @@ def create_pattern_lifecycle_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Pattern Storage (pattern-learned + pattern.discovered)
+# =============================================================================
+
+
+def create_pattern_storage_dispatch_handler(
+    *,
+    repository: ProtocolPatternRepository,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for pattern storage events.
+
+    Fail-fast handler for pattern-learned and pattern.discovered events.
+    Raises RuntimeError on every invocation to prevent silent data loss.
+    The full implementation will route to route_storage_operation /
+    handle_consume_discovered once RuntimeHostProcess wiring is complete
+    for this node.
+
+    Args:
+        repository: REQUIRED database repository for pattern storage.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> pattern storage handler."""
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for pattern-storage (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        logger.error(
+            "Pattern storage handler not wired; refusing to ack message "
+            "(correlation_id=%s, payload_keys=%s, has_repo=%s, has_producer=%s)",
+            ctx_correlation_id,
+            list(payload.keys()),
+            repository is not None,
+            kafka_producer is not None,
+        )
+        raise RuntimeError(
+            f"Pattern storage handler not wired (correlation_id={ctx_correlation_id})"
+        )
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -504,8 +595,8 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 3 intelligence domain handlers and
-    routes, and freezes it. The engine is ready for dispatch after this call.
+    Creates the engine, registers all 4 intelligence domain handlers (5 routes)
+    and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
     should not start consumers.
@@ -516,8 +607,8 @@ def create_intelligence_dispatch_engine(
         intent_classifier: REQUIRED intent classifier.
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
-            Keys: "claude_hook", "lifecycle". Values: full topic strings
-            from contract event_bus.publish_topics.
+            Keys: "claude_hook", "lifecycle", "pattern_storage". Values:
+            full topic strings from contract event_bus.publish_topics.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -602,6 +693,39 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 4: pattern-storage (pattern-learned + pattern.discovered) ---
+    pattern_storage_handler = create_pattern_storage_dispatch_handler(
+        repository=repository,
+        kafka_producer=kafka_producer,
+    )
+    engine.register_handler(
+        handler_id="intelligence-pattern-storage-handler",
+        handler=pattern_storage_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-learned-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_LEARNED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-pattern-storage-handler",
+            description=("Routes pattern-learned events to pattern storage handler."),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-discovered-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_DISCOVERED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-pattern-storage-handler",
+            description=(
+                "Routes pattern.discovered events to pattern storage handler."
+            ),
+        )
+    )
+
     engine.freeze()
 
     logger.info(
@@ -628,7 +752,7 @@ def create_dispatch_callback(
 
     The callback:
     1. Deserializes the raw message value from bytes to dict
-    2. Wraps it in a ModelEventEnvelope with command category metadata
+    2. Wraps it in a ModelEventEnvelope with category derived from dispatch_topic
     3. Calls engine.dispatch() with the dispatch-compatible topic alias
     4. Acks the message on success, nacks on failure
 
@@ -682,12 +806,18 @@ def create_dispatch_callback(
                 with contextlib.suppress(ValueError, AttributeError):
                     msg_correlation_id = UUID(str(payload_correlation_id))
 
-            # Wrap in ModelEventEnvelope with command category metadata
+            # Derive message category from dispatch_topic so EVENT topics
+            # produce EVENT envelopes (not hard-coded COMMAND).
+            topic_category = EnumMessageCategory.from_topic(dispatch_topic)
             envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
                 payload=payload_dict,
                 correlation_id=msg_correlation_id,
                 metadata=ModelEnvelopeMetadata(
-                    tags={"message_category": "command"},
+                    tags={
+                        "message_category": topic_category.value
+                        if topic_category
+                        else "command",
+                    },
                 ),
             )
 
@@ -735,11 +865,14 @@ def create_dispatch_callback(
 
 __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
+    "DISPATCH_ALIAS_PATTERN_DISCOVERED",
+    "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "create_claude_hook_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
     "create_pattern_lifecycle_dispatch_handler",
+    "create_pattern_storage_dispatch_handler",
     "create_session_outcome_dispatch_handler",
 ]
