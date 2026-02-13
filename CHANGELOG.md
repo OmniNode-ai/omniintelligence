@@ -5,6 +5,25 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-02-13
+
+### Fixed
+
+- **Orchestrator contract topic naming** — migrated all consumed/published
+  topics from legacy `{env}.archon-intelligence.*` format to proper ONEX
+  conventions (`onex.cmd.omniintelligence.*` / `onex.evt.omniintelligence.*`)
+- **Command vs event channel semantics** — request topics now use `cmd`
+  channel, outcome topics use `evt` channel
+- **Event grammar normalization** — replaced irregular past-tense event names
+  (`pattern-learned`, `quality-assessed`, `document-ingested`) with symmetric
+  `-completed` suffix for fingerprint-safe registry pairing
+
+### Added
+
+- **pattern_extraction_compute** added to orchestrator `available_compute_nodes`
+  and `dependencies`
+- **Required status checks** on main branch protection (#100)
+
 ## [0.1.0] - 2026-02-13
 
 Initial release of the OmniIntelligence platform — 15 ONEX nodes providing
@@ -141,4 +160,5 @@ hook processing as a kernel domain plugin.
 - `omnibase_spi` ^0.7.0
 - Python >=3.12
 
+[0.1.1]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/OmniNode-ai/omniintelligence/releases/tag/v0.1.0
