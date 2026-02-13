@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 3 intelligence dispatchers
+    - OMN-2032: Register intelligence dispatchers (now 4 handlers, 5 routes)
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -37,6 +37,7 @@ from uuid import UUID, uuid4
 
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
+from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
 from omnibase_core.models.core.model_envelope_metadata import ModelEnvelopeMetadata
 from omnibase_core.models.dispatch.model_dispatch_route import ModelDispatchRoute
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
@@ -271,8 +272,6 @@ def create_session_outcome_dispatch_handler(
         # Map outcome enum to success boolean.
         # Wire payload sends `outcome: "success"` (not `success: true`).
         # Fall back to legacy `success` field for backwards compatibility.
-        from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
-
         raw_outcome = payload.get("outcome")
         if raw_outcome is not None:
             try:
