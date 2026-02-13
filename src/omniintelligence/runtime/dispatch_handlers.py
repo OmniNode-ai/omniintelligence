@@ -531,11 +531,11 @@ def create_pattern_storage_dispatch_handler(
 ]:
     """Create a dispatch engine handler for pattern storage events.
 
-    Placeholder stub pending OMN-2190 wiring. Currently logs receipt of
-    pattern-learned and pattern.discovered events but does not delegate
-    to any storage handler. The full implementation will route to
-    route_storage_operation / handle_consume_discovered once
-    RuntimeHostProcess wiring is complete for this node.
+    Fail-fast handler for pattern-learned and pattern.discovered events.
+    Raises RuntimeError on every invocation to prevent silent data loss.
+    The full implementation will route to route_storage_operation /
+    handle_consume_discovered once RuntimeHostProcess wiring is complete
+    for this node.
 
     Args:
         repository: REQUIRED database repository for pattern storage.
@@ -565,24 +565,17 @@ def create_pattern_storage_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        # Capture closed-over deps for future full-pipeline integration.
-        # Currently the handler logs receipt; full storage delegation will
-        # use repository + kafka_producer when RuntimeHostProcess wiring
-        # is complete for this node.
-        # TODO(OMN-2190): Wire to route_storage_operation/handle_consume_discovered
-        _repo = repository
-        _producer = kafka_producer
-
-        logger.warning(
-            "Pattern storage event received but not processed (stub pending OMN-2190) "
+        logger.error(
+            "Pattern storage handler not wired; refusing to ack message "
             "(correlation_id=%s, payload_keys=%s, has_repo=%s, has_producer=%s)",
             ctx_correlation_id,
             list(payload.keys()),
-            _repo is not None,
-            _producer is not None,
+            repository is not None,
+            kafka_producer is not None,
         )
-
-        return ""
+        raise RuntimeError(
+            f"Pattern storage handler not wired (correlation_id={ctx_correlation_id})"
+        )
 
     return _handle
 
