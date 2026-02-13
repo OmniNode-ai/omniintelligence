@@ -1,0 +1,80 @@
+---
+# Required Status Checks for `main` Branch Protection
+#
+# This manifest documents the canonical list of required checks.
+# If you rename a CI job, you MUST update both this file and the
+# branch protection settings (Settings > Branches > main).
+#
+# Added: OMN-2185
+# Last verified: 2026-02-13
+# Pattern: OMN-1876 (omniclaude PR #137)
+
+required_checks:
+  # -- Unconditional checks (always run on every PR) -------------------------
+
+  - name: "Pre-commit Hooks"
+    workflow: ci.yaml
+    job_id: pre-commit
+    conditional: false
+    rationale: "Comprehensive code quality validation (ruff, mypy, trailing whitespace, etc.)"
+
+  - name: "Scope Alignment"
+    workflow: ci.yaml
+    job_id: scope-alignment
+    conditional: false
+    rationale: "Validates CI path filters match pre-commit hook patterns - catches configuration drift"
+
+  - name: "Contract Validation"
+    workflow: ci.yaml
+    job_id: contract-validation
+    conditional: false
+    rationale: "Validates ONEX contract YAML files - structural correctness of node contracts"
+
+  - name: "I/O Audit"
+    workflow: ci.yaml
+    job_id: io-audit
+    conditional: false
+    rationale: "ONEX node purity enforcement - compute nodes must not contain forbidden I/O patterns"
+
+  - name: "Cross-Repo Validation"
+    workflow: ci.yaml
+    job_id: cross-repo-validation
+    conditional: false
+    rationale: "ARCH-002: no direct Kafka imports in nodes/ (must use Protocol abstractions)"
+
+  - name: "Migration Freeze Check"
+    workflow: ci.yaml
+    job_id: migration-freeze
+    conditional: false
+    rationale: "Blocks new migrations during DB-per-repo refactor (OMN-2055)"
+
+  - name: "Verify Architecture Handshake"
+    workflow: ci.yaml
+    job_id: check-handshake
+    conditional: true
+    condition: "Skipped on fork PRs (no fork PRs accepted for this repo)"
+    rationale: "Cross-repo architecture handshake with omnibase_core is current"
+
+  # -- Aggregator (absorbs path-filtered conditional checks) ------------------
+
+  - name: "CI Summary"
+    workflow: ci.yaml
+    job_id: ci-summary
+    conditional: false  # uses if: always() so it always runs
+    rationale: "Aggregator for path-filtered checks (Lint, Type Check, Unit Tests). These get 'skipped'
+      on docs-only PRs. CI Summary treats skipped as acceptable for path-filtered jobs."
+
+# -- Explicitly excluded from required checks --------------------------------
+excluded_checks:
+  - name: "Detect Changes"
+    reason: "Path-filter helper job - outputs whether production code changed. Not a correctness check."
+  - name: "Lint"
+    reason: "Path-filtered via Detect Changes. Gets 'skipped' on docs-only PRs. Covered by CI Summary."
+  - name: "Type Check"
+    reason: "Path-filtered via Detect Changes. Gets 'skipped' on docs-only PRs. Covered by CI Summary."
+  - name: "Unit Tests"
+    reason: "Path-filtered via Detect Changes. Gets 'skipped' on docs-only PRs. Covered by CI Summary."
+  - name: "claude"
+    reason: "Claude Code bot (claude.yml). Triggered by @claude mentions, not PR CI."
+  - name: "Dependabot"
+    reason: "Dependabot compatibility score. Informational, not a correctness gate."
