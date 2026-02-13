@@ -28,6 +28,7 @@ Related:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid5
 
@@ -132,13 +133,25 @@ class _IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
         self._descriptor = descriptor
 
 
+@dataclass
+class IntrospectionResult:
+    """Result of intelligence introspection publishing.
+
+    Holds both the list of registered node names and the proxy references
+    needed to stop heartbeat tasks during shutdown.
+    """
+
+    registered_nodes: list[str] = field(default_factory=list)
+    proxies: list[_IntelligenceNodeIntrospectionProxy] = field(default_factory=list)
+
+
 async def publish_intelligence_introspection(
     event_bus: Any | None,
     *,
     correlation_id: UUID | None = None,
     enable_heartbeat: bool = True,
     heartbeat_interval_seconds: float = 30.0,
-) -> list[str]:
+) -> IntrospectionResult:
     """Publish introspection events for all intelligence nodes.
 
     Creates a proxy MixinNodeIntrospection instance for each intelligence
@@ -153,7 +166,8 @@ async def publish_intelligence_introspection(
         heartbeat_interval_seconds: Interval between heartbeats in seconds.
 
     Returns:
-        List of node names that successfully published introspection events.
+        IntrospectionResult with registered node names and proxy references
+        for lifecycle management.
     """
     if event_bus is None:
         logger.info(
@@ -161,10 +175,9 @@ async def publish_intelligence_introspection(
             "(correlation_id=%s)",
             correlation_id,
         )
-        return []
+        return IntrospectionResult()
 
-    registered: list[str] = []
-    proxies: list[_IntelligenceNodeIntrospectionProxy] = []
+    result = IntrospectionResult()
 
     for descriptor in INTELLIGENCE_NODES:
         try:
@@ -179,7 +192,7 @@ async def publish_intelligence_introspection(
             )
 
             if success:
-                registered.append(descriptor.name)
+                result.registered_nodes.append(descriptor.name)
                 logger.debug(
                     "Published introspection for %s (node_id=%s, type=%s, "
                     "correlation_id=%s)",
@@ -196,7 +209,7 @@ async def publish_intelligence_introspection(
                         heartbeat_interval_seconds=heartbeat_interval_seconds,
                         enable_registry_listener=False,
                     )
-                    proxies.append(proxy)
+                    result.proxies.append(proxy)
             else:
                 logger.warning(
                     "Failed to publish introspection for %s (correlation_id=%s)",
@@ -214,28 +227,45 @@ async def publish_intelligence_introspection(
 
     logger.info(
         "Intelligence introspection published: %d/%d nodes (correlation_id=%s)",
-        len(registered),
+        len(result.registered_nodes),
         len(INTELLIGENCE_NODES),
         correlation_id,
     )
 
-    return registered
+    return result
 
 
 async def publish_intelligence_shutdown(
     event_bus: Any | None,
     *,
+    proxies: list[_IntelligenceNodeIntrospectionProxy] | None = None,
     correlation_id: UUID | None = None,
 ) -> None:
     """Publish shutdown introspection events for all intelligence nodes.
 
     Called during plugin shutdown to notify the registration orchestrator
-    that intelligence nodes are going offline.
+    that intelligence nodes are going offline. Also stops any running
+    heartbeat tasks on the provided proxies.
 
     Args:
         event_bus: Event bus for publishing shutdown events.
+        proxies: Proxy instances from startup that may have running
+            heartbeat tasks. If provided, their tasks are stopped
+            before publishing shutdown events.
         correlation_id: Optional correlation ID for tracing.
     """
+    # Stop heartbeat tasks on proxies that were started at init time
+    if proxies:
+        for proxy in proxies:
+            try:
+                await proxy.stop_introspection_tasks()
+            except Exception as e:
+                logger.debug(
+                    "Error stopping introspection tasks for %s: %s",
+                    proxy._descriptor.name,
+                    e,
+                )
+
     if event_bus is None:
         return
 
@@ -259,6 +289,7 @@ async def publish_intelligence_shutdown(
 
 __all__ = [
     "INTELLIGENCE_NODES",
+    "IntrospectionResult",
     "publish_intelligence_introspection",
     "publish_intelligence_shutdown",
 ]

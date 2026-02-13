@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
+from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
@@ -32,6 +33,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeHookResult,
     ModelIntentResult,
 )
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_intent_classifier_compute.models import (
@@ -294,19 +296,19 @@ async def handle_stop(
     metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
 
     # Emit pattern learning command if Kafka is available
-    pattern_learning_topic = "onex.cmd.omniintelligence.pattern-learning.v1"
+    pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
     emitted = False
 
     if kafka_producer is not None:
-        try:
-            command_payload = {
-                "event_type": "PatternLearningRequested",
-                "session_id": event.session_id,
-                "correlation_id": str(event.correlation_id),
-                "trigger": "session_stop",
-                "timestamp": datetime.now(UTC).isoformat(),
-            }
+        command_payload = {
+            "event_type": "PatternLearningRequested",
+            "session_id": event.session_id,
+            "correlation_id": str(event.correlation_id),
+            "trigger": "session_stop",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
 
+        try:
             await kafka_producer.publish(
                 topic=pattern_learning_topic,
                 key=event.session_id,
@@ -318,6 +320,16 @@ async def handle_stop(
         except Exception as e:
             metadata["pattern_learning_emission"] = "failed"
             metadata["pattern_learning_error"] = str(e)
+
+            # Route to DLQ per effect-node guidelines
+            await _route_to_dlq(
+                producer=kafka_producer,
+                topic=pattern_learning_topic,
+                envelope=command_payload,
+                error_message=str(e),
+                session_id=event.session_id,
+                metadata=metadata,
+            )
     else:
         metadata["pattern_learning_emission"] = "no_producer"
 
@@ -332,6 +344,59 @@ async def handle_stop(
         error_message=None,
         metadata=metadata,
     )
+
+
+async def _route_to_dlq(
+    *,
+    producer: ProtocolKafkaPublisher,
+    topic: str,
+    envelope: dict[str, Any],
+    error_message: str,
+    session_id: str,
+    metadata: dict[str, Any],
+) -> None:
+    """Route a failed message to the dead-letter queue.
+
+    Follows the effect-node DLQ guideline: on Kafka publish failure, attempt
+    to publish the original envelope plus error metadata to ``{topic}.dlq``.
+    Secrets are sanitized via ``LogSanitizer``. Any errors from the DLQ
+    publish attempt are swallowed to preserve graceful degradation.
+
+    Args:
+        producer: Kafka producer for DLQ publish.
+        topic: Original topic that failed.
+        envelope: Original message payload.
+        error_message: Error description from the failed publish.
+        session_id: Session ID for the Kafka key.
+        metadata: Mutable metadata dict to update with DLQ status.
+    """
+    dlq_topic = f"{topic}.dlq"
+
+    try:
+        sanitizer = get_log_sanitizer()
+        sanitized_envelope = {
+            k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
+            for k, v in envelope.items()
+        }
+
+        dlq_payload: dict[str, Any] = {
+            "original_topic": topic,
+            "original_envelope": sanitized_envelope,
+            "error_message": sanitizer.sanitize(error_message),
+            "error_timestamp": datetime.now(UTC).isoformat(),
+            "retry_count": 0,
+            "service": "omniintelligence",
+        }
+
+        await producer.publish(
+            topic=dlq_topic,
+            key=session_id,
+            value=dlq_payload,
+        )
+        metadata["pattern_learning_dlq"] = dlq_topic
+    except Exception:
+        # DLQ publish failed -- swallow to preserve graceful degradation
+        metadata["pattern_learning_dlq"] = "failed"
 
 
 def _extract_prompt_from_payload(

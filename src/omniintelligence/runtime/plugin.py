@@ -140,6 +140,7 @@ class PluginIntelligence:
         self._message_type_registry: RegistryMessageType | None = None
         self._event_bus: Any = None
         self._introspection_nodes: list[str] = []
+        self._introspection_proxies: list[Any] = []
 
     @property
     def plugin_id(self) -> str:
@@ -492,10 +493,12 @@ class PluginIntelligence:
                 publish_intelligence_introspection,
             )
 
-            self._introspection_nodes = await publish_intelligence_introspection(
+            introspection_result = await publish_intelligence_introspection(
                 event_bus=config.event_bus,
                 correlation_id=correlation_id,
             )
+            self._introspection_nodes = introspection_result.registered_nodes
+            self._introspection_proxies = introspection_result.proxies
 
             duration = time.time() - start_time
             logger.info(
@@ -724,6 +727,7 @@ class PluginIntelligence:
 
                 await publish_intelligence_shutdown(
                     event_bus=self._event_bus,
+                    proxies=self._introspection_proxies,
                     correlation_id=correlation_id,
                 )
             except Exception as shutdown_intro_error:
@@ -771,6 +775,7 @@ class PluginIntelligence:
         self._message_type_registry = None
         self._event_bus = None
         self._introspection_nodes = []
+        self._introspection_proxies = []
 
         duration = time.time() - start_time
 

@@ -23,6 +23,7 @@ import pytest
 try:
     from omniintelligence.runtime.introspection import (
         INTELLIGENCE_NODES,
+        IntrospectionResult,
         _NodeDescriptor,
         publish_intelligence_introspection,
         publish_intelligence_shutdown,
@@ -127,13 +128,15 @@ class TestPublishIntelligenceIntrospection:
     """Test publish_intelligence_introspection function."""
 
     @pytest.mark.asyncio
-    async def test_returns_empty_list_without_event_bus(self) -> None:
-        """Should return empty list when no event bus is provided."""
+    async def test_returns_empty_result_without_event_bus(self) -> None:
+        """Should return empty IntrospectionResult when no event bus is provided."""
         result = await publish_intelligence_introspection(
             event_bus=None,
             correlation_id=uuid4(),
         )
-        assert result == []
+        assert isinstance(result, IntrospectionResult)
+        assert result.registered_nodes == []
+        assert result.proxies == []
 
     @pytest.mark.asyncio
     async def test_publishes_for_all_nodes_with_event_bus(self) -> None:
@@ -147,8 +150,9 @@ class TestPublishIntelligenceIntrospection:
             enable_heartbeat=False,
         )
 
+        assert isinstance(result, IntrospectionResult)
         # Should have published for all nodes
-        assert len(result) == len(INTELLIGENCE_NODES)
+        assert len(result.registered_nodes) == len(INTELLIGENCE_NODES)
 
     @pytest.mark.asyncio
     async def test_graceful_degradation_on_publish_failure(self) -> None:
@@ -165,8 +169,9 @@ class TestPublishIntelligenceIntrospection:
             enable_heartbeat=False,
         )
 
+        assert isinstance(result, IntrospectionResult)
         # No nodes should have succeeded
-        assert result == []
+        assert result.registered_nodes == []
 
 
 @pytest.mark.unit

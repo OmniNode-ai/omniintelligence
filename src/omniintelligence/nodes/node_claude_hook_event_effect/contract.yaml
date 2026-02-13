@@ -269,6 +269,7 @@ event_bus:
   # Topics this node publishes to (sends events to)
   publish_topics:
     - "onex.evt.omniintelligence.intent-classified.v1"
+    - "onex.cmd.omniintelligence.pattern-learning.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
@@ -284,6 +285,9 @@ event_bus:
     "onex.evt.omniintelligence.intent-classified.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
+    "onex.cmd.omniintelligence.pattern-learning.v1":
+      schema_ref: null
+      description: "Pattern learning command emitted on Stop event to trigger pattern extraction"
 
 # =============================================================================
 # DEPENDENCIES

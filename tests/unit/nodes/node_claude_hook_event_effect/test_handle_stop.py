@@ -18,6 +18,7 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
+    ProtocolKafkaPublisher,
     handle_stop,
     route_hook_event,
 )
@@ -38,6 +39,14 @@ def _make_stop_event() -> ModelClaudeCodeHookEvent:
         timestamp_utc=datetime.now(UTC).isoformat(),
         payload=ModelClaudeCodeHookEventPayload(),
     )
+
+
+def _make_mock_producer(**kwargs: object) -> AsyncMock:
+    """Create a mock Kafka producer with protocol conformance verification."""
+    mock_producer = AsyncMock()
+    mock_producer.publish = AsyncMock(**kwargs)
+    assert isinstance(mock_producer, ProtocolKafkaPublisher)
+    return mock_producer
 
 
 @pytest.mark.unit
@@ -61,8 +70,7 @@ class TestHandleStop:
     async def test_emits_pattern_learning_command(self) -> None:
         """Should emit pattern learning command to Kafka on Stop."""
         event = _make_stop_event()
-        mock_producer = AsyncMock()
-        mock_producer.publish = AsyncMock()
+        mock_producer = _make_mock_producer()
 
         result = await handle_stop(event=event, kafka_producer=mock_producer)
 
@@ -87,8 +95,7 @@ class TestHandleStop:
     async def test_emitted_payload_structure(self) -> None:
         """Verify the emitted command payload has correct structure."""
         event = _make_stop_event()
-        mock_producer = AsyncMock()
-        mock_producer.publish = AsyncMock()
+        mock_producer = _make_mock_producer()
 
         await handle_stop(event=event, kafka_producer=mock_producer)
 
@@ -107,8 +114,9 @@ class TestHandleStop:
     async def test_handles_kafka_publish_failure(self) -> None:
         """Should return success even when Kafka publish fails."""
         event = _make_stop_event()
-        mock_producer = AsyncMock()
-        mock_producer.publish = AsyncMock(side_effect=RuntimeError("Kafka unavailable"))
+        mock_producer = _make_mock_producer(
+            side_effect=RuntimeError("Kafka unavailable"),
+        )
 
         result = await handle_stop(event=event, kafka_producer=mock_producer)
 
@@ -127,8 +135,7 @@ class TestRouteHookEventStop:
     async def test_stop_event_routed_to_handle_stop(self) -> None:
         """Stop events should be routed to handle_stop, not handle_no_op."""
         event = _make_stop_event()
-        mock_producer = AsyncMock()
-        mock_producer.publish = AsyncMock()
+        mock_producer = _make_mock_producer()
 
         result = await route_hook_event(
             event=event,
