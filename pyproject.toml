@@ -99,7 +99,7 @@ intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
 
 [project]
 name = "omniintelligence"
-version = "0.1.0"
+version = "0.1.1"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 authors = [{name = "OmniNode Team", email = "team@omninode.ai"}]
 readme = "README.md"
