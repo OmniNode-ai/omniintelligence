@@ -1,3 +1,4 @@
+---
 # Required Status Checks for `main` Branch Protection
 #
 # This manifest documents the canonical list of required checks.
@@ -60,40 +61,20 @@ required_checks:
     workflow: ci.yaml
     job_id: ci-summary
     conditional: false  # uses if: always() so it always runs
-    rationale: >
-      Aggregator that absorbs all conditional checks (Lint, Type Check, Unit Tests).
-      These three checks are path-filtered via Detect Changes job and get 'skipped'
-      status when no production code changes. CI Summary correctly treats skipped as
-      acceptable for path-filtered jobs, making it safe to require as a single gate.
+    rationale: "Aggregator for path-filtered checks (Lint, Type Check, Unit Tests). These get 'skipped'
+      on docs-only PRs. CI Summary treats skipped as acceptable for path-filtered jobs."
 
 # -- Explicitly excluded from required checks --------------------------------
 excluded_checks:
   - name: "Detect Changes"
-    reason: >
-      Path-filter helper job - outputs whether production code changed.
-      Not a correctness check itself, consumed by downstream jobs.
-
+    reason: "Path-filter helper job - outputs whether production code changed. Not a correctness check."
   - name: "Lint"
-    reason: >
-      Path-filtered (needs.changes.outputs.production_code == 'true').
-      Gets 'skipped' status on docs-only PRs, which would block merges
-      if required. Covered by CI Summary aggregator instead.
-
+    reason: "Path-filtered via Detect Changes. Gets 'skipped' on docs-only PRs. Covered by CI Summary."
   - name: "Type Check"
-    reason: >
-      Path-filtered (needs.changes.outputs.production_code == 'true').
-      Gets 'skipped' status on docs-only PRs. Covered by CI Summary.
-
+    reason: "Path-filtered via Detect Changes. Gets 'skipped' on docs-only PRs. Covered by CI Summary."
   - name: "Unit Tests"
-    reason: >
-      Path-filtered (needs.changes.outputs.production_code == 'true').
-      Gets 'skipped' status on docs-only PRs. Covered by CI Summary.
-
+    reason: "Path-filtered via Detect Changes. Gets 'skipped' on docs-only PRs. Covered by CI Summary."
   - name: "claude"
-    reason: >
-      Claude Code bot (claude.yml workflow). Triggered by @claude mentions
-      in comments, not by PR CI. Not a correctness gate.
-
+    reason: "Claude Code bot (claude.yml). Triggered by @claude mentions, not PR CI."
   - name: "Dependabot"
-    reason: >
-      Dependabot compatibility score. Informational, not a correctness gate.
+    reason: "Dependabot compatibility score. Informational, not a correctness gate."
