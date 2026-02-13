@@ -12,7 +12,7 @@ Validates:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 3 intelligence dispatchers
+    - OMN-2032: Register all 4 intelligence handlers (5 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
 
@@ -663,6 +663,8 @@ class TestSessionOutcomeFieldMapping:
         mock_repository: MagicMock,
     ) -> None:
         """outcome='abandoned' must result in success=False."""
+        from unittest.mock import patch
+
         from omnibase_core.models.core.model_envelope_metadata import (
             ModelEnvelopeMetadata,
         )
@@ -695,7 +697,22 @@ class TestSessionOutcomeFieldMapping:
             envelope_id=uuid4(),
         )
 
-        await handler(envelope, context)
+        with patch(
+            "omniintelligence.nodes.node_pattern_feedback_effect.handlers"
+            ".record_session_outcome",
+            new_callable=AsyncMock,
+        ) as mock_record:
+            mock_result = MagicMock()
+            mock_result.patterns_updated = 0
+            mock_record.return_value = mock_result
+
+            await handler(envelope, context)
+
+            mock_record.assert_called_once()
+            call_kwargs = mock_record.call_args.kwargs
+            assert call_kwargs["success"] is False, (
+                f"Expected success=False for outcome='abandoned', got {call_kwargs['success']}"
+            )
 
     @pytest.mark.asyncio
     async def test_legacy_success_field_still_works(
@@ -746,6 +763,8 @@ class TestSessionOutcomeFieldMapping:
         mock_repository: MagicMock,
     ) -> None:
         """When both `outcome` and `success` present, `outcome` wins."""
+        from unittest.mock import patch
+
         from omnibase_core.models.core.model_envelope_metadata import (
             ModelEnvelopeMetadata,
         )
@@ -780,8 +799,23 @@ class TestSessionOutcomeFieldMapping:
             envelope_id=uuid4(),
         )
 
-        # Should not raise -- outcome takes precedence
-        await handler(envelope, context)
+        with patch(
+            "omniintelligence.nodes.node_pattern_feedback_effect.handlers"
+            ".record_session_outcome",
+            new_callable=AsyncMock,
+        ) as mock_record:
+            mock_result = MagicMock()
+            mock_result.patterns_updated = 0
+            mock_record.return_value = mock_result
+
+            await handler(envelope, context)
+
+            mock_record.assert_called_once()
+            call_kwargs = mock_record.call_args.kwargs
+            assert call_kwargs["success"] is False, (
+                f"Expected success=False for outcome='failed' (overriding success=True), "
+                f"got {call_kwargs['success']}"
+            )
 
 
 # =============================================================================

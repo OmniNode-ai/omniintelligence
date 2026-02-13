@@ -3,7 +3,7 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 3 topics
+    - collect_subscribe_topics_from_contracts returns exactly 5 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven

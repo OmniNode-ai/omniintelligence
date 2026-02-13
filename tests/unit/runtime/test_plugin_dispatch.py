@@ -3,15 +3,15 @@
 """Unit tests for PluginIntelligence dispatch engine wiring.
 
 Validates:
-    - wire_dispatchers() creates and stores dispatch engine with 3 dispatchers
-    - start_consumers() uses dispatch callback for all 3 intelligence topics
+    - wire_dispatchers() creates and stores dispatch engine with 4 handlers (5 routes)
+    - start_consumers() uses dispatch callback for all 5 intelligence topics
     - start_consumers() returns skipped when engine is not wired (no noop fallback)
     - Dispatch engine is cleared on shutdown
     - INTELLIGENCE_SUBSCRIBE_TOPICS is contract-driven (OMN-2033)
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 3 intelligence dispatchers
+    - OMN-2032: Register all 4 intelligence handlers (5 routes)
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
@@ -233,7 +233,7 @@ class TestPluginStartConsumersDispatch:
 
     @pytest.mark.asyncio
     async def test_all_topics_subscribed(self) -> None:
-        """All 3 intelligence topics must be subscribed."""
+        """All 5 intelligence topics must be subscribed."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
@@ -296,7 +296,7 @@ class TestPluginStartConsumersDispatch:
 
     @pytest.mark.asyncio
     async def test_all_topics_use_dispatch_callback(self) -> None:
-        """All 3 intelligence topics should use dispatch callback (not noop)."""
+        """All 5 intelligence topics should use dispatch callback (not noop)."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)

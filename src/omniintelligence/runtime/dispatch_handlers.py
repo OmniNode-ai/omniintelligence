@@ -531,9 +531,11 @@ def create_pattern_storage_dispatch_handler(
 ]:
     """Create a dispatch engine handler for pattern storage events.
 
-    Handles both pattern-learned and pattern.discovered topics by routing
-    to the appropriate storage handler (route_storage_operation or
-    handle_consume_discovered).
+    Placeholder stub pending OMN-2190 wiring. Currently logs receipt of
+    pattern-learned and pattern.discovered events but does not delegate
+    to any storage handler. The full implementation will route to
+    route_storage_operation / handle_consume_discovered once
+    RuntimeHostProcess wiring is complete for this node.
 
     Args:
         repository: REQUIRED database repository for pattern storage.
@@ -571,8 +573,8 @@ def create_pattern_storage_dispatch_handler(
         _repo = repository
         _producer = kafka_producer
 
-        logger.info(
-            "Pattern storage event received via dispatch engine "
+        logger.warning(
+            "Pattern storage event received but not processed (stub pending OMN-2190) "
             "(correlation_id=%s, payload_keys=%s, has_repo=%s, has_producer=%s)",
             ctx_correlation_id,
             list(payload.keys()),
@@ -757,7 +759,7 @@ def create_dispatch_callback(
 
     The callback:
     1. Deserializes the raw message value from bytes to dict
-    2. Wraps it in a ModelEventEnvelope with command category metadata
+    2. Wraps it in a ModelEventEnvelope with category derived from dispatch_topic
     3. Calls engine.dispatch() with the dispatch-compatible topic alias
     4. Acks the message on success, nacks on failure
 
@@ -811,12 +813,18 @@ def create_dispatch_callback(
                 with contextlib.suppress(ValueError, AttributeError):
                     msg_correlation_id = UUID(str(payload_correlation_id))
 
-            # Wrap in ModelEventEnvelope with command category metadata
+            # Derive message category from dispatch_topic so EVENT topics
+            # produce EVENT envelopes (not hard-coded COMMAND).
+            topic_category = EnumMessageCategory.from_topic(dispatch_topic)
             envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
                 payload=payload_dict,
                 correlation_id=msg_correlation_id,
                 metadata=ModelEnvelopeMetadata(
-                    tags={"message_category": "command"},
+                    tags={
+                        "message_category": topic_category.value
+                        if topic_category
+                        else "command",
+                    },
                 ),
             )
 
