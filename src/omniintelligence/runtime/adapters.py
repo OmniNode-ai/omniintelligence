@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -110,15 +110,15 @@ class AdapterPatternRepositoryPostgres:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, object]]:
         """Execute query and return all rows."""
         return await self._pool.fetch(query, *args)  # type: ignore[return-value]
 
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
+    async def fetchrow(self, query: str, *args: object) -> Mapping[str, object] | None:
         """Execute query and return first row, or None."""
         return await self._pool.fetchrow(query, *args)  # type: ignore[return-value]
 
-    async def execute(self, query: str, *args: Any) -> str:
+    async def execute(self, query: str, *args: object) -> str:
         """Execute query and return status string."""
         return await self._pool.execute(query, *args)
 
@@ -221,7 +221,7 @@ class AdapterKafkaPublisher:
         self,
         topic: str,
         key: str,
-        value: dict[str, Any],
+        value: dict[str, object],
     ) -> None:
         """Publish event to Kafka topic via event bus.
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
@@ -73,7 +73,7 @@ class ProtocolKafkaPublisher(Protocol):
         self,
         topic: str,
         key: str,
-        value: dict[str, Any],
+        value: dict[str, object],
     ) -> None:
         """Publish an event to a Kafka topic."""
         ...
@@ -361,7 +361,7 @@ async def handle_user_prompt_submit(
     Returns:
         ModelClaudeHookResult with intent classification results.
     """
-    metadata: dict[str, Any] = {"handler": "user_prompt_submit"}
+    metadata: dict[str, str] = {"handler": "user_prompt_submit"}
 
     # Extract prompt from payload
     prompt, extraction_source = _extract_prompt_from_payload(event.payload)
@@ -384,7 +384,7 @@ async def handle_user_prompt_submit(
     intent_category = "unknown"
     confidence = 0.0
     keywords: list[str] = []
-    secondary_intents: list[dict[str, Any]] = []
+    secondary_intents: list[dict[str, object]] = []
 
     if intent_classifier is not None:
         try:
@@ -464,7 +464,7 @@ async def _classify_intent(
     session_id: str,
     correlation_id: UUID,
     classifier: ProtocolIntentClassifier,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Call the intent classifier compute node.
 
     Args:

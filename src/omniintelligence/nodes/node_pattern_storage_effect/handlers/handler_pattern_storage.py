@@ -34,7 +34,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -136,13 +136,13 @@ class StorageOperationResult:
         self.error_code = error_code
         self.error_message = error_message
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert result to dictionary for serialization.
 
         Returns:
             Dictionary representation of the result.
         """
-        result: dict[str, Any] = {
+        result: dict[str, object] = {
             "operation": self.operation,
             "success": self.success,
         }
@@ -214,9 +214,9 @@ class PatternStorageRouter:
     async def route(
         self,
         operation: str,
-        input_data: dict[str, Any],
+        input_data: dict[str, object],
         *,
-        conn: AsyncConnection[Any],
+        conn: AsyncConnection[object],
     ) -> StorageOperationResult:
         """Route operation to the appropriate handler.
 
@@ -261,9 +261,9 @@ class PatternStorageRouter:
 
     async def _handle_store(
         self,
-        input_data: dict[str, Any],
+        input_data: dict[str, object],
         *,
-        conn: AsyncConnection[Any],
+        conn: AsyncConnection[object],
     ) -> StorageOperationResult:
         """Handle store_pattern operation.
 
@@ -373,9 +373,9 @@ class PatternStorageRouter:
 
     async def _handle_promote(
         self,
-        input_data: dict[str, Any],
+        input_data: dict[str, object],
         *,
-        conn: AsyncConnection[Any],
+        conn: AsyncConnection[object],
     ) -> StorageOperationResult:
         """Handle promote_pattern operation.
 
@@ -542,12 +542,12 @@ class PatternStorageRouter:
 
 async def route_storage_operation(
     operation: str,
-    input_data: dict[str, Any],
+    input_data: dict[str, object],
     *,
     pattern_store: ProtocolPatternStore,
     state_manager: ProtocolPatternStateManager,
-    conn: AsyncConnection[Any],
-) -> dict[str, Any]:
+    conn: AsyncConnection[object],
+) -> dict[str, object]:
     """Entry point for contract-driven handler routing.
 
     This function is referenced by contract.yaml handler_routing.entry_point

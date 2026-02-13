@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -211,7 +210,7 @@ class ProtocolContractValidator:
 
     def _validate_required_fields(
         self,
-        data: dict[str, Any],
+        data: dict[str, object],
         required_fields: tuple[str, ...],
     ) -> list[str]:
         """Check for missing required fields."""
@@ -224,7 +223,7 @@ class ProtocolContractValidator:
         return violations
 
     def _validate_version_fields(
-        self, data: dict[str, Any], is_node_contract: bool = True
+        self, data: dict[str, object], is_node_contract: bool = True
     ) -> list[str]:
         """Validate version fields are present and valid.
 
@@ -278,7 +277,7 @@ class ProtocolContractValidator:
         return violations
 
     def _validate_version_structure(
-        self, version: Any, field_name: str = "version"
+        self, version: object, field_name: str = "version"
     ) -> list[str]:
         """Validate version field structure and semantic version format.
 
@@ -330,7 +329,7 @@ class ProtocolContractValidator:
 
         return violations
 
-    def _validate_version_component(self, value: Any, component_path: str) -> list[str]:
+    def _validate_version_component(self, value: object, component_path: str) -> list[str]:
         """Validate a single version component (major, minor, or patch).
 
         Args:
@@ -355,7 +354,7 @@ class ProtocolContractValidator:
 
         return violations
 
-    def _validate_name(self, name: Any) -> list[str]:
+    def _validate_name(self, name: object) -> list[str]:
         """Validate name field."""
         violations: list[str] = []
 

@@ -78,7 +78,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omnibase_core.enums.pattern_learning import EnumEvidenceTier
@@ -238,7 +238,7 @@ async def apply_transition(
     trigger: str,
     actor: str = "reducer",
     reason: str | None = None,
-    gate_snapshot: ModelGateSnapshot | dict[str, Any] | None = None,
+    gate_snapshot: ModelGateSnapshot | dict[str, object] | None = None,
     transition_at: datetime,
     publish_topic: str | None = None,
     conn: ProtocolPatternRepository | None = None,

@@ -31,7 +31,7 @@ import hashlib
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -87,7 +87,7 @@ class _FailureRecord:
     error_message: str  # Normalized to "" if None
     index: int  # Position in tool_executions (0-based)
     timestamp: datetime
-    tool_parameters: dict[str, Any] | None
+    tool_parameters: dict[str, object] | None
 
 
 # =============================================================================
@@ -249,7 +249,7 @@ def _collect_failures(
             error_message = (exec_record.error_message or "").strip()
 
             # Convert tool_parameters to dict if not None
-            params: dict[str, Any] | None = None
+            params: dict[str, object] | None = None
             if exec_record.tool_parameters is not None:
                 if isinstance(exec_record.tool_parameters, dict):
                     params = exec_record.tool_parameters
@@ -822,7 +822,7 @@ def _detect_failure_hotspots(
 # =============================================================================
 
 
-def _extract_path_value(params: dict[str, Any] | None) -> str | None:
+def _extract_path_value(params: dict[str, object] | None) -> str | None:
     """Extract path value from tool_parameters using alias lookup.
 
     Args:
@@ -899,7 +899,7 @@ def _extract_top_level_dir(path: str | None) -> str | None:
     return None
 
 
-def _extract_directory(params: dict[str, Any] | None) -> str | None:
+def _extract_directory(params: dict[str, object] | None) -> str | None:
     """Extract parent directory from file path in tool_parameters.
 
     Args:
@@ -922,7 +922,7 @@ def _extract_directory(params: dict[str, Any] | None) -> str | None:
     return None
 
 
-def _extract_context_features(params: dict[str, Any] | None) -> ContextFeatures:
+def _extract_context_features(params: dict[str, object] | None) -> ContextFeatures:
     """Extract STABLE context features from tool_parameters.
 
     Values in tool_parameters don't affect features - only structure matters.

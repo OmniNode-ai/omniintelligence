@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any  # any-ok: test mocks implement asyncpg Protocol with *args: Any
 from uuid import UUID
 
 import pytest

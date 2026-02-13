@@ -43,7 +43,7 @@ import os
 import re
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -210,7 +210,7 @@ class ModelHandlerConfig(BaseModel):
         description="Whether this handler is enabled",
     )
 
-    config: dict[str, Any] = Field(
+    config: dict[str, object] = Field(
         default_factory=dict,
         description="Handler-specific configuration (passed to handler constructor)",
         examples=[
@@ -453,7 +453,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
     # ==========================================
 
     @staticmethod
-    def _interpolate_env_vars(value: Any) -> Any:
+    def _interpolate_env_vars(value: object) -> object:
         """
         Recursively interpolate environment variables in configuration values.
 
@@ -581,7 +581,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             config = ModelIntelligenceRuntimeConfig.from_environment()
         """
         # Build configuration from environment
-        config_data: dict[str, Any] = {}
+        config_data: dict[str, object] = {}
 
         # Runtime name
         if runtime_name := os.environ.get(f"{prefix}NAME"):
@@ -607,7 +607,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             config_data["metrics_port"] = int(metrics_port)
 
         # Event bus configuration
-        event_bus_data: dict[str, Any] = {}
+        event_bus_data: dict[str, object] = {}
 
         if bootstrap_servers := os.environ.get("KAFKA_BOOTSTRAP_SERVERS"):
             event_bus_data["bootstrap_servers"] = bootstrap_servers

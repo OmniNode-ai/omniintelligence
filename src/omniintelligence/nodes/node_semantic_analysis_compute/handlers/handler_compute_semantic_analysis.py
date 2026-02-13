@@ -21,7 +21,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any, cast  # any-ok: cast to dict[str, Any] needed for Pydantic model compatibility with TypedDict
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION_STR,

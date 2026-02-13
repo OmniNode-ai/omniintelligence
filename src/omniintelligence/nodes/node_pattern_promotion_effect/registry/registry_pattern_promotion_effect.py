@@ -85,7 +85,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any  # any-ok: Coroutine[Any, Any, T] is standard async type alias
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
@@ -99,7 +99,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RegistryPatternPromotionEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternPromotionEffect", "RegistryPromotionHandlers"]
 
 
 # Type alias for handler function signature
@@ -110,7 +110,7 @@ HandlerFunction = Callable[
 
 
 @dataclass(frozen=True)
-class ServiceHandlerRegistry:
+class RegistryPromotionHandlers:
     """Frozen registry of handler functions for pattern promotion.
 
     This class holds the wired handler functions with their dependencies
@@ -148,13 +148,13 @@ class ServiceHandlerRegistry:
 
 
 # Module-level storage for registry (similar to omnibase_infra pattern)
-_REGISTRY_STORAGE: dict[str, ServiceHandlerRegistry] = {}
+_REGISTRY_STORAGE: dict[str, RegistryPromotionHandlers] = {}
 
 
 class RegistryPatternPromotionEffect:
     """Registry for pattern promotion node dependencies.
 
-    Provides a static factory method to create a ServiceHandlerRegistry
+    Provides a static factory method to create a RegistryPromotionHandlers
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
@@ -181,13 +181,13 @@ class RegistryPatternPromotionEffect:
         producer: ProtocolKafkaPublisher,
         *,
         topic_env_prefix: str = "dev",
-    ) -> ServiceHandlerRegistry:
+    ) -> RegistryPromotionHandlers:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
         1. Validates that repository and producer are not None
         2. Creates handler functions with dependencies bound
-        3. Returns a frozen ServiceHandlerRegistry
+        3. Returns a frozen RegistryPromotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
@@ -202,7 +202,7 @@ class RegistryPatternPromotionEffect:
                 Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
         Returns:
-            A frozen ServiceHandlerRegistry with handlers wired.
+            A frozen RegistryPromotionHandlers with handlers wired.
 
         Raises:
             ValueError: If repository or producer is None.
@@ -257,7 +257,7 @@ class RegistryPatternPromotionEffect:
             )
 
         # Create frozen registry
-        registry = ServiceHandlerRegistry(
+        registry = RegistryPromotionHandlers(
             check_and_promote=bound_check_and_promote,
             topic_env_prefix=topic_env_prefix,
         )
@@ -268,11 +268,11 @@ class RegistryPatternPromotionEffect:
         return registry
 
     @staticmethod
-    def get_registry() -> ServiceHandlerRegistry | None:
+    def get_registry() -> RegistryPromotionHandlers | None:
         """Retrieve the current registry from module-level storage.
 
         Returns:
-            The stored ServiceHandlerRegistry, or None if not created.
+            The stored RegistryPromotionHandlers, or None if not created.
         """
         return _REGISTRY_STORAGE.get(RegistryPatternPromotionEffect.REGISTRY_KEY)
 

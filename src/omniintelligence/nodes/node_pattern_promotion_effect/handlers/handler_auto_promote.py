@@ -43,7 +43,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
@@ -88,7 +88,7 @@ _VALID_EVIDENCE_TIERS: frozenset[str] = frozenset(
 """Valid evidence tier values matching EvidenceTierLiteral."""
 
 _VALID_RUN_RESULTS: frozenset[str] = frozenset({"success", "partial", "failure"})
-"""Valid pipeline run result values matching RunResultLiteral."""
+"""Valid pipeline run result values matching EnumRunResult."""
 
 
 # =============================================================================
@@ -159,7 +159,7 @@ class AutoPromoteResult(TypedDict):
     promoted: bool
     reason: str
     evidence_tier: str
-    gate_snapshot: dict[str, Any]
+    gate_snapshot: dict[str, object]
 
 
 class AutoPromoteCheckResult(TypedDict):
@@ -178,7 +178,7 @@ class AutoPromoteCheckResult(TypedDict):
 
 
 def _meets_promotion_criteria(
-    pattern: Mapping[str, Any],
+    pattern: Mapping[str, object],
     *,
     min_injection_count: int,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -219,7 +219,7 @@ def _meets_promotion_criteria(
 
 
 def meets_candidate_to_provisional_criteria(
-    pattern: Mapping[str, Any],
+    pattern: Mapping[str, object],
     *,
     min_injection_count: int = MIN_INJECTION_COUNT_PROVISIONAL,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -238,7 +238,7 @@ def meets_candidate_to_provisional_criteria(
 
 
 def meets_provisional_to_validated_criteria(
-    pattern: Mapping[str, Any],
+    pattern: Mapping[str, object],
     *,
     min_injection_count: int = MIN_INJECTION_COUNT_VALIDATED,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -256,7 +256,7 @@ def meets_provisional_to_validated_criteria(
     )
 
 
-def _calculate_success_rate(pattern: Mapping[str, Any]) -> float:
+def _calculate_success_rate(pattern: Mapping[str, object]) -> float:
     """Calculate success rate from pattern data. Returns 0.0 if no outcomes."""
     success_count = pattern.get("success_count_rolling_20", 0) or 0
     failure_count = pattern.get("failure_count_rolling_20", 0) or 0
@@ -267,7 +267,7 @@ def _calculate_success_rate(pattern: Mapping[str, Any]) -> float:
 
 
 async def _build_enriched_gate_snapshot(
-    pattern: Mapping[str, Any],
+    pattern: Mapping[str, object],
     *,
     conn: ProtocolPatternRepository,
 ) -> ModelGateSnapshot:
@@ -334,7 +334,7 @@ async def _build_enriched_gate_snapshot(
 async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
-    apply_transition_fn: Callable[..., Any],
+    apply_transition_fn: Callable[..., object],
     idempotency_store: ProtocolIdempotencyStore | None = None,
     producer: ProtocolKafkaPublisher | None = None,
     correlation_id: UUID | None = None,

@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
@@ -365,8 +365,8 @@ class GovernanceViolation:
 
     rule: str
     message: str
-    value: Any = None
-    threshold: Any = None
+    value: object = None
+    threshold: object = None
 
 
 @dataclass
@@ -487,7 +487,7 @@ class PatternStateTransition:
     actor: str | None
     correlation_id: UUID | None
     transitioned_at: datetime
-    metadata: dict[str, Any] | None = None
+    metadata: dict[str, object] | None = None
 
 
 def create_initial_storage_transition(

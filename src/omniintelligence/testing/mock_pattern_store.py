@@ -22,7 +22,7 @@ Reference:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from omnibase_core.types.typed_dict_pattern_storage_metadata import (
@@ -81,7 +81,7 @@ class MockPatternStore:
 
     def __init__(self) -> None:
         """Initialize the mock store with empty storage."""
-        self.patterns: dict[UUID, dict[str, Any]] = {}
+        self.patterns: dict[UUID, dict[str, object]] = {}
         self.idempotency_map: dict[tuple[UUID, str], UUID] = {}
         self._version_tracker: dict[tuple[str, str], int] = {}
         self._atomic_transitions_count: int = 0
@@ -103,7 +103,7 @@ class MockPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: Any = None,
+        conn: object = None,
     ) -> UUID:
         """Store a pattern in the mock database.
 
@@ -155,7 +155,7 @@ class MockPatternStore:
         domain: str,
         signature_hash: str,
         version: int,
-        conn: Any = None,
+        conn: object = None,
     ) -> bool:
         """Check if a pattern exists for the given lineage and version.
 
@@ -181,7 +181,7 @@ class MockPatternStore:
         self,
         pattern_id: UUID,
         signature_hash: str,
-        conn: Any = None,
+        conn: object = None,
     ) -> UUID | None:
         """Check if a pattern exists by idempotency key.
 
@@ -199,7 +199,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: Any = None,
+        conn: object = None,
     ) -> int:
         """Set is_current = false for all previous versions.
 
@@ -226,7 +226,7 @@ class MockPatternStore:
         self,
         domain: str,
         signature_hash: str,
-        conn: Any = None,
+        conn: object = None,
     ) -> int | None:
         """Get the latest version number for a pattern lineage.
 
@@ -243,7 +243,7 @@ class MockPatternStore:
     async def get_stored_at(
         self,
         pattern_id: UUID,
-        conn: Any = None,
+        conn: object = None,
     ) -> datetime | None:
         """Get the original stored_at timestamp for a pattern.
 
@@ -278,7 +278,7 @@ class MockPatternStore:
         source_run_id: str | None = None,
         correlation_id: UUID | None = None,
         metadata: TypedDictPatternStorageMetadata | None = None,
-        conn: Any = None,
+        conn: object = None,
     ) -> UUID:
         """Atomically transition previous version(s) and store new pattern.
 
@@ -375,7 +375,7 @@ class MockPatternStateManager:
     async def get_current_state(
         self,
         pattern_id: UUID,
-        conn: Any = None,
+        conn: object = None,
     ) -> EnumPatternState | None:
         """Get the current state of a pattern.
 
@@ -392,7 +392,7 @@ class MockPatternStateManager:
         self,
         pattern_id: UUID,
         new_state: EnumPatternState,
-        conn: Any = None,
+        conn: object = None,
     ) -> None:
         """Update the state of a pattern.
 
@@ -406,7 +406,7 @@ class MockPatternStateManager:
     async def record_transition(
         self,
         transition: ModelStateTransition,
-        conn: Any = None,
+        conn: object = None,
     ) -> None:
         """Record a state transition in the audit table.
 
@@ -510,7 +510,7 @@ def create_valid_pattern_input(
 
 
 def make_discovered_event(
-    **overrides: Any,
+    **overrides: object,
 ) -> ModelPatternDiscoveredEvent:
     """Create a valid ModelPatternDiscoveredEvent with sensible defaults.
 
@@ -518,7 +518,7 @@ def make_discovered_event(
     All fields can be overridden via keyword arguments.
 
     Args:
-        **overrides: Any ModelPatternDiscoveredEvent field to override.
+        **overrides: object ModelPatternDiscoveredEvent field to override.
 
     Returns:
         A valid ModelPatternDiscoveredEvent instance.
@@ -532,7 +532,7 @@ def make_discovered_event(
         ModelPatternDiscoveredEvent,
     )
 
-    defaults: dict[str, Any] = {
+    defaults: dict[str, object] = {
         "discovery_id": uuid4(),
         "pattern_signature": "def example_pattern(): return True",
         "signature_hash": "abc123def456789",
@@ -551,8 +551,8 @@ def make_discovered_event(
 
 def create_low_confidence_input_dict(
     confidence: float = 0.3,
-    **kwargs: Any,
-) -> dict[str, Any]:
+    **kwargs: object,
+) -> dict[str, object]:
     """Create input dict with low confidence for validation bypass testing.
 
     Since ModelPatternStorageInput validates at model level, we create

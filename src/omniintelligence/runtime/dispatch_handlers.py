@@ -32,7 +32,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
@@ -72,7 +72,7 @@ class ProtocolIdempotencyStore(Protocol):
 class ProtocolIntentClassifier(Protocol):
     """Intent classification protocol."""
 
-    async def compute(self, input_data: Any) -> Any: ...
+    async def compute(self, input_data: object) -> object: ...
 
 
 # =============================================================================
@@ -747,7 +747,7 @@ def create_dispatch_callback(
     dispatch_topic: str,
     *,
     correlation_id: UUID | None = None,
-) -> Callable[[Any], Awaitable[None]]:
+) -> Callable[[object], Awaitable[None]]:
     """Create an event bus callback that routes messages through the dispatch engine.
 
     The callback:
@@ -765,7 +765,7 @@ def create_dispatch_callback(
         Async callback compatible with event bus subscribe(on_message=...).
     """
 
-    async def _on_message(msg: Any) -> None:
+    async def _on_message(msg: object) -> None:
         """Event bus callback: raw message -> dispatch engine."""
         msg_correlation_id = correlation_id or uuid4()
 

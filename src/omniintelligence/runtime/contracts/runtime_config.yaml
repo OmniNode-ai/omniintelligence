@@ -15,10 +15,11 @@
 # Configuration contracts are validated by the Pydantic model directly.
 
 name: intelligence_runtime_config
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_type: "RUNTIME_HOST_GENERIC"
 
 description: |
   Configuration contract for the OmniIntelligence runtime host.

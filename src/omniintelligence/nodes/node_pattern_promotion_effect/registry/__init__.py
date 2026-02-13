@@ -4,12 +4,12 @@
 
 Exports:
     RegistryPatternPromotionEffect: Registry for pattern promotion dependencies.
-    ServiceHandlerRegistry: Frozen registry of handler functions.
+    RegistryPromotionHandlers: Frozen registry of handler functions.
 """
 
 from omniintelligence.nodes.node_pattern_promotion_effect.registry.registry_pattern_promotion_effect import (
     RegistryPatternPromotionEffect,
-    ServiceHandlerRegistry,
+    RegistryPromotionHandlers,
 )
 
-__all__ = ["RegistryPatternPromotionEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternPromotionEffect", "RegistryPromotionHandlers"]

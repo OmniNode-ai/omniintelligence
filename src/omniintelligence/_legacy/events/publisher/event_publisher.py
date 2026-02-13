@@ -40,7 +40,6 @@ import logging
 import time
 import warnings
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -77,7 +76,7 @@ class ModelEventSource(BaseModel):
 class ModelEventMetadata(BaseModel):
     """Event metadata."""
 
-    custom: dict[str, Any] = Field(default_factory=dict)
+    custom: dict[str, object] = Field(default_factory=dict)
 
 
 class ModelEventEnvelope(BaseModel):
@@ -90,9 +89,9 @@ class ModelEventEnvelope(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source: ModelEventSource
     metadata: ModelEventMetadata | None = Field(default=None)
-    payload: Any = Field(..., description="Event payload")
+    payload: object = Field(..., description="Event payload")
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert envelope to dictionary for serialization."""
         return {
             "event_id": str(self.event_id),
@@ -202,7 +201,7 @@ class EventPublisher:
         self._circuit_breaker_open = False
 
         # Metrics
-        self.metrics: dict[str, Any] = {
+        self.metrics: dict[str, object] = {
             "events_published": 0,
             "events_failed": 0,
             "events_sent_to_dlq": 0,
@@ -249,7 +248,7 @@ class EventPublisher:
     async def publish(
         self,
         event_type: str,
-        payload: Any,
+        payload: object,
         correlation_id: UUID | None = None,
         causation_id: UUID | None = None,
         metadata: ModelEventMetadata | None = None,
@@ -558,9 +557,9 @@ class EventPublisher:
 
         # Create future for delivery callback
         loop = asyncio.get_running_loop()
-        future: asyncio.Future[Any] = loop.create_future()
+        future: asyncio.Future[object] = loop.create_future()
 
-        def delivery_callback(err: Any, _msg: Any) -> None:
+        def delivery_callback(err: object, _msg: object) -> None:
             """Delivery callback to set future result."""
             if err:
                 loop.call_soon_threadsafe(
@@ -587,7 +586,7 @@ class EventPublisher:
     def _create_event_envelope(
         self,
         event_type: str,
-        payload: Any,
+        payload: object,
         correlation_id: UUID | None = None,
         causation_id: UUID | None = None,
         metadata: ModelEventMetadata | None = None,
@@ -779,7 +778,7 @@ class EventPublisher:
         self._circuit_breaker_last_failure_time = None
         self._circuit_breaker_open = False
 
-    def get_metrics(self) -> dict[str, Any]:
+    def get_metrics(self) -> dict[str, object]:
         """
         Get publisher metrics.
 
@@ -849,7 +848,7 @@ def create_event_publisher(
     bootstrap_servers: str,
     service_name: str,
     instance_id: str,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> EventPublisher:
     """
     Create event publisher instance.

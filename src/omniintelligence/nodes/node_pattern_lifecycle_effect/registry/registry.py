@@ -59,7 +59,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any  # any-ok: Coroutine[Any, Any, T] is standard async type alias
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_intelligence_reducer.models import (

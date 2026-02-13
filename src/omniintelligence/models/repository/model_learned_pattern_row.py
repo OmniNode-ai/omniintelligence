@@ -14,7 +14,6 @@ Note on Defaults:
 """
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -44,7 +43,7 @@ class ModelLearnedPatternRow(BaseModel):
     domain_version: str = Field(..., max_length=20, description="Domain version")
 
     # Classification
-    domain_candidates: list[dict[str, Any]] = Field(
+    domain_candidates: list[dict[str, object]] = Field(
         default_factory=list,
         description="Candidate domains with scores",
     )

@@ -43,7 +43,7 @@ import importlib
 import importlib.resources
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TypeVar
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -119,8 +119,8 @@ class EventBusConfig(BaseModel):
     event_bus_enabled: bool = True
     subscribe_topics: list[str] = Field(default_factory=list)
     publish_topics: list[str] = Field(default_factory=list)
-    subscribe_topic_metadata: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    publish_topic_metadata: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    subscribe_topic_metadata: dict[str, dict[str, object]] = Field(default_factory=dict)
+    publish_topic_metadata: dict[str, dict[str, object]] = Field(default_factory=dict)
 
 
 class ContractLoader:
@@ -177,9 +177,9 @@ class ContractLoader:
         """
         self._contract_path = Path(contract_path) if contract_path else None
         self._content = content
-        self._contract: dict[str, Any] = {}
-        self._handler_cache: dict[str, Callable[..., Any]] = {}
-        self._entry_point_cache: Callable[..., Any] | None = None
+        self._contract: dict[str, object] = {}
+        self._handler_cache: dict[str, Callable[..., object]] = {}
+        self._entry_point_cache: Callable[..., object] | None = None
 
         if content is not None:
             # Use pre-loaded content (ONEX compliant - no file I/O)
@@ -214,7 +214,7 @@ class ContractLoader:
         self._load_contract()
 
     @property
-    def contract(self) -> dict[str, Any]:
+    def contract(self) -> dict[str, object]:
         """Get the raw contract dictionary.
 
         Returns:
@@ -289,7 +289,7 @@ class ContractLoader:
         event_bus_data = self._contract.get("event_bus", {})
         return EventBusConfig(**event_bus_data)
 
-    def _import_function(self, config: HandlerConfig) -> Callable[..., Any]:
+    def _import_function(self, config: HandlerConfig) -> Callable[..., object]:
         """Import a function from module path.
 
         Args:
@@ -305,7 +305,7 @@ class ContractLoader:
         module = importlib.import_module(config.module)
         return getattr(module, config.function)
 
-    def resolve_handler(self, operation: str) -> Callable[..., Any] | None:
+    def resolve_handler(self, operation: str) -> Callable[..., object] | None:
         """Resolve handler function for operation.
 
         Looks up the handler configuration for the given operation and
@@ -347,7 +347,7 @@ class ContractLoader:
         self._handler_cache[operation] = func
         return func
 
-    def get_entry_point(self) -> Callable[..., Any] | None:
+    def get_entry_point(self) -> Callable[..., object] | None:
         """Get the main entry point function.
 
         Returns the entry point handler that routes to operation-specific
@@ -371,7 +371,7 @@ class ContractLoader:
         self._entry_point_cache = self._import_function(routing.entry_point)
         return self._entry_point_cache
 
-    def get_handler_for_default(self) -> Callable[..., Any] | None:
+    def get_handler_for_default(self) -> Callable[..., object] | None:
         """Get the default handler function.
 
         Returns:

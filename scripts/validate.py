@@ -49,18 +49,38 @@ class ValidationResult:
     message: str = ""
 
 
+def _parse_violation_count(output: str) -> int | None:
+    """Parse violation count from omnibase validator output.
+
+    The CLI emits lines like ``🚨 Violations: 6``. Returns the count,
+    or None if the line is not found (so callers can fall back to exit code).
+    """
+    import re
+
+    match = re.search(r"Violations:\s*(\d+)", output)
+    return int(match.group(1)) if match else None
+
+
 def run_omnibase_validator(
     validator: str,
     directory: Path | None = None,
     strict: bool = False,
     verbose: bool = False,
 ) -> ValidationResult:
-    """Run an omnibase_core validator.
+    """Run an omnibase_core CLI-registered validator.
+
+    These are validators registered in ServiceValidationSuite, invoked via
+    ``python -m omnibase_core.validation.validator_cli {name}``.
+
+    Pass/fail is determined by parsing the ``🚨 Violations: N`` line from
+    the validator output rather than relying solely on exit codes, because
+    the upstream CLI has a bug where some validators (e.g. union-usage)
+    exit 1 even with 0 violations.
 
     Args:
         validator: Name of the validator (architecture, union-usage, contracts, patterns)
         directory: Directory to validate (defaults to project SRC_DIR)
-        strict: If True, don't use --exit-zero
+        strict: If True, treat as blocking
         verbose: If True, add --verbose flag
 
     Returns:
@@ -72,22 +92,33 @@ def run_omnibase_validator(
     cmd = [
         sys.executable,
         "-m",
-        "omnibase_core.validation.cli",
+        "omnibase_core.validation.validator_cli",
         validator,
         str(directory),
+        "--exit-zero",
     ]
 
-    if not strict:
-        cmd.append("--exit-zero")
     if verbose:
         cmd.append("--verbose")
 
     try:
         result = subprocess.run(
-            cmd, check=False, capture_output=not verbose, timeout=300
+            cmd, check=False, capture_output=True, timeout=300, text=True
         )
-        passed = result.returncode == 0
-        message = "" if passed else f"Exit code: {result.returncode}"
+        if verbose:
+            print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="")
+
+        # Parse violation count from output (more reliable than exit code)
+        violation_count = _parse_violation_count(result.stdout)
+        if violation_count is not None:
+            passed = violation_count == 0
+            message = "" if passed else f"{violation_count} violation(s)"
+        else:
+            # Fallback to exit code if output format is unexpected
+            passed = result.returncode == 0
+            message = "" if passed else f"Exit code: {result.returncode}"
     except subprocess.TimeoutExpired:
         passed = False
         message = "Validator timed out after 300 seconds"
@@ -106,11 +137,74 @@ def run_omnibase_validator(
     )
 
 
+def run_standalone_validator(
+    module: str,
+    display_name: str,
+    directory: Path | None = None,
+    verbose: bool = False,
+) -> ValidationResult:
+    """Run a standalone ValidatorBase subclass from omnibase_core.
+
+    These validators are invoked directly as modules
+    (``python -m omnibase_core.validation.{module} {directory}``).
+    They do NOT support --exit-zero; exit code 0 = pass, 1 = errors, 2 = warnings.
+
+    Args:
+        module: Module name under omnibase_core.validation (e.g. "validator_any_type")
+        display_name: Human-readable name for reporting (e.g. "any-type")
+        directory: Directory to validate (defaults to project SRC_DIR)
+        verbose: If True, add --verbose flag
+
+    Returns:
+        ValidationResult with pass/fail status (always non-blocking)
+    """
+    if directory is None:
+        directory = SRC_DIR
+
+    cmd = [
+        sys.executable,
+        "-m",
+        f"omnibase_core.validation.{module}",
+        str(directory),
+    ]
+
+    if verbose:
+        cmd.append("-v")
+
+    try:
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=300
+        )
+        passed = result.returncode == 0
+        if result.returncode == 2:
+            message = "Warnings found (no errors)"
+        elif not passed:
+            message = f"Exit code: {result.returncode}"
+        else:
+            message = ""
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "Validator timed out after 300 seconds"
+    except FileNotFoundError:
+        passed = False
+        message = "Validator module not found - check omnibase_core installation"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
+
+    return ValidationResult(
+        name=f"omnibase:{display_name}",
+        passed=passed,
+        blocking=False,
+        message=message,
+    )
+
+
 def run_contract_linter(verbose: bool = False) -> ValidationResult:
     """Run our custom contract linter.
 
     Discovers contract files in all nodes directories (including _legacy/nodes/).
-    Matches patterns: *_contract.yaml (compute, effect, reducer, orchestrator) and fsm_*.yaml
+    Matches pattern: {node_dir}/contract.yaml for each node directory.
 
     Returns:
         ValidationResult with pass/fail status
@@ -130,16 +224,9 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     # Collect contract files from all nodes directories
     contract_files: list[Path] = []
     for nodes_dir in nodes_dirs:
-        # Pattern: */v*/contracts/*.yaml (matches versioned node contract directories)
-        for contract_path in nodes_dir.glob("*/v*/contracts/*.yaml"):
-            # Include *_contract.yaml and fsm_*.yaml, exclude subcontracts
-            filename = contract_path.name
-            if filename.endswith("_contract.yaml") or filename.startswith("fsm_"):
-                # Exclude subcontracts and workflows directories
-                if "subcontracts" not in str(contract_path) and "workflows" not in str(
-                    contract_path
-                ):
-                    contract_files.append(contract_path)
+        # Pattern: */contract.yaml (matches node_*/contract.yaml layout)
+        for contract_path in nodes_dir.glob("*/contract.yaml"):
+            contract_files.append(contract_path)
 
     # Sort for consistent ordering
     contract_files = sorted(set(contract_files))
@@ -274,6 +361,73 @@ def run_ruff(verbose: bool = False) -> ValidationResult:
     )
 
 
+def run_clean_root(verbose: bool = False) -> ValidationResult:
+    """Run root directory cleanliness validation."""
+    validator_path = SCRIPT_DIR / "validation" / "validate_clean_root.py"
+
+    if not validator_path.exists():
+        return ValidationResult(
+            name="clean_root", passed=True, blocking=False,
+            message=f"Validator not found: {validator_path}",
+        )
+
+    cmd = [sys.executable, str(validator_path), str(PROJECT_ROOT)]
+    if verbose:
+        cmd.append("--verbose")
+
+    try:
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=60
+        )
+        passed = result.returncode == 0
+        message = "" if passed else "Root directory has disallowed files"
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "Validator timed out"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
+
+    return ValidationResult(
+        name="clean_root", passed=passed, blocking=True, message=message,
+    )
+
+
+def run_naming(verbose: bool = False) -> ValidationResult:
+    """Run naming convention validation."""
+    validator_path = SCRIPT_DIR / "validation" / "validate_naming.py"
+
+    if not validator_path.exists():
+        return ValidationResult(
+            name="naming", passed=True, blocking=False,
+            message=f"Validator not found: {validator_path}",
+        )
+
+    cmd = [sys.executable, str(validator_path), str(SRC_DIR)]
+    if verbose:
+        cmd.append("--verbose")
+
+    try:
+        result = subprocess.run(
+            cmd, check=False, capture_output=not verbose, timeout=60
+        )
+        passed = result.returncode == 0
+        message = "" if passed else "Naming convention violations found"
+    except subprocess.TimeoutExpired:
+        passed = False
+        message = "Validator timed out"
+    except subprocess.SubprocessError as e:
+        passed = False
+        message = f"Subprocess error: {e}"
+
+    return ValidationResult(
+        name="naming",
+        passed=passed,
+        blocking=False,  # Non-blocking until existing violations are fixed
+        message=message,
+    )
+
+
 def main() -> int:
     """Run the validation suite.
 
@@ -282,6 +436,26 @@ def main() -> int:
     """
     parser = argparse.ArgumentParser(
         description="Run ONEX validation suite for omniintelligence"
+    )
+    parser.add_argument(
+        "validator",
+        nargs="?",
+        default="all",
+        choices=[
+            "all",
+            "clean_root",
+            "naming",
+            "ruff",
+            "mypy",
+            "contracts",
+            "any-type",
+            "pydantic",
+            "naming-convention",
+            "enum-governance",
+            "enum-casing",
+            "literal-duplication",
+        ],
+        help="Which validator to run (default: all)",
     )
     parser.add_argument(
         "--strict",
@@ -303,6 +477,43 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # Single validator mode
+    if args.validator != "all":
+        # Direct function validators
+        validator_map: dict[str, object] = {
+            "clean_root": run_clean_root,
+            "naming": run_naming,
+            "ruff": run_ruff,
+            "mypy": run_mypy,
+            "contracts": run_contract_linter,
+        }
+
+        # Standalone omnibase_core ValidatorBase validators
+        standalone_validators: dict[str, tuple[str, str]] = {
+            "any-type": ("validator_any_type", "any-type"),
+            "pydantic": ("validator_pydantic_conventions", "pydantic"),
+            "naming-convention": ("validator_naming_convention", "naming-convention"),
+            "enum-governance": ("checker_enum_governance", "enum-governance"),
+            "enum-casing": ("checker_enum_member_casing", "enum-casing"),
+            "literal-duplication": ("checker_literal_duplication", "literal-duplication"),
+        }
+
+        if args.validator in validator_map:
+            result = validator_map[args.validator](verbose=args.verbose)  # type: ignore[operator]
+        elif args.validator in standalone_validators:
+            module, display = standalone_validators[args.validator]
+            result = run_standalone_validator(
+                module, display, verbose=args.verbose
+            )
+        else:
+            print(f"Unknown validator: {args.validator}")
+            return 1
+
+        status = "PASS" if result.passed else "FAIL"
+        msg = f" - {result.message}" if result.message else ""
+        print(f"{result.name}: {status}{msg}")
+        return 0 if result.passed else 1
+
     print("=" * 60)
     print("ONEX Validation Suite for OmniIntelligence")
     print("=" * 60)
@@ -313,23 +524,27 @@ def main() -> int:
     print("\n[Phase 1] Blocking Validators")
     print("-" * 40)
 
+    # Root directory cleanliness
+    print("  Running clean_root...")
+    results.append(run_clean_root(verbose=args.verbose))
+
     # Ruff linting
-    print("▶ Running ruff...")
+    print("  Running ruff...")
     results.append(run_ruff(verbose=args.verbose))
 
     # MyPy on tools module
-    print("▶ Running mypy on tools...")
+    print("  Running mypy on tools...")
     results.append(run_mypy(verbose=args.verbose))
 
     # omnibase validators that pass
     for validator in ["union-usage", "patterns"]:
-        print(f"▶ Running omnibase:{validator}...")
+        print(f"  Running omnibase:{validator}...")
         results.append(
             run_omnibase_validator(validator, strict=True, verbose=args.verbose)
         )
 
     # Our contract linter
-    print("▶ Running contract linter...")
+    print("  Running contract linter...")
     results.append(run_contract_linter(verbose=args.verbose))
 
     # Non-blocking validators (report only)
@@ -337,10 +552,34 @@ def main() -> int:
         print("\n[Phase 2] Non-Blocking Validators (informational)")
         print("-" * 40)
 
+        # Naming conventions (custom)
+        print("  Running naming conventions...")
+        result = run_naming(verbose=args.verbose)
+        result.blocking = args.strict
+        results.append(result)
+
+        # CLI-registered omnibase validators (non-blocking)
         for validator in ["architecture", "contracts"]:
-            print(f"▶ Running omnibase:{validator}...")
+            print(f"  Running omnibase:{validator}...")
             result = run_omnibase_validator(
                 validator, strict=args.strict, verbose=args.verbose
+            )
+            result.blocking = args.strict
+            results.append(result)
+
+        # Standalone omnibase_core ValidatorBase validators (non-blocking)
+        standalone_validators = [
+            ("validator_any_type", "any-type"),
+            ("validator_pydantic_conventions", "pydantic"),
+            ("validator_naming_convention", "naming-convention"),
+            ("checker_enum_governance", "enum-governance"),
+            ("checker_enum_member_casing", "enum-casing"),
+            ("checker_literal_duplication", "literal-duplication"),
+        ]
+        for module, display_name in standalone_validators:
+            print(f"  Running omnibase:{display_name}...")
+            result = run_standalone_validator(
+                module, display_name, verbose=args.verbose
             )
             result.blocking = args.strict
             results.append(result)
@@ -353,12 +592,12 @@ def main() -> int:
     blocking_failures = []
     for r in results:
         if r.passed:
-            status = "✅ PASSED"
+            status = "PASSED"
         elif r.blocking:
-            status = "❌ FAILED (blocking)"
+            status = "FAILED (blocking)"
             blocking_failures.append(r.name)
         else:
-            status = "⚠️  FAILED (non-blocking)"
+            status = "FAILED (non-blocking)"
 
         msg = f" - {r.message}" if r.message else ""
         print(f"  {r.name}: {status}{msg}")
@@ -366,11 +605,11 @@ def main() -> int:
     print()
     if blocking_failures:
         print(
-            f"❌ {len(blocking_failures)} blocking failure(s): {', '.join(blocking_failures)}"
+            f"{len(blocking_failures)} blocking failure(s): {', '.join(blocking_failures)}"
         )
         return 1
     else:
-        print("✅ All blocking validators passed!")
+        print("All blocking validators passed!")
         return 0
 
 

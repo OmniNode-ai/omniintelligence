@@ -20,7 +20,6 @@ import asyncio
 import contextlib
 import logging
 import time
-from typing import Any
 
 from pydantic import ValidationError
 
@@ -60,7 +59,7 @@ DEFAULT_TIMEOUT_SECONDS = 120
 
 
 async def handle_pattern_assembly_orchestrate(
-    input_data: ModelPatternAssemblyInput | dict[str, Any],
+    input_data: ModelPatternAssemblyInput | dict[str, object],
     trace_parser_node: ProtocolComputeNode | None = None,
     intent_classifier_node: ProtocolComputeNode | None = None,
     criteria_matcher_node: ProtocolComputeNode | None = None,

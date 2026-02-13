@@ -51,7 +51,7 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, TypedDict
+from typing import TypedDict
 from uuid import UUID
 
 from omnibase_core.integrations.claude_code import (
@@ -536,7 +536,7 @@ async def record_session_outcome(
 
 
 async def compute_and_store_heuristics(
-    injection_rows: list[Mapping[str, Any]],
+    injection_rows: list[Mapping[str, object]],
     heuristic_method: EnumHeuristicMethod,
     *,
     repository: ProtocolPatternRepository,

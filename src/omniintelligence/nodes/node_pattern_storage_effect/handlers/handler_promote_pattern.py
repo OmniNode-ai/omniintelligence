@@ -47,7 +47,7 @@ Usage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
@@ -307,7 +307,7 @@ class ModelStateTransition(BaseModel):
         default_factory=uuid4,
         description="Idempotency key for deduplication",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: dict[str, object] = Field(
         default_factory=dict,
         description="Additional context as key-value pairs",
     )
@@ -437,7 +437,7 @@ async def handle_promote_pattern(
     correlation_id: UUID | None = None,
     domain: str | None = None,
     signature_hash: str | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> ModelPatternPromotedEvent:
     """Handle pattern state promotion with audit trail.
 

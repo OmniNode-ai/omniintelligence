@@ -86,7 +86,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any  # any-ok: Coroutine[Any, Any, T] is standard async type alias
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
@@ -100,7 +100,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RegistryPatternDemotionEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternDemotionEffect", "RegistryDemotionHandlers"]
 
 
 # Type alias for handler function signature
@@ -111,7 +111,7 @@ HandlerFunction = Callable[
 
 
 @dataclass(frozen=True)
-class ServiceHandlerRegistry:
+class RegistryDemotionHandlers:
     """Frozen registry of handler functions for pattern demotion.
 
     This class holds the wired handler functions with their dependencies
@@ -149,13 +149,13 @@ class ServiceHandlerRegistry:
 
 
 # Module-level storage for registry (similar to omnibase_infra pattern)
-_REGISTRY_STORAGE: dict[str, ServiceHandlerRegistry] = {}
+_REGISTRY_STORAGE: dict[str, RegistryDemotionHandlers] = {}
 
 
 class RegistryPatternDemotionEffect:
     """Registry for pattern demotion node dependencies.
 
-    Provides a static factory method to create a ServiceHandlerRegistry
+    Provides a static factory method to create a RegistryDemotionHandlers
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
@@ -182,13 +182,13 @@ class RegistryPatternDemotionEffect:
         producer: ProtocolKafkaPublisher,
         *,
         topic_env_prefix: str = "dev",
-    ) -> ServiceHandlerRegistry:
+    ) -> RegistryDemotionHandlers:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
         1. Validates that repository and producer are not None
         2. Creates handler functions with dependencies bound
-        3. Returns a frozen ServiceHandlerRegistry
+        3. Returns a frozen RegistryDemotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
@@ -203,7 +203,7 @@ class RegistryPatternDemotionEffect:
                 Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
         Returns:
-            A frozen ServiceHandlerRegistry with handlers wired.
+            A frozen RegistryDemotionHandlers with handlers wired.
 
         Raises:
             ValueError: If repository or producer is None.
@@ -254,7 +254,7 @@ class RegistryPatternDemotionEffect:
             )
 
         # Create frozen registry
-        registry = ServiceHandlerRegistry(
+        registry = RegistryDemotionHandlers(
             check_and_demote=bound_check_and_demote,
             topic_env_prefix=topic_env_prefix,
         )
@@ -265,11 +265,11 @@ class RegistryPatternDemotionEffect:
         return registry
 
     @staticmethod
-    def get_registry() -> ServiceHandlerRegistry | None:
+    def get_registry() -> RegistryDemotionHandlers | None:
         """Retrieve the current registry from module-level storage.
 
         Returns:
-            The stored ServiceHandlerRegistry, or None if not created.
+            The stored RegistryDemotionHandlers, or None if not created.
         """
         return _REGISTRY_STORAGE.get(RegistryPatternDemotionEffect.REGISTRY_KEY)
 

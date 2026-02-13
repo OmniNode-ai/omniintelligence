@@ -35,7 +35,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from omniintelligence.audit.io_audit import (
     DEFAULT_WHITELIST_PATH,
@@ -278,7 +277,7 @@ def _format_json_output(result: ModelAuditResult, show_metrics: bool = False) ->
             "metrics": {...}  // Only if show_metrics is True
         }
     """
-    output: dict[str, Any] = {
+    output: dict[str, object] = {
         "violations": [
             {
                 "file": str(v.file),

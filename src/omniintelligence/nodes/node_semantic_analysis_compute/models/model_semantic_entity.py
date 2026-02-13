@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from omniintelligence.nodes.node_semantic_analysis_compute.models.enums import (
@@ -46,7 +44,7 @@ class ModelSemanticEntity(BaseModel):
         default=None,
         description="Docstring associated with this entity, if present",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: dict[str, object] = Field(
         default_factory=dict,
         description="Additional metadata about the entity (e.g., arguments, return type)",
     )
