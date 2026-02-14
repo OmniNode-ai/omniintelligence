@@ -135,7 +135,11 @@ def extract_topics_from_contract(
     if not isinstance(topics, list):
         return []
 
-    return [str(t) for t in topics if t]
+    # Contract topics may include an {env}. prefix (e.g., "{env}.onex.cmd...").
+    # Strip it so comparisons work against the TOPIC_SUFFIX_* constants which
+    # store the canonical suffix without the env prefix.
+    env_prefix = "{env}."
+    return [str(t).removeprefix(env_prefix) for t in topics if t]
 
 
 # =========================================================================
