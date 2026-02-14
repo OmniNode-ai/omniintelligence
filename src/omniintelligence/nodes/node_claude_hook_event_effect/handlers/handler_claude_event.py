@@ -304,7 +304,7 @@ async def handle_stop(
     if kafka_producer is not None:
         command = ModelPatternLearningCommand(
             session_id=event.session_id,
-            correlation_id=str(event.correlation_id),
+            correlation_id=str(event.correlation_id) if event.correlation_id is not None else "",
             timestamp=datetime.now(UTC).isoformat(),
         )
         command_payload = command.model_dump()

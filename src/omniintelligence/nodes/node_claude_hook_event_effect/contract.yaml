@@ -17,11 +17,11 @@ contract_name: "node_claude_hook_event_effect"
 node_name: "node_claude_hook_event_effect"
 contract_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 node_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 
 # Node type
@@ -31,8 +31,9 @@ node_type: "EFFECT_GENERIC"
 description: >
   Unified Effect node for handling all Claude Code hook events. Receives events from SessionStart, UserPromptSubmit,
   PreToolUse, PostToolUse, Stop, and other hook types, routing them to appropriate handlers. For UserPromptSubmit,
-  routes to node_intent_classifier_compute for classification. Emits classified intents to Kafka for downstream
-  consumers (graph storage handled by omnimemory).
+  routes to node_intent_classifier_compute for classification and emits classified intents to Kafka for downstream
+  consumers (graph storage handled by omnimemory). For Stop events, emits a pattern learning command to
+  onex.cmd.omniintelligence.pattern-learning.v1 to trigger pattern extraction from session data.
 # Strongly typed I/O models
 input_model:
   name: "ModelClaudeCodeHookEvent"
@@ -365,3 +366,6 @@ metadata:
     - ticket: "OMN-1626"
       url: "https://linear.app/omninode/issue/OMN-1626"
       description: "Add keywords field to intent-classified.v1 event payload"
+    - ticket: "OMN-2210"
+      url: "https://linear.app/omninode/issue/OMN-2210"
+      description: "Wire intelligence nodes into registration + pattern extraction"
