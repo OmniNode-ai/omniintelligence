@@ -144,6 +144,28 @@ class IntrospectionResult:
 
     Holds both the list of registered node names and the proxy references
     needed to stop heartbeat tasks during shutdown.
+
+    Design constraint on ``proxies``:
+        The ``proxies`` list contains **only effect node proxies** that have
+        running heartbeat background tasks (started via
+        ``start_introspection_tasks``). Compute, orchestrator, and reducer
+        nodes publish a one-shot STARTUP introspection event but do not start
+        heartbeat tasks, so their proxies are not retained here.
+
+        During shutdown (``publish_intelligence_shutdown``), fresh proxy
+        instances are created for ALL nodes to publish SHUTDOWN events.
+        Identity correlation between STARTUP and SHUTDOWN events is maintained
+        through deterministic ``node_id`` values (UUID5 derived from the node
+        name via ``_NodeDescriptor.node_id``), not through object identity.
+        The registration orchestrator matches events by ``node_id``, so the
+        distinct proxy instances produce correct correlation.
+
+    Attributes:
+        registered_nodes: Names of nodes that successfully published
+            STARTUP introspection events.
+        proxies: Effect node proxies with active heartbeat tasks. These
+            must be passed to ``publish_intelligence_shutdown`` so their
+            background tasks are stopped before the process exits.
     """
 
     registered_nodes: list[str] = field(default_factory=list)

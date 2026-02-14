@@ -294,6 +294,7 @@ async def handle_stop(
     Related:
         - OMN-2210: Wire intelligence nodes into registration + pattern extraction
     """
+    start_time = time.perf_counter()
     metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
 
     # Emit pattern learning command if Kafka is available
@@ -342,13 +343,15 @@ async def handle_stop(
     else:
         status = EnumHookProcessingStatus.PARTIAL
 
+    processing_time_ms = (time.perf_counter() - start_time) * 1000
+
     return ModelClaudeHookResult(
         status=status,
         event_type=str(event.event_type),
         session_id=event.session_id,
         correlation_id=event.correlation_id,
         intent_result=None,
-        processing_time_ms=0.0,
+        processing_time_ms=processing_time_ms,
         processed_at=datetime.now(UTC),
         error_message=None,
         metadata=metadata,
