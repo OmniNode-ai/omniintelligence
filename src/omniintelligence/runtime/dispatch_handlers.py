@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
-from asyncpg import ForeignKeyViolationError
+from asyncpg import ForeignKeyViolationError, UniqueViolationError
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
 from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
@@ -612,6 +612,16 @@ def create_pattern_storage_dispatch_handler(
             raise ValueError(msg)
 
         signature_hash = str(payload.get("signature_hash", ""))
+        # Reject if signature_hash is empty -- raise so the dispatch engine
+        # nacks the message instead of silently acking on the empty-string path.
+        if not signature_hash:
+            msg = (
+                f"Pattern storage event missing signature_hash, rejecting "
+                f"(event_type={event_type}, pattern_id={pattern_id}, "
+                f"correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
         # Default 'general' must exist in domain_taxonomy (FK constraint).
         # If missing, ForeignKeyViolationError is caught and raised as ValueError.
         domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
@@ -686,17 +696,6 @@ def create_pattern_storage_dispatch_handler(
                     ctx_correlation_id,
                 )
 
-        # Reject if signature_hash is empty -- raise so the dispatch engine
-        # nacks the message instead of silently acking on the empty-string path.
-        if not signature_hash:
-            msg = (
-                f"Pattern storage event missing signature_hash, rejecting "
-                f"(event_type={event_type}, pattern_id={pattern_id}, "
-                f"correlation_id={ctx_correlation_id})"
-            )
-            logger.warning(msg)
-            raise ValueError(msg)
-
         logger.info(
             "Processing pattern storage event via dispatch engine "
             "(event_type=%s, pattern_id=%s, domain_id=%s, correlation_id=%s)",
@@ -726,6 +725,23 @@ def create_pattern_storage_dispatch_handler(
             )
             logger.error(msg)
             raise ValueError(msg) from e
+        except UniqueViolationError as e:
+            # Handles constraint violations from partial unique indexes
+            # (e.g., idx_current_pattern, unique_signature_hash_domain_version).
+            logger.warning(
+                "Duplicate pattern skipped due to unique constraint "
+                "(pattern_id=%s, signature_hash=%s, domain_id=%s, version=%d, "
+                "correlation_id=%s): %s",
+                pattern_id,
+                signature_hash,
+                domain_id,
+                version,
+                ctx_correlation_id,
+                e,
+            )
+            # Treat as idempotent -- return empty string (success) rather than
+            # raising, since the pattern already exists in the DB.
+            return ""
         except Exception as e:
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
