@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid5
+from uuid import NAMESPACE_DNS, UUID, uuid5
 
 from omnibase_core.enums import EnumNodeKind
 from omnibase_infra.enums import EnumIntrospectionReason
@@ -47,10 +47,9 @@ logger = logging.getLogger(__name__)
 # heartbeat tasks from the first call, leaking asyncio tasks.
 _introspection_published: bool = False
 
-# Deterministic namespace for intelligence node IDs.
-# Using DNS namespace with "omniintelligence" prefix ensures stable UUIDs
-# across restarts while avoiding collisions with other domains.
-_NAMESPACE_INTELLIGENCE = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # NAMESPACE_DNS
+# Standard DNS namespace for deterministic UUID5 generation.
+# Node name prefixed with "omniintelligence." ensures uniqueness across domains.
+_NAMESPACE_INTELLIGENCE = NAMESPACE_DNS
 
 
 # =============================================================================
@@ -191,13 +190,18 @@ async def publish_intelligence_introspection(
     optionally starts heartbeat tasks.
 
     **Single-call invariant**: This function MUST only be called once per
-    process lifecycle. Each call creates new proxy instances and starts
-    new heartbeat background tasks for effect nodes. Calling it more than
-    once would orphan the previous proxies and their running heartbeat
-    tasks, leading to leaked asyncio tasks and duplicate introspection
-    events. The caller is responsible for retaining the returned
-    ``IntrospectionResult`` and passing its ``proxies`` to
+    process lifecycle with a real event bus. Each call creates new proxy
+    instances and starts new heartbeat background tasks for effect nodes.
+    Calling it more than once would orphan the previous proxies and their
+    running heartbeat tasks, leading to leaked asyncio tasks and duplicate
+    introspection events. The caller is responsible for retaining the
+    returned ``IntrospectionResult`` and passing its ``proxies`` to
     ``publish_intelligence_shutdown()`` during teardown.
+
+    If ``event_bus`` is None, the function is a no-op and does not set the
+    single-call guard, allowing a subsequent call with a real event bus to
+    succeed. This is intentional: a no-op call creates no proxies or
+    heartbeat tasks, so there is nothing to orphan.
 
     Args:
         event_bus: Event bus implementing ProtocolEventBus for publishing
@@ -213,13 +217,19 @@ async def publish_intelligence_introspection(
     global _introspection_published
     if _introspection_published:
         raise RuntimeError(
-            "publish_intelligence_introspection() has already been called. "
-            "Calling it again would orphan heartbeat tasks from the first "
-            "invocation. This violates the single-call invariant documented "
-            "in the function docstring."
+            "publish_intelligence_introspection() has already been called "
+            "with a real event bus. Calling it again would orphan heartbeat "
+            "tasks from the first invocation. This violates the single-call "
+            "invariant documented in the function docstring. "
+            "(Note: calls with event_bus=None are exempt from this guard "
+            "because they are no-ops that create no proxies or tasks.)"
         )
 
     if event_bus is None:
+        # No-op path: intentionally does NOT set _introspection_published.
+        # A no-op call creates no proxies or heartbeat tasks, so there is
+        # nothing to orphan. A later call with a real event bus must still
+        # be allowed to proceed.
         logger.info(
             "Skipping intelligence introspection: no event bus available "
             "(correlation_id=%s)",
