@@ -21,16 +21,15 @@ import pytest
 
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     ProtocolIdempotencyStore,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================
 
 
-class MockRecord(dict):
+class MockRecord(dict[str, Any]):
     """Dict-like object that mimics asyncpg.Record behavior.
 
     asyncpg.Record supports both dict-style access (record["column"]) and

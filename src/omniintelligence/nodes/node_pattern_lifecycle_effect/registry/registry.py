@@ -70,11 +70,13 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
         ProtocolIdempotencyStore,
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
         ModelTransitionResult,
+    )
+    from omniintelligence.protocols import (
+        ProtocolKafkaPublisher,
+        ProtocolPatternRepository,
     )
 
 logger = logging.getLogger(__name__)

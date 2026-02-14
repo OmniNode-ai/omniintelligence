@@ -38,9 +38,7 @@ import logging
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-        ProtocolPatternRepository,
-    )
+    from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
