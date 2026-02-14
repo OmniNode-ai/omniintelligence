@@ -719,6 +719,22 @@ async def check_and_demote_patterns(
     eligible_count: int = 0
 
     for pattern in patterns:
+        # Runtime guard: verify critical fields exist before proceeding.
+        # If SQL columns change, this surfaces the error explicitly instead
+        # of silently returning None on TypedDict key access.
+        if "id" not in pattern or "pattern_signature" not in pattern:
+            # Runtime guard: TypedDict guarantees these keys at type-check time,
+            # but asyncpg rows may not conform at runtime.
+            logger.warning(  # type: ignore[unreachable]
+                "Skipping validated pattern: missing required fields (id, pattern_signature)",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "available_keys": list(pattern.keys())
+                    if hasattr(pattern, "keys")
+                    else "N/A",
+                },
+            )
+            continue
         pattern_id = pattern["id"]
         pattern_signature = pattern.get("pattern_signature", "")
         is_disabled = pattern.get("is_disabled", False)

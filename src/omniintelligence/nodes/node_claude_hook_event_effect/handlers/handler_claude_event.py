@@ -426,7 +426,11 @@ async def handle_user_prompt_submit(
             )
 
             raw_secondary = classification_result.get("secondary_intents", [])
-            secondary_intents = raw_secondary if isinstance(raw_secondary, list) else []
+            secondary_intents = (
+                [item for item in raw_secondary if isinstance(item, dict)]
+                if isinstance(raw_secondary, list)
+                else []
+            )
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
             metadata["classification_error"] = str(e)
