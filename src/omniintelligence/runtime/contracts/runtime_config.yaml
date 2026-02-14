@@ -15,10 +15,11 @@
 # Configuration contracts are validated by the Pydantic model directly.
 
 name: intelligence_runtime_config
-version:
+contract_version:
   major: 1
   minor: 0
   patch: 0
+node_type: "RUNTIME_HOST_GENERIC"
 
 description: |
   Configuration contract for the OmniIntelligence runtime host.
@@ -60,6 +61,11 @@ environment_variables:
     - INTELLIGENCE_RUNTIME_METRICS_PORT
 
 # Default configuration values
+# Note: These defaults apply when loading from this YAML contract.
+# The Pydantic model (ModelEventBusConfig) has different defaults (enabled=False,
+# bootstrap_servers="") for code-level construction via from_environment().
+# This divergence is intentional: the YAML contract declares production intent
+# while the model defaults provide safe code-level fallbacks.
 defaults:
   runtime_name: "intelligence-runtime"
   log_level: "INFO"

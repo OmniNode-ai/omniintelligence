@@ -104,7 +104,7 @@ class TestEqualsOperator:
 
     def test_different_types_float_vs_int(self) -> None:
         """Float 1.0 equals int 1 in Python (numeric coercion)."""
-        matched, reason = apply_operator(1.0, EnumCriteriaOperator.EQUALS, 1)
+        matched, _reason = apply_operator(1.0, EnumCriteriaOperator.EQUALS, 1)
         # Python considers 1.0 == 1 to be True
         assert matched is True
 
@@ -163,22 +163,24 @@ class TestNotEqualsOperator:
 
     def test_different_integers(self) -> None:
         """Different integers should match for not_equals."""
-        matched, reason = apply_operator(42, EnumCriteriaOperator.NOT_EQUALS, 0)
+        matched, _reason = apply_operator(42, EnumCriteriaOperator.NOT_EQUALS, 0)
         assert matched is True
 
     def test_same_integers_fail(self) -> None:
         """Same integers should fail for not_equals."""
-        matched, reason = apply_operator(42, EnumCriteriaOperator.NOT_EQUALS, 42)
+        matched, _reason = apply_operator(42, EnumCriteriaOperator.NOT_EQUALS, 42)
         assert matched is False
 
     def test_none_vs_value(self) -> None:
         """None vs non-None should match for not_equals."""
-        matched, reason = apply_operator(None, EnumCriteriaOperator.NOT_EQUALS, "value")
+        matched, _reason = apply_operator(
+            None, EnumCriteriaOperator.NOT_EQUALS, "value"
+        )
         assert matched is True
 
     def test_none_vs_none_fails(self) -> None:
         """None vs None should fail for not_equals."""
-        matched, reason = apply_operator(None, EnumCriteriaOperator.NOT_EQUALS, None)
+        matched, _reason = apply_operator(None, EnumCriteriaOperator.NOT_EQUALS, None)
         assert matched is False
 
     def test_missing_value_fails(self) -> None:
@@ -218,22 +220,22 @@ class TestGreaterThanOperator:
 
     def test_float_greater(self) -> None:
         """Larger float should match greater_than."""
-        matched, reason = apply_operator(3.14, EnumCriteriaOperator.GREATER_THAN, 2.71)
+        matched, _reason = apply_operator(3.14, EnumCriteriaOperator.GREATER_THAN, 2.71)
         assert matched is True
 
     def test_float_less_fails(self) -> None:
         """Smaller float should fail greater_than."""
-        matched, reason = apply_operator(2.71, EnumCriteriaOperator.GREATER_THAN, 3.14)
+        matched, _reason = apply_operator(2.71, EnumCriteriaOperator.GREATER_THAN, 3.14)
         assert matched is False
 
     def test_mixed_int_float(self) -> None:
         """Integer greater than float should match."""
-        matched, reason = apply_operator(5, EnumCriteriaOperator.GREATER_THAN, 4.99)
+        matched, _reason = apply_operator(5, EnumCriteriaOperator.GREATER_THAN, 4.99)
         assert matched is True
 
     def test_negative_numbers(self) -> None:
         """Negative number comparison should work."""
-        matched, reason = apply_operator(-1, EnumCriteriaOperator.GREATER_THAN, -5)
+        matched, _reason = apply_operator(-1, EnumCriteriaOperator.GREATER_THAN, -5)
         assert matched is True
 
     def test_non_numeric_actual_fails(self) -> None:
@@ -289,12 +291,12 @@ class TestLessThanOperator:
 
     def test_float_less(self) -> None:
         """Smaller float should match less_than."""
-        matched, reason = apply_operator(2.71, EnumCriteriaOperator.LESS_THAN, 3.14)
+        matched, _reason = apply_operator(2.71, EnumCriteriaOperator.LESS_THAN, 3.14)
         assert matched is True
 
     def test_negative_numbers(self) -> None:
         """Negative number comparison should work."""
-        matched, reason = apply_operator(-5, EnumCriteriaOperator.LESS_THAN, -1)
+        matched, _reason = apply_operator(-5, EnumCriteriaOperator.LESS_THAN, -1)
         assert matched is True
 
     def test_non_numeric_actual_fails(self) -> None:
@@ -338,7 +340,7 @@ class TestGreaterOrEqualOperator:
 
     def test_float_equal(self) -> None:
         """Equal float should match greater_or_equal."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             3.14, EnumCriteriaOperator.GREATER_OR_EQUAL, 3.14
         )
         assert matched is True
@@ -386,7 +388,9 @@ class TestLessOrEqualOperator:
 
     def test_float_equal(self) -> None:
         """Equal float should match less_or_equal."""
-        matched, reason = apply_operator(2.71, EnumCriteriaOperator.LESS_OR_EQUAL, 2.71)
+        matched, _reason = apply_operator(
+            2.71, EnumCriteriaOperator.LESS_OR_EQUAL, 2.71
+        )
         assert matched is True
 
     def test_non_numeric_fails(self) -> None:
@@ -420,14 +424,14 @@ class TestContainsOperator:
 
     def test_string_contains_at_start(self) -> None:
         """String containing substring at start should match."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "hello world", EnumCriteriaOperator.CONTAINS, "hello"
         )
         assert matched is True
 
     def test_string_contains_exact(self) -> None:
         """String equal to search term should match (contains itself)."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "hello", EnumCriteriaOperator.CONTAINS, "hello"
         )
         assert matched is True
@@ -442,7 +446,7 @@ class TestContainsOperator:
 
     def test_string_contains_empty(self) -> None:
         """Any string contains empty string."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.CONTAINS, "")
+        matched, _reason = apply_operator("hello", EnumCriteriaOperator.CONTAINS, "")
         assert matched is True
 
     def test_list_contains_element(self) -> None:
@@ -459,19 +463,19 @@ class TestContainsOperator:
 
     def test_list_contains_string(self) -> None:
         """List containing string should match."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             ["a", "b", "c"], EnumCriteriaOperator.CONTAINS, "b"
         )
         assert matched is True
 
     def test_tuple_contains_element(self) -> None:
         """Tuple containing element should match."""
-        matched, reason = apply_operator((1, 2, 3), EnumCriteriaOperator.CONTAINS, 2)
+        matched, _reason = apply_operator((1, 2, 3), EnumCriteriaOperator.CONTAINS, 2)
         assert matched is True
 
     def test_set_contains_element(self) -> None:
         """Set containing element should match."""
-        matched, reason = apply_operator({1, 2, 3}, EnumCriteriaOperator.CONTAINS, 2)
+        matched, _reason = apply_operator({1, 2, 3}, EnumCriteriaOperator.CONTAINS, 2)
         assert matched is True
 
     def test_dict_contains_key(self) -> None:
@@ -492,7 +496,7 @@ class TestContainsOperator:
 
     def test_dict_contains_checks_keys_not_values(self) -> None:
         """Dict contains should check keys, not values."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             {"a": 1, "b": 2}, EnumCriteriaOperator.CONTAINS, 1
         )
         # 1 is a value, not a key
@@ -520,7 +524,7 @@ class TestContainsOperator:
 
     def test_string_contains_none_converts_to_empty(self) -> None:
         """Searching for None in string should convert to empty string."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.CONTAINS, None)
+        matched, _reason = apply_operator("hello", EnumCriteriaOperator.CONTAINS, None)
         # None is converted to "" which is contained in any string
         assert matched is True
 
@@ -559,7 +563,7 @@ class TestNotContainsOperator:
 
     def test_list_contains_element_fails(self) -> None:
         """List containing element should fail not_contains."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             [1, 2, 3], EnumCriteriaOperator.NOT_CONTAINS, 2
         )
         assert matched is False
@@ -574,7 +578,7 @@ class TestNotContainsOperator:
 
     def test_dict_contains_key_fails(self) -> None:
         """Dict containing key should fail not_contains."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             {"a": 1}, EnumCriteriaOperator.NOT_CONTAINS, "a"
         )
         assert matched is False
@@ -616,71 +620,71 @@ class TestRegexOperator:
 
     def test_regex_anchor_start(self) -> None:
         """Regex with start anchor should work."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "hello world", EnumCriteriaOperator.REGEX, r"^hello"
         )
         assert matched is True
 
     def test_regex_anchor_end(self) -> None:
         """Regex with end anchor should work."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "hello world", EnumCriteriaOperator.REGEX, r"world$"
         )
         assert matched is True
 
     def test_regex_full_match(self) -> None:
         """Regex for full string match."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "hello", EnumCriteriaOperator.REGEX, r"^hello$"
         )
         assert matched is True
 
     def test_regex_full_match_fails(self) -> None:
         """Regex for full string match that fails."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "hello world", EnumCriteriaOperator.REGEX, r"^hello$"
         )
         assert matched is False
 
     def test_regex_case_sensitive(self) -> None:
         """Regex is case-sensitive by default."""
-        matched, reason = apply_operator("HELLO", EnumCriteriaOperator.REGEX, r"hello")
+        matched, _reason = apply_operator("HELLO", EnumCriteriaOperator.REGEX, r"hello")
         assert matched is False
 
     def test_regex_case_insensitive_flag(self) -> None:
         """Regex with case-insensitive flag."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "HELLO", EnumCriteriaOperator.REGEX, r"(?i)hello"
         )
         assert matched is True
 
     def test_regex_special_characters(self) -> None:
         """Regex with escaped special characters."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "file.txt", EnumCriteriaOperator.REGEX, r"file\.txt"
         )
         assert matched is True
 
     def test_regex_group_capture(self) -> None:
         """Regex with capture groups should match."""
-        matched, reason = apply_operator(
+        matched, _reason = apply_operator(
             "error: 404", EnumCriteriaOperator.REGEX, r"error: (\d+)"
         )
         assert matched is True
 
     def test_regex_converts_to_string(self) -> None:
         """Non-string actual values are converted to string for matching."""
-        matched, reason = apply_operator(12345, EnumCriteriaOperator.REGEX, r"234")
+        matched, _reason = apply_operator(12345, EnumCriteriaOperator.REGEX, r"234")
         assert matched is True
 
     def test_regex_none_converts_to_empty(self) -> None:
         """None actual value converts to empty string."""
-        matched, reason = apply_operator(None, EnumCriteriaOperator.REGEX, r"^$")
+        matched, _reason = apply_operator(None, EnumCriteriaOperator.REGEX, r"^$")
         assert matched is True
 
     def test_regex_empty_pattern_matches_anything(self) -> None:
         """Empty pattern matches any string (via re.search)."""
-        matched, reason = apply_operator("hello", EnumCriteriaOperator.REGEX, r"")
+        matched, _reason = apply_operator("hello", EnumCriteriaOperator.REGEX, r"")
         assert matched is True
 
     def test_invalid_regex_pattern_fails(self) -> None:
@@ -785,22 +789,22 @@ class TestIsNotNullOperator:
 
     def test_zero_is_not_null(self) -> None:
         """Zero (falsy but not None) should match is_not_null."""
-        matched, reason = apply_operator(0, EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, _reason = apply_operator(0, EnumCriteriaOperator.IS_NOT_NULL, None)
         assert matched is True
 
     def test_empty_string_is_not_null(self) -> None:
         """Empty string (falsy but not None) should match is_not_null."""
-        matched, reason = apply_operator("", EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, _reason = apply_operator("", EnumCriteriaOperator.IS_NOT_NULL, None)
         assert matched is True
 
     def test_empty_list_is_not_null(self) -> None:
         """Empty list (falsy but not None) should match is_not_null."""
-        matched, reason = apply_operator([], EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, _reason = apply_operator([], EnumCriteriaOperator.IS_NOT_NULL, None)
         assert matched is True
 
     def test_false_is_not_null(self) -> None:
         """False (falsy but not None) should match is_not_null."""
-        matched, reason = apply_operator(False, EnumCriteriaOperator.IS_NOT_NULL, None)
+        matched, _reason = apply_operator(False, EnumCriteriaOperator.IS_NOT_NULL, None)
         assert matched is True
 
     def test_none_fails_is_not_null(self) -> None:

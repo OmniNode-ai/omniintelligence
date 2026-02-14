@@ -14,26 +14,11 @@ Architecture:
 
 Kafka Optionality:
     The node contract marks ``kafka_producer`` as ``required: false``, meaning
-    the node can operate without Kafka. However, the registry factory method
-    requires a producer to ensure registry-based usage always has Kafka
-    capability.
+    the node can operate without Kafka. The registry factory accepts None for
+    the producer parameter.
 
-    **When Kafka is unavailable**, use the handler functions directly instead
-    of the registry:
-
-    .. code-block:: python
-
-        from omniintelligence.nodes.node_pattern_demotion_effect.handlers import (
-            check_and_demote_patterns,
-        )
-
-        # Direct handler call - producer=None is explicitly allowed
-        result = await check_and_demote_patterns(
-            repository=db_connection,
-            producer=None,  # Demotions succeed, Kafka events skipped
-            request=request,
-            topic_env_prefix="dev",  # Required: environment prefix for Kafka topics
-        )
+    **When Kafka is unavailable**, demotions still succeed in the database,
+    but ``PatternDeprecated`` events are NOT emitted.
 
     **Implications of running without Kafka:**
     - Database demotions succeed normally
@@ -46,10 +31,10 @@ Usage:
     ...     RegistryPatternDemotionEffect,
     ... )
     >>>
-    >>> # Create registry with dependencies (requires Kafka producer)
+    >>> # Create registry with dependencies
     >>> registry = RegistryPatternDemotionEffect.create_registry(
     ...     repository=db_connection,
-    ...     producer=kafka_producer,
+    ...     producer=kafka_producer,  # Optional, can be None
     ... )
     >>>
     >>> # Get handler from registry
@@ -71,9 +56,6 @@ Testing:
             yield
             RegistryPatternDemotionEffect.clear()
 
-    **For testing without Kafka**, call handlers directly with ``producer=None``
-    rather than using the registry.
-
 Related:
     - NodePatternDemotionEffect: Effect node that uses these dependencies
     - handler_demotion: Handler functions for pattern demotion
@@ -86,7 +68,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type alias
+    TYPE_CHECKING,
+    Any,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
@@ -100,7 +85,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RegistryPatternDemotionEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternDemotionEffect", "RegistryDemotionHandlers"]
 
 
 # Type alias for handler function signature
@@ -111,7 +96,7 @@ HandlerFunction = Callable[
 
 
 @dataclass(frozen=True)
-class ServiceHandlerRegistry:
+class RegistryDemotionHandlers:
     """Frozen registry of handler functions for pattern demotion.
 
     This class holds the wired handler functions with their dependencies
@@ -149,13 +134,13 @@ class ServiceHandlerRegistry:
 
 
 # Module-level storage for registry (similar to omnibase_infra pattern)
-_REGISTRY_STORAGE: dict[str, ServiceHandlerRegistry] = {}
+_REGISTRY_STORAGE: dict[str, RegistryDemotionHandlers] = {}
 
 
 class RegistryPatternDemotionEffect:
     """Registry for pattern demotion node dependencies.
 
-    Provides a static factory method to create a ServiceHandlerRegistry
+    Provides a static factory method to create a RegistryDemotionHandlers
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
@@ -166,7 +151,7 @@ class RegistryPatternDemotionEffect:
     Example:
         >>> registry = RegistryPatternDemotionEffect.create_registry(
         ...     repository=db_connection,
-        ...     producer=kafka_producer,
+        ...     producer=kafka_producer,  # Optional, can be None
         ...     topic_env_prefix="prod",
         ... )
         >>> handler = registry.get_handler("check_and_demote_patterns")
@@ -179,40 +164,32 @@ class RegistryPatternDemotionEffect:
     @staticmethod
     def create_registry(
         repository: ProtocolPatternRepository,
-        producer: ProtocolKafkaPublisher,
+        producer: ProtocolKafkaPublisher | None = None,
         *,
         topic_env_prefix: str = "dev",
-    ) -> ServiceHandlerRegistry:
+    ) -> RegistryDemotionHandlers:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
-        1. Validates that repository and producer are not None
+        1. Validates that repository is not None
         2. Creates handler functions with dependencies bound
-        3. Returns a frozen ServiceHandlerRegistry
+        3. Returns a frozen RegistryDemotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
-            producer: Kafka producer implementing ProtocolKafkaPublisher.
-                Required at the registry level to ensure registry-based usage
-                always has full Kafka capability. While the underlying handler
-                accepts None (contract marks kafka_producer as required=false),
-                the registry enforces Kafka availability to guarantee event
-                emission in production deployments.
+            producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
+                Optional - when None, demotions succeed but Kafka events are
+                not emitted.
             topic_env_prefix: Environment prefix for Kafka topics.
                 Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
         Returns:
-            A frozen ServiceHandlerRegistry with handlers wired.
+            A frozen RegistryDemotionHandlers with handlers wired.
 
         Raises:
-            ValueError: If repository or producer is None.
+            ValueError: If repository is None.
             ValueError: If topic_env_prefix is invalid.
-
-        Note:
-            To run demotions without Kafka (testing, migrations, degraded mode),
-            call the handler functions directly with ``producer=None`` instead of
-            using the registry. See module docstring "Kafka Optionality" section.
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
@@ -224,12 +201,6 @@ class RegistryPatternDemotionEffect:
             raise ValueError(
                 "repository is required for RegistryPatternDemotionEffect. "
                 "Provide a ProtocolPatternRepository implementation."
-            )
-
-        if producer is None:
-            raise ValueError(
-                "producer is required for RegistryPatternDemotionEffect. "
-                "Provide a ProtocolKafkaPublisher implementation."
             )
 
         # Validate topic_env_prefix
@@ -254,7 +225,7 @@ class RegistryPatternDemotionEffect:
             )
 
         # Create frozen registry
-        registry = ServiceHandlerRegistry(
+        registry = RegistryDemotionHandlers(
             check_and_demote=bound_check_and_demote,
             topic_env_prefix=topic_env_prefix,
         )
@@ -265,11 +236,11 @@ class RegistryPatternDemotionEffect:
         return registry
 
     @staticmethod
-    def get_registry() -> ServiceHandlerRegistry | None:
+    def get_registry() -> RegistryDemotionHandlers | None:
         """Retrieve the current registry from module-level storage.
 
         Returns:
-            The stored ServiceHandlerRegistry, or None if not created.
+            The stored RegistryDemotionHandlers, or None if not created.
         """
         return _REGISTRY_STORAGE.get(RegistryPatternDemotionEffect.REGISTRY_KEY)
 

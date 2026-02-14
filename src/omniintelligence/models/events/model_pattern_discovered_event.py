@@ -16,7 +16,7 @@ Reference:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -47,7 +47,7 @@ class ModelPatternDiscoveredEvent(BaseModel):
     source_agent: str | None = None  # Optional agent identifier
     correlation_id: UUID  # Distributed tracing
     discovered_at: datetime  # MUST be timezone-aware
-    metadata: dict[str, Any] = Field(
+    metadata: dict[str, object] = Field(
         default_factory=dict,
         description=(
             "Arbitrary key-value pairs. Only string values are propagated "

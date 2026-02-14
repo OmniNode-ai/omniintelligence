@@ -37,8 +37,8 @@ from omniintelligence.nodes.node_pattern_storage_effect.handlers import (
     route_storage_operation,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
-    PatternNotFoundError,
-    PatternStateTransitionError,
+    ERROR_CODE_INVALID_TRANSITION,
+    ERROR_CODE_PATTERN_NOT_FOUND,
     handle_promote_pattern,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
@@ -392,7 +392,7 @@ class TestPromotePatternIntegration:
         - Valid transition CANDIDATE -> PROVISIONAL succeeds
         - State is updated in manager
         - Transition is recorded
-        - Event contains correct from_state and to_state
+        - Result contains correct from_state and to_state
         """
         pattern_id = uuid4()
 
@@ -409,11 +409,13 @@ class TestPromotePatternIntegration:
         )
 
         # Verify result
+        assert result.success is True
         assert result.pattern_id == pattern_id
         assert result.from_state == EnumPatternState.CANDIDATE
         assert result.to_state == EnumPatternState.PROVISIONAL
-        assert result.reason == "Pattern passed verification"
-        assert result.actor == "test_promotion"
+        assert result.event is not None
+        assert result.event.reason == "Pattern passed verification"
+        assert result.event.actor == "test_promotion"
 
         # Verify state updated
         assert mock_state_manager.states[pattern_id] == EnumPatternState.PROVISIONAL
@@ -453,79 +455,87 @@ class TestPromotePatternIntegration:
             ),
         )
 
+        assert result.success is True
         assert result.to_state == EnumPatternState.VALIDATED
-        assert result.metrics_snapshot is not None
-        assert result.metrics_snapshot.confidence == 0.95
+        assert result.event is not None
+        assert result.event.metrics_snapshot is not None
+        assert result.event.metrics_snapshot.confidence == 0.95
         assert mock_state_manager.states[pattern_id] == EnumPatternState.VALIDATED
 
     async def test_reject_invalid_transition(
         self,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
-        """Test that invalid state transitions are rejected.
+        """Test that invalid state transitions return structured error.
 
         Verifies:
-        - CANDIDATE -> VALIDATED is rejected
-        - PatternStateTransitionError raised
+        - CANDIDATE -> VALIDATED returns success=False
+        - error_code is INVALID_TRANSITION
         """
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        with pytest.raises(PatternStateTransitionError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.VALIDATED,  # Invalid: must go through PROVISIONAL
-                reason="Trying to skip provisional",
-                state_manager=mock_state_manager,
-                conn=None,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.VALIDATED,  # Invalid: must go through PROVISIONAL
+            reason="Trying to skip provisional",
+            state_manager=mock_state_manager,
+            conn=None,
+        )
 
-        assert exc_info.value.from_state == EnumPatternState.CANDIDATE
-        assert exc_info.value.to_state == EnumPatternState.VALIDATED
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_INVALID_TRANSITION
+        assert result.from_state == EnumPatternState.CANDIDATE
+        assert result.to_state == EnumPatternState.VALIDATED
+        assert result.event is None
 
     async def test_reject_transition_from_terminal_state(
         self,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
-        """Test that transitions from VALIDATED (terminal) are rejected.
+        """Test that transitions from VALIDATED (terminal) return structured error.
 
         Verifies:
-        - VALIDATED -> any state is rejected
+        - VALIDATED -> any state returns success=False
         - Cannot go backwards
         """
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.VALIDATED)
 
-        with pytest.raises(PatternStateTransitionError):
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.PROVISIONAL,  # Cannot go backwards
-                reason="Trying to demote",
-                state_manager=mock_state_manager,
-                conn=None,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.PROVISIONAL,  # Cannot go backwards
+            reason="Trying to demote",
+            state_manager=mock_state_manager,
+            conn=None,
+        )
+
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_INVALID_TRANSITION
 
     async def test_pattern_not_found(
         self,
         mock_state_manager: MockPatternStateManager,
     ) -> None:
-        """Test that promoting non-existent pattern raises PatternNotFoundError.
+        """Test that promoting non-existent pattern returns structured error.
 
         Verifies:
-        - PatternNotFoundError raised for unknown pattern_id
+        - Returns success=False with PATTERN_NOT_FOUND error code
         """
         unknown_pattern_id = uuid4()
 
-        with pytest.raises(PatternNotFoundError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=unknown_pattern_id,
-                to_state=EnumPatternState.PROVISIONAL,
-                reason="Pattern does not exist",
-                state_manager=mock_state_manager,
-                conn=None,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=unknown_pattern_id,
+            to_state=EnumPatternState.PROVISIONAL,
+            reason="Pattern does not exist",
+            state_manager=mock_state_manager,
+            conn=None,
+        )
 
-        assert exc_info.value.pattern_id == unknown_pattern_id
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_PATTERN_NOT_FOUND
+        assert result.pattern_id == unknown_pattern_id
+        assert result.event is None
 
 
 # =============================================================================
@@ -653,26 +663,30 @@ class TestEventPublishingIntegration:
                 ),
             )
 
+            assert result.success is True
+            assert result.event is not None
+            event = result.event
+
             # Publish the event
             event_data = {
                 "event_type": "PatternPromoted",
-                "pattern_id": str(result.pattern_id),
-                "from_state": result.from_state.value,
-                "to_state": result.to_state.value,
-                "reason": result.reason,
-                "promoted_at": result.promoted_at.isoformat(),
+                "pattern_id": str(event.pattern_id),
+                "from_state": event.from_state.value,
+                "to_state": event.to_state.value,
+                "reason": event.reason,
+                "promoted_at": event.promoted_at.isoformat(),
                 "metrics_snapshot": {
-                    "confidence": result.metrics_snapshot.confidence,
-                    "match_count": result.metrics_snapshot.match_count,
-                    "success_rate": result.metrics_snapshot.success_rate,
+                    "confidence": event.metrics_snapshot.confidence,
+                    "match_count": event.metrics_snapshot.match_count,
+                    "success_rate": event.metrics_snapshot.success_rate,
                 }
-                if result.metrics_snapshot
+                if event.metrics_snapshot
                 else None,
             }
 
             await kafka_publisher_adapter.publish(
                 topic=pattern_promoted_topic,
-                key=str(result.pattern_id),
+                key=str(event.pattern_id),
                 value=event_data,
             )
 
@@ -986,13 +1000,14 @@ class TestEndToEndWorkflow:
             result_v1.event.pattern_id, EnumPatternState.CANDIDATE
         )
 
-        await handle_promote_pattern(
+        promote_result = await handle_promote_pattern(
             pattern_id=result_v1.event.pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="V1 promoted",
             state_manager=mock_state_manager,
             conn=None,
         )
+        assert promote_result.success is True
 
         # Create version 2 (now the current version)
         input_v2 = create_valid_input(

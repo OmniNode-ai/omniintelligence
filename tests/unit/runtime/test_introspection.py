@@ -175,7 +175,9 @@ class TestPublishIntelligenceIntrospection:
     @pytest.mark.asyncio
     async def test_publishes_for_all_nodes_with_event_bus(self) -> None:
         """Should attempt to publish for all nodes when event bus is available."""
-        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        mock_event_bus = (
+            MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        )
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
         if _HAS_PROTOCOL_EVENT_BUS:
             assert isinstance(mock_event_bus, ProtocolEventBus)
@@ -193,7 +195,9 @@ class TestPublishIntelligenceIntrospection:
     @pytest.mark.asyncio
     async def test_raises_on_double_call(self) -> None:
         """Should raise RuntimeError if called twice (single-call invariant)."""
-        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        mock_event_bus = (
+            MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        )
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
         if _HAS_PROTOCOL_EVENT_BUS:
             assert isinstance(mock_event_bus, ProtocolEventBus)
@@ -214,7 +218,9 @@ class TestPublishIntelligenceIntrospection:
     @pytest.mark.asyncio
     async def test_graceful_degradation_on_publish_failure(self) -> None:
         """Should not raise when individual node introspection fails."""
-        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        mock_event_bus = (
+            MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        )
         mock_event_bus.publish_envelope = AsyncMock(
             side_effect=RuntimeError("publish failed")
         )
@@ -257,7 +263,9 @@ class TestPublishIntelligenceShutdown:
         heartbeat task stop verification when the EnumEvidenceTier blocker
         (OMN-2134) is resolved and these tests are unblocked.
         """
-        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        mock_event_bus = (
+            MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
+        )
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
         if _HAS_PROTOCOL_EVENT_BUS:
             assert isinstance(mock_event_bus, ProtocolEventBus)

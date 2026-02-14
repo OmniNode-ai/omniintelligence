@@ -59,7 +59,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type alias
+    TYPE_CHECKING,
+    Any,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_intelligence_reducer.models import (
@@ -67,11 +70,13 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
         ProtocolIdempotencyStore,
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
         ModelTransitionResult,
+    )
+    from omniintelligence.protocols import (
+        ProtocolKafkaPublisher,
+        ProtocolPatternRepository,
     )
 
 logger = logging.getLogger(__name__)

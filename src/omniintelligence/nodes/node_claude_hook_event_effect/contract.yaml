@@ -266,25 +266,25 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
-    - "onex.cmd.omniintelligence.claude-hook-event.v1"
+    - "{env}.onex.cmd.omniintelligence.claude-hook-event.v1"
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "onex.evt.omniintelligence.intent-classified.v1"
+    - "{env}.onex.evt.omniintelligence.intent-classified.v1"
     - "onex.cmd.omniintelligence.pattern-learning.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
   # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
   subscribe_topic_metadata:
-    "onex.cmd.omniintelligence.claude-hook-event.v1":
+    "{env}.onex.cmd.omniintelligence.claude-hook-event.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
 
   # Metadata for published topics
   publish_topic_metadata:
-    "onex.evt.omniintelligence.intent-classified.v1":
+    "{env}.onex.evt.omniintelligence.intent-classified.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
     "onex.cmd.omniintelligence.pattern-learning.v1":
@@ -345,6 +345,17 @@ capabilities:
       omnimemory consuming these events)"
   - name: "no_op_handlers"
     description: "Return success for event types not yet implemented"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "event_type", "timestamp_utc"]
+  description: "Each hook event is uniquely identified by the combination of session_id, event_type, and
+    timestamp_utc. Re-processing the same hook event is idempotent - duplicate events with matching hash
+    fields are detected and skipped to prevent double-processing of intent classification and Kafka emission."
 
 # =============================================================================
 # METADATA

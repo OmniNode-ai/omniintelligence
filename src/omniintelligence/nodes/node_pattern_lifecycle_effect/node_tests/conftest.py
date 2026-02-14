@@ -14,23 +14,22 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any  # any-ok: test mocks implement asyncpg Protocol with *args: Any
 from uuid import UUID
 
 import pytest
 
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     ProtocolIdempotencyStore,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================
 
 
-class MockRecord(dict):
+class MockRecord(dict[str, Any]):
     """Dict-like object that mimics asyncpg.Record behavior.
 
     asyncpg.Record supports both dict-style access (record["column"]) and

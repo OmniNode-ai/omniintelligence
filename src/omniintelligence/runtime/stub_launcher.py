@@ -29,7 +29,6 @@ import os
 import signal
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any
 
 
 def _get_log_level() -> int:
@@ -61,7 +60,7 @@ def _run_health_server(
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                response: dict[str, Any] = {
+                response: dict[str, object] = {
                     "status": "healthy",
                     "service": service_name,
                     "mode": "stub",
@@ -71,7 +70,7 @@ def _run_health_server(
                 self.send_response(404)
                 self.end_headers()
 
-        def log_message(self, format: str, *args: Any) -> None:
+        def log_message(self, format: str, *args: object) -> None:
             logger.debug("Health check: %s", format % args)
 
     server = HTTPServer((host, port), HealthHandler)

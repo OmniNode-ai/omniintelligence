@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TypedDict
 from uuid import UUID
 
+from omnibase_core.types import PrimitiveValue
 from pydantic import BaseModel, Field
 
 
@@ -18,7 +19,7 @@ class IntentPayloadDict(TypedDict, total=False):
     entity_id: str
     content: str
     file_path: str
-    parameters: dict[str, str | int | float | bool | None]
+    parameters: dict[str, PrimitiveValue | None]
 
 
 class IntentMetadataDict(TypedDict, total=False):

@@ -95,6 +95,7 @@ try:
         ModelStateTransition,
         PatternNotFoundError,
         PatternStateTransitionError,
+        PromotePatternResult,
         ProtocolPatternStateManager,
         handle_promote_pattern,
     )
@@ -152,6 +153,8 @@ __all__ = [
     "PatternNotFoundError",
     "PatternStateTransition",
     "PatternStateTransitionError",
+    # Result types (promote)
+    "PromotePatternResult",
     # Router
     "PatternStorageRouter",
     "PromotionValidationResult",  # Backwards compat alias for TransitionValidationResult

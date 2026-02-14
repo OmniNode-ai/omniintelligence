@@ -45,7 +45,9 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 )
 
 
-class NodeIntelligenceReducer(NodeReducer[dict[str, Any], ModelIntelligenceState]):
+class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deserialized JSON with mixed types
+    NodeReducer[dict[str, Any], ModelIntelligenceState],
+):
     """Intelligence reducer - FSM transitions with handler routing.
 
     This reducer processes intelligence workflows by:

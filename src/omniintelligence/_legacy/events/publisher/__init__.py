@@ -28,7 +28,14 @@ warnings.warn(
 
 from omniintelligence._legacy.events.publisher.event_publisher import (
     EventPublisher,
+    PublisherCounters,
+    PublisherMetrics,
     create_event_publisher,
 )
 
-__all__ = ["EventPublisher", "create_event_publisher"]
+__all__ = [
+    "EventPublisher",
+    "PublisherCounters",
+    "PublisherMetrics",
+    "create_event_publisher",
+]

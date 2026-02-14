@@ -326,9 +326,11 @@ class TestTC5FullChainPipeline:
 
             # Lifecycle state should be provisional (not enough injections
             # for promotion)
-            assert row["status"] in ("provisional", "validated", "candidate"), (
-                f"Pattern {sig_hash} has unexpected status: {row['status']}"
-            )
+            assert row["status"] in (
+                "provisional",
+                "validated",
+                "candidate",
+            ), f"Pattern {sig_hash} has unexpected status: {row['status']}"
 
             # Metrics must be non-negative
             assert row["injection_count_rolling_20"] >= 0, (

@@ -49,6 +49,7 @@ from omniintelligence.models.model_search_result import (
     SearchResultMetadataDict,
 )
 from omniintelligence.models.repository import (
+    ModelDomainCandidate,
     ModelExistsResult,
     ModelIdResult,
     ModelLearnedPatternRow,
@@ -64,6 +65,7 @@ __all__ = [
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
+    "ModelDomainCandidate",
     "ModelEntity",
     "ModelExistsResult",
     "ModelIdResult",
