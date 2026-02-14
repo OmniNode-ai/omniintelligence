@@ -32,6 +32,26 @@ from omniintelligence.runtime.plugin import (
 )
 
 # ---------------------------------------------------------------------------
+# Autouse fixture: reset introspection single-call guard between tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_introspection_guard():
+    """Reset the single-call introspection guard between tests.
+
+    wire_dispatchers() calls publish_intelligence_introspection() which sets
+    a global guard preventing repeated calls. Without resetting between tests,
+    only the first test that calls wire_dispatchers() would succeed.
+    """
+    from omniintelligence.runtime.introspection import reset_introspection_guard
+
+    reset_introspection_guard()
+    yield
+    reset_introspection_guard()
+
+
+# ---------------------------------------------------------------------------
 # Per-topic constants for tests that verify specific subscription behaviour.
 # These MUST match the subscribe_topics declared in the corresponding
 # effect node contract.yaml files (source of truth).

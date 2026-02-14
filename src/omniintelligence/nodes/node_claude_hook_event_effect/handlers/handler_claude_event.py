@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
+from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,
@@ -31,7 +32,9 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEventPayload,
     ModelClaudeHookResult,
     ModelIntentResult,
+    ModelPatternLearningCommand,
 )
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_intent_classifier_compute.models import (
@@ -200,6 +203,11 @@ async def route_hook_event(
                 kafka_producer=kafka_producer,
                 publish_topic=publish_topic,
             )
+        elif event.event_type == EnumClaudeCodeHookEventType.STOP:
+            result = await handle_stop(
+                event=event,
+                kafka_producer=kafka_producer,
+            )
         else:
             # All other event types are no-op for now
             result = handle_no_op(event)
@@ -222,18 +230,22 @@ async def route_hook_event(
 
     except Exception as e:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
+        sanitized_error = get_log_sanitizer().sanitize(str(e))
+        resolved_correlation_id: UUID = (
+            event.correlation_id if event.correlation_id is not None else uuid4()
+        )
         error_metadata: dict[str, object] = {
             "exception_type": type(e).__name__,
-            "exception_message": str(e),
+            "exception_message": sanitized_error,
         }
         return ModelClaudeHookResult(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
+            correlation_id=resolved_correlation_id,
             processing_time_ms=processing_time_ms,
             processed_at=datetime.now(UTC),
-            error_message=str(e),
+            error_message=sanitized_error,
             metadata=error_metadata,
         )
 
@@ -249,6 +261,9 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     Returns:
         ModelClaudeHookResult with status=success and no intent_result.
     """
+    resolved_correlation_id: UUID = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
     noop_metadata: dict[str, object] = {
         "handler": "no_op",
         "reason": "event_type not yet implemented",
@@ -257,13 +272,169 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         status=EnumHookProcessingStatus.SUCCESS,
         event_type=str(event.event_type),
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
+        correlation_id=resolved_correlation_id,
         intent_result=None,
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),
         error_message=None,
         metadata=noop_metadata,
     )
+
+
+async def handle_stop(
+    event: ModelClaudeCodeHookEvent,
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+) -> ModelClaudeHookResult:
+    """Handle Stop events by triggering pattern extraction.
+
+    When a Claude Code session stops, emit a pattern learning command to
+    ``onex.cmd.omniintelligence.pattern-learning.v1`` so the intelligence
+    orchestrator can initiate pattern extraction from the session data.
+
+    This closes the gap where the intelligence orchestrator subscribes to
+    pattern-learning commands but nothing was emitting them.
+
+    Args:
+        event: The Stop hook event.
+        kafka_producer: Optional Kafka producer for emitting the command.
+
+    Returns:
+        ModelClaudeHookResult with processing outcome.
+
+    Related:
+        - OMN-2210: Wire intelligence nodes into registration + pattern extraction
+    """
+    start_time = time.perf_counter()
+    metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
+
+    # Resolve correlation_id to a non-None UUID for downstream calls that
+    # require UUID (not UUID | None).
+    resolved_correlation_id: UUID = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
+
+    # Emit pattern learning command if Kafka is available
+    pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
+    emitted_to_kafka = False
+    sanitized_error: str | None = None
+
+    if kafka_producer is not None:
+        command = ModelPatternLearningCommand(
+            session_id=event.session_id,
+            correlation_id=str(resolved_correlation_id),
+            timestamp=datetime.now(UTC).isoformat(),
+        )
+        command_payload = command.model_dump()
+
+        try:
+            await kafka_producer.publish(
+                topic=pattern_learning_topic,
+                key=event.session_id,
+                value=command_payload,
+            )
+            emitted_to_kafka = True
+            metadata["pattern_learning_emission"] = "success"
+            metadata["pattern_learning_topic"] = pattern_learning_topic
+        except Exception as e:
+            sanitized_error = get_log_sanitizer().sanitize(str(e))
+            metadata["pattern_learning_emission"] = "failed"
+            metadata["pattern_learning_error"] = sanitized_error
+
+            # Route to DLQ per effect-node guidelines.
+            # Sanitize error before passing to DLQ for defense-in-depth
+            # (_route_to_dlq also sanitizes internally, but we sanitize at
+            # the call site to avoid passing raw exception strings across
+            # function boundaries).
+            await _route_to_dlq(
+                producer=kafka_producer,
+                topic=pattern_learning_topic,
+                envelope=command_payload,
+                error_message=sanitized_error,
+                session_id=event.session_id,
+                metadata=metadata,
+            )
+    else:
+        metadata["pattern_learning_emission"] = "no_producer"
+
+    # Determine status: PARTIAL when Kafka was available but publish failed,
+    # SUCCESS when publish succeeded or no producer was configured.
+    if emitted_to_kafka or kafka_producer is None:
+        status = EnumHookProcessingStatus.SUCCESS
+    else:
+        status = EnumHookProcessingStatus.PARTIAL
+
+    processing_time_ms = (time.perf_counter() - start_time) * 1000
+
+    return ModelClaudeHookResult(
+        status=status,
+        event_type=str(event.event_type),
+        session_id=event.session_id,
+        correlation_id=resolved_correlation_id,
+        intent_result=None,
+        processing_time_ms=processing_time_ms,
+        processed_at=datetime.now(UTC),
+        error_message=sanitized_error,
+        metadata=metadata,
+    )
+
+
+async def _route_to_dlq(
+    *,
+    producer: ProtocolKafkaPublisher,
+    topic: str,
+    envelope: dict[str, Any],
+    error_message: str,
+    session_id: str,
+    metadata: dict[str, Any],
+) -> None:
+    """Route a failed message to the dead-letter queue.
+
+    Follows the effect-node DLQ guideline: on Kafka publish failure, attempt
+    to publish the original envelope plus error metadata to ``{topic}.dlq``.
+    Secrets are sanitized via ``LogSanitizer``. Any errors from the DLQ
+    publish attempt are swallowed to preserve graceful degradation.
+
+    Args:
+        producer: Kafka producer for DLQ publish.
+        topic: Original topic that failed.
+        envelope: Original message payload.
+        error_message: Error description from the failed publish.
+        session_id: Session ID for the Kafka key.
+        metadata: Mutable metadata dict to update with DLQ status.
+    """
+    dlq_topic = f"{topic}.dlq"
+
+    try:
+        sanitizer = get_log_sanitizer()
+        # NOTE: Sanitization only covers top-level string values. Nested
+        # structures (dicts, lists) containing string values would bypass
+        # sanitization. This is acceptable because the current envelope
+        # source (ModelPatternLearningCommand.model_dump()) produces only
+        # top-level string fields (session_id, correlation_id, timestamp).
+        sanitized_envelope = {
+            k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
+            for k, v in envelope.items()
+        }
+
+        dlq_payload: dict[str, Any] = {
+            "original_topic": topic,
+            "original_envelope": sanitized_envelope,
+            "error_message": sanitizer.sanitize(error_message),
+            "error_timestamp": datetime.now(UTC).isoformat(),
+            "retry_count": 0,
+            "service": "omniintelligence",
+        }
+
+        await producer.publish(
+            topic=dlq_topic,
+            key=session_id,
+            value=dlq_payload,
+        )
+        metadata["pattern_learning_dlq"] = dlq_topic
+    except Exception:
+        # DLQ publish failed -- swallow to preserve graceful degradation
+        metadata["pattern_learning_dlq"] = "failed"
 
 
 def _extract_prompt_from_payload(
@@ -433,7 +604,7 @@ async def handle_user_prompt_submit(
             )
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
-            metadata["classification_error"] = str(e)
+            metadata["classification_error"] = get_log_sanitizer().sanitize(str(e))
             metadata["classification_source"] = "fallback_unknown"
     else:
         metadata["classification_source"] = "no_classifier_available"
@@ -456,7 +627,7 @@ async def handle_user_prompt_submit(
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.SUCCESS.value
             metadata["kafka_topic"] = publish_topic
         except Exception as e:
-            metadata["kafka_emission_error"] = str(e)
+            metadata["kafka_emission_error"] = get_log_sanitizer().sanitize(str(e))
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
             metadata["kafka_publish_warning"] = (
                 f"Kafka publish failed despite producer being available: {e}"
@@ -586,6 +757,7 @@ __all__ = [
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
     "handle_no_op",
+    "handle_stop",
     "handle_user_prompt_submit",
     "route_hook_event",
 ]
