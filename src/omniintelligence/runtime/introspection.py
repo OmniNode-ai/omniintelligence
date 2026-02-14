@@ -122,6 +122,12 @@ class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignor
 
     The proxy is intentionally minimal: it only provides the introspection
     mixin surface. It does not implement any node business logic.
+
+    Note on mixin usage: This is an intentional proxy pattern, not a proper
+    mixin usage. The proxy deliberately provides only the subset of the node
+    interface that the mixin requires (the ``initialize_introspection`` call
+    and the ``name`` property). The ``# type: ignore[misc]`` suppresses the
+    mypy error from inheriting a mixin without a full node base class.
     """
 
     def __init__(

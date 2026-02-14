@@ -44,7 +44,7 @@ try:
 except ImportError:
     _CAN_IMPORT = False
 
-pytestmark = pytest.mark.skipif(
+_skipif_no_import = pytest.mark.skipif(
     not _CAN_IMPORT,
     reason=(
         "Cannot import introspection module: omniintelligence.runtime.__init__ "
@@ -65,6 +65,7 @@ def _reset_guard():
         reset_introspection_guard()
 
 
+@_skipif_no_import
 @pytest.mark.unit
 class TestNodeDescriptor:
     """Test node descriptor deterministic node ID generation via public API."""
@@ -87,6 +88,7 @@ class TestNodeDescriptor:
             assert isinstance(desc.node_id, UUID), f"{desc.name} node_id is not a UUID"
 
 
+@_skipif_no_import
 @pytest.mark.unit
 class TestIntelligenceNodes:
     """Test the INTELLIGENCE_NODES registry."""
@@ -143,6 +145,7 @@ class TestIntelligenceNodes:
         assert len(ids) == len(set(ids)), "Duplicate node IDs found"
 
 
+@_skipif_no_import
 @pytest.mark.unit
 class TestPublishIntelligenceIntrospection:
     """Test publish_intelligence_introspection function."""
@@ -213,6 +216,7 @@ class TestPublishIntelligenceIntrospection:
         assert result.registered_nodes == []
 
 
+@_skipif_no_import
 @pytest.mark.unit
 class TestPublishIntelligenceShutdown:
     """Test publish_intelligence_shutdown function."""
@@ -246,3 +250,26 @@ class TestPublishIntelligenceShutdown:
 
         # Should have been called for each node
         assert mock_event_bus.publish_envelope.call_count == len(INTELLIGENCE_NODES)
+
+
+# =============================================================================
+# CI Tripwire: detect when the skipif guard can be removed
+# =============================================================================
+# This test does NOT have the _skipif_no_import marker, so it always runs.
+# When OMN-2134 is resolved and EnumEvidenceTier becomes importable, this
+# test fails loudly to remind us to remove the skipif guards above.
+
+
+@pytest.mark.unit
+def test_skipif_guard_still_needed() -> None:
+    """Fail if OMN-2134 blocker is resolved so the skipif guard gets removed."""
+    try:
+        from omnibase_core.models.model_enum_evidence_tier import EnumEvidenceTier  # noqa: F401
+    except ImportError:
+        # Blocker still present -- guard is still needed
+        return
+
+    pytest.fail(
+        "OMN-2134 is resolved: remove the skipif guard from this module "
+        "and re-enable all tests"
+    )

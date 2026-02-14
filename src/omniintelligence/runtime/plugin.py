@@ -546,6 +546,14 @@ class PluginIntelligence:
                 "Failed to wire intelligence dispatch engine (correlation_id=%s)",
                 correlation_id,
             )
+            # Clean up partially-captured state to avoid stale references.
+            # If the failure occurred after capturing event_bus or after
+            # introspection publishing, these references would dangle and
+            # could cause shutdown to operate on stale/inconsistent state.
+            self._event_bus = None
+            self._introspection_nodes = []
+            self._introspection_proxies = []
+            self._dispatch_engine = None
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
                 error_message=str(e),

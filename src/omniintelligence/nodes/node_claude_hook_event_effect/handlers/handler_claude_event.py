@@ -393,6 +393,11 @@ async def _route_to_dlq(
 
     try:
         sanitizer = get_log_sanitizer()
+        # NOTE: Sanitization only covers top-level string values. Nested
+        # structures (dicts, lists) containing string values would bypass
+        # sanitization. This is acceptable because the current envelope
+        # source (ModelPatternLearningCommand.model_dump()) produces only
+        # top-level string fields (session_id, correlation_id, timestamp).
         sanitized_envelope = {
             k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
             for k, v in envelope.items()
