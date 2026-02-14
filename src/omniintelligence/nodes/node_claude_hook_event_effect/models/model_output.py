@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -69,7 +68,7 @@ class ModelIntentResult(BaseModel):
         default_factory=list,
         description="Keywords extracted from intent classification",
     )
-    secondary_intents: list[dict[str, Any]] = Field(
+    secondary_intents: list[dict[str, object]] = Field(
         default_factory=list,
         description="Secondary intents with lower confidence",
     )
@@ -151,7 +150,7 @@ class ModelClaudeHookResult(BaseModel):
         default=None,
         description="Error details if status is failed",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: dict[str, object] = Field(
         default_factory=dict,
         description="Additional processing metadata",
     )

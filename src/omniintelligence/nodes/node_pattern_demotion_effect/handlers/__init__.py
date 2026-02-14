@@ -27,6 +27,8 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demoti
     MIN_INJECTION_COUNT_FOR_DEMOTION,
     SUCCESS_RATE_THRESHOLD_MAX,
     SUCCESS_RATE_THRESHOLD_MIN,
+    # Type definitions
+    DemotionPatternRecord,
     # Protocols
     ProtocolKafkaPublisher,
     ProtocolPatternRepository,
@@ -53,6 +55,8 @@ __all__ = [
     "MIN_INJECTION_COUNT_FOR_DEMOTION",
     "SUCCESS_RATE_THRESHOLD_MAX",
     "SUCCESS_RATE_THRESHOLD_MIN",
+    # Type definitions
+    "DemotionPatternRecord",
     # Protocols
     "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",

@@ -9,7 +9,7 @@ Architecture:
     The registry follows ONEX declarative pattern:
     - Static factory creates handler with explicit dependencies
     - Dependencies injected via constructor (NO setters)
-    - Kafka publisher is REQUIRED (fail-fast validation)
+    - Kafka publisher is OPTIONAL (graceful degradation when unavailable)
     - Intent classifier is OPTIONAL
     - Returns configured handler ready for use
 
@@ -54,7 +54,7 @@ class RegistryClaudeHookEventEffect:
     """Registry for Claude Hook Event Effect node dependencies.
 
     Creates and registers handler instances with explicit dependency injection.
-    Kafka publisher is REQUIRED. Intent classifier is optional.
+    Both Kafka publisher and intent classifier are optional.
 
     Usage:
         .. code-block:: python
@@ -79,8 +79,9 @@ class RegistryClaudeHookEventEffect:
             handler = RegistryClaudeHookEventEffect.get_handler(container)
 
     Note:
-        This registry validates dependencies at creation time (fail-fast).
-        Missing required dependencies will raise ValueError immediately.
+        This registry creates handler instances with optional dependencies.
+        When Kafka publisher is not provided, the handler operates in degraded
+        mode (intent classification runs but events are not emitted).
     """
 
     HANDLER_KEY = "handler_claude_hook_event"
@@ -88,26 +89,25 @@ class RegistryClaudeHookEventEffect:
     @staticmethod
     def create_handler(
         *,
-        kafka_publisher: ProtocolKafkaPublisher,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
         intent_classifier: ProtocolIntentClassifier | None = None,
         publish_topic: str | None = None,
     ) -> HandlerClaudeHookEvent:
         """Create a handler with explicit dependencies.
 
-        This factory validates dependencies at creation time and returns
-        a fully configured handler ready for use.
+        This factory creates a configured handler ready for use. When
+        kafka_publisher is None, the handler operates in degraded mode:
+        intent classification still runs but events are not emitted to Kafka.
 
         Args:
-            kafka_publisher: REQUIRED Kafka publisher for event emission.
+            kafka_publisher: Optional Kafka publisher for event emission.
+                When None, the handler gracefully degrades (no Kafka emission).
             intent_classifier: Optional intent classifier compute node.
             publish_topic: Full Kafka topic for publishing classified intents.
                 Source of truth is the contract's event_bus.publish_topics.
 
         Returns:
             Configured HandlerClaudeHookEvent instance.
-
-        Raises:
-            ValueError: If kafka_publisher is None (required dependency).
 
         Example:
             >>> handler = RegistryClaudeHookEventEffect.create_handler(
@@ -120,13 +120,6 @@ class RegistryClaudeHookEventEffect:
         from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
             HandlerClaudeHookEvent,
         )
-
-        # Fail-fast validation: Kafka publisher is REQUIRED
-        if kafka_publisher is None:
-            raise ValueError(
-                "kafka_publisher is required for HandlerClaudeHookEvent. "
-                "The handler cannot function without Kafka publishing capability."
-            )
 
         # Create handler with explicit constructor injection
         return HandlerClaudeHookEvent(

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from omnibase_core.types import PrimitiveValue
 from pydantic import BaseModel, Field
 
 
@@ -42,7 +43,7 @@ class SuccessCriterionDict(TypedDict, total=False):
     criterion_name: str
     field: str  # Field to match in execution outcome
     operator: str  # "equals", "contains", "greater_than", "less_than", "regex"
-    expected_value: str | int | float | bool | None
+    expected_value: PrimitiveValue | None
     case_sensitive: bool
     required: bool
     weight: float

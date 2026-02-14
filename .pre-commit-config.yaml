@@ -336,6 +336,35 @@ repos:
   - repo: local
     hooks:
       # --------------------------------------------------------------------------
+      # Clean Root - Root directory cleanliness enforcement
+      # Validates: Only allowed files/directories in project root
+      # Scope: Triggered when any root-level files change
+      # Purpose: Keeps the repository "front door" clean for public release
+      # --------------------------------------------------------------------------
+      - id: onex-validate-clean-root
+        name: onex-validate-clean-root
+        entry: python scripts/validation/validate_clean_root.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Naming Conventions - File and class naming enforcement
+      # Validates: Python files and classes follow ONEX naming conventions
+      # Scope: Triggered on changes to source files
+      # Purpose: Enforces consistent naming across the codebase
+      # --------------------------------------------------------------------------
+      - id: onex-validate-naming
+        name: onex-validate-naming
+        entry: python scripts/validation/validate_naming.py
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^src/omniintelligence/
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
       # Migration Freeze Check - Block new migrations during DB-per-repo refactor
       # Validates: No new .sql files added to deployment/database/migrations/
       # Scope: Only triggers when migration files or .migration_freeze change

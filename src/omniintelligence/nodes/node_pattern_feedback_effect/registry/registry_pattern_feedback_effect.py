@@ -35,12 +35,10 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-        ProtocolPatternRepository,
-    )
+    from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +46,7 @@ __all__ = ["RegistryPatternFeedbackEffect"]
 
 # Module-level storage for handler dependencies
 # This allows test isolation via clear() without requiring container v2.0 features
-_HANDLER_STORAGE: dict[str, Any] = {}
+_HANDLER_STORAGE: dict[str, object] = {}
 _PROTOCOL_METADATA: dict[str, dict[str, object]] = {}
 
 

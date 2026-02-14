@@ -53,7 +53,7 @@ class TestModelPatternDiscoveredEventValidation:
 
     def test_confidence_below_threshold_raises(self) -> None:
         """Confidence < 0.5 should be rejected by Pydantic validation."""
-        with pytest.raises(ValueError, match="greater than or equal to 0.5"):
+        with pytest.raises(ValueError, match=r"greater than or equal to 0\.5"):
             make_discovered_event(confidence=0.3)
 
     def test_timezone_naive_discovered_at_raises(self) -> None:
@@ -306,5 +306,5 @@ class TestHandleConsumeDiscovered:
         Note: Pydantic rejects confidence < 0.5 before the handler runs,
         so this validates the model-level validation boundary.
         """
-        with pytest.raises(ValueError, match="greater than or equal to 0.5"):
+        with pytest.raises(ValueError, match=r"greater than or equal to 0\.5"):
             make_discovered_event(confidence=0.3)

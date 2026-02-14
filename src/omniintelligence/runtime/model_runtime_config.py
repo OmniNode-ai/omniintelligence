@@ -135,15 +135,16 @@ class ModelEventBusConfig(BaseModel):
     """
 
     enabled: bool = Field(
-        default=True,
-        description="Enable event bus for event-driven workflows",
+        default=False,
+        description="Enable event bus for event-driven workflows. "
+        "Defaults to disabled; set to true and provide bootstrap_servers to use Kafka.",
     )
 
     bootstrap_servers: str = Field(
-        default="${KAFKA_BOOTSTRAP_SERVERS}",
-        description="Kafka bootstrap servers (supports env var interpolation)",
+        default="",
+        description="Kafka bootstrap servers (supports env var interpolation). "
+        "Empty string is valid when event_bus is disabled.",
         examples=[
-            "${KAFKA_BOOTSTRAP_SERVERS}",
             "localhost:9092",
             "192.168.86.200:29092",
         ],
@@ -180,6 +181,17 @@ class ModelEventBusConfig(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+
+    @model_validator(mode="after")
+    def validate_bootstrap_servers_when_enabled(self) -> ModelEventBusConfig:
+        """Require non-empty bootstrap_servers when the event bus is enabled."""
+        if self.enabled and not self.bootstrap_servers:
+            raise ValueError(
+                "bootstrap_servers must be set when event_bus is enabled. "
+                "Set event_bus.enabled=false to run without Kafka, or provide "
+                "a valid bootstrap_servers value."
+            )
+        return self
 
 
 class ModelHandlerConfig(BaseModel):
@@ -376,7 +388,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                     "log_level": "INFO",
                     "event_bus": {
                         "enabled": True,
-                        "bootstrap_servers": "${KAFKA_BOOTSTRAP_SERVERS}",
+                        "bootstrap_servers": "kafka-broker:9092",
                         "consumer_group": "intelligence-runtime",
                         "topics": {
                             "commands": "onex.intelligence.cmd.v1",
@@ -453,7 +465,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
     # ==========================================
 
     @staticmethod
-    def _interpolate_env_vars(value: Any) -> Any:
+    def _interpolate_env_vars(value: object) -> object:
         """
         Recursively interpolate environment variables in configuration values.
 
@@ -512,6 +524,17 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
         """
         Load configuration from a YAML file.
 
+        Supports two YAML formats:
+
+        1. **Plain config YAML** - Top-level keys are runtime config fields
+           (runtime_name, log_level, event_bus, handlers, etc.).
+
+        2. **Contract YAML** - A full ONEX configuration contract where the
+           actual runtime config values live under the ``defaults`` key, alongside
+           contract metadata (contract_version, node_type, description, etc.).
+           When a ``defaults`` key is present, only that section is parsed as
+           runtime configuration.
+
         Args:
             path: Path to the YAML configuration file.
             interpolate_env: Whether to interpolate environment variables.
@@ -541,6 +564,16 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
         if data is None:
             data = {}
 
+        # If the YAML is a full contract document, extract the ``defaults``
+        # section which contains the actual runtime configuration values.
+        # Contract documents include metadata keys (contract_version,
+        # node_type, description, etc.) that are not part of the runtime
+        # config model.
+        if isinstance(data, dict) and "defaults" in data:
+            data = data["defaults"]
+            if data is None:
+                data = {}
+
         if interpolate_env:
             data = cls._interpolate_env_vars(data)
 
@@ -563,6 +596,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
 
         For event bus configuration:
         - KAFKA_BOOTSTRAP_SERVERS
+        - INTELLIGENCE_RUNTIME_EVENT_BUS_ENABLED (explicit override; defaults
+          to true when any event bus env var is present)
         - INTELLIGENCE_RUNTIME_CONSUMER_GROUP
         - INTELLIGENCE_RUNTIME_COMMAND_TOPIC
         - INTELLIGENCE_RUNTIME_EVENT_TOPIC
@@ -581,7 +616,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             config = ModelIntelligenceRuntimeConfig.from_environment()
         """
         # Build configuration from environment
-        config_data: dict[str, Any] = {}
+        config_data: dict[str, object] = {}
 
         # Runtime name
         if runtime_name := os.environ.get(f"{prefix}NAME"):
@@ -607,7 +642,15 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             config_data["metrics_port"] = int(metrics_port)
 
         # Event bus configuration
-        event_bus_data: dict[str, Any] = {}
+        event_bus_data: dict[str, object] = {}
+
+        # Explicit enabled/disabled override for the event bus.
+        if event_bus_enabled := os.environ.get(f"{prefix}EVENT_BUS_ENABLED"):
+            event_bus_data["enabled"] = event_bus_enabled.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
 
         if bootstrap_servers := os.environ.get("KAFKA_BOOTSTRAP_SERVERS"):
             event_bus_data["bootstrap_servers"] = bootstrap_servers
@@ -628,6 +671,21 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             event_bus_data["topics"] = topics_data
 
         if event_bus_data:
+            # Only auto-enable the event bus when KAFKA_ENABLE_INTELLIGENCE
+            # is explicitly set to a truthy value.  Previously, the presence
+            # of *any* Kafka env var (e.g. KAFKA_BOOTSTRAP_SERVERS alone)
+            # silently enabled the bus, which could cause unexpected
+            # behaviour in environments that set connection strings without
+            # intending to activate the intelligence event bus.
+            if "enabled" not in event_bus_data:
+                kafka_intelligence_flag = os.environ.get(
+                    "KAFKA_ENABLE_INTELLIGENCE", ""
+                )
+                event_bus_data["enabled"] = kafka_intelligence_flag.lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                )
             config_data["event_bus"] = event_bus_data
 
         return cls.model_validate(config_data)
@@ -644,6 +702,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             runtime_name="intelligence-dev",
             log_level=EnumLogLevel.DEBUG,
             event_bus=ModelEventBusConfig(
+                enabled=True,
                 bootstrap_servers="localhost:9092",
                 consumer_group="intelligence-dev",
                 topics=ModelTopicConfig(
@@ -688,6 +747,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             runtime_name="intelligence-prod",
             log_level=EnumLogLevel.INFO,
             event_bus=ModelEventBusConfig(
+                enabled=True,
                 bootstrap_servers=bootstrap_servers,
                 consumer_group="intelligence-prod",
                 topics=ModelTopicConfig(

@@ -13,7 +13,9 @@ Design Decisions:
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Final, TypedDict
+from typing import Final, TypedDict
+
+from omnibase_core.types import PrimitiveValue
 
 # =============================================================================
 # Type Aliases
@@ -21,8 +23,8 @@ from typing import Any, Final, TypedDict
 
 # JSON-compatible types for execution outcome values
 # Matches the expected_value type from SuccessCriterionDict
-JsonPrimitive = str | int | float | bool | None
-JsonValue = JsonPrimitive | list[Any] | dict[str, Any]
+JsonPrimitive = PrimitiveValue | None
+JsonValue = JsonPrimitive | list[object] | dict[str, object]
 
 
 # =============================================================================
@@ -188,7 +190,7 @@ class CriteriaMatchResult(TypedDict):
     match_details: list[CriterionMatchResultDict]
 
 
-def get_type_name(value: Any) -> str:
+def get_type_name(value: object) -> str:
     """Get human-readable type name for debugging.
 
     Maps Python types to simple string names for use in match result details.

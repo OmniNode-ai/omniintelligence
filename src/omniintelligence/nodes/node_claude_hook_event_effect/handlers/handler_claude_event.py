@@ -7,7 +7,7 @@ Claude Code hook events with explicit dependency injection via constructor.
 
 Design Principles:
     - Dependencies injected via constructor (NO setters)
-    - Kafka publisher is REQUIRED for full functionality
+    - Kafka publisher is OPTIONAL (graceful degradation when unavailable)
     - Intent classifier is OPTIONAL
     - Pure handler functions for processing logic
     - Event type routing via pattern matching
@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
@@ -73,7 +73,7 @@ class ProtocolKafkaPublisher(Protocol):
         self,
         topic: str,
         key: str,
-        value: dict[str, Any],
+        value: dict[str, object],
     ) -> None:
         """Publish an event to a Kafka topic."""
         ...
@@ -92,7 +92,7 @@ class HandlerClaudeHookEvent:
     injected via constructor - no setters, no container lookups.
 
     Attributes:
-        kafka_publisher: Kafka publisher for event emission (REQUIRED for full functionality).
+        kafka_publisher: Kafka publisher for event emission (OPTIONAL, graceful degradation).
         intent_classifier: Intent classifier compute node (OPTIONAL).
         publish_topic: Full Kafka publish topic from contract (OPTIONAL).
 
@@ -108,31 +108,27 @@ class HandlerClaudeHookEvent:
     def __init__(
         self,
         *,
-        kafka_publisher: ProtocolKafkaPublisher,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
         intent_classifier: ProtocolIntentClassifier | None = None,
         publish_topic: str | None = None,
     ) -> None:
         """Initialize handler with explicit dependencies.
 
         Args:
-            kafka_publisher: REQUIRED Kafka publisher for event emission.
+            kafka_publisher: Optional Kafka publisher for event emission.
+                When None, the handler operates in degraded mode: intent
+                classification still runs but events are not emitted to Kafka.
             intent_classifier: Optional intent classifier compute node.
             publish_topic: Full Kafka topic for publishing classified intents.
                 Source of truth is the contract's event_bus.publish_topics.
-
-        Raises:
-            ValueError: If kafka_publisher is None.
         """
-        if kafka_publisher is None:
-            raise ValueError("kafka_publisher is required")
-
         self._kafka_publisher = kafka_publisher
         self._intent_classifier = intent_classifier
         self._publish_topic = publish_topic
 
     @property
-    def kafka_publisher(self) -> ProtocolKafkaPublisher:
-        """Get the Kafka publisher."""
+    def kafka_publisher(self) -> ProtocolKafkaPublisher | None:
+        """Get the Kafka publisher, or None if not configured."""
         return self._kafka_publisher
 
     @property
@@ -226,6 +222,10 @@ async def route_hook_event(
 
     except Exception as e:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
+        error_metadata: dict[str, object] = {
+            "exception_type": type(e).__name__,
+            "exception_message": str(e),
+        }
         return ModelClaudeHookResult(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
@@ -234,7 +234,7 @@ async def route_hook_event(
             processing_time_ms=processing_time_ms,
             processed_at=datetime.now(UTC),
             error_message=str(e),
-            metadata={"exception_type": type(e).__name__},
+            metadata=error_metadata,
         )
 
 
@@ -249,6 +249,10 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     Returns:
         ModelClaudeHookResult with status=success and no intent_result.
     """
+    noop_metadata: dict[str, object] = {
+        "handler": "no_op",
+        "reason": "event_type not yet implemented",
+    }
     return ModelClaudeHookResult(
         status=EnumHookProcessingStatus.SUCCESS,
         event_type=str(event.event_type),
@@ -258,7 +262,7 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),
         error_message=None,
-        metadata={"handler": "no_op", "reason": "event_type not yet implemented"},
+        metadata=noop_metadata,
     )
 
 
@@ -361,7 +365,14 @@ async def handle_user_prompt_submit(
     Returns:
         ModelClaudeHookResult with intent classification results.
     """
-    metadata: dict[str, Any] = {"handler": "user_prompt_submit"}
+    metadata: dict[str, object] = {"handler": "user_prompt_submit"}
+
+    # Resolve correlation_id: use event's if present, generate one otherwise
+    if event.correlation_id is not None:
+        correlation_id: UUID = event.correlation_id
+    else:
+        correlation_id = uuid4()
+        metadata["correlation_id_generated"] = True
 
     # Extract prompt from payload
     prompt, extraction_source = _extract_prompt_from_payload(event.payload)
@@ -372,7 +383,7 @@ async def handle_user_prompt_submit(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
+            correlation_id=correlation_id,
             intent_result=None,
             processing_time_ms=0.0,
             processed_at=datetime.now(UTC),
@@ -384,20 +395,42 @@ async def handle_user_prompt_submit(
     intent_category = "unknown"
     confidence = 0.0
     keywords: list[str] = []
-    secondary_intents: list[dict[str, Any]] = []
+    secondary_intents: list[dict[str, object]] = []
 
     if intent_classifier is not None:
         try:
             classification_result = await _classify_intent(
                 prompt=prompt,
                 session_id=event.session_id,
-                correlation_id=event.correlation_id,
+                correlation_id=correlation_id,
                 classifier=intent_classifier,
             )
-            intent_category = classification_result.get("intent_category", "unknown")
-            confidence = classification_result.get("confidence", 0.0)
-            keywords = classification_result.get("keywords", [])
-            secondary_intents = classification_result.get("secondary_intents", [])
+            # Type-validate extracted values before passing to ModelIntentResult.
+            # _classify_intent returns dict[str, Any], so guard against unexpected types.
+            raw_category = classification_result.get("intent_category", "unknown")
+            intent_category = (
+                str(raw_category) if raw_category is not None else "unknown"
+            )
+
+            raw_confidence = classification_result.get("confidence", 0.0)
+            try:
+                confidence = float(raw_confidence)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            # Clamp to valid range for ModelIntentResult (ge=0.0, le=1.0)
+            confidence = max(0.0, min(1.0, confidence))
+
+            raw_keywords = classification_result.get("keywords", [])
+            keywords = (
+                [str(k) for k in raw_keywords] if isinstance(raw_keywords, list) else []
+            )
+
+            raw_secondary = classification_result.get("secondary_intents", [])
+            secondary_intents = (
+                [item for item in raw_secondary if isinstance(item, dict)]
+                if isinstance(raw_secondary, list)
+                else []
+            )
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
             metadata["classification_error"] = str(e)
@@ -415,7 +448,7 @@ async def handle_user_prompt_submit(
                 intent_category=intent_category,
                 confidence=confidence,
                 keywords=keywords,
-                correlation_id=event.correlation_id,
+                correlation_id=correlation_id,
                 producer=kafka_producer,
                 topic=publish_topic,
             )
@@ -425,6 +458,9 @@ async def handle_user_prompt_submit(
         except Exception as e:
             metadata["kafka_emission_error"] = str(e)
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
+            metadata["kafka_publish_warning"] = (
+                f"Kafka publish failed despite producer being available: {e}"
+            )
     elif kafka_producer is None:
         metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value
     else:
@@ -450,7 +486,7 @@ async def handle_user_prompt_submit(
         status=status,
         event_type=str(event.event_type),
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
+        correlation_id=correlation_id,
         intent_result=intent_result,
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),
@@ -464,7 +500,7 @@ async def _classify_intent(
     session_id: str,
     correlation_id: UUID,
     classifier: ProtocolIntentClassifier,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # any-ok: classification result has heterogeneous typed values
     """Call the intent classifier compute node.
 
     Args:

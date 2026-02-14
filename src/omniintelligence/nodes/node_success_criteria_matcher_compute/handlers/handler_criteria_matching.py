@@ -73,7 +73,7 @@ _INDEX_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[0-9]+$")
 
 
 def match_criteria(
-    outcome: dict[str, Any],
+    outcome: dict[str, object],
     criteria: list[SuccessCriterionDict],
 ) -> CriteriaMatchResult:
     """Evaluate all criteria against an execution outcome.
@@ -174,7 +174,9 @@ def match_criteria(
 # =============================================================================
 
 
-def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
+def resolve_field_path(
+    data: dict[str, Any], path: str
+) -> MaybeJsonValue:  # any-ok: dict invariance -- callers pass deserialized JSON
     """Resolve a dot-notation field path from a nested data structure.
 
     Supports dictionary keys and list indices (non-negative integers).
@@ -228,6 +230,7 @@ def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
             )
 
     # Traverse the data structure
+    # any-ok: traverses heterogeneous nested structures (dicts/lists)
     current: Any = data
 
     for token in tokens:
@@ -247,7 +250,7 @@ def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
                 return MISSING
             current = current[token]
 
-    # Cast needed because 'current' is typed as Any from dict traversal
+    # Cast needed because 'current' is typed as object from dict traversal
     return cast("MaybeJsonValue", current)
 
 
@@ -257,7 +260,7 @@ def resolve_field_path(data: dict[str, Any], path: str) -> MaybeJsonValue:
 
 
 def apply_operator(
-    actual: Any,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     operator: EnumCriteriaOperator,
     expected: JsonValue | None,
 ) -> tuple[bool, str]:
@@ -426,7 +429,7 @@ def _validate_criteria_set(
 
 
 def _evaluate_criterion(
-    outcome: dict[str, Any],
+    outcome: dict[str, object],
     criterion: SuccessCriterionDict,
     compiled_regex: dict[str, re.Pattern[str]],
 ) -> CriterionMatchResultDict:
@@ -484,7 +487,7 @@ def _evaluate_criterion(
 
 
 def _apply_numeric_operator(
-    actual: Any,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     operator: EnumCriteriaOperator,
     expected: JsonValue | None,
 ) -> tuple[bool, str]:
@@ -533,7 +536,7 @@ def _apply_numeric_operator(
 
 
 def _apply_contains(
-    actual: Any,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     expected: JsonValue | None,
     negate: bool,
 ) -> tuple[bool, str]:
@@ -584,7 +587,7 @@ def _apply_contains(
 
 
 def _apply_regex(
-    actual: Any,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     expected: JsonValue | None,
 ) -> tuple[bool, str]:
     """Apply regex operator.
@@ -607,7 +610,7 @@ def _apply_regex(
 
 
 def _apply_compiled_regex(
-    actual: Any,
+    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
     pattern: re.Pattern[str],
 ) -> tuple[bool, str]:
     """Apply a pre-compiled regex pattern.
@@ -627,7 +630,7 @@ def _apply_compiled_regex(
     return False, f"'{_truncate(actual_str, 30)}' does not match pattern"
 
 
-def _safe_repr(value: Any, max_len: int = 50) -> str:
+def _safe_repr(value: object, max_len: int = 50) -> str:
     """Get a safe, truncated string representation of a value.
 
     Args:
@@ -670,7 +673,7 @@ def _truncate(s: str, max_len: int) -> str:
 
 
 def handle_match_criteria(
-    outcome: dict[str, Any],
+    outcome: dict[str, object],
     criteria: list[SuccessCriterionDict],
 ) -> CriteriaMatchResult:
     """Handle success criteria matching (naming convention wrapper).

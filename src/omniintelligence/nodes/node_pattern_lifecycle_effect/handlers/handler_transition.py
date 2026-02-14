@@ -78,7 +78,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omnibase_core.enums.pattern_learning import EnumEvidenceTier
@@ -238,7 +238,7 @@ async def apply_transition(
     trigger: str,
     actor: str = "reducer",
     reason: str | None = None,
-    gate_snapshot: ModelGateSnapshot | dict[str, Any] | None = None,
+    gate_snapshot: ModelGateSnapshot | dict[str, object] | None = None,
     transition_at: datetime,
     publish_topic: str | None = None,
     conn: ProtocolPatternRepository | None = None,
@@ -838,7 +838,10 @@ async def _send_to_dlq(
     try:
         # Build DLQ payload with error metadata
         # Note: error_message should already be sanitized by caller
-        dlq_payload = {
+        # Explicit dict[str, object] annotation to satisfy ProtocolKafkaPublisher.publish()
+        # (dict is invariant in its value type; without annotation, mypy infers
+        # dict[str, str | None] which is not assignable to dict[str, object]).
+        dlq_payload: dict[str, object] = {
             "original_topic": original_topic,
             "pattern_id": str(pattern_id),
             "from_status": from_status,
@@ -857,7 +860,7 @@ async def _send_to_dlq(
 
         # Sanitize the entire payload to catch any secrets we might have missed
         sanitizer = get_log_sanitizer()
-        sanitized_payload = {
+        sanitized_payload: dict[str, object] = {
             k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
             for k, v in dlq_payload.items()
         }
