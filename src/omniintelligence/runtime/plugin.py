@@ -551,6 +551,30 @@ class PluginIntelligence:
             # If the failure occurred after capturing event_bus or after
             # introspection publishing, these references would dangle and
             # could cause shutdown to operate on stale/inconsistent state.
+            #
+            # Stop heartbeat tasks on any introspection proxies that were
+            # started before the failure, then reset the single-call guard
+            # so a retry is not permanently blocked (follows the same
+            # pattern as _do_shutdown).
+            for proxy in self._introspection_proxies:
+                try:
+                    await proxy.stop_introspection_tasks()
+                except Exception as stop_error:
+                    sanitized = get_log_sanitizer().sanitize(str(stop_error))
+                    logger.debug(
+                        "Error stopping introspection tasks for %s during "
+                        "wire_dispatchers cleanup: %s (correlation_id=%s)",
+                        proxy.name,
+                        sanitized,
+                        correlation_id,
+                    )
+
+            from omniintelligence.runtime.introspection import (
+                reset_introspection_guard,
+            )
+
+            reset_introspection_guard()
+
             self._event_bus = None
             self._introspection_nodes = []
             self._introspection_proxies = []
