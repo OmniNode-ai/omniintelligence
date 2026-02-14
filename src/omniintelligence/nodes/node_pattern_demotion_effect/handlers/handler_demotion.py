@@ -219,10 +219,18 @@ too permissive - 20 consecutive failures is definitive.
 # =============================================================================
 
 
-class DemotionPatternRecord(TypedDict, total=False):
+class _DemotionPatternRecordRequired(TypedDict):
+    """Required fields for DemotionPatternRecord (always present in query result)."""
+
+    id: UUID
+    pattern_signature: str
+
+
+class DemotionPatternRecord(_DemotionPatternRecordRequired, total=False):
     """Row shape returned by SQL_FETCH_VALIDATED_PATTERNS.
 
-    Mirrors the SELECT columns from the demotion SQL query. Fields use
+    Mirrors the SELECT columns from the demotion SQL query. Required fields
+    (id, pattern_signature) are always present. Optional fields use
     ``total=False`` because asyncpg Records may contain None for nullable
     columns, and callers use ``.get()`` with fallback defaults.
 
@@ -241,8 +249,6 @@ class DemotionPatternRecord(TypedDict, total=False):
         is_disabled: Whether pattern appears in disabled_patterns_current table.
     """
 
-    id: UUID
-    pattern_signature: str
     injection_count_rolling_20: int | None
     success_count_rolling_20: int | None
     failure_count_rolling_20: int | None

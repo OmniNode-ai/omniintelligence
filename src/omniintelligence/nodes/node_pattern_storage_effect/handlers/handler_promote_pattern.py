@@ -436,7 +436,7 @@ ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 """Error code when a state transition violates governance rules."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class PromotePatternResult:
     """Result of a pattern promotion operation.
 

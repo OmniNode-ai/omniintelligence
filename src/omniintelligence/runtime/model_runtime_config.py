@@ -388,7 +388,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                     "log_level": "INFO",
                     "event_bus": {
                         "enabled": True,
-                        "bootstrap_servers": "192.168.86.200:29092",
+                        "bootstrap_servers": "kafka-broker:9092",
                         "consumer_group": "intelligence-runtime",
                         "topics": {
                             "commands": "onex.intelligence.cmd.v1",
@@ -671,9 +671,21 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             event_bus_data["topics"] = topics_data
 
         if event_bus_data:
-            # Default to enabled when Kafka env vars are present,
-            # but respect an explicit enabled=False override.
-            event_bus_data.setdefault("enabled", True)
+            # Only auto-enable the event bus when KAFKA_ENABLE_INTELLIGENCE
+            # is explicitly set to a truthy value.  Previously, the presence
+            # of *any* Kafka env var (e.g. KAFKA_BOOTSTRAP_SERVERS alone)
+            # silently enabled the bus, which could cause unexpected
+            # behaviour in environments that set connection strings without
+            # intending to activate the intelligence event bus.
+            if "enabled" not in event_bus_data:
+                kafka_intelligence_flag = os.environ.get(
+                    "KAFKA_ENABLE_INTELLIGENCE", ""
+                )
+                event_bus_data["enabled"] = kafka_intelligence_flag.lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                )
             config_data["event_bus"] = event_bus_data
 
         return cls.model_validate(config_data)

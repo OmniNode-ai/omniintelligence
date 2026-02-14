@@ -152,12 +152,22 @@ LIMIT 1
 # =============================================================================
 
 
-class PatternMetricsRow(TypedDict, total=False):
+class _PatternMetricsRowRequired(TypedDict):
+    """Required fields for PatternMetricsRow (always present in query result)."""
+
+    id: UUID
+    pattern_signature: str
+    status: str
+    evidence_tier: str
+
+
+class PatternMetricsRow(_PatternMetricsRowRequired, total=False):
     """Row shape returned by SQL_FETCH_CANDIDATE_PATTERNS / SQL_FETCH_PROVISIONAL_PATTERNS_WITH_TIER.
 
-    Mirrors the SELECT columns from the promotion SQL queries. Fields use
-    ``total=False`` because asyncpg Records may contain None for nullable
-    columns, and callers use ``.get()`` with fallback defaults.
+    Mirrors the SELECT columns from the promotion SQL queries. Required fields
+    (id, pattern_signature, status, evidence_tier) are always present. Optional
+    fields use ``total=False`` because asyncpg Records may contain None for
+    nullable columns, and callers use ``.get()`` with fallback defaults.
 
     Required fields (always present in the query result):
         id: Pattern UUID primary key.
@@ -172,10 +182,6 @@ class PatternMetricsRow(TypedDict, total=False):
         failure_streak: Current consecutive failure count.
     """
 
-    id: UUID
-    pattern_signature: str
-    status: str
-    evidence_tier: str
     injection_count_rolling_20: int | None
     success_count_rolling_20: int | None
     failure_count_rolling_20: int | None
@@ -466,6 +472,23 @@ async def handle_auto_promote_check(
     for _raw_pattern in candidate_patterns:
         # Cast contract: SQL_FETCH_CANDIDATE_PATTERNS returns rows matching PatternMetricsRow shape
         pattern = cast(PatternMetricsRow, _raw_pattern)
+        # Runtime guard: verify critical fields exist before proceeding.
+        # If SQL columns change, this surfaces the error explicitly instead
+        # of silently returning None on TypedDict key access.
+        if "id" not in pattern or "pattern_signature" not in pattern:
+            # Runtime guard: cast() does not validate keys at runtime.
+            # mypy marks this as unreachable because the base TypedDict
+            # guarantees these keys, but asyncpg rows may not conform.
+            logger.warning(  # type: ignore[unreachable]
+                "Skipping candidate pattern: missing required fields (id, pattern_signature)",
+                extra={
+                    "correlation_id": str(effective_correlation_id),
+                    "available_keys": list(pattern.keys())
+                    if hasattr(pattern, "keys")
+                    else "N/A",
+                },
+            )
+            continue
         if not meets_candidate_to_provisional_criteria(pattern):
             continue
 
@@ -546,6 +569,21 @@ async def handle_auto_promote_check(
     for _raw_pattern in provisional_patterns:
         # Cast contract: SQL_FETCH_PROVISIONAL_PATTERNS returns rows matching PatternMetricsRow shape
         pattern = cast(PatternMetricsRow, _raw_pattern)
+        # Runtime guard: verify critical fields exist before proceeding.
+        if "id" not in pattern or "pattern_signature" not in pattern:
+            # Runtime guard: cast() does not validate keys at runtime.
+            # mypy marks this as unreachable because the base TypedDict
+            # guarantees these keys, but asyncpg rows may not conform.
+            logger.warning(  # type: ignore[unreachable]
+                "Skipping provisional pattern: missing required fields (id, pattern_signature)",
+                extra={
+                    "correlation_id": str(effective_correlation_id),
+                    "available_keys": list(pattern.keys())
+                    if hasattr(pattern, "keys")
+                    else "N/A",
+                },
+            )
+            continue
         if not meets_provisional_to_validated_criteria(pattern):
             continue
 

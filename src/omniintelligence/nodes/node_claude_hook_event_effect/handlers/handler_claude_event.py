@@ -405,10 +405,28 @@ async def handle_user_prompt_submit(
                 correlation_id=correlation_id,
                 classifier=intent_classifier,
             )
-            intent_category = classification_result.get("intent_category", "unknown")
-            confidence = classification_result.get("confidence", 0.0)
-            keywords = classification_result.get("keywords", [])
-            secondary_intents = classification_result.get("secondary_intents", [])
+            # Type-validate extracted values before passing to ModelIntentResult.
+            # _classify_intent returns dict[str, Any], so guard against unexpected types.
+            raw_category = classification_result.get("intent_category", "unknown")
+            intent_category = (
+                str(raw_category) if raw_category is not None else "unknown"
+            )
+
+            raw_confidence = classification_result.get("confidence", 0.0)
+            try:
+                confidence = float(raw_confidence)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            # Clamp to valid range for ModelIntentResult (ge=0.0, le=1.0)
+            confidence = max(0.0, min(1.0, confidence))
+
+            raw_keywords = classification_result.get("keywords", [])
+            keywords = (
+                [str(k) for k in raw_keywords] if isinstance(raw_keywords, list) else []
+            )
+
+            raw_secondary = classification_result.get("secondary_intents", [])
+            secondary_intents = raw_secondary if isinstance(raw_secondary, list) else []
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
             metadata["classification_error"] = str(e)
@@ -436,6 +454,9 @@ async def handle_user_prompt_submit(
         except Exception as e:
             metadata["kafka_emission_error"] = str(e)
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
+            metadata["kafka_publish_warning"] = (
+                f"Kafka publish failed despite producer being available: {e}"
+            )
     elif kafka_producer is None:
         metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value
     else:

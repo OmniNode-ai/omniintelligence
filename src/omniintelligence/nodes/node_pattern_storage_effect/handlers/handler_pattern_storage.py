@@ -358,7 +358,10 @@ class PatternStorageRouter:
 
         stored_event = store_result.event
         if stored_event is None:
-            raise RuntimeError("Invariant violation: store succeeded but event is None")
+            raise RuntimeError(
+                f"Invariant violation: store succeeded but event is None "
+                f"(pattern_id={storage_input.pattern_id})"
+            )
 
         logger.info(
             "Store pattern operation completed",
@@ -507,7 +510,8 @@ class PatternStorageRouter:
             promoted_event = promote_result.event
             if promoted_event is None:
                 raise RuntimeError(
-                    "Invariant violation: promote succeeded but event is None"
+                    f"Invariant violation: promote succeeded but event is None "
+                    f"(pattern_id={pattern_id})"
                 )
 
             logger.info(
