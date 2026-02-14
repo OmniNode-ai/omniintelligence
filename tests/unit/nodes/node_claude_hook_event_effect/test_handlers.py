@@ -263,14 +263,14 @@ class TestRouteHookEvent:
         assert result.intent_result is not None
 
     @pytest.mark.asyncio
-    async def test_routes_stop_to_no_op(
+    async def test_routes_stop_to_pattern_learning_trigger(
         self, sample_stop_event: ModelClaudeCodeHookEvent
     ) -> None:
-        """Test that Stop events go to no-op handler."""
+        """Test that Stop events trigger pattern learning command emission."""
         result = await route_hook_event(event=sample_stop_event)
         assert result.status == EnumHookProcessingStatus.SUCCESS
         assert result.intent_result is None
-        assert result.metadata["handler"] == "no_op"
+        assert result.metadata["handler"] == "stop_trigger_pattern_learning"
 
     @pytest.mark.asyncio
     async def test_routes_session_start_to_no_op(

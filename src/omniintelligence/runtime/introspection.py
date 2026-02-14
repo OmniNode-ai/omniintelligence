@@ -140,6 +140,7 @@ class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignor
         config = ModelIntrospectionConfig(
             node_id=descriptor.node_id,
             node_type=descriptor.node_type,
+            node_name=descriptor.name,
             event_bus=event_bus,
             version=descriptor.version,
         )
