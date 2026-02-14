@@ -37,6 +37,8 @@ from omnibase_infra.enums import EnumIntrospectionReason
 from omnibase_infra.mixins.mixin_node_introspection import MixinNodeIntrospection
 from omnibase_infra.models.discovery import ModelIntrospectionConfig
 
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+
 if TYPE_CHECKING:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
 
@@ -289,7 +291,7 @@ async def publish_intelligence_introspection(
             logger.warning(
                 "Error publishing introspection for %s: %s (correlation_id=%s)",
                 descriptor.name,
-                e,
+                get_log_sanitizer().sanitize(str(e)),
                 correlation_id,
             )
 
@@ -345,7 +347,7 @@ async def publish_intelligence_shutdown(
                 logger.debug(
                     "Error stopping introspection tasks for %s: %s",
                     proxy.name,
-                    e,
+                    get_log_sanitizer().sanitize(str(e)),
                 )
 
     if event_bus is None:
@@ -377,7 +379,7 @@ async def publish_intelligence_shutdown(
             logger.debug(
                 "Error publishing shutdown introspection for %s: %s",
                 descriptor.name,
-                e,
+                get_log_sanitizer().sanitize(str(e)),
             )
 
     # Reset the single-call guard so the plugin can be re-initialized in the

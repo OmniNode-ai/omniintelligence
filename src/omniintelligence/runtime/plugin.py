@@ -90,6 +90,7 @@ from omniintelligence.runtime.contract_topics import (
     collect_subscribe_topics_from_contracts,
 )
 from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -749,10 +750,11 @@ class PluginIntelligence:
                     correlation_id=correlation_id,
                 )
             except Exception as shutdown_intro_error:
-                errors.append(f"introspection_shutdown: {shutdown_intro_error}")
+                sanitized = get_log_sanitizer().sanitize(str(shutdown_intro_error))
+                errors.append(f"introspection_shutdown: {sanitized}")
                 logger.warning(
                     "Failed to publish shutdown introspection: %s (correlation_id=%s)",
-                    shutdown_intro_error,
+                    sanitized,
                     correlation_id,
                 )
         else:
