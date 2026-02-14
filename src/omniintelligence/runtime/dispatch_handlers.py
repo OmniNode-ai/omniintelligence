@@ -35,6 +35,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
+from asyncpg import ForeignKeyViolationError
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
 from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
@@ -582,7 +583,9 @@ def create_pattern_storage_dispatch_handler(
 
         # Extract common fields for storage
         # Both pattern-learned and pattern.discovered share these fields
-        raw_pattern_id = payload.get("pattern_id") or payload.get("discovery_id")
+        raw_pattern_id = payload.get("pattern_id")
+        if raw_pattern_id is None:
+            raw_pattern_id = payload.get("discovery_id")
         if raw_pattern_id is not None:
             with contextlib.suppress(ValueError):
                 raw_pattern_id = UUID(str(raw_pattern_id))
@@ -631,7 +634,16 @@ def create_pattern_storage_dispatch_handler(
                 pattern_id,
                 ctx_correlation_id,
             )
-        confidence = max(0.5, raw_confidence)
+        if raw_confidence > 1.0:
+            logger.warning(
+                "Pattern confidence %.3f above maximum 1.0, clamping "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                raw_confidence,
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+        confidence = max(0.5, min(1.0, raw_confidence))
         try:
             version = int(payload.get("version", 1))
         except (ValueError, TypeError):
@@ -644,6 +656,16 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
             )
             version = 1
+        if version < 1:
+            logger.warning(
+                "Pattern version %d below minimum 1, clamping "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                version,
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            version = max(1, version)
         source_session_ids: list[UUID] = []
         raw_session_ids = payload.get("source_session_ids")
         if isinstance(raw_session_ids, list):
@@ -693,16 +715,15 @@ def create_pattern_storage_dispatch_handler(
                 version,
                 source_session_ids,
             )
+        except ForeignKeyViolationError as e:
+            msg = (
+                f"Unknown domain_id {domain_id!r} not found in domain_taxonomy "
+                f"(pattern_id={pattern_id}, correlation_id={ctx_correlation_id}). "
+                f"Ensure the domain is registered before publishing pattern events."
+            )
+            logger.error(msg)
+            raise ValueError(msg) from e
         except Exception as e:
-            error_str = str(e)
-            if "domain_taxonomy" in error_str or "foreign key" in error_str.lower():
-                msg = (
-                    f"Unknown domain_id {domain_id!r} not found in domain_taxonomy "
-                    f"(pattern_id={pattern_id}, correlation_id={ctx_correlation_id}). "
-                    f"Ensure the domain is registered before publishing pattern events."
-                )
-                logger.error(msg)
-                raise ValueError(msg) from e
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
                 "(pattern_id=%s, error=%s, correlation_id=%s)",
