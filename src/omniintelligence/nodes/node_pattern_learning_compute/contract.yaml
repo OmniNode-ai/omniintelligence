@@ -117,7 +117,7 @@ event_bus:
 idempotency:
   enabled: true
   strategy: "input_hash"
-  hash_fields: ["training_data_hash", "correlation_id"]
+  hash_fields: ["training_data", "correlation_id"]
   description: "Idempotency based on input hash. Identical training data with the same correlation ID
     produces deterministic output without re-computation."
 

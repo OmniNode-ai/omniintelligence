@@ -133,26 +133,26 @@ intent_reception:
 # Consumed Events
 # ===============
 consumed_events:
-  - topic: "onex.cmd.omniintelligence.code-analysis.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.code-analysis.v1"
     event_type: "CodeAnalysisRequested"
-  - topic: "onex.cmd.omniintelligence.document-ingestion.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.document-ingestion.v1"
     event_type: "DocumentIngestionRequested"
-  - topic: "onex.cmd.omniintelligence.pattern-learning.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
     event_type: "PatternLearningRequested"
-  - topic: "onex.cmd.omniintelligence.quality-assessment.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.quality-assessment.v1"
     event_type: "QualityAssessmentRequested"
 # Published Events
 # ================
 published_events:
-  - topic: "onex.evt.omniintelligence.code-analysis-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.code-analysis-completed.v1"
     event_type: "CodeAnalysisCompleted"
-  - topic: "onex.evt.omniintelligence.code-analysis-failed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.code-analysis-failed.v1"
     event_type: "CodeAnalysisFailed"
-  - topic: "onex.evt.omniintelligence.document-ingestion-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1"
     event_type: "DocumentIngestionCompleted"
-  - topic: "onex.evt.omniintelligence.pattern-learning-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1"
     event_type: "PatternLearningCompleted"
-  - topic: "onex.evt.omniintelligence.quality-assessment-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1"
     event_type: "QualityAssessmentCompleted"
 # Dependencies
 # ============
