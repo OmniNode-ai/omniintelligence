@@ -162,12 +162,12 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "onex.cmd.omniintelligence.session-outcome.v1"
+    - "{env}.onex.cmd.omniintelligence.session-outcome.v1"
 
   publish_topics: []
 
   subscribe_topic_metadata:
-    "onex.cmd.omniintelligence.session-outcome.v1":
+    "{env}.onex.cmd.omniintelligence.session-outcome.v1":
       schema_ref: "omnibase_core.integrations.claude_code.ClaudeSessionOutcome"
       description: "Session outcome events from omniclaude SessionEnd hook"
 

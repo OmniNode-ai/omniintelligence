@@ -128,7 +128,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-29"
+  updated: "2026-02-14"
   # NOTE: status field is at root level (line 17), not duplicated here
   tags:
     - "ONEX"
