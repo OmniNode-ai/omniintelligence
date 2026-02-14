@@ -44,6 +44,17 @@ try:
 except ImportError:
     _CAN_IMPORT = False
 
+# ProtocolEventBus lives in omnibase_core and may not be available when the
+# OMN-2134 blocker is active. Import separately so conformance assertions
+# degrade gracefully.
+_HAS_PROTOCOL_EVENT_BUS = False
+try:
+    from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus  # noqa: I001
+
+    _HAS_PROTOCOL_EVENT_BUS = True
+except (ImportError, ModuleNotFoundError):
+    pass
+
 _skipif_no_import = pytest.mark.skipif(
     not _CAN_IMPORT,
     reason=(
@@ -164,8 +175,10 @@ class TestPublishIntelligenceIntrospection:
     @pytest.mark.asyncio
     async def test_publishes_for_all_nodes_with_event_bus(self) -> None:
         """Should attempt to publish for all nodes when event bus is available."""
-        mock_event_bus = MagicMock()
+        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
+        if _HAS_PROTOCOL_EVENT_BUS:
+            assert isinstance(mock_event_bus, ProtocolEventBus)
 
         result = await publish_intelligence_introspection(
             event_bus=mock_event_bus,
@@ -180,8 +193,10 @@ class TestPublishIntelligenceIntrospection:
     @pytest.mark.asyncio
     async def test_raises_on_double_call(self) -> None:
         """Should raise RuntimeError if called twice (single-call invariant)."""
-        mock_event_bus = MagicMock()
+        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
+        if _HAS_PROTOCOL_EVENT_BUS:
+            assert isinstance(mock_event_bus, ProtocolEventBus)
 
         await publish_intelligence_introspection(
             event_bus=mock_event_bus,
@@ -199,10 +214,12 @@ class TestPublishIntelligenceIntrospection:
     @pytest.mark.asyncio
     async def test_graceful_degradation_on_publish_failure(self) -> None:
         """Should not raise when individual node introspection fails."""
-        mock_event_bus = MagicMock()
+        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
         mock_event_bus.publish_envelope = AsyncMock(
             side_effect=RuntimeError("publish failed")
         )
+        if _HAS_PROTOCOL_EVENT_BUS:
+            assert isinstance(mock_event_bus, ProtocolEventBus)
 
         # Should not raise
         result = await publish_intelligence_introspection(
@@ -240,8 +257,10 @@ class TestPublishIntelligenceShutdown:
         heartbeat task stop verification when the EnumEvidenceTier blocker
         (OMN-2134) is resolved and these tests are unblocked.
         """
-        mock_event_bus = MagicMock()
+        mock_event_bus = MagicMock(spec=ProtocolEventBus) if _HAS_PROTOCOL_EVENT_BUS else MagicMock()
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
+        if _HAS_PROTOCOL_EVENT_BUS:
+            assert isinstance(mock_event_bus, ProtocolEventBus)
 
         await publish_intelligence_shutdown(
             event_bus=mock_event_bus,
@@ -264,7 +283,7 @@ class TestPublishIntelligenceShutdown:
 def test_skipif_guard_still_needed() -> None:
     """Fail if OMN-2134 blocker is resolved so the skipif guard gets removed."""
     try:
-        from omnibase_core.models.model_enum_evidence_tier import EnumEvidenceTier  # noqa: F401
+        from omnibase_core.models.model_enum_evidence_tier import EnumEvidenceTier  # noqa: F401, I001
     except ImportError:
         # Blocker still present -- guard is still needed
         return

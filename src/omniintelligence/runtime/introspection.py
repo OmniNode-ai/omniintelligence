@@ -351,6 +351,7 @@ async def publish_intelligence_shutdown(
                 )
 
     if event_bus is None:
+        reset_introspection_guard()
         return
 
     # New proxies are created here because startup only retains proxies for

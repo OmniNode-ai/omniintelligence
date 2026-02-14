@@ -761,8 +761,15 @@ class PluginIntelligence:
         correlation_id = config.correlation_id
         errors: list[str] = []
 
-        # Publish shutdown introspection for all intelligence nodes
-        if self._introspection_nodes:
+        # Publish shutdown introspection for all intelligence nodes.
+        # Gate on _event_bus (set in wire_dispatchers before introspection
+        # is attempted), NOT on _introspection_nodes. If all individual
+        # publish calls failed, _introspection_nodes is empty but the
+        # single-call guard (_introspection_published) is still set.
+        # publish_intelligence_shutdown resets that guard, so we must call
+        # it whenever introspection was attempted, even if no nodes
+        # registered successfully.
+        if self._event_bus is not None:
             try:
                 from omniintelligence.runtime.introspection import (
                     publish_intelligence_shutdown,
@@ -784,7 +791,7 @@ class PluginIntelligence:
         else:
             logger.debug(
                 "Introspection shutdown skipped: wire_dispatchers was never "
-                "completed, no introspection nodes were registered "
+                "called or did not capture event_bus "
                 "(correlation_id=%s)",
                 correlation_id,
             )

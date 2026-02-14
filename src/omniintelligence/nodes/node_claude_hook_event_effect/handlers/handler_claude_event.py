@@ -298,6 +298,12 @@ async def handle_stop(
     start_time = time.perf_counter()
     metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
 
+    # Resolve correlation_id to a non-None UUID for downstream calls that
+    # require UUID (not UUID | None).
+    resolved_correlation_id: UUID = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
+
     # Emit pattern learning command if Kafka is available
     pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
     emitted_to_kafka = False
@@ -306,9 +312,7 @@ async def handle_stop(
     if kafka_producer is not None:
         command = ModelPatternLearningCommand(
             session_id=event.session_id,
-            correlation_id=str(event.correlation_id)
-            if event.correlation_id is not None
-            else str(uuid4()),
+            correlation_id=str(resolved_correlation_id),
             timestamp=datetime.now(UTC).isoformat(),
         )
         command_payload = command.model_dump()
@@ -356,7 +360,7 @@ async def handle_stop(
         status=status,
         event_type=str(event.event_type),
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
+        correlation_id=resolved_correlation_id,
         intent_result=None,
         processing_time_ms=processing_time_ms,
         processed_at=datetime.now(UTC),
@@ -540,7 +544,7 @@ async def handle_user_prompt_submit(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
+            correlation_id=resolved_correlation_id,
             intent_result=None,
             processing_time_ms=0.0,
             processed_at=datetime.now(UTC),
@@ -618,7 +622,7 @@ async def handle_user_prompt_submit(
         status=status,
         event_type=str(event.event_type),
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
+        correlation_id=resolved_correlation_id,
         intent_result=intent_result,
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),

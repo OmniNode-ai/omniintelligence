@@ -31,9 +31,10 @@ node_type: "EFFECT_GENERIC"
 description: >
   Unified Effect node for handling all Claude Code hook events. Receives events from SessionStart, UserPromptSubmit,
   PreToolUse, PostToolUse, Stop, and other hook types, routing them to appropriate handlers. For UserPromptSubmit,
-  routes to node_intent_classifier_compute for classification and emits classified intents to Kafka for downstream
-  consumers (graph storage handled by omnimemory). For Stop events, emits a pattern learning command to
-  onex.cmd.omniintelligence.pattern-learning.v1 to trigger pattern extraction from session data.
+  routes to node_intent_classifier_compute for classification and emits classified intents to Kafka for
+  downstream consumers (graph storage handled by omnimemory). For Stop events, emits a pattern learning
+  command to onex.cmd.omniintelligence.pattern-learning.v1 to trigger pattern extraction from session
+  data.
 # Strongly typed I/O models
 input_model:
   name: "ModelClaudeCodeHookEvent"
