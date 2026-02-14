@@ -231,6 +231,9 @@ async def route_hook_event(
     except Exception as e:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
         sanitized_error = get_log_sanitizer().sanitize(str(e))
+        resolved_correlation_id: UUID = (
+            event.correlation_id if event.correlation_id is not None else uuid4()
+        )
         error_metadata: dict[str, object] = {
             "exception_type": type(e).__name__,
             "exception_message": sanitized_error,
@@ -239,7 +242,7 @@ async def route_hook_event(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
+            correlation_id=resolved_correlation_id,
             processing_time_ms=processing_time_ms,
             processed_at=datetime.now(UTC),
             error_message=sanitized_error,
@@ -258,6 +261,9 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     Returns:
         ModelClaudeHookResult with status=success and no intent_result.
     """
+    resolved_correlation_id: UUID = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
     noop_metadata: dict[str, object] = {
         "handler": "no_op",
         "reason": "event_type not yet implemented",
@@ -266,7 +272,7 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         status=EnumHookProcessingStatus.SUCCESS,
         event_type=str(event.event_type),
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
+        correlation_id=resolved_correlation_id,
         intent_result=None,
         processing_time_ms=0.0,
         processed_at=datetime.now(UTC),
