@@ -586,13 +586,32 @@ def create_pattern_storage_dispatch_handler(
         if raw_pattern_id is not None:
             with contextlib.suppress(ValueError):
                 raw_pattern_id = UUID(str(raw_pattern_id))
+            if not isinstance(raw_pattern_id, UUID):
+                logger.warning(
+                    "Invalid UUID for pattern_id: %r, generating new ID "
+                    "(correlation_id=%s)",
+                    raw_pattern_id,
+                    ctx_correlation_id,
+                )
+                raw_pattern_id = None
 
         pattern_id = raw_pattern_id or uuid4()
         signature = str(payload.get("signature", payload.get("pattern_signature", "")))
         signature_hash = str(payload.get("signature_hash", ""))
         domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
         domain_version = str(payload.get("domain_version", "1.0.0"))
-        raw_confidence = float(payload.get("confidence", 0.5))
+        try:
+            raw_confidence = float(payload.get("confidence", 0.5))
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid confidence value %r, defaulting to 0.5 "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                payload.get("confidence"),
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            raw_confidence = 0.5
         if raw_confidence < 0.5:
             logger.warning(
                 "Pattern confidence %.3f below minimum 0.5, clamping "
