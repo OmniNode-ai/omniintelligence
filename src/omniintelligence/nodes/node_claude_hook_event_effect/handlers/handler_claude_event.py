@@ -563,7 +563,7 @@ async def handle_user_prompt_submit(
             secondary_intents = classification_result.get("secondary_intents", [])
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
-            metadata["classification_error"] = str(e)
+            metadata["classification_error"] = get_log_sanitizer().sanitize(str(e))
             metadata["classification_source"] = "fallback_unknown"
     else:
         metadata["classification_source"] = "no_classifier_available"
@@ -586,7 +586,7 @@ async def handle_user_prompt_submit(
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.SUCCESS.value
             metadata["kafka_topic"] = publish_topic
         except Exception as e:
-            metadata["kafka_emission_error"] = str(e)
+            metadata["kafka_emission_error"] = get_log_sanitizer().sanitize(str(e))
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
     elif kafka_producer is None:
         metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value

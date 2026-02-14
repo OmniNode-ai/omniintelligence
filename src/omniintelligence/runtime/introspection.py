@@ -239,8 +239,6 @@ async def publish_intelligence_introspection(
         )
         return IntrospectionResult()
 
-    _introspection_published = True
-
     result = IntrospectionResult()
 
     for descriptor in INTELLIGENCE_NODES:
@@ -288,6 +286,11 @@ async def publish_intelligence_introspection(
                 e,
                 correlation_id,
             )
+
+    # Set the single-call guard AFTER the loop completes successfully.
+    # If an exception propagates out of the loop, the guard remains unset,
+    # allowing a legitimate retry instead of permanently blocking.
+    _introspection_published = True
 
     logger.info(
         "Intelligence introspection published: %d/%d nodes (correlation_id=%s)",
