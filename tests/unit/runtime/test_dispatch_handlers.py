@@ -305,19 +305,19 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.handler_count == 4
 
-    def test_engine_has_five_routes(
+    def test_engine_has_six_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 5 intelligence domain routes must be registered."""
+        """All 6 intelligence domain routes must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 5
+        assert engine.route_count == 6
 
 
 # =============================================================================

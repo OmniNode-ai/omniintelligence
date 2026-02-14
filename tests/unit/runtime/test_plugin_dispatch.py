@@ -181,15 +181,15 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.is_frozen
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_five_routes(self) -> None:
-        """Engine should have exactly 5 routes (3 command + 2 event topics)."""
+    async def test_wire_dispatchers_engine_has_six_routes(self) -> None:
+        """Engine should have exactly 6 routes (4 command + 2 event topics)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 5
+        assert plugin._dispatch_engine.route_count == 6
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_four_handlers(self) -> None:

@@ -104,6 +104,9 @@ DISPATCH_ALIAS_PATTERN_LEARNED = "onex.events.omniintelligence.pattern-learned.v
 DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
 """Dispatch-compatible alias for pattern.discovered canonical topic."""
 
+DISPATCH_ALIAS_TOOL_CONTENT = "onex.commands.omniintelligence.tool-content.v1"
+"""Dispatch-compatible alias for tool-content canonical topic."""
+
 
 # =============================================================================
 # Bridge Handler: Claude Hook Event
@@ -533,11 +536,15 @@ def create_pattern_storage_dispatch_handler(
 ]:
     """Create a dispatch engine handler for pattern storage events.
 
-    Fail-fast handler for pattern-learned and pattern.discovered events.
-    Raises RuntimeError on every invocation to prevent silent data loss.
-    The full implementation will route to route_storage_operation /
-    handle_consume_discovered once RuntimeHostProcess wiring is complete
-    for this node.
+    Handles pattern-learned and pattern.discovered events by persisting
+    patterns to the learned_patterns table via the repository adapter.
+
+    For pattern-learned events: extracts pattern fields from the payload
+    and inserts into learned_patterns using an upsert on (domain,
+    signature_hash, version).
+
+    For pattern.discovered events: maps the discovery event payload to
+    the same storage fields and inserts identically.
 
     Args:
         repository: REQUIRED database repository for pattern storage.
@@ -552,7 +559,7 @@ def create_pattern_storage_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> pattern storage handler."""
+        """Bridge handler: envelope -> pattern storage via repository."""
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
         )
@@ -567,19 +574,110 @@ def create_pattern_storage_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        logger.error(
-            "Pattern storage handler not wired; refusing to ack message "
-            "(correlation_id=%s, payload_keys=%s, has_repo=%s, has_producer=%s)",
+        # Determine event type from payload
+        event_type = payload.get("event_type", "")
+
+        # Extract common fields for storage
+        # Both pattern-learned and pattern.discovered share these fields
+        raw_pattern_id = payload.get("pattern_id") or payload.get("discovery_id")
+        if raw_pattern_id is not None:
+            with contextlib.suppress(ValueError):
+                raw_pattern_id = UUID(str(raw_pattern_id))
+
+        pattern_id = raw_pattern_id or uuid4()
+        signature = str(payload.get("signature", payload.get("pattern_signature", "")))
+        signature_hash = str(payload.get("signature_hash", ""))
+        domain = str(payload.get("domain", "general"))
+        confidence = float(payload.get("confidence", 0.5))
+        version = int(payload.get("version", 1))
+
+        logger.info(
+            "Processing pattern storage event via dispatch engine "
+            "(event_type=%s, pattern_id=%s, domain=%s, correlation_id=%s)",
+            event_type,
+            pattern_id,
+            domain,
             ctx_correlation_id,
-            list(payload.keys()),
-            repository is not None,
-            kafka_producer is not None,
-        )
-        raise RuntimeError(
-            f"Pattern storage handler not wired (correlation_id={ctx_correlation_id})"
         )
 
+        # Persist via upsert -- skip if signature_hash is empty (invalid data)
+        if not signature_hash:
+            logger.warning(
+                "Pattern storage event missing signature_hash, skipping "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            return ""
+
+        now = datetime.now(UTC)
+        try:
+            await repository.execute(
+                _SQL_UPSERT_LEARNED_PATTERN,
+                pattern_id,
+                signature,
+                signature_hash,
+                domain,
+                confidence,
+                version,
+                now,
+                str(ctx_correlation_id),
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to persist pattern via dispatch bridge "
+                "(pattern_id=%s, error=%s, correlation_id=%s)",
+                pattern_id,
+                e,
+                ctx_correlation_id,
+            )
+            raise
+
+        logger.info(
+            "Pattern stored via dispatch bridge "
+            "(pattern_id=%s, domain=%s, version=%d, correlation_id=%s)",
+            pattern_id,
+            domain,
+            version,
+            ctx_correlation_id,
+        )
+
+        # Emit pattern-stored event to Kafka if producer available
+        if kafka_producer is not None:
+            with contextlib.suppress(Exception):
+                await kafka_producer.publish(
+                    topic="onex.evt.omniintelligence.pattern-stored.v1",
+                    key=str(pattern_id),
+                    value={
+                        "event_type": "PatternStored",
+                        "pattern_id": str(pattern_id),
+                        "signature_hash": signature_hash,
+                        "domain": domain,
+                        "version": version,
+                        "stored_at": now.isoformat(),
+                        "correlation_id": str(ctx_correlation_id),
+                    },
+                )
+
+        return ""
+
     return _handle
+
+
+# SQL for upserting learned patterns via the dispatch bridge.
+# Uses asyncpg positional parameters ($1...$8).
+# ON CONFLICT skips duplicate (domain, signature_hash, version) combinations.
+_SQL_UPSERT_LEARNED_PATTERN = """\
+INSERT INTO learned_patterns (
+    id, pattern_signature, signature_hash, domain,
+    confidence, version, learned_at, correlation_id,
+    status, is_current
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'candidate', TRUE)
+ON CONFLICT (domain, signature_hash, version)
+DO NOTHING;
+"""
 
 
 # =============================================================================
@@ -642,6 +740,18 @@ def create_intelligence_dispatch_engine(
             handler_id="intelligence-claude-hook-handler",
             description=(
                 "Routes claude-hook-event commands to the intelligence handler."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-tool-content-route",
+            topic_pattern=DISPATCH_ALIAS_TOOL_CONTENT,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-claude-hook-handler",
+            description=(
+                "Routes tool-content commands to the intelligence handler "
+                "(PostToolUse payloads with file/command content)."
             ),
         )
     )
@@ -871,6 +981,7 @@ __all__ = [
     "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
+    "DISPATCH_ALIAS_TOOL_CONTENT",
     "create_claude_hook_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",

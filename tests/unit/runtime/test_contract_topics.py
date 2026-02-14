@@ -3,7 +3,7 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 5 topics
+    - collect_subscribe_topics_from_contracts returns exactly 6 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
@@ -27,6 +27,7 @@ from omniintelligence.runtime.contract_topics import (
 # =============================================================================
 
 EXPECTED_CLAUDE_HOOK = "onex.cmd.omniintelligence.claude-hook-event.v1"
+EXPECTED_TOOL_CONTENT = "onex.cmd.omniintelligence.tool-content.v1"
 EXPECTED_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
 EXPECTED_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 EXPECTED_PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
@@ -34,6 +35,7 @@ EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
+    EXPECTED_TOOL_CONTENT,
     EXPECTED_SESSION_OUTCOME,
     EXPECTED_PATTERN_LIFECYCLE,
     EXPECTED_PATTERN_LEARNED,
@@ -49,10 +51,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_five_topics(self) -> None:
-        """All 4 intelligence effect nodes declare 5 subscribe topics total."""
+    def test_returns_exactly_six_topics(self) -> None:
+        """All 4 intelligence effect nodes declare 6 subscribe topics total."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 5
+        assert len(topics) == 6
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -79,8 +81,13 @@ class TestCollectSubscribeTopics:
         topics = collect_subscribe_topics_from_contracts()
         assert EXPECTED_PATTERN_DISCOVERED in topics
 
+    def test_contains_tool_content_topic(self) -> None:
+        """Tool content topic must be discovered from claude hook event contract."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert EXPECTED_TOOL_CONTENT in topics
+
     def test_all_expected_topics_present(self) -> None:
-        """All 5 expected topics must be in the discovered set."""
+        """All 6 expected topics must be in the discovered set."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 
