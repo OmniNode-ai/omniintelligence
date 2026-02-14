@@ -42,11 +42,11 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Protocol, TypedDict, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
-from omniintelligence.models.domain import ModelGateSnapshot
+from omniintelligence.models.domain import EvidenceTierLiteral, ModelGateSnapshot
 from omniintelligence.protocols import ProtocolPatternRepository
 
 if TYPE_CHECKING:
@@ -349,9 +349,13 @@ async def _build_enriched_gate_snapshot(
     """
     pattern_id = pattern["id"]
     raw_evidence_tier = pattern.get("evidence_tier", "unmeasured")
-    # Validate against known values to prevent Pydantic ValidationError
-    evidence_tier = (
-        raw_evidence_tier if raw_evidence_tier in _VALID_EVIDENCE_TIERS else None
+    # Validate against known values to prevent Pydantic ValidationError.
+    # Cast is safe: we check membership in _VALID_EVIDENCE_TIERS which
+    # exactly matches EvidenceTierLiteral, or assign None.
+    evidence_tier: EvidenceTierLiteral | None = (
+        cast(EvidenceTierLiteral, raw_evidence_tier)
+        if raw_evidence_tier in _VALID_EVIDENCE_TIERS
+        else None
     )
 
     # Count measured attributions
@@ -459,7 +463,8 @@ async def handle_auto_promote_check(
         },
     )
 
-    for pattern in candidate_patterns:
+    for _raw_pattern in candidate_patterns:
+        pattern = cast(PatternMetricsRow, _raw_pattern)
         if not meets_candidate_to_provisional_criteria(pattern):
             continue
 
@@ -537,7 +542,8 @@ async def handle_auto_promote_check(
         },
     )
 
-    for pattern in provisional_patterns:
+    for _raw_pattern in provisional_patterns:
+        pattern = cast(PatternMetricsRow, _raw_pattern)
         if not meets_provisional_to_validated_criteria(pattern):
             continue
 

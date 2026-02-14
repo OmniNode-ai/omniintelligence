@@ -22,9 +22,10 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any  # any-ok: test mocks implement asyncpg Protocol with *args: Any
+from typing import Any
 from uuid import UUID, uuid4
 
 import pydantic
@@ -34,8 +35,6 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
     MIN_SUCCESS_RATE,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     build_gate_snapshot,
     calculate_success_rate,
     check_and_promote_patterns,
@@ -47,18 +46,20 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelPromotionCheckResult,
     ModelPromotionResult,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
 # =============================================================================
 
 
-class MockRecord(dict):
+class MockRecord(dict[str, Any]):
     """Dict-like object that mimics asyncpg.Record behavior.
 
     asyncpg.Record supports both dict-style access (record["column"]) and
     attribute access (record.column). This mock provides the same interface
-    for testing.
+    for testing. Extends ``dict[str, Any]`` so it satisfies
+    ``Mapping[str, Any]`` as required by ``ProtocolPatternRepository``.
     """
 
     def __getattr__(self, name: str) -> Any:
@@ -106,13 +107,13 @@ class MockPatternRepository:
     def __init__(self) -> None:
         """Initialize empty repository state."""
         self.patterns: dict[UUID, PromotablePattern] = {}
-        self.queries_executed: list[tuple[str, tuple[Any, ...]]] = []
+        self.queries_executed: list[tuple[str, tuple[object, ...]]] = []
 
     def add_pattern(self, pattern: PromotablePattern) -> None:
         """Add a pattern to the mock database."""
         self.patterns[pattern.id] = pattern
 
-    async def fetch(self, query: str, *args: Any) -> list[MockRecord]:
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
         """Execute a query and return results as MockRecord objects.
 
         Simulates asyncpg fetch() behavior. Supports the specific queries
@@ -122,7 +123,7 @@ class MockPatternRepository:
 
         # Handle: Fetch provisional patterns eligible for promotion check
         if "learned_patterns" in query and "provisional" in query:
-            results = []
+            results: list[Mapping[str, Any]] = []
             for p in self.patterns.values():
                 if p.status == "provisional" and p.is_current:
                     results.append(
@@ -141,7 +142,7 @@ class MockPatternRepository:
 
         return []
 
-    async def fetchrow(self, query: str, *args: Any) -> MockRecord | None:
+    async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
         """Execute a query and return first row, or None.
 
         Simulates asyncpg fetchrow() behavior.
@@ -149,7 +150,7 @@ class MockPatternRepository:
         results = await self.fetch(query, *args)
         return results[0] if results else None
 
-    async def execute(self, query: str, *args: Any) -> str:
+    async def execute(self, query: str, *args: object) -> str:
         """Execute a query and return status string.
 
         Simulates asyncpg execute() behavior. Implements the actual
@@ -160,6 +161,7 @@ class MockPatternRepository:
         # Handle: Promote a single pattern
         if "UPDATE learned_patterns" in query and "validated" in query:
             pattern_id = args[0]
+            assert isinstance(pattern_id, UUID)
             if pattern_id in self.patterns:
                 p = self.patterns[pattern_id]
                 if p.status == "provisional":
