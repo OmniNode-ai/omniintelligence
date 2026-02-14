@@ -206,50 +206,50 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "onex.cmd.omniintelligence.code-analysis.v1"
-    - "onex.cmd.omniintelligence.document-ingestion.v1"
-    - "onex.cmd.omniintelligence.pattern-learning.v1"
-    - "onex.cmd.omniintelligence.quality-assessment.v1"
+    - "{env}.onex.cmd.omniintelligence.code-analysis.v1"
+    - "{env}.onex.cmd.omniintelligence.document-ingestion.v1"
+    - "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
+    - "{env}.onex.cmd.omniintelligence.quality-assessment.v1"
 
   publish_topics:
-    - "onex.evt.omniintelligence.code-analysis-completed.v1"
-    - "onex.evt.omniintelligence.code-analysis-failed.v1"
-    - "onex.evt.omniintelligence.document-ingestion-completed.v1"
-    - "onex.evt.omniintelligence.pattern-learning-completed.v1"
-    - "onex.evt.omniintelligence.quality-assessment-completed.v1"
+    - "{env}.onex.evt.omniintelligence.code-analysis-completed.v1"
+    - "{env}.onex.evt.omniintelligence.code-analysis-failed.v1"
+    - "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1"
+    - "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1"
 
   subscribe_topic_metadata:
-    "onex.cmd.omniintelligence.code-analysis.v1":
+    "{env}.onex.cmd.omniintelligence.code-analysis.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Code analysis operation requests"
-    "onex.cmd.omniintelligence.document-ingestion.v1":
+    "{env}.onex.cmd.omniintelligence.document-ingestion.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Document ingestion operation requests"
-    "onex.cmd.omniintelligence.pattern-learning.v1":
+    "{env}.onex.cmd.omniintelligence.pattern-learning.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Pattern learning operation requests"
-    "onex.cmd.omniintelligence.quality-assessment.v1":
+    "{env}.onex.cmd.omniintelligence.quality-assessment.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Quality assessment operation requests"
 
   publish_topic_metadata:
-    "onex.evt.omniintelligence.code-analysis-completed.v1":
+    "{env}.onex.evt.omniintelligence.code-analysis-completed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Code analysis workflow completed successfully"
       content_type: "application/json"
-    "onex.evt.omniintelligence.code-analysis-failed.v1":
+    "{env}.onex.evt.omniintelligence.code-analysis-failed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Code analysis workflow failed with error details"
       content_type: "application/json"
-    "onex.evt.omniintelligence.document-ingestion-completed.v1":
+    "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Document ingestion workflow completed successfully"
       content_type: "application/json"
-    "onex.evt.omniintelligence.pattern-learning-completed.v1":
+    "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Pattern learning workflow completed successfully"
       content_type: "application/json"
-    "onex.evt.omniintelligence.quality-assessment-completed.v1":
+    "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Quality assessment workflow completed successfully"
       content_type: "application/json"
