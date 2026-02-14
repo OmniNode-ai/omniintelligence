@@ -305,7 +305,9 @@ async def handle_stop(
     if kafka_producer is not None:
         command = ModelPatternLearningCommand(
             session_id=event.session_id,
-            correlation_id=str(event.correlation_id) if event.correlation_id is not None else str(uuid4()),
+            correlation_id=str(event.correlation_id)
+            if event.correlation_id is not None
+            else str(uuid4()),
             timestamp=datetime.now(UTC).isoformat(),
         )
         command_payload = command.model_dump()
@@ -516,6 +518,13 @@ async def handle_user_prompt_submit(
     """
     metadata: dict[str, Any] = {"handler": "user_prompt_submit"}
 
+    # Resolve correlation_id to a non-None UUID for downstream calls that
+    # require UUID (not UUID | None).  Follows the same fallback pattern
+    # established in handle_stop (line 308).
+    resolved_correlation_id: UUID = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
+
     # Extract prompt from payload
     prompt, extraction_source = _extract_prompt_from_payload(event.payload)
     metadata["prompt_extraction_source"] = extraction_source
@@ -544,7 +553,7 @@ async def handle_user_prompt_submit(
             classification_result = await _classify_intent(
                 prompt=prompt,
                 session_id=event.session_id,
-                correlation_id=event.correlation_id,
+                correlation_id=resolved_correlation_id,
                 classifier=intent_classifier,
             )
             intent_category = classification_result.get("intent_category", "unknown")
@@ -568,7 +577,7 @@ async def handle_user_prompt_submit(
                 intent_category=intent_category,
                 confidence=confidence,
                 keywords=keywords,
-                correlation_id=event.correlation_id,
+                correlation_id=resolved_correlation_id,
                 producer=kafka_producer,
                 topic=publish_topic,
             )
