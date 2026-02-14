@@ -644,15 +644,22 @@ def map_semantic_to_intent_boost(
             boosts[intent] = boosts.get(intent, 0.0) + domain_boost
 
     # Process concepts
+    # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
     concepts = semantic_result.get("concepts", [])
     for concept in concepts:
         concept_name = (
-            concept.get("name", "").lower().replace(" ", "_").replace("-", "_")
+            cast(str, concept.get("name", ""))
+            .lower()
+            .replace(" ", "_")
+            .replace("-", "_")
         )
         concept_category = (
-            concept.get("category", "").lower().replace(" ", "_").replace("-", "_")
+            cast(str, concept.get("category", ""))
+            .lower()
+            .replace(" ", "_")
+            .replace("-", "_")
         )
-        concept_confidence = concept.get("confidence", 0.0)
+        concept_confidence = cast(float, concept.get("confidence", 0.0))
 
         # Check concept name
         intent = DOMAIN_TO_INTENT_MAP.get(concept_name)
@@ -677,10 +684,16 @@ def map_semantic_to_intent_boost(
             boosts[intent] = boosts.get(intent, 0.0) + (topic_multiplier * weight)
 
     # Process explicit domains
+    # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
     domains = semantic_result.get("domains", [])
     for domain in domains:
-        domain_name = domain.get("name", "").lower().replace(" ", "_").replace("-", "_")
-        domain_confidence = domain.get("confidence", 0.0)
+        domain_name = (
+            cast(str, domain.get("name", ""))
+            .lower()
+            .replace(" ", "_")
+            .replace("-", "_")
+        )
+        domain_confidence = cast(float, domain.get("confidence", 0.0))
         intent = DOMAIN_TO_INTENT_MAP.get(domain_name)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (

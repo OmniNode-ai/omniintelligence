@@ -19,6 +19,29 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ModelDomainCandidate(BaseModel):
+    """A candidate domain classification with its confidence score.
+
+    Represents one entry in the domain_candidates JSONB array stored
+    in the learned_patterns table. Each candidate pairs a domain
+    identifier with a confidence score indicating how well the
+    pattern matches that domain.
+    """
+
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+    )
+
+    domain: str = Field(..., description="Domain identifier for this candidate")
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score for this domain classification",
+    )
+
+
 class ModelLearnedPatternRow(BaseModel):
     """Full row model for learned_patterns table.
 
@@ -43,7 +66,7 @@ class ModelLearnedPatternRow(BaseModel):
     domain_version: str = Field(..., max_length=20, description="Domain version")
 
     # Classification
-    domain_candidates: list[dict[str, object]] = Field(
+    domain_candidates: list[ModelDomainCandidate] = Field(
         default_factory=list,
         description="Candidate domains with scores",
     )
@@ -157,4 +180,4 @@ class ModelLearnedPatternRow(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
 
-__all__ = ["ModelLearnedPatternRow"]
+__all__ = ["ModelDomainCandidate", "ModelLearnedPatternRow"]

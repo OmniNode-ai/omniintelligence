@@ -43,7 +43,7 @@ import os
 import re
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -135,15 +135,16 @@ class ModelEventBusConfig(BaseModel):
     """
 
     enabled: bool = Field(
-        default=True,
-        description="Enable event bus for event-driven workflows",
+        default=False,
+        description="Enable event bus for event-driven workflows. "
+        "Defaults to disabled; set to true and provide bootstrap_servers to use Kafka.",
     )
 
     bootstrap_servers: str = Field(
-        default="${KAFKA_BOOTSTRAP_SERVERS}",
-        description="Kafka bootstrap servers (supports env var interpolation)",
+        default="",
+        description="Kafka bootstrap servers (supports env var interpolation). "
+        "Empty string is valid when event_bus is disabled.",
         examples=[
-            "${KAFKA_BOOTSTRAP_SERVERS}",
             "localhost:9092",
             "192.168.86.200:29092",
         ],
@@ -181,6 +182,17 @@ class ModelEventBusConfig(BaseModel):
         extra="forbid",
     )
 
+    @model_validator(mode="after")
+    def validate_bootstrap_servers_when_enabled(self) -> ModelEventBusConfig:
+        """Require non-empty bootstrap_servers when the event bus is enabled."""
+        if self.enabled and not self.bootstrap_servers:
+            raise ValueError(
+                "bootstrap_servers must be set when event_bus is enabled. "
+                "Set event_bus.enabled=false to run without Kafka, or provide "
+                "a valid bootstrap_servers value."
+            )
+        return self
+
 
 class ModelHandlerConfig(BaseModel):
     """
@@ -210,7 +222,7 @@ class ModelHandlerConfig(BaseModel):
         description="Whether this handler is enabled",
     )
 
-    config: dict[str, object] = Field(
+    config: dict[str, Any] = Field(
         default_factory=dict,
         description="Handler-specific configuration (passed to handler constructor)",
         examples=[
@@ -376,7 +388,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                     "log_level": "INFO",
                     "event_bus": {
                         "enabled": True,
-                        "bootstrap_servers": "${KAFKA_BOOTSTRAP_SERVERS}",
+                        "bootstrap_servers": "192.168.86.200:29092",
                         "consumer_group": "intelligence-runtime",
                         "topics": {
                             "commands": "onex.intelligence.cmd.v1",
@@ -512,6 +524,17 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
         """
         Load configuration from a YAML file.
 
+        Supports two YAML formats:
+
+        1. **Plain config YAML** - Top-level keys are runtime config fields
+           (runtime_name, log_level, event_bus, handlers, etc.).
+
+        2. **Contract YAML** - A full ONEX configuration contract where the
+           actual runtime config values live under the ``defaults`` key, alongside
+           contract metadata (contract_version, node_type, description, etc.).
+           When a ``defaults`` key is present, only that section is parsed as
+           runtime configuration.
+
         Args:
             path: Path to the YAML configuration file.
             interpolate_env: Whether to interpolate environment variables.
@@ -540,6 +563,16 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
 
         if data is None:
             data = {}
+
+        # If the YAML is a full contract document, extract the ``defaults``
+        # section which contains the actual runtime configuration values.
+        # Contract documents include metadata keys (contract_version,
+        # node_type, description, etc.) that are not part of the runtime
+        # config model.
+        if isinstance(data, dict) and "defaults" in data:
+            data = data["defaults"]
+            if data is None:
+                data = {}
 
         if interpolate_env:
             data = cls._interpolate_env_vars(data)
@@ -644,6 +677,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             runtime_name="intelligence-dev",
             log_level=EnumLogLevel.DEBUG,
             event_bus=ModelEventBusConfig(
+                enabled=True,
                 bootstrap_servers="localhost:9092",
                 consumer_group="intelligence-dev",
                 topics=ModelTopicConfig(
@@ -688,6 +722,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             runtime_name="intelligence-prod",
             log_level=EnumLogLevel.INFO,
             event_bus=ModelEventBusConfig(
+                enabled=True,
                 bootstrap_servers=bootstrap_servers,
                 consumer_group="intelligence-prod",
                 topics=ModelTopicConfig(

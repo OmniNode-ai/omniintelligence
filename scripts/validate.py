@@ -16,9 +16,9 @@ import argparse
 import subprocess
 import sys
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 # Project root detection - works from any directory
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -48,6 +48,12 @@ class ValidationResult:
     passed: bool
     blocking: bool
     message: str = ""
+
+
+class ValidatorFn(Protocol):
+    """Protocol for validator functions that accept an optional verbose flag."""
+
+    def __call__(self, *, verbose: bool = False) -> ValidationResult: ...
 
 
 def _parse_violation_count(output: str) -> int | None:
@@ -368,8 +374,10 @@ def run_clean_root(verbose: bool = False) -> ValidationResult:
 
     if not validator_path.exists():
         return ValidationResult(
-            name="clean_root", passed=True, blocking=False,
-            message=f"Validator not found: {validator_path}",
+            name="clean_root",
+            passed=False,
+            blocking=True,
+            message=f"Validator script missing: {validator_path}",
         )
 
     cmd = [sys.executable, str(validator_path), str(PROJECT_ROOT)]
@@ -390,7 +398,10 @@ def run_clean_root(verbose: bool = False) -> ValidationResult:
         message = f"Subprocess error: {e}"
 
     return ValidationResult(
-        name="clean_root", passed=passed, blocking=True, message=message,
+        name="clean_root",
+        passed=passed,
+        blocking=True,
+        message=message,
     )
 
 
@@ -400,8 +411,10 @@ def run_naming(verbose: bool = False) -> ValidationResult:
 
     if not validator_path.exists():
         return ValidationResult(
-            name="naming", passed=True, blocking=False,
-            message=f"Validator not found: {validator_path}",
+            name="naming",
+            passed=False,
+            blocking=True,
+            message=f"Validator script missing: {validator_path}",
         )
 
     cmd = [sys.executable, str(validator_path), str(SRC_DIR)]
@@ -481,7 +494,7 @@ def main() -> int:
     # Single validator mode
     if args.validator != "all":
         # Direct function validators
-        validator_map: dict[str, Callable[..., ValidationResult]] = {
+        validator_map: dict[str, ValidatorFn] = {
             "clean_root": run_clean_root,
             "naming": run_naming,
             "ruff": run_ruff,
@@ -496,16 +509,17 @@ def main() -> int:
             "naming-convention": ("validator_naming_convention", "naming-convention"),
             "enum-governance": ("checker_enum_governance", "enum-governance"),
             "enum-casing": ("checker_enum_member_casing", "enum-casing"),
-            "literal-duplication": ("checker_literal_duplication", "literal-duplication"),
+            "literal-duplication": (
+                "checker_literal_duplication",
+                "literal-duplication",
+            ),
         }
 
         if args.validator in validator_map:
             result = validator_map[args.validator](verbose=args.verbose)
         elif args.validator in standalone_validators:
             module, display = standalone_validators[args.validator]
-            result = run_standalone_validator(
-                module, display, verbose=args.verbose
-            )
+            result = run_standalone_validator(module, display, verbose=args.verbose)
         else:
             print(f"Unknown validator: {args.validator}")
             return 1

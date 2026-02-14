@@ -252,11 +252,38 @@ class IntelligenceNamingConventionValidator:
                 # subdirectories within a node follow their own conventions.
                 if relevant_dir == "nodes":
                     # Calculate depth: nodes/node_foo/node.py = depth 2
-                    # nodes/node_foo/handlers/utils.py = depth 3+
+                    # nodes/node_foo/handlers/handler_bar.py = depth 3+
                     depth_from_nodes = len(parts) - (idx + 2)
                     if depth_from_nodes > 2:
-                        # Deeply nested file — skip node-level prefix check.
-                        # These files follow their parent directory conventions.
+                        # Nested subdirectory within a node (e.g. handlers/,
+                        # models/).  Use the immediate parent directory's
+                        # prefix rules instead of the top-level "nodes" rules.
+                        immediate_parent = parts[-2]
+                        parent_prefixes = INTELLIGENCE_DIRECTORY_PREFIX_RULES.get(
+                            immediate_parent
+                        )
+                        if parent_prefixes:
+                            matches_prefix = False
+                            for prefix in parent_prefixes:
+                                if file_name.startswith(prefix) or file_name == prefix:
+                                    matches_prefix = True
+                                    break
+
+                            if not matches_prefix:
+                                prefix_list = sorted(parent_prefixes)[:3]
+                                if len(parent_prefixes) == 1:
+                                    prefix_str = f"'{prefix_list[0]}'"
+                                elif len(parent_prefixes) > 3:
+                                    prefix_str = f"one of {prefix_list}..."
+                                else:
+                                    prefix_str = f"one of {sorted(parent_prefixes)}"
+                                return (
+                                    f"File '{file_name}' in "
+                                    f"'{immediate_parent}/' should start "
+                                    f"with {prefix_str}",
+                                    "warning",
+                                )
+                        # No prefix rules for this subdirectory — skip.
                         return None, "info"
 
                 required_prefixes = INTELLIGENCE_DIRECTORY_PREFIX_RULES.get(
@@ -456,7 +483,9 @@ class IntelligenceNamingConventionValidator:
 
         if file_info.parse_error:
             if verbose:
-                print(f"  Warning: Could not parse {resolved_path}: {file_info.parse_error}")
+                print(
+                    f"  Warning: Could not parse {resolved_path}: {file_info.parse_error}"
+                )
             return
 
         for class_name, line_number in file_info.class_defs:
@@ -497,8 +526,7 @@ class IntelligenceNamingConventionValidator:
             try:
                 relative_path = file_path.relative_to(self.repo_path)
                 in_relevant_dir = (
-                    bool(relative_path.parts)
-                    and relative_path.parts[0] == expected_dir
+                    bool(relative_path.parts) and relative_path.parts[0] == expected_dir
                 )
             except ValueError:
                 pass
