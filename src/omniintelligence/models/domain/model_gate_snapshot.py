@@ -13,6 +13,7 @@ Evidence Tier Fields (OMN-2133):
     (denormalized column, attribution binder is sole writer).
 """
 
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,8 +21,13 @@ from pydantic import BaseModel, ConfigDict, Field
 # Valid evidence tier values matching EnumEvidenceTier
 EvidenceTierLiteral = Literal["unmeasured", "observed", "measured", "verified"]
 
-# Valid pipeline run result values
-RunResultLiteral = Literal["success", "partial", "failure"]
+
+class EnumRunResult(StrEnum):
+    """Valid pipeline run result values."""
+
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    FAILURE = "failure"
 
 
 class ModelGateSnapshot(BaseModel):
@@ -64,11 +70,11 @@ class ModelGateSnapshot(BaseModel):
         ge=0,
         description="Number of measured attribution records for this pattern at decision time",
     )
-    latest_run_result: RunResultLiteral | None = Field(
+    latest_run_result: EnumRunResult | None = Field(
         default=None,
         description="Overall result of the latest pipeline run (success|partial|failure). "
         "NULL if no run data available.",
     )
 
 
-__all__ = ["ModelGateSnapshot"]
+__all__ = ["EnumRunResult", "ModelGateSnapshot"]

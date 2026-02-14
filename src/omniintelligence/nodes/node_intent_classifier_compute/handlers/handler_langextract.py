@@ -54,10 +54,18 @@ if TYPE_CHECKING:
         All fields are populated by pure computation.
         """
 
-        concepts: list[dict[str, Any]]
-        themes: list[dict[str, Any]]
-        domains: list[dict[str, Any]]
-        patterns: list[dict[str, Any]]
+        concepts: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
+        themes: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
+        domains: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
+        patterns: list[
+            dict[str, Any]
+        ]  # any-ok: heterogeneous typed values (str names, float confidences)
         domain_indicators: list[str]
         topic_weights: dict[str, float]
         processing_time_ms: float
@@ -636,15 +644,22 @@ def map_semantic_to_intent_boost(
             boosts[intent] = boosts.get(intent, 0.0) + domain_boost
 
     # Process concepts
+    # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
     concepts = semantic_result.get("concepts", [])
     for concept in concepts:
         concept_name = (
-            concept.get("name", "").lower().replace(" ", "_").replace("-", "_")
+            cast(str, concept.get("name", ""))
+            .lower()
+            .replace(" ", "_")
+            .replace("-", "_")
         )
         concept_category = (
-            concept.get("category", "").lower().replace(" ", "_").replace("-", "_")
+            cast(str, concept.get("category", ""))
+            .lower()
+            .replace(" ", "_")
+            .replace("-", "_")
         )
-        concept_confidence = concept.get("confidence", 0.0)
+        concept_confidence = cast(float, concept.get("confidence", 0.0))
 
         # Check concept name
         intent = DOMAIN_TO_INTENT_MAP.get(concept_name)
@@ -669,10 +684,16 @@ def map_semantic_to_intent_boost(
             boosts[intent] = boosts.get(intent, 0.0) + (topic_multiplier * weight)
 
     # Process explicit domains
+    # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
     domains = semantic_result.get("domains", [])
     for domain in domains:
-        domain_name = domain.get("name", "").lower().replace(" ", "_").replace("-", "_")
-        domain_confidence = domain.get("confidence", 0.0)
+        domain_name = (
+            cast(str, domain.get("name", ""))
+            .lower()
+            .replace(" ", "_")
+            .replace("-", "_")
+        )
+        domain_confidence = cast(float, domain.get("confidence", 0.0))
         intent = DOMAIN_TO_INTENT_MAP.get(domain_name)
         if intent:
             boosts[intent] = boosts.get(intent, 0.0) + (
@@ -789,7 +810,9 @@ def _extract_concepts(
     domain_scores: dict[str, float],
     min_confidence: float,
     config: ModelSemanticAnalysisConfig,
-) -> list[dict[str, Any]]:
+) -> list[
+    dict[str, Any]
+]:  # any-ok: heterogeneous typed values (str names, float confidences)
     """Extract concepts from tokens based on domain analysis.
 
     Args:
@@ -839,7 +862,11 @@ def _extract_concepts(
     return concepts[:max_concepts]
 
 
-def _detect_themes(domain_indicators: list[str]) -> list[dict[str, Any]]:
+def _detect_themes(
+    domain_indicators: list[str],
+) -> list[
+    dict[str, Any]
+]:  # any-ok: heterogeneous typed values (str names, float weights, list domains)
     """Detect themes from domain indicators.
 
     Args:

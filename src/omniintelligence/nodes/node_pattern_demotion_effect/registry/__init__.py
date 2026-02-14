@@ -7,8 +7,8 @@ handler dependencies to the NodePatternDemotionEffect node.
 """
 
 from omniintelligence.nodes.node_pattern_demotion_effect.registry.registry_pattern_demotion_effect import (
+    RegistryDemotionHandlers,
     RegistryPatternDemotionEffect,
-    ServiceHandlerRegistry,
 )
 
-__all__ = ["RegistryPatternDemotionEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternDemotionEffect", "RegistryDemotionHandlers"]

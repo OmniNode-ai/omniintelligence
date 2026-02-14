@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
-from typing import Any
 
 import yaml
 
@@ -196,7 +195,7 @@ def _read_event_bus_topics(package: str, field: str) -> list[str]:
     package_files = importlib.resources.files(package)
     contract_file = package_files.joinpath("contract.yaml")
     content = contract_file.read_text()
-    contract: Any = yaml.safe_load(content)
+    contract: object = yaml.safe_load(content)
 
     if not isinstance(contract, dict):
         logger.warning(

@@ -32,15 +32,17 @@ class ProtocolPatternRepository(Protocol):
         rather than named parameters.
     """
 
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
+    # any-ok: asyncpg Record values are dynamically typed
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
         """Execute a query and return all results as Records."""
         ...
 
-    async def fetchrow(self, query: str, *args: Any) -> Mapping[str, Any] | None:
+    # any-ok: asyncpg Record values are dynamically typed
+    async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
         """Execute a query and return first row, or None."""
         ...
 
-    async def execute(self, query: str, *args: Any) -> str:
+    async def execute(self, query: str, *args: object) -> str:
         """Execute a query and return the status string."""
         ...
 
@@ -58,7 +60,7 @@ class ProtocolKafkaPublisher(Protocol):
         self,
         topic: str,
         key: str,
-        value: dict[str, Any],
+        value: dict[str, object],
     ) -> None:
         """Publish an event to a Kafka topic.
 

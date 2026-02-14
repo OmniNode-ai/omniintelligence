@@ -12,7 +12,7 @@ without triggering the full dependency chain.
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 # Lazy import map: name -> (module_path, attribute_name)
 _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
@@ -107,10 +107,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
 }
 
 # Cache for loaded imports
-_lazy_imports: dict[str, Any] = {}
+_lazy_imports: dict[str, object] = {}
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     """Lazy import handler for node classes."""
     if name in _LAZY_IMPORT_MAP:
         if name not in _lazy_imports:

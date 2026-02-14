@@ -72,7 +72,9 @@ class ProtocolIdempotencyStore(Protocol):
 class ProtocolIntentClassifier(Protocol):
     """Intent classification protocol."""
 
-    async def compute(self, input_data: Any) -> Any: ...
+    async def compute(
+        self, input_data: Any
+    ) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
 
 
 # =============================================================================
@@ -747,7 +749,7 @@ def create_dispatch_callback(
     dispatch_topic: str,
     *,
     correlation_id: UUID | None = None,
-) -> Callable[[Any], Awaitable[None]]:
+) -> Callable[[object], Awaitable[None]]:
     """Create an event bus callback that routes messages through the dispatch engine.
 
     The callback:
@@ -765,7 +767,7 @@ def create_dispatch_callback(
         Async callback compatible with event bus subscribe(on_message=...).
     """
 
-    async def _on_message(msg: Any) -> None:
+    async def _on_message(msg: object) -> None:
         """Event bus callback: raw message -> dispatch engine."""
         msg_correlation_id = correlation_id or uuid4()
 
@@ -773,7 +775,7 @@ def create_dispatch_callback(
             # Extract raw value from message
             if hasattr(msg, "value"):
                 raw_value = msg.value
-                if isinstance(raw_value, (bytes, bytearray)):
+                if isinstance(raw_value, bytes | bytearray):
                     payload_dict = json.loads(raw_value.decode("utf-8"))
                 elif isinstance(raw_value, str):
                     payload_dict = json.loads(raw_value)

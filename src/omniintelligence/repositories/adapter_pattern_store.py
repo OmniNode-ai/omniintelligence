@@ -105,7 +105,7 @@ class AdapterPatternStore:
     def _build_positional_args(
         self,
         op_name: str,
-        provided: dict[str, Any],
+        provided: dict[str, Any],  # any-ok: heterogeneous param values from caller
     ) -> tuple[Any, ...]:
         """Build positional args for runtime.call() from provided kwargs.
 
@@ -380,7 +380,8 @@ class AdapterPatternStore:
         result = await self._runtime.call("get_latest_version", *args)
 
         if result and isinstance(result, dict) and "version" in result:
-            return result["version"]
+            version: int = result["version"]
+            return version
         return None
 
     async def get_stored_at(
@@ -403,7 +404,8 @@ class AdapterPatternStore:
         result = await self._runtime.call("get_stored_at", *args)
 
         if result and isinstance(result, dict) and "created_at" in result:
-            return result["created_at"]
+            stored_at: datetime = result["created_at"]
+            return stored_at
         return None
 
     async def store_with_version_transition(
@@ -525,7 +527,11 @@ class AdapterPatternStore:
         return pattern_id
 
 
-def _convert_defaults_to_schema_value(contract_dict: dict[str, Any]) -> dict[str, Any]:
+def _convert_defaults_to_schema_value(
+    contract_dict: dict[
+        str, Any
+    ],  # any-ok: YAML-loaded contract data is dynamically typed
+) -> dict[str, Any]:
     """Convert plain default values to ModelSchemaValue format.
 
     The Pydantic schema expects `default` to be a ModelSchemaValue object,
@@ -540,7 +546,9 @@ def _convert_defaults_to_schema_value(contract_dict: dict[str, Any]) -> dict[str
     """
     from omnibase_core.models.common.model_schema_value import ModelSchemaValue
 
-    def convert_value(value: Any) -> dict[str, Any]:
+    def convert_value(
+        value: Any,
+    ) -> dict[str, Any]:  # any-ok: YAML values are dynamically typed
         """Convert a plain value to ModelSchemaValue dict format."""
         schema_value = ModelSchemaValue.from_value(value)
         return schema_value.model_dump()
@@ -620,9 +628,7 @@ async def create_pattern_store_adapter(pool: Pool) -> AdapterPatternStore:
 # The actual runtime check happens when the adapter is used with isinstance().
 
 if TYPE_CHECKING:
-    _adapter_protocol_check: ProtocolPatternStore = AdapterPatternStore(
-        None  # type: ignore[arg-type]
-    )
+    _adapter_protocol_check: ProtocolPatternStore = AdapterPatternStore(None)
 
 
 __all__ = [

@@ -21,7 +21,7 @@ class StepResultDict(TypedDict, total=False):
     duration_ms: float
     error_message: str
     error_code: str
-    output: dict[str, Any]  # Step-specific output data
+    output: dict[str, object]  # Step-specific output data
 
 
 class TraceParsingResultDict(TypedDict, total=False):
@@ -31,10 +31,10 @@ class TraceParsingResultDict(TypedDict, total=False):
     """
 
     success: bool
-    parsed_events: list[dict[str, Any]]
-    error_events: list[dict[str, Any]]
-    timing_data: dict[str, Any]
-    metadata: dict[str, Any]
+    parsed_events: list[dict[str, object]]
+    error_events: list[dict[str, object]]
+    timing_data: dict[str, object]
+    metadata: dict[str, object]
     duration_ms: float
     error_message: str
 
@@ -49,7 +49,7 @@ class IntentClassificationResultDict(TypedDict, total=False):
     primary_intent: str
     confidence: float
     secondary_intents: list[str]
-    classification_metadata: dict[str, Any]
+    classification_metadata: dict[str, object]
     duration_ms: float
     error_message: str
 
@@ -65,7 +65,7 @@ class CriteriaMatchingResultDict(TypedDict, total=False):
     criteria_failed: list[str]
     match_score: float
     overall_success: bool
-    metadata: dict[str, Any]
+    metadata: dict[str, object]
     duration_ms: float
     error_message: str
 
@@ -95,8 +95,8 @@ class AssemblyContextDict(TypedDict, total=False):
     content: str
     language: str
     framework: str
-    trace_events: list[dict[str, Any]]
-    trace_errors: list[dict[str, Any]]
+    trace_events: list[dict[str, object]]
+    trace_errors: list[dict[str, object]]
     primary_intent: str
     intent_confidence: float
     secondary_intents: list[str]
@@ -114,7 +114,9 @@ class ProtocolComputeNode(Protocol):
     to be orchestrated.
     """
 
-    async def compute(self, input_data: Any) -> Any:
+    async def compute(
+        self, input_data: Any
+    ) -> Any:  # any-ok: generic protocol for diverse compute nodes
         """Execute computation on input data.
 
         Args:

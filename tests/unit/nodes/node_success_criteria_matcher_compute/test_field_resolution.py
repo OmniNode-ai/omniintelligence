@@ -271,7 +271,7 @@ class TestResolveFieldPathValidationErrors:
         """Consecutive dots (empty token) should raise validation error."""
         data = {"a": {"b": "value"}}
         with pytest.raises(
-            CriteriaMatchingValidationError, match="empty token.*consecutive dots"
+            CriteriaMatchingValidationError, match=r"empty token.*consecutive dots"
         ):
             resolve_field_path(data, "a..b")
 
@@ -528,7 +528,8 @@ class TestValidateCriteriaSetDuplicateId:
             },
         ]
         with pytest.raises(
-            CriteriaMatchingValidationError, match="Duplicate criterion_id.*'duplicate'"
+            CriteriaMatchingValidationError,
+            match=r"Duplicate criterion_id.*'duplicate'",
         ):
             _validate_criteria_set(criteria)
 
@@ -662,7 +663,7 @@ class TestValidateCriteriaSetNegativeWeight:
             }
         ]
         with pytest.raises(
-            CriteriaMatchingValidationError, match="Negative weight.*-1.0"
+            CriteriaMatchingValidationError, match=r"Negative weight.*-1\.0"
         ):
             _validate_criteria_set(criteria)
 

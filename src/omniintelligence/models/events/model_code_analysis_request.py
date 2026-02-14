@@ -9,8 +9,6 @@ ONEX Compliance:
 - UUID pattern validation for correlation_id
 """
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from omniintelligence.enums.enum_code_analysis import EnumAnalysisOperationType
@@ -52,7 +50,7 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
     language: str = Field(
         default="python", description="Programming language of the content"
     )
-    options: dict[str, Any] = Field(
+    options: dict[str, object] = Field(
         default_factory=dict, description="Operation options"
     )
     project_id: str | None = Field(default=None, description="Project identifier")

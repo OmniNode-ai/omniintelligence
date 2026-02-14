@@ -31,8 +31,8 @@ from omniintelligence.nodes.node_pattern_storage_effect.constants import (
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
-    PatternNotFoundError,
-    PatternStateTransitionError,
+    ERROR_CODE_INVALID_TRANSITION,
+    ERROR_CODE_PATTERN_NOT_FOUND,
     handle_promote_pattern,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
@@ -188,7 +188,7 @@ class TestValidStateTransitions:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Pattern passed initial verification",
@@ -196,10 +196,12 @@ class TestValidStateTransitions:
             conn=mock_conn,
         )
 
-        assert event.from_state == EnumPatternState.CANDIDATE
-        assert event.to_state == EnumPatternState.PROVISIONAL
-        assert event.pattern_id == pattern_id
-        assert event.reason == "Pattern passed initial verification"
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.from_state == EnumPatternState.CANDIDATE
+        assert result.event.to_state == EnumPatternState.PROVISIONAL
+        assert result.event.pattern_id == pattern_id
+        assert result.event.reason == "Pattern passed initial verification"
 
     @pytest.mark.asyncio
     async def test_provisional_to_validated(
@@ -211,7 +213,7 @@ class TestValidStateTransitions:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.PROVISIONAL)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.VALIDATED,
             reason="Pattern met all validation criteria",
@@ -219,9 +221,11 @@ class TestValidStateTransitions:
             conn=mock_conn,
         )
 
-        assert event.from_state == EnumPatternState.PROVISIONAL
-        assert event.to_state == EnumPatternState.VALIDATED
-        assert event.is_valid_transition()
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.from_state == EnumPatternState.PROVISIONAL
+        assert result.event.to_state == EnumPatternState.VALIDATED
+        assert result.event.is_valid_transition()
 
     @pytest.mark.asyncio
     async def test_state_manager_updated(
@@ -233,7 +237,7 @@ class TestValidStateTransitions:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
@@ -241,6 +245,7 @@ class TestValidStateTransitions:
             conn=mock_conn,
         )
 
+        assert result.success is True
         # State should be updated in the manager
         assert (
             await mock_state_manager.get_current_state(pattern_id, mock_conn)
@@ -257,7 +262,7 @@ class TestValidStateTransitions:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
@@ -266,6 +271,7 @@ class TestValidStateTransitions:
             actor="test_workflow",
         )
 
+        assert result.success is True
         # Check audit trail
         assert len(mock_state_manager.transitions) == 1
         transition = mock_state_manager.transitions[0]
@@ -290,22 +296,24 @@ class TestInvalidStateTransitions:
         mock_state_manager: MockPatternStateManager,
         mock_conn: MagicMock,
     ) -> None:
-        """Invalid transition: CANDIDATE -> VALIDATED must be rejected."""
+        """Invalid transition: CANDIDATE -> VALIDATED must return structured error."""
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        with pytest.raises(PatternStateTransitionError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.VALIDATED,  # Skips PROVISIONAL
-                reason="Attempting invalid skip",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.VALIDATED,  # Skips PROVISIONAL
+            reason="Attempting invalid skip",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
 
-        assert exc_info.value.pattern_id == pattern_id
-        assert exc_info.value.from_state == EnumPatternState.CANDIDATE
-        assert exc_info.value.to_state == EnumPatternState.VALIDATED
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_INVALID_TRANSITION
+        assert result.pattern_id == pattern_id
+        assert result.from_state == EnumPatternState.CANDIDATE
+        assert result.to_state == EnumPatternState.VALIDATED
+        assert result.event is None
 
     @pytest.mark.asyncio
     async def test_validated_to_any_rejected(
@@ -313,29 +321,31 @@ class TestInvalidStateTransitions:
         mock_state_manager: MockPatternStateManager,
         mock_conn: MagicMock,
     ) -> None:
-        """Invalid transition: VALIDATED -> any state must be rejected."""
+        """Invalid transition: VALIDATED -> any state must return structured error."""
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.VALIDATED)
 
         # Try VALIDATED -> CANDIDATE
-        with pytest.raises(PatternStateTransitionError):
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.CANDIDATE,
-                reason="Attempting to demote validated pattern",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.CANDIDATE,
+            reason="Attempting to demote validated pattern",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_INVALID_TRANSITION
 
         # Try VALIDATED -> PROVISIONAL
-        with pytest.raises(PatternStateTransitionError):
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.PROVISIONAL,
-                reason="Attempting to demote validated pattern",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.PROVISIONAL,
+            reason="Attempting to demote validated pattern",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_INVALID_TRANSITION
 
     @pytest.mark.asyncio
     async def test_provisional_to_candidate_rejected(
@@ -343,18 +353,19 @@ class TestInvalidStateTransitions:
         mock_state_manager: MockPatternStateManager,
         mock_conn: MagicMock,
     ) -> None:
-        """Invalid transition: PROVISIONAL -> CANDIDATE must be rejected."""
+        """Invalid transition: PROVISIONAL -> CANDIDATE must return structured error."""
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.PROVISIONAL)
 
-        with pytest.raises(PatternStateTransitionError):
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.CANDIDATE,  # Reverse transition
-                reason="Attempting reverse transition",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.CANDIDATE,  # Reverse transition
+            reason="Attempting reverse transition",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_INVALID_TRANSITION
 
     @pytest.mark.asyncio
     async def test_error_message_contains_valid_targets(
@@ -366,18 +377,18 @@ class TestInvalidStateTransitions:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        with pytest.raises(PatternStateTransitionError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=pattern_id,
-                to_state=EnumPatternState.VALIDATED,
-                reason="Invalid skip",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=pattern_id,
+            to_state=EnumPatternState.VALIDATED,
+            reason="Invalid skip",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
 
-        error_message = str(exc_info.value)
+        assert result.success is False
+        assert result.error_message is not None
         # Should mention valid targets from CANDIDATE (which is PROVISIONAL)
-        assert "provisional" in error_message.lower()
+        assert "provisional" in result.error_message.lower()
 
 
 # =============================================================================
@@ -390,25 +401,27 @@ class TestPatternNotFound:
     """Tests for handling non-existent patterns."""
 
     @pytest.mark.asyncio
-    async def test_not_found_raises_error(
+    async def test_not_found_returns_structured_error(
         self,
         mock_state_manager: MockPatternStateManager,
         mock_conn: MagicMock,
     ) -> None:
-        """Promoting non-existent pattern should raise PatternNotFoundError."""
+        """Promoting non-existent pattern should return structured error."""
         non_existent_id = uuid4()
         # Don't set any state - pattern doesn't exist
 
-        with pytest.raises(PatternNotFoundError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=non_existent_id,
-                to_state=EnumPatternState.PROVISIONAL,
-                reason="Attempting to promote non-existent pattern",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=non_existent_id,
+            to_state=EnumPatternState.PROVISIONAL,
+            reason="Attempting to promote non-existent pattern",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
 
-        assert exc_info.value.pattern_id == non_existent_id
+        assert result.success is False
+        assert result.error_code == ERROR_CODE_PATTERN_NOT_FOUND
+        assert result.pattern_id == non_existent_id
+        assert result.event is None
 
     @pytest.mark.asyncio
     async def test_not_found_error_message(
@@ -416,19 +429,20 @@ class TestPatternNotFound:
         mock_state_manager: MockPatternStateManager,
         mock_conn: MagicMock,
     ) -> None:
-        """PatternNotFoundError should have informative message."""
+        """Not-found result should have informative error message."""
         non_existent_id = uuid4()
 
-        with pytest.raises(PatternNotFoundError) as exc_info:
-            await handle_promote_pattern(
-                pattern_id=non_existent_id,
-                to_state=EnumPatternState.PROVISIONAL,
-                reason="Test",
-                state_manager=mock_state_manager,
-                conn=mock_conn,
-            )
+        result = await handle_promote_pattern(
+            pattern_id=non_existent_id,
+            to_state=EnumPatternState.PROVISIONAL,
+            reason="Test",
+            state_manager=mock_state_manager,
+            conn=mock_conn,
+        )
 
-        assert str(non_existent_id) in str(exc_info.value)
+        assert result.success is False
+        assert result.error_message is not None
+        assert str(non_existent_id) in result.error_message
 
 
 # =============================================================================
@@ -457,7 +471,7 @@ class TestMetricsSnapshot:
             validation_count=5,
         )
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
@@ -466,12 +480,14 @@ class TestMetricsSnapshot:
             conn=mock_conn,
         )
 
+        assert result.success is True
+        assert result.event is not None
         # metrics_snapshot should be present when explicitly provided
-        assert event.metrics_snapshot is not None
-        assert event.metrics_snapshot.confidence == 0.85
-        assert event.metrics_snapshot.match_count == 10
-        assert event.metrics_snapshot.success_rate == 0.9
-        assert event.metrics_snapshot.validation_count == 5
+        assert result.event.metrics_snapshot is not None
+        assert result.event.metrics_snapshot.confidence == 0.85
+        assert result.event.metrics_snapshot.match_count == 10
+        assert result.event.metrics_snapshot.success_rate == 0.9
+        assert result.event.metrics_snapshot.validation_count == 5
 
     @pytest.mark.asyncio
     async def test_default_metrics_when_not_provided(
@@ -488,7 +504,7 @@ class TestMetricsSnapshot:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Verification passed",
@@ -497,9 +513,11 @@ class TestMetricsSnapshot:
             # No metrics_snapshot provided
         )
 
+        assert result.success is True
+        assert result.event is not None
         # metrics_snapshot should be None when not provided
         # This is intentional to avoid misleading 0.0 confidence values
-        assert event.metrics_snapshot is None
+        assert result.event.metrics_snapshot is None
 
 
 # =============================================================================
@@ -521,7 +539,7 @@ class TestActorAndCorrelation:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
@@ -530,7 +548,9 @@ class TestActorAndCorrelation:
             actor="verification_workflow",
         )
 
-        assert event.actor == "verification_workflow"
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.actor == "verification_workflow"
 
     @pytest.mark.asyncio
     async def test_default_actor_when_not_provided(
@@ -542,7 +562,7 @@ class TestActorAndCorrelation:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
@@ -550,7 +570,9 @@ class TestActorAndCorrelation:
             conn=mock_conn,
         )
 
-        assert event.actor == DEFAULT_ACTOR
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.actor == DEFAULT_ACTOR
 
     @pytest.mark.asyncio
     async def test_correlation_id_propagated(
@@ -563,7 +585,7 @@ class TestActorAndCorrelation:
         correlation_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
@@ -572,7 +594,9 @@ class TestActorAndCorrelation:
             correlation_id=correlation_id,
         )
 
-        assert event.correlation_id == correlation_id
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.correlation_id == correlation_id
 
 
 # =============================================================================
@@ -594,7 +618,7 @@ class TestEventValidTransition:
         pattern_id = uuid4()
         mock_state_manager.set_state(pattern_id, EnumPatternState.CANDIDATE)
 
-        event = await handle_promote_pattern(
+        result = await handle_promote_pattern(
             pattern_id=pattern_id,
             to_state=EnumPatternState.PROVISIONAL,
             reason="Test",
@@ -602,7 +626,9 @@ class TestEventValidTransition:
             conn=mock_conn,
         )
 
-        assert event.is_valid_transition() is True
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.is_valid_transition() is True
 
 
 # =============================================================================

@@ -4,6 +4,9 @@ This module contains core domain models that are used across multiple nodes
 and modules. Moving these here breaks circular import chains.
 """
 
-from omniintelligence.models.domain.model_gate_snapshot import ModelGateSnapshot
+from omniintelligence.models.domain.model_gate_snapshot import (
+    EvidenceTierLiteral,
+    ModelGateSnapshot,
+)
 
-__all__ = ["ModelGateSnapshot"]
+__all__ = ["EvidenceTierLiteral", "ModelGateSnapshot"]

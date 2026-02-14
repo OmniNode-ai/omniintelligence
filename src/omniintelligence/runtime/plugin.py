@@ -67,7 +67,7 @@ import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import asyncpg
@@ -607,8 +607,8 @@ class PluginIntelligence:
 
     def _build_topic_handlers(
         self,
-        correlation_id: Any,
-    ) -> dict[str, Callable[[Any], Awaitable[None]]]:
+        correlation_id: object,
+    ) -> dict[str, Callable[[object], Awaitable[None]]]:
         """Build handler map for each intelligence topic.
 
         Returns a dict mapping topic -> async callback. All intelligence
@@ -638,7 +638,7 @@ class PluginIntelligence:
             create_dispatch_callback,
         )
 
-        handlers: dict[str, Callable[[Any], Awaitable[None]]] = {}
+        handlers: dict[str, Callable[[object], Awaitable[None]]] = {}
 
         for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
             dispatch_alias = canonical_topic_to_dispatch_alias(topic)

@@ -12,14 +12,11 @@ Reference:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any  # any-ok: test fixture factories use **kwargs: Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-
-if TYPE_CHECKING:
-    pass
 
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
     ModelPatternStorageInput,

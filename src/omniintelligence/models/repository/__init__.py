@@ -5,6 +5,7 @@ to typed Python objects. They are referenced by repository contract YAML files.
 """
 
 from omniintelligence.models.repository.model_learned_pattern_row import (
+    ModelDomainCandidate,
     ModelLearnedPatternRow,
 )
 from omniintelligence.models.repository.model_pattern_for_injection import (
@@ -21,6 +22,7 @@ from omniintelligence.models.repository.model_scalar_results import (
 )
 
 __all__ = [
+    "ModelDomainCandidate",
     "ModelExistsResult",
     "ModelIdResult",
     "ModelLearnedPatternRow",
