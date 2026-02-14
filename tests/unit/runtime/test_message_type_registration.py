@@ -104,9 +104,9 @@ class TestHasMessageType:
         self, frozen_registry: RegistryMessageType, message_type: str
     ) -> None:
         """Each registered type is discoverable via has_message_type."""
-        assert frozen_registry.has_message_type(
-            message_type
-        ), f"Message type '{message_type}' should be registered"
+        assert frozen_registry.has_message_type(message_type), (
+            f"Message type '{message_type}' should be registered"
+        )
 
     def test_unregistered_type_not_found(
         self, frozen_registry: RegistryMessageType

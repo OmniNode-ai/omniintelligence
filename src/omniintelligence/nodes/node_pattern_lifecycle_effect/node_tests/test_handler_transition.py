@@ -713,9 +713,9 @@ class TestProvisionalGuard:
         )
 
         # Assert
-        assert (
-            result.success is False
-        ), "Should reject to_status=PROVISIONAL from non-CANDIDATE"
+        assert result.success is False, (
+            "Should reject to_status=PROVISIONAL from non-CANDIDATE"
+        )
 
     @pytest.mark.asyncio
     async def test_provisional_guard_before_idempotency_check(

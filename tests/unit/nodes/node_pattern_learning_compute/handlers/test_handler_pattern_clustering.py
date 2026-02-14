@@ -817,9 +817,9 @@ class TestClusterPatternsDeterminismContract:
 
         # Verify leaders are in ascending order (which determines cluster_id order)
         leaders = [cluster["member_ids"][0] for cluster in result]
-        assert leaders == sorted(
-            leaders
-        ), f"Cluster leaders are not in ascending order: {leaders}"
+        assert leaders == sorted(leaders), (
+            f"Cluster leaders are not in ascending order: {leaders}"
+        )
 
 
 # =============================================================================
@@ -1637,9 +1637,9 @@ class TestClusterPatternsReplayInvariants:
         input_item_ids = {f["item_id"] for f in features}
         assigned_item_ids = set(assignment_map.keys())
 
-        assert len(assignment_map) == len(
-            features
-        ), f"Assignment map size {len(assignment_map)} != input size {len(features)}"
+        assert len(assignment_map) == len(features), (
+            f"Assignment map size {len(assignment_map)} != input size {len(features)}"
+        )
         assert assigned_item_ids == input_item_ids, (
             f"Assignment map keys mismatch. "
             f"Missing: {input_item_ids - assigned_item_ids}, "
@@ -1648,9 +1648,9 @@ class TestClusterPatternsReplayInvariants:
 
         # Invariant 2: No duplicate item_ids (implicitly verified by dict keys)
         # But verify explicitly that each item_id maps to exactly one cluster
-        assert len(list(assignment_map.keys())) == len(
-            set(assignment_map.keys())
-        ), "Duplicate item_ids detected in assignment_map"
+        assert len(list(assignment_map.keys())) == len(set(assignment_map.keys())), (
+            "Duplicate item_ids detected in assignment_map"
+        )
 
     def test_invariant_leaders_match_min_member_ids(
         self,
@@ -1765,14 +1765,14 @@ class TestClusterPatternsReplayInvariants:
 
         # Additional verification: All cluster_ids follow the expected format
         for cluster_id in assigned_cluster_ids:
-            assert cluster_id.startswith(
-                "cluster-"
-            ), f"Invalid cluster_id format: '{cluster_id}'"
+            assert cluster_id.startswith("cluster-"), (
+                f"Invalid cluster_id format: '{cluster_id}'"
+            )
             # Verify 4-digit padding: cluster-0001, cluster-0002, etc.
             suffix = cluster_id[8:]
-            assert (
-                len(suffix) == 4 and suffix.isdigit()
-            ), f"Cluster ID should have 4-digit suffix, got: '{cluster_id}'"
+            assert len(suffix) == 4 and suffix.isdigit(), (
+                f"Cluster ID should have 4-digit suffix, got: '{cluster_id}'"
+            )
 
     def test_golden_dataset_exact_assignment(
         self,

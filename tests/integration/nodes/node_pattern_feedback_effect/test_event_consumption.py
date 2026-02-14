@@ -475,12 +475,12 @@ class TestDLQRouting:
 
         # Verify the exception contains debugging context
         error_str = str(exc_info.value)
-        assert (
-            "Connection refused" in error_str
-        ), "Error should contain connection details for DLQ debugging"
-        assert (
-            "192.168.86.200" in error_str or "server" in error_str
-        ), "Error should contain server identification"
+        assert "Connection refused" in error_str, (
+            "Error should contain connection details for DLQ debugging"
+        )
+        assert "192.168.86.200" in error_str or "server" in error_str, (
+            "Error should contain server identification"
+        )
 
         # Verify the caller (RuntimeHostProcess) has access to the
         # session context needed for DLQ message construction.

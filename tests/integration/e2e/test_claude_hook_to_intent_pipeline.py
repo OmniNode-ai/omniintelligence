@@ -181,9 +181,9 @@ def _validate_intent_classified_event(
     """
     # event_type
     assert "event_type" in event_payload, "Missing 'event_type' field"
-    assert (
-        event_payload["event_type"] == "IntentClassified"
-    ), f"Expected event_type='IntentClassified', got '{event_payload['event_type']}'"
+    assert event_payload["event_type"] == "IntentClassified", (
+        f"Expected event_type='IntentClassified', got '{event_payload['event_type']}'"
+    )
 
     # session_id preservation
     assert "session_id" in event_payload, "Missing 'session_id' field"
@@ -202,27 +202,27 @@ def _validate_intent_classified_event(
     # intent_category is populated
     assert "intent_category" in event_payload, "Missing 'intent_category' field"
     intent_category = event_payload["intent_category"]
-    assert isinstance(
-        intent_category, str
-    ), f"intent_category must be a string, got {type(intent_category).__name__}"
+    assert isinstance(intent_category, str), (
+        f"intent_category must be a string, got {type(intent_category).__name__}"
+    )
     assert len(intent_category) > 0, "intent_category must not be empty"
 
     # confidence is a valid float
     assert "confidence" in event_payload, "Missing 'confidence' field"
     confidence = event_payload["confidence"]
-    assert isinstance(
-        confidence, int | float
-    ), f"confidence must be numeric, got {type(confidence).__name__}"
-    assert (
-        0.0 <= float(confidence) <= 1.0
-    ), f"confidence must be in [0.0, 1.0], got {confidence}"
+    assert isinstance(confidence, int | float), (
+        f"confidence must be numeric, got {type(confidence).__name__}"
+    )
+    assert 0.0 <= float(confidence) <= 1.0, (
+        f"confidence must be in [0.0, 1.0], got {confidence}"
+    )
 
     # timestamp is present and parseable
     assert "timestamp" in event_payload, "Missing 'timestamp' field"
     timestamp_str = event_payload["timestamp"]
-    assert isinstance(
-        timestamp_str, str
-    ), f"timestamp must be a string, got {type(timestamp_str).__name__}"
+    assert isinstance(timestamp_str, str), (
+        f"timestamp must be a string, got {type(timestamp_str).__name__}"
+    )
     assert len(timestamp_str) > 0, "timestamp must not be empty"
 
 
@@ -297,15 +297,15 @@ class TestClaudeHookToIntentPipelineInmemory:
             )
 
             # Verify handler succeeded
-            assert (
-                result.status == EnumHookProcessingStatus.SUCCESS
-            ), f"Handler returned status={result.status}, error={result.error_message}"
-            assert (
-                result.intent_result is not None
-            ), "Handler must produce an intent_result for UserPromptSubmit"
-            assert (
-                result.intent_result.emitted_to_kafka is True
-            ), "Intent result must be emitted to Kafka"
+            assert result.status == EnumHookProcessingStatus.SUCCESS, (
+                f"Handler returned status={result.status}, error={result.error_message}"
+            )
+            assert result.intent_result is not None, (
+                "Handler must produce an intent_result for UserPromptSubmit"
+            )
+            assert result.intent_result.emitted_to_kafka is True, (
+                "Intent result must be emitted to Kafka"
+            )
 
             # Verify correlation_id preserved in handler result
             assert result.correlation_id == correlation_id, (
@@ -341,9 +341,9 @@ class TestClaudeHookToIntentPipelineInmemory:
 
             # Verify message key is the session_id (used for partitioning).
             # EventBusInmemory preserves keys, and the adapter always encodes them.
-            assert (
-                output_message.key is not None
-            ), "Message key must be set (session_id for Kafka partitioning)"
+            assert output_message.key is not None, (
+                "Message key must be set (session_id for Kafka partitioning)"
+            )
             key_str = output_message.key.decode("utf-8")
             assert key_str == session_id, (
                 f"Message key should be session_id for partitioning: "
@@ -352,9 +352,9 @@ class TestClaudeHookToIntentPipelineInmemory:
 
             # Verify event history for debugging
             history = await event_bus.get_event_history(topic=output_topic)
-            assert (
-                len(history) == 1
-            ), f"Event history should have 1 entry, got {len(history)}"
+            assert len(history) == 1, (
+                f"Event history should have 1 entry, got {len(history)}"
+            )
 
             # Clean up subscription
             await unsubscribe()
@@ -364,9 +364,9 @@ class TestClaudeHookToIntentPipelineInmemory:
 
         # Verify test completed within time budget
         elapsed = time.monotonic() - start_time
-        assert (
-            elapsed < MAX_TEST_DURATION_SECONDS
-        ), f"Test took {elapsed:.2f}s, exceeding {MAX_TEST_DURATION_SECONDS}s limit"
+        assert elapsed < MAX_TEST_DURATION_SECONDS, (
+            f"Test took {elapsed:.2f}s, exceeding {MAX_TEST_DURATION_SECONDS}s limit"
+        )
 
     async def test_pipeline_preserves_correlation_across_unique_events(
         self,
@@ -435,9 +435,9 @@ class TestClaudeHookToIntentPipelineInmemory:
             assert result_b.status == EnumHookProcessingStatus.SUCCESS
 
             # Verify both events produced
-            assert (
-                len(received_messages) == 2
-            ), f"Expected 2 IntentClassified events, got {len(received_messages)}"
+            assert len(received_messages) == 2, (
+                f"Expected 2 IntentClassified events, got {len(received_messages)}"
+            )
 
             # Parse and validate each independently
             payload_a = json.loads(received_messages[0].value)
@@ -458,9 +458,9 @@ class TestClaudeHookToIntentPipelineInmemory:
             assert payload_b["session_id"] == session_b
 
             # No cross-contamination
-            assert (
-                payload_a["correlation_id"] != payload_b["correlation_id"]
-            ), "Events must have distinct correlation_ids"
+            assert payload_a["correlation_id"] != payload_b["correlation_id"], (
+                "Events must have distinct correlation_ids"
+            )
 
             await unsubscribe()
 
@@ -514,9 +514,9 @@ class TestClaudeHookToIntentPipelineInmemory:
             )
 
             assert result_start.status == EnumHookProcessingStatus.SUCCESS
-            assert (
-                result_start.intent_result is None
-            ), "SessionStart must not produce intent_result"
+            assert result_start.intent_result is None, (
+                "SessionStart must not produce intent_result"
+            )
 
             # --- Stop (should also be no-op) ---
             stop_event = ModelClaudeCodeHookEvent(
@@ -534,9 +534,9 @@ class TestClaudeHookToIntentPipelineInmemory:
             )
 
             assert result_stop.status == EnumHookProcessingStatus.SUCCESS
-            assert (
-                result_stop.intent_result is None
-            ), "Stop must not produce intent_result"
+            assert result_stop.intent_result is None, (
+                "Stop must not produce intent_result"
+            )
 
             # Verify no output events were published for either no-op event
             assert len(received_messages) == 0, (
@@ -630,9 +630,9 @@ class TestClaudeHookToIntentPipelineRealKafka:
             publish_topic=full_output_topic,
         )
 
-        assert (
-            result.status == EnumHookProcessingStatus.SUCCESS
-        ), f"Handler failed: {result.error_message}"
+        assert result.status == EnumHookProcessingStatus.SUCCESS, (
+            f"Handler failed: {result.error_message}"
+        )
         assert result.intent_result is not None
         assert result.intent_result.emitted_to_kafka is True
 
@@ -663,9 +663,9 @@ class TestClaudeHookToIntentPipelineRealKafka:
 
         # Verify within time budget
         elapsed = time.monotonic() - start_time
-        assert (
-            elapsed < MAX_TEST_DURATION_SECONDS
-        ), f"Test took {elapsed:.2f}s, exceeding {MAX_TEST_DURATION_SECONDS}s limit"
+        assert elapsed < MAX_TEST_DURATION_SECONDS, (
+            f"Test took {elapsed:.2f}s, exceeding {MAX_TEST_DURATION_SECONDS}s limit"
+        )
 
     async def test_pipeline_real_kafka_correlation_preserved(
         self,
@@ -707,9 +707,9 @@ class TestClaudeHookToIntentPipelineRealKafka:
                 our_event = value
                 break
 
-        assert (
-            our_event is not None
-        ), f"Could not find published event with session_id={session_id}"
+        assert our_event is not None, (
+            f"Could not find published event with session_id={session_id}"
+        )
 
         _validate_intent_classified_event(
             our_event,

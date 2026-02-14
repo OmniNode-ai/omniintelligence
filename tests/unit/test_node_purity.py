@@ -647,9 +647,9 @@ class TestFixtureValidation:
     def test_pure_node_fixture_is_pure(self, pure_node_example: Path) -> None:
         """Verify pure node fixture passes purity check."""
         result = check_node_purity(pure_node_example)
-        assert (
-            result.is_pure
-        ), f"Pure fixture should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"Pure fixture should be pure, violations: {result.violations}"
+        )
         assert not result.is_stub
         assert result.node_class_name == "NodeTestPureCompute"
         assert result.base_class == "NodeCompute"
@@ -911,9 +911,9 @@ class NodeTest(NodeCompute):
         file_path.write_text(code)
         result = check_node_purity(file_path)
         assert not result.is_stub
-        assert (
-            result.is_pure
-        ), f"Node with interface method should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"Node with interface method should be pure, violations: {result.violations}"
+        )
 
 
 # =========================================================================
@@ -940,9 +940,9 @@ class TestRealNodeFiles:
 
         result = check_node_purity(node_path)
         assert not result.is_stub, "intelligence_orchestrator should not be a stub"
-        assert (
-            result.is_pure
-        ), f"intelligence_orchestrator should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"intelligence_orchestrator should be pure, violations: {result.violations}"
+        )
         assert result.node_class_name == "NodeIntelligenceOrchestrator"
         assert result.base_class == "NodeOrchestrator"
 
@@ -954,9 +954,9 @@ class TestRealNodeFiles:
 
         result = check_node_purity(node_path)
         assert not result.is_stub, "intelligence_reducer should not be a stub"
-        assert (
-            result.is_pure
-        ), f"intelligence_reducer should be pure, violations: {result.violations}"
+        assert result.is_pure, (
+            f"intelligence_reducer should be pure, violations: {result.violations}"
+        )
         assert result.node_class_name == "NodeIntelligenceReducer"
         assert result.base_class == "NodeReducer"
 
@@ -976,9 +976,9 @@ class TestRealNodeFiles:
 
             result = check_node_purity(node_path)
             assert result.is_stub, f"{node_name} should be detected as stub"
-            assert (
-                result.is_pure
-            ), f"Stub node {node_name} should pass purity check (skipped)"
+            assert result.is_pure, (
+                f"Stub node {node_name} should pass purity check (skipped)"
+            )
 
     def test_all_non_stub_nodes_are_pure(self, nodes_directory: Path) -> None:
         """All non-stub nodes should pass purity checks.

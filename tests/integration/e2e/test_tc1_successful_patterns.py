@@ -94,9 +94,9 @@ class TestTC1SuccessfulPatternExtraction:
 
         # Assert: Metrics are populated
         assert result["metrics"] is not None, "Metrics should be populated"
-        assert (
-            result["metrics"].input_count == 5
-        ), f"Expected input_count=5, got {result['metrics'].input_count}"
+        assert result["metrics"].input_count == 5, (
+            f"Expected input_count=5, got {result['metrics'].input_count}"
+        )
 
     def test_pattern_confidence_is_positive(
         self,
@@ -125,9 +125,9 @@ class TestTC1SuccessfulPatternExtraction:
         learned = list(result["learned_patterns"])
         candidates = list(result["candidate_patterns"])
         all_patterns = learned + candidates
-        assert (
-            len(all_patterns) >= MIN_EXPECTED_PATTERNS
-        ), "Should have at least one pattern to verify confidence"
+        assert len(all_patterns) >= MIN_EXPECTED_PATTERNS, (
+            "Should have at least one pattern to verify confidence"
+        )
 
         # Assert: All patterns have positive (> 0) confidence
         for pattern in all_patterns:
@@ -146,9 +146,9 @@ class TestTC1SuccessfulPatternExtraction:
             )
 
         # Assert: Mean confidence from metrics is positive
-        assert (
-            result["metrics"].mean_confidence > 0
-        ), f"Mean confidence {result['metrics'].mean_confidence:.3f} should be > 0"
+        assert result["metrics"].mean_confidence > 0, (
+            f"Mean confidence {result['metrics'].mean_confidence:.3f} should be > 0"
+        )
 
     def test_pattern_has_required_fields(
         self,
@@ -181,9 +181,9 @@ class TestTC1SuccessfulPatternExtraction:
         learned = list(result["learned_patterns"])
         candidates = list(result["candidate_patterns"])
         all_patterns = learned + candidates
-        assert (
-            len(all_patterns) >= MIN_EXPECTED_PATTERNS
-        ), "Should have at least one pattern to verify structure"
+        assert len(all_patterns) >= MIN_EXPECTED_PATTERNS, (
+            "Should have at least one pattern to verify structure"
+        )
 
         # Assert: Each pattern has required fields
         for pattern in all_patterns:
@@ -196,39 +196,39 @@ class TestTC1SuccessfulPatternExtraction:
             assert pattern.category, "category should not be empty"
 
             # Signature info
-            assert (
-                pattern.signature_info is not None
-            ), "signature_info should not be None"
-            assert (
-                pattern.signature_info.signature
-            ), f"Pattern '{pattern.pattern_name}' should have non-empty signature"
-            assert (
-                pattern.signature_info.signature_version is not None
-            ), "signature_version should not be None"
+            assert pattern.signature_info is not None, (
+                "signature_info should not be None"
+            )
+            assert pattern.signature_info.signature, (
+                f"Pattern '{pattern.pattern_name}' should have non-empty signature"
+            )
+            assert pattern.signature_info.signature_version is not None, (
+                "signature_version should not be None"
+            )
 
             # Score components
-            assert (
-                pattern.score_components is not None
-            ), "score_components should not be None"
-            assert (
-                0.0 <= pattern.score_components.confidence <= 1.0
-            ), f"Confidence {pattern.score_components.confidence} should be in [0, 1]"
-            assert (
-                0.0 <= pattern.score_components.label_agreement <= 1.0
-            ), "label_agreement should be in [0, 1]"
-            assert (
-                0.0 <= pattern.score_components.cluster_cohesion <= 1.0
-            ), "cluster_cohesion should be in [0, 1]"
+            assert pattern.score_components is not None, (
+                "score_components should not be None"
+            )
+            assert 0.0 <= pattern.score_components.confidence <= 1.0, (
+                f"Confidence {pattern.score_components.confidence} should be in [0, 1]"
+            )
+            assert 0.0 <= pattern.score_components.label_agreement <= 1.0, (
+                "label_agreement should be in [0, 1]"
+            )
+            assert 0.0 <= pattern.score_components.cluster_cohesion <= 1.0, (
+                "cluster_cohesion should be in [0, 1]"
+            )
 
             # Lifecycle state
-            assert (
-                pattern.lifecycle_state is not None
-            ), "lifecycle_state should not be None"
+            assert pattern.lifecycle_state is not None, (
+                "lifecycle_state should not be None"
+            )
 
             # Source tracking
-            assert (
-                pattern.source_count >= 1
-            ), f"source_count should be >= 1, got {pattern.source_count}"
+            assert pattern.source_count >= 1, (
+                f"source_count should be >= 1, got {pattern.source_count}"
+            )
 
             # Timestamps
             assert pattern.first_seen is not None, "first_seen should not be None"
@@ -332,9 +332,9 @@ class TestTC1SuccessfulPatternExtraction:
         assert metadata is not None, "metadata should not be None"
 
         # Check status
-        assert (
-            metadata.status == EnumPatternLearningStatus.COMPLETED
-        ), f"Expected status=COMPLETED, got {metadata.status}"
+        assert metadata.status == EnumPatternLearningStatus.COMPLETED, (
+            f"Expected status=COMPLETED, got {metadata.status}"
+        )
 
         # Check model version
         assert metadata.model_version is not None, "model_version should not be None"
@@ -349,9 +349,9 @@ class TestTC1SuccessfulPatternExtraction:
         )
 
         # Check training samples count
-        assert (
-            metadata.training_samples == 5
-        ), f"Expected training_samples=5, got {metadata.training_samples}"
+        assert metadata.training_samples == 5, (
+            f"Expected training_samples=5, got {metadata.training_samples}"
+        )
 
 
 # =============================================================================
@@ -403,9 +403,9 @@ class TestTC1MetricsVerification:
 
         # Assert
         assert result["success"] is True
-        assert (
-            result["metrics"].cluster_count >= 1
-        ), f"Expected cluster_count >= 1, got {result['metrics'].cluster_count}"
+        assert result["metrics"].cluster_count >= 1, (
+            f"Expected cluster_count >= 1, got {result['metrics'].cluster_count}"
+        )
 
     def test_metrics_processing_time_is_positive(
         self,

@@ -408,9 +408,9 @@ def read_config():
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert (
-            len(file_violations) == 1
-        ), f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
         assert "read_text" in file_violations[0].message.lower()
 
     def test_detects_pathlib_io_with_path_constructor_chain(
@@ -428,9 +428,9 @@ def read_inline():
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert (
-            len(file_violations) == 1
-        ), f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
 
     def test_detects_pathlib_io_with_file_path_variable(self, tmp_path: Path) -> None:
         """Should detect pathlib I/O on variables named file_path, config_path, etc."""
@@ -445,9 +445,9 @@ def read_config(config_path):
         test_file.write_text(code)
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
-        assert (
-            len(file_violations) == 1
-        ), f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
 
     def test_no_false_positive_for_arbitrary_variable_without_pathlib(
         self, tmp_path: Path
@@ -494,9 +494,9 @@ def read_file(p):
         violations = audit_file(test_file)
         file_violations = [v for v in violations if v.rule == EnumIOAuditRule.FILE_IO]
         # Should detect the p.read_text() call
-        assert (
-            len(file_violations) == 1
-        ), f"Expected 1 violation, got: {file_violations}"
+        assert len(file_violations) == 1, (
+            f"Expected 1 violation, got: {file_violations}"
+        )
         assert "read_text" in file_violations[0].message.lower()
 
     def test_short_variable_name_without_pathlib_no_false_positive(
@@ -582,9 +582,9 @@ class TestNetClientDetection:
         net_violations = [v for v in violations if v.rule == EnumIOAuditRule.NET_CLIENT]
         # Should detect: http_client.get(url) where http_client is aliased httpx
         alias_violations = [v for v in net_violations if "http_client" in v.message]
-        assert (
-            len(alias_violations) >= 1
-        ), f"Expected at least 1 aliased httpx violation, got: {alias_violations}"
+        assert len(alias_violations) >= 1, (
+            f"Expected at least 1 aliased httpx violation, got: {alias_violations}"
+        )
         # Verify the message includes the alias and original module info
         assert any("alias" in v.message.lower() for v in alias_violations)
 
@@ -596,18 +596,18 @@ class TestNetClientDetection:
         alias_violations = [
             v for v in net_violations if "ck.producer" in v.message.lower()
         ]
-        assert (
-            len(alias_violations) >= 1
-        ), f"Expected at least 1 aliased confluent_kafka violation, got: {alias_violations}"
+        assert len(alias_violations) >= 1, (
+            f"Expected at least 1 aliased confluent_kafka violation, got: {alias_violations}"
+        )
 
     def test_aliased_import_violations_have_correct_rule(self) -> None:
         """Aliased import usage violations should have NET_CLIENT rule."""
         violations = audit_file(fixture_path("bad_client.py"))
         alias_violations = [v for v in violations if "alias" in v.message.lower()]
         for v in alias_violations:
-            assert (
-                v.rule == EnumIOAuditRule.NET_CLIENT
-            ), f"Expected NET_CLIENT rule for alias violation, got: {v.rule}"
+            assert v.rule == EnumIOAuditRule.NET_CLIENT, (
+                f"Expected NET_CLIENT rule for alias violation, got: {v.rule}"
+            )
 
 
 # =========================================================================
@@ -639,9 +639,9 @@ class TestWhitelistFunctionality:
         for violation in remaining:
             # The get_unwhitelisted_env function has a violation that's not inline-whitelisted
             # but env-access IS whitelisted in YAML, so it should be filtered
-            assert (
-                violation.rule not in whitelisted_rules
-            ), f"Whitelisted rule {violation.rule} should have been filtered"
+            assert violation.rule not in whitelisted_rules, (
+                f"Whitelisted rule {violation.rule} should have been filtered"
+            )
 
     def test_inline_pragma_whitelists_next_line(self, tmp_path: Path) -> None:
         """Inline pragma should whitelist the next line only (when file is in YAML)."""
@@ -1678,6 +1678,6 @@ files:
             security_warnings = [
                 warning for warning in w if "SECURITY WARNING" in str(warning.message)
             ]
-            assert (
-                len(security_warnings) == 0
-            ), f"Expected no security warnings, got: {security_warnings}"
+            assert len(security_warnings) == 0, (
+                f"Expected no security warnings, got: {security_warnings}"
+            )

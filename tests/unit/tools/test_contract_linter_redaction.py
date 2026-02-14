@@ -363,6 +363,6 @@ class TestPatternCoverage:
             # Clean up any wildcards in the middle
             test_name = test_name.replace("*", "_")
 
-            assert _is_sensitive_env_var(
-                test_name
-            ), f"Pattern '{pattern}' should match test name '{test_name}'"
+            assert _is_sensitive_env_var(test_name), (
+                f"Pattern '{pattern}' should match test name '{test_name}'"
+            )

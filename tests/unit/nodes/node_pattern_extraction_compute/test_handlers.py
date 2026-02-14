@@ -66,9 +66,9 @@ class TestExtractFileAccessPatterns:
                 routes_handlers_pattern = pattern
                 break
 
-        assert (
-            routes_handlers_pattern is not None
-        ), "Should detect routes.py + handlers.py co-access"
+        assert routes_handlers_pattern is not None, (
+            "Should detect routes.py + handlers.py co-access"
+        )
         assert routes_handlers_pattern["occurrences"] >= 2
         assert routes_handlers_pattern["confidence"] > 0
 
@@ -282,9 +282,9 @@ class TestExtractErrorPatterns:
 
         error_prone = [r for r in results if r["pattern_type"] == "error_prone_file"]
         # problematic.py should be detected as error-prone due to failure outcomes
-        assert any(
-            "problematic.py" in p["affected_files"] for p in error_prone
-        ), "Failure outcomes should contribute to error-prone detection"
+        assert any("problematic.py" in p["affected_files"] for p in error_prone), (
+            "Failure outcomes should contribute to error-prone detection"
+        )
 
     def test_result_structure(
         self, sessions_with_errors: tuple[ModelSessionSnapshot, ...]
@@ -1025,15 +1025,15 @@ class TestExtractToolFailurePatterns:
         assert json_pattern["pattern_type"] == "tool_failure"
         assert json_pattern["occurrences"] >= 2
         assert json_pattern["confidence"] > 0
-        assert (
-            len(json_pattern["evidence_session_ids"]) >= 2
-        ), "Pattern should span at least 2 distinct sessions"
+        assert len(json_pattern["evidence_session_ids"]) >= 2, (
+            "Pattern should span at least 2 distinct sessions"
+        )
 
         # Verify affected files contain .json files
         affected = json_pattern["affected_files"]
-        assert any(
-            ".json" in f for f in affected
-        ), f"Affected files should include .json files: {affected}"
+        assert any(".json" in f for f in affected), (
+            f"Affected files should include .json files: {affected}"
+        )
 
     # === Threshold Tests ===
 
@@ -1269,9 +1269,9 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert (
-            result is True
-        ), "30 seconds apart with 60 second limit should be within bound"
+        assert result is True, (
+            "30 seconds apart with 60 second limit should be within bound"
+        )
 
     def test_within_time_bound_returns_false_when_outside_limit(
         self, base_time: datetime
@@ -1299,9 +1299,9 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert (
-            result is False
-        ), "90 seconds apart with 60 second limit should be outside bound"
+        assert result is False, (
+            "90 seconds apart with 60 second limit should be outside bound"
+        )
 
     def test_within_time_bound_equal_timestamps(self, base_time: datetime) -> None:
         """Same timestamp should return True (short-circuit path)."""
@@ -1386,9 +1386,9 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert (
-            result is True
-        ), "Exactly at boundary (60s with 60s limit) should return True"
+        assert result is True, (
+            "Exactly at boundary (60s with 60s limit) should return True"
+        )
 
     def test_within_time_bound_just_over_boundary(self, base_time: datetime) -> None:
         """Just over the boundary (61 seconds with limit 60) should return False."""
@@ -1414,9 +1414,9 @@ class TestWithinTimeBound:
 
         result = _within_time_bound(exec_a, exec_b, max_gap_sec=60)
 
-        assert (
-            result is False
-        ), "Just over boundary (61s with 60s limit) should return False"
+        assert result is False, (
+            "Just over boundary (61s with 60s limit) should return False"
+        )
 
     def test_within_time_bound_zero_max_gap(self, base_time: datetime) -> None:
         """Zero max_gap_sec should only allow equal timestamps."""

@@ -134,9 +134,9 @@ class TestReducerToOrchestratorIntentChannel:
         reducer_output = handle_pattern_lifecycle_process(promote_direct_input)
 
         # Step 2: Verify reducer emitted intents
-        assert (
-            len(reducer_output.intents) == 1
-        ), "Reducer must emit exactly one intent for a successful transition"
+        assert len(reducer_output.intents) == 1, (
+            "Reducer must emit exactly one intent for a successful transition"
+        )
 
         # Step 3: Extract the ModelIntent
         intent = reducer_output.intents[0]

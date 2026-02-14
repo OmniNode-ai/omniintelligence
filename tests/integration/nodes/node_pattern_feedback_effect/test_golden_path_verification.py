@@ -150,9 +150,9 @@ class TestSinglePatternSuccessBelowCap:
         expected_score = 9.0 / 11.0  # ≈ 0.818182
         assert result.effectiveness_scores is not None
         actual_score = result.effectiveness_scores[scenario.pattern_ids[0]]
-        assert (
-            abs(actual_score - expected_score) < 1e-6
-        ), f"Expected {expected_score}, got {actual_score}"
+        assert abs(actual_score - expected_score) < 1e-6, (
+            f"Expected {expected_score}, got {actual_score}"
+        )
 
     @pytest.mark.integration
     async def test_database_score_matches_handler_output(self, txn_conn: Any) -> None:
@@ -211,9 +211,9 @@ class TestSinglePatternSuccessBelowCap:
 
         # Starting quality_score=0.5, new=9/11≈0.818 → delta ≈ +0.318
         expected_delta = (9.0 / 11.0) - starting_quality
-        assert (
-            abs(delta - expected_delta) < 1e-6
-        ), f"Expected delta {expected_delta}, got {delta}"
+        assert abs(delta - expected_delta) < 1e-6, (
+            f"Expected delta {expected_delta}, got {delta}"
+        )
 
 
 # =============================================================================
@@ -253,9 +253,9 @@ class TestSinglePatternFailureBelowCap:
         expected_score = 8.0 / 11.0  # ≈ 0.727273
         assert result.effectiveness_scores is not None
         actual_score = result.effectiveness_scores[scenario.pattern_ids[0]]
-        assert (
-            abs(actual_score - expected_score) < 1e-6
-        ), f"Expected {expected_score}, got {actual_score}"
+        assert abs(actual_score - expected_score) < 1e-6, (
+            f"Expected {expected_score}, got {actual_score}"
+        )
 
     @pytest.mark.integration
     async def test_score_delta_matches_expected_after_failure(
@@ -294,9 +294,9 @@ class TestSinglePatternFailureBelowCap:
 
         # Starting quality_score=0.5, new=8/11≈0.727 → delta ≈ +0.227
         expected_delta = (8.0 / 11.0) - starting_quality
-        assert (
-            abs(delta - expected_delta) < 1e-6
-        ), f"Expected delta {expected_delta}, got {delta}"
+        assert abs(delta - expected_delta) < 1e-6, (
+            f"Expected delta {expected_delta}, got {delta}"
+        )
 
     @pytest.mark.integration
     async def test_database_score_matches_after_failure(self, txn_conn: Any) -> None:
@@ -359,9 +359,9 @@ class TestAtCapWithDecay:
         expected_score = 16.0 / 20.0  # = 0.8
         assert result.effectiveness_scores is not None
         actual_score = result.effectiveness_scores[scenario.pattern_ids[0]]
-        assert (
-            abs(actual_score - expected_score) < 1e-6
-        ), f"Expected {expected_score}, got {actual_score}"
+        assert abs(actual_score - expected_score) < 1e-6, (
+            f"Expected {expected_score}, got {actual_score}"
+        )
         await assert_score_updated(txn_conn, scenario.pattern_ids[0], expected_score)
 
     @pytest.mark.integration
@@ -388,9 +388,9 @@ class TestAtCapWithDecay:
         expected_score = 14.0 / 20.0  # = 0.7
         assert result.effectiveness_scores is not None
         actual_score = result.effectiveness_scores[scenario.pattern_ids[0]]
-        assert (
-            abs(actual_score - expected_score) < 1e-6
-        ), f"Expected {expected_score}, got {actual_score}"
+        assert abs(actual_score - expected_score) < 1e-6, (
+            f"Expected {expected_score}, got {actual_score}"
+        )
         await assert_score_updated(txn_conn, scenario.pattern_ids[0], expected_score)
 
     @pytest.mark.integration
@@ -426,9 +426,9 @@ class TestAtCapWithDecay:
         # 16/20 - 15/20 = +0.05
         expected_delta = (16.0 / 20.0) - starting_quality
         actual_delta = score_after - score_before
-        assert (
-            abs(actual_delta - expected_delta) < 1e-6
-        ), f"Expected delta {expected_delta}, got {actual_delta}"
+        assert abs(actual_delta - expected_delta) < 1e-6, (
+            f"Expected delta {expected_delta}, got {actual_delta}"
+        )
 
 
 # =============================================================================
@@ -472,9 +472,9 @@ class TestMultiPatternSession:
         expected_score = 6.0 / 11.0
         for pid in scenario.pattern_ids:
             actual = result.effectiveness_scores[pid]
-            assert (
-                abs(actual - expected_score) < 1e-6
-            ), f"Pattern {pid}: expected {expected_score}, got {actual}"
+            assert abs(actual - expected_score) < 1e-6, (
+                f"Pattern {pid}: expected {expected_score}, got {actual}"
+            )
             await assert_score_updated(txn_conn, pid, expected_score)
 
     @pytest.mark.integration
@@ -633,9 +633,9 @@ class TestEventToHandlerFlow:
         assert abs(score_after - expected_score) < 1e-6
 
         # Score decreased from 0.7 to ~0.636
-        assert (
-            score_after < score_before
-        ), f"Expected score to decrease: before={score_before}, after={score_after}"
+        assert score_after < score_before, (
+            f"Expected score to decrease: before={score_before}, after={score_after}"
+        )
 
 
 # =============================================================================
@@ -714,9 +714,9 @@ class TestIdempotentReplay:
         )
 
         # Score must be identical - no double-counting
-        assert (
-            abs(score_after_second - score_after_first) < 1e-6
-        ), f"Score changed on replay: {score_after_first} → {score_after_second}"
+        assert abs(score_after_second - score_after_first) < 1e-6, (
+            f"Score changed on replay: {score_after_first} → {score_after_second}"
+        )
 
 
 # =============================================================================

@@ -737,9 +737,9 @@ class TestOutputStructureVerification:
             "trigger",
         ]
         for attr in expected_attrs:
-            assert hasattr(
-                output.result, attr
-            ), f"ModelIntelligenceState missing expected attribute: {attr}"
+            assert hasattr(output.result, attr), (
+                f"ModelIntelligenceState missing expected attribute: {attr}"
+            )
 
     async def test_success_output_intents_is_tuple(
         self,

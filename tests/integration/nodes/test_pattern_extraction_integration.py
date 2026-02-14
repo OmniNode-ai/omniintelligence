@@ -119,9 +119,9 @@ async def test_code_generation_scenario() -> None:
         f"Expected generative pattern type for code_generation intent, "
         f"got {pattern.get('pattern_type')}"
     )
-    assert (
-        pattern.get("confidence", 0) >= 0.5
-    ), f"Low confidence: {pattern.get('confidence')}"
+    assert pattern.get("confidence", 0) >= 0.5, (
+        f"Low confidence: {pattern.get('confidence')}"
+    )
     assert pattern.get("validity") is True, "Pattern should be valid"
 
     # Verify component results
@@ -355,9 +355,9 @@ async def test_parallel_execution_performance() -> None:
     times: list[int] = []
     for _ in range(5):
         result = await handle_pattern_assembly_orchestrate(input_data)
-        assert (
-            result.success is True
-        ), f"Expected success, got metadata: {result.metadata}"
+        assert result.success is True, (
+            f"Expected success, got metadata: {result.metadata}"
+        )
         assert result.metadata is not None
         times.append(result.metadata.get("processing_time_ms", 0))
 

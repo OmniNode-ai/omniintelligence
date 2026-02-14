@@ -61,9 +61,9 @@ _FREQUENCY_FACTOR_WEIGHT: float = 0.30
 _confidence_weights_sum = (
     _LABEL_AGREEMENT_WEIGHT + _CLUSTER_COHESION_WEIGHT + _FREQUENCY_FACTOR_WEIGHT
 )
-assert (
-    abs(_confidence_weights_sum - 1.0) < 1e-9
-), f"Confidence weights must sum to 1.0, got {_confidence_weights_sum}"
+assert abs(_confidence_weights_sum - 1.0) < 1e-9, (
+    f"Confidence weights must sum to 1.0, got {_confidence_weights_sum}"
+)
 
 
 # =============================================================================
