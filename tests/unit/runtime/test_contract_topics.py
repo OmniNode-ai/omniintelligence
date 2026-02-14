@@ -26,13 +26,11 @@ from omniintelligence.runtime.contract_topics import (
 # Expected topics (must match contract.yaml declarations)
 # =============================================================================
 
-EXPECTED_CLAUDE_HOOK = "{env}.onex.cmd.omniintelligence.claude-hook-event.v1"
-EXPECTED_SESSION_OUTCOME = "{env}.onex.cmd.omniintelligence.session-outcome.v1"
-EXPECTED_PATTERN_LIFECYCLE = (
-    "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-)
-EXPECTED_PATTERN_LEARNED = "{env}.onex.evt.omniintelligence.pattern-learned.v1"
-EXPECTED_PATTERN_DISCOVERED = "{env}.onex.evt.pattern.discovered.v1"
+EXPECTED_CLAUDE_HOOK = "onex.cmd.omniintelligence.claude-hook-event.v1"
+EXPECTED_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
+EXPECTED_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+EXPECTED_PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
+EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
@@ -181,28 +179,27 @@ class TestCanonicalTopicToDispatchAlias:
     def test_converts_cmd_to_commands(self) -> None:
         """`.cmd.` should be converted to `.commands.`."""
         result = canonical_topic_to_dispatch_alias(
-            "{env}.onex.cmd.omniintelligence.claude-hook-event.v1"
+            "onex.cmd.omniintelligence.claude-hook-event.v1"
         )
-        assert result == "{env}.onex.commands.omniintelligence.claude-hook-event.v1"
+        assert result == "onex.commands.omniintelligence.claude-hook-event.v1"
 
     def test_converts_evt_to_events(self) -> None:
         """`.evt.` should be converted to `.events.`."""
         result = canonical_topic_to_dispatch_alias(
-            "{env}.onex.evt.omniintelligence.intent-classified.v1"
+            "onex.evt.omniintelligence.intent-classified.v1"
         )
-        assert result == "{env}.onex.events.omniintelligence.intent-classified.v1"
+        assert result == "onex.events.omniintelligence.intent-classified.v1"
 
     def test_session_outcome_conversion(self) -> None:
         """Session outcome topic should convert correctly."""
         result = canonical_topic_to_dispatch_alias(EXPECTED_SESSION_OUTCOME)
-        assert result == "{env}.onex.commands.omniintelligence.session-outcome.v1"
+        assert result == "onex.commands.omniintelligence.session-outcome.v1"
 
     def test_pattern_lifecycle_conversion(self) -> None:
         """Pattern lifecycle topic should convert correctly."""
         result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_LIFECYCLE)
         assert (
-            result
-            == "{env}.onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
+            result == "onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
         )
 
     def test_no_cmd_or_evt_unchanged(self) -> None:
@@ -213,35 +210,35 @@ class TestCanonicalTopicToDispatchAlias:
     def test_pattern_learned_conversion(self) -> None:
         """Pattern learned topic should convert correctly."""
         result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_LEARNED)
-        assert result == "{env}.onex.events.omniintelligence.pattern-learned.v1"
+        assert result == "onex.events.omniintelligence.pattern-learned.v1"
 
     def test_pattern_discovered_conversion(self) -> None:
         """Pattern discovered topic should convert correctly."""
         result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_DISCOVERED)
-        assert result == "{env}.onex.events.pattern.discovered.v1"
+        assert result == "onex.events.pattern.discovered.v1"
 
     @pytest.mark.parametrize(
         "canonical,expected_alias",
         [
             (
                 EXPECTED_CLAUDE_HOOK,
-                "{env}.onex.commands.omniintelligence.claude-hook-event.v1",
+                "onex.commands.omniintelligence.claude-hook-event.v1",
             ),
             (
                 EXPECTED_SESSION_OUTCOME,
-                "{env}.onex.commands.omniintelligence.session-outcome.v1",
+                "onex.commands.omniintelligence.session-outcome.v1",
             ),
             (
                 EXPECTED_PATTERN_LIFECYCLE,
-                "{env}.onex.commands.omniintelligence.pattern-lifecycle-transition.v1",
+                "onex.commands.omniintelligence.pattern-lifecycle-transition.v1",
             ),
             (
                 EXPECTED_PATTERN_LEARNED,
-                "{env}.onex.events.omniintelligence.pattern-learned.v1",
+                "onex.events.omniintelligence.pattern-learned.v1",
             ),
             (
                 EXPECTED_PATTERN_DISCOVERED,
-                "{env}.onex.events.pattern.discovered.v1",
+                "onex.events.pattern.discovered.v1",
             ),
         ],
     )

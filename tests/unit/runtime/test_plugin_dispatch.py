@@ -36,11 +36,9 @@ from omniintelligence.runtime.plugin import (
 # These MUST match the subscribe_topics declared in the corresponding
 # effect node contract.yaml files (source of truth).
 # ---------------------------------------------------------------------------
-TOPIC_CLAUDE_HOOK_EVENT = "{env}.onex.cmd.omniintelligence.claude-hook-event.v1"
-TOPIC_SESSION_OUTCOME = "{env}.onex.cmd.omniintelligence.session-outcome.v1"
-TOPIC_PATTERN_LIFECYCLE = (
-    "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-)
+TOPIC_CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
+TOPIC_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
+TOPIC_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
 # =============================================================================
 # Stubs
