@@ -686,15 +686,6 @@ def create_pattern_storage_dispatch_handler(
                     ctx_correlation_id,
                 )
 
-        logger.info(
-            "Processing pattern storage event via dispatch engine "
-            "(event_type=%s, pattern_id=%s, domain_id=%s, correlation_id=%s)",
-            event_type,
-            pattern_id,
-            domain_id,
-            ctx_correlation_id,
-        )
-
         # Reject if signature_hash is empty -- raise so the dispatch engine
         # nacks the message instead of silently acking on the empty-string path.
         if not signature_hash:
@@ -705,6 +696,15 @@ def create_pattern_storage_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg)
+
+        logger.info(
+            "Processing pattern storage event via dispatch engine "
+            "(event_type=%s, pattern_id=%s, domain_id=%s, correlation_id=%s)",
+            event_type,
+            pattern_id,
+            domain_id,
+            ctx_correlation_id,
+        )
 
         try:
             await repository.execute(
@@ -781,6 +781,9 @@ def create_pattern_storage_dispatch_handler(
 # SQL for upserting learned patterns via the dispatch bridge.
 # Uses asyncpg positional parameters ($1...$8).
 # ON CONFLICT skips duplicate (pattern_signature, domain_id, version) combinations.
+# is_current defaults to FALSE to avoid violating the partial unique index
+# idx_current_pattern ON (pattern_signature, domain_id) WHERE is_current = TRUE.
+# Version promotion (setting is_current = TRUE) is handled by the lifecycle handler.
 _SQL_UPSERT_LEARNED_PATTERN = """\
 INSERT INTO learned_patterns (
     id, pattern_signature, signature_hash, domain_id,
@@ -788,7 +791,7 @@ INSERT INTO learned_patterns (
     source_session_ids,
     status, is_current
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'candidate', TRUE)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'candidate', FALSE)
 ON CONFLICT (pattern_signature, domain_id, version)
 DO NOTHING;
 """
