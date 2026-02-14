@@ -113,6 +113,42 @@ DISPATCH_ALIAS_TOOL_CONTENT = "onex.commands.omniintelligence.tool-content.v1"
 # Bridge Handler: Claude Hook Event
 # =============================================================================
 
+# Top-level fields that belong in ModelClaudeCodeHookEvent directly.
+# Everything else is wrapped into the nested `payload` dict.
+_HOOK_EVENT_TOP_LEVEL_FIELDS = {"event_type", "session_id", "correlation_id"}
+
+
+def _reshape_flat_hook_payload(flat: dict[str, object]) -> object:
+    """Reshape a flat omniclaude publisher payload into ModelClaudeCodeHookEvent.
+
+    The omniclaude publisher emits events with all fields at the top level:
+        {event_type, session_id, correlation_id, emitted_at, prompt_preview, ...}
+
+    ModelClaudeCodeHookEvent expects a nested envelope:
+        {event_type, session_id, correlation_id, timestamp_utc, payload: {...}}
+
+    This function maps between the two formats.
+    """
+    from omniintelligence.nodes.node_claude_hook_event_effect.models import (
+        ModelClaudeCodeHookEvent,
+    )
+
+    envelope: dict[str, object] = {}
+    nested_payload: dict[str, object] = {}
+
+    for key, value in flat.items():
+        if key in _HOOK_EVENT_TOP_LEVEL_FIELDS:
+            envelope[key] = value
+        elif key == "emitted_at":
+            # Map emitted_at -> timestamp_utc
+            envelope["timestamp_utc"] = value
+        else:
+            nested_payload[key] = value
+
+    envelope["payload"] = nested_payload
+
+    return ModelClaudeCodeHookEvent(**envelope)
+
 
 def create_claude_hook_dispatch_handler(
     *,
@@ -163,14 +199,22 @@ def create_claude_hook_dispatch_handler(
             event = payload
         elif isinstance(payload, dict):
             try:
+                # The omniclaude publisher emits a flat payload with all fields
+                # at the top level. ModelClaudeCodeHookEvent expects a nested
+                # structure with timestamp_utc and a payload wrapper.
+                # Attempt direct parse first; if it fails, reshape the flat
+                # payload into the nested envelope format.
                 event = ModelClaudeCodeHookEvent(**payload)
-            except Exception as e:
-                msg = (
-                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
-                    f"(correlation_id={ctx_correlation_id})"
-                )
-                logger.warning(msg)
-                raise ValueError(msg) from e
+            except Exception:
+                try:
+                    event = _reshape_flat_hook_payload(payload)
+                except Exception as e:
+                    msg = (
+                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                        f"(correlation_id={ctx_correlation_id})"
+                    )
+                    logger.warning(msg)
+                    raise ValueError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "

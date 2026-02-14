@@ -400,6 +400,60 @@ class TestClaudeHookDispatchHandler:
         with pytest.raises(ValueError, match="Unexpected payload type"):
             await handler(envelope, context)
 
+    @pytest.mark.asyncio
+    async def test_handler_reshapes_flat_omniclaude_payload(
+        self,
+        correlation_id: UUID,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """Handler should reshape flat omniclaude publisher payloads.
+
+        The omniclaude publisher emits events with all fields at the top level
+        (no nested payload wrapper, emitted_at instead of timestamp_utc).
+        The handler should reshape into ModelClaudeCodeHookEvent format.
+        """
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        flat_payload = {
+            "session_id": "test-session-flat",
+            "event_type": "UserPromptSubmit",
+            "correlation_id": str(correlation_id),
+            "prompt_preview": "Hello world",
+            "prompt_length": 11,
+            "prompt_b64": "SGVsbG8gd29ybGQ=",
+            "causation_id": None,
+            "emitted_at": "2026-02-14T23:21:25.925410+00:00",
+            "schema_version": "1.0.0",
+        }
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_intent_classifier,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=flat_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
 
 # =============================================================================
 # Tests: Session Outcome Handler
