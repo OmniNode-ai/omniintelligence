@@ -185,6 +185,88 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.intelligence_adapter"
     description: "Effect node for intelligence API operations via adapter pattern."
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# The orchestrator subscribes to command topics for intelligence operations
+# and publishes completion/failure events for downstream consumers.
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.code-analysis.v1"
+    - "onex.cmd.omniintelligence.document-ingestion.v1"
+    - "onex.cmd.omniintelligence.pattern-learning.v1"
+    - "onex.cmd.omniintelligence.quality-assessment.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.code-analysis-completed.v1"
+    - "onex.evt.omniintelligence.code-analysis-failed.v1"
+    - "onex.evt.omniintelligence.document-ingestion-completed.v1"
+    - "onex.evt.omniintelligence.pattern-learning-completed.v1"
+    - "onex.evt.omniintelligence.quality-assessment-completed.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.code-analysis.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Code analysis operation requests"
+    "onex.cmd.omniintelligence.document-ingestion.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Document ingestion operation requests"
+    "onex.cmd.omniintelligence.pattern-learning.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Pattern learning operation requests"
+    "onex.cmd.omniintelligence.quality-assessment.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Quality assessment operation requests"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.code-analysis-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Code analysis workflow completed successfully"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.code-analysis-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Code analysis workflow failed with error details"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.document-ingestion-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Document ingestion workflow completed successfully"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.pattern-learning-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Pattern learning workflow completed successfully"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.quality-assessment-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Quality assessment workflow completed successfully"
+      content_type: "application/json"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "correlation_id_tracking"
+  key_field: "correlation_id"
+  description: >
+    Uses correlation_id from the input model as the idempotency key. Before executing a workflow, checks
+    if the correlation_id was already processed. If a duplicate is detected, returns the cached result
+    without re-executing. Records correlation_id after successful workflow completion to prevent duplicate
+    processing of the same intelligence operation request.
+
 # Error Handling Configuration
 # ============================
 error_handling:
