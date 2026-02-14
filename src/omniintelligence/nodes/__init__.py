@@ -224,35 +224,34 @@ if TYPE_CHECKING:
 __all__ = [
     # Constants
     "ROLLING_WINDOW_SIZE",
-    # Models and enums (from node_pattern_feedback_effect)
+    # Models and enums
     "ClaudeCodeSessionOutcome",
     "ClaudeSessionOutcome",
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
-    # Computes (7)
-    "NodeExecutionTraceParserCompute",
-    # Orchestrators (2)
+    "SessionOutcomeInput",
+    # Nodes — Orchestrators (2)
     "NodeIntelligenceOrchestrator",
-    # Reducers (1)
-    "NodeIntelligenceReducer",
-    "NodeIntentClassifierCompute",
     "NodePatternAssemblerOrchestrator",
-    # Effects (5)
-    "NodePatternDemotionEffect",
+    # Nodes — Reducers (1)
+    "NodeIntelligenceReducer",
+    # Nodes — Computes (8)
+    "NodeExecutionTraceParserCompute",
+    "NodeIntentClassifierCompute",
     "NodePatternExtractionCompute",
-    "NodePatternFeedbackEffect",
-    # Computes (8)
     "NodePatternLearningCompute",
-    "NodePatternLifecycleEffect",
     "NodePatternMatchingCompute",
-    "NodePatternPromotionEffect",
-    "NodePatternStorageEffect",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
+    # Nodes — Effects (5)
+    "NodePatternDemotionEffect",
+    "NodePatternFeedbackEffect",
+    "NodePatternLifecycleEffect",
+    "NodePatternPromotionEffect",
+    "NodePatternStorageEffect",
     # Protocols
     "ProtocolPatternRepository",
-    "SessionOutcomeInput",
     # Handler functions
     "record_session_outcome",
     "update_pattern_rolling_metrics",

@@ -447,7 +447,13 @@ class TestCalculateHoursSincePromotion:
         assert hours >= 4.9
 
     def test_handles_naive_datetime(self) -> None:
-        """Handles naive datetimes by assuming UTC."""
+        """Naive datetime handling is tested as a defensive measure.
+
+        Production code should always use timezone-aware datetimes, but the
+        handler gracefully handles naive datetimes by treating them as UTC.
+        This prevents crashes if a naive datetime reaches the handler from
+        an upstream caller that omits timezone info.
+        """
         promoted_at = datetime.now() - timedelta(hours=2)
         hours = calculate_hours_since_promotion(promoted_at)
         assert hours is not None

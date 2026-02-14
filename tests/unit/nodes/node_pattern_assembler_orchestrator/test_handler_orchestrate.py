@@ -18,7 +18,6 @@ Related:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -71,57 +70,6 @@ def empty_input_dict() -> dict[str, Any]:
         "raw_data": {},
         "correlation_id": "12345678-1234-1234-1234-123456789abc",
     }
-
-
-@pytest.fixture
-def mock_trace_parser() -> AsyncMock:
-    """Mock trace parser compute node."""
-    node = AsyncMock()
-    node.compute = AsyncMock(
-        return_value=AsyncMock(
-            model_dump=lambda: {
-                "success": True,
-                "parsed_events": [],
-                "error_events": [],
-            }
-        )
-    )
-    return node
-
-
-@pytest.fixture
-def mock_intent_classifier() -> AsyncMock:
-    """Mock intent classifier compute node."""
-    node = AsyncMock()
-    node.compute = AsyncMock(
-        return_value=AsyncMock(
-            model_dump=lambda: {
-                "success": True,
-                "primary_intent": "code_generation",
-                "confidence": 0.85,
-                "secondary_intents": [],
-            }
-        )
-    )
-    return node
-
-
-@pytest.fixture
-def mock_criteria_matcher() -> AsyncMock:
-    """Mock criteria matcher compute node."""
-    node = AsyncMock()
-    node.compute = AsyncMock(
-        return_value=AsyncMock(
-            model_dump=lambda: {
-                "success": True,
-                "criteria_matched": [],
-                "criteria_failed": [],
-                "match_score": 0.9,
-                "overall_success": True,
-            }
-        )
-    )
-    return node
 
 
 # =============================================================================

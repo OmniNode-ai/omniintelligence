@@ -529,6 +529,7 @@ def create_pattern_storage_dispatch_handler(
     *,
     repository: ProtocolPatternRepository,
     kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -540,8 +541,8 @@ def create_pattern_storage_dispatch_handler(
     patterns to the learned_patterns table via the repository adapter.
 
     For pattern-learned events: extracts pattern fields from the payload
-    and inserts into learned_patterns using an upsert on (domain,
-    signature_hash, version).
+    and inserts into learned_patterns using an upsert on
+    (pattern_signature, domain_id, version).
 
     For pattern.discovered events: maps the discovery event payload to
     the same storage fields and inserts identically.
@@ -549,6 +550,8 @@ def create_pattern_storage_dispatch_handler(
     Args:
         repository: REQUIRED database repository for pattern storage.
         kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for pattern-stored events (from contract).
+            Falls back to "onex.evt.omniintelligence.pattern-stored.v1" if None.
         correlation_id: Optional fixed correlation ID for tracing.
 
     Returns:
@@ -587,29 +590,46 @@ def create_pattern_storage_dispatch_handler(
         pattern_id = raw_pattern_id or uuid4()
         signature = str(payload.get("signature", payload.get("pattern_signature", "")))
         signature_hash = str(payload.get("signature_hash", ""))
-        domain = str(payload.get("domain", "general"))
-        confidence = float(payload.get("confidence", 0.5))
-        version = int(payload.get("version", 1))
-
-        logger.info(
-            "Processing pattern storage event via dispatch engine "
-            "(event_type=%s, pattern_id=%s, domain=%s, correlation_id=%s)",
-            event_type,
-            pattern_id,
-            domain,
-            ctx_correlation_id,
-        )
-
-        # Persist via upsert -- skip if signature_hash is empty (invalid data)
-        if not signature_hash:
+        domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
+        domain_version = str(payload.get("domain_version", "1.0.0"))
+        raw_confidence = float(payload.get("confidence", 0.5))
+        if raw_confidence < 0.5:
             logger.warning(
-                "Pattern storage event missing signature_hash, skipping "
+                "Pattern confidence %.3f below minimum 0.5, clamping "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                raw_confidence,
                 event_type,
                 pattern_id,
                 ctx_correlation_id,
             )
-            return ""
+        confidence = max(0.5, raw_confidence)
+        version = int(payload.get("version", 1))
+        source_session_ids: list[UUID] = []
+        raw_session_ids = payload.get("source_session_ids")
+        if isinstance(raw_session_ids, list):
+            for sid in raw_session_ids:
+                with contextlib.suppress(ValueError):
+                    source_session_ids.append(UUID(str(sid)))
+
+        logger.info(
+            "Processing pattern storage event via dispatch engine "
+            "(event_type=%s, pattern_id=%s, domain_id=%s, correlation_id=%s)",
+            event_type,
+            pattern_id,
+            domain_id,
+            ctx_correlation_id,
+        )
+
+        # Reject if signature_hash is empty -- raise so the dispatch engine
+        # nacks the message instead of silently acking on the empty-string path.
+        if not signature_hash:
+            msg = (
+                f"Pattern storage event missing signature_hash, rejecting "
+                f"(event_type={event_type}, pattern_id={pattern_id}, "
+                f"correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
 
         now = datetime.now(UTC)
         try:
@@ -618,11 +638,11 @@ def create_pattern_storage_dispatch_handler(
                 pattern_id,
                 signature,
                 signature_hash,
-                domain,
+                domain_id,
+                domain_version,
                 confidence,
                 version,
-                now,
-                str(ctx_correlation_id),
+                source_session_ids,
             )
         except Exception as e:
             logger.error(
@@ -636,28 +656,37 @@ def create_pattern_storage_dispatch_handler(
 
         logger.info(
             "Pattern stored via dispatch bridge "
-            "(pattern_id=%s, domain=%s, version=%d, correlation_id=%s)",
+            "(pattern_id=%s, domain_id=%s, version=%d, correlation_id=%s)",
             pattern_id,
-            domain,
+            domain_id,
             version,
             ctx_correlation_id,
         )
 
         # Emit pattern-stored event to Kafka if producer available
         if kafka_producer is not None:
-            with contextlib.suppress(Exception):
+            try:
                 await kafka_producer.publish(
-                    topic="onex.evt.omniintelligence.pattern-stored.v1",
+                    topic=publish_topic
+                    or "onex.evt.omniintelligence.pattern-stored.v1",
                     key=str(pattern_id),
                     value={
                         "event_type": "PatternStored",
                         "pattern_id": str(pattern_id),
                         "signature_hash": signature_hash,
-                        "domain": domain,
+                        "domain_id": domain_id,
                         "version": version,
                         "stored_at": now.isoformat(),
                         "correlation_id": str(ctx_correlation_id),
                     },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to publish pattern-stored event to Kafka "
+                    "(pattern_id=%s, correlation_id=%s)",
+                    pattern_id,
+                    ctx_correlation_id,
+                    exc_info=True,
                 )
 
         return ""
@@ -667,15 +696,16 @@ def create_pattern_storage_dispatch_handler(
 
 # SQL for upserting learned patterns via the dispatch bridge.
 # Uses asyncpg positional parameters ($1...$8).
-# ON CONFLICT skips duplicate (domain, signature_hash, version) combinations.
+# ON CONFLICT skips duplicate (pattern_signature, domain_id, version) combinations.
 _SQL_UPSERT_LEARNED_PATTERN = """\
 INSERT INTO learned_patterns (
-    id, pattern_signature, signature_hash, domain,
-    confidence, version, learned_at, correlation_id,
+    id, pattern_signature, signature_hash, domain_id,
+    domain_version, confidence, version,
+    source_session_ids,
     status, is_current
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'candidate', TRUE)
-ON CONFLICT (domain, signature_hash, version)
+ON CONFLICT (pattern_signature, domain_id, version)
 DO NOTHING;
 """
 
@@ -809,6 +839,7 @@ def create_intelligence_dispatch_engine(
     pattern_storage_handler = create_pattern_storage_dispatch_handler(
         repository=repository,
         kafka_producer=kafka_producer,
+        publish_topic=topics.get("pattern_storage"),
     )
     engine.register_handler(
         handler_id="intelligence-pattern-storage-handler",
