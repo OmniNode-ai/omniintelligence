@@ -72,7 +72,9 @@ class TestSuccessfulTransitions:
     ) -> None:
         """Test successful status transition from provisional to validated."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -145,7 +147,9 @@ class TestSuccessfulTransitions:
     ) -> None:
         """Test successful status transition from candidate to validated."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="candidate")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="candidate", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -178,7 +182,9 @@ class TestSuccessfulTransitions:
     ) -> None:
         """Test transition with all optional fields populated."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
         # Explicit dict[str, object] annotation to satisfy the gate_snapshot
         # parameter typed as ModelGateSnapshot | dict[str, object] | None
         # (dict is invariant in its value type).
@@ -239,7 +245,9 @@ class TestIdempotency:
         idempotency_store = MockIdempotencyStore(
             processed_ids={sample_request_id},
         )
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -278,7 +286,9 @@ class TestIdempotency:
         idempotency_store = MockIdempotencyStore(
             processed_ids={sample_request_id},
         )
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -319,7 +329,9 @@ class TestIdempotency:
         idempotency_store = MockIdempotencyStore(
             processed_ids={sample_request_id},
         )
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -350,7 +362,9 @@ class TestIdempotency:
     ) -> None:
         """New request_id is recorded in idempotency store after success."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -385,8 +399,12 @@ class TestIdempotency:
         request_id_2 = uuid4()
         pattern_id_2 = uuid4()
 
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
-        mock_repository.add_pattern(pattern_id_2, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
+        mock_repository.add_pattern(
+            pattern_id_2, status="provisional", evidence_tier="measured"
+        )
 
         # Act: First transition
         result_1 = await apply_transition(
@@ -450,7 +468,9 @@ class TestStatusGuard:
     ) -> None:
         """Test status guard - fails if from_status doesn't match current."""
         # Arrange: Pattern has status "candidate", but we expect "provisional"
-        mock_repository.add_pattern(sample_pattern_id, status="candidate")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="candidate", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -488,7 +508,9 @@ class TestStatusGuard:
     ) -> None:
         """Status mismatch error message includes both expected and actual status."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="validated")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="validated", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -521,7 +543,9 @@ class TestStatusGuard:
     ) -> None:
         """Status mismatch does not insert audit record."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="candidate")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="candidate", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -558,7 +582,9 @@ class TestStatusGuard:
         """
         # Arrange: Repository that changes status mid-transaction
         mock_repository = MockPatternRepository()
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # First transition succeeds
         result_1 = await apply_transition(
@@ -621,9 +647,16 @@ class TestProvisionalGuard:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """Test PROVISIONAL guard - to_status='provisional' is rejected."""
-        # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="candidate")
+        """Test PROVISIONAL guard - non-CANDIDATE to provisional is rejected.
+
+        Per OMN-2133, CANDIDATE -> PROVISIONAL is the only allowed path to
+        provisional. All other from_status values are blocked by the PROVISIONAL
+        guard before reaching the evidence tier check.
+        """
+        # Arrange: Use VALIDATED -> PROVISIONAL to trigger PROVISIONAL guard
+        mock_repository.add_pattern(
+            sample_pattern_id, status="validated", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -633,9 +666,9 @@ class TestProvisionalGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN - legacy state
-            trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN from non-CANDIDATE
+            trigger="demote",
             transition_at=sample_transition_at,
         )
 
@@ -643,7 +676,7 @@ class TestProvisionalGuard:
         assert result.success is False
         assert result.duplicate is False
         assert "provisional" in (result.error_message or "").lower()
-        assert "not allowed" in (result.error_message or "").lower()
+        assert "candidate" in (result.error_message or "").lower()
 
     @pytest.mark.asyncio
     async def test_provisional_target_rejected_with_enum(
@@ -655,13 +688,16 @@ class TestProvisionalGuard:
         sample_correlation_id: UUID,
         sample_transition_at: datetime,
     ) -> None:
-        """PROVISIONAL guard rejects transitions to provisional status.
+        """PROVISIONAL guard rejects non-CANDIDATE transitions to provisional.
 
-        Note: Case sensitivity is now enforced by the enum type system.
-        This test verifies the guard works with the typed enum value.
+        Per OMN-2133, only CANDIDATE -> PROVISIONAL is allowed. This test
+        verifies the guard works with the typed enum value using a non-CANDIDATE
+        from_status.
         """
-        # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="candidate")
+        # Arrange: Use DEPRECATED -> PROVISIONAL to trigger PROVISIONAL guard
+        mock_repository.add_pattern(
+            sample_pattern_id, status="deprecated", evidence_tier="measured"
+        )
 
         # Act - Use proper enum value
         result = await apply_transition(
@@ -671,14 +707,16 @@ class TestProvisionalGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            from_status=EnumPatternLifecycleStatus.DEPRECATED,
             to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
+            trigger="reactivate",
             transition_at=sample_transition_at,
         )
 
         # Assert
-        assert result.success is False, "Should reject to_status=PROVISIONAL"
+        assert result.success is False, (
+            "Should reject to_status=PROVISIONAL from non-CANDIDATE"
+        )
 
     @pytest.mark.asyncio
     async def test_provisional_guard_before_idempotency_check(
@@ -693,9 +731,13 @@ class TestProvisionalGuard:
         """PROVISIONAL guard is checked before idempotency store is consulted.
 
         This ensures we don't record a request_id for an invalid transition.
+        Uses a non-CANDIDATE from_status so the PROVISIONAL guard fires at
+        Step 1, before idempotency check at Step 2.
         """
-        # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="candidate")
+        # Arrange: Use VALIDATED -> PROVISIONAL to trigger PROVISIONAL guard
+        mock_repository.add_pattern(
+            sample_pattern_id, status="validated", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -705,9 +747,9 @@ class TestProvisionalGuard:
             request_id=sample_request_id,
             correlation_id=sample_correlation_id,
             pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN
-            trigger="promote_direct",  # Valid trigger per OMN-1805 FSM contract
+            from_status=EnumPatternLifecycleStatus.VALIDATED,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN from non-CANDIDATE
+            trigger="demote",
             transition_at=sample_transition_at,
         )
 
@@ -726,7 +768,9 @@ class TestProvisionalGuard:
     ) -> None:
         """Transitions FROM provisional are still allowed (only TO is blocked)."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -842,7 +886,9 @@ class TestAuditRecords:
     ) -> None:
         """Successful transition inserts audit record."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -875,7 +921,9 @@ class TestAuditRecords:
     ) -> None:
         """Audit record contains all required fields."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -929,7 +977,9 @@ class TestKafkaEvents:
     ) -> None:
         """Successful transition emits Kafka event when producer available."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -968,7 +1018,9 @@ class TestKafkaEvents:
     ) -> None:
         """Kafka event includes correlation_id for tracing."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         await apply_transition(
@@ -1002,7 +1054,9 @@ class TestKafkaEvents:
     ) -> None:
         """No exception when producer is None (graceful degradation)."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act - Should not raise
         result = await apply_transition(
@@ -1034,7 +1088,9 @@ class TestKafkaEvents:
     ) -> None:
         """Event topic matches the publish_topic parameter."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
         publish_topic = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 
         # Act
@@ -1078,7 +1134,9 @@ class TestErrorHandling:
         """Database error during transition returns failure result."""
         # Arrange
         mock_repository = MockPatternRepository()
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
         mock_repository.simulate_db_error = Exception("Connection refused")
 
         # Act
@@ -1242,7 +1300,9 @@ class TestResultModelValidation:
     ) -> None:
         """ModelTransitionResult is immutable (frozen)."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -1278,7 +1338,9 @@ class TestResultModelValidation:
     ) -> None:
         """Result includes from_status and to_status regardless of outcome."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act - Success case
         result = await apply_transition(
@@ -1325,7 +1387,9 @@ class TestEdgeCases:
         Empty triggers make audit logs useless for debugging.
         """
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -1363,7 +1427,9 @@ class TestEdgeCases:
         be rejected for the same reasons as empty strings.
         """
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -1397,7 +1463,9 @@ class TestEdgeCases:
     ) -> None:
         """Very long reason string is handled without error."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
         long_reason = "A" * 10000  # 10,000 character reason
 
         # Act
@@ -1433,7 +1501,9 @@ class TestEdgeCases:
         This is a valid scenario for retries or re-application of state.
         """
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="validated")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="validated", evidence_tier="measured"
+        )
 
         # Act - Transition from validated to validated
         result = await apply_transition(
@@ -1466,7 +1536,9 @@ class TestEdgeCases:
     ) -> None:
         """None gate_snapshot is handled correctly (stored as NULL)."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
 
         # Act
         result = await apply_transition(
@@ -1485,9 +1557,12 @@ class TestEdgeCases:
 
         # Assert
         assert result.success is True
-        # Check that NULL was passed for gate_snapshot in the INSERT
+        # When gate_snapshot is None, handler creates minimal snapshot with evidence_tier
         args = mock_repository.inserted_audits[0]["args"]
-        assert args[7] is None  # gate_snapshot_json position
+        import json as json_mod
+
+        gate_snapshot_value = json_mod.loads(args[7])
+        assert gate_snapshot_value == {"evidence_tier": "measured"}
 
     @pytest.mark.asyncio
     async def test_complex_gate_snapshot_serialized(
@@ -1501,7 +1576,9 @@ class TestEdgeCases:
     ) -> None:
         """Complex gate_snapshot dict is serialized to JSON."""
         # Arrange
-        mock_repository.add_pattern(sample_pattern_id, status="provisional")
+        mock_repository.add_pattern(
+            sample_pattern_id, status="provisional", evidence_tier="measured"
+        )
         # Explicit dict[str, object] annotation to satisfy the gate_snapshot
         # parameter typed as ModelGateSnapshot | dict[str, object] | None
         # (dict is invariant in its value type).

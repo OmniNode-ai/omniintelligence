@@ -209,6 +209,17 @@ class IntelligenceNamingConventionValidator:
         ],
     }
 
+    @staticmethod
+    def _format_prefix_options(prefixes: frozenset[str]) -> str:
+        """Format a set of allowed prefixes into a human-readable string."""
+        prefix_list = sorted(prefixes)[:3]
+        if len(prefixes) == 1:
+            return f"'{prefix_list[0]}'"
+        elif len(prefixes) > 3:
+            return f"one of {prefix_list}..."
+        else:
+            return f"one of {sorted(prefixes)}"
+
     @classmethod
     def _ensure_compiled_patterns(cls) -> None:
         if cls._COMPILED_NAMING_PATTERNS:
@@ -270,13 +281,9 @@ class IntelligenceNamingConventionValidator:
                                     break
 
                             if not matches_prefix:
-                                prefix_list = sorted(parent_prefixes)[:3]
-                                if len(parent_prefixes) == 1:
-                                    prefix_str = f"'{prefix_list[0]}'"
-                                elif len(parent_prefixes) > 3:
-                                    prefix_str = f"one of {prefix_list}..."
-                                else:
-                                    prefix_str = f"one of {sorted(parent_prefixes)}"
+                                prefix_str = self._format_prefix_options(
+                                    parent_prefixes
+                                )
                                 return (
                                     f"File '{file_name}' in "
                                     f"'{immediate_parent}/' should start "
@@ -297,13 +304,7 @@ class IntelligenceNamingConventionValidator:
                             break
 
                     if not matches_prefix:
-                        prefix_list = sorted(required_prefixes)[:3]
-                        if len(required_prefixes) == 1:
-                            prefix_str = f"'{prefix_list[0]}'"
-                        elif len(required_prefixes) > 3:
-                            prefix_str = f"one of {prefix_list}..."
-                        else:
-                            prefix_str = f"one of {sorted(required_prefixes)}"
+                        prefix_str = self._format_prefix_options(required_prefixes)
                         return (
                             f"File '{file_name}' in '{relevant_dir}/' should start "
                             f"with {prefix_str}",

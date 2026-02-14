@@ -46,6 +46,8 @@ Usage:
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 from uuid import UUID, uuid4
@@ -66,6 +68,8 @@ from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_sto
     ModelPatternMetricsSnapshot,
     ModelPatternPromotedEvent,
 )
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Constants
@@ -421,6 +425,47 @@ class ProtocolPatternStateManager(Protocol):
 
 
 # =============================================================================
+# Result Type
+# =============================================================================
+
+# Error codes for structured error results
+ERROR_CODE_PATTERN_NOT_FOUND: Final[str] = "PATTERN_NOT_FOUND"
+"""Error code when a pattern does not exist in the state manager."""
+
+ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
+"""Error code when a state transition violates governance rules."""
+
+
+@dataclass
+class PromotePatternResult:
+    """Result of a pattern promotion operation.
+
+    Follows the structured error pattern used by StorePatternResult.
+    Handlers must return structured errors instead of raising domain exceptions.
+
+    Attributes:
+        success: Whether the promotion succeeded.
+        event: The promotion event if successful.
+        error_code: Machine-readable error code if failed.
+            Standard codes:
+            - "PATTERN_NOT_FOUND": Pattern does not exist
+            - "INVALID_TRANSITION": State transition not allowed
+        error_message: Human-readable error message if failed.
+        pattern_id: The pattern ID that was operated on (always set).
+        from_state: The state the pattern was in (None if not found).
+        to_state: The requested target state.
+    """
+
+    success: bool
+    event: ModelPatternPromotedEvent | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    pattern_id: UUID | None = None
+    from_state: EnumPatternState | None = None
+    to_state: EnumPatternState | None = None
+
+
+# =============================================================================
 # Main Handler
 # =============================================================================
 
@@ -438,7 +483,7 @@ async def handle_promote_pattern(
     domain: str | None = None,
     signature_hash: str | None = None,
     metadata: dict[str, object] | None = None,
-) -> ModelPatternPromotedEvent:
+) -> PromotePatternResult:
     """Handle pattern state promotion with audit trail.
 
     This function orchestrates the pattern promotion workflow:
@@ -446,7 +491,10 @@ async def handle_promote_pattern(
     2. Validate the transition is allowed
     3. Update state in database
     4. Record transition in audit table
-    5. Return event for Kafka broadcast
+    5. Return result with event for Kafka broadcast
+
+    Returns structured errors instead of raising domain exceptions,
+    following the handler error pattern documented in CLAUDE.md.
 
     Args:
         pattern_id: The pattern to promote.
@@ -467,14 +515,11 @@ async def handle_promote_pattern(
             this connection for atomic idempotency + state update.
 
     Returns:
-        ModelPatternPromotedEvent ready for Kafka broadcast.
-
-    Raises:
-        PatternNotFoundError: If the pattern does not exist in state manager.
-        PatternStateTransitionError: If the transition is invalid.
+        PromotePatternResult with success=True and event on success,
+        or success=False with error_code and error_message on failure.
 
     Example:
-        >>> event = await handle_promote_pattern(
+        >>> result = await handle_promote_pattern(
         ...     pattern_id=pattern_id,
         ...     to_state=EnumPatternState.PROVISIONAL,
         ...     reason="Pattern met verification criteria",
@@ -487,9 +532,11 @@ async def handle_promote_pattern(
         ...     conn=conn,
         ...     actor="verification_workflow",
         ... )
-        >>> event.from_state
+        >>> result.success
+        True
+        >>> result.event.from_state
         <EnumPatternState.CANDIDATE: 'candidate'>
-        >>> event.to_state
+        >>> result.event.to_state
         <EnumPatternState.PROVISIONAL: 'provisional'>
     """
     promoted_at = datetime.now(UTC)
@@ -498,11 +545,46 @@ async def handle_promote_pattern(
     # Step 1: Get current state
     from_state = await state_manager.get_current_state(pattern_id, conn=conn)
     if from_state is None:
-        raise PatternNotFoundError(pattern_id)
+        error_msg = f"Pattern {pattern_id} not found"
+        logger.warning(
+            "Promote pattern failed: pattern not found",
+            extra={"pattern_id": str(pattern_id)},
+        )
+        return PromotePatternResult(
+            success=False,
+            error_code=ERROR_CODE_PATTERN_NOT_FOUND,
+            error_message=error_msg,
+            pattern_id=pattern_id,
+            from_state=None,
+            to_state=to_state,
+        )
 
     # Step 2: Validate transition
     if not is_valid_transition(from_state, to_state):
-        raise PatternStateTransitionError(
+        valid_targets = VALID_TRANSITIONS.get(from_state, [])
+        valid_str = (
+            ", ".join(s.value for s in valid_targets)
+            if valid_targets
+            else "none (terminal)"
+        )
+        error_msg = (
+            f"Invalid transition for pattern {pattern_id}: "
+            f"{from_state.value} -> {to_state.value}. "
+            f"Valid targets from {from_state.value}: {valid_str}"
+        )
+        logger.warning(
+            "Promote pattern failed: invalid transition",
+            extra={
+                "pattern_id": str(pattern_id),
+                "from_state": from_state.value,
+                "to_state": to_state.value,
+                "valid_targets": valid_str,
+            },
+        )
+        return PromotePatternResult(
+            success=False,
+            error_code=ERROR_CODE_INVALID_TRANSITION,
+            error_message=error_msg,
             pattern_id=pattern_id,
             from_state=from_state,
             to_state=to_state,
@@ -559,9 +641,9 @@ async def handle_promote_pattern(
     )
     await state_manager.record_transition(transition, conn=conn)
 
-    # Step 5: Return event for Kafka broadcast
+    # Step 5: Return result with event for Kafka broadcast
     # Pass metrics_snapshot as-is (None indicates "no metrics captured")
-    return ModelPatternPromotedEvent(
+    event = ModelPatternPromotedEvent(
         pattern_id=pattern_id,
         from_state=from_state,
         to_state=to_state,
@@ -571,13 +653,23 @@ async def handle_promote_pattern(
         correlation_id=correlation_id,
         actor=actor,
     )
+    return PromotePatternResult(
+        success=True,
+        event=event,
+        pattern_id=pattern_id,
+        from_state=from_state,
+        to_state=to_state,
+    )
 
 
 __all__ = [
     "DEFAULT_ACTOR",
+    "ERROR_CODE_INVALID_TRANSITION",
+    "ERROR_CODE_PATTERN_NOT_FOUND",
     "ModelStateTransition",
     "PatternNotFoundError",
     "PatternStateTransitionError",
+    "PromotePatternResult",
     # Backwards compatibility alias (deprecated, use TransitionValidationResult)
     "PromotionValidationResult",
     "ProtocolPatternStateManager",

@@ -141,6 +141,14 @@ class MockPatternRepository:
 
         return []
 
+    async def fetchrow(self, query: str, *args: Any) -> MockRecord | None:
+        """Execute a query and return first row, or None.
+
+        Simulates asyncpg fetchrow() behavior.
+        """
+        results = await self.fetch(query, *args)
+        return results[0] if results else None
+
     async def execute(self, query: str, *args: Any) -> str:
         """Execute a query and return status string.
 

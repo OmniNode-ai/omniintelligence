@@ -44,8 +44,7 @@ from pydantic import ValidationError
 
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
-    PatternNotFoundError,
-    PatternStateTransitionError,
+    PromotePatternResult,
     ProtocolPatternStateManager,
     handle_promote_pattern,
 )
@@ -467,8 +466,8 @@ class PatternStorageRouter:
                     error_message="State manager not initialized",
                 )
 
-            # Call the existing handler
-            promoted_event = await handle_promote_pattern(
+            # Call the handler (returns structured result, not exceptions)
+            promote_result: PromotePatternResult = await handle_promote_pattern(
                 pattern_id=pattern_id,
                 to_state=to_state,
                 reason=reason,
@@ -481,6 +480,33 @@ class PatternStorageRouter:
                 metadata=input_data.get("metadata"),
                 conn=conn,
             )
+
+            if not promote_result.success:
+                logger.warning(
+                    "Promote pattern failed",
+                    extra={
+                        "error": promote_result.error_message,
+                        "error_code": promote_result.error_code,
+                        "pattern_id": str(promote_result.pattern_id),
+                        "from_state": promote_result.from_state.value
+                        if promote_result.from_state
+                        else None,
+                        "to_state": promote_result.to_state.value
+                        if promote_result.to_state
+                        else None,
+                    },
+                )
+                return StorageOperationResult(
+                    operation=OPERATION_PROMOTE_PATTERN,
+                    success=False,
+                    error_code=promote_result.error_code,
+                    error_message=promote_result.error_message,
+                )
+
+            promoted_event = promote_result.event
+            assert (
+                promoted_event is not None
+            )  # Invariant: success=True implies event is set
 
             logger.info(
                 "Promote pattern operation completed",
@@ -497,35 +523,6 @@ class PatternStorageRouter:
                 operation=OPERATION_PROMOTE_PATTERN,
                 success=True,
                 promoted_event=promoted_event,
-            )
-
-        except PatternNotFoundError as e:
-            logger.warning(
-                "Promote pattern failed: pattern not found",
-                extra={"error": str(e), "pattern_id": str(e.pattern_id)},
-            )
-            return StorageOperationResult(
-                operation=OPERATION_PROMOTE_PATTERN,
-                success=False,
-                error_code=ERROR_CODE_PATTERN_NOT_FOUND,
-                error_message=str(e),
-            )
-
-        except PatternStateTransitionError as e:
-            logger.warning(
-                "Promote pattern failed: invalid transition",
-                extra={
-                    "error": str(e),
-                    "pattern_id": str(e.pattern_id),
-                    "from_state": e.from_state.value if e.from_state else None,
-                    "to_state": e.to_state.value,
-                },
-            )
-            return StorageOperationResult(
-                operation=OPERATION_PROMOTE_PATTERN,
-                success=False,
-                error_code=ERROR_CODE_INVALID_TRANSITION,
-                error_message=str(e),
             )
 
         except ValueError as e:

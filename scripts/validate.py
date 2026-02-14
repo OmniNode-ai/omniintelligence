@@ -26,6 +26,21 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 SRC_DIR = PROJECT_ROOT / "src" / "omniintelligence"
 TOOLS_DIR = SRC_DIR / "tools"
 
+# Standalone omnibase_core ValidatorBase validators.
+# Maps CLI name -> (module, display_name) for validators invoked via
+# ``python -m omnibase_core.validation.{module} {directory}``.
+STANDALONE_VALIDATORS: dict[str, tuple[str, str]] = {
+    "any-type": ("validator_any_type", "any-type"),
+    "pydantic": ("validator_pydantic_conventions", "pydantic"),
+    "naming-convention": ("validator_naming_convention", "naming-convention"),
+    "enum-governance": ("checker_enum_governance", "enum-governance"),
+    "enum-casing": ("checker_enum_member_casing", "enum-casing"),
+    "literal-duplication": (
+        "checker_literal_duplication",
+        "literal-duplication",
+    ),
+}
+
 
 def find_nodes_directories() -> list[Path]:
     """Find all nodes directories in the project.
@@ -180,7 +195,7 @@ def run_standalone_validator(
 
     try:
         result = subprocess.run(
-            cmd, check=False, capture_output=not verbose, timeout=300
+            cmd, check=False, capture_output=not verbose, timeout=300, text=True
         )
         passed = result.returncode == 0
         if result.returncode == 2:
@@ -502,23 +517,10 @@ def main() -> int:
             "contracts": run_contract_linter,
         }
 
-        # Standalone omnibase_core ValidatorBase validators
-        standalone_validators: dict[str, tuple[str, str]] = {
-            "any-type": ("validator_any_type", "any-type"),
-            "pydantic": ("validator_pydantic_conventions", "pydantic"),
-            "naming-convention": ("validator_naming_convention", "naming-convention"),
-            "enum-governance": ("checker_enum_governance", "enum-governance"),
-            "enum-casing": ("checker_enum_member_casing", "enum-casing"),
-            "literal-duplication": (
-                "checker_literal_duplication",
-                "literal-duplication",
-            ),
-        }
-
         if args.validator in validator_map:
             result = validator_map[args.validator](verbose=args.verbose)
-        elif args.validator in standalone_validators:
-            module, display = standalone_validators[args.validator]
+        elif args.validator in STANDALONE_VALIDATORS:
+            module, display = STANDALONE_VALIDATORS[args.validator]
             result = run_standalone_validator(module, display, verbose=args.verbose)
         else:
             print(f"Unknown validator: {args.validator}")
@@ -583,15 +585,7 @@ def main() -> int:
             results.append(result)
 
         # Standalone omnibase_core ValidatorBase validators (non-blocking)
-        standalone_validator_list: list[tuple[str, str]] = [
-            ("validator_any_type", "any-type"),
-            ("validator_pydantic_conventions", "pydantic"),
-            ("validator_naming_convention", "naming-convention"),
-            ("checker_enum_governance", "enum-governance"),
-            ("checker_enum_member_casing", "enum-casing"),
-            ("checker_literal_duplication", "literal-duplication"),
-        ]
-        for module, display_name in standalone_validator_list:
+        for module, display_name in STANDALONE_VALIDATORS.values():
             print(f"  Running omnibase:{display_name}...")
             result = run_standalone_validator(
                 module, display_name, verbose=args.verbose

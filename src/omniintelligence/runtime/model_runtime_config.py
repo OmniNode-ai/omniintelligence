@@ -596,6 +596,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
 
         For event bus configuration:
         - KAFKA_BOOTSTRAP_SERVERS
+        - INTELLIGENCE_RUNTIME_EVENT_BUS_ENABLED (explicit override; defaults
+          to true when any event bus env var is present)
         - INTELLIGENCE_RUNTIME_CONSUMER_GROUP
         - INTELLIGENCE_RUNTIME_COMMAND_TOPIC
         - INTELLIGENCE_RUNTIME_EVENT_TOPIC
@@ -642,6 +644,14 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
         # Event bus configuration
         event_bus_data: dict[str, object] = {}
 
+        # Explicit enabled/disabled override for the event bus.
+        if event_bus_enabled := os.environ.get(f"{prefix}EVENT_BUS_ENABLED"):
+            event_bus_data["enabled"] = event_bus_enabled.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+
         if bootstrap_servers := os.environ.get("KAFKA_BOOTSTRAP_SERVERS"):
             event_bus_data["bootstrap_servers"] = bootstrap_servers
 
@@ -661,6 +671,9 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             event_bus_data["topics"] = topics_data
 
         if event_bus_data:
+            # Default to enabled when Kafka env vars are present,
+            # but respect an explicit enabled=False override.
+            event_bus_data.setdefault("enabled", True)
             config_data["event_bus"] = event_bus_data
 
         return cls.model_validate(config_data)

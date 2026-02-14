@@ -40,7 +40,7 @@ import logging
 import time
 import warnings
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -64,6 +64,28 @@ warnings.warn(
 )
 
 logger = logging.getLogger(__name__)
+
+
+class PublisherCounters(TypedDict):
+    """Mutable counters tracked by EventPublisher during its lifetime."""
+
+    events_published: int
+    events_failed: int
+    events_sent_to_dlq: int
+    total_publish_time_ms: float
+    circuit_breaker_opens: int
+    retries_attempted: int
+    serialization_errors: int
+    envelope_errors: int
+
+
+class PublisherMetrics(PublisherCounters):
+    """Full metrics snapshot returned by ``EventPublisher.get_metrics()``."""
+
+    total_events: int
+    avg_publish_time_ms: float
+    circuit_breaker_status: str
+    current_failures: int
 
 
 class ModelEventSource(BaseModel):
@@ -204,9 +226,7 @@ class EventPublisher:
         self._circuit_breaker_open = False
 
         # Metrics
-        self.metrics: dict[
-            str, Any
-        ] = {  # any-ok: counter values are int/float, accessed arithmetically
+        self.metrics: PublisherCounters = {
             "events_published": 0,
             "events_failed": 0,
             "events_sent_to_dlq": 0,
@@ -784,12 +804,12 @@ class EventPublisher:
         self._circuit_breaker_last_failure_time = None
         self._circuit_breaker_open = False
 
-    def get_metrics(self) -> dict[str, object]:
+    def get_metrics(self) -> PublisherMetrics:
         """
         Get publisher metrics.
 
         Returns:
-            Dictionary with metrics:
+            PublisherMetrics with all counter values plus computed fields:
             - events_published: Total events published successfully
             - events_failed: Total events that failed publishing
             - events_sent_to_dlq: Total events sent to DLQ
@@ -800,12 +820,14 @@ class EventPublisher:
             - circuit_breaker_status: Current circuit breaker status
             - serialization_errors: Count of serialization failures (not circuit breaker)
             - envelope_errors: Count of envelope creation failures (not circuit breaker)
+            - total_events: Sum of published and failed events
+            - current_failures: Current circuit breaker failure count
         """
-        total_events = self.metrics["events_published"] + self.metrics["events_failed"]
+        published = self.metrics["events_published"]
+        failed = self.metrics["events_failed"]
+        total_events = published + failed
         avg_publish_time = (
-            self.metrics["total_publish_time_ms"] / self.metrics["events_published"]
-            if self.metrics["events_published"] > 0
-            else 0.0
+            self.metrics["total_publish_time_ms"] / published if published > 0 else 0.0
         )
 
         return {

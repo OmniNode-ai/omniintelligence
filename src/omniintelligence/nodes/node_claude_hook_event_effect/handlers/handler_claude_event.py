@@ -7,7 +7,7 @@ Claude Code hook events with explicit dependency injection via constructor.
 
 Design Principles:
     - Dependencies injected via constructor (NO setters)
-    - Kafka publisher is REQUIRED for full functionality
+    - Kafka publisher is OPTIONAL (graceful degradation when unavailable)
     - Intent classifier is OPTIONAL
     - Pure handler functions for processing logic
     - Event type routing via pattern matching
@@ -92,7 +92,7 @@ class HandlerClaudeHookEvent:
     injected via constructor - no setters, no container lookups.
 
     Attributes:
-        kafka_publisher: Kafka publisher for event emission (REQUIRED for full functionality).
+        kafka_publisher: Kafka publisher for event emission (OPTIONAL, graceful degradation).
         intent_classifier: Intent classifier compute node (OPTIONAL).
         publish_topic: Full Kafka publish topic from contract (OPTIONAL).
 
@@ -108,31 +108,27 @@ class HandlerClaudeHookEvent:
     def __init__(
         self,
         *,
-        kafka_publisher: ProtocolKafkaPublisher,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
         intent_classifier: ProtocolIntentClassifier | None = None,
         publish_topic: str | None = None,
     ) -> None:
         """Initialize handler with explicit dependencies.
 
         Args:
-            kafka_publisher: REQUIRED Kafka publisher for event emission.
+            kafka_publisher: Optional Kafka publisher for event emission.
+                When None, the handler operates in degraded mode: intent
+                classification still runs but events are not emitted to Kafka.
             intent_classifier: Optional intent classifier compute node.
             publish_topic: Full Kafka topic for publishing classified intents.
                 Source of truth is the contract's event_bus.publish_topics.
-
-        Raises:
-            ValueError: If kafka_publisher is None.
         """
-        if kafka_publisher is None:
-            raise ValueError("kafka_publisher is required")
-
         self._kafka_publisher = kafka_publisher
         self._intent_classifier = intent_classifier
         self._publish_topic = publish_topic
 
     @property
-    def kafka_publisher(self) -> ProtocolKafkaPublisher:
-        """Get the Kafka publisher."""
+    def kafka_publisher(self) -> ProtocolKafkaPublisher | None:
+        """Get the Kafka publisher, or None if not configured."""
         return self._kafka_publisher
 
     @property

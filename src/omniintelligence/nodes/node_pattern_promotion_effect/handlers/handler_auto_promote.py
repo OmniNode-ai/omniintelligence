@@ -41,9 +41,8 @@ Reference:
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
@@ -53,6 +52,9 @@ from omniintelligence.protocols import ProtocolPatternRepository
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
         ProtocolIdempotencyStore,
+    )
+    from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+        ModelTransitionResult,
     )
     from omniintelligence.protocols import ProtocolKafkaPublisher
 
@@ -150,6 +152,71 @@ LIMIT 1
 # =============================================================================
 
 
+class PatternMetricsRow(TypedDict, total=False):
+    """Row shape returned by SQL_FETCH_CANDIDATE_PATTERNS / SQL_FETCH_PROVISIONAL_PATTERNS_WITH_TIER.
+
+    Mirrors the SELECT columns from the promotion SQL queries. Fields use
+    ``total=False`` because asyncpg Records may contain None for nullable
+    columns, and callers use ``.get()`` with fallback defaults.
+
+    Required fields (always present in the query result):
+        id: Pattern UUID primary key.
+        pattern_signature: Unique signature string.
+        status: Current lifecycle status (candidate / provisional / validated / deprecated).
+        evidence_tier: Denormalized evidence tier (unmeasured / observed / measured / verified).
+
+    Metric fields (nullable in DB, accessed via ``.get()`` with default 0):
+        injection_count_rolling_20: Rolling window injection count.
+        success_count_rolling_20: Rolling window success count.
+        failure_count_rolling_20: Rolling window failure count.
+        failure_streak: Current consecutive failure count.
+    """
+
+    id: UUID
+    pattern_signature: str
+    status: str
+    evidence_tier: str
+    injection_count_rolling_20: int | None
+    success_count_rolling_20: int | None
+    failure_count_rolling_20: int | None
+    failure_streak: int | None
+
+
+@runtime_checkable
+class ProtocolApplyTransition(Protocol):
+    """Protocol for the ``apply_transition`` function from handler_transition.
+
+    Typed callable protocol replacing ``Callable[..., Any]`` so that callers
+    get static type safety on the return type (``ModelTransitionResult``).
+
+    The positional parameters mirror ``apply_transition()`` exactly:
+        1. repository (ProtocolPatternRepository)
+        2. idempotency_store (ProtocolIdempotencyStore | None)
+        3. producer (ProtocolKafkaPublisher | None)
+
+    All remaining parameters are keyword-only.
+    """
+
+    async def __call__(
+        self,
+        repository: ProtocolPatternRepository,
+        idempotency_store: ProtocolIdempotencyStore | None,
+        producer: ProtocolKafkaPublisher | None,
+        *,
+        request_id: UUID,
+        correlation_id: UUID,
+        pattern_id: UUID,
+        from_status: EnumPatternLifecycleStatus,
+        to_status: EnumPatternLifecycleStatus,
+        trigger: str,
+        actor: str,
+        reason: str | None,
+        gate_snapshot: ModelGateSnapshot | dict[str, object] | None,
+        transition_at: datetime,
+        publish_topic: str | None,
+    ) -> ModelTransitionResult: ...
+
+
 class AutoPromoteResult(TypedDict):
     """Result of a single auto-promotion attempt."""
 
@@ -178,7 +245,7 @@ class AutoPromoteCheckResult(TypedDict):
 
 
 def _meets_promotion_criteria(
-    pattern: Mapping[str, Any],
+    pattern: PatternMetricsRow,
     *,
     min_injection_count: int,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -219,7 +286,7 @@ def _meets_promotion_criteria(
 
 
 def meets_candidate_to_provisional_criteria(
-    pattern: Mapping[str, Any],
+    pattern: PatternMetricsRow,
     *,
     min_injection_count: int = MIN_INJECTION_COUNT_PROVISIONAL,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -238,7 +305,7 @@ def meets_candidate_to_provisional_criteria(
 
 
 def meets_provisional_to_validated_criteria(
-    pattern: Mapping[str, Any],
+    pattern: PatternMetricsRow,
     *,
     min_injection_count: int = MIN_INJECTION_COUNT_VALIDATED,
     min_success_rate: float = MIN_SUCCESS_RATE,
@@ -256,7 +323,7 @@ def meets_provisional_to_validated_criteria(
     )
 
 
-def _calculate_success_rate(pattern: Mapping[str, Any]) -> float:
+def _calculate_success_rate(pattern: PatternMetricsRow) -> float:
     """Calculate success rate from pattern data. Returns 0.0 if no outcomes."""
     success_count = pattern.get("success_count_rolling_20", 0) or 0
     failure_count = pattern.get("failure_count_rolling_20", 0) or 0
@@ -267,7 +334,7 @@ def _calculate_success_rate(pattern: Mapping[str, Any]) -> float:
 
 
 async def _build_enriched_gate_snapshot(
-    pattern: Mapping[str, Any],
+    pattern: PatternMetricsRow,
     *,
     conn: ProtocolPatternRepository,
 ) -> ModelGateSnapshot:
@@ -334,9 +401,7 @@ async def _build_enriched_gate_snapshot(
 async def handle_auto_promote_check(
     repository: ProtocolPatternRepository,
     *,
-    apply_transition_fn: Callable[
-        ..., Any
-    ],  # any-ok: async callable with dynamic return type
+    apply_transition_fn: ProtocolApplyTransition,
     idempotency_store: ProtocolIdempotencyStore | None = None,
     producer: ProtocolKafkaPublisher | None = None,
     correlation_id: UUID | None = None,
@@ -565,6 +630,8 @@ __all__ = [
     "MIN_INJECTION_COUNT_PROVISIONAL",
     "MIN_INJECTION_COUNT_VALIDATED",
     "MIN_SUCCESS_RATE",
+    "PatternMetricsRow",
+    "ProtocolApplyTransition",
     "handle_auto_promote_check",
     "meets_candidate_to_provisional_criteria",
     "meets_provisional_to_validated_criteria",
