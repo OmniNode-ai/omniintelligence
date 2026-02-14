@@ -121,6 +121,16 @@ class TestHandleStop:
         assert result.metadata["pattern_learning_emission"] == "failed"
         assert "Kafka unavailable" in result.metadata["pattern_learning_error"]
 
+        # Verify DLQ routing was attempted: producer.publish should be called
+        # twice -- once for the original topic (which fails) and once for the
+        # DLQ topic (which also fails because the mock raises unconditionally).
+        assert mock_producer.publish.await_count == 2
+        dlq_call = mock_producer.publish.call_args_list[1]
+        assert dlq_call.kwargs["topic"].endswith(".dlq")
+
+        # DLQ publish also failed (same side_effect), so metadata reflects that
+        assert result.metadata["pattern_learning_dlq"] == "failed"
+
 
 @pytest.mark.unit
 class TestRouteHookEventStop:

@@ -79,6 +79,44 @@ class ModelIntentResult(BaseModel):
     )
 
 
+class ModelPatternLearningCommand(BaseModel):
+    """Command payload emitted on Stop events to trigger pattern extraction.
+
+    Published to ``onex.cmd.omniintelligence.pattern-learning.v1`` when a
+    Claude Code session stops. Consumed by the intelligence orchestrator to
+    initiate pattern learning from session data.
+
+    Related:
+        - OMN-2210: Wire intelligence nodes into registration + pattern extraction
+    """
+
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+    )
+
+    event_type: str = Field(
+        default="PatternLearningRequested",
+        description="Event type discriminator, always 'PatternLearningRequested'",
+    )
+    session_id: str = Field(
+        ...,
+        description="Session ID from the hook event",
+    )
+    correlation_id: str = Field(
+        ...,
+        description="Correlation ID for distributed tracing",
+    )
+    trigger: str = Field(
+        default="session_stop",
+        description="Trigger source, always 'session_stop'",
+    )
+    timestamp: str = Field(
+        ...,
+        description="ISO-8601 timestamp of when the command was emitted",
+    )
+
+
 class ModelClaudeHookResult(BaseModel):
     """Output model for Claude Code hook event processing.
 
@@ -162,4 +200,5 @@ __all__ = [
     "EnumKafkaEmissionStatus",
     "ModelClaudeHookResult",
     "ModelIntentResult",
+    "ModelPatternLearningCommand",
 ]

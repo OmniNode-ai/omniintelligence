@@ -286,7 +286,7 @@ event_bus:
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
     "onex.cmd.omniintelligence.pattern-learning.v1":
-      schema_ref: null
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelPatternLearningCommand"
       description: "Pattern learning command emitted on Stop event to trigger pattern extraction"
 
 # =============================================================================

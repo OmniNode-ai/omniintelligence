@@ -32,6 +32,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEventPayload,
     ModelClaudeHookResult,
     ModelIntentResult,
+    ModelPatternLearningCommand,
 )
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
@@ -299,13 +300,12 @@ async def handle_stop(
     pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
 
     if kafka_producer is not None:
-        command_payload = {
-            "event_type": "PatternLearningRequested",
-            "session_id": event.session_id,
-            "correlation_id": str(event.correlation_id),
-            "trigger": "session_stop",
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
+        command = ModelPatternLearningCommand(
+            session_id=event.session_id,
+            correlation_id=str(event.correlation_id),
+            timestamp=datetime.now(UTC).isoformat(),
+        )
+        command_payload = command.model_dump()
 
         try:
             await kafka_producer.publish(

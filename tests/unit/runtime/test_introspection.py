@@ -17,9 +17,18 @@ from uuid import UUID, uuid4
 
 import pytest
 
-# The runtime package __init__.py imports PluginIntelligence which triggers
-# contract topic scanning. On some omnibase_core versions, this hits a
-# broken import (EnumEvidenceTier). Guard against that here.
+# The introspection module itself has no problematic imports, but importing it
+# triggers omniintelligence.runtime.__init__.py which imports PluginIntelligence.
+# PluginIntelligence runs collect_subscribe_topics_from_contracts() at module
+# level, which scans all node packages via importlib.resources.files(). This
+# causes node_pattern_feedback_effect.__init__.py to load, which imports
+# handler_attribution_binder.py, which requires EnumEvidenceTier from
+# omnibase_core.enums.pattern_learning. That enum does not exist in the
+# currently installed omnibase_core version.
+#
+# TODO(OMN-2210): Blocked on omnibase_core publishing EnumEvidenceTier in
+# omnibase_core.enums.pattern_learning. Once the omnibase_core dependency is
+# updated, remove this guard and the skipif marker below.
 try:
     from omniintelligence.runtime.introspection import (
         INTELLIGENCE_NODES,
@@ -34,7 +43,12 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(
     not _CAN_IMPORT,
-    reason="Cannot import introspection module due to omnibase_core version mismatch",
+    reason=(
+        "Cannot import introspection module: omniintelligence.runtime.__init__ "
+        "triggers contract topic scanning which imports "
+        "node_pattern_feedback_effect -> handler_attribution_binder -> "
+        "EnumEvidenceTier (missing from installed omnibase_core)"
+    ),
 )
 
 

@@ -274,6 +274,11 @@ async def publish_intelligence_shutdown(
     if event_bus is None:
         return
 
+    # New proxies are created here because startup only retains proxies for
+    # effect nodes (those with heartbeat tasks) in IntrospectionResult.proxies.
+    # Non-effect nodes (compute, orchestrator, reducer) have no background tasks,
+    # so their startup proxies are not stored. Creating lightweight proxies here
+    # is simpler than refactoring startup to retain all proxies.
     for descriptor in INTELLIGENCE_NODES:
         try:
             proxy = IntelligenceNodeIntrospectionProxy(
