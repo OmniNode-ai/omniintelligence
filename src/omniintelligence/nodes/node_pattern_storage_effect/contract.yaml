@@ -357,6 +357,17 @@ capabilities:
     version: "1.0.0"
 
 # =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["pattern_id", "signature_hash"]
+  description: "Each storage request is keyed by (pattern_id, signature_hash). Re-processing the same
+    pattern-learned event is idempotent - duplicate patterns are deduplicated via lineage key lookup and
+    existing entries are returned without re-insertion."
+
+# =============================================================================
 # HEALTH CHECK
 # =============================================================================
 health_check:

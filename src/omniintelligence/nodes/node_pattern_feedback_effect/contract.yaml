@@ -185,6 +185,17 @@ capabilities:
     description: "Record and track session success/failure outcomes"
 
 # =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "outcome"]
+  description: "Each session outcome event is uniquely identified by session_id and outcome. Re-processing
+    the same session outcome is idempotent - injections already marked as outcome_recorded are skipped,
+    preventing duplicate metric updates."
+
+# =============================================================================
 # METADATA
 # =============================================================================
 metadata:

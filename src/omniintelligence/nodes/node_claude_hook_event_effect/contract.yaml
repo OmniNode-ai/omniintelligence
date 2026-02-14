@@ -316,6 +316,17 @@ capabilities:
     description: "Return success for event types not yet implemented"
 
 # =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "event_type", "timestamp_utc"]
+  description: "Each hook event is uniquely identified by the combination of session_id, event_type, and
+    timestamp_utc. Re-processing the same hook event is idempotent - duplicate events with matching hash
+    fields are detected and skipped to prevent double-processing of intent classification and Kafka emission."
+
+# =============================================================================
 # METADATA
 # =============================================================================
 metadata:
