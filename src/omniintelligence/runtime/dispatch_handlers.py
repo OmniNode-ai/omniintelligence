@@ -597,6 +597,16 @@ def create_pattern_storage_dispatch_handler(
 
         pattern_id = raw_pattern_id or uuid4()
         signature = str(payload.get("signature", payload.get("pattern_signature", "")))
+
+        if not signature:
+            msg = (
+                f"Pattern storage event missing pattern_signature, rejecting "
+                f"(event_type={event_type}, pattern_id={pattern_id}, "
+                f"correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
         signature_hash = str(payload.get("signature_hash", ""))
         domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
         domain_version = str(payload.get("domain_version", "1.0.0"))
@@ -640,6 +650,16 @@ def create_pattern_storage_dispatch_handler(
             for sid in raw_session_ids:
                 with contextlib.suppress(ValueError):
                     source_session_ids.append(UUID(str(sid)))
+            dropped_count = len(raw_session_ids) - len(source_session_ids)
+            if dropped_count > 0:
+                logger.warning(
+                    "Dropped %d invalid session IDs from source_session_ids "
+                    "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                    dropped_count,
+                    event_type,
+                    pattern_id,
+                    ctx_correlation_id,
+                )
 
         logger.info(
             "Processing pattern storage event via dispatch engine "
@@ -661,7 +681,6 @@ def create_pattern_storage_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        now = datetime.now(UTC)
         try:
             await repository.execute(
                 _SQL_UPSERT_LEARNED_PATTERN,
@@ -675,6 +694,15 @@ def create_pattern_storage_dispatch_handler(
                 source_session_ids,
             )
         except Exception as e:
+            error_str = str(e)
+            if "domain_taxonomy" in error_str or "foreign key" in error_str.lower():
+                msg = (
+                    f"Unknown domain_id {domain_id!r} not found in domain_taxonomy "
+                    f"(pattern_id={pattern_id}, correlation_id={ctx_correlation_id}). "
+                    f"Ensure the domain is registered before publishing pattern events."
+                )
+                logger.error(msg)
+                raise ValueError(msg) from e
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
                 "(pattern_id=%s, error=%s, correlation_id=%s)",
@@ -683,6 +711,8 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
             )
             raise
+
+        now = datetime.now(UTC)
 
         logger.info(
             "Pattern stored via dispatch bridge "
