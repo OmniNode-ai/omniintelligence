@@ -464,6 +464,7 @@ async def handle_auto_promote_check(
     )
 
     for _raw_pattern in candidate_patterns:
+        # Cast contract: SQL_FETCH_CANDIDATE_PATTERNS returns rows matching PatternMetricsRow shape
         pattern = cast(PatternMetricsRow, _raw_pattern)
         if not meets_candidate_to_provisional_criteria(pattern):
             continue
@@ -543,6 +544,7 @@ async def handle_auto_promote_check(
     )
 
     for _raw_pattern in provisional_patterns:
+        # Cast contract: SQL_FETCH_PROVISIONAL_PATTERNS returns rows matching PatternMetricsRow shape
         pattern = cast(PatternMetricsRow, _raw_pattern)
         if not meets_provisional_to_validated_criteria(pattern):
             continue

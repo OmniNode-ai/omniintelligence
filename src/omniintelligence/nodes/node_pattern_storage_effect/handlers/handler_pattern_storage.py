@@ -504,9 +504,10 @@ class PatternStorageRouter:
                 )
 
             promoted_event = promote_result.event
-            assert (
-                promoted_event is not None
-            )  # Invariant: success=True implies event is set
+            if promoted_event is None:
+                raise RuntimeError(
+                    "Invariant violation: promote succeeded but event is None"
+                )
 
             logger.info(
                 "Promote pattern operation completed",
