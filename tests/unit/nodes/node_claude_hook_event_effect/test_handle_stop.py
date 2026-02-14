@@ -95,10 +95,9 @@ class TestHandleStop:
 
         await handle_stop(event=event, kafka_producer=mock_producer)
 
-        # Get the value argument from the publish call
+        # Get the value argument from the publish call (keyword args)
         call_args = mock_producer.publish.call_args
-        # The publish signature is publish(topic, key, value)
-        payload = call_args.kwargs.get("value") or call_args[1].get("value")
+        payload = call_args.kwargs["value"]
 
         assert payload["event_type"] == "PatternLearningRequested"
         assert payload["session_id"] == "test-session-123"
