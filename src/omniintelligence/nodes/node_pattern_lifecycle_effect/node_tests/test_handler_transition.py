@@ -30,14 +30,13 @@ import pytest
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     ProtocolIdempotencyStore,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     _parse_update_count,
     apply_transition,
 )
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelTransitionResult,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 from .conftest import (
     MockIdempotencyStore,

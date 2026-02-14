@@ -25,13 +25,13 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
     import asyncpg
 
-    from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification import (
+    from omniintelligence.nodes.node_intent_classifier_compute.models import (
         ModelClassificationConfig,
     )
     from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
@@ -112,15 +112,15 @@ class AdapterPatternRepositoryPostgres:
 
     async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
         """Execute query and return all rows."""
-        return await self._pool.fetch(query, *args)  # type: ignore[return-value]
+        return cast(list[Mapping[str, Any]], await self._pool.fetch(query, *args))
 
     async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
         """Execute query and return first row, or None."""
-        return await self._pool.fetchrow(query, *args)  # type: ignore[return-value]
+        return cast(Mapping[str, Any] | None, await self._pool.fetchrow(query, *args))
 
     async def execute(self, query: str, *args: object) -> str:
         """Execute query and return status string."""
-        return await self._pool.execute(query, *args)
+        return cast(str, await self._pool.execute(query, *args))
 
 
 # =============================================================================
