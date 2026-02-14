@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
@@ -305,7 +305,7 @@ async def handle_stop(
     if kafka_producer is not None:
         command = ModelPatternLearningCommand(
             session_id=event.session_id,
-            correlation_id=str(event.correlation_id) if event.correlation_id is not None else "",
+            correlation_id=str(event.correlation_id) if event.correlation_id is not None else str(uuid4()),
             timestamp=datetime.now(UTC).isoformat(),
         )
         command_payload = command.model_dump()

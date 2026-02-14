@@ -42,6 +42,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Guard for single-call invariant on publish_intelligence_introspection.
+# See the function docstring for rationale: calling it more than once orphans
+# heartbeat tasks from the first call, leaking asyncio tasks.
+_introspection_published: bool = False
+
 # Deterministic namespace for intelligence node IDs.
 # Using DNS namespace with "omniintelligence" prefix ensures stable UUIDs
 # across restarts while avoiding collisions with other domains.
@@ -205,6 +210,15 @@ async def publish_intelligence_introspection(
         IntrospectionResult with registered node names and proxy references
         for lifecycle management.
     """
+    global _introspection_published
+    if _introspection_published:
+        raise RuntimeError(
+            "publish_intelligence_introspection() has already been called. "
+            "Calling it again would orphan heartbeat tasks from the first "
+            "invocation. This violates the single-call invariant documented "
+            "in the function docstring."
+        )
+
     if event_bus is None:
         logger.info(
             "Skipping intelligence introspection: no event bus available "
@@ -212,6 +226,8 @@ async def publish_intelligence_introspection(
             correlation_id,
         )
         return IntrospectionResult()
+
+    _introspection_published = True
 
     result = IntrospectionResult()
 
@@ -335,10 +351,22 @@ async def publish_intelligence_shutdown(
             )
 
 
+def reset_introspection_guard() -> None:
+    """Reset the single-call guard for publish_intelligence_introspection.
+
+    **Testing only.** This allows tests to call publish_intelligence_introspection
+    multiple times without hitting the single-call invariant. Production code
+    should never call this.
+    """
+    global _introspection_published
+    _introspection_published = False
+
+
 __all__ = [
     "INTELLIGENCE_NODES",
     "IntelligenceNodeIntrospectionProxy",
     "IntrospectionResult",
     "publish_intelligence_introspection",
     "publish_intelligence_shutdown",
+    "reset_introspection_guard",
 ]

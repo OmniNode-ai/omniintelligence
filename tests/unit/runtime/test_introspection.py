@@ -36,6 +36,7 @@ try:
         IntrospectionResult,
         publish_intelligence_introspection,
         publish_intelligence_shutdown,
+        reset_introspection_guard,
     )
 
     _CAN_IMPORT = True
@@ -51,6 +52,13 @@ pytestmark = pytest.mark.skipif(
         "EnumEvidenceTier (missing from installed omnibase_core)"
     ),
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_guard() -> None:
+    """Reset the single-call guard before each test."""
+    if _CAN_IMPORT:
+        reset_introspection_guard()
 
 
 @pytest.mark.unit
@@ -161,6 +169,25 @@ class TestPublishIntelligenceIntrospection:
         assert isinstance(result, IntrospectionResult)
         # Should have published for all nodes
         assert len(result.registered_nodes) == len(INTELLIGENCE_NODES)
+
+    @pytest.mark.asyncio
+    async def test_raises_on_double_call(self) -> None:
+        """Should raise RuntimeError if called twice (single-call invariant)."""
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish_envelope = AsyncMock(return_value=None)
+
+        await publish_intelligence_introspection(
+            event_bus=mock_event_bus,
+            correlation_id=uuid4(),
+            enable_heartbeat=False,
+        )
+
+        with pytest.raises(RuntimeError, match="already been called"):
+            await publish_intelligence_introspection(
+                event_bus=mock_event_bus,
+                correlation_id=uuid4(),
+                enable_heartbeat=False,
+            )
 
     @pytest.mark.asyncio
     async def test_graceful_degradation_on_publish_failure(self) -> None:
