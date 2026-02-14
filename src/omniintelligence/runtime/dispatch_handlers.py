@@ -599,6 +599,7 @@ def create_pattern_storage_dispatch_handler(
                 raw_pattern_id = None
 
         pattern_id = raw_pattern_id or uuid4()
+        # Prefer 'signature' (omniclaude producers) over 'pattern_signature' (DB column name).
         signature = str(payload.get("signature", payload.get("pattern_signature", "")))
 
         if not signature:
@@ -611,6 +612,8 @@ def create_pattern_storage_dispatch_handler(
             raise ValueError(msg)
 
         signature_hash = str(payload.get("signature_hash", ""))
+        # Default 'general' must exist in domain_taxonomy (FK constraint).
+        # If missing, ForeignKeyViolationError is caught and raised as ValueError.
         domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
         domain_version = str(payload.get("domain_version", "1.0.0"))
         try:

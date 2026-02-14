@@ -36,7 +36,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodePatternDemotionEffect",
     ),
     "NodePatternFeedbackEffect": (
-        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "omniintelligence.nodes.node_pattern_feedback_effect.node",
         "NodePatternFeedbackEffect",
     ),
     "NodePatternLifecycleEffect": (
@@ -44,7 +44,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodePatternLifecycleEffect",
     ),
     "NodePatternPromotionEffect": (
-        "omniintelligence.nodes.node_pattern_promotion_effect",
+        "omniintelligence.nodes.node_pattern_promotion_effect.node",
         "NodePatternPromotionEffect",
     ),
     "NodePatternStorageEffect": (
@@ -181,9 +181,6 @@ if TYPE_CHECKING:
         ModelSessionOutcomeResult as ModelSessionOutcomeResult,
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
-        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
-    )
-    from omniintelligence.nodes.node_pattern_feedback_effect import (
         SessionOutcomeInput as SessionOutcomeInput,
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
@@ -191,6 +188,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
         update_pattern_rolling_metrics as update_pattern_rolling_metrics,
+    )
+    from omniintelligence.nodes.node_pattern_feedback_effect.node import (
+        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
     )
     from omniintelligence.nodes.node_pattern_learning_compute.node import (
         NodePatternLearningCompute as NodePatternLearningCompute,
@@ -201,7 +201,7 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_matching_compute.node import (
         NodePatternMatchingCompute as NodePatternMatchingCompute,
     )
-    from omniintelligence.nodes.node_pattern_promotion_effect import (
+    from omniintelligence.nodes.node_pattern_promotion_effect.node import (
         NodePatternPromotionEffect as NodePatternPromotionEffect,
     )
     from omniintelligence.nodes.node_pattern_storage_effect.node import (
