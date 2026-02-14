@@ -357,7 +357,8 @@ class PatternStorageRouter:
             )
 
         stored_event = store_result.event
-        assert stored_event is not None  # Invariant: success=True implies event is set
+        if stored_event is None:
+            raise RuntimeError("Invariant violation: store succeeded but event is None")
 
         logger.info(
             "Store pattern operation completed",

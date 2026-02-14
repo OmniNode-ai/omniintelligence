@@ -368,9 +368,10 @@ async def handle_user_prompt_submit(
     metadata: dict[str, object] = {"handler": "user_prompt_submit"}
 
     # Resolve correlation_id: use event's if present, generate one otherwise
-    correlation_id_generated = event.correlation_id is None
-    correlation_id = event.correlation_id if not correlation_id_generated else uuid4()
-    if correlation_id_generated:
+    if event.correlation_id is not None:
+        correlation_id: UUID = event.correlation_id
+    else:
+        correlation_id = uuid4()
         metadata["correlation_id_generated"] = True
 
     # Extract prompt from payload
