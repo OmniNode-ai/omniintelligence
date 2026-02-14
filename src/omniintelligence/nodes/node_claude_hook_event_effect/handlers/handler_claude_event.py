@@ -298,6 +298,7 @@ async def handle_stop(
 
     # Emit pattern learning command if Kafka is available
     pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
+    emitted_to_kafka = False
 
     if kafka_producer is not None:
         command = ModelPatternLearningCommand(
@@ -313,6 +314,7 @@ async def handle_stop(
                 key=event.session_id,
                 value=command_payload,
             )
+            emitted_to_kafka = True
             metadata["pattern_learning_emission"] = "success"
             metadata["pattern_learning_topic"] = pattern_learning_topic
         except Exception as e:
@@ -333,8 +335,15 @@ async def handle_stop(
     else:
         metadata["pattern_learning_emission"] = "no_producer"
 
+    # Determine status: PARTIAL when Kafka was available but publish failed,
+    # SUCCESS when publish succeeded or no producer was configured.
+    if emitted_to_kafka or kafka_producer is None:
+        status = EnumHookProcessingStatus.SUCCESS
+    else:
+        status = EnumHookProcessingStatus.PARTIAL
+
     return ModelClaudeHookResult(
-        status=EnumHookProcessingStatus.SUCCESS,
+        status=status,
         event_type=str(event.event_type),
         session_id=event.session_id,
         correlation_id=event.correlation_id,

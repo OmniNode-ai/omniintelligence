@@ -107,7 +107,7 @@ class TestHandleStop:
 
     @pytest.mark.asyncio
     async def test_handles_kafka_publish_failure(self) -> None:
-        """Should return success even when Kafka publish fails."""
+        """Should return PARTIAL when Kafka producer was available but publish failed."""
         event = _make_stop_event()
         mock_producer = _make_mock_producer(
             side_effect=RuntimeError("Kafka unavailable"),
@@ -115,8 +115,8 @@ class TestHandleStop:
 
         result = await handle_stop(event=event, kafka_producer=mock_producer)
 
-        # Should still return success (graceful degradation)
-        assert result.status == EnumHookProcessingStatus.SUCCESS
+        # Should return PARTIAL: Kafka was configured but emission failed
+        assert result.status == EnumHookProcessingStatus.PARTIAL
         assert result.metadata is not None
         assert result.metadata["pattern_learning_emission"] == "failed"
         assert "Kafka unavailable" in result.metadata["pattern_learning_error"]

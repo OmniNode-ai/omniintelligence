@@ -163,6 +163,15 @@ async def publish_intelligence_introspection(
     node and publishes a STARTUP introspection event. For effect nodes,
     optionally starts heartbeat tasks.
 
+    **Single-call invariant**: This function MUST only be called once per
+    process lifecycle. Each call creates new proxy instances and starts
+    new heartbeat background tasks for effect nodes. Calling it more than
+    once would orphan the previous proxies and their running heartbeat
+    tasks, leading to leaked asyncio tasks and duplicate introspection
+    events. The caller is responsible for retaining the returned
+    ``IntrospectionResult`` and passing its ``proxies`` to
+    ``publish_intelligence_shutdown()`` during teardown.
+
     Args:
         event_bus: Event bus implementing ProtocolEventBus for publishing
             introspection events. If None, introspection is skipped.
@@ -279,6 +288,13 @@ async def publish_intelligence_shutdown(
     # Non-effect nodes (compute, orchestrator, reducer) have no background tasks,
     # so their startup proxies are not stored. Creating lightweight proxies here
     # is simpler than refactoring startup to retain all proxies.
+    #
+    # Identity correlation: node_id (deterministic UUID5 from descriptor.name)
+    # is the sole identity key used by the registration orchestrator to
+    # correlate STARTUP and SHUTDOWN events for the same logical node. The
+    # shutdown proxies created below are distinct object instances from the
+    # startup proxies, but they produce the same node_id per descriptor,
+    # ensuring the registration orchestrator correctly matches them.
     for descriptor in INTELLIGENCE_NODES:
         try:
             proxy = IntelligenceNodeIntrospectionProxy(

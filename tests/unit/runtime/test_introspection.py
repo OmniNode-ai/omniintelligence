@@ -26,9 +26,10 @@ import pytest
 # omnibase_core.enums.pattern_learning. That enum does not exist in the
 # currently installed omnibase_core version.
 #
-# TODO(OMN-2210): Blocked on omnibase_core publishing EnumEvidenceTier in
-# omnibase_core.enums.pattern_learning. Once the omnibase_core dependency is
-# updated, remove this guard and the skipif marker below.
+# Blocked on OMN-2134 ("[omnibase_core] L1: Add EnumEvidenceTier enum with
+# ordering support"), which is in Backlog. Once omnibase_core publishes
+# EnumEvidenceTier in omnibase_core.enums.pattern_learning and this repo's
+# dependency is updated, remove this guard and the skipif marker below.
 try:
     from omniintelligence.runtime.introspection import (
         INTELLIGENCE_NODES,

@@ -742,6 +742,13 @@ class PluginIntelligence:
                     shutdown_intro_error,
                     correlation_id,
                 )
+        else:
+            logger.debug(
+                "Introspection shutdown skipped: wire_dispatchers was never "
+                "completed, no introspection nodes were registered "
+                "(correlation_id=%s)",
+                correlation_id,
+            )
 
         # Unsubscribe from topics
         for unsub in self._unsubscribe_callbacks:
