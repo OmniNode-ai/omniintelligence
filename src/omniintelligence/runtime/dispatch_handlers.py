@@ -622,7 +622,18 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
             )
         confidence = max(0.5, raw_confidence)
-        version = int(payload.get("version", 1))
+        try:
+            version = int(payload.get("version", 1))
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid version value %r, defaulting to 1 "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                payload.get("version"),
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            version = 1
         source_session_ids: list[UUID] = []
         raw_session_ids = payload.get("source_session_ids")
         if isinstance(raw_session_ids, list):

@@ -12,7 +12,7 @@ Validates:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 4 intelligence handlers (5 routes)
+    - OMN-2032: Register all 4 intelligence handlers (6 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
 
