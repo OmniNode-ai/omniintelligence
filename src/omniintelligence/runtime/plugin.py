@@ -489,7 +489,10 @@ class PluginIntelligence:
                 publish_topics=publish_topics,
             )
 
-            # Store event_bus reference for introspection publishing
+            # Store event_bus reference for introspection publishing.
+            # NOTE: This reference is captured at wire time and used during
+            # shutdown. The caller is responsible for keeping the event bus
+            # alive until shutdown completes.
             self._event_bus = config.event_bus
 
             # Publish introspection events for all intelligence nodes

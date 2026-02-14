@@ -17,7 +17,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EnumHookProcessingStatus(StrEnum):
@@ -115,6 +115,13 @@ class ModelPatternLearningCommand(BaseModel):
         ...,
         description="ISO-8601 timestamp of when the command was emitted",
     )
+
+    @field_validator("timestamp")
+    @classmethod
+    def _validate_iso8601_timestamp(cls, v: str) -> str:
+        """Validate that timestamp is a valid ISO-8601 string."""
+        datetime.fromisoformat(v)
+        return v
 
 
 class ModelClaudeHookResult(BaseModel):

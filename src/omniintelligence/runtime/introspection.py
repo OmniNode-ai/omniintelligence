@@ -299,8 +299,17 @@ async def publish_intelligence_shutdown(
     that intelligence nodes are going offline. Also stops any running
     heartbeat tasks on the provided proxies.
 
+    Shutdown is best-effort: heartbeat tasks are stopped unconditionally
+    (so nodes stop advertising liveness), but if ``event_bus`` is None
+    the SHUTDOWN introspection events are skipped. This means nodes will
+    appear offline from the heartbeat perspective while the registration
+    orchestrator never receives an explicit SHUTDOWN event. The
+    orchestrator handles this via heartbeat TTL expiry.
+
     Args:
-        event_bus: Event bus for publishing shutdown events.
+        event_bus: Event bus for publishing shutdown events. If None,
+            heartbeat tasks are still stopped but SHUTDOWN events are
+            not published.
         proxies: Proxy instances from startup that may have running
             heartbeat tasks. If provided, their tasks are stopped
             before publishing shutdown events.

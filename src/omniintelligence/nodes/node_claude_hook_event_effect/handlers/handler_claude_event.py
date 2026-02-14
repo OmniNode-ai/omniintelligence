@@ -324,12 +324,16 @@ async def handle_stop(
             metadata["pattern_learning_emission"] = "failed"
             metadata["pattern_learning_error"] = sanitized_error
 
-            # Route to DLQ per effect-node guidelines
+            # Route to DLQ per effect-node guidelines.
+            # Sanitize error before passing to DLQ for defense-in-depth
+            # (_route_to_dlq also sanitizes internally, but we sanitize at
+            # the call site to avoid passing raw exception strings across
+            # function boundaries).
             await _route_to_dlq(
                 producer=kafka_producer,
                 topic=pattern_learning_topic,
                 envelope=command_payload,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 session_id=event.session_id,
                 metadata=metadata,
             )

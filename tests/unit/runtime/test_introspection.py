@@ -30,6 +30,7 @@ import pytest
 # ordering support"), which is in Backlog. Once omnibase_core publishes
 # EnumEvidenceTier in omnibase_core.enums.pattern_learning and this repo's
 # dependency is updated, remove this guard and the skipif marker below.
+# TODO(OMN-2134): Unblock when EnumEvidenceTier is available in omnibase_core
 try:
     from omniintelligence.runtime.introspection import (
         INTELLIGENCE_NODES,
