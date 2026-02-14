@@ -11,11 +11,11 @@
 # =============================================================================
 contract_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 node_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 name: "node_intelligence_orchestrator"
 node_type: "ORCHESTRATOR_GENERIC"
@@ -69,6 +69,7 @@ workflow_coordination:
             dispatch_strategy: "dynamic_compute_selection"
             available_compute_nodes:
               - pattern_extraction_compute
+              - pattern_learning_compute
               - pattern_matching_compute
               - quality_scoring_compute
               - semantic_analysis_compute
@@ -132,27 +133,33 @@ intent_reception:
 # Consumed Events
 # ===============
 consumed_events:
-  - topic: "onex.cmd.omniintelligence.code-analysis.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.code-analysis.v1"
     event_type: "CodeAnalysisRequested"
-  - topic: "onex.cmd.omniintelligence.document-ingestion.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.document-ingestion.v1"
     event_type: "DocumentIngestionRequested"
-  - topic: "onex.cmd.omniintelligence.pattern-learning.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
     event_type: "PatternLearningRequested"
-  - topic: "onex.cmd.omniintelligence.quality-assessment.v1"
+  - topic: "{env}.onex.cmd.omniintelligence.quality-assessment.v1"
     event_type: "QualityAssessmentRequested"
 # Published Events
 # ================
 published_events:
-  - topic: "onex.evt.omniintelligence.code-analysis-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.code-analysis-completed.v1"
     event_type: "CodeAnalysisCompleted"
-  - topic: "onex.evt.omniintelligence.code-analysis-failed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.code-analysis-failed.v1"
     event_type: "CodeAnalysisFailed"
-  - topic: "onex.evt.omniintelligence.document-ingestion-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1"
     event_type: "DocumentIngestionCompleted"
-  - topic: "onex.evt.omniintelligence.pattern-learning-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.document-ingestion-failed.v1"
+    event_type: "DocumentIngestionFailed"
+  - topic: "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1"
     event_type: "PatternLearningCompleted"
-  - topic: "onex.evt.omniintelligence.quality-assessment-completed.v1"
+  - topic: "{env}.onex.evt.omniintelligence.pattern-learning-failed.v1"
+    event_type: "PatternLearningFailed"
+  - topic: "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1"
     event_type: "QualityAssessmentCompleted"
+  - topic: "{env}.onex.evt.omniintelligence.quality-assessment-failed.v1"
+    event_type: "QualityAssessmentFailed"
 # Dependencies
 # ============
 dependencies:
@@ -160,6 +167,10 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.node_pattern_extraction_compute"
     description: "Compute node for pattern extraction from execution traces."
+  - name: "pattern_learning_compute"
+    type: "node"
+    module: "omniintelligence.nodes.node_pattern_learning_compute"
+    description: "Compute node for ML-based pattern learning pipeline."
   - name: "pattern_matching_compute"
     type: "node"
     module: "omniintelligence.nodes.node_pattern_matching_compute"
@@ -180,6 +191,103 @@ dependencies:
     type: "node"
     module: "omniintelligence.nodes.intelligence_adapter"
     description: "Effect node for intelligence API operations via adapter pattern."
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This subcontract provides structured topic routing for:
+#   - RuntimeHostProcess auto-discovery and wiring
+#   - Kafka topic subscription/publication
+#   - Schema validation via topic metadata
+#
+# The orchestrator subscribes to command topics for intelligence operations
+# and publishes completion/failure events for downstream consumers.
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "{env}.onex.cmd.omniintelligence.code-analysis.v1"
+    - "{env}.onex.cmd.omniintelligence.document-ingestion.v1"
+    - "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
+    - "{env}.onex.cmd.omniintelligence.quality-assessment.v1"
+
+  publish_topics:
+    - "{env}.onex.evt.omniintelligence.code-analysis-completed.v1"
+    - "{env}.onex.evt.omniintelligence.code-analysis-failed.v1"
+    - "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1"
+    - "{env}.onex.evt.omniintelligence.document-ingestion-failed.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-learning-failed.v1"
+    - "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1"
+    - "{env}.onex.evt.omniintelligence.quality-assessment-failed.v1"
+
+  subscribe_topic_metadata:
+    "{env}.onex.cmd.omniintelligence.code-analysis.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Code analysis operation requests"
+    "{env}.onex.cmd.omniintelligence.document-ingestion.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Document ingestion operation requests"
+    "{env}.onex.cmd.omniintelligence.pattern-learning.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Pattern learning operation requests"
+    "{env}.onex.cmd.omniintelligence.quality-assessment.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
+      description: "Quality assessment operation requests"
+
+  publish_topic_metadata:
+    "{env}.onex.evt.omniintelligence.code-analysis-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Code analysis workflow completed successfully"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.code-analysis-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Code analysis workflow failed with error details"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Document ingestion workflow completed successfully"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.document-ingestion-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Document ingestion workflow failed with error details"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Pattern learning workflow completed successfully"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.pattern-learning-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Pattern learning workflow failed with error details"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Quality assessment workflow completed successfully"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.quality-assessment-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Quality assessment workflow failed with error details"
+      content_type: "application/json"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "correlation_id_tracking"
+  key_field: "correlation_id"
+  description: >
+    Uses correlation_id from the input model as the idempotency key. Before executing a workflow, checks
+    if the correlation_id was already processed. If a duplicate is detected, returns the cached result
+    without re-executing. Records correlation_id after successful workflow completion to prevent duplicate
+    processing of the same intelligence operation request.
+
 # Error Handling Configuration
 # ============================
 error_handling:
@@ -224,7 +332,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-20"
+  updated: "2026-02-13"
   tags:
     - "ONEX"
     - "orchestrator"

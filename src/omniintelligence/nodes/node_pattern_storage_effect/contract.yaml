@@ -57,12 +57,12 @@ output_models:
   - name: "ModelPatternStoredEvent"
     module: "omniintelligence.nodes.node_pattern_storage_effect.models"
     operation: "store_pattern"
-    topic: "onex.evt.omniintelligence.pattern-stored.v1"
+    topic: "{env}.onex.evt.omniintelligence.pattern-stored.v1"
     description: "Emitted when a pattern is successfully stored."
   - name: "ModelPatternPromotedEvent"
     module: "omniintelligence.nodes.node_pattern_storage_effect.models"
     operation: "promote_pattern"
-    topic: "onex.evt.omniintelligence.pattern-promoted.v1"
+    topic: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
     description: "Emitted when a pattern is promoted to a new state."
 
 # =============================================================================
@@ -141,7 +141,7 @@ io_operations:
     description: "Persist a learned pattern to the pattern store"
     input_model: "ModelPatternStorageInput"
     output_model: "ModelPatternStoredEvent"
-    output_topic: "onex.evt.omniintelligence.pattern-stored.v1"
+    output_topic: "{env}.onex.evt.omniintelligence.pattern-stored.v1"
     input_fields:
       - pattern_id
       - signature
@@ -169,7 +169,7 @@ io_operations:
     description: "Promote a candidate pattern to active status"
     input_model: "ModelPatternStorageInput"
     output_model: "ModelPatternPromotedEvent"
-    output_topic: "onex.evt.omniintelligence.pattern-promoted.v1"
+    output_topic: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
     input_fields:
       - pattern_id
       - correlation_id
@@ -254,24 +254,24 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
-    - "onex.evt.omniintelligence.pattern-learned.v1"  # Single-producer: includes 'omniintelligence'
-    - "onex.evt.pattern.discovered.v1"  # Multi-producer: producer segment omitted
+    - "{env}.onex.evt.omniintelligence.pattern-learned.v1"  # Single-producer: includes 'omniintelligence'
+    - "{env}.onex.evt.pattern.discovered.v1"  # Multi-producer: producer segment omitted
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "onex.evt.omniintelligence.pattern-stored.v1"
-    - "onex.evt.omniintelligence.pattern-promoted.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-stored.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
   # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
   subscribe_topic_metadata:
-    "onex.evt.omniintelligence.pattern-learned.v1":
+    "{env}.onex.evt.omniintelligence.pattern-learned.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput"
       description: "Learned pattern events from pattern_learning_compute pipeline. Contains pattern data,
         confidence scores, and learning metadata."
       content_type: "application/json"
-    "onex.evt.pattern.discovered.v1":
+    "{env}.onex.evt.pattern.discovered.v1":
       schema_ref: "omniintelligence.models.events.model_pattern_discovered_event.ModelPatternDiscoveredEvent"
       description: "Pattern discovery events from external systems (e.g., omniclaude). Contains pattern
         signature, domain, confidence, and source session metadata."
@@ -279,11 +279,11 @@ event_bus:
 
   # Metadata for published topics
   publish_topic_metadata:
-    "onex.evt.omniintelligence.pattern-stored.v1":
+    "{env}.onex.evt.omniintelligence.pattern-stored.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStoredEvent"
       description: "Pattern storage confirmation with storage location and metadata"
       content_type: "application/json"
-    "onex.evt.omniintelligence.pattern-promoted.v1":
+    "{env}.onex.evt.omniintelligence.pattern-promoted.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternPromotedEvent"
       description: "Pattern promotion confirmation with status transition details"
       content_type: "application/json"
@@ -355,6 +355,17 @@ capabilities:
   - name: "pattern_storage.kafka_emission"
     description: "Emit pattern storage events to Kafka for downstream consumers"
     version: "1.0.0"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["pattern_id", "signature_hash"]
+  description: "Each storage request is keyed by (pattern_id, signature_hash). Re-processing the same
+    pattern-learned event is idempotent - duplicate patterns are deduplicated via lineage key lookup and
+    existing entries are returned without re-insertion."
 
 # =============================================================================
 # HEALTH CHECK
