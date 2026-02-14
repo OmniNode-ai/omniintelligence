@@ -138,9 +138,9 @@ class TestPluginIntelligence:
         result = await plugin.initialize(config)
 
         assert result.success, f"Initialize failed: {result.error_message}"
-        assert plugin.postgres_pool is not None, (
-            "Pool should not be None after successful initialization"
-        )
+        assert (
+            plugin.postgres_pool is not None
+        ), "Pool should not be None after successful initialization"
         assert "postgres_pool" in result.resources_created
 
         # Clean up
@@ -165,9 +165,9 @@ class TestPluginIntelligence:
 
         # Shutdown
         shutdown_result = await plugin.shutdown(config)
-        assert shutdown_result.success, (
-            f"Shutdown failed: {shutdown_result.error_message}"
-        )
+        assert (
+            shutdown_result.success
+        ), f"Shutdown failed: {shutdown_result.error_message}"
         assert plugin.postgres_pool is None, "Pool should be None after shutdown"
 
     @pytest.mark.asyncio
@@ -216,9 +216,9 @@ class TestEntryPointDiscovery:
         matches = [ep for ep in eps if ep.name == "intelligence"]
         assert matches, "No 'intelligence' entry point found"
         loaded = matches[0].load()
-        assert loaded is PluginIntelligence, (
-            f"Expected PluginIntelligence class, got {loaded!r}"
-        )
+        assert (
+            loaded is PluginIntelligence
+        ), f"Expected PluginIntelligence class, got {loaded!r}"
 
     def test_entry_point_plugin_satisfies_protocol(self) -> None:
         """Instantiating the loaded class must satisfy ProtocolDomainPlugin."""
@@ -227,7 +227,7 @@ class TestEntryPointDiscovery:
         assert matches, "No 'intelligence' entry point found"
         cls = matches[0].load()
         plugin = cls()
-        assert isinstance(plugin, ProtocolDomainPlugin), (
-            f"Instance of {cls.__name__} does not satisfy ProtocolDomainPlugin"
-        )
+        assert isinstance(
+            plugin, ProtocolDomainPlugin
+        ), f"Instance of {cls.__name__} does not satisfy ProtocolDomainPlugin"
         assert plugin.plugin_id == "intelligence"

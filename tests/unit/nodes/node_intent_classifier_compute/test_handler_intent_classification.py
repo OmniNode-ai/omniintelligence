@@ -185,9 +185,9 @@ class TestDebuggingIntent:
     def test_detects_debugging(self, content: str) -> None:
         """Test detection of debugging intent for various phrases."""
         result = classify_intent(content)
-        assert result["intent_category"] == "debugging", (
-            f"Expected 'debugging' for: {content!r}, got: {result['intent_category']}"
-        )
+        assert (
+            result["intent_category"] == "debugging"
+        ), f"Expected 'debugging' for: {content!r}, got: {result['intent_category']}"
         assert result["confidence"] > 0.0
 
     def test_debugging_keywords_present(self) -> None:
@@ -208,9 +208,9 @@ class TestRefactoringIntent:
     def test_detects_refactoring(self, content: str) -> None:
         """Test detection of refactoring intent for various phrases."""
         result = classify_intent(content)
-        assert result["intent_category"] == "refactoring", (
-            f"Expected 'refactoring' for: {content!r}, got: {result['intent_category']}"
-        )
+        assert (
+            result["intent_category"] == "refactoring"
+        ), f"Expected 'refactoring' for: {content!r}, got: {result['intent_category']}"
         assert result["confidence"] > 0.0
 
     def test_refactoring_keywords_present(self) -> None:
@@ -231,9 +231,9 @@ class TestTestingIntent:
     def test_detects_testing(self, content: str) -> None:
         """Test detection of testing intent for various phrases."""
         result = classify_intent(content)
-        assert result["intent_category"] == "testing", (
-            f"Expected 'testing' for: {content!r}, got: {result['intent_category']}"
-        )
+        assert (
+            result["intent_category"] == "testing"
+        ), f"Expected 'testing' for: {content!r}, got: {result['intent_category']}"
         assert result["confidence"] > 0.0
 
     def test_testing_keywords_present(self) -> None:
@@ -278,9 +278,9 @@ class TestAnalysisIntent:
     def test_detects_analysis(self, content: str) -> None:
         """Test detection of analysis intent for various phrases."""
         result = classify_intent(content)
-        assert result["intent_category"] == "analysis", (
-            f"Expected 'analysis' for: {content!r}, got: {result['intent_category']}"
-        )
+        assert (
+            result["intent_category"] == "analysis"
+        ), f"Expected 'analysis' for: {content!r}, got: {result['intent_category']}"
         assert result["confidence"] > 0.0
 
     def test_analysis_keywords_present(self) -> None:
@@ -648,9 +648,9 @@ class TestResultStructure:
         result = classify_intent("generate code and write tests")
 
         for intent, score in result["all_scores"].items():
-            assert 0.0 <= score <= 1.0, (
-                f"Score {score} for {intent} is out of range [0.0, 1.0]"
-            )
+            assert (
+                0.0 <= score <= 1.0
+            ), f"Score {score} for {intent} is out of range [0.0, 1.0]"
 
     def test_keywords_are_lowercase(self) -> None:
         """Test that matched keywords are lowercase."""
@@ -801,13 +801,13 @@ class TestIntentPatterns:
         """Test that all keywords in patterns are lowercase."""
         for category, keywords in INTENT_PATTERNS.items():
             for keyword in keywords:
-                assert keyword == keyword.lower(), (
-                    f"Keyword {keyword!r} in {category} is not lowercase"
-                )
+                assert (
+                    keyword == keyword.lower()
+                ), f"Keyword {keyword!r} in {category} is not lowercase"
 
     def test_no_duplicate_keywords_within_category(self) -> None:
         """Test that there are no duplicate keywords within a category."""
         for category, keywords in INTENT_PATTERNS.items():
-            assert len(keywords) == len(set(keywords)), (
-                f"Category {category} has duplicate keywords"
-            )
+            assert len(keywords) == len(
+                set(keywords)
+            ), f"Category {category} has duplicate keywords"

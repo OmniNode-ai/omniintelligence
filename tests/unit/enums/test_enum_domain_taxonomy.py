@@ -102,16 +102,16 @@ class TestEnumDomainTaxonomyProperties:
     def test_enum_values_are_lowercase(self) -> None:
         """Verify all enum values use lowercase (DB convention)."""
         for domain in EnumDomainTaxonomy:
-            assert domain.value == domain.value.lower(), (
-                f"Enum value '{domain.value}' should be lowercase"
-            )
+            assert (
+                domain.value == domain.value.lower()
+            ), f"Enum value '{domain.value}' should be lowercase"
 
     def test_enum_names_are_uppercase(self) -> None:
         """Verify all enum names use SCREAMING_SNAKE_CASE."""
         for domain in EnumDomainTaxonomy:
-            assert domain.name == domain.name.upper(), (
-                f"Enum name '{domain.name}' should be SCREAMING_SNAKE_CASE"
-            )
+            assert (
+                domain.name == domain.name.upper()
+            ), f"Enum name '{domain.name}' should be SCREAMING_SNAKE_CASE"
 
     def test_enum_can_be_constructed_from_string(self) -> None:
         """Verify enum can be constructed from string value."""
@@ -160,6 +160,6 @@ class TestDomainTaxonomyMigrationFile:
         content = migration_path.read_text()
 
         for domain_id in EXPECTED_DOMAINS:
-            assert f"'{domain_id}'" in content, (
-                f"Domain '{domain_id}' not found in migration file"
-            )
+            assert (
+                f"'{domain_id}'" in content
+            ), f"Domain '{domain_id}' not found in migration file"

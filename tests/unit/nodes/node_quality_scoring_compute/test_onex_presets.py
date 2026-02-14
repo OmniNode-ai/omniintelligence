@@ -220,9 +220,9 @@ class DataProcessor:
         """All preset thresholds must be in valid range [0.0, 1.0]."""
         for level in OnexStrictnessLevel:
             threshold = get_threshold_for_preset(level)
-            assert 0.0 <= threshold <= 1.0, (
-                f"{level.value} threshold {threshold} out of range"
-            )
+            assert (
+                0.0 <= threshold <= 1.0
+            ), f"{level.value} threshold {threshold} out of range"
 
     def test_strictness_level_string_values(self) -> None:
         """OnexStrictnessLevel enum should have expected string values."""

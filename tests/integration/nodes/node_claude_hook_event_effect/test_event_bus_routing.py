@@ -345,14 +345,14 @@ class TestAllEventTypesHandled:
 
                 # Verify correct intent_result behavior
                 if event_type == EnumClaudeCodeHookEventType.USER_PROMPT_SUBMIT:
-                    assert result.intent_result is not None, (
-                        "UserPromptSubmit should have intent_result"
-                    )
+                    assert (
+                        result.intent_result is not None
+                    ), "UserPromptSubmit should have intent_result"
                     assert result.intent_result.emitted_to_kafka is True
                 else:
-                    assert result.intent_result is None, (
-                        f"Event type {event_type.value} should have None intent_result"
-                    )
+                    assert (
+                        result.intent_result is None
+                    ), f"Event type {event_type.value} should have None intent_result"
 
         finally:
             await event_bus.close()

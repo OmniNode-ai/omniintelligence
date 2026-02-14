@@ -217,9 +217,9 @@ async def assert_score_updated(
         AssertionError: If score doesn't match within tolerance.
     """
     actual = await fetch_pattern_score(conn, pattern_id)
-    assert abs(actual - expected) < tolerance, (
-        f"Pattern {pattern_id}: expected quality_score={expected}, got {actual}"
-    )
+    assert (
+        abs(actual - expected) < tolerance
+    ), f"Pattern {pattern_id}: expected quality_score={expected}, got {actual}"
 
 
 # =============================================================================

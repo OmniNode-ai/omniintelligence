@@ -134,21 +134,21 @@ class TestIntelligenceNodes:
 
         for desc in INTELLIGENCE_NODES:
             if "orchestrator" in desc.name:
-                assert desc.node_type == EnumNodeKind.ORCHESTRATOR, (
-                    f"{desc.name} should be ORCHESTRATOR"
-                )
+                assert (
+                    desc.node_type == EnumNodeKind.ORCHESTRATOR
+                ), f"{desc.name} should be ORCHESTRATOR"
             elif "reducer" in desc.name:
-                assert desc.node_type == EnumNodeKind.REDUCER, (
-                    f"{desc.name} should be REDUCER"
-                )
+                assert (
+                    desc.node_type == EnumNodeKind.REDUCER
+                ), f"{desc.name} should be REDUCER"
             elif "compute" in desc.name:
-                assert desc.node_type == EnumNodeKind.COMPUTE, (
-                    f"{desc.name} should be COMPUTE"
-                )
+                assert (
+                    desc.node_type == EnumNodeKind.COMPUTE
+                ), f"{desc.name} should be COMPUTE"
             elif "effect" in desc.name:
-                assert desc.node_type == EnumNodeKind.EFFECT, (
-                    f"{desc.name} should be EFFECT"
-                )
+                assert (
+                    desc.node_type == EnumNodeKind.EFFECT
+                ), f"{desc.name} should be EFFECT"
 
     def test_unique_node_ids(self) -> None:
         """All node IDs should be unique."""

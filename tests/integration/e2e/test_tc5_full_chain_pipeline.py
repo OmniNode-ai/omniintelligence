@@ -157,9 +157,9 @@ class TestTC5FullChainPipeline:
         has_positive_confidence = any(
             p.score_components.confidence > 0 for p in all_patterns
         )
-        assert has_positive_confidence, (
-            "At least one pattern should have confidence > 0"
-        )
+        assert (
+            has_positive_confidence
+        ), "At least one pattern should have confidence > 0"
 
         # =================================================================
         # Stage 2: Store learned patterns in PostgreSQL
@@ -203,9 +203,9 @@ class TestTC5FullChainPipeline:
         )
 
         tc5_rows = [r for r in rows if r["signature_hash"] in stored_signatures]
-        assert len(tc5_rows) == len(stored_ids), (
-            f"Expected {len(stored_ids)} TC5 patterns in DB, found {len(tc5_rows)}"
-        )
+        assert len(tc5_rows) == len(
+            stored_ids
+        ), f"Expected {len(stored_ids)} TC5 patterns in DB, found {len(tc5_rows)}"
 
         for row in tc5_rows:
             assert row["status"] == "provisional"
@@ -238,9 +238,9 @@ class TestTC5FullChainPipeline:
             correlation_id=CORRELATION_ID_TC5,
         )
 
-        assert result_success.status == EnumOutcomeRecordingStatus.SUCCESS, (
-            f"Expected SUCCESS status, got {result_success.status}"
-        )
+        assert (
+            result_success.status == EnumOutcomeRecordingStatus.SUCCESS
+        ), f"Expected SUCCESS status, got {result_success.status}"
         assert result_success.patterns_updated == len(stored_ids), (
             f"Expected {len(stored_ids)} patterns updated, "
             f"got {result_success.patterns_updated}"
@@ -271,9 +271,9 @@ class TestTC5FullChainPipeline:
             correlation_id=CORRELATION_ID_TC5,
         )
 
-        assert result_failure.status == EnumOutcomeRecordingStatus.SUCCESS, (
-            f"Expected SUCCESS status for recording, got {result_failure.status}"
-        )
+        assert (
+            result_failure.status == EnumOutcomeRecordingStatus.SUCCESS
+        ), f"Expected SUCCESS status for recording, got {result_failure.status}"
         assert result_failure.patterns_updated == len(stored_ids)
 
         # Verify metrics after failure
@@ -333,18 +333,18 @@ class TestTC5FullChainPipeline:
             ), f"Pattern {sig_hash} has unexpected status: {row['status']}"
 
             # Metrics must be non-negative
-            assert row["injection_count_rolling_20"] >= 0, (
-                f"Pattern {sig_hash}: injection_count must be >= 0"
-            )
-            assert row["success_count_rolling_20"] >= 0, (
-                f"Pattern {sig_hash}: success_count must be >= 0"
-            )
-            assert row["failure_count_rolling_20"] >= 0, (
-                f"Pattern {sig_hash}: failure_count must be >= 0"
-            )
-            assert row["failure_streak"] >= 0, (
-                f"Pattern {sig_hash}: failure_streak must be >= 0"
-            )
+            assert (
+                row["injection_count_rolling_20"] >= 0
+            ), f"Pattern {sig_hash}: injection_count must be >= 0"
+            assert (
+                row["success_count_rolling_20"] >= 0
+            ), f"Pattern {sig_hash}: success_count must be >= 0"
+            assert (
+                row["failure_count_rolling_20"] >= 0
+            ), f"Pattern {sig_hash}: failure_count must be >= 0"
+            assert (
+                row["failure_streak"] >= 0
+            ), f"Pattern {sig_hash}: failure_streak must be >= 0"
 
             # Consistency: success + failure <= injection_count
             total_outcomes = (

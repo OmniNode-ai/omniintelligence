@@ -719,9 +719,9 @@ async def test_success_resets_failure_streak(e2e_db_conn: Any) -> None:
     # Assert: failure_streak is reset to 0
     metrics = await get_pattern_metrics(e2e_db_conn, pattern_id)
     assert metrics is not None
-    assert metrics["failure_streak"] == 0, (
-        f"Expected failure_streak=0 after success, got {metrics['failure_streak']}"
-    )
+    assert (
+        metrics["failure_streak"] == 0
+    ), f"Expected failure_streak=0 after success, got {metrics['failure_streak']}"
 
 
 @pytest.mark.asyncio
@@ -784,9 +784,9 @@ async def test_failure_increments_failure_streak(e2e_db_conn: Any) -> None:
     metrics = await get_pattern_metrics(e2e_db_conn, pattern_id)
     assert metrics is not None
     expected_streak = initial_failure_streak + 1
-    assert metrics["failure_streak"] == expected_streak, (
-        f"Expected failure_streak={expected_streak}, got {metrics['failure_streak']}"
-    )
+    assert (
+        metrics["failure_streak"] == expected_streak
+    ), f"Expected failure_streak={expected_streak}, got {metrics['failure_streak']}"
 
 
 @pytest.mark.asyncio
