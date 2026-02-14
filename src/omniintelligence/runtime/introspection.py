@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid5
 
 from omnibase_core.enums import EnumNodeKind
@@ -132,6 +132,11 @@ class _IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
         self.initialize_introspection(config)
         self._descriptor = descriptor
 
+    @property
+    def name(self) -> str:
+        """Return the node name from the descriptor."""
+        return self._descriptor.name
+
 
 @dataclass
 class IntrospectionResult:
@@ -146,7 +151,7 @@ class IntrospectionResult:
 
 
 async def publish_intelligence_introspection(
-    event_bus: Any | None,
+    event_bus: ProtocolEventBus | None,
     *,
     correlation_id: UUID | None = None,
     enable_heartbeat: bool = True,
@@ -236,7 +241,7 @@ async def publish_intelligence_introspection(
 
 
 async def publish_intelligence_shutdown(
-    event_bus: Any | None,
+    event_bus: ProtocolEventBus | None,
     *,
     proxies: list[_IntelligenceNodeIntrospectionProxy] | None = None,
     correlation_id: UUID | None = None,
@@ -262,7 +267,7 @@ async def publish_intelligence_shutdown(
             except Exception as e:
                 logger.debug(
                     "Error stopping introspection tasks for %s: %s",
-                    proxy._descriptor.name,
+                    proxy.name,
                     e,
                 )
 

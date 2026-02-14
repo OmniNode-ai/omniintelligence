@@ -297,7 +297,6 @@ async def handle_stop(
 
     # Emit pattern learning command if Kafka is available
     pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
-    emitted = False
 
     if kafka_producer is not None:
         command_payload = {
@@ -314,12 +313,13 @@ async def handle_stop(
                 key=event.session_id,
                 value=command_payload,
             )
-            emitted = True
             metadata["pattern_learning_emission"] = "success"
             metadata["pattern_learning_topic"] = pattern_learning_topic
         except Exception as e:
             metadata["pattern_learning_emission"] = "failed"
-            metadata["pattern_learning_error"] = str(e)
+            metadata["pattern_learning_error"] = get_log_sanitizer().sanitize(
+                str(e)
+            )
 
             # Route to DLQ per effect-node guidelines
             await _route_to_dlq(

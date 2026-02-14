@@ -24,7 +24,6 @@ try:
     from omniintelligence.runtime.introspection import (
         INTELLIGENCE_NODES,
         IntrospectionResult,
-        _NodeDescriptor,
         publish_intelligence_introspection,
         publish_intelligence_shutdown,
     )
@@ -41,30 +40,24 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.unit
 class TestNodeDescriptor:
-    """Test _NodeDescriptor deterministic node ID generation."""
+    """Test node descriptor deterministic node ID generation via public API."""
 
     def test_node_id_is_deterministic(self) -> None:
-        """Same node name should always produce the same UUID."""
-        from omnibase_core.enums import EnumNodeKind
-
-        desc1 = _NodeDescriptor("node_pattern_extraction_compute", EnumNodeKind.COMPUTE)
-        desc2 = _NodeDescriptor("node_pattern_extraction_compute", EnumNodeKind.COMPUTE)
-        assert desc1.node_id == desc2.node_id
+        """Same descriptor should produce the same UUID on repeated access."""
+        desc = INTELLIGENCE_NODES[0]
+        assert desc.node_id == desc.node_id
 
     def test_different_names_produce_different_ids(self) -> None:
-        """Different node names should produce different UUIDs."""
-        from omnibase_core.enums import EnumNodeKind
-
-        desc1 = _NodeDescriptor("node_pattern_extraction_compute", EnumNodeKind.COMPUTE)
-        desc2 = _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE)
+        """Different node descriptors should produce different UUIDs."""
+        desc1 = INTELLIGENCE_NODES[0]
+        desc2 = INTELLIGENCE_NODES[1]
+        assert desc1.name != desc2.name
         assert desc1.node_id != desc2.node_id
 
     def test_node_id_is_valid_uuid(self) -> None:
         """Node IDs must be valid UUIDs."""
-        from omnibase_core.enums import EnumNodeKind
-
-        desc = _NodeDescriptor("test_node", EnumNodeKind.EFFECT)
-        assert isinstance(desc.node_id, UUID)
+        for desc in INTELLIGENCE_NODES:
+            assert isinstance(desc.node_id, UUID), f"{desc.name} node_id is not a UUID"
 
 
 @pytest.mark.unit

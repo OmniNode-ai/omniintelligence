@@ -71,8 +71,13 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import asyncpg
+    from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
     from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
     from omnibase_infra.runtime.registry import RegistryMessageType
+
+    from omniintelligence.runtime.introspection import (
+        _IntelligenceNodeIntrospectionProxy,
+    )
 
 from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginConfig,
@@ -138,9 +143,9 @@ class PluginIntelligence:
         self._services_registered: list[str] = []
         self._dispatch_engine: MessageDispatchEngine | None = None
         self._message_type_registry: RegistryMessageType | None = None
-        self._event_bus: Any = None
+        self._event_bus: ProtocolEventBus | None = None
         self._introspection_nodes: list[str] = []
-        self._introspection_proxies: list[Any] = []
+        self._introspection_proxies: list[_IntelligenceNodeIntrospectionProxy] = []
 
     @property
     def plugin_id(self) -> str:
