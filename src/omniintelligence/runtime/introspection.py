@@ -106,7 +106,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
 # =============================================================================
 
 
-class _IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
+class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
     """Proxy that uses MixinNodeIntrospection to publish on behalf of a node.
 
     Intelligence nodes are thin shells that run inside the plugin lifecycle.
@@ -147,7 +147,7 @@ class IntrospectionResult:
     """
 
     registered_nodes: list[str] = field(default_factory=list)
-    proxies: list[_IntelligenceNodeIntrospectionProxy] = field(default_factory=list)
+    proxies: list[IntelligenceNodeIntrospectionProxy] = field(default_factory=list)
 
 
 async def publish_intelligence_introspection(
@@ -186,7 +186,7 @@ async def publish_intelligence_introspection(
 
     for descriptor in INTELLIGENCE_NODES:
         try:
-            proxy = _IntelligenceNodeIntrospectionProxy(
+            proxy = IntelligenceNodeIntrospectionProxy(
                 descriptor=descriptor,
                 event_bus=event_bus,
             )
@@ -243,7 +243,7 @@ async def publish_intelligence_introspection(
 async def publish_intelligence_shutdown(
     event_bus: ProtocolEventBus | None,
     *,
-    proxies: list[_IntelligenceNodeIntrospectionProxy] | None = None,
+    proxies: list[IntelligenceNodeIntrospectionProxy] | None = None,
     correlation_id: UUID | None = None,
 ) -> None:
     """Publish shutdown introspection events for all intelligence nodes.
@@ -276,7 +276,7 @@ async def publish_intelligence_shutdown(
 
     for descriptor in INTELLIGENCE_NODES:
         try:
-            proxy = _IntelligenceNodeIntrospectionProxy(
+            proxy = IntelligenceNodeIntrospectionProxy(
                 descriptor=descriptor,
                 event_bus=event_bus,
             )
@@ -294,6 +294,7 @@ async def publish_intelligence_shutdown(
 
 __all__ = [
     "INTELLIGENCE_NODES",
+    "IntelligenceNodeIntrospectionProxy",
     "IntrospectionResult",
     "publish_intelligence_introspection",
     "publish_intelligence_shutdown",

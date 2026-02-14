@@ -76,7 +76,7 @@ if TYPE_CHECKING:
     from omnibase_infra.runtime.registry import RegistryMessageType
 
     from omniintelligence.runtime.introspection import (
-        _IntelligenceNodeIntrospectionProxy,
+        IntelligenceNodeIntrospectionProxy,
     )
 
 from omnibase_infra.runtime.protocol_domain_plugin import (
@@ -145,7 +145,7 @@ class PluginIntelligence:
         self._message_type_registry: RegistryMessageType | None = None
         self._event_bus: ProtocolEventBus | None = None
         self._introspection_nodes: list[str] = []
-        self._introspection_proxies: list[_IntelligenceNodeIntrospectionProxy] = []
+        self._introspection_proxies: list[IntelligenceNodeIntrospectionProxy] = []
 
     @property
     def plugin_id(self) -> str:

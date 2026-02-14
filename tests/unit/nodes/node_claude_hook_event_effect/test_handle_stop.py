@@ -82,14 +82,10 @@ class TestHandleStop:
             == "onex.cmd.omniintelligence.pattern-learning.v1"
         )
 
-        # Verify Kafka publish was called with correct args
+        # Verify Kafka publish was called with correct topic
         mock_producer.publish.assert_awaited_once()
         call_kwargs = mock_producer.publish.call_args
-        assert (
-            call_kwargs.kwargs.get("topic")
-            or call_kwargs[1].get("topic")
-            or call_kwargs[0][0]
-        ) == "onex.cmd.omniintelligence.pattern-learning.v1"
+        assert call_kwargs.kwargs["topic"] == "onex.cmd.omniintelligence.pattern-learning.v1"
 
     @pytest.mark.asyncio
     async def test_emitted_payload_structure(self) -> None:
