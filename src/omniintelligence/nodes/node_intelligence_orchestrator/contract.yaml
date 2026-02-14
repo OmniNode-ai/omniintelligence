@@ -150,10 +150,16 @@ published_events:
     event_type: "CodeAnalysisFailed"
   - topic: "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1"
     event_type: "DocumentIngestionCompleted"
+  - topic: "{env}.onex.evt.omniintelligence.document-ingestion-failed.v1"
+    event_type: "DocumentIngestionFailed"
   - topic: "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1"
     event_type: "PatternLearningCompleted"
+  - topic: "{env}.onex.evt.omniintelligence.pattern-learning-failed.v1"
+    event_type: "PatternLearningFailed"
   - topic: "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1"
     event_type: "QualityAssessmentCompleted"
+  - topic: "{env}.onex.evt.omniintelligence.quality-assessment-failed.v1"
+    event_type: "QualityAssessmentFailed"
 # Dependencies
 # ============
 dependencies:
@@ -215,8 +221,11 @@ event_bus:
     - "{env}.onex.evt.omniintelligence.code-analysis-completed.v1"
     - "{env}.onex.evt.omniintelligence.code-analysis-failed.v1"
     - "{env}.onex.evt.omniintelligence.document-ingestion-completed.v1"
+    - "{env}.onex.evt.omniintelligence.document-ingestion-failed.v1"
     - "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-learning-failed.v1"
     - "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1"
+    - "{env}.onex.evt.omniintelligence.quality-assessment-failed.v1"
 
   subscribe_topic_metadata:
     "{env}.onex.cmd.omniintelligence.code-analysis.v1":
@@ -245,13 +254,25 @@ event_bus:
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Document ingestion workflow completed successfully"
       content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.document-ingestion-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Document ingestion workflow failed with error details"
+      content_type: "application/json"
     "{env}.onex.evt.omniintelligence.pattern-learning-completed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Pattern learning workflow completed successfully"
       content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.pattern-learning-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Pattern learning workflow failed with error details"
+      content_type: "application/json"
     "{env}.onex.evt.omniintelligence.quality-assessment-completed.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
       description: "Quality assessment workflow completed successfully"
+      content_type: "application/json"
+    "{env}.onex.evt.omniintelligence.quality-assessment-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorOutput"
+      description: "Quality assessment workflow failed with error details"
       content_type: "application/json"
 
 # =============================================================================
