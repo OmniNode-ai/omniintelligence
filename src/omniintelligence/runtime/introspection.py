@@ -359,13 +359,19 @@ async def publish_intelligence_shutdown(
                 e,
             )
 
+    # Reset the single-call guard so the plugin can be re-initialized in the
+    # same process (tests, hot-reload).  This MUST happen after all shutdown
+    # events have been published so the guard remains set while shutdown is
+    # in progress, preventing a concurrent re-init from racing with shutdown.
+    reset_introspection_guard()
+
 
 def reset_introspection_guard() -> None:
     """Reset the single-call guard for publish_intelligence_introspection.
 
-    **Testing only.** This allows tests to call publish_intelligence_introspection
-    multiple times without hitting the single-call invariant. Production code
-    should never call this.
+    Called during shutdown to allow re-initialization, and in tests for
+    isolation between test cases that invoke
+    ``publish_intelligence_introspection``.
     """
     global _introspection_published
     _introspection_published = False

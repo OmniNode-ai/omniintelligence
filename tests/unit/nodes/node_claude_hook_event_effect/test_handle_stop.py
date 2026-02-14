@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -85,7 +85,10 @@ class TestHandleStop:
         # Verify Kafka publish was called with correct topic
         mock_producer.publish.assert_awaited_once()
         call_kwargs = mock_producer.publish.call_args
-        assert call_kwargs.kwargs["topic"] == "onex.cmd.omniintelligence.pattern-learning.v1"
+        assert (
+            call_kwargs.kwargs["topic"]
+            == "onex.cmd.omniintelligence.pattern-learning.v1"
+        )
 
     @pytest.mark.asyncio
     async def test_emitted_payload_structure(self) -> None:
@@ -130,6 +133,35 @@ class TestHandleStop:
 
         # DLQ publish also failed (same side_effect), so metadata reflects that
         assert result.metadata["pattern_learning_dlq"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_handle_stop_none_correlation_id(self) -> None:
+        """Should generate a fallback UUID when event.correlation_id is None."""
+        event = ModelClaudeCodeHookEvent(
+            event_type=EnumClaudeCodeHookEventType.STOP,
+            session_id="test-session-none-corr",
+            correlation_id=None,
+            timestamp_utc=datetime.now(UTC).isoformat(),
+            payload=ModelClaudeCodeHookEventPayload(),
+        )
+        mock_producer = _make_mock_producer()
+
+        result = await handle_stop(event=event, kafka_producer=mock_producer)
+
+        # Handler should not fail due to None correlation_id
+        assert result.status == EnumHookProcessingStatus.SUCCESS
+        assert result.metadata is not None
+        assert result.metadata["pattern_learning_emission"] == "success"
+
+        # The Kafka payload should contain a valid UUID string (fallback),
+        # not None or "None"
+        call_args = mock_producer.publish.call_args
+        payload = call_args.kwargs["value"]
+        fallback_corr = payload["correlation_id"]
+        assert fallback_corr is not None
+        assert fallback_corr != "None"
+        # Verify it parses as a valid UUID
+        UUID(fallback_corr)
 
 
 @pytest.mark.unit

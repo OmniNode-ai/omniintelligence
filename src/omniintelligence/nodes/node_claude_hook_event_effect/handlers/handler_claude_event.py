@@ -234,6 +234,7 @@ async def route_hook_event(
 
     except Exception as e:
         processing_time_ms = (time.perf_counter() - start_time) * 1000
+        sanitized_error = get_log_sanitizer().sanitize(str(e))
         return ModelClaudeHookResult(
             status=EnumHookProcessingStatus.FAILED,
             event_type=str(event.event_type),
@@ -241,7 +242,7 @@ async def route_hook_event(
             correlation_id=event.correlation_id,
             processing_time_ms=processing_time_ms,
             processed_at=datetime.now(UTC),
-            error_message=str(e),
+            error_message=sanitized_error,
             metadata={"exception_type": type(e).__name__},
         )
 
@@ -335,7 +336,7 @@ async def handle_stop(
                 producer=kafka_producer,
                 topic=pattern_learning_topic,
                 envelope=command_payload,
-                error_message=get_log_sanitizer().sanitize(str(e)),
+                error_message=sanitized_error,
                 session_id=event.session_id,
                 metadata=metadata,
             )
@@ -520,7 +521,7 @@ async def handle_user_prompt_submit(
 
     # Resolve correlation_id to a non-None UUID for downstream calls that
     # require UUID (not UUID | None).  Follows the same fallback pattern
-    # established in handle_stop (line 308).
+    # established in handle_stop().
     resolved_correlation_id: UUID = (
         event.correlation_id if event.correlation_id is not None else uuid4()
     )

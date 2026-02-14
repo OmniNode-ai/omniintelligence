@@ -493,6 +493,8 @@ class PluginIntelligence:
             # NOTE: This reference is captured at wire time and used during
             # shutdown. The caller is responsible for keeping the event bus
             # alive until shutdown completes.
+            # Best-effort: if event_bus is closed before shutdown,
+            # publish_intelligence_shutdown silently handles errors.
             self._event_bus = config.event_bus
 
             # Publish introspection events for all intelligence nodes
