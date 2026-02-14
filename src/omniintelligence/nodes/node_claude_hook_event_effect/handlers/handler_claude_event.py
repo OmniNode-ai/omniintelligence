@@ -300,6 +300,7 @@ async def handle_stop(
     # Emit pattern learning command if Kafka is available
     pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
     emitted_to_kafka = False
+    sanitized_error: str | None = None
 
     if kafka_producer is not None:
         command = ModelPatternLearningCommand(
@@ -319,10 +320,9 @@ async def handle_stop(
             metadata["pattern_learning_emission"] = "success"
             metadata["pattern_learning_topic"] = pattern_learning_topic
         except Exception as e:
+            sanitized_error = get_log_sanitizer().sanitize(str(e))
             metadata["pattern_learning_emission"] = "failed"
-            metadata["pattern_learning_error"] = get_log_sanitizer().sanitize(
-                str(e)
-            )
+            metadata["pattern_learning_error"] = sanitized_error
 
             # Route to DLQ per effect-node guidelines
             await _route_to_dlq(
@@ -353,7 +353,7 @@ async def handle_stop(
         intent_result=None,
         processing_time_ms=processing_time_ms,
         processed_at=datetime.now(UTC),
-        error_message=None,
+        error_message=sanitized_error,
         metadata=metadata,
     )
 

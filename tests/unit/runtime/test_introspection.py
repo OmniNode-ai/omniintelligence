@@ -196,7 +196,15 @@ class TestPublishIntelligenceShutdown:
 
     @pytest.mark.asyncio
     async def test_publishes_shutdown_events(self) -> None:
-        """Should publish shutdown events for all nodes."""
+        """Should publish shutdown events for all nodes.
+
+        Known gap: This test does not verify that stop_introspection_tasks()
+        is called on the provided proxies during shutdown. The shutdown
+        function has two responsibilities -- stop heartbeat tasks AND publish
+        SHUTDOWN events -- but only the publish path is asserted here. Add
+        heartbeat task stop verification when the EnumEvidenceTier blocker
+        (OMN-2134) is resolved and these tests are unblocked.
+        """
         mock_event_bus = MagicMock()
         mock_event_bus.publish_envelope = AsyncMock(return_value=None)
 
