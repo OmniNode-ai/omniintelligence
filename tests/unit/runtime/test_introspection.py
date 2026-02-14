@@ -56,8 +56,11 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture(autouse=True)
-def _reset_guard() -> None:
-    """Reset the single-call guard before each test."""
+def _reset_guard():
+    """Reset the single-call guard before and after each test."""
+    if _CAN_IMPORT:
+        reset_introspection_guard()
+    yield
     if _CAN_IMPORT:
         reset_introspection_guard()
 

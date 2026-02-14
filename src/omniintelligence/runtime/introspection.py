@@ -45,6 +45,8 @@ logger = logging.getLogger(__name__)
 # Guard for single-call invariant on publish_intelligence_introspection.
 # See the function docstring for rationale: calling it more than once orphans
 # heartbeat tasks from the first call, leaking asyncio tasks.
+# Thread-safety: not required. Plugin lifecycle methods are called sequentially
+# by the kernel.
 _introspection_published: bool = False
 
 # Standard DNS namespace for deterministic UUID5 generation.
@@ -110,7 +112,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
 # =============================================================================
 
 
-class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
+class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignore[misc]  # omnibase_infra does not export py.typed
     """Proxy that uses MixinNodeIntrospection to publish on behalf of a node.
 
     Intelligence nodes are thin shells that run inside the plugin lifecycle.
