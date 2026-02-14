@@ -146,9 +146,9 @@ class TestProtocolConformance:
 
         canonical = self._abstract_methods(CanonicalRepo)
         local = self._abstract_methods(LocalRepo)
-        assert local == canonical, (
-            f"ProtocolPatternRepository diverged: local={local}, canonical={canonical}"
-        )
+        assert (
+            local == canonical
+        ), f"ProtocolPatternRepository diverged: local={local}, canonical={canonical}"
 
     def test_idempotency_store_matches_lifecycle_handler(self) -> None:
         """Local ProtocolIdempotencyStore must match lifecycle handler's."""
@@ -161,9 +161,9 @@ class TestProtocolConformance:
 
         canonical = self._abstract_methods(CanonicalStore)
         local = self._abstract_methods(LocalStore)
-        assert local == canonical, (
-            f"ProtocolIdempotencyStore diverged: local={local}, canonical={canonical}"
-        )
+        assert (
+            local == canonical
+        ), f"ProtocolIdempotencyStore diverged: local={local}, canonical={canonical}"
 
     def test_intent_classifier_matches_hook_handler(self) -> None:
         """Local ProtocolIntentClassifier must match hook handler's."""
@@ -176,9 +176,9 @@ class TestProtocolConformance:
 
         canonical = self._abstract_methods(CanonicalClassifier)
         local = self._abstract_methods(LocalClassifier)
-        assert local == canonical, (
-            f"ProtocolIntentClassifier diverged: local={local}, canonical={canonical}"
-        )
+        assert (
+            local == canonical
+        ), f"ProtocolIntentClassifier diverged: local={local}, canonical={canonical}"
 
     def test_kafka_publisher_matches_hook_handler(self) -> None:
         """Local ProtocolKafkaPublisher must match hook handler's."""
@@ -191,9 +191,9 @@ class TestProtocolConformance:
 
         canonical = self._abstract_methods(CanonicalPublisher)
         local = self._abstract_methods(LocalPublisher)
-        assert local == canonical, (
-            f"ProtocolKafkaPublisher diverged: local={local}, canonical={canonical}"
-        )
+        assert (
+            local == canonical
+        ), f"ProtocolKafkaPublisher diverged: local={local}, canonical={canonical}"
 
 
 # =============================================================================
@@ -593,9 +593,9 @@ class TestSessionOutcomeFieldMapping:
             # record_session_outcome(session_id=..., success=..., ...)
             # success is passed as keyword arg
             call_kwargs = mock_record.call_args.kwargs
-            assert call_kwargs["success"] is True, (
-                f"Expected success=True for outcome='success', got {call_kwargs['success']}"
-            )
+            assert (
+                call_kwargs["success"] is True
+            ), f"Expected success=True for outcome='success', got {call_kwargs['success']}"
 
     @pytest.mark.asyncio
     async def test_outcome_failed_maps_to_success_false(
@@ -652,9 +652,9 @@ class TestSessionOutcomeFieldMapping:
 
             mock_record.assert_called_once()
             all_kwargs = mock_record.call_args.kwargs
-            assert all_kwargs["success"] is False, (
-                f"Expected success=False for outcome='failed', got {all_kwargs['success']}"
-            )
+            assert (
+                all_kwargs["success"] is False
+            ), f"Expected success=False for outcome='failed', got {all_kwargs['success']}"
 
     @pytest.mark.asyncio
     async def test_outcome_abandoned_maps_to_success_false(
@@ -710,9 +710,9 @@ class TestSessionOutcomeFieldMapping:
 
             mock_record.assert_called_once()
             call_kwargs = mock_record.call_args.kwargs
-            assert call_kwargs["success"] is False, (
-                f"Expected success=False for outcome='abandoned', got {call_kwargs['success']}"
-            )
+            assert (
+                call_kwargs["success"] is False
+            ), f"Expected success=False for outcome='abandoned', got {call_kwargs['success']}"
 
     @pytest.mark.asyncio
     async def test_legacy_success_field_still_works(

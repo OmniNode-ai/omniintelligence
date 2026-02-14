@@ -422,7 +422,7 @@ class PluginIntelligence:
 
         Creates protocol adapters from infrastructure (asyncpg pool, event bus),
         reads publish topics from contracts, and builds a MessageDispatchEngine
-        with all 4 intelligence domain handlers (5 routes) wired to real
+        with all 4 intelligence domain handlers (6 routes) wired to real
         business logic.
 
         Dispatchers registered:

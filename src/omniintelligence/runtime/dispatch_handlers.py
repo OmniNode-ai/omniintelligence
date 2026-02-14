@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register intelligence dispatchers (now 4 handlers, 5 routes)
+    - OMN-2032: Register intelligence dispatchers (now 4 handlers, 6 routes)
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -695,7 +695,7 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 4 intelligence domain handlers (5 routes)
+    Creates the engine, registers all 4 intelligence domain handlers (6 routes)
     and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
