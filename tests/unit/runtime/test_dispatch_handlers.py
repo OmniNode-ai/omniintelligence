@@ -30,6 +30,7 @@ from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
     DISPATCH_ALIAS_PATTERN_DISCOVERED,
     DISPATCH_ALIAS_PATTERN_LEARNED,
+    DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
     DISPATCH_ALIAS_PATTERN_LIFECYCLE,
     DISPATCH_ALIAS_SESSION_OUTCOME,
     create_claude_hook_dispatch_handler,
@@ -269,6 +270,20 @@ class TestTopicAlias:
         """Pattern discovered alias must preserve the discovered name."""
         assert "discovered" in DISPATCH_ALIAS_PATTERN_DISCOVERED
 
+    # --- Pattern Learning CMD alias ---
+
+    def test_pattern_learning_cmd_alias_contains_commands_segment(self) -> None:
+        """Pattern learning cmd alias must contain .commands. for from_topic()."""
+        assert ".commands." in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
+    def test_pattern_learning_cmd_alias_matches_intelligence_domain(self) -> None:
+        """Pattern learning cmd alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
+    def test_pattern_learning_cmd_alias_preserves_event_name(self) -> None:
+        """Pattern learning cmd alias must preserve the pattern-learning name."""
+        assert "pattern-learning" in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
 
 # =============================================================================
 # Tests: Dispatch Engine Factory
@@ -292,33 +307,33 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_four_handlers(
+    def test_engine_has_five_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 4 intelligence domain handlers must be registered."""
+        """All 5 intelligence domain handlers must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 4
+        assert engine.handler_count == 5
 
-    def test_engine_has_six_routes(
+    def test_engine_has_seven_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 6 intelligence domain routes must be registered."""
+        """All 7 intelligence domain routes must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 6
+        assert engine.route_count == 7
 
 
 # =============================================================================

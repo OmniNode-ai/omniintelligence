@@ -1,0 +1,198 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternLearningEffect
+#
+# This contract defines the interface for the pattern learning effect node.
+# The node receives pattern-learning commands (triggered when a Claude Code
+# session ends) and orchestrates pattern extraction, learning, and emission
+# of pattern-learned events for downstream storage.
+#
+# Reference: OMN-2222 - Wire intelligence pipeline end-to-end
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_pattern_learning_effect"
+contract_name: "node_pattern_learning_effect"
+node_name: "node_pattern_learning_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node for orchestrating pattern learning from Claude Code session traces.
+  Receives pattern-learning command events when a session ends, extracts patterns
+  from execution traces, runs the learning pipeline, and emits pattern-learned
+  events for downstream persistence by the pattern storage effect node.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelEventEnvelope"
+  module: "omnibase_core.models.events.model_event_envelope"
+  description: "Event envelope containing a pattern-learning command payload with session_id and correlation_id."
+
+output_model:
+  name: "ModelEventEnvelope"
+  module: "omnibase_core.models.events.model_event_envelope"
+  description: "Event envelope containing pattern-learned event payloads for downstream storage nodes."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+# The dispatch handler for this node lives in runtime/dispatch_handler_pattern_learning.py
+# and is wired by the intelligence dispatch engine. This contract declares the
+# routing metadata for RuntimeHostProcess discovery.
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "learn_patterns"
+      handler:
+        function: "create_pattern_learning_dispatch_handler"
+        module: "omniintelligence.runtime.dispatch_handler_pattern_learning"
+        type: "async"
+      description: "Extract and learn patterns from session execution traces"
+      actions:
+        - "parse execution trace"
+        - "extract candidate patterns"
+        - "run learning pipeline"
+        - "emit pattern-learned events"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  subscribe_topics:
+    - "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "{env}.onex.evt.omniintelligence.pattern-learned.v1"
+
+  # Metadata for subscribed topics
+  subscribe_topic_metadata:
+    "{env}.onex.cmd.omniintelligence.pattern-learning.v1":
+      schema_ref: "omniintelligence.runtime.dispatch_handler_pattern_learning.ModelPatternLearningCommand"
+      description: "Pattern learning command events triggered when a Claude Code session
+        ends. Contains session_id, correlation_id, and execution trace data."
+      content_type: "application/json"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "{env}.onex.evt.omniintelligence.pattern-learned.v1":
+      schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput"
+      description: "Learned pattern events containing extracted pattern data ready
+        for persistence by the pattern storage effect node."
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaProducer"
+    module: "omnibase_infra.protocols.protocol_kafka_producer"
+    description: "Kafka producer for emitting pattern-learned events"
+    required: false
+
+  - name: "pattern_repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.protocols.protocol_pattern_repository"
+    description: "Pattern repository for querying existing patterns during learning"
+    required: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "PatternExtractionError"
+      error_code: "PATLRN_001"
+      description: "Failed to extract patterns from execution trace"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PatternLearningPipelineError"
+      error_code: "PATLRN_002"
+      description: "Learning pipeline failed during pattern processing"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "KafkaPublishError"
+      error_code: "PATLRN_003"
+      description: "Failed to publish pattern-learned event to Kafka"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "correlation_id"]
+  description: "Each learning request is keyed by (session_id, correlation_id).
+    Re-processing the same session-end event is idempotent - duplicate learning
+    requests are detected and skipped."
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "pattern_learning.extract"
+    description: "Extract candidate patterns from session execution traces"
+    version: "1.0.0"
+  - name: "pattern_learning.learn"
+    description: "Run ML learning pipeline on extracted patterns"
+    version: "1.0.0"
+  - name: "pattern_learning.emit"
+    description: "Emit pattern-learned events to Kafka for downstream storage"
+    version: "1.0.0"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-15"
+  updated: "2026-02-15"
+  tags:
+    - effect
+    - pattern-learning
+    - kafka
+    - session-trace
+  references:
+    - ticket: "OMN-2222"
+      url: "https://linear.app/omninode/issue/OMN-2222"
+      description: "Wire intelligence pipeline end-to-end"

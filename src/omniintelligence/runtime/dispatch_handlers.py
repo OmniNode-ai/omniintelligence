@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register intelligence dispatchers (now 4 handlers, 6 routes)
+    - OMN-2032: Register intelligence dispatchers (now 5 handlers, 7 routes)
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -107,6 +107,11 @@ DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
 
 DISPATCH_ALIAS_TOOL_CONTENT = "onex.commands.omniintelligence.tool-content.v1"
 """Dispatch-compatible alias for tool-content canonical topic."""
+
+DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
+    "onex.commands.omniintelligence.pattern-learning.v1"
+)
+"""Dispatch-compatible alias for pattern-learning canonical topic."""
 
 
 # =============================================================================
@@ -872,7 +877,7 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 4 intelligence domain handlers (6 routes)
+    Creates the engine, registers all 5 intelligence domain handlers (7 routes)
     and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
@@ -884,8 +889,9 @@ def create_intelligence_dispatch_engine(
         intent_classifier: REQUIRED intent classifier.
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
-            Keys: "claude_hook", "lifecycle", "pattern_storage". Values:
-            full topic strings from contract event_bus.publish_topics.
+            Keys: "claude_hook", "lifecycle", "pattern_storage",
+            "pattern_learning". Values: full topic strings from contract
+            event_bus.publish_topics.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -1012,6 +1018,38 @@ def create_intelligence_dispatch_engine(
             handler_id="intelligence-pattern-storage-handler",
             description=(
                 "Routes pattern.discovered events to pattern storage handler."
+            ),
+        )
+    )
+
+    # --- Handler 5: pattern-learning-cmd ---
+    from omniintelligence.runtime.dispatch_handler_pattern_learning import (
+        create_pattern_learning_dispatch_handler,
+    )
+
+    pattern_learning_handler = create_pattern_learning_dispatch_handler(
+        repository=repository,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get(
+            "pattern_learning",
+            "onex.evt.omniintelligence.pattern-learned.v1",
+        ),
+    )
+    engine.register_handler(
+        handler_id="intelligence-pattern-learning-handler",
+        handler=pattern_learning_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-learning-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-pattern-learning-handler",
+            description=(
+                "Routes pattern-learning commands to the pattern learning handler."
             ),
         )
     )
@@ -1157,6 +1195,7 @@ __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
+    "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
