@@ -118,6 +118,9 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
 
+_FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
+"""Fallback publish topic when contract-resolved topic is unavailable."""
+
 
 # =============================================================================
 # Bridge Handler: Claude Hook Event
@@ -816,8 +819,7 @@ def create_pattern_storage_dispatch_handler(
         if kafka_producer is not None:
             try:
                 await kafka_producer.publish(
-                    topic=publish_topic
-                    or "onex.evt.omniintelligence.pattern-stored.v1",
+                    topic=publish_topic or _FALLBACK_TOPIC_PATTERN_STORED,
                     key=str(pattern_id),
                     value={
                         "event_type": "PatternStored",
