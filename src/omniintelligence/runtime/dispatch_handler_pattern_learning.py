@@ -377,7 +377,9 @@ async def _fetch_session_snapshot(
                 session_id,
                 correlation_id,
             )
-            return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
+            return _create_synthetic_snapshot(
+                session_id=deterministic_session_id, now=now
+            )
 
         if not actions:
             logger.debug(
@@ -386,7 +388,9 @@ async def _fetch_session_snapshot(
                 session_id,
                 correlation_id,
             )
-            return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
+            return _create_synthetic_snapshot(
+                session_id=deterministic_session_id, now=now
+            )
 
         # Extract files accessed and modified
         files_accessed: list[str] = []
