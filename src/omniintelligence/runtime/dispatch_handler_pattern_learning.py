@@ -16,7 +16,7 @@ through ONEX DB Effect Nodes. This handler reads session data from PostgreSQL
 but publishes pattern candidates to Kafka for downstream effect nodes to persist.
 
 Architecture Decisions:
-    - Split file: NOT in dispatch_handlers.py (already 1169 lines)
+    - Split file: NOT in dispatch_handlers.py (already large)
     - Session data: DB first (query agent_actions/workflow_steps), synthetic fallback
     - Extraction volume: max_patterns_per_session=50, publish_batch_size=25
     - Domain taxonomy: domain_id='general' + insight_type in metadata
@@ -30,7 +30,6 @@ Related:
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import hashlib
 import logging
 import time
@@ -196,8 +195,15 @@ def create_pattern_learning_dispatch_handler(
         # Override correlation_id from payload if present
         raw_payload_correlation = payload.get("correlation_id")
         if raw_payload_correlation is not None:
-            with contextlib.suppress(ValueError):
+            try:
                 ctx_correlation_id = UUID(str(raw_payload_correlation))
+            except ValueError:
+                logger.debug(
+                    "Payload correlation_id is not a valid UUID, "
+                    "using fallback (raw_value=%r, fallback_correlation_id=%s)",
+                    raw_payload_correlation,
+                    ctx_correlation_id,
+                )
 
         logger.info(
             "Dispatching pattern-learning command via MessageDispatchEngine "
