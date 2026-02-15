@@ -36,7 +36,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from asyncpg import InterfaceError as AsyncpgInterfaceError
 from asyncpg import InternalClientError as AsyncpgInternalClientError
@@ -324,6 +324,10 @@ async def _fetch_session_snapshot(
         snapshot if DB query fails or returns no data.
     """
     now = datetime.now(UTC)
+    # Convert string session_id to a deterministic UUID so downstream
+    # source_session_ids are compatible with the UUID[] column in
+    # learned_patterns. Same string always produces the same UUID.
+    deterministic_session_id = str(uuid5(NAMESPACE_URL, session_id))
 
     try:
         # Query agent_actions for the session (bounded by asyncio timeout)
@@ -346,7 +350,7 @@ async def _fetch_session_snapshot(
                 session_id,
                 correlation_id,
             )
-            return _create_synthetic_snapshot(session_id=session_id, now=now)
+            return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
 
         if not actions:
             logger.debug(
@@ -355,7 +359,7 @@ async def _fetch_session_snapshot(
                 session_id,
                 correlation_id,
             )
-            return _create_synthetic_snapshot(session_id=session_id, now=now)
+            return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
 
         # Extract files accessed and modified
         files_accessed: list[str] = []
@@ -433,7 +437,7 @@ async def _fetch_session_snapshot(
         tools_used = list(dict.fromkeys(tools_used))
 
         return ModelSessionSnapshot(
-            session_id=session_id,
+            session_id=deterministic_session_id,
             working_directory="/unknown",
             started_at=earliest_at or now,
             ended_at=latest_at,
@@ -453,7 +457,7 @@ async def _fetch_session_snapshot(
             type(e).__name__,
             correlation_id,
         )
-        return _create_synthetic_snapshot(session_id=session_id, now=now)
+        return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
 
 
 def _create_synthetic_snapshot(
@@ -530,10 +534,17 @@ def _transform_insights_to_pattern_events(
         # Clamp confidence to [0.5, 1.0] for storage handler compatibility
         confidence = max(0.5, min(1.0, insight.confidence))
 
-        # Build source_session_ids: evidence_session_ids + current session
-        source_session_ids: list[str] = list(insight.evidence_session_ids)
-        if session_id not in source_session_ids:
-            source_session_ids.append(session_id)
+        # Build source_session_ids: evidence_session_ids + current session.
+        # Convert each string session ID to a deterministic UUID via uuid5
+        # so the values are compatible with the UUID[] DB column in
+        # learned_patterns.source_session_ids. Same string always produces
+        # the same UUID, preserving the 1:1 mapping.
+        source_session_ids: list[str] = [
+            str(uuid5(NAMESPACE_URL, sid)) for sid in insight.evidence_session_ids
+        ]
+        deterministic_current = str(uuid5(NAMESPACE_URL, session_id))
+        if deterministic_current not in source_session_ids:
+            source_session_ids.append(deterministic_current)
 
         # Build metadata with insight_type for future taxonomy migration
         event_metadata: dict[str, object] = {

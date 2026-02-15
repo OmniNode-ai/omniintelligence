@@ -125,7 +125,7 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 
 # Top-level fields that belong in ModelClaudeCodeHookEvent directly.
 # Everything else is wrapped into the nested `payload` dict.
-_HOOK_EVENT_TOP_LEVEL_FIELDS = {"event_type", "session_id", "correlation_id"}
+_HOOK_EVENT_TOP_LEVEL_FIELDS = {"event_type", "session_id", "correlation_id", "timestamp_utc"}
 
 
 def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEvent:
@@ -189,9 +189,6 @@ def create_claude_hook_dispatch_handler(
         """Bridge handler: envelope -> route_hook_event()."""
         from omniintelligence.nodes.node_claude_hook_event_effect.handlers import (
             route_hook_event,
-        )
-        from omniintelligence.nodes.node_claude_hook_event_effect.models import (
-            ModelClaudeCodeHookEvent,
         )
 
         ctx_correlation_id = (

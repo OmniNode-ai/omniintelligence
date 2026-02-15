@@ -29,7 +29,7 @@ import hashlib
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
 
@@ -679,7 +679,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == "session-with-data"
+        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "session-with-data"))
         assert "src/main.py" in snapshot.files_accessed
         assert "src/utils.py" in snapshot.files_accessed
         assert "src/utils.py" in snapshot.files_modified
@@ -705,7 +705,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == "empty-session"
+        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "empty-session"))
         assert snapshot.metadata["source"] == "synthetic"
         assert snapshot.metadata["reason"] == "db_unavailable"
         assert snapshot.outcome == "unknown"
@@ -730,7 +730,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == "error-session"
+        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "error-session"))
         assert snapshot.metadata["source"] == "synthetic"
         assert snapshot.metadata["reason"] == "db_unavailable"
 
@@ -752,7 +752,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == "timeout-session"
+        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "timeout-session"))
         assert snapshot.metadata["source"] == "synthetic"
 
 
@@ -960,7 +960,7 @@ class TestInsightTransformer:
         source_ids = events[0]["source_session_ids"]
         assert isinstance(source_ids, list)
         assert len(source_ids) == 1
-        assert source_ids[0] == sample_session_id
+        assert source_ids[0] == str(uuid5(NAMESPACE_URL, sample_session_id))
 
     @pytest.mark.unit
     def test_insight_transformer_existing_evidence_session_ids_preserved(
@@ -980,9 +980,9 @@ class TestInsightTransformer:
         )
 
         source_ids = events[0]["source_session_ids"]
-        assert "prev-session-a" in source_ids
-        assert "prev-session-b" in source_ids
-        assert sample_session_id in source_ids
+        assert str(uuid5(NAMESPACE_URL, "prev-session-a")) in source_ids
+        assert str(uuid5(NAMESPACE_URL, "prev-session-b")) in source_ids
+        assert str(uuid5(NAMESPACE_URL, sample_session_id)) in source_ids
 
     @pytest.mark.unit
     def test_insight_transformer_current_session_not_duplicated(
@@ -1002,7 +1002,8 @@ class TestInsightTransformer:
         )
 
         source_ids = events[0]["source_session_ids"]
-        assert source_ids.count(sample_session_id) == 1
+        deterministic_id = str(uuid5(NAMESPACE_URL, sample_session_id))
+        assert source_ids.count(deterministic_id) == 1
 
     @pytest.mark.unit
     def test_insight_transformer_evidence_files_in_metadata(
