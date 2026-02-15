@@ -5,6 +5,24 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-15
+
+### Added
+
+- **Intelligence pipeline wiring** — storage handler, node registration, and
+  tool-content consumer for end-to-end pipeline execution (OMN-2222, #107)
+- **CI compliance gates** — automated compliance checks for omniintelligence
+  repository (OMN-2227, #108)
+- **Node registration + pattern extraction** — wired intelligence nodes into
+  registration system with pattern extraction support (OMN-2210, #105)
+- **omnibase_core Python validators** — wired all validators and fixed
+  violations (#103)
+
+### Fixed
+
+- **Missing pattern_learning_compute node** — added missing node and updated
+  stale topic documentation (OMN-2221, #106)
+
 ## [0.1.1] - 2026-02-13
 
 ### Fixed
@@ -160,5 +178,6 @@ hook processing as a kernel domain plugin.
 - `omnibase_spi` ^0.7.0
 - Python >=3.12
 
+[0.2.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/OmniNode-ai/omniintelligence/releases/tag/v0.1.0
