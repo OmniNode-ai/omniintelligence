@@ -637,7 +637,7 @@ jobs:
       # detect-secrets is a CI-only scanning tool, not a project dependency.
       # Installed via pip (not uv) because it is not declared in pyproject.toml.
       - name: Install detect-secrets
-        run: pip install --no-deps detect-secrets==1.5.0
+        run: pip install detect-secrets==1.5.0
 
       - name: Run detect-secrets-hook
         run: |
