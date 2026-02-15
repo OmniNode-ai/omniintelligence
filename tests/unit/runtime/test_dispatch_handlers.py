@@ -12,7 +12,7 @@ Validates:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 4 intelligence handlers (5 routes)
+    - OMN-2032: Register all 5 intelligence handlers (7 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
 
@@ -30,12 +30,14 @@ from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
     DISPATCH_ALIAS_PATTERN_DISCOVERED,
     DISPATCH_ALIAS_PATTERN_LEARNED,
+    DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
     DISPATCH_ALIAS_PATTERN_LIFECYCLE,
     DISPATCH_ALIAS_SESSION_OUTCOME,
     create_claude_hook_dispatch_handler,
     create_dispatch_callback,
     create_intelligence_dispatch_engine,
     create_pattern_lifecycle_dispatch_handler,
+    create_pattern_storage_dispatch_handler,
     create_session_outcome_dispatch_handler,
 )
 
@@ -268,6 +270,20 @@ class TestTopicAlias:
         """Pattern discovered alias must preserve the discovered name."""
         assert "discovered" in DISPATCH_ALIAS_PATTERN_DISCOVERED
 
+    # --- Pattern Learning CMD alias ---
+
+    def test_pattern_learning_cmd_alias_contains_commands_segment(self) -> None:
+        """Pattern learning cmd alias must contain .commands. for from_topic()."""
+        assert ".commands." in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
+    def test_pattern_learning_cmd_alias_matches_intelligence_domain(self) -> None:
+        """Pattern learning cmd alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
+    def test_pattern_learning_cmd_alias_preserves_event_name(self) -> None:
+        """Pattern learning cmd alias must preserve the pattern-learning name."""
+        assert "pattern-learning" in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
 
 # =============================================================================
 # Tests: Dispatch Engine Factory
@@ -291,33 +307,33 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_four_handlers(
+    def test_engine_has_five_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 4 intelligence domain handlers must be registered."""
+        """All 5 intelligence domain handlers must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 4
+        assert engine.handler_count == 5
 
-    def test_engine_has_five_routes(
+    def test_engine_has_seven_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 5 intelligence domain routes must be registered."""
+        """All 7 intelligence domain routes must be registered."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 5
+        assert engine.route_count == 7
 
 
 # =============================================================================
@@ -398,6 +414,60 @@ class TestClaudeHookDispatchHandler:
 
         with pytest.raises(ValueError, match="Unexpected payload type"):
             await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_handler_reshapes_flat_omniclaude_payload(
+        self,
+        correlation_id: UUID,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """Handler should reshape flat omniclaude publisher payloads.
+
+        The omniclaude publisher emits events with all fields at the top level
+        (no nested payload wrapper, emitted_at instead of timestamp_utc).
+        The handler should reshape into ModelClaudeCodeHookEvent format.
+        """
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        flat_payload = {
+            "session_id": "test-session-flat",
+            "event_type": "UserPromptSubmit",
+            "correlation_id": str(correlation_id),
+            "prompt_preview": "Hello world",
+            "prompt_length": 11,
+            "prompt_b64": "SGVsbG8gd29ybGQ=",
+            "causation_id": None,
+            "emitted_at": "2026-02-14T23:21:25.925410+00:00",
+            "schema_version": "1.0.0",
+        }
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_intent_classifier,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=flat_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
 
 
 # =============================================================================
@@ -1082,6 +1152,636 @@ class TestPatternLifecycleDispatchHandler:
             ValueError, match="Invalid ISO datetime for 'transition_at'"
         ):
             await handler(envelope, context)
+
+
+# =============================================================================
+# Tests: Pattern Storage Handler
+# =============================================================================
+
+
+class TestPatternStorageDispatchHandler:
+    """Validate the bridge handler for pattern storage events.
+
+    Tests cover:
+        - Happy path with all fields present
+        - Missing pattern_id / discovery_id rejection
+        - Empty signature rejection
+        - Confidence clamping (below 0.5 and above 1.0)
+        - Version clamping (below 1)
+        - Kafka optional (SQL still works without producer)
+        - ForeignKeyViolationError surfaced as ValueError
+        - discovery_id fallback when pattern_id absent
+        - Invalid session IDs dropped from source_session_ids
+    """
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_happy_path(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Valid payload with all fields must execute SQL and publish to Kafka."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        mock_kafka = MagicMock()
+        mock_kafka.publish = AsyncMock(return_value=None)
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            kafka_producer=mock_kafka,
+            correlation_id=correlation_id,
+        )
+
+        pattern_id = uuid4()
+        session_id_1 = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(pattern_id),
+                "signature": "def foo(): pass",
+                "signature_hash": "abc123hash",
+                "domain_id": "python",
+                "domain_version": "1.0.0",
+                "confidence": 0.85,
+                "version": 2,
+                "source_session_ids": [str(session_id_1)],
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
+        # SQL must have been executed
+        mock_repository.execute.assert_called_once()
+        call_args = mock_repository.execute.call_args
+        # Positional args: SQL, pattern_id, signature, signature_hash,
+        #   domain_id, domain_version, confidence, version, source_session_ids
+        assert call_args[0][1] == pattern_id
+        assert call_args[0][2] == "def foo(): pass"
+        assert call_args[0][3] == "abc123hash"
+        assert call_args[0][4] == "python"
+        assert call_args[0][6] == 0.85
+        assert call_args[0][7] == 2
+        assert call_args[0][8] == [session_id_1]
+
+        # Kafka must have been called
+        mock_kafka.publish.assert_called_once()
+        kafka_call = mock_kafka.publish.call_args
+        assert kafka_call.kwargs["key"] == str(pattern_id)
+        assert kafka_call.kwargs["value"]["event_type"] == "PatternStored"
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_missing_pattern_id(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Payload without pattern_id or discovery_id generates a new UUID."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "signature": "def bar(): pass",
+                "signature_hash": "hash456",
+                "confidence": 0.7,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        # Should not raise -- generates a new UUID internally
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
+        # SQL should have been called with a generated UUID
+        mock_repository.execute.assert_called_once()
+        stored_pattern_id = mock_repository.execute.call_args[0][1]
+        assert isinstance(stored_pattern_id, UUID)
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_empty_signature_rejected(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Empty signature must be rejected with ValueError."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "",
+                "signature_hash": "hash789",
+                "confidence": 0.8,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="missing pattern_signature"):
+            await handler(envelope, context)
+
+        # SQL must NOT have been called
+        mock_repository.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_confidence_clamped_below(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Confidence below 0.5 must be clamped to 0.5."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def baz(): pass",
+                "signature_hash": "hash_clamp_low",
+                "confidence": 0.1,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        await handler(envelope, context)
+
+        mock_repository.execute.assert_called_once()
+        stored_confidence = mock_repository.execute.call_args[0][6]
+        assert stored_confidence == 0.5, (
+            f"Expected confidence clamped to 0.5, got {stored_confidence}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_confidence_clamped_above(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Confidence above 1.0 must be clamped to 1.0."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def baz(): pass",
+                "signature_hash": "hash_clamp_high",
+                "confidence": 5.0,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        await handler(envelope, context)
+
+        mock_repository.execute.assert_called_once()
+        stored_confidence = mock_repository.execute.call_args[0][6]
+        assert stored_confidence == 1.0, (
+            f"Expected confidence clamped to 1.0, got {stored_confidence}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_version_clamped(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Version below 1 must be clamped to 1."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def baz(): pass",
+                "signature_hash": "hash_ver_clamp",
+                "confidence": 0.7,
+                "version": 0,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        await handler(envelope, context)
+
+        mock_repository.execute.assert_called_once()
+        stored_version = mock_repository.execute.call_args[0][7]
+        assert stored_version == 1, (
+            f"Expected version clamped to 1, got {stored_version}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_kafka_optional(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """No Kafka producer must not prevent SQL from executing."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            kafka_producer=None,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def no_kafka(): pass",
+                "signature_hash": "hash_no_kafka",
+                "confidence": 0.9,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
+        # SQL must still have been called
+        mock_repository.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_fk_violation(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """ForeignKeyViolationError from repository must raise ValueError."""
+        from asyncpg import ForeignKeyViolationError
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        mock_repository.execute = AsyncMock(
+            side_effect=ForeignKeyViolationError(
+                "insert or update on table violates foreign key constraint"
+            ),
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def fk_test(): pass",
+                "signature_hash": "hash_fk",
+                "domain_id": "nonexistent_domain",
+                "confidence": 0.7,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Unknown domain_id"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_discovery_id_fallback(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """discovery_id must be used when pattern_id is absent."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        discovery_id = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternDiscovered",
+                "discovery_id": str(discovery_id),
+                "signature": "def discovered(): pass",
+                "signature_hash": "hash_disc",
+                "confidence": 0.75,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        await handler(envelope, context)
+
+        mock_repository.execute.assert_called_once()
+        stored_pattern_id = mock_repository.execute.call_args[0][1]
+        assert stored_pattern_id == discovery_id, (
+            f"Expected discovery_id {discovery_id} to be used as pattern_id, "
+            f"got {stored_pattern_id}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_drops_invalid_session_ids(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Invalid UUIDs in source_session_ids must be silently dropped."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        valid_session_id = uuid4()
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def sessions(): pass",
+                "signature_hash": "hash_sessions",
+                "confidence": 0.8,
+                "version": 1,
+                "source_session_ids": [
+                    str(valid_session_id),
+                    "not-a-uuid",
+                    "also-invalid",
+                ],
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        await handler(envelope, context)
+
+        mock_repository.execute.assert_called_once()
+        stored_session_ids = mock_repository.execute.call_args[0][8]
+        assert len(stored_session_ids) == 1, (
+            f"Expected 1 valid session ID, got {len(stored_session_ids)}"
+        )
+        assert stored_session_ids[0] == valid_session_id
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_raises_for_non_dict_payload(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Handler should raise ValueError for non-dict payloads."""
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload="not a dict payload",
+            correlation_id=correlation_id,
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+    @pytest.mark.asyncio
+    async def test_pattern_storage_handler_missing_signature_hash_rejected(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+    ) -> None:
+        """Missing signature_hash must be rejected with ValueError."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_pattern_storage_dispatch_handler(
+            repository=mock_repository,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "event_type": "PatternLearned",
+                "pattern_id": str(uuid4()),
+                "signature": "def no_hash(): pass",
+                "confidence": 0.7,
+                "version": 1,
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "event"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="missing signature_hash"):
+            await handler(envelope, context)
+
+        mock_repository.execute.assert_not_called()
 
 
 # =============================================================================

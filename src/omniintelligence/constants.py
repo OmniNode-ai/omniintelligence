@@ -129,6 +129,19 @@ subject to cooldown/threshold gates.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_TOOL_CONTENT_V1: str = "onex.cmd.omniintelligence.tool-content.v1"
+"""
+TEMP_BOOTSTRAP: Canonical topic for tool content events (INPUT).
+
+Canonical topic: onex.cmd.omniintelligence.tool-content.v1
+
+omniclaude publishes PostToolUse payloads with file contents and command
+outputs to this topic. The claude hook event effect node consumes them
+for intelligence analysis.
+
+Deletion ticket: OMN-1546
+"""
+
 TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1: str = (
     "onex.cmd.omniintelligence.pattern-learning.v1"
 )
@@ -181,4 +194,5 @@ __all__ = [
     "TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1",
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
     "TOPIC_SUFFIX_PATTERN_STORED_V1",
+    "TOPIC_SUFFIX_TOOL_CONTENT_V1",
 ]

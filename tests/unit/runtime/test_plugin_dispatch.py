@@ -3,15 +3,15 @@
 """Unit tests for PluginIntelligence dispatch engine wiring.
 
 Validates:
-    - wire_dispatchers() creates and stores dispatch engine with 4 handlers (5 routes)
-    - start_consumers() uses dispatch callback for all 5 intelligence topics
+    - wire_dispatchers() creates and stores dispatch engine with 5 handlers (7 routes)
+    - start_consumers() uses dispatch callback for all 7 intelligence topics
     - start_consumers() returns skipped when engine is not wired (no noop fallback)
     - Dispatch engine is cleared on shutdown
     - INTELLIGENCE_SUBSCRIBE_TOPICS is contract-driven (OMN-2033)
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 4 intelligence handlers (5 routes)
+    - OMN-2032: Register all 5 intelligence handlers (7 routes)
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
 """
@@ -181,26 +181,26 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.is_frozen
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_five_routes(self) -> None:
-        """Engine should have exactly 5 routes (3 command + 2 event topics)."""
+    async def test_wire_dispatchers_engine_has_seven_routes(self) -> None:
+        """Engine should have exactly 7 routes (5 command + 2 event topics)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 5
+        assert plugin._dispatch_engine.route_count == 7
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_four_handlers(self) -> None:
-        """Engine should have exactly 4 handlers (3 original + 1 pattern storage)."""
+    async def test_wire_dispatchers_engine_has_five_handlers(self) -> None:
+        """Engine should have exactly 5 handlers."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 4
+        assert plugin._dispatch_engine.handler_count == 5
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:
@@ -253,7 +253,7 @@ class TestPluginStartConsumersDispatch:
 
     @pytest.mark.asyncio
     async def test_all_topics_subscribed(self) -> None:
-        """All 5 intelligence topics must be subscribed."""
+        """All 7 intelligence topics must be subscribed."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
@@ -316,7 +316,7 @@ class TestPluginStartConsumersDispatch:
 
     @pytest.mark.asyncio
     async def test_all_topics_use_dispatch_callback(self) -> None:
-        """All 5 intelligence topics should use dispatch callback (not noop)."""
+        """All 7 intelligence topics should use dispatch callback (not noop)."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)

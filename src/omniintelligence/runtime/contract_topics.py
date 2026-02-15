@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 _INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
     "omniintelligence.nodes.node_claude_hook_event_effect",
     "omniintelligence.nodes.node_pattern_feedback_effect",
+    "omniintelligence.nodes.node_pattern_learning_effect",
     "omniintelligence.nodes.node_pattern_lifecycle_effect",
     "omniintelligence.nodes.node_pattern_storage_effect",
 ]
@@ -99,6 +100,7 @@ def collect_publish_topics_for_dispatch(
 
     The mapping from package to dispatch key is:
         - ``node_claude_hook_event_effect`` → ``"claude_hook"``
+        - ``node_pattern_learning_effect`` → ``"pattern_learning"``
         - ``node_pattern_lifecycle_effect`` → ``"lifecycle"``
         - ``node_pattern_storage_effect`` → ``"pattern_storage"``
 
@@ -117,6 +119,7 @@ def collect_publish_topics_for_dispatch(
     _DISPATCH_KEY_TO_PACKAGE: dict[str, str] = {
         "claude_hook": "omniintelligence.nodes.node_claude_hook_event_effect",
         "lifecycle": "omniintelligence.nodes.node_pattern_lifecycle_effect",
+        "pattern_learning": "omniintelligence.nodes.node_pattern_learning_effect",
         "pattern_storage": "omniintelligence.nodes.node_pattern_storage_effect",
     }
 

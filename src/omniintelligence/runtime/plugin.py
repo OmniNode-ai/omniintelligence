@@ -105,6 +105,7 @@ logger = logging.getLogger(__name__)
 # Source contracts:
 #   - node_claude_hook_event_effect/contract.yaml
 #   - node_pattern_feedback_effect/contract.yaml
+#   - node_pattern_learning_effect/contract.yaml
 #   - node_pattern_lifecycle_effect/contract.yaml
 #   - node_pattern_storage_effect/contract.yaml
 
@@ -422,7 +423,7 @@ class PluginIntelligence:
 
         Creates protocol adapters from infrastructure (asyncpg pool, event bus),
         reads publish topics from contracts, and builds a MessageDispatchEngine
-        with all 4 intelligence domain handlers (5 routes) wired to real
+        with all 5 intelligence domain handlers (7 routes) wired to real
         business logic.
 
         Dispatchers registered:
@@ -430,6 +431,7 @@ class PluginIntelligence:
             2. session-outcome → record_session_outcome() with DB repository
             3. pattern-lifecycle-transition → apply_transition() with DB + idempotency
             4. pattern-storage → store_pattern() for pattern-learned + pattern.discovered
+            5. pattern-learning-cmd → pattern extraction + Kafka publish
 
         All required dependencies (repository, idempotency store, intent classifier)
         are created from the PostgreSQL pool. If the pool is not initialized,

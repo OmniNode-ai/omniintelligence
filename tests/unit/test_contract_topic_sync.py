@@ -30,6 +30,7 @@ from omniintelligence.constants import (
     TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1,
     TOPIC_SUFFIX_PATTERN_PROMOTED_V1,
     TOPIC_SUFFIX_PATTERN_STORED_V1,
+    TOPIC_SUFFIX_TOOL_CONTENT_V1,
 )
 
 # =========================================================================
@@ -46,6 +47,13 @@ TOPIC_CONSTANT_MAPPINGS: list[tuple[str, str, str, str, str]] = [
     (
         "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
         TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+        "node_claude_hook_event_effect",
+        "subscribe_topics",
+        "contract.yaml",
+    ),
+    (
+        "TOPIC_SUFFIX_TOOL_CONTENT_V1",
+        TOPIC_SUFFIX_TOOL_CONTENT_V1,
         "node_claude_hook_event_effect",
         "subscribe_topics",
         "contract.yaml",
@@ -172,6 +180,7 @@ class TestTopicConstantSync:
             "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
             "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
             "TOPIC_SUFFIX_PATTERN_STORED_V1",
+            "TOPIC_SUFFIX_TOOL_CONTENT_V1",
         }
         mapped_constants = {mapping[0] for mapping in TOPIC_CONSTANT_MAPPINGS}
 

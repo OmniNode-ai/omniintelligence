@@ -30,14 +30,26 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (2)
+    # Effects (5)
+    "NodePatternDemotionEffect": (
+        "omniintelligence.nodes.node_pattern_demotion_effect.node",
+        "NodePatternDemotionEffect",
+    ),
     "NodePatternFeedbackEffect": (
-        "omniintelligence.nodes.node_pattern_feedback_effect",
+        "omniintelligence.nodes.node_pattern_feedback_effect.node",
         "NodePatternFeedbackEffect",
     ),
+    "NodePatternLifecycleEffect": (
+        "omniintelligence.nodes.node_pattern_lifecycle_effect.node",
+        "NodePatternLifecycleEffect",
+    ),
     "NodePatternPromotionEffect": (
-        "omniintelligence.nodes.node_pattern_promotion_effect",
+        "omniintelligence.nodes.node_pattern_promotion_effect.node",
         "NodePatternPromotionEffect",
+    ),
+    "NodePatternStorageEffect": (
+        "omniintelligence.nodes.node_pattern_storage_effect.node",
+        "NodePatternStorageEffect",
     ),
     "ClaudeSessionOutcome": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
@@ -75,7 +87,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
-    # Computes (7)
+    # Computes (8)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.node_execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
@@ -87,6 +99,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodePatternExtractionCompute": (
         "omniintelligence.nodes.node_pattern_extraction_compute.node",
         "NodePatternExtractionCompute",
+    ),
+    "NodePatternLearningCompute": (
+        "omniintelligence.nodes.node_pattern_learning_compute.node",
+        "NodePatternLearningCompute",
     ),
     "NodePatternMatchingCompute": (
         "omniintelligence.nodes.node_pattern_matching_compute.node",
@@ -143,6 +159,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
     )
+    from omniintelligence.nodes.node_pattern_demotion_effect.node import (
+        NodePatternDemotionEffect as NodePatternDemotionEffect,
+    )
     from omniintelligence.nodes.node_pattern_extraction_compute.node import (
         NodePatternExtractionCompute as NodePatternExtractionCompute,
     )
@@ -162,9 +181,6 @@ if TYPE_CHECKING:
         ModelSessionOutcomeResult as ModelSessionOutcomeResult,
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
-        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
-    )
-    from omniintelligence.nodes.node_pattern_feedback_effect import (
         SessionOutcomeInput as SessionOutcomeInput,
     )
     from omniintelligence.nodes.node_pattern_feedback_effect import (
@@ -173,11 +189,23 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_feedback_effect import (
         update_pattern_rolling_metrics as update_pattern_rolling_metrics,
     )
+    from omniintelligence.nodes.node_pattern_feedback_effect.node import (
+        NodePatternFeedbackEffect as NodePatternFeedbackEffect,
+    )
+    from omniintelligence.nodes.node_pattern_learning_compute.node import (
+        NodePatternLearningCompute as NodePatternLearningCompute,
+    )
+    from omniintelligence.nodes.node_pattern_lifecycle_effect.node import (
+        NodePatternLifecycleEffect as NodePatternLifecycleEffect,
+    )
     from omniintelligence.nodes.node_pattern_matching_compute.node import (
         NodePatternMatchingCompute as NodePatternMatchingCompute,
     )
-    from omniintelligence.nodes.node_pattern_promotion_effect import (
+    from omniintelligence.nodes.node_pattern_promotion_effect.node import (
         NodePatternPromotionEffect as NodePatternPromotionEffect,
+    )
+    from omniintelligence.nodes.node_pattern_storage_effect.node import (
+        NodePatternStorageEffect as NodePatternStorageEffect,
     )
     from omniintelligence.nodes.node_quality_scoring_compute.node import (
         NodeQualityScoringCompute as NodeQualityScoringCompute,
@@ -196,30 +224,34 @@ if TYPE_CHECKING:
 __all__ = [
     # Constants
     "ROLLING_WINDOW_SIZE",
-    # Models and enums (from node_pattern_feedback_effect)
+    # Models and enums
     "ClaudeCodeSessionOutcome",
     "ClaudeSessionOutcome",
     "EnumOutcomeRecordingStatus",
     "ModelSessionOutcomeResult",
-    # Computes (7)
-    "NodeExecutionTraceParserCompute",
-    # Orchestrators (2)
+    "SessionOutcomeInput",
+    # Nodes — Orchestrators (2)
     "NodeIntelligenceOrchestrator",
-    # Reducers (1)
-    "NodeIntelligenceReducer",
-    "NodeIntentClassifierCompute",
     "NodePatternAssemblerOrchestrator",
+    # Nodes — Reducers (1)
+    "NodeIntelligenceReducer",
+    # Nodes — Computes (8)
+    "NodeExecutionTraceParserCompute",
+    "NodeIntentClassifierCompute",
     "NodePatternExtractionCompute",
-    # Effects (2) + registries
-    "NodePatternFeedbackEffect",
+    "NodePatternLearningCompute",
     "NodePatternMatchingCompute",
-    "NodePatternPromotionEffect",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
+    # Nodes — Effects (5)
+    "NodePatternDemotionEffect",
+    "NodePatternFeedbackEffect",
+    "NodePatternLifecycleEffect",
+    "NodePatternPromotionEffect",
+    "NodePatternStorageEffect",
     # Protocols
     "ProtocolPatternRepository",
-    "SessionOutcomeInput",
     # Handler functions
     "record_session_outcome",
     "update_pattern_rolling_metrics",

@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register intelligence dispatchers (now 4 handlers, 5 routes)
+    - OMN-2032: Register intelligence dispatchers (now 5 handlers, 7 routes)
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -35,6 +35,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
+from asyncpg import ForeignKeyViolationError, UniqueViolationError
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
 from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
@@ -45,6 +46,11 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
+from pydantic import ValidationError
+
+from omniintelligence.nodes.node_claude_hook_event_effect.models import (
+    ModelClaudeCodeHookEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,10 +110,60 @@ DISPATCH_ALIAS_PATTERN_LEARNED = "onex.events.omniintelligence.pattern-learned.v
 DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
 """Dispatch-compatible alias for pattern.discovered canonical topic."""
 
+DISPATCH_ALIAS_TOOL_CONTENT = "onex.commands.omniintelligence.tool-content.v1"
+"""Dispatch-compatible alias for tool-content canonical topic."""
+
+DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
+    "onex.commands.omniintelligence.pattern-learning.v1"
+)
+"""Dispatch-compatible alias for pattern-learning canonical topic."""
+
+_FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
+"""Fallback publish topic when contract-resolved topic is unavailable."""
+
 
 # =============================================================================
 # Bridge Handler: Claude Hook Event
 # =============================================================================
+
+# Top-level fields that belong in ModelClaudeCodeHookEvent directly.
+# Everything else is wrapped into the nested `payload` dict.
+_HOOK_EVENT_TOP_LEVEL_FIELDS = {
+    "event_type",
+    "session_id",
+    "correlation_id",
+    "timestamp_utc",
+}
+
+
+def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEvent:
+    """Reshape a flat omniclaude publisher payload into ModelClaudeCodeHookEvent.
+
+    The omniclaude publisher emits events with all fields at the top level:
+        {event_type, session_id, correlation_id, emitted_at, prompt_preview, ...}
+
+    ModelClaudeCodeHookEvent expects a nested envelope:
+        {event_type, session_id, correlation_id, timestamp_utc, payload: {...}}
+
+    This function maps between the two formats.
+    """
+    envelope: dict[str, object] = {}
+    nested_payload: dict[str, object] = {}
+
+    for key, value in flat.items():
+        if key in _HOOK_EVENT_TOP_LEVEL_FIELDS:
+            envelope[key] = value
+        elif key == "emitted_at":
+            # Map emitted_at -> timestamp_utc, but only if an explicit
+            # timestamp_utc was not already provided (explicit takes priority).
+            if "timestamp_utc" not in envelope:
+                envelope["timestamp_utc"] = value
+        else:
+            nested_payload[key] = value
+
+    envelope["payload"] = nested_payload
+
+    return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
 
 
 def create_claude_hook_dispatch_handler(
@@ -144,9 +200,6 @@ def create_claude_hook_dispatch_handler(
         from omniintelligence.nodes.node_claude_hook_event_effect.handlers import (
             route_hook_event,
         )
-        from omniintelligence.nodes.node_claude_hook_event_effect.models import (
-            ModelClaudeCodeHookEvent,
-        )
 
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
@@ -159,14 +212,22 @@ def create_claude_hook_dispatch_handler(
             event = payload
         elif isinstance(payload, dict):
             try:
+                # The omniclaude publisher emits a flat payload with all fields
+                # at the top level. ModelClaudeCodeHookEvent expects a nested
+                # structure with timestamp_utc and a payload wrapper.
+                # Attempt direct parse first; if it fails, reshape the flat
+                # payload into the nested envelope format.
                 event = ModelClaudeCodeHookEvent(**payload)
-            except Exception as e:
-                msg = (
-                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
-                    f"(correlation_id={ctx_correlation_id})"
-                )
-                logger.warning(msg)
-                raise ValueError(msg) from e
+            except (ValidationError, TypeError):
+                try:
+                    event = _reshape_flat_hook_payload(payload)
+                except Exception as e:
+                    msg = (
+                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                        f"(correlation_id={ctx_correlation_id})"
+                    )
+                    logger.warning(msg)
+                    raise ValueError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
@@ -526,6 +587,7 @@ def create_pattern_storage_dispatch_handler(
     *,
     repository: ProtocolPatternRepository,
     kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -533,15 +595,21 @@ def create_pattern_storage_dispatch_handler(
 ]:
     """Create a dispatch engine handler for pattern storage events.
 
-    Fail-fast handler for pattern-learned and pattern.discovered events.
-    Raises RuntimeError on every invocation to prevent silent data loss.
-    The full implementation will route to route_storage_operation /
-    handle_consume_discovered once RuntimeHostProcess wiring is complete
-    for this node.
+    Handles pattern-learned and pattern.discovered events by persisting
+    patterns to the learned_patterns table via the repository adapter.
+
+    For pattern-learned events: extracts pattern fields from the payload
+    and inserts into learned_patterns using an upsert on
+    (pattern_signature, domain_id, version).
+
+    For pattern.discovered events: maps the discovery event payload to
+    the same storage fields and inserts identically.
 
     Args:
         repository: REQUIRED database repository for pattern storage.
         kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for pattern-stored events (from contract).
+            Falls back to "onex.evt.omniintelligence.pattern-stored.v1" if None.
         correlation_id: Optional fixed correlation ID for tracing.
 
     Returns:
@@ -552,7 +620,7 @@ def create_pattern_storage_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> pattern storage handler."""
+        """Bridge handler: envelope -> pattern storage via repository."""
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
         )
@@ -567,19 +635,238 @@ def create_pattern_storage_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        logger.error(
-            "Pattern storage handler not wired; refusing to ack message "
-            "(correlation_id=%s, payload_keys=%s, has_repo=%s, has_producer=%s)",
+        # Determine event type from payload
+        event_type = payload.get("event_type", "")
+
+        # Extract common fields for storage
+        # Both pattern-learned and pattern.discovered share these fields
+        raw_pattern_id = payload.get("pattern_id")
+        if raw_pattern_id is None:
+            raw_pattern_id = payload.get("discovery_id")
+        if raw_pattern_id is not None:
+            with contextlib.suppress(ValueError):
+                raw_pattern_id = UUID(str(raw_pattern_id))
+            if not isinstance(raw_pattern_id, UUID):
+                logger.warning(
+                    "Invalid UUID for pattern_id: %r, generating new ID "
+                    "(correlation_id=%s)",
+                    raw_pattern_id,
+                    ctx_correlation_id,
+                )
+                raw_pattern_id = None
+
+        pattern_id = raw_pattern_id or uuid4()
+        # Prefer 'signature' (omniclaude producers) over 'pattern_signature' (DB column name).
+        signature = str(payload.get("signature", payload.get("pattern_signature", "")))
+
+        if not signature:
+            msg = (
+                f"Pattern storage event missing pattern_signature, rejecting "
+                f"(event_type={event_type}, pattern_id={pattern_id}, "
+                f"correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        signature_hash = str(payload.get("signature_hash", ""))
+        # Reject if signature_hash is empty -- raise so the dispatch engine
+        # nacks the message instead of silently acking on the empty-string path.
+        if not signature_hash:
+            msg = (
+                f"Pattern storage event missing signature_hash, rejecting "
+                f"(event_type={event_type}, pattern_id={pattern_id}, "
+                f"correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+        # Default 'general' must exist in domain_taxonomy (FK constraint).
+        # If missing, ForeignKeyViolationError is caught and raised as ValueError.
+        domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
+        domain_version = str(payload.get("domain_version", "1.0.0"))
+        try:
+            raw_confidence = float(payload.get("confidence", 0.5))
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid confidence value %r, defaulting to 0.5 "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                payload.get("confidence"),
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            raw_confidence = 0.5
+        if raw_confidence < 0.5:
+            logger.warning(
+                "Pattern confidence %.3f below minimum 0.5, clamping "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                raw_confidence,
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+        if raw_confidence > 1.0:
+            logger.warning(
+                "Pattern confidence %.3f above maximum 1.0, clamping "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                raw_confidence,
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+        confidence = max(0.5, min(1.0, raw_confidence))
+        try:
+            version = int(payload.get("version", 1))
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid version value %r, defaulting to 1 "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                payload.get("version"),
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            version = 1
+        if version < 1:
+            logger.warning(
+                "Pattern version %d below minimum 1, clamping "
+                "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                version,
+                event_type,
+                pattern_id,
+                ctx_correlation_id,
+            )
+            version = max(1, version)
+        source_session_ids: list[UUID] = []
+        raw_session_ids = payload.get("source_session_ids")
+        if isinstance(raw_session_ids, list):
+            for sid in raw_session_ids:
+                with contextlib.suppress(ValueError):
+                    source_session_ids.append(UUID(str(sid)))
+            dropped_count = len(raw_session_ids) - len(source_session_ids)
+            if dropped_count > 0:
+                logger.warning(
+                    "Dropped %d invalid session IDs from source_session_ids "
+                    "(event_type=%s, pattern_id=%s, correlation_id=%s)",
+                    dropped_count,
+                    event_type,
+                    pattern_id,
+                    ctx_correlation_id,
+                )
+
+        logger.info(
+            "Processing pattern storage event via dispatch engine "
+            "(event_type=%s, pattern_id=%s, domain_id=%s, correlation_id=%s)",
+            event_type,
+            pattern_id,
+            domain_id,
             ctx_correlation_id,
-            list(payload.keys()),
-            repository is not None,
-            kafka_producer is not None,
-        )
-        raise RuntimeError(
-            f"Pattern storage handler not wired (correlation_id={ctx_correlation_id})"
         )
 
+        try:
+            await repository.execute(
+                _SQL_UPSERT_LEARNED_PATTERN,
+                pattern_id,
+                signature,
+                signature_hash,
+                domain_id,
+                domain_version,
+                confidence,
+                version,
+                source_session_ids,
+            )
+        except ForeignKeyViolationError as e:
+            msg = (
+                f"Unknown domain_id {domain_id!r} not found in domain_taxonomy "
+                f"(pattern_id={pattern_id}, correlation_id={ctx_correlation_id}). "
+                f"Ensure the domain is registered before publishing pattern events."
+            )
+            logger.error(msg)
+            raise ValueError(msg) from e
+        except UniqueViolationError as e:
+            # Handles constraint violations from partial unique indexes
+            # (e.g., idx_current_pattern, unique_signature_hash_domain_version).
+            logger.warning(
+                "Duplicate pattern skipped due to unique constraint "
+                "(pattern_id=%s, signature_hash=%s, domain_id=%s, version=%d, "
+                "correlation_id=%s): %s",
+                pattern_id,
+                signature_hash,
+                domain_id,
+                version,
+                ctx_correlation_id,
+                e,
+            )
+            # Treat as idempotent -- return empty string (success) rather than
+            # raising, since the pattern already exists in the DB.
+            return ""
+        except Exception as e:
+            logger.error(
+                "Failed to persist pattern via dispatch bridge "
+                "(pattern_id=%s, error=%s, correlation_id=%s)",
+                pattern_id,
+                e,
+                ctx_correlation_id,
+            )
+            raise
+
+        now = datetime.now(UTC)
+
+        logger.info(
+            "Pattern stored via dispatch bridge "
+            "(pattern_id=%s, domain_id=%s, version=%d, correlation_id=%s)",
+            pattern_id,
+            domain_id,
+            version,
+            ctx_correlation_id,
+        )
+
+        # Emit pattern-stored event to Kafka if producer available
+        if kafka_producer is not None:
+            try:
+                await kafka_producer.publish(
+                    topic=publish_topic or _FALLBACK_TOPIC_PATTERN_STORED,
+                    key=str(pattern_id),
+                    value={
+                        "event_type": "PatternStored",
+                        "pattern_id": str(pattern_id),
+                        "signature_hash": signature_hash,
+                        "domain_id": domain_id,
+                        "version": version,
+                        "stored_at": now.isoformat(),
+                        "correlation_id": str(ctx_correlation_id),
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to publish pattern-stored event to Kafka "
+                    "(pattern_id=%s, correlation_id=%s)",
+                    pattern_id,
+                    ctx_correlation_id,
+                    exc_info=True,
+                )
+
+        return ""
+
     return _handle
+
+
+# SQL for upserting learned patterns via the dispatch bridge.
+# Uses asyncpg positional parameters ($1...$8).
+# ON CONFLICT skips duplicate (pattern_signature, domain_id, version) combinations.
+# is_current defaults to FALSE to avoid violating the partial unique index
+# idx_current_pattern ON (pattern_signature, domain_id) WHERE is_current = TRUE.
+# Version promotion (setting is_current = TRUE) is handled by the lifecycle handler.
+_SQL_UPSERT_LEARNED_PATTERN = """\
+INSERT INTO learned_patterns (
+    id, pattern_signature, signature_hash, domain_id,
+    domain_version, confidence, version,
+    source_session_ids,
+    status, is_current
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'candidate', FALSE)
+ON CONFLICT (pattern_signature, domain_id, version)
+DO NOTHING;
+"""
 
 
 # =============================================================================
@@ -597,7 +884,7 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 4 intelligence domain handlers (5 routes)
+    Creates the engine, registers all 5 intelligence domain handlers (7 routes)
     and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
@@ -609,8 +896,9 @@ def create_intelligence_dispatch_engine(
         intent_classifier: REQUIRED intent classifier.
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
-            Keys: "claude_hook", "lifecycle", "pattern_storage". Values:
-            full topic strings from contract event_bus.publish_topics.
+            Keys: "claude_hook", "lifecycle", "pattern_storage",
+            "pattern_learning". Values: full topic strings from contract
+            event_bus.publish_topics.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -642,6 +930,18 @@ def create_intelligence_dispatch_engine(
             handler_id="intelligence-claude-hook-handler",
             description=(
                 "Routes claude-hook-event commands to the intelligence handler."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-tool-content-route",
+            topic_pattern=DISPATCH_ALIAS_TOOL_CONTENT,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-claude-hook-handler",
+            description=(
+                "Routes tool-content commands to the intelligence handler "
+                "(PostToolUse payloads with file/command content)."
             ),
         )
     )
@@ -699,6 +999,7 @@ def create_intelligence_dispatch_engine(
     pattern_storage_handler = create_pattern_storage_dispatch_handler(
         repository=repository,
         kafka_producer=kafka_producer,
+        publish_topic=topics.get("pattern_storage"),
     )
     engine.register_handler(
         handler_id="intelligence-pattern-storage-handler",
@@ -724,6 +1025,38 @@ def create_intelligence_dispatch_engine(
             handler_id="intelligence-pattern-storage-handler",
             description=(
                 "Routes pattern.discovered events to pattern storage handler."
+            ),
+        )
+    )
+
+    # --- Handler 5: pattern-learning-cmd ---
+    from omniintelligence.runtime.dispatch_handler_pattern_learning import (
+        create_pattern_learning_dispatch_handler,
+    )
+
+    pattern_learning_handler = create_pattern_learning_dispatch_handler(
+        repository=repository,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get(
+            "pattern_learning",
+            "onex.evt.omniintelligence.pattern-learned.v1",
+        ),
+    )
+    engine.register_handler(
+        handler_id="intelligence-pattern-learning-handler",
+        handler=pattern_learning_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-pattern-learning-route",
+            topic_pattern=DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-pattern-learning-handler",
+            description=(
+                "Routes pattern-learning commands to the pattern learning handler."
             ),
         )
     )
@@ -869,8 +1202,10 @@ __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
+    "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
+    "DISPATCH_ALIAS_TOOL_CONTENT",
     "create_claude_hook_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",

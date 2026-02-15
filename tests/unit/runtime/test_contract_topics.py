@@ -3,7 +3,7 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 5 topics
+    - collect_subscribe_topics_from_contracts returns exactly 7 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
@@ -27,14 +27,18 @@ from omniintelligence.runtime.contract_topics import (
 # =============================================================================
 
 EXPECTED_CLAUDE_HOOK = "onex.cmd.omniintelligence.claude-hook-event.v1"
+EXPECTED_TOOL_CONTENT = "onex.cmd.omniintelligence.tool-content.v1"
 EXPECTED_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
+EXPECTED_PATTERN_LEARNING = "onex.cmd.omniintelligence.pattern-learning.v1"
 EXPECTED_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 EXPECTED_PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
 EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
+    EXPECTED_TOOL_CONTENT,
     EXPECTED_SESSION_OUTCOME,
+    EXPECTED_PATTERN_LEARNING,
     EXPECTED_PATTERN_LIFECYCLE,
     EXPECTED_PATTERN_LEARNED,
     EXPECTED_PATTERN_DISCOVERED,
@@ -49,10 +53,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_five_topics(self) -> None:
-        """All 4 intelligence effect nodes declare 5 subscribe topics total."""
+    def test_returns_exactly_seven_topics(self) -> None:
+        """All 5 intelligence effect nodes declare 7 subscribe topics total."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 5
+        assert len(topics) == 7
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -63,6 +67,11 @@ class TestCollectSubscribeTopics:
         """Session outcome topic must be discovered from contract."""
         topics = collect_subscribe_topics_from_contracts()
         assert EXPECTED_SESSION_OUTCOME in topics
+
+    def test_contains_pattern_learning_topic(self) -> None:
+        """Pattern learning topic must be discovered from contract."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert EXPECTED_PATTERN_LEARNING in topics
 
     def test_contains_pattern_lifecycle_topic(self) -> None:
         """Pattern lifecycle topic must be discovered from contract."""
@@ -79,8 +88,13 @@ class TestCollectSubscribeTopics:
         topics = collect_subscribe_topics_from_contracts()
         assert EXPECTED_PATTERN_DISCOVERED in topics
 
+    def test_contains_tool_content_topic(self) -> None:
+        """Tool content topic must be discovered from claude hook event contract."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert EXPECTED_TOOL_CONTENT in topics
+
     def test_all_expected_topics_present(self) -> None:
-        """All 5 expected topics must be in the discovered set."""
+        """All 7 expected topics must be in the discovered set."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 
@@ -140,6 +154,11 @@ class TestCollectPublishTopicsForDispatch:
         """Must contain 'lifecycle' key for transition events."""
         result = collect_publish_topics_for_dispatch()
         assert "lifecycle" in result
+
+    def test_contains_pattern_learning_key(self) -> None:
+        """Must contain 'pattern_learning' key for learning events."""
+        result = collect_publish_topics_for_dispatch()
+        assert "pattern_learning" in result
 
     def test_contains_pattern_storage_key(self) -> None:
         """Must contain 'pattern_storage' key for storage events."""
@@ -217,6 +236,11 @@ class TestCanonicalTopicToDispatchAlias:
         result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_DISCOVERED)
         assert result == "onex.events.pattern.discovered.v1"
 
+    def test_pattern_learning_conversion(self) -> None:
+        """Pattern learning topic should convert correctly."""
+        result = canonical_topic_to_dispatch_alias(EXPECTED_PATTERN_LEARNING)
+        assert result == "onex.commands.omniintelligence.pattern-learning.v1"
+
     @pytest.mark.parametrize(
         "canonical,expected_alias",
         [
@@ -225,8 +249,16 @@ class TestCanonicalTopicToDispatchAlias:
                 "onex.commands.omniintelligence.claude-hook-event.v1",
             ),
             (
+                EXPECTED_TOOL_CONTENT,
+                "onex.commands.omniintelligence.tool-content.v1",
+            ),
+            (
                 EXPECTED_SESSION_OUTCOME,
                 "onex.commands.omniintelligence.session-outcome.v1",
+            ),
+            (
+                EXPECTED_PATTERN_LEARNING,
+                "onex.commands.omniintelligence.pattern-learning.v1",
             ),
             (
                 EXPECTED_PATTERN_LIFECYCLE,
@@ -247,7 +279,7 @@ class TestCanonicalTopicToDispatchAlias:
         canonical: str,
         expected_alias: str,
     ) -> None:
-        """All 5 intelligence topics must produce correct dispatch aliases."""
+        """All 7 intelligence topics must produce correct dispatch aliases."""
         assert canonical_topic_to_dispatch_alias(canonical) == expected_alias
 
 
@@ -271,6 +303,17 @@ class TestRuntimeTopicSubscription:
 
         assert (
             "omniintelligence.nodes.node_pattern_storage_effect"
+            in _INTELLIGENCE_EFFECT_NODE_PACKAGES
+        )
+
+    def test_learning_effect_in_node_packages(self) -> None:
+        """node_pattern_learning_effect must be in the effect node packages list."""
+        from omniintelligence.runtime.contract_topics import (
+            _INTELLIGENCE_EFFECT_NODE_PACKAGES,
+        )
+
+        assert (
+            "omniintelligence.nodes.node_pattern_learning_effect"
             in _INTELLIGENCE_EFFECT_NODE_PACKAGES
         )
 
