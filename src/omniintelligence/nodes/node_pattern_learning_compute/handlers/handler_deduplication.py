@@ -100,13 +100,6 @@ def generate_pattern_signature(
         ...     sig["result"]["signature"]
         'a1b2c3d4...'
     """
-    if not cluster:
-        return PatternSignatureResultDict(
-            success=False,
-            result=None,
-            error_message="Cannot generate signature for empty cluster",
-        )
-
     try:
         centroid = cluster["centroid_features"]
         pattern_type = cluster["pattern_type"]
