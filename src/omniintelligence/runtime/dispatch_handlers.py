@@ -46,6 +46,11 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
+from pydantic import ValidationError
+
+from omniintelligence.nodes.node_claude_hook_event_effect.models import (
+    ModelClaudeCodeHookEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +128,7 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 _HOOK_EVENT_TOP_LEVEL_FIELDS = {"event_type", "session_id", "correlation_id"}
 
 
-def _reshape_flat_hook_payload(flat: dict[str, object]) -> object:
+def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEvent:
     """Reshape a flat omniclaude publisher payload into ModelClaudeCodeHookEvent.
 
     The omniclaude publisher emits events with all fields at the top level:
@@ -134,10 +139,6 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> object:
 
     This function maps between the two formats.
     """
-    from omniintelligence.nodes.node_claude_hook_event_effect.models import (
-        ModelClaudeCodeHookEvent,
-    )
-
     envelope: dict[str, object] = {}
     nested_payload: dict[str, object] = {}
 
@@ -210,7 +211,7 @@ def create_claude_hook_dispatch_handler(
                 # Attempt direct parse first; if it fails, reshape the flat
                 # payload into the nested envelope format.
                 event = ModelClaudeCodeHookEvent(**payload)
-            except Exception:
+            except (ValidationError, TypeError):
                 try:
                     event = _reshape_flat_hook_payload(payload)
                 except Exception as e:

@@ -48,6 +48,13 @@ from omniintelligence.runtime.dispatch_handler_pattern_learning import (
 )
 
 # =============================================================================
+# Constants
+# =============================================================================
+
+_TEST_PUBLISH_TOPIC = "test.onex.evt.omniintelligence.pattern-learned.v1"
+"""Explicit publish topic for tests (no default in factory)."""
+
+# =============================================================================
 # Fixtures
 # =============================================================================
 
@@ -201,6 +208,7 @@ class TestPatternLearningHandlerHappyPath:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -232,6 +240,7 @@ class TestPatternLearningHandlerHappyPath:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=None,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -266,6 +275,7 @@ class TestPatternLearningHandlerErrors:
         """Payload without session_id must raise ValueError."""
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -293,6 +303,7 @@ class TestPatternLearningHandlerErrors:
 
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -327,6 +338,7 @@ class TestPatternLearningHandlerErrors:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -367,6 +379,7 @@ class TestPatternLearningKafkaDegradation:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=None,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -400,6 +413,7 @@ class TestPatternLearningKafkaDegradation:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -437,6 +451,7 @@ class TestPatternLearningKafkaDegradation:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -483,6 +498,7 @@ class TestPatternLearningCorrelationId:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
         )
 
         envelope = _make_envelope(payload, explicit_correlation)
@@ -533,6 +549,7 @@ class TestPatternLearningCapsAndBatching:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 
@@ -573,6 +590,7 @@ class TestPatternLearningCapsAndBatching:
         handler = create_pattern_learning_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka_producer,
+            publish_topic=_TEST_PUBLISH_TOPIC,
             correlation_id=correlation_id,
         )
 

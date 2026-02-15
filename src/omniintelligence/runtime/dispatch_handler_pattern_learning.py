@@ -38,6 +38,9 @@ from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from asyncpg import InterfaceError as AsyncpgInterfaceError
+from asyncpg import InternalClientError as AsyncpgInternalClientError
+from asyncpg import PostgresConnectionError
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
@@ -121,7 +124,7 @@ def create_pattern_learning_dispatch_handler(
     *,
     repository: ProtocolPatternRepository,
     kafka_producer: ProtocolKafkaPublisher | None = None,
-    publish_topic: str = "onex.evt.omniintelligence.pattern-learned.v1",
+    publish_topic: str,
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -399,9 +402,15 @@ async def _fetch_session_snapshot(
                         outcome = "success"
                     elif step_status in ("failed", "error"):
                         outcome = "failure"
-        except Exception:
+        except (
+            TimeoutError,
+            OSError,
+            PostgresConnectionError,
+            AsyncpgInterfaceError,
+            AsyncpgInternalClientError,
+        ):
             logger.debug(
-                "Failed to query workflow_steps (timeout or error), "
+                "Failed to query workflow_steps (timeout or connection error), "
                 "using default outcome (session_id=%s, correlation_id=%s)",
                 session_id,
                 correlation_id,

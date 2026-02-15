@@ -91,6 +91,12 @@ event_bus:
     - "{env}.onex.evt.omniintelligence.pattern-learned.v1"
 
   # Metadata for subscribed topics
+  #
+  # NOTE: schema_ref documents the expected payload shape for documentation and
+  # contract introspection purposes. At runtime, the dispatch handler receives
+  # raw dict payloads from the Kafka envelope and validates required fields
+  # (session_id, correlation_id) directly in the handler -- it does NOT
+  # deserialize into the referenced model class.
   subscribe_topic_metadata:
     "{env}.onex.cmd.omniintelligence.pattern-learning.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.model_output.ModelPatternLearningCommand"
