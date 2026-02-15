@@ -26,11 +26,18 @@ from typing import TYPE_CHECKING
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelPatternLearningInput,
+    ModelPatternLearningOutput,
+)
+
 if TYPE_CHECKING:
     from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 
-class NodePatternLearningCompute(NodeCompute):
+class NodePatternLearningCompute(
+    NodeCompute[ModelPatternLearningInput, ModelPatternLearningOutput],
+):
     """Thin declarative shell for pattern aggregation.
 
     Capability: pattern_learning.compute
