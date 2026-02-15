@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
 """Pattern Learning Effect node package.
 

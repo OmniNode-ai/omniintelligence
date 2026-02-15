@@ -3,7 +3,7 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 6 topics
+    - collect_subscribe_topics_from_contracts returns exactly 7 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
@@ -94,7 +94,7 @@ class TestCollectSubscribeTopics:
         assert EXPECTED_TOOL_CONTENT in topics
 
     def test_all_expected_topics_present(self) -> None:
-        """All 6 expected topics must be in the discovered set."""
+        """All 7 expected topics must be in the discovered set."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 
@@ -275,7 +275,7 @@ class TestCanonicalTopicToDispatchAlias:
         canonical: str,
         expected_alias: str,
     ) -> None:
-        """All 6 intelligence topics must produce correct dispatch aliases."""
+        """All 7 intelligence topics must produce correct dispatch aliases."""
         assert canonical_topic_to_dispatch_alias(canonical) == expected_alias
 
 

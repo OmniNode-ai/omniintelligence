@@ -327,11 +327,17 @@ async def _fetch_session_snapshot(
                 repository.fetch(_SQL_SESSION_ACTIONS, session_id),
                 timeout=_SESSION_QUERY_TIMEOUT_SECONDS,
             )
-        except asyncio.TimeoutError:
+        except (
+            TimeoutError,
+            OSError,
+            PostgresConnectionError,
+            AsyncpgInterfaceError,
+            AsyncpgInternalClientError,
+        ):
             logger.warning(
-                "Session actions query timed out after %.1fs, using synthetic snapshot "
+                "Session actions query failed (timeout or connection error), "
+                "using synthetic snapshot "
                 "(session_id=%s, correlation_id=%s)",
-                _SESSION_QUERY_TIMEOUT_SECONDS,
                 session_id,
                 correlation_id,
             )
