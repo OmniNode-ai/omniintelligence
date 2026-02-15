@@ -113,7 +113,7 @@ event_bus:
   # serialize a ModelPatternStorageInput instance.
   publish_topic_metadata:
     "{env}.onex.evt.omniintelligence.pattern-learned.v1":
-      schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput (documentation only)"
+      schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput"
       description: "Learned pattern events containing extracted pattern data ready
         for persistence by the pattern storage effect node."
       content_type: "application/json"

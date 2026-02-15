@@ -146,8 +146,10 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
         if key in _HOOK_EVENT_TOP_LEVEL_FIELDS:
             envelope[key] = value
         elif key == "emitted_at":
-            # Map emitted_at -> timestamp_utc
-            envelope["timestamp_utc"] = value
+            # Map emitted_at -> timestamp_utc, but only if an explicit
+            # timestamp_utc was not already provided (explicit takes priority).
+            if "timestamp_utc" not in envelope:
+                envelope["timestamp_utc"] = value
         else:
             nested_payload[key] = value
 

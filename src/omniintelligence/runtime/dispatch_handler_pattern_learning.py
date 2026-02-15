@@ -46,6 +46,9 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.exceptions import (
+    PatternExtractionError,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns import (
     extract_all_patterns,
 )
@@ -223,7 +226,22 @@ def create_pattern_learning_dispatch_handler(
             correlation_id=str(ctx_correlation_id),
         )
 
-        extraction_output = extract_all_patterns(extraction_input)
+        try:
+            extraction_output = extract_all_patterns(extraction_input)
+        except PatternExtractionError as exc:
+            # PatternExtractionComputeError (and other PatternExtractionError
+            # subclasses) indicate deterministic compute failures that will
+            # never succeed on retry. Catch here to prevent the dispatch
+            # engine from nacking and retrying the message infinitely.
+            logger.warning(
+                "Pattern extraction raised %s, returning early "
+                "(session_id=%s, error=%s, correlation_id=%s)",
+                type(exc).__name__,
+                session_id,
+                exc,
+                ctx_correlation_id,
+            )
+            return ""
 
         if not extraction_output.success:
             logger.warning(
