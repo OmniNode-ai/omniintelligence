@@ -67,7 +67,12 @@ MAX_PATTERNS_PER_SESSION: int = 50
 """Hard cap on extracted patterns per session. Top-K by confidence if exceeded."""
 
 PUBLISH_BATCH_SIZE: int = 25
-"""Maximum patterns to publish per Kafka batch."""
+"""Maximum patterns to publish per Kafka batch.
+
+Note: Events are published one at a time within each batch (no transport-level
+batch optimization). The batch grouping provides log grouping (batch_start/end
+in warnings) and error isolation -- a failed event does not abort the remaining
+events in the batch or subsequent batches."""
 
 _SESSION_QUERY_TIMEOUT_SECONDS: float = 2.0
 """Hard timeout for session enrichment DB queries."""
@@ -422,9 +427,10 @@ async def _fetch_session_snapshot(
                 correlation_id,
             )
 
-        # Deduplicate file lists preserving order
+        # Deduplicate lists preserving order
         files_accessed = list(dict.fromkeys(files_accessed))
         files_modified = list(dict.fromkeys(files_modified))
+        tools_used = list(dict.fromkeys(tools_used))
 
         return ModelSessionSnapshot(
             session_id=session_id,

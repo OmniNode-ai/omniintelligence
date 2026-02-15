@@ -105,9 +105,15 @@ event_bus:
       content_type: "application/json"
 
   # Metadata for published topics
+  #
+  # NOTE: schema_ref is a documentation reference only. The actual published
+  # payload shape is a plain dict defined by
+  # _transform_insights_to_pattern_events() in
+  # omniintelligence.runtime.dispatch_handler_pattern_learning -- it does NOT
+  # serialize a ModelPatternStorageInput instance.
   publish_topic_metadata:
     "{env}.onex.evt.omniintelligence.pattern-learned.v1":
-      schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput"
+      schema_ref: "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput (documentation only)"
       description: "Learned pattern events containing extracted pattern data ready
         for persistence by the pattern storage effect node."
       content_type: "application/json"
