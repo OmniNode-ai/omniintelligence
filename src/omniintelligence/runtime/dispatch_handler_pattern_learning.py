@@ -29,6 +29,7 @@ Related:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hashlib
 import logging
@@ -42,6 +43,9 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns import (
+    extract_all_patterns,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
     ModelCodebaseInsight,
     ModelExtractionConfig,
@@ -77,7 +81,8 @@ later migration to a richer taxonomy."""
 # =============================================================================
 # These queries read from agent_actions and workflow_steps to build a
 # ModelSessionSnapshot from the session's DB trail. They are bounded
-# (LIMIT 500) and use a statement_timeout to prevent runaway queries.
+# (LIMIT 500) and wrapped with asyncio.wait_for(_SESSION_QUERY_TIMEOUT_SECONDS)
+# to prevent runaway queries.
 
 _SQL_SESSION_ACTIONS = """\
 SELECT
@@ -116,7 +121,7 @@ def create_pattern_learning_dispatch_handler(
     *,
     repository: ProtocolPatternRepository,
     kafka_producer: ProtocolKafkaPublisher | None = None,
-    publish_topic: str = "onex.events.omniintelligence.pattern-learned.v1",
+    publish_topic: str = "onex.evt.omniintelligence.pattern-learned.v1",
     correlation_id: UUID | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
@@ -208,10 +213,6 @@ def create_pattern_learning_dispatch_handler(
             ),
             existing_insights=(),
             correlation_id=str(ctx_correlation_id),
-        )
-
-        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns import (
-            extract_all_patterns,
         )
 
         extraction_output = extract_all_patterns(extraction_input)
@@ -317,8 +318,21 @@ async def _fetch_session_snapshot(
     now = datetime.now(UTC)
 
     try:
-        # Query agent_actions for the session
-        actions = await repository.fetch(_SQL_SESSION_ACTIONS, session_id)
+        # Query agent_actions for the session (bounded by asyncio timeout)
+        try:
+            actions = await asyncio.wait_for(
+                repository.fetch(_SQL_SESSION_ACTIONS, session_id),
+                timeout=_SESSION_QUERY_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Session actions query timed out after %.1fs, using synthetic snapshot "
+                "(session_id=%s, correlation_id=%s)",
+                _SESSION_QUERY_TIMEOUT_SECONDS,
+                session_id,
+                correlation_id,
+            )
+            return _create_synthetic_snapshot(session_id=session_id, now=now)
 
         if not actions:
             logger.debug(
@@ -370,10 +384,13 @@ async def _fetch_session_snapshot(
             if isinstance(status, str) and status == "error" and error_msg:
                 errors_encountered.append(str(error_msg)[:200])
 
-        # Determine outcome from workflow_steps
+        # Determine outcome from workflow_steps (bounded by asyncio timeout)
         outcome = "unknown"
         try:
-            steps = await repository.fetch(_SQL_SESSION_WORKFLOW_STEPS, session_id)
+            steps = await asyncio.wait_for(
+                repository.fetch(_SQL_SESSION_WORKFLOW_STEPS, session_id),
+                timeout=_SESSION_QUERY_TIMEOUT_SECONDS,
+            )
             if steps:
                 last_step = steps[-1]
                 step_status = last_step.get("status", "")
@@ -384,8 +401,8 @@ async def _fetch_session_snapshot(
                         outcome = "failure"
         except Exception:
             logger.debug(
-                "Failed to query workflow_steps, using default outcome "
-                "(session_id=%s, correlation_id=%s)",
+                "Failed to query workflow_steps (timeout or error), "
+                "using default outcome (session_id=%s, correlation_id=%s)",
                 session_id,
                 correlation_id,
             )

@@ -208,8 +208,8 @@ class TestPatternLearningHandlerHappyPath:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             result = await handler(envelope, context)
@@ -239,8 +239,8 @@ class TestPatternLearningHandlerHappyPath:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             result = await handler(envelope, context)
@@ -334,8 +334,8 @@ class TestPatternLearningHandlerErrors:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             result = await handler(envelope, context)
@@ -374,8 +374,8 @@ class TestPatternLearningKafkaDegradation:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             result = await handler(envelope, context)
@@ -407,8 +407,8 @@ class TestPatternLearningKafkaDegradation:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             result = await handler(envelope, context)
@@ -444,8 +444,8 @@ class TestPatternLearningKafkaDegradation:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             # Must not raise
@@ -489,8 +489,8 @@ class TestPatternLearningCorrelationId:
         context = _make_context(explicit_correlation)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             await handler(envelope, context)
@@ -540,8 +540,8 @@ class TestPatternLearningCapsAndBatching:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             await handler(envelope, context)
@@ -580,8 +580,8 @@ class TestPatternLearningCapsAndBatching:
         context = _make_context(correlation_id)
 
         with patch(
-            "omniintelligence.nodes.node_pattern_extraction_compute"
-            ".handlers.handler_extract_all_patterns.extract_all_patterns",
+            "omniintelligence.runtime.dispatch_handler_pattern_learning"
+            ".extract_all_patterns",
             return_value=extraction_output,
         ):
             await handler(envelope, context)
