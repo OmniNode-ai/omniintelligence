@@ -93,7 +93,7 @@ event_bus:
   # Metadata for subscribed topics
   subscribe_topic_metadata:
     "{env}.onex.cmd.omniintelligence.pattern-learning.v1":
-      schema_ref: "omniintelligence.runtime.dispatch_handler_pattern_learning.ModelPatternLearningCommand"
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.model_output.ModelPatternLearningCommand"
       description: "Pattern learning command events triggered when a Claude Code session
         ends. Contains session_id, correlation_id, and execution trace data."
       content_type: "application/json"
