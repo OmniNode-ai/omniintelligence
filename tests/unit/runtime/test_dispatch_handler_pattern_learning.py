@@ -85,8 +85,14 @@ def mock_kafka_producer() -> MagicMock:
 
 @pytest.fixture
 def sample_session_id() -> str:
-    """Fixed session ID for tests."""
+    """Fixed session ID for tests (raw, as received from payload)."""
     return "test-session-pattern-learning-001"
+
+
+@pytest.fixture
+def deterministic_session_id(sample_session_id: str) -> str:
+    """Deterministic UUID5 of sample_session_id, as produced by _fetch_session_snapshot."""
+    return str(uuid5(NAMESPACE_URL, sample_session_id))
 
 
 @pytest.fixture
@@ -946,64 +952,70 @@ class TestInsightTransformer:
     def test_insight_transformer_empty_evidence_session_ids(
         self,
         correlation_id: UUID,
-        sample_session_id: str,
+        deterministic_session_id: str,
     ) -> None:
         """Empty evidence_session_ids produces list with just current session_id."""
         insight = _make_insight(evidence_session_ids=())
 
         events = _transform_insights_to_pattern_events(
             insights=[insight],
-            session_id=sample_session_id,
+            session_id=deterministic_session_id,
             correlation_id=correlation_id,
         )
 
         source_ids = events[0]["source_session_ids"]
         assert isinstance(source_ids, list)
         assert len(source_ids) == 1
-        assert source_ids[0] == str(uuid5(NAMESPACE_URL, sample_session_id))
+        # session_id is already uuid5-converted; transformer uses it as-is
+        assert source_ids[0] == deterministic_session_id
 
     @pytest.mark.unit
     def test_insight_transformer_existing_evidence_session_ids_preserved(
         self,
         correlation_id: UUID,
-        sample_session_id: str,
+        deterministic_session_id: str,
     ) -> None:
         """Existing evidence_session_ids are preserved and current session appended."""
+        # evidence_session_ids are already uuid5-converted by extraction pipeline
+        prev_a = str(uuid5(NAMESPACE_URL, "prev-session-a"))
+        prev_b = str(uuid5(NAMESPACE_URL, "prev-session-b"))
         insight = _make_insight(
-            evidence_session_ids=("prev-session-a", "prev-session-b"),
+            evidence_session_ids=(prev_a, prev_b),
         )
 
         events = _transform_insights_to_pattern_events(
             insights=[insight],
-            session_id=sample_session_id,
+            session_id=deterministic_session_id,
             correlation_id=correlation_id,
         )
 
         source_ids = events[0]["source_session_ids"]
-        assert str(uuid5(NAMESPACE_URL, "prev-session-a")) in source_ids
-        assert str(uuid5(NAMESPACE_URL, "prev-session-b")) in source_ids
-        assert str(uuid5(NAMESPACE_URL, sample_session_id)) in source_ids
+        # Transformer uses evidence_session_ids as-is (no re-hashing)
+        assert prev_a in source_ids
+        assert prev_b in source_ids
+        assert deterministic_session_id in source_ids
 
     @pytest.mark.unit
     def test_insight_transformer_current_session_not_duplicated(
         self,
         correlation_id: UUID,
-        sample_session_id: str,
+        deterministic_session_id: str,
     ) -> None:
         """If current session_id is already in evidence, it is not duplicated."""
+        # Pass the deterministic session_id as both evidence and current session
+        # (simulates extraction pipeline having used snapshot's session_id)
         insight = _make_insight(
-            evidence_session_ids=(sample_session_id,),
+            evidence_session_ids=(deterministic_session_id,),
         )
 
         events = _transform_insights_to_pattern_events(
             insights=[insight],
-            session_id=sample_session_id,
+            session_id=deterministic_session_id,
             correlation_id=correlation_id,
         )
 
         source_ids = events[0]["source_session_ids"]
-        deterministic_id = str(uuid5(NAMESPACE_URL, sample_session_id))
-        assert source_ids.count(deterministic_id) == 1
+        assert source_ids.count(deterministic_session_id) == 1
 
     @pytest.mark.unit
     def test_insight_transformer_evidence_files_in_metadata(

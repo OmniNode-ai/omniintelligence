@@ -249,6 +249,10 @@ class TestCanonicalTopicToDispatchAlias:
                 "onex.commands.omniintelligence.claude-hook-event.v1",
             ),
             (
+                EXPECTED_TOOL_CONTENT,
+                "onex.commands.omniintelligence.tool-content.v1",
+            ),
+            (
                 EXPECTED_SESSION_OUTCOME,
                 "onex.commands.omniintelligence.session-outcome.v1",
             ),
