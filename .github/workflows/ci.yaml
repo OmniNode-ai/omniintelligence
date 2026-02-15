@@ -634,6 +634,8 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      # detect-secrets is a CI-only scanning tool, not a project dependency.
+      # Installed via pip (not uv) because it is not declared in pyproject.toml.
       - name: Install detect-secrets
         run: pip install detect-secrets==1.5.0
 
@@ -655,7 +657,7 @@ jobs:
             --exclude-files 'tests/fixtures/' \
             --exclude-files '\.git/' \
             --exclude-files '\.secrets\.baseline' \
-            --exclude-files '\.github/workflows/.*\.ya?ml'
+            --exclude-files '\.github/workflows/.*\.ya?ml'  # Workflow YAML references secrets.* context variables, not actual secrets
           HOOK_EXIT=$?
           set -e
 

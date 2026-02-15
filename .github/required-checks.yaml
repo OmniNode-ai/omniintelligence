@@ -30,14 +30,14 @@ gates:
     rationale: >
       Aggregates all unconditional governance checks: pre-commit, scope-alignment, contract-validation,
       io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets. Replaces 8 individual
-      branch protection checks with a single stable gate. #magic___^_^___line
+      branch protection checks with a single stable gate.
   - check_name: "CI Summary"
     workflow_file: ci.yaml
     workflow_job_key: ci-summary
     rationale: >
       Final aggregator for Quality Gate + path-filtered production code jobs (Lint, Type Check, Unit Tests).
       REQUIRED because this repo uses path filtering -- ensures skipped jobs are distinguished as "skipped
-      by policy" vs "missing due to misconfiguration". #magic___^_^___line
+      by policy" vs "missing due to misconfiguration".
 # ── Checks (documentation only -- not used for branch protection) ─────────────
 # These are the individual jobs aggregated by Quality Gate.
 # Listed here for documentation and cross-referencing purposes only.
@@ -102,6 +102,8 @@ checks:
     note: "Path-filtered via Detect Changes -- skipped on docs-only PRs"
 
 # ── Explicitly excluded from required checks ──────────────────────────────────
+# These checks run in CI but are NOT configured as required status checks in
+# branch protection. They are either aggregated by a gate or informational only.
 excluded_checks:
   - name: "Detect Changes"
     workflow_file: ci.yaml
