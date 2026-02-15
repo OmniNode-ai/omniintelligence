@@ -8,7 +8,7 @@ the OmniIntelligence code analysis event bus:
 - ModelCodeAnalysisFailedPayload: Failed analysis error events
 
 These models define the contracts for the following Kafka topics:
-- {env}.onex.cmd.omniintelligence.code-analysis-requested.v1
+- {env}.onex.cmd.omniintelligence.code-analysis.v1
 - {env}.onex.evt.omniintelligence.code-analysis-completed.v1
 - {env}.onex.evt.omniintelligence.code-analysis-failed.v1
 
@@ -26,6 +26,9 @@ from omniintelligence.models.events.model_code_analysis_failed import (
 from omniintelligence.models.events.model_code_analysis_request import (
     ModelCodeAnalysisRequestPayload,
 )
+from omniintelligence.models.events.model_pattern_discovered_event import (
+    ModelPatternDiscoveredEvent,
+)
 from omniintelligence.models.events.model_pattern_lifecycle_event import (
     ModelPatternLifecycleEvent,
 )
@@ -34,5 +37,6 @@ __all__ = [
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
+    "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
 ]

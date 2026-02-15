@@ -12,6 +12,7 @@ Background:
 Validated Constants:
     - TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: subscribe topic for claude hook events
     - TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: publish topic for classified intents
+    - TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1: publish topic for pattern learning commands
     - TOPIC_SUFFIX_PATTERN_PROMOTED_V1: publish topic for promoted patterns
 """
 
@@ -26,8 +27,10 @@ import yaml
 from omniintelligence.constants import (
     TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
     TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+    TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1,
     TOPIC_SUFFIX_PATTERN_PROMOTED_V1,
     TOPIC_SUFFIX_PATTERN_STORED_V1,
+    TOPIC_SUFFIX_TOOL_CONTENT_V1,
 )
 
 # =========================================================================
@@ -49,8 +52,22 @@ TOPIC_CONSTANT_MAPPINGS: list[tuple[str, str, str, str, str]] = [
         "contract.yaml",
     ),
     (
+        "TOPIC_SUFFIX_TOOL_CONTENT_V1",
+        TOPIC_SUFFIX_TOOL_CONTENT_V1,
+        "node_claude_hook_event_effect",
+        "subscribe_topics",
+        "contract.yaml",
+    ),
+    (
         "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
         TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+        "node_claude_hook_event_effect",
+        "publish_topics",
+        "contract.yaml",
+    ),
+    (
+        "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
+        TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1,
         "node_claude_hook_event_effect",
         "publish_topics",
         "contract.yaml",
@@ -135,7 +152,11 @@ def extract_topics_from_contract(
     if not isinstance(topics, list):
         return []
 
-    return [str(t) for t in topics if t]
+    # Contract topics may include an {env}. prefix (e.g., "{env}.onex.cmd...").
+    # Strip it so comparisons work against the TOPIC_SUFFIX_* constants which
+    # store the canonical suffix without the env prefix.
+    env_prefix = "{env}."
+    return [str(t).removeprefix(env_prefix) for t in topics if t]
 
 
 # =========================================================================
@@ -156,8 +177,10 @@ class TestTopicConstantSync:
         expected_constants = {
             "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
             "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
+            "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
             "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
             "TOPIC_SUFFIX_PATTERN_STORED_V1",
+            "TOPIC_SUFFIX_TOOL_CONTENT_V1",
         }
         mapped_constants = {mapping[0] for mapping in TOPIC_CONSTANT_MAPPINGS}
 
@@ -301,13 +324,23 @@ class TestTopicConstantValues:
             if prefix != "onex":
                 errors.append(f"{const_name}: Expected prefix 'onex', got {prefix!r}")
 
-            # Check kind matches topic type
-            expected_kind = "cmd" if topic_type == "subscribe_topics" else "evt"
-            if kind != expected_kind:
-                errors.append(
-                    f"{const_name}: Expected kind {expected_kind!r} for {topic_type}, "
-                    f"got {kind!r}"
-                )
+            # Check kind matches topic type.
+            # subscribe_topics must use 'cmd' kind (incoming commands).
+            # publish_topics typically use 'evt' kind (outgoing events),
+            # but may use 'cmd' kind when issuing commands to other nodes
+            # (e.g., pattern-learning commands triggered by Stop events).
+            if topic_type == "subscribe_topics":
+                if kind != "cmd":
+                    errors.append(
+                        f"{const_name}: Expected kind 'cmd' for {topic_type}, "
+                        f"got {kind!r}"
+                    )
+            elif topic_type == "publish_topics":
+                if kind not in ("evt", "cmd"):
+                    errors.append(
+                        f"{const_name}: Expected kind 'evt' or 'cmd' for "
+                        f"{topic_type}, got {kind!r}"
+                    )
 
             # Check producer
             if producer != "omniintelligence":
@@ -350,13 +383,26 @@ class TestTopicConstantValues:
             if version:
                 expected_suffix += f"_{version.upper()}"
 
+            # Base expected name without kind qualifier
             expected_const_name = f"TOPIC_SUFFIX_{expected_suffix}"
 
-            if const_name != expected_const_name:
+            # Allow optional kind qualifier (CMD/EVT) in the constant name.
+            # This is useful when a node publishes a command topic (cmd kind)
+            # to trigger downstream processing, making the intent explicit.
+            kind = parts[1]  # "cmd" or "evt"
+            expected_const_name_with_kind = (
+                f"TOPIC_SUFFIX_{expected_suffix.rsplit('_', 1)[0]}"
+                f"_{kind.upper()}_{version.upper()}"
+                if version
+                else f"TOPIC_SUFFIX_{expected_suffix}_{kind.upper()}"
+            )
+
+            if const_name not in (expected_const_name, expected_const_name_with_kind):
                 errors.append(
                     f"Constant name mismatch:\n"
                     f"  Actual:   {const_name}\n"
-                    f"  Expected: {expected_const_name}\n"
+                    f"  Expected: {expected_const_name} or "
+                    f"{expected_const_name_with_kind}\n"
                     f"  (based on topic: {const_value})"
                 )
 

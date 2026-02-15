@@ -138,8 +138,7 @@ class TestUserPromptSubmitFullFlow:
             result = await route_hook_event(
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             # Verify handler succeeded
@@ -195,8 +194,7 @@ class TestUserPromptSubmitFullFlow:
             result = await route_hook_event(
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -273,8 +271,7 @@ class TestNoOpEventTypes:
             result = await route_hook_event(
                 event=sample_session_start_event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             # Verify handler returned success without intent
@@ -333,11 +330,11 @@ class TestAllEventTypesHandled:
                 )
 
                 # Process the event
+                output_topic = f"test.{TOPIC_SUFFIX_INTENT_CLASSIFIED_V1}"
                 result = await route_hook_event(
                     event=event,
                     kafka_producer=kafka_publisher_adapter,
-                    topic_env_prefix="test",
-                    publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                    publish_topic=output_topic,
                 )
 
                 # Verify all return SUCCESS or PARTIAL (not FAILED)
@@ -395,8 +392,7 @@ class TestEventHistoryDebugging:
             result = await route_hook_event(
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             assert result.status == EnumHookProcessingStatus.SUCCESS
@@ -437,8 +433,7 @@ class TestEventHistoryDebugging:
             await route_hook_event(
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             # Verify history has the event
@@ -456,8 +451,7 @@ class TestEventHistoryDebugging:
             await route_hook_event(
                 event=sample_user_prompt_event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             # Verify only the new event is in history
@@ -513,8 +507,7 @@ class TestEdgeCases:
             result = await route_hook_event(
                 event=event,
                 kafka_producer=kafka_publisher_adapter,
-                topic_env_prefix="test",
-                publish_topic_suffix=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                publish_topic=output_topic,
             )
 
             # Verify handler failed gracefully
@@ -544,7 +537,6 @@ class TestEdgeCases:
         result = await route_hook_event(
             event=sample_user_prompt_event,
             kafka_producer=None,
-            topic_env_prefix="test",
         )
 
         assert result.status == EnumHookProcessingStatus.SUCCESS

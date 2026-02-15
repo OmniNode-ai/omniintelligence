@@ -40,7 +40,7 @@ import logging
 import time
 import warnings
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -66,6 +66,28 @@ warnings.warn(
 logger = logging.getLogger(__name__)
 
 
+class PublisherCounters(TypedDict):
+    """Mutable counters tracked by EventPublisher during its lifetime."""
+
+    events_published: int
+    events_failed: int
+    events_sent_to_dlq: int
+    total_publish_time_ms: float
+    circuit_breaker_opens: int
+    retries_attempted: int
+    serialization_errors: int
+    envelope_errors: int
+
+
+class PublisherMetrics(PublisherCounters):
+    """Full metrics snapshot returned by ``EventPublisher.get_metrics()``."""
+
+    total_events: int
+    avg_publish_time_ms: float
+    circuit_breaker_status: str
+    current_failures: int
+
+
 class ModelEventSource(BaseModel):
     """Event source metadata."""
 
@@ -77,7 +99,7 @@ class ModelEventSource(BaseModel):
 class ModelEventMetadata(BaseModel):
     """Event metadata."""
 
-    custom: dict[str, Any] = Field(default_factory=dict)
+    custom: dict[str, object] = Field(default_factory=dict)
 
 
 class ModelEventEnvelope(BaseModel):
@@ -90,9 +112,11 @@ class ModelEventEnvelope(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     source: ModelEventSource
     metadata: ModelEventMetadata | None = Field(default=None)
-    payload: Any = Field(..., description="Event payload")
+    payload: Any = Field(
+        ..., description="Event payload"
+    )  # any-ok: arbitrary event payload, serialized manually in to_dict()
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert envelope to dictionary for serialization."""
         return {
             "event_id": str(self.event_id),
@@ -202,7 +226,7 @@ class EventPublisher:
         self._circuit_breaker_open = False
 
         # Metrics
-        self.metrics: dict[str, Any] = {
+        self.metrics: PublisherCounters = {
             "events_published": 0,
             "events_failed": 0,
             "events_sent_to_dlq": 0,
@@ -249,7 +273,7 @@ class EventPublisher:
     async def publish(
         self,
         event_type: str,
-        payload: Any,
+        payload: object,
         correlation_id: UUID | None = None,
         causation_id: UUID | None = None,
         metadata: ModelEventMetadata | None = None,
@@ -560,6 +584,7 @@ class EventPublisher:
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
 
+        # any-ok: confluent-kafka callback signature
         def delivery_callback(err: Any, _msg: Any) -> None:
             """Delivery callback to set future result."""
             if err:
@@ -587,7 +612,7 @@ class EventPublisher:
     def _create_event_envelope(
         self,
         event_type: str,
-        payload: Any,
+        payload: object,
         correlation_id: UUID | None = None,
         causation_id: UUID | None = None,
         metadata: ModelEventMetadata | None = None,
@@ -779,12 +804,12 @@ class EventPublisher:
         self._circuit_breaker_last_failure_time = None
         self._circuit_breaker_open = False
 
-    def get_metrics(self) -> dict[str, Any]:
+    def get_metrics(self) -> PublisherMetrics:
         """
         Get publisher metrics.
 
         Returns:
-            Dictionary with metrics:
+            PublisherMetrics with all counter values plus computed fields:
             - events_published: Total events published successfully
             - events_failed: Total events that failed publishing
             - events_sent_to_dlq: Total events sent to DLQ
@@ -795,12 +820,14 @@ class EventPublisher:
             - circuit_breaker_status: Current circuit breaker status
             - serialization_errors: Count of serialization failures (not circuit breaker)
             - envelope_errors: Count of envelope creation failures (not circuit breaker)
+            - total_events: Sum of published and failed events
+            - current_failures: Current circuit breaker failure count
         """
-        total_events = self.metrics["events_published"] + self.metrics["events_failed"]
+        published = self.metrics["events_published"]
+        failed = self.metrics["events_failed"]
+        total_events = published + failed
         avg_publish_time = (
-            self.metrics["total_publish_time_ms"] / self.metrics["events_published"]
-            if self.metrics["events_published"] > 0
-            else 0.0
+            self.metrics["total_publish_time_ms"] / published if published > 0 else 0.0
         )
 
         return {
@@ -849,7 +876,7 @@ def create_event_publisher(
     bootstrap_servers: str,
     service_name: str,
     instance_id: str,
-    **kwargs: Any,
+    **kwargs: Any,  # any-ok: factory forwarding arbitrary kwargs
 ) -> EventPublisher:
     """
     Create event publisher instance.

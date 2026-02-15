@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from omnibase_core.types import PrimitiveValue
 from pydantic import BaseModel, Field
 
 from omniintelligence.nodes.node_pattern_extraction_compute.models.enum_insight_type import (
@@ -82,7 +83,7 @@ class ModelCodebaseInsight(BaseModel):
         ...,
         description="When the pattern was most recently observed",
     )
-    metadata: dict[str, str | int | float | bool] = Field(
+    metadata: dict[str, PrimitiveValue] = Field(
         default_factory=dict,
         description="Additional typed metadata for the insight",
     )

@@ -97,9 +97,8 @@ Reference:
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, TypedDict, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_DEPRECATED_V1
@@ -216,6 +215,49 @@ too permissive - 20 consecutive failures is definitive.
 
 
 # =============================================================================
+# Type Definitions
+# =============================================================================
+
+
+class _DemotionPatternRecordRequired(TypedDict):
+    """Required fields for DemotionPatternRecord (always present in query result)."""
+
+    id: UUID
+    pattern_signature: str
+
+
+class DemotionPatternRecord(_DemotionPatternRecordRequired, total=False):
+    """Row shape returned by SQL_FETCH_VALIDATED_PATTERNS.
+
+    Mirrors the SELECT columns from the demotion SQL query. Required fields
+    (id, pattern_signature) are always present. Optional fields use
+    ``total=False`` because asyncpg Records may contain None for nullable
+    columns, and callers use ``.get()`` with fallback defaults.
+
+    Required fields (always present in the query result):
+        id: Pattern UUID primary key.
+        pattern_signature: Unique signature string.
+
+    Metric fields (nullable in DB, accessed via ``.get()`` with default 0):
+        injection_count_rolling_20: Rolling window injection count.
+        success_count_rolling_20: Rolling window success count.
+        failure_count_rolling_20: Rolling window failure count.
+        failure_streak: Current consecutive failure count.
+
+    Promotion/status fields:
+        promoted_at: Timestamp when pattern was promoted to validated.
+        is_disabled: Whether pattern appears in disabled_patterns_current table.
+    """
+
+    injection_count_rolling_20: int | None
+    success_count_rolling_20: int | None
+    failure_count_rolling_20: int | None
+    failure_streak: int | None
+    promoted_at: datetime | None
+    is_disabled: bool
+
+
+# =============================================================================
 # Protocol Definitions
 # =============================================================================
 
@@ -237,7 +279,7 @@ class ProtocolPatternRepository(Protocol):
         rather than named parameters.
     """
 
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
+    async def fetch(self, query: str, *args: object) -> list[DemotionPatternRecord]:
         """Execute a query and return all results as Records.
 
         Args:
@@ -249,7 +291,7 @@ class ProtocolPatternRepository(Protocol):
         """
         ...
 
-    async def execute(self, query: str, *args: Any) -> str:
+    async def execute(self, query: str, *args: object) -> str:
         """Execute a query and return the status string.
 
         Args:
@@ -275,7 +317,7 @@ class ProtocolKafkaPublisher(Protocol):
         self,
         topic: str,
         key: str,
-        value: dict[str, Any],
+        value: dict[str, object],
     ) -> None:
         """Publish an event to a Kafka topic.
 
@@ -436,7 +478,7 @@ def calculate_hours_since_promotion(promoted_at: datetime | None) -> float | Non
 
 
 def is_cooldown_active(
-    pattern: Mapping[str, Any],
+    pattern: DemotionPatternRecord,
     cooldown_hours: int,
 ) -> bool:
     """Check if a pattern is still within its post-promotion cooldown period.
@@ -466,7 +508,7 @@ def is_cooldown_active(
 
 
 def get_demotion_reason(
-    pattern: Mapping[str, Any],
+    pattern: DemotionPatternRecord,
     thresholds: ModelEffectiveThresholds,
 ) -> str | None:
     """Determine the demotion reason for a pattern, if any.
@@ -517,7 +559,7 @@ def get_demotion_reason(
     return None
 
 
-def calculate_success_rate(pattern: Mapping[str, Any]) -> float:
+def calculate_success_rate(pattern: DemotionPatternRecord) -> float:
     """Calculate the success rate for a pattern.
 
     Args:
@@ -544,7 +586,7 @@ def calculate_success_rate(pattern: Mapping[str, Any]) -> float:
     return max(0.0, min(1.0, rate))  # Clamp to [0.0, 1.0]
 
 
-def build_gate_snapshot(pattern: Mapping[str, Any]) -> ModelDemotionGateSnapshot:
+def build_gate_snapshot(pattern: DemotionPatternRecord) -> ModelDemotionGateSnapshot:
     """Build a gate snapshot from pattern data.
 
     Captures the state of all demotion gates at evaluation time for
@@ -677,6 +719,22 @@ async def check_and_demote_patterns(
     eligible_count: int = 0
 
     for pattern in patterns:
+        # Runtime guard: verify critical fields exist before proceeding.
+        # If SQL columns change, this surfaces the error explicitly instead
+        # of silently returning None on TypedDict key access.
+        if "id" not in pattern or "pattern_signature" not in pattern:
+            # Runtime guard: TypedDict guarantees these keys at type-check time,
+            # but asyncpg rows may not conform at runtime.
+            logger.warning(  # type: ignore[unreachable]
+                "Skipping validated pattern: missing required fields (id, pattern_signature)",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "available_keys": list(pattern.keys())
+                    if hasattr(pattern, "keys")
+                    else "N/A",
+                },
+            )
+            continue
         pattern_id = pattern["id"]
         pattern_signature = pattern.get("pattern_signature", "")
         is_disabled = pattern.get("is_disabled", False)
@@ -842,7 +900,7 @@ async def demote_pattern(
     repository: ProtocolPatternRepository,  # noqa: ARG001 - kept for interface compat
     producer: ProtocolKafkaPublisher | None,
     pattern_id: UUID,
-    pattern_data: Mapping[str, Any],
+    pattern_data: DemotionPatternRecord,
     reason: str,
     thresholds: ModelEffectiveThresholds,
     correlation_id: UUID | None = None,

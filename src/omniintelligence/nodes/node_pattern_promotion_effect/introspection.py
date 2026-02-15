@@ -180,7 +180,7 @@ class PatternPromotionIntrospection(MixinNodeIntrospection):
     @classmethod
     def get_cli_entrypoint(cls) -> str:
         """Return CLI entrypoint command."""
-        return "python -m omniintelligence.nodes.node_pattern_promotion_effect"
+        return "python -m omniintelligence.runtime.stub_launcher --node-type effect --node-name node_pattern_promotion_effect"
 
 
 # Convenience function for direct introspection access

@@ -59,13 +59,11 @@ Reference:
     - OMN-1805: Event-driven lifecycle transitions
 """
 
-# Handler functions and protocols
+# Handler functions
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers import (
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
     MIN_SUCCESS_RATE,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     build_gate_snapshot,
     calculate_success_rate,
     check_and_promote_patterns,
@@ -112,9 +110,6 @@ __all__ = [
     "PatternPromotionErrorCode",
     "PatternPromotionIntrospection",
     "PatternPromotionMetadataLoader",
-    # Protocols (re-exported from handlers)
-    "ProtocolKafkaPublisher",
-    "ProtocolPatternRepository",
     # Handlers
     "build_gate_snapshot",
     "calculate_success_rate",

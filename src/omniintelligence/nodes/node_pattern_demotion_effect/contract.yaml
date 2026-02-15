@@ -52,12 +52,12 @@ output_models:
   - name: "ModelDemotionCheckResult"
     module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
     operation: "check_and_demote"
-    topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    topic: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
     description: "Aggregated result of demotion check with individual pattern outcomes."
   - name: "ModelDemotionResult"
     module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
     operation: "demote_pattern"
-    topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    topic: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
     description: "Individual pattern demotion result with gate snapshot."
 
 # =============================================================================
@@ -128,7 +128,7 @@ io_operations:
     description: "Check all validated patterns and demote those meeting failure criteria"
     input_model: "ModelDemotionCheckRequest"
     output_model: "ModelDemotionCheckResult"
-    output_topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
+    output_topic: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
     input_fields:
       - dry_run
       - max_success_rate
@@ -149,7 +149,7 @@ io_operations:
     description: "Demote a single pattern by emitting lifecycle event"
     input_model: "ModelDemotionCheckRequest"
     output_model: "ModelDemotionResult"
-    output_topic: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    output_topic: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     input_fields:
       - pattern_id
       - reason
@@ -223,16 +223,16 @@ event_bus:
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-    - "onex.evt.omniintelligence.pattern-deprecated.v1"
+    - "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    - "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
 
   # Metadata for published topics
   publish_topic_metadata:
-    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
+    "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
       schema_ref: "omniintelligence.models.events.ModelPatternLifecycleEvent"
       description: "Lifecycle transition command for reducer to process"
       content_type: "application/json"
-    "onex.evt.omniintelligence.pattern-deprecated.v1":
+    "{env}.onex.evt.omniintelligence.pattern-deprecated.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_demotion_effect.models.ModelPatternDeprecatedEvent"
       description: "Pattern deprecated notification with gate snapshot"
       content_type: "application/json"
@@ -299,6 +299,16 @@ capabilities:
   - name: "pattern_demotion.manual_disable"
     description: "Hard trigger demotion via admin disable (bypasses cooldown)"
     version: "1.0.0"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["correlation_id", "dry_run"]
+  description: "Each demotion check request is keyed by correlation_id and dry_run flag. Re-processing
+    the same demotion request is idempotent - already-deprecated patterns are skipped during gate evaluation."
 
 # =============================================================================
 # HEALTH CHECK

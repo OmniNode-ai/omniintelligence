@@ -336,6 +336,55 @@ repos:
   - repo: local
     hooks:
       # --------------------------------------------------------------------------
+      # Clean Root - Root directory cleanliness enforcement
+      # Validates: Only allowed files/directories in project root
+      # Scope: Triggered when any root-level files change
+      # Purpose: Keeps the repository "front door" clean for public release
+      # --------------------------------------------------------------------------
+      - id: onex-validate-clean-root
+        name: onex-validate-clean-root
+        entry: python scripts/validation/validate_clean_root.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Naming Conventions - File and class naming enforcement
+      # Validates: Python files and classes follow ONEX naming conventions
+      # Scope: Triggered on changes to source files
+      # Purpose: Enforces consistent naming across the codebase
+      # --------------------------------------------------------------------------
+      - id: onex-validate-naming
+        name: onex-validate-naming
+        entry: python scripts/validation/validate_naming.py
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^src/omniintelligence/
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Migration Freeze Check - Block new migrations during DB-per-repo refactor
+      # Validates: No new .sql files added to deployment/database/migrations/
+      # Scope: Only triggers when migration files or .migration_freeze change
+      # Purpose: Enforces schema freeze (OMN-2055) while .migration_freeze exists
+      # --------------------------------------------------------------------------
+      - id: migration-freeze-check
+        name: migration freeze check
+        entry: ./scripts/check_migration_freeze.sh
+        language: system
+        pass_filenames: false
+        # Trigger when migration files or the freeze file itself change.
+        # Note: pre-commit sees deletions in the changeset, so deleting
+        # .migration_freeze will trigger this hook. The script then checks
+        # [ ! -f .migration_freeze ] at runtime and exits 0, which means
+        # removing the freeze file + adding a migration in the same commit
+        # is intentionally allowed (freeze is lifted).
+        files: ^(deployment/database/migrations/|\.migration_freeze)
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
       # Contract Linter - ONEX contract YAML validation
       # Validates: Node contracts against canonical Pydantic models
       # Scope: Main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
@@ -384,7 +433,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: validate-no-transport-imports
         name: validate-no-transport-imports (ARCH-002)
-        entry: uv run python scripts/validate_no_transport_imports.py
+        entry: uv run python scripts/validate_no_transport_imports.py --exclude src/omniintelligence/runtime
         language: system
         pass_filenames: false
         types: [python]

@@ -51,7 +51,7 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol, TypedDict, runtime_checkable
+from typing import Any, TypedDict
 from uuid import UUID
 
 from omnibase_core.integrations.claude_code import (
@@ -60,6 +60,9 @@ from omnibase_core.integrations.claude_code import (
 )
 
 from omniintelligence.enums import EnumHeuristicMethod
+from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
+    handle_attribution_binding,
+)
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.heuristics import (
     apply_heuristic,
 )
@@ -67,6 +70,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
     ModelSessionOutcomeResult,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
 
@@ -92,53 +96,6 @@ Database columns (injection_count_rolling_20, success_count_rolling_20,
 failure_count_rolling_20) use this value in their naming convention.
 Changing this constant requires a corresponding database migration.
 """
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    This protocol defines the minimal interface required for database operations
-    in the session outcome handler. It is intentionally generic to support both
-    asyncpg connections and mock implementations for testing.
-
-    The methods mirror asyncpg.Connection semantics:
-        - fetch: Execute query and return list of Records
-        - execute: Execute query and return status string (e.g., "UPDATE 5")
-
-    Note:
-        Parameters use asyncpg-style positional placeholders ($1, $2, etc.)
-        rather than named parameters.
-    """
-
-    async def fetch(self, query: str, *args: Any) -> list[Mapping[str, Any]]:
-        """Execute a query and return all results as Records.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            List of record objects with dict-like access to columns.
-        """
-        ...
-
-    async def execute(self, query: str, *args: Any) -> str:
-        """Execute a query and return the status string.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Status string from PostgreSQL (e.g., "UPDATE 5", "INSERT 0 1").
-        """
-        ...
 
 
 # =============================================================================
@@ -168,17 +125,18 @@ WHERE session_id = $1
 """
 
 # SQL for updating rolling metrics on SUCCESS
-# - Increment injection_count (cap at ROLLING_WINDOW_SIZE)
-# - Increment success_count (cap at ROLLING_WINDOW_SIZE)
+# - Increment injection_count (cap at $2 = ROLLING_WINDOW_SIZE)
+# - Increment success_count (cap at $2)
 # - Decay failure_count if at cap (approximates sliding window)
 # - Reset failure_streak to 0
-SQL_UPDATE_METRICS_SUCCESS = f"""
+# Parameters: $1 = pattern_ids, $2 = ROLLING_WINDOW_SIZE
+SQL_UPDATE_METRICS_SUCCESS = """
 UPDATE learned_patterns
 SET
-    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
-    success_count_rolling_20 = LEAST(success_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
+    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, $2),
+    success_count_rolling_20 = LEAST(success_count_rolling_20 + 1, $2),
     failure_count_rolling_20 = CASE
-        WHEN injection_count_rolling_20 >= {ROLLING_WINDOW_SIZE} AND failure_count_rolling_20 > 0
+        WHEN injection_count_rolling_20 >= $2 AND failure_count_rolling_20 > 0
         THEN failure_count_rolling_20 - 1
         ELSE failure_count_rolling_20
     END,
@@ -188,17 +146,18 @@ WHERE id = ANY($1)
 """
 
 # SQL for updating rolling metrics on FAILURE
-# - Increment injection_count (cap at ROLLING_WINDOW_SIZE)
-# - Increment failure_count (cap at ROLLING_WINDOW_SIZE)
+# - Increment injection_count (cap at $2 = ROLLING_WINDOW_SIZE)
+# - Increment failure_count (cap at $2)
 # - Decay success_count if at cap (approximates sliding window)
 # - Increment failure_streak
-SQL_UPDATE_METRICS_FAILURE = f"""
+# Parameters: $1 = pattern_ids, $2 = ROLLING_WINDOW_SIZE
+SQL_UPDATE_METRICS_FAILURE = """
 UPDATE learned_patterns
 SET
-    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
-    failure_count_rolling_20 = LEAST(failure_count_rolling_20 + 1, {ROLLING_WINDOW_SIZE}),
+    injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, $2),
+    failure_count_rolling_20 = LEAST(failure_count_rolling_20 + 1, $2),
     success_count_rolling_20 = CASE
-        WHEN injection_count_rolling_20 >= {ROLLING_WINDOW_SIZE} AND success_count_rolling_20 > 0
+        WHEN injection_count_rolling_20 >= $2 AND success_count_rolling_20 > 0
         THEN success_count_rolling_20 - 1
         ELSE success_count_rolling_20
     END,
@@ -219,6 +178,26 @@ SET
     updated_at = NOW()
 WHERE injection_id = $1
   AND contribution_heuristic IS NULL
+"""
+
+# SQL for recomputing effectiveness score (quality_score) from rolling metrics
+# and returning the updated values in a single atomic operation.
+# Runs AFTER rolling metrics are updated so it reads the new values.
+# Formula: success_count / injection_count (pure success ratio)
+# Default: 0.5 when no injections recorded (neutral prior)
+# Uses RETURNING to avoid a separate SELECT and eliminate any
+# concurrency window between write and read.
+SQL_UPDATE_AND_RETURN_EFFECTIVENESS_SCORES = """
+UPDATE learned_patterns
+SET
+    quality_score = CASE
+        WHEN injection_count_rolling_20 > 0
+        THEN success_count_rolling_20::FLOAT / injection_count_rolling_20::FLOAT
+        ELSE 0.5
+    END,
+    updated_at = NOW()
+WHERE id = ANY($1)
+RETURNING id, quality_score
 """
 
 
@@ -308,6 +287,9 @@ async def record_session_outcome(
     2. Mark them as processed with the outcome
     3. Compute and store contribution heuristics for each injection
     4. Update rolling metrics for all unique patterns involved
+    5. Recompute effectiveness scores (quality_score) from updated rolling metrics
+    6. Bind attribution to measurement data (L1 Attribution Bridge, OMN-2133)
+    7. Return result with status, counts, pattern_ids, and effectiveness scores
 
     Args:
         session_id: The Claude Code session ID.
@@ -319,7 +301,7 @@ async def record_session_outcome(
             Defaults to EQUAL_SPLIT. See EnumHeuristicMethod for options.
 
     Returns:
-        ModelSessionOutcomeResult with status and counts of updated records.
+        ModelSessionOutcomeResult with status, counts, and effectiveness scores.
 
     Raises:
         Exception: Propagates database errors for caller to handle.
@@ -377,6 +359,7 @@ async def record_session_outcome(
                 injections_updated=0,
                 patterns_updated=0,
                 pattern_ids=[],
+                effectiveness_scores={},
                 recorded_at=None,
                 error_message=None,
             )
@@ -395,6 +378,7 @@ async def record_session_outcome(
                 injections_updated=0,
                 patterns_updated=0,
                 pattern_ids=[],
+                effectiveness_scores={},
                 recorded_at=None,
                 error_message=None,
             )
@@ -464,13 +448,89 @@ async def record_session_outcome(
         },
     )
 
+    # Step 6: Recompute effectiveness scores from updated rolling metrics
+    # If scoring fails, the critical operations (marking injections recorded
+    # + updating rolling metrics) already succeeded. We signal the failure
+    # to the caller via None (distinct from {} which means "no patterns to
+    # score") so they can detect persistent scoring degradation.
+    effectiveness_scores: dict[UUID, float] | None = {}
+    if pattern_ids:
+        try:
+            effectiveness_scores = await update_effectiveness_scores(
+                pattern_ids=pattern_ids,
+                repository=repository,
+            )
+        except Exception:
+            # NOTE: Broad catch is intentional -- effectiveness scoring is non-critical
+            # and must not block session outcome recording. Infrastructure exceptions
+            # (asyncpg errors) are expected; programming errors will be visible via
+            # the exc_info=True traceback in logs.
+            effectiveness_scores = None
+            logger.warning(
+                "Effectiveness scoring failed — critical path unaffected, "
+                "scores will be stale until next successful recomputation",
+                exc_info=True,
+                extra={
+                    "event": "effectiveness_scoring_failed",
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "session_id": str(session_id),
+                    "pattern_count": len(pattern_ids),
+                },
+            )
+
+    logger.debug(
+        "Updated effectiveness scores",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "scores": (
+                {str(k): v for k, v in effectiveness_scores.items()}
+                if effectiveness_scores is not None
+                else None
+            ),
+        },
+    )
+
+    # Step 7: Bind attribution to measurement data (L1 Attribution Bridge, OMN-2133)
+    # If attribution binding fails, the critical operations (marking injections
+    # recorded + updating rolling metrics + effectiveness scores) already succeeded.
+    # We log the failure but do not fail the overall operation.
+    attribution_binding_failed = False
+    if pattern_ids:
+        try:
+            await handle_attribution_binding(
+                session_id=session_id,
+                pattern_ids=pattern_ids,
+                conn=repository,
+                correlation_id=correlation_id,
+            )
+        except Exception:
+            # NOTE: Broad catch is intentional -- attribution binding is non-critical
+            # and must not block session outcome recording. Infrastructure exceptions
+            # (asyncpg errors) are expected; programming errors will be visible via
+            # the exc_info=True traceback in logs.
+            attribution_binding_failed = True
+            logger.warning(
+                "Attribution binding failed — critical path unaffected, "
+                "evidence tiers will be updated on next successful binding",
+                exc_info=True,
+                extra={
+                    "event": "attribution_binding_failed",
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "session_id": str(session_id),
+                    "pattern_count": len(pattern_ids),
+                },
+            )
+
     return ModelSessionOutcomeResult(
         status=EnumOutcomeRecordingStatus.SUCCESS,
         session_id=session_id,
         injections_updated=injections_updated,
         patterns_updated=patterns_updated,
         pattern_ids=pattern_ids,
+        effectiveness_scores=effectiveness_scores,
         recorded_at=datetime.now(UTC),
+        attribution_binding_failed=attribution_binding_failed,
         error_message=None,
     )
 
@@ -585,10 +645,50 @@ async def update_pattern_rolling_metrics(
     # Select appropriate SQL based on outcome
     sql = SQL_UPDATE_METRICS_SUCCESS if success else SQL_UPDATE_METRICS_FAILURE
 
-    # Execute update
-    status = await repository.execute(sql, pattern_ids)
+    # Execute update (pass ROLLING_WINDOW_SIZE as $2 parameter)
+    status = await repository.execute(sql, pattern_ids, ROLLING_WINDOW_SIZE)
 
     return _parse_update_count(status)
+
+
+async def update_effectiveness_scores(
+    pattern_ids: list[UUID],
+    *,
+    repository: ProtocolPatternRepository,
+) -> dict[UUID, float]:
+    """Recompute effectiveness scores from rolling metrics and return updated values.
+
+    This function recalculates the quality_score for each pattern based on
+    current rolling window metrics. It should be called AFTER rolling metrics
+    have been updated so the computation reflects the latest outcome.
+
+    Formula:
+        quality_score = success_count_rolling_20 / injection_count_rolling_20
+        Falls back to 0.5 (neutral prior) when injection_count is 0.
+
+    The 0.5 default is a deliberate neutral prior: new patterns with no
+    injection history are treated as neither good nor bad. This prevents
+    cold-start bias in pattern ranking and promotion decisions.
+
+    Score range: 0.0 (all failures) to 1.0 (all successes).
+
+    Args:
+        pattern_ids: List of pattern UUIDs to update.
+        repository: Database repository implementing ProtocolPatternRepository.
+
+    Returns:
+        Dictionary mapping pattern UUID to updated effectiveness score.
+        Empty dict if no patterns provided.
+    """
+    if not pattern_ids:
+        return {}
+
+    # Recompute quality_score and return updated values in a single atomic query
+    rows = await repository.fetch(
+        SQL_UPDATE_AND_RETURN_EFFECTIVENESS_SCORES, pattern_ids
+    )
+
+    return {row["id"]: float(row["quality_score"]) for row in rows}
 
 
 def _parse_update_count(status: str | None) -> int:
@@ -632,9 +732,9 @@ def _parse_update_count(status: str | None) -> int:
 __all__ = [
     "ROLLING_WINDOW_SIZE",
     "HandlerArgs",
-    "ProtocolPatternRepository",
     "compute_and_store_heuristics",
     "event_to_handler_args",
     "record_session_outcome",
+    "update_effectiveness_scores",
     "update_pattern_rolling_metrics",
 ]

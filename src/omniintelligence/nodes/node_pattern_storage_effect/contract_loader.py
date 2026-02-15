@@ -119,8 +119,16 @@ class EventBusConfig(BaseModel):
     event_bus_enabled: bool = True
     subscribe_topics: list[str] = Field(default_factory=list)
     publish_topics: list[str] = Field(default_factory=list)
-    subscribe_topic_metadata: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    publish_topic_metadata: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    subscribe_topic_metadata: dict[str, dict[str, Any]] = (
+        Field(  # any-ok: YAML-loaded contract data is dynamically typed
+            default_factory=dict
+        )
+    )
+    publish_topic_metadata: dict[str, dict[str, Any]] = (
+        Field(  # any-ok: YAML-loaded contract data is dynamically typed
+            default_factory=dict
+        )
+    )
 
 
 class ContractLoader:
@@ -177,9 +185,15 @@ class ContractLoader:
         """
         self._contract_path = Path(contract_path) if contract_path else None
         self._content = content
-        self._contract: dict[str, Any] = {}
-        self._handler_cache: dict[str, Callable[..., Any]] = {}
-        self._entry_point_cache: Callable[..., Any] | None = None
+        self._contract: dict[
+            str, Any
+        ] = {}  # any-ok: YAML-loaded contract data is dynamically typed
+        self._handler_cache: dict[
+            str, Callable[..., Any]
+        ] = {}  # any-ok: dynamically imported handlers
+        self._entry_point_cache: Callable[..., Any] | None = (
+            None  # any-ok: dynamically imported handler
+        )
 
         if content is not None:
             # Use pre-loaded content (ONEX compliant - no file I/O)
@@ -214,7 +228,9 @@ class ContractLoader:
         self._load_contract()
 
     @property
-    def contract(self) -> dict[str, Any]:
+    def contract(
+        self,
+    ) -> dict[str, Any]:  # any-ok: YAML-loaded contract data is dynamically typed
         """Get the raw contract dictionary.
 
         Returns:
@@ -229,7 +245,10 @@ class ContractLoader:
         Returns:
             Node name string.
         """
-        return self._contract.get("node_name", self._contract.get("name", "unknown"))
+        result: str = self._contract.get(
+            "node_name", self._contract.get("name", "unknown")
+        )
+        return result
 
     @property
     def node_type(self) -> str:
@@ -238,7 +257,8 @@ class ContractLoader:
         Returns:
             Node type string (e.g., EFFECT_GENERIC).
         """
-        return self._contract.get("node_type", "unknown")
+        result: str = self._contract.get("node_type", "unknown")
+        return result
 
     @property
     def handler_routing(self) -> HandlerRouting:
@@ -289,7 +309,9 @@ class ContractLoader:
         event_bus_data = self._contract.get("event_bus", {})
         return EventBusConfig(**event_bus_data)
 
-    def _import_function(self, config: HandlerConfig) -> Callable[..., Any]:
+    def _import_function(
+        self, config: HandlerConfig
+    ) -> Callable[..., Any]:  # any-ok: dynamically imported handlers
         """Import a function from module path.
 
         Args:
@@ -303,9 +325,14 @@ class ContractLoader:
             AttributeError: If function not found in module.
         """
         module = importlib.import_module(config.module)
-        return getattr(module, config.function)
+        handler: Callable[..., Any] = getattr(
+            module, config.function
+        )  # any-ok: dynamically imported
+        return handler
 
-    def resolve_handler(self, operation: str) -> Callable[..., Any] | None:
+    def resolve_handler(
+        self, operation: str
+    ) -> Callable[..., Any] | None:  # any-ok: dynamically imported handlers
         """Resolve handler function for operation.
 
         Looks up the handler configuration for the given operation and
@@ -347,7 +374,9 @@ class ContractLoader:
         self._handler_cache[operation] = func
         return func
 
-    def get_entry_point(self) -> Callable[..., Any] | None:
+    def get_entry_point(
+        self,
+    ) -> Callable[..., Any] | None:  # any-ok: dynamically imported handlers
         """Get the main entry point function.
 
         Returns the entry point handler that routes to operation-specific
@@ -371,7 +400,9 @@ class ContractLoader:
         self._entry_point_cache = self._import_function(routing.entry_point)
         return self._entry_point_cache
 
-    def get_handler_for_default(self) -> Callable[..., Any] | None:
+    def get_handler_for_default(
+        self,
+    ) -> Callable[..., Any] | None:  # any-ok: dynamically imported handlers
         """Get the default handler function.
 
         Returns:

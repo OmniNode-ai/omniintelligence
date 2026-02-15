@@ -223,14 +223,14 @@ async def create_test_pattern(
         The pattern UUID.
 
     Raises:
-        pytest.skip: If signature_hash column doesn't exist (migration 008 not applied).
+        pytest.skip: If signature_hash column doesn't exist (migration 009 not applied).
     """
     # Check if signature_hash column exists
     has_signature_hash = await _check_signature_hash_column_exists(conn)
     if not has_signature_hash:
         pytest.skip(
             "signature_hash column not found in learned_patterns table. "
-            "Run migration 008_add_signature_hash.sql first."
+            "Run migration 009_add_signature_hash.sql first."
         )
 
     if pattern_id is None:

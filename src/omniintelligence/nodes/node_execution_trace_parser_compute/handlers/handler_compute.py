@@ -33,6 +33,9 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler
     extract_span_events,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.protocols import (
+    ErrorEventDict,
+    ParsedEventDict,
+    TimingDataDict,
     TraceMetadataDict,
     create_empty_timing_data,
     create_error_metadata,
@@ -242,10 +245,10 @@ def _execute_parsing(
 
 def _build_output(
     success: bool,
-    parsed_events: list[dict],
-    error_events: list[dict],
-    timing_data: dict,
-    metadata: dict,
+    parsed_events: list[ParsedEventDict],
+    error_events: list[ErrorEventDict],
+    timing_data: TimingDataDict,
+    metadata: TraceMetadataDict,
 ) -> ModelTraceParsingOutput:
     """Build the Pydantic output model from TypedDict results.
 

@@ -17,11 +17,11 @@ contract_name: "node_claude_hook_event_effect"
 node_name: "node_claude_hook_event_effect"
 contract_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 node_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 
 # Node type
@@ -31,8 +31,10 @@ node_type: "EFFECT_GENERIC"
 description: >
   Unified Effect node for handling all Claude Code hook events. Receives events from SessionStart, UserPromptSubmit,
   PreToolUse, PostToolUse, Stop, and other hook types, routing them to appropriate handlers. For UserPromptSubmit,
-  routes to node_intent_classifier_compute for classification. Emits classified intents to Kafka for downstream
-  consumers (graph storage handled by omnimemory).
+  routes to node_intent_classifier_compute for classification and emits classified intents to Kafka for
+  downstream consumers (graph storage handled by omnimemory). For Stop events, emits a pattern learning
+  command to onex.cmd.omniintelligence.pattern-learning.v1 to trigger pattern extraction from session
+  data.
 # Strongly typed I/O models
 input_model:
   name: "ModelClaudeCodeHookEvent"
@@ -114,13 +116,15 @@ handler_routing:
         type: "sync"
       description: "Post-tool-use event (no-op, future: result capture)"
 
-    # Stop - No-op (future: completion tracking)
+    # Stop - Trigger pattern extraction (OMN-2210)
     - event_type: "Stop"
       handler:
-        function: "handle_no_op"
+        function: "handle_stop"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
-        type: "sync"
-      description: "Stop event (no-op, future: completion tracking)"
+        type: "async"
+      description: "Stop event triggers pattern learning command emission"
+      actions:
+        - "emit onex.cmd.omniintelligence.pattern-learning.v1 to Kafka"
 
     # Notification - No-op (future: async notification handling)
     - event_type: "Notification"
@@ -182,6 +186,29 @@ io_operations:
 #   - kind=evt for events/outputs
 # =============================================================================
 published_events:
+  - topic_suffix: "onex.cmd.omniintelligence.pattern-learning.v1"
+    full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
+    event_type: "PatternLearningRequested"
+    trigger: "Stop event processed (session completed)"
+    description: "Emitted when a Claude Code session stops to trigger pattern extraction in the intelligence
+      orchestrator. Published directly via kafka_producer (not event_bus)."
+    payload_fields:
+      - name: "event_type"
+        type: "string"
+        description: "Always 'PatternLearningRequested'"
+      - name: "session_id"
+        type: "string"
+        description: "Session ID from the hook event"
+      - name: "correlation_id"
+        type: "string"
+        description: "Correlation ID for distributed tracing"
+      - name: "trigger"
+        type: "string"
+        description: "Always 'session_stop'"
+      - name: "timestamp"
+        type: "string"
+        description: "ISO-8601 timestamp of when the command was emitted"
+
   - topic_suffix: "onex.evt.omniintelligence.intent-classified.v1"
     full_topic_pattern: "{env}.onex.evt.omniintelligence.intent-classified.v1"
     event_type: "IntentClassified"
@@ -239,26 +266,35 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
-    - "onex.cmd.omniintelligence.claude-hook-event.v1"
+    - "{env}.onex.cmd.omniintelligence.claude-hook-event.v1"
+    - "{env}.onex.cmd.omniintelligence.tool-content.v1"
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "onex.evt.omniintelligence.intent-classified.v1"
+    - "{env}.onex.evt.omniintelligence.intent-classified.v1"
+    - "onex.cmd.omniintelligence.pattern-learning.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
   # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
   subscribe_topic_metadata:
-    "onex.cmd.omniintelligence.claude-hook-event.v1":
+    "{env}.onex.cmd.omniintelligence.claude-hook-event.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
+    "{env}.onex.cmd.omniintelligence.tool-content.v1":
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
+      description: "Tool content events from omniclaude containing PostToolUse payloads with file contents,
+        command outputs, and other tool results for intelligence analysis."
 
   # Metadata for published topics
   publish_topic_metadata:
-    "onex.evt.omniintelligence.intent-classified.v1":
+    "{env}.onex.evt.omniintelligence.intent-classified.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
+    "onex.cmd.omniintelligence.pattern-learning.v1":
+      schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelPatternLearningCommand"
+      description: "Pattern learning command emitted on Stop event to trigger pattern extraction"
 
 # =============================================================================
 # DEPENDENCIES
@@ -316,13 +352,24 @@ capabilities:
     description: "Return success for event types not yet implemented"
 
 # =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "event_type", "timestamp_utc"]
+  description: "Each hook event is uniquely identified by the combination of session_id, event_type, and
+    timestamp_utc. Re-processing the same hook event is idempotent - duplicate events with matching hash
+    fields are detected and skipped to prevent double-processing of intent classification and Kafka emission."
+
+# =============================================================================
 # METADATA
 # =============================================================================
 metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-01-23"
-  updated: "2026-02-07"
+  updated: "2026-02-13"
   tags:
     - effect
     - claude-code
@@ -336,3 +383,6 @@ metadata:
     - ticket: "OMN-1626"
       url: "https://linear.app/omninode/issue/OMN-1626"
       description: "Add keywords field to intent-classified.v1 event payload"
+    - ticket: "OMN-2210"
+      url: "https://linear.app/omninode/issue/OMN-2210"
+      description: "Wire intelligence nodes into registration + pattern extraction"

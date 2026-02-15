@@ -36,9 +36,9 @@ from omnibase_core.nodes.node_effect import NodeEffect
 
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-    ProtocolPatternRepository,
     compute_and_store_heuristics,
     record_session_outcome,
+    update_effectiveness_scores,
     update_pattern_rolling_metrics,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
@@ -50,6 +50,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
 from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -81,7 +82,8 @@ class MockRecord(dict):
 class PatternState:
     """In-memory state for a learned pattern.
 
-    Simulates the learned_patterns table columns relevant to rolling metrics.
+    Simulates the learned_patterns table columns relevant to rolling metrics
+    and effectiveness scoring.
     """
 
     id: UUID
@@ -89,6 +91,7 @@ class PatternState:
     success_count_rolling_20: int = 0
     failure_count_rolling_20: int = 0
     failure_streak: int = 0
+    quality_score: float = 0.5
 
 
 @dataclass
@@ -174,6 +177,33 @@ class MockPatternRepository:
             session_id = args[0]
             count = sum(1 for inj in self.injections if inj.session_id == session_id)
             return [MockRecord({"count": count})]
+
+        # Handle: UPDATE ... RETURNING effectiveness scores (atomic recompute)
+        if (
+            "UPDATE learned_patterns" in query
+            and "quality_score" in query
+            and "injection_count_rolling_20" in query
+        ):
+            pattern_ids = args[0]
+            results = []
+            for pid in pattern_ids:
+                if pid in self.patterns:
+                    p = self.patterns[pid]
+                    if p.injection_count_rolling_20 > 0:
+                        p.quality_score = (
+                            p.success_count_rolling_20 / p.injection_count_rolling_20
+                        )
+                    else:
+                        p.quality_score = 0.5
+                    results.append(
+                        MockRecord(
+                            {
+                                "id": pid,
+                                "quality_score": p.quality_score,
+                            }
+                        )
+                    )
+            return results
 
         return []
 
@@ -266,6 +296,15 @@ class MockPatternRepository:
             return f"UPDATE {count}"
 
         return "UPDATE 0"
+
+    async def fetchrow(self, query: str, *args: Any) -> MockRecord | None:
+        """Execute a query and return first row, or None.
+
+        Added for ProtocolPatternRepository compliance (OMN-2133).
+        Delegates to fetch() and returns the first result.
+        """
+        results = await self.fetch(query, *args)
+        return results[0] if results else None
 
 
 # =============================================================================
@@ -1537,6 +1576,14 @@ class MockErrorRepository:
             raise self._fetch_error
         return self._fetch_results
 
+    async def fetchrow(self, _query: str, *_args: Any) -> Any:
+        """Execute fetchrow, raising RuntimeError to simulate DB failure.
+
+        MockErrorRepository is designed to simulate DB errors; fetchrow follows
+        the same pattern as fetch/execute by always raising.
+        """
+        raise RuntimeError("MockErrorRepository: simulated DB error")
+
     async def execute(self, _query: str, *_args: Any) -> str:
         """Execute query, raising configured error if present."""
         if self._execute_error is not None:
@@ -2135,3 +2182,433 @@ class TestContributionHeuristics:
         )
         # The heuristic should not be set (empty weights returns early)
         assert injection.contribution_heuristic is None
+
+
+# =============================================================================
+# Test Class: Effectiveness Score Tests (OMN-2077)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestEffectivenessScore:
+    """Tests for effectiveness score (quality_score) computation.
+
+    These tests verify OMN-2077 functionality:
+    - quality_score is recomputed from rolling metrics after each outcome
+    - Formula: success_count_rolling_20 / injection_count_rolling_20
+    - Default: 0.5 when no injections recorded
+    - Score is returned in the handler result
+    - Score is updated in the database
+
+    Reference:
+        - OMN-2077: Pattern feedback consumption + scoring
+    """
+
+    @pytest.mark.asyncio
+    async def test_score_computed_on_success_outcome(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Effectiveness score is recomputed after recording a success outcome."""
+        # Arrange: Pattern with 5 injections, 3 successes → after success: 6 inj, 4 suc
+        pattern = PatternState(
+            id=sample_pattern_id,
+            injection_count_rolling_20=5,
+            success_count_rolling_20=3,
+            failure_count_rolling_20=2,
+            quality_score=0.5,  # stale score
+        )
+        mock_repository.add_pattern(pattern)
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Act
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        # Assert: Score recomputed from updated metrics (4/6 ≈ 0.667)
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert sample_pattern_id in result.effectiveness_scores
+        expected_score = 4.0 / 6.0
+        assert (
+            abs(result.effectiveness_scores[sample_pattern_id] - expected_score) < 1e-9
+        )
+
+        # Also verify DB state
+        assert (
+            abs(
+                mock_repository.patterns[sample_pattern_id].quality_score
+                - expected_score
+            )
+            < 1e-9
+        )
+
+    @pytest.mark.asyncio
+    async def test_score_computed_on_failure_outcome(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Effectiveness score is recomputed after recording a failure outcome."""
+        # Arrange: Pattern with 5 injections, 3 successes → after failure: 6 inj, 3 suc
+        pattern = PatternState(
+            id=sample_pattern_id,
+            injection_count_rolling_20=5,
+            success_count_rolling_20=3,
+            failure_count_rolling_20=2,
+            quality_score=0.5,
+        )
+        mock_repository.add_pattern(pattern)
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Act
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=False,
+            failure_reason="Test failure",
+            repository=mock_repository,
+        )
+
+        # Assert: Score recomputed from updated metrics (3/6 = 0.5)
+        expected_score = 3.0 / 6.0
+        assert (
+            abs(result.effectiveness_scores[sample_pattern_id] - expected_score) < 1e-9
+        )
+        assert (
+            abs(
+                mock_repository.patterns[sample_pattern_id].quality_score
+                - expected_score
+            )
+            < 1e-9
+        )
+
+    @pytest.mark.asyncio
+    async def test_score_perfect_after_all_successes(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Pattern with all successes gets score of 1.0."""
+        # Arrange: Fresh pattern
+        pattern = PatternState(id=sample_pattern_id)
+        mock_repository.add_pattern(pattern)
+
+        # Act: Record 5 consecutive successes
+        for _ in range(5):
+            session_id = uuid4()
+            mock_repository.add_injection(
+                InjectionState(
+                    injection_id=uuid4(),
+                    session_id=session_id,
+                    pattern_ids=[sample_pattern_id],
+                )
+            )
+            result = await record_session_outcome(
+                session_id=session_id,
+                success=True,
+                repository=mock_repository,
+            )
+
+        # Assert: 5/5 = 1.0
+        assert abs(result.effectiveness_scores[sample_pattern_id] - 1.0) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_score_zero_after_all_failures(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Pattern with all failures gets score of 0.0."""
+        # Arrange: Fresh pattern
+        pattern = PatternState(id=sample_pattern_id)
+        mock_repository.add_pattern(pattern)
+
+        # Act: Record 5 consecutive failures
+        for _ in range(5):
+            session_id = uuid4()
+            mock_repository.add_injection(
+                InjectionState(
+                    injection_id=uuid4(),
+                    session_id=session_id,
+                    pattern_ids=[sample_pattern_id],
+                )
+            )
+            result = await record_session_outcome(
+                session_id=session_id,
+                success=False,
+                repository=mock_repository,
+            )
+
+        # Assert: 0/5 = 0.0
+        assert abs(result.effectiveness_scores[sample_pattern_id] - 0.0) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_score_at_cap_with_decay(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Score reflects decayed rolling metrics at cap (20 injections)."""
+        # Arrange: At cap with 10/10 split
+        pattern = PatternState(
+            id=sample_pattern_id,
+            injection_count_rolling_20=20,
+            success_count_rolling_20=10,
+            failure_count_rolling_20=10,
+            quality_score=0.5,
+        )
+        mock_repository.add_pattern(pattern)
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Act: Success → success_count=11, failure_count=9 (decay), inj=20
+        await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        # Assert: 11/20 = 0.55
+        expected_score = 11.0 / 20.0
+        assert (
+            abs(
+                mock_repository.patterns[sample_pattern_id].quality_score
+                - expected_score
+            )
+            < 1e-9
+        )
+
+    @pytest.mark.asyncio
+    async def test_score_for_multiple_patterns(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_ids: list[UUID],
+    ) -> None:
+        """All patterns in a session get their scores updated."""
+        # Arrange: 3 patterns with different starting metrics
+        starting_counts = [(5, 3, 2), (10, 8, 2), (20, 15, 5)]
+        for pid, (inj, suc, fail) in zip(
+            sample_pattern_ids, starting_counts, strict=True
+        ):
+            mock_repository.add_pattern(
+                PatternState(
+                    id=pid,
+                    injection_count_rolling_20=inj,
+                    success_count_rolling_20=suc,
+                    failure_count_rolling_20=fail,
+                )
+            )
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=sample_pattern_ids,
+            )
+        )
+
+        # Act: Record success
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        # Assert: All patterns have updated scores
+        assert len(result.effectiveness_scores) == 3
+        for pid in sample_pattern_ids:
+            assert pid in result.effectiveness_scores
+            p = mock_repository.patterns[pid]
+            expected = p.success_count_rolling_20 / p.injection_count_rolling_20
+            assert abs(result.effectiveness_scores[pid] - expected) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_score_empty_for_no_injections_found(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+    ) -> None:
+        """No effectiveness scores returned when no injections found."""
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        assert result.status == EnumOutcomeRecordingStatus.NO_INJECTIONS_FOUND
+        assert result.effectiveness_scores == {}
+
+    @pytest.mark.asyncio
+    async def test_score_empty_for_already_recorded(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """No effectiveness scores returned when already recorded."""
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+                outcome_recorded=True,
+            )
+        )
+
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        assert result.status == EnumOutcomeRecordingStatus.ALREADY_RECORDED
+        assert result.effectiveness_scores == {}
+
+    @pytest.mark.asyncio
+    async def test_score_graceful_degradation_on_scoring_failure(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_session_id: UUID,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Handler returns SUCCESS with None scores when scoring raises."""
+        # Arrange: Pattern and injection in place
+        pattern = PatternState(
+            id=sample_pattern_id,
+            injection_count_rolling_20=5,
+            success_count_rolling_20=3,
+            failure_count_rolling_20=2,
+            quality_score=0.5,
+        )
+        mock_repository.add_pattern(pattern)
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=sample_session_id,
+                pattern_ids=[sample_pattern_id],
+            )
+        )
+
+        # Patch fetch to raise on the effectiveness scoring RETURNING query
+        original_fetch = mock_repository.fetch
+
+        async def failing_fetch(query: str, *args: Any) -> list:
+            # Let other fetch calls through (e.g., injection lookups)
+            # Fail on the effectiveness score UPDATE...RETURNING query
+            if (
+                "UPDATE learned_patterns" in query
+                and "quality_score" in query
+                and "injection_count_rolling_20" in query
+            ):
+                raise RuntimeError("Simulated DB failure on effectiveness scoring")
+            return await original_fetch(query, *args)
+
+        # Monkey-patch fetch for fault-injection test; type mismatch is intentional (OMN-2077)
+        mock_repository.fetch = failing_fetch  # type: ignore[assignment]
+
+        # Act
+        result = await record_session_outcome(
+            session_id=sample_session_id,
+            success=True,
+            repository=mock_repository,
+        )
+
+        # Assert: Critical operations succeeded, scoring failure surfaced via None
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert result.effectiveness_scores is None
+        assert result.patterns_updated > 0
+
+
+# =============================================================================
+# Test Class: update_effectiveness_scores Direct Tests (OMN-2077)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestUpdateEffectivenessScores:
+    """Direct tests for update_effectiveness_scores function.
+
+    These tests verify the lower-level function independently of
+    record_session_outcome.
+    """
+
+    @pytest.mark.asyncio
+    async def test_empty_pattern_list_returns_empty(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Empty pattern list returns empty dict."""
+        result = await update_effectiveness_scores(
+            pattern_ids=[],
+            repository=mock_repository,
+        )
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_score_formula_success_ratio(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Score = success_count / injection_count."""
+        mock_repository.add_pattern(
+            PatternState(
+                id=sample_pattern_id,
+                injection_count_rolling_20=10,
+                success_count_rolling_20=7,
+                failure_count_rolling_20=3,
+                quality_score=0.0,  # Stale
+            )
+        )
+
+        scores = await update_effectiveness_scores(
+            pattern_ids=[sample_pattern_id],
+            repository=mock_repository,
+        )
+
+        assert abs(scores[sample_pattern_id] - 0.7) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_score_default_when_no_injections(
+        self,
+        mock_repository: MockPatternRepository,
+        sample_pattern_id: UUID,
+    ) -> None:
+        """Score defaults to 0.5 when injection_count is 0."""
+        mock_repository.add_pattern(
+            PatternState(
+                id=sample_pattern_id,
+                injection_count_rolling_20=0,
+                success_count_rolling_20=0,
+            )
+        )
+
+        scores = await update_effectiveness_scores(
+            pattern_ids=[sample_pattern_id],
+            repository=mock_repository,
+        )
+
+        assert abs(scores[sample_pattern_id] - 0.5) < 1e-9

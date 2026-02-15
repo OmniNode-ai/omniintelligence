@@ -37,12 +37,17 @@ from omnibase_core.nodes.node_reducer import NodeReducer
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_process import (
     handle_pattern_lifecycle_process,
 )
+from omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state import (
+    ModelIntelligenceState,
+)
 from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
     ModelReducerInputPatternLifecycle,
 )
 
 
-class NodeIntelligenceReducer(NodeReducer[dict[str, Any], dict[str, Any]]):
+class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deserialized JSON with mixed types
+    NodeReducer[dict[str, Any], ModelIntelligenceState],
+):
     """Intelligence reducer - FSM transitions with handler routing.
 
     This reducer processes intelligence workflows by:
@@ -63,7 +68,7 @@ class NodeIntelligenceReducer(NodeReducer[dict[str, Any], dict[str, Any]]):
     async def process(
         self,
         input_data: ModelReducerInput[dict[str, Any]],
-    ) -> ModelReducerOutput[dict[str, Any]]:
+    ) -> ModelReducerOutput[ModelIntelligenceState]:
         """Process reducer input with FSM type routing.
 
         Routes PATTERN_LIFECYCLE events to the handler which validates

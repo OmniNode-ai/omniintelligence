@@ -1,0 +1,146 @@
+---
+# Required Status Checks for `main` Branch Protection (v2)
+#
+# This manifest is the SINGLE SOURCE OF TRUTH for branch protection configuration.
+# The `gates` list defines the only operational contract -- these are the API-stable
+# check_names that branch protection rules reference.
+#
+# INVARIANTS:
+# 1. Gate check_name values are API-stable. Renames require coordinated branch
+#    protection update (temp dual-require, merge, remove old).
+# 2. Individual job names inside gates can change freely without updating
+#    branch protection rules.
+# 3. The `gates` list is the only operational contract. The `checks` section
+#    is documentation only.
+#
+# Supersedes: v1 (OMN-2185) -- flat required_checks list
+# Added: OMN-2227
+# Last verified: 2026-02-15
+# Schema version: v2
+
+schema_version: 2
+
+# ── Gates (operational contract for branch protection) ────────────────────────
+# These check_names are required in GitHub branch protection settings.
+# They are API-stable -- do NOT rename without the migration safety procedure.
+gates:
+  - check_name: "Quality Gate"
+    workflow_file: ci.yaml
+    workflow_job_key: quality-gate
+    rationale: >
+      Aggregates all unconditional governance checks: pre-commit, scope-alignment, contract-validation,
+      io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets. Replaces 8 individual
+      branch protection checks with a single stable gate.
+  - check_name: "CI Summary"
+    workflow_file: ci.yaml
+    workflow_job_key: ci-summary
+    rationale: >
+      Final aggregator for Quality Gate + path-filtered production code jobs (Lint, Type Check, Unit Tests).
+      REQUIRED because this repo uses path filtering -- ensures skipped jobs are distinguished as "skipped
+      by policy" vs "missing due to misconfiguration".
+# ── Checks (documentation only -- not used for branch protection) ─────────────
+# These are the individual jobs aggregated by Quality Gate.
+# Listed here for documentation and cross-referencing purposes only.
+checks:
+  - name: "Pre-commit Hooks"
+    workflow_file: ci.yaml
+    workflow_job_key: pre-commit
+    aggregated_by: "Quality Gate"
+
+  - name: "Scope Alignment"
+    workflow_file: ci.yaml
+    workflow_job_key: scope-alignment
+    aggregated_by: "Quality Gate"
+
+  - name: "Contract Validation"
+    workflow_file: ci.yaml
+    workflow_job_key: contract-validation
+    aggregated_by: "Quality Gate"
+
+  - name: "I/O Audit"
+    workflow_file: ci.yaml
+    workflow_job_key: io-audit
+    aggregated_by: "Quality Gate"
+
+  - name: "Cross-Repo Validation"
+    workflow_file: ci.yaml
+    workflow_job_key: cross-repo-validation
+    aggregated_by: "Quality Gate"
+
+  - name: "Migration Freeze Check"
+    workflow_file: ci.yaml
+    workflow_job_key: migration-freeze
+    aggregated_by: "Quality Gate"
+
+  - name: "Verify Architecture Handshake"
+    workflow_file: ci.yaml
+    workflow_job_key: check-handshake
+    aggregated_by: "Quality Gate"
+    note: "Skipped on fork PRs (acceptable -- no fork PRs accepted for this repo)"
+
+  - name: "Detect Secrets"
+    workflow_file: ci.yaml
+    workflow_job_key: detect-secrets
+    aggregated_by: "Quality Gate"
+
+  - name: "Lint"
+    workflow_file: ci.yaml
+    workflow_job_key: lint
+    aggregated_by: "CI Summary"
+    note: "Path-filtered via Detect Changes -- skipped on docs-only PRs"
+
+  - name: "Type Check"
+    workflow_file: ci.yaml
+    workflow_job_key: type-check
+    aggregated_by: "CI Summary"
+    note: "Path-filtered via Detect Changes -- skipped on docs-only PRs"
+
+  - name: "Unit Tests"
+    workflow_file: ci.yaml
+    workflow_job_key: test-unit
+    aggregated_by: "CI Summary"
+    note: "Path-filtered via Detect Changes -- skipped on docs-only PRs"
+
+# ── Explicitly excluded from required checks ──────────────────────────────────
+# These checks run in CI but are NOT configured as required status checks in
+# branch protection. They are either aggregated by a gate or informational only.
+excluded_checks:
+  - name: "Detect Changes"
+    workflow_file: ci.yaml
+    reason: "Path-filter helper job -- outputs whether production code changed. Not a correctness check."
+
+  - name: "Pre-commit Hooks"
+    reason: "Aggregated by Quality Gate (v2). No longer a direct branch protection check."
+
+  - name: "Scope Alignment"
+    reason: "Aggregated by Quality Gate (v2)."
+
+  - name: "Contract Validation"
+    reason: "Aggregated by Quality Gate (v2)."
+
+  - name: "I/O Audit"
+    reason: "Aggregated by Quality Gate (v2)."
+
+  - name: "Cross-Repo Validation"
+    reason: "Aggregated by Quality Gate (v2)."
+
+  - name: "Migration Freeze Check"
+    reason: "Aggregated by Quality Gate (v2)."
+
+  - name: "Verify Architecture Handshake"
+    reason: "Aggregated by Quality Gate (v2)."
+
+  - name: "Lint"
+    reason: "Path-filtered. Aggregated by CI Summary."
+
+  - name: "Type Check"
+    reason: "Path-filtered. Aggregated by CI Summary."
+
+  - name: "Unit Tests"
+    reason: "Path-filtered. Aggregated by CI Summary."
+
+  - name: "claude"
+    reason: "Claude Code bot (claude.yml). Triggered by @claude mentions, not PR CI."
+
+  - name: "Dependabot"
+    reason: "Dependabot compatibility score. Informational, not a correctness gate."

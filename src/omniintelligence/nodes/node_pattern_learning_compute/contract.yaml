@@ -92,6 +92,35 @@ error_handling:
       description: "Error during pattern learning computation"
       recoverable: true
       retry_strategy: "immediate_retry"
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# This is a COMPUTE_GENERIC node (pure computation, no I/O). It does not
+# subscribe to or publish Kafka topics directly. Event bus is disabled.
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: false
+
+  # Compute nodes do not subscribe to or publish Kafka topics
+  subscribe_topics: []
+  publish_topics: []
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "input_hash"
+  hash_fields: ["training_data", "correlation_id"]
+  description: "Idempotency based on input hash. Identical training data with the same correlation ID
+    produces deterministic output without re-computation."
+
 health_check:
   enabled: false
   endpoint: "/health"
@@ -99,7 +128,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-29"
+  updated: "2026-02-14"
   # NOTE: status field is at root level (line 17), not duplicated here
   tags:
     - "ONEX"

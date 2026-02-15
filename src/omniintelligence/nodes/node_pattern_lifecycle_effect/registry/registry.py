@@ -59,7 +59,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type alias
+    TYPE_CHECKING,
+    Any,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_intelligence_reducer.models import (
@@ -67,11 +70,13 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
         ProtocolIdempotencyStore,
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
     )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
         ModelTransitionResult,
+    )
+    from omniintelligence.protocols import (
+        ProtocolKafkaPublisher,
+        ProtocolPatternRepository,
     )
 
 logger = logging.getLogger(__name__)
@@ -96,11 +101,11 @@ class ServiceHandlerRegistry:
     Attributes:
         apply_transition: Handler function for applying pattern status transitions.
             Dependencies (repository, idempotency_store, producer) are already bound.
-        topic_env_prefix: Environment prefix for Kafka topics.
+        publish_topic: Full Kafka topic for transition events (from contract).
     """
 
     apply_transition: HandlerFunction
-    topic_env_prefix: str = "dev"
+    publish_topic: str | None = None
 
     _handlers: dict[str, HandlerFunction] = field(
         default_factory=dict, repr=False, compare=False, hash=False
@@ -144,7 +149,7 @@ class RegistryPatternLifecycleEffect:
         ...     repository=db_connection,
         ...     idempotency_store=idempotency_store,
         ...     producer=kafka_producer,
-        ...     topic_env_prefix="prod",
+        ...     publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
         ... )
         >>> handler = registry.apply_transition
         >>> result = await handler(intent)
@@ -159,7 +164,7 @@ class RegistryPatternLifecycleEffect:
         idempotency_store: ProtocolIdempotencyStore,
         producer: ProtocolKafkaPublisher | None = None,
         *,
-        topic_env_prefix: str = "dev",
+        publish_topic: str | None = None,
     ) -> ServiceHandlerRegistry:
         """Create a frozen registry with all handlers wired.
 
@@ -176,15 +181,14 @@ class RegistryPatternLifecycleEffect:
             producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
                 Optional - when None, transitions succeed but Kafka events are
                 not emitted.
-            topic_env_prefix: Environment prefix for Kafka topics.
-                Defaults to "dev". Must be non-empty alphanumeric with - or _.
+            publish_topic: Full Kafka topic for transition events.
+                Source of truth is the contract's event_bus.publish_topics.
 
         Returns:
             A frozen ServiceHandlerRegistry with handlers wired.
 
         Raises:
             ValueError: If repository or idempotency_store is None.
-            ValueError: If topic_env_prefix is invalid.
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
@@ -202,15 +206,6 @@ class RegistryPatternLifecycleEffect:
             raise ValueError(
                 "idempotency_store is required for RegistryPatternLifecycleEffect. "
                 "Provide a ProtocolIdempotencyStore implementation."
-            )
-
-        # Validate topic_env_prefix
-        if not topic_env_prefix:
-            raise ValueError("topic_env_prefix cannot be empty")
-        if not all(c.isalnum() or c in "-_" for c in topic_env_prefix):
-            raise ValueError(
-                f"topic_env_prefix '{topic_env_prefix}' contains invalid characters. "
-                "Only alphanumeric characters, hyphens, and underscores are allowed."
             )
 
         # Create handler with bound dependencies
@@ -232,13 +227,13 @@ class RegistryPatternLifecycleEffect:
                 reason=intent.reason,
                 gate_snapshot=intent.gate_snapshot,
                 transition_at=intent.transition_at,
-                topic_env_prefix=topic_env_prefix,
+                publish_topic=publish_topic,
             )
 
         # Create frozen registry
         registry = ServiceHandlerRegistry(
             apply_transition=bound_apply_transition,
-            topic_env_prefix=topic_env_prefix,
+            publish_topic=publish_topic,
         )
 
         # Store in module-level storage

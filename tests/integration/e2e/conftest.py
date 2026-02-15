@@ -4,7 +4,7 @@
 
 This module provides pytest fixtures for end-to-end testing of the pattern
 learning pipeline using:
-- Real PostgreSQL (configured via POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DATABASE) for data integrity
+- Real PostgreSQL (configured via OMNIINTELLIGENCE_DB_URL) for data integrity
 - Real Kafka/Redpanda (configured via KAFKA_BOOTSTRAP_SERVERS) for event emission and verification
 
 Test Coverage:
@@ -14,7 +14,7 @@ Test Coverage:
     - Kafka event emission and verification
 
 Infrastructure Configuration (from .env):
-    - PostgreSQL: ${POSTGRES_HOST}:${POSTGRES_PORT} (database: ${POSTGRES_DATABASE})
+    - PostgreSQL: configured via OMNIINTELLIGENCE_DB_URL
     - Kafka/Redpanda: ${KAFKA_BOOTSTRAP_SERVERS} (external port for host access)
 
 Kafka Integration:
@@ -50,17 +50,14 @@ import pytest_asyncio
 _cleanup_logger = logging.getLogger(__name__)
 
 # Import shared fixtures and utilities from root integration conftest
+from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
 from tests.integration.conftest import (
     KAFKA_AVAILABLE,
     KAFKA_BOOTSTRAP_SERVERS,
     KAFKA_REQUEST_TIMEOUT_MS,
+    OMNIINTELLIGENCE_DB_URL,
     POSTGRES_AVAILABLE,
     POSTGRES_COMMAND_TIMEOUT,
-    POSTGRES_DATABASE,
-    POSTGRES_HOST,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
-    POSTGRES_USER,
     MockKafkaPublisher,
     RealKafkaPublisher,
 )
@@ -91,6 +88,72 @@ E2E_DOMAIN: str = "code_generation"
 
 Uses existing domain from domain_taxonomy to satisfy FK.
 """
+
+
+# =============================================================================
+# Kafka Consumer Utilities
+# =============================================================================
+
+
+async def wait_for_message(
+    consumer: Any,
+    topic: str,
+    timeout_seconds: float = 10.0,
+    poll_interval_ms: int = 500,
+) -> dict[str, Any]:
+    """Wait for a message on topic, raising AssertionError if not received.
+
+    This helper polls the Kafka consumer with explicit timeouts and retry logic
+    to reliably receive messages in E2E tests. Unlike relying on async iteration
+    timeout behavior, this provides deterministic failure when messages aren't
+    received.
+
+    Args:
+        consumer: AIOKafkaConsumer instance (already started and subscribed).
+        topic: The topic to wait for a message on.
+        timeout_seconds: Maximum time to wait for a message (default: 10s).
+        poll_interval_ms: Time between poll attempts in milliseconds (default: 500ms).
+
+    Returns:
+        Dictionary with 'key', 'value', and 'topic' from the received message.
+
+    Raises:
+        AssertionError: If no message is received within the timeout period.
+    """
+    import json
+    import time
+
+    start_time = time.monotonic()
+    max_attempts = int((timeout_seconds * 1000) / poll_interval_ms)
+
+    for attempt in range(max_attempts):
+        # Use getmany for explicit polling with timeout
+        # This returns a dict of {TopicPartition: [messages]}
+        records = await consumer.getmany(timeout_ms=poll_interval_ms, max_records=10)
+
+        for tp, messages in records.items():
+            for msg in messages:
+                if msg.topic == topic:
+                    return {
+                        "key": msg.key.decode("utf-8") if msg.key else None,
+                        "value": json.loads(msg.value.decode("utf-8")),
+                        "topic": msg.topic,
+                    }
+
+        # Check if we've exceeded our timeout
+        elapsed = time.monotonic() - start_time
+        if elapsed >= timeout_seconds:
+            break
+
+    # Calculate actual elapsed time for the error message
+    elapsed = time.monotonic() - start_time
+    raise AssertionError(
+        f"Kafka consumer did not receive message on topic '{topic}' "
+        f"within {timeout_seconds}s timeout (elapsed: {elapsed:.2f}s, "
+        f"attempts: {max_attempts}). This indicates a real infrastructure "
+        f"issue - the message was not delivered to the broker or the consumer "
+        f"failed to read it."
+    )
 
 
 # =============================================================================
@@ -280,7 +343,7 @@ _project_root = os.path.dirname(
 async def _check_signature_hash_column_exists(conn: Any) -> bool:
     """Check if the signature_hash column exists in learned_patterns table.
 
-    This function detects whether migration 008_add_signature_hash has been applied.
+    This function detects whether migration 009_add_signature_hash has been applied.
 
     Args:
         conn: asyncpg.Connection to the database.
@@ -306,11 +369,8 @@ async def _check_signature_hash_column_exists(conn: Any) -> bool:
 # =============================================================================
 
 requires_e2e_postgres = pytest.mark.skipif(
-    not POSTGRES_AVAILABLE or not POSTGRES_PASSWORD,
-    reason=(
-        f"PostgreSQL not available at {POSTGRES_HOST}:{POSTGRES_PORT} "
-        "or password not set"
-    ),
+    not POSTGRES_AVAILABLE or not OMNIINTELLIGENCE_DB_URL,
+    reason=("PostgreSQL not available or OMNIINTELLIGENCE_DB_URL not set"),
 )
 """Skip marker for E2E tests requiring real PostgreSQL connectivity."""
 
@@ -342,7 +402,7 @@ async def signature_hash_available() -> bool:
         If PostgreSQL is not available, returns False (tests will skip via
         other mechanisms like requires_e2e_postgres marker).
     """
-    if not POSTGRES_PASSWORD:
+    if not OMNIINTELLIGENCE_DB_URL:
         return False
 
     try:
@@ -352,11 +412,7 @@ async def signature_hash_available() -> bool:
 
     try:
         conn: asyncpg.Connection = await asyncpg.connect(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
+            OMNIINTELLIGENCE_DB_URL,
             timeout=30,
             command_timeout=POSTGRES_COMMAND_TIMEOUT,
         )
@@ -382,7 +438,7 @@ async def e2e_db_conn(
     """Create a dedicated asyncpg connection for E2E tests with automatic cleanup.
 
     This fixture provides:
-    - Real PostgreSQL connection (configured via POSTGRES_HOST:POSTGRES_PORT env vars)
+    - Real PostgreSQL connection (configured via OMNIINTELLIGENCE_DB_URL)
     - Test isolation via E2E-prefixed signature_hash values
     - Automatic cleanup of test data after each test
     - Schema version detection via session-scoped signature_hash_available fixture
@@ -401,9 +457,9 @@ async def e2e_db_conn(
         Tests MUST use signature_hash values starting with 'test_e2e_' to ensure
         proper cleanup. Use the create_e2e_signature_hash() helper for this.
     """
-    if not POSTGRES_PASSWORD:
+    if not OMNIINTELLIGENCE_DB_URL:
         pytest.skip(
-            "POSTGRES_PASSWORD not set - add to .env file or environment. "
+            "OMNIINTELLIGENCE_DB_URL not set - add to .env file or environment. "
             "Expected .env at project root"
         )
 
@@ -414,18 +470,14 @@ async def e2e_db_conn(
 
     try:
         conn: asyncpg.Connection = await asyncpg.connect(
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
+            OMNIINTELLIGENCE_DB_URL,
             timeout=30,
             command_timeout=POSTGRES_COMMAND_TIMEOUT,
         )
     except (OSError, Exception) as e:
         pytest.skip(
             f"Database connection failed: {e}. "
-            f"Target: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
+            f"URL: {_safe_db_url_display(OMNIINTELLIGENCE_DB_URL)}"
         )
 
     try:
@@ -449,7 +501,7 @@ async def e2e_db_conn_with_signature_hash(
     """Database connection fixture that requires signature_hash column.
 
     This fixture wraps e2e_db_conn and skips the test if the signature_hash
-    column doesn't exist (migration 008 not applied).
+    column doesn't exist (migration 009 not applied).
 
     Use this fixture for tests that depend on the signature_hash column.
 
@@ -467,7 +519,7 @@ async def e2e_db_conn_with_signature_hash(
     if not signature_hash_available:
         pytest.skip(
             "signature_hash column not found in learned_patterns table. "
-            "Run migration 008_add_signature_hash.sql first."
+            "Run migration 009_add_signature_hash.sql first."
         )
 
     yield e2e_db_conn
@@ -489,7 +541,7 @@ async def _cleanup_e2e_test_data(
     since E2E tests use existing production domains (e.g., code_generation).
 
     The function is backward compatible with databases that don't have the
-    signature_hash column (migration 008 not applied).
+    signature_hash column (migration 009 not applied).
 
     **Fallback Pattern Matching**:
     When signature_hash column doesn't exist, the fallback uses a "contains" match
@@ -513,7 +565,7 @@ async def _cleanup_e2e_test_data(
     # Build the appropriate query based on schema version
     # Note: Only uses signature patterns for cleanup to avoid deleting production data
     if use_signature_hash:
-        # Use signature_hash (preferred - migration 008 applied)
+        # Use signature_hash (preferred - migration 009 applied)
         # signature_hash values start with E2E_SIGNATURE_PREFIX
         # (e.g., 'test_e2e_<hash>')
         #
@@ -534,7 +586,7 @@ async def _cleanup_e2e_test_data(
         like_pattern = f"{E2E_SIGNATURE_PREFIX}%"
         fallback_pattern = f"%{E2E_SIGNATURE_CONTAINS}%"
     else:
-        # Fallback: use pattern_signature (migration 008 not applied)
+        # Fallback: use pattern_signature (migration 009 not applied)
         # pattern_signature values contain E2E_SIGNATURE_CONTAINS
         # (e.g., 'def e2e_test_pattern_...')
         # Uses "contains" match since the E2E marker is in the middle
@@ -1410,4 +1462,6 @@ __all__ = [
     "requires_e2e_kafka",
     "requires_e2e_postgres",
     "signature_hash_available",
+    # Kafka consumer utilities
+    "wait_for_message",
 ]

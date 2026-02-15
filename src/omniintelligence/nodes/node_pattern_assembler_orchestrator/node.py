@@ -48,7 +48,9 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
         """
         super().__init__(container)
 
-    async def orchestrate(self, input_data: dict[str, Any]) -> dict[str, Any]:
+    async def orchestrate(  # any-ok: dict invariance — orchestrator handles heterogeneous JSON payloads
+        self, input_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Orchestrate pattern assembly by delegating to handler function.
 
         Args:

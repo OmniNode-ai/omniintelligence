@@ -18,6 +18,7 @@ from omniintelligence.testing.mock_pattern_store import (
     MockPatternStore,
     create_low_confidence_input_dict,
     create_valid_pattern_input,
+    make_discovered_event,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "MockPatternStore",
     "create_low_confidence_input_dict",
     "create_valid_pattern_input",
+    "make_discovered_event",
 ]

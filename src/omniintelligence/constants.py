@@ -45,25 +45,30 @@ Used in:
 """
 
 # =============================================================================
-# Kafka Topic Suffixes (TEMP_BOOTSTRAP)
+# Kafka Topic Constants (TEMP_BOOTSTRAP)
 # =============================================================================
 # TEMP_BOOTSTRAP: These constants are temporary until runtime injection from
-# contract.yaml is wired. Delete when OMN-1546 completes.
+# contract.yaml is wired end-to-end. Delete when OMN-1546 completes.
 #
 # Topic naming follows ONEX convention:
-#   {env}.onex.{type}.{domain}.{event-name}.{version}
+#   onex.{type}.{domain}.{event-name}.{version}
 #
-# These constants define the SUFFIX (everything after env prefix).
-# Full topic is constructed as: f"{env_prefix}.{suffix}"
+# The dispatch engine reads canonical topics from contract.yaml and uses them
+# directly (no env prefix). These constants match the contract declarations.
+#
+# NOTE: The TOPIC_SUFFIX_ prefix is a legacy naming artifact. The dispatch engine
+# uses these as canonical topics (no prefix), but handler_promotion and
+# handler_demotion still concatenate them as suffixes with topic_env_prefix.
+# The names will be removed entirely with OMN-1546; renaming is not worthwhile.
 # =============================================================================
 
 TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = (
     "onex.cmd.omniintelligence.claude-hook-event.v1"
 )
 """
-TEMP_BOOTSTRAP: Topic suffix for Claude Code hook events (INPUT).
+TEMP_BOOTSTRAP: Canonical topic for Claude Code hook events (INPUT).
 
-Full topic at runtime: {env}.onex.cmd.omniintelligence.claude-hook-event.v1
+Canonical topic: onex.cmd.omniintelligence.claude-hook-event.v1
 
 omniclaude publishes Claude Code hook events to this topic.
 RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
@@ -75,9 +80,9 @@ TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
     "onex.evt.omniintelligence.intent-classified.v1"
 )
 """
-TEMP_BOOTSTRAP: Topic suffix for intent classification events (OUTPUT).
+TEMP_BOOTSTRAP: Canonical topic for intent classification events (OUTPUT).
 
-Full topic at runtime: {env}.onex.evt.omniintelligence.intent-classified.v1
+Canonical topic: onex.evt.omniintelligence.intent-classified.v1
 
 NodeClaudeHookEventEffect publishes classified intents to this topic.
 omnimemory consumes for graph storage.
@@ -87,9 +92,9 @@ Deletion ticket: OMN-1546
 
 TOPIC_SUFFIX_PATTERN_STORED_V1: str = "onex.evt.omniintelligence.pattern-stored.v1"
 """
-TEMP_BOOTSTRAP: Topic suffix for pattern storage events (OUTPUT).
+TEMP_BOOTSTRAP: Canonical topic for pattern storage events (OUTPUT).
 
-Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-stored.v1
+Canonical topic: onex.evt.omniintelligence.pattern-stored.v1
 
 NodePatternStorageEffect publishes when a pattern is stored in the database.
 
@@ -98,9 +103,9 @@ Deletion ticket: OMN-1546
 
 TOPIC_SUFFIX_PATTERN_PROMOTED_V1: str = "onex.evt.omniintelligence.pattern-promoted.v1"
 """
-TEMP_BOOTSTRAP: Topic suffix for pattern promotion events (OUTPUT).
+TEMP_BOOTSTRAP: Canonical topic for pattern promotion events (OUTPUT).
 
-Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-promoted.v1
+Canonical topic: onex.evt.omniintelligence.pattern-promoted.v1
 
 NodePatternStorageEffect publishes when a pattern is promoted
 from candidate to active status based on confidence thresholds
@@ -113,9 +118,9 @@ TOPIC_SUFFIX_PATTERN_DEPRECATED_V1: str = (
     "onex.evt.omniintelligence.pattern-deprecated.v1"
 )
 """
-TEMP_BOOTSTRAP: Topic suffix for pattern deprecation events (OUTPUT).
+TEMP_BOOTSTRAP: Canonical topic for pattern deprecation events (OUTPUT).
 
-Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-deprecated.v1
+Canonical topic: onex.evt.omniintelligence.pattern-deprecated.v1
 
 NodePatternDemotionEffect publishes when a validated pattern is deprecated,
 e.g., due to rolling-window success metrics, failure streaks, or manual disable,
@@ -124,13 +129,41 @@ subject to cooldown/threshold gates.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_TOOL_CONTENT_V1: str = "onex.cmd.omniintelligence.tool-content.v1"
+"""
+TEMP_BOOTSTRAP: Canonical topic for tool content events (INPUT).
+
+Canonical topic: onex.cmd.omniintelligence.tool-content.v1
+
+omniclaude publishes PostToolUse payloads with file contents and command
+outputs to this topic. The claude hook event effect node consumes them
+for intelligence analysis.
+
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1: str = (
+    "onex.cmd.omniintelligence.pattern-learning.v1"
+)
+"""
+TEMP_BOOTSTRAP: Canonical topic for pattern learning commands (INPUT).
+
+Canonical topic: onex.cmd.omniintelligence.pattern-learning.v1
+
+NodeClaudeHookEventEffect publishes this command when a session stops,
+triggering pattern extraction in the intelligence orchestrator.
+
+Reference: OMN-2210
+Deletion ticket: OMN-1546
+"""
+
 TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1: str = (
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 """
-TEMP_BOOTSTRAP: Topic suffix for pattern lifecycle transition events (OUTPUT).
+TEMP_BOOTSTRAP: Canonical topic for pattern lifecycle transition events (OUTPUT).
 
-Full topic at runtime: {env}.onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1
+Canonical topic: onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1
 
 NodePatternLifecycleEffect publishes when a pattern status transition is applied,
 providing the single source of truth for pattern status changes with full audit trail.
@@ -142,6 +175,11 @@ Reference: OMN-1805
 Deletion ticket: OMN-1546
 """
 
+# NOTE: The pattern.discovered topic string lives exclusively in
+# node_pattern_storage_effect/contract.yaml (subscribe_topics).
+# No Python constant is needed because RuntimeHostProcess reads
+# the topic from the contract at startup.  Removed in OMN-2059 review.
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -152,7 +190,9 @@ __all__ = [
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
+    "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
     "TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1",
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
     "TOPIC_SUFFIX_PATTERN_STORED_V1",
+    "TOPIC_SUFFIX_TOOL_CONTENT_V1",
 ]

@@ -95,6 +95,7 @@ try:
         ModelStateTransition,
         PatternNotFoundError,
         PatternStateTransitionError,
+        PromotePatternResult,
         ProtocolPatternStateManager,
         handle_promote_pattern,
     )
@@ -126,6 +127,17 @@ except ImportError as e:
         "Ensure the models module (ModelPatternStorageInput, ModelPatternStoredEvent) is available."
     ) from e
 
+try:
+    from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered import (
+        handle_consume_discovered,
+    )
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import handler_consume_discovered: {e}. "
+        "This handler consumes pattern.discovered events from external systems. "
+        "Ensure ModelPatternDiscoveredEvent is available."
+    ) from e
+
 __all__ = [
     # Constants
     "DEFAULT_ACTOR",
@@ -141,6 +153,8 @@ __all__ = [
     "PatternNotFoundError",
     "PatternStateTransition",
     "PatternStateTransitionError",
+    # Result types (promote)
+    "PromotePatternResult",
     # Router
     "PatternStorageRouter",
     "PromotionValidationResult",  # Backwards compat alias for TransitionValidationResult
@@ -153,6 +167,8 @@ __all__ = [
     "TransitionValidationResult",
     # Functions (store)
     "create_initial_storage_transition",
+    # Functions (consume discovered)
+    "handle_consume_discovered",
     # Functions (promote)
     "get_valid_targets",
     "handle_promote_pattern",

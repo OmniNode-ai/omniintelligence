@@ -19,6 +19,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models.model_output im
     EnumKafkaEmissionStatus,
     ModelClaudeHookResult,
     ModelIntentResult,
+    ModelPatternLearningCommand,
 )
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "ModelClaudeCodeHookEventPayload",
     "ModelClaudeHookResult",
     "ModelIntentResult",
+    "ModelPatternLearningCommand",
 ]

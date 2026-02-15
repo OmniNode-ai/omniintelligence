@@ -9,8 +9,6 @@ ONEX Compliance:
 - UUID pattern validation for correlation_id
 """
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from omniintelligence.enums.enum_code_analysis import EnumAnalysisOperationType
@@ -48,7 +46,7 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
         description="Correlation ID for distributed tracing (UUID format)",
         pattern=UUID_PATTERN,
     )
-    result: dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, object] = Field(default_factory=dict)
     source_path: str = Field(default="", description="Path to the analyzed source")
     quality_score: float = Field(
         default=0.0, ge=0.0, le=1.0, description="Quality score"
@@ -70,7 +68,7 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
     maintainability_score: float | None = Field(
         default=None, description="Maintainability score"
     )
-    results_summary: dict[str, Any] = Field(
+    results_summary: dict[str, object] = Field(
         default_factory=dict, description="Summary of results"
     )
     cache_hit: bool = Field(default=False, description="Whether result was cached")

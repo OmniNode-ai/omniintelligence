@@ -51,7 +51,7 @@ from omniintelligence.constants import PERCENTAGE_MULTIPLIER
 logger = logging.getLogger(__name__)
 
 
-class LogSanitizerSettings(BaseSettings):  # type: ignore[misc]
+class LogSanitizerSettings(BaseSettings):
     """
     Pydantic Settings for LogSanitizer configuration.
 

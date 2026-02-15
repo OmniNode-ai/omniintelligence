@@ -40,15 +40,17 @@ from uuid import UUID
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
+from pydantic import ValidationError
+
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern import (
     DEFAULT_ACTOR,
-    PatternNotFoundError,
-    PatternStateTransitionError,
+    PromotePatternResult,
     ProtocolPatternStateManager,
     handle_promote_pattern,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     ProtocolPatternStore,
+    StorePatternResult,
     handle_store_pattern,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
@@ -78,6 +80,7 @@ ERROR_CODE_PATTERN_NOT_FOUND: Final[str] = "PATTERN_NOT_FOUND"
 ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
 ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
+ERROR_CODE_STORAGE_ERROR: Final[str] = "STORAGE_ERROR"
 
 
 # =============================================================================
@@ -132,13 +135,13 @@ class StorageOperationResult:
         self.error_code = error_code
         self.error_message = error_message
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert result to dictionary for serialization.
 
         Returns:
             Dictionary representation of the result.
         """
-        result: dict[str, Any] = {
+        result: dict[str, object] = {
             "operation": self.operation,
             "success": self.success,
         }
@@ -210,9 +213,11 @@ class PatternStorageRouter:
     async def route(
         self,
         operation: str,
-        input_data: dict[str, Any],
+        input_data: dict[
+            str, Any
+        ],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
-        conn: AsyncConnection[Any],
+        conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
     ) -> StorageOperationResult:
         """Route operation to the appropriate handler.
 
@@ -257,9 +262,11 @@ class PatternStorageRouter:
 
     async def _handle_store(
         self,
-        input_data: dict[str, Any],
+        input_data: dict[
+            str, Any
+        ],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
-        conn: AsyncConnection[Any],
+        conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
     ) -> StorageOperationResult:
         """Handle store_pattern operation.
 
@@ -272,62 +279,112 @@ class PatternStorageRouter:
                 use this connection for atomic idempotency + storage.
 
         Returns:
-            StorageOperationResult with stored event.
-
-        Raises:
-            ValueError: If input data validation fails.
+            StorageOperationResult with stored event, or failure result for
+            governance violations and validation errors.
         """
         try:
             # Convert dict to typed input model
             storage_input = ModelPatternStorageInput.model_validate(input_data)
-
-            # Call the existing handler
-            stored_event = await handle_store_pattern(
-                input_data=storage_input,
-                pattern_store=self._pattern_store,
-                conn=conn,
+        except (ValidationError, ValueError) as e:
+            error_msg = str(e)
+            logger.warning(
+                "Store pattern input validation failed",
+                extra={"error": error_msg, "error_code": ERROR_CODE_VALIDATION_ERROR},
             )
-
-            logger.info(
-                "Store pattern operation completed",
-                extra={
-                    "pattern_id": str(stored_event.pattern_id),
-                    "domain": stored_event.domain,
-                    "version": stored_event.version,
-                },
-            )
-
             return StorageOperationResult(
                 operation=OPERATION_STORE_PATTERN,
-                success=True,
-                stored_event=stored_event,
+                success=False,
+                error_code=ERROR_CODE_VALIDATION_ERROR,
+                error_message=error_msg,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            logger.warning(
+                "Store pattern unexpected error during input processing",
+                extra={"error": error_msg, "error_code": ERROR_CODE_STORAGE_ERROR},
+            )
+            return StorageOperationResult(
+                operation=OPERATION_STORE_PATTERN,
+                success=False,
+                error_code=ERROR_CODE_STORAGE_ERROR,
+                error_message=error_msg,
             )
 
-        except ValueError as e:
-            error_msg = str(e)
-            # Determine error code based on error type
-            # Governance failures contain "Governance validation failed"
-            if "governance" in error_msg.lower():
+        # Guard: Ensure pattern store is initialized
+        if self._pattern_store is None:
+            logger.error(
+                "Pattern store not initialized",
+                extra={"error_code": "PATSTOR_001"},
+            )
+            return StorageOperationResult(
+                operation=OPERATION_STORE_PATTERN,
+                success=False,
+                error_code="PATSTOR_001",
+                error_message="Pattern store not initialized",
+            )
+
+        # Call the existing handler (returns structured result, not exceptions)
+        store_result: StorePatternResult = await handle_store_pattern(
+            input_data=storage_input,
+            pattern_store=self._pattern_store,
+            conn=conn,
+        )
+
+        if not store_result.success:
+            # Distinguish governance violations from generic storage failures
+            has_governance_violations = bool(store_result.governance_violations)
+            if has_governance_violations:
                 error_code = ERROR_CODE_GOVERNANCE_VIOLATION
+                default_message = "Governance validation failed"
+                log_message = "Store pattern governance validation failed"
             else:
-                error_code = ERROR_CODE_VALIDATION_ERROR
+                error_code = "PATSTOR_003"
+                default_message = "Pattern storage failed"
+                log_message = "Store pattern operation failed"
 
             logger.warning(
-                "Store pattern validation failed",
-                extra={"error": error_msg, "error_code": error_code},
+                log_message,
+                extra={
+                    "error": store_result.error_message,
+                    "error_code": error_code,
+                },
             )
             return StorageOperationResult(
                 operation=OPERATION_STORE_PATTERN,
                 success=False,
                 error_code=error_code,
-                error_message=error_msg,
+                error_message=store_result.error_message or default_message,
             )
+
+        stored_event = store_result.event
+        if stored_event is None:
+            raise RuntimeError(
+                f"Invariant violation: store succeeded but event is None "
+                f"(pattern_id={storage_input.pattern_id})"
+            )
+
+        logger.info(
+            "Store pattern operation completed",
+            extra={
+                "pattern_id": str(stored_event.pattern_id),
+                "domain": stored_event.domain,
+                "version": stored_event.version,
+            },
+        )
+
+        return StorageOperationResult(
+            operation=OPERATION_STORE_PATTERN,
+            success=True,
+            stored_event=stored_event,
+        )
 
     async def _handle_promote(
         self,
-        input_data: dict[str, Any],
+        input_data: dict[
+            str, Any
+        ],  # any-ok: dynamic dispatch data, values are typed at call site
         *,
-        conn: AsyncConnection[Any],
+        conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
     ) -> StorageOperationResult:
         """Handle promote_pattern operation.
 
@@ -400,8 +457,21 @@ class PatternStorageRouter:
                 else correlation_id_str
             )
 
-            # Call the existing handler
-            promoted_event = await handle_promote_pattern(
+            # Guard: Ensure state manager is initialized
+            if self._state_manager is None:
+                logger.error(
+                    "State manager not initialized",
+                    extra={"error_code": "PATSTOR_002"},
+                )
+                return StorageOperationResult(
+                    operation=OPERATION_PROMOTE_PATTERN,
+                    success=False,
+                    error_code="PATSTOR_002",
+                    error_message="State manager not initialized",
+                )
+
+            # Call the handler (returns structured result, not exceptions)
+            promote_result: PromotePatternResult = await handle_promote_pattern(
                 pattern_id=pattern_id,
                 to_state=to_state,
                 reason=reason,
@@ -414,6 +484,35 @@ class PatternStorageRouter:
                 metadata=input_data.get("metadata"),
                 conn=conn,
             )
+
+            if not promote_result.success:
+                logger.warning(
+                    "Promote pattern failed",
+                    extra={
+                        "error": promote_result.error_message,
+                        "error_code": promote_result.error_code,
+                        "pattern_id": str(promote_result.pattern_id),
+                        "from_state": promote_result.from_state.value
+                        if promote_result.from_state
+                        else None,
+                        "to_state": promote_result.to_state.value
+                        if promote_result.to_state
+                        else None,
+                    },
+                )
+                return StorageOperationResult(
+                    operation=OPERATION_PROMOTE_PATTERN,
+                    success=False,
+                    error_code=promote_result.error_code,
+                    error_message=promote_result.error_message,
+                )
+
+            promoted_event = promote_result.event
+            if promoted_event is None:
+                raise RuntimeError(
+                    f"Invariant violation: promote succeeded but event is None "
+                    f"(pattern_id={pattern_id})"
+                )
 
             logger.info(
                 "Promote pattern operation completed",
@@ -430,35 +529,6 @@ class PatternStorageRouter:
                 operation=OPERATION_PROMOTE_PATTERN,
                 success=True,
                 promoted_event=promoted_event,
-            )
-
-        except PatternNotFoundError as e:
-            logger.warning(
-                "Promote pattern failed: pattern not found",
-                extra={"error": str(e), "pattern_id": str(e.pattern_id)},
-            )
-            return StorageOperationResult(
-                operation=OPERATION_PROMOTE_PATTERN,
-                success=False,
-                error_code=ERROR_CODE_PATTERN_NOT_FOUND,
-                error_message=str(e),
-            )
-
-        except PatternStateTransitionError as e:
-            logger.warning(
-                "Promote pattern failed: invalid transition",
-                extra={
-                    "error": str(e),
-                    "pattern_id": str(e.pattern_id),
-                    "from_state": e.from_state.value if e.from_state else None,
-                    "to_state": e.to_state.value,
-                },
-            )
-            return StorageOperationResult(
-                operation=OPERATION_PROMOTE_PATTERN,
-                success=False,
-                error_code=ERROR_CODE_INVALID_TRANSITION,
-                error_message=str(e),
             )
 
         except ValueError as e:
@@ -481,12 +551,14 @@ class PatternStorageRouter:
 
 async def route_storage_operation(
     operation: str,
-    input_data: dict[str, Any],
+    input_data: dict[
+        str, Any
+    ],  # any-ok: dynamic dispatch data, values are typed at call site
     *,
     pattern_store: ProtocolPatternStore,
     state_manager: ProtocolPatternStateManager,
-    conn: AsyncConnection[Any],
-) -> dict[str, Any]:
+    conn: AsyncConnection[Any],  # any-ok: psycopg AsyncConnection row factory type
+) -> dict[str, object]:
     """Entry point for contract-driven handler routing.
 
     This function is referenced by contract.yaml handler_routing.entry_point
@@ -580,6 +652,7 @@ __all__ = [
     "ERROR_CODE_GOVERNANCE_VIOLATION",
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
+    "ERROR_CODE_STORAGE_ERROR",
     "ERROR_CODE_VALIDATION_ERROR",
     "OPERATION_PROMOTE_PATTERN",
     "OPERATION_STORE_PATTERN",

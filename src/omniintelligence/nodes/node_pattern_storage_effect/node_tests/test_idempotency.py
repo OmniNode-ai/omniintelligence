@@ -22,6 +22,9 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
+from omnibase_core.types.typed_dict_pattern_storage_metadata import (
+    TypedDictPatternStorageMetadata,
+)
 
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern import (
     handle_store_pattern,
@@ -71,8 +74,12 @@ class TestIdempotentStorage:
         )
 
         # Should return same pattern_id
-        assert result1.pattern_id == result2.pattern_id
-        assert result1.signature_hash == result2.signature_hash
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result1.event.pattern_id == result2.event.pattern_id
+        assert result1.event.signature_hash == result2.event.signature_hash
 
     @pytest.mark.asyncio
     async def test_idempotent_call_no_duplicate_storage(
@@ -149,8 +156,12 @@ class TestIdempotentStorage:
         )
 
         # Both should show CANDIDATE state
-        assert result1.state == EnumPatternState.CANDIDATE
-        assert result2.state == EnumPatternState.CANDIDATE
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result1.event.state == EnumPatternState.CANDIDATE
+        assert result2.event.state == EnumPatternState.CANDIDATE
 
 
 # =============================================================================
@@ -193,8 +204,12 @@ class TestNewVersionCreation:
         )
 
         # Should have incremented version
-        assert result1.version == 1
-        assert result2.version == 2
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result1.event.version == 1
+        assert result2.event.version == 2
 
     @pytest.mark.asyncio
     async def test_version_auto_increment(
@@ -216,7 +231,9 @@ class TestNewVersionCreation:
             result = await handle_store_pattern(
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
-            versions_created.append(result.version)
+            assert result.success is True
+            assert result.event is not None
+            versions_created.append(result.event.version)
 
         # Versions should be 1, 2, 3, 4, 5
         assert versions_created == [1, 2, 3, 4, 5]
@@ -258,9 +275,15 @@ class TestNewVersionCreation:
         )
 
         # Each lineage should have independent versioning
-        assert result1a.version == 1
-        assert result1b.version == 2  # Incremented within lineage_a
-        assert result2a.version == 1  # Independent lineage_b starts at 1
+        assert result1a.success is True
+        assert result1b.success is True
+        assert result2a.success is True
+        assert result1a.event is not None
+        assert result1b.event is not None
+        assert result2a.event is not None
+        assert result1a.event.version == 1
+        assert result1b.event.version == 2  # Incremented within lineage_a
+        assert result2a.event.version == 1  # Independent lineage_b starts at 1
 
 
 # =============================================================================
@@ -307,8 +330,12 @@ class TestImmutableHistory:
         )
 
         # Both patterns should exist with original data
-        stored1 = mock_pattern_store.patterns[result1.pattern_id]
-        stored2 = mock_pattern_store.patterns[result2.pattern_id]
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        stored1 = mock_pattern_store.patterns[result1.event.pattern_id]
+        stored2 = mock_pattern_store.patterns[result2.event.pattern_id]
 
         assert stored1["confidence"] == 0.7
         assert stored1["signature"] == "original_signature"
@@ -336,7 +363,9 @@ class TestImmutableHistory:
             result = await handle_store_pattern(
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
-            pattern_ids.append(result.pattern_id)
+            assert result.success is True
+            assert result.event is not None
+            pattern_ids.append(result.event.pattern_id)
 
         # All three patterns should exist
         assert len(mock_pattern_store.patterns) == 3
@@ -366,7 +395,9 @@ class TestIsCurrentFlag:
             input_data, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        stored = mock_pattern_store.patterns[result.pattern_id]
+        assert result.success is True
+        assert result.event is not None
+        stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["is_current"] is True
 
     @pytest.mark.asyncio
@@ -390,7 +421,9 @@ class TestIsCurrentFlag:
             result = await handle_store_pattern(
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
-            pattern_ids.append(result.pattern_id)
+            assert result.success is True
+            assert result.event is not None
+            pattern_ids.append(result.event.pattern_id)
 
         # Check is_current flags
         for i, pid in enumerate(pattern_ids):
@@ -425,7 +458,11 @@ class TestIsCurrentFlag:
         )
 
         # Verify first is current
-        assert mock_pattern_store.patterns[result1.pattern_id]["is_current"] is True
+        assert result1.success is True
+        assert result1.event is not None
+        assert (
+            mock_pattern_store.patterns[result1.event.pattern_id]["is_current"] is True
+        )
 
         # Second version
         input2 = create_valid_input(
@@ -438,9 +475,15 @@ class TestIsCurrentFlag:
         )
 
         # First should no longer be current
-        assert mock_pattern_store.patterns[result1.pattern_id]["is_current"] is False
+        assert result2.success is True
+        assert result2.event is not None
+        assert (
+            mock_pattern_store.patterns[result1.event.pattern_id]["is_current"] is False
+        )
         # Second should be current
-        assert mock_pattern_store.patterns[result2.pattern_id]["is_current"] is True
+        assert (
+            mock_pattern_store.patterns[result2.event.pattern_id]["is_current"] is True
+        )
 
 
 # =============================================================================
@@ -503,12 +546,20 @@ class TestLineageKey:
         )
 
         # Same lineage increments
-        assert result1.version == 1
-        assert result2.version == 2
+        assert result1.success is True
+        assert result2.success is True
+        assert result3.success is True
+        assert result4.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result3.event is not None
+        assert result4.event is not None
+        assert result1.event.version == 1
+        assert result2.event.version == 2
 
         # Different lineages start at 1
-        assert result3.version == 1
-        assert result4.version == 1
+        assert result3.event.version == 1
+        assert result4.event.version == 1
 
     @pytest.mark.asyncio
     async def test_input_lineage_key_property(self) -> None:
@@ -554,7 +605,9 @@ class TestMetadataPreservation:
             input_data, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        stored = mock_pattern_store.patterns[result.pattern_id]
+        assert result.success is True
+        assert result.event is not None
+        stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["actor"] == "test_actor"
         assert stored["source_run_id"] == "run_123"
         assert stored["metadata"]["tags"] == ["tag1", "tag2"]
@@ -574,7 +627,9 @@ class TestMetadataPreservation:
             input_data, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        stored = mock_pattern_store.patterns[result.pattern_id]
+        assert result.success is True
+        assert result.event is not None
+        stored = mock_pattern_store.patterns[result.event.pattern_id]
         assert stored["correlation_id"] == correlation_id
 
     @pytest.mark.asyncio
@@ -591,7 +646,9 @@ class TestMetadataPreservation:
             input_data, pattern_store=mock_pattern_store, conn=mock_conn
         )
 
-        assert result.correlation_id == correlation_id
+        assert result.success is True
+        assert result.event is not None
+        assert result.event.correlation_id == correlation_id
 
 
 # =============================================================================
@@ -617,7 +674,9 @@ class TestIdempotencyEdgeCases:
             result = await handle_store_pattern(
                 input_data, pattern_store=mock_pattern_store, conn=mock_conn
             )
-            results.append(result.pattern_id)
+            assert result.success is True
+            assert result.event is not None
+            results.append(result.event.pattern_id)
 
         # All should return same pattern_id
         assert all(pid == results[0] for pid in results)
@@ -653,7 +712,11 @@ class TestIdempotencyEdgeCases:
         )
 
         # Should be idempotent based on (pattern_id, signature_hash)
-        assert result1.pattern_id == result2.pattern_id
+        assert result1.success is True
+        assert result2.success is True
+        assert result1.event is not None
+        assert result2.event is not None
+        assert result1.event.pattern_id == result2.event.pattern_id
         # Original confidence should be preserved
         stored = mock_pattern_store.patterns[pattern_id]
         assert stored["confidence"] == 0.7
@@ -943,7 +1006,7 @@ class TestAtomicVersionTransition:
         pattern_id = uuid4()
         correlation_id = uuid4()
         stored_at = datetime.now(UTC)
-        metadata = {
+        metadata: TypedDictPatternStorageMetadata = {
             "tags": ["test", "unit"],
             "learning_context": "unit_test",
             "additional_attributes": {"key": "value"},

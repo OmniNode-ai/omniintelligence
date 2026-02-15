@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from omnibase_core.types import JsonType
+from omnibase_core.types import JsonType, PrimitiveValue
 from pydantic import BaseModel, Field
 
 from omniintelligence.nodes.node_pattern_extraction_compute.models.model_insight import (
@@ -142,7 +142,7 @@ class ModelSessionSnapshot(BaseModel):
         default="unknown",
         description="Session outcome: success, failure, partial, unknown",
     )
-    metadata: dict[str, str | int | float | bool] = Field(
+    metadata: dict[str, PrimitiveValue] = Field(
         default_factory=dict,
         description="Additional session metadata",
     )

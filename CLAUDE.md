@@ -103,7 +103,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 
 **Orchestrators**:
 - `NodeIntelligenceOrchestrator` - Main workflow coordination (contract-driven)
-- `NodePatternAssemblerOrchestrator` - Pattern assembly from traces (stub)
+- `NodePatternAssemblerOrchestrator` - Pattern assembly from traces
 
 **Reducer**:
 - `NodeIntelligenceReducer` - Unified FSM handler (ingestion, pattern_learning, quality_assessment)
@@ -113,10 +113,10 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 - `NodeSemanticAnalysisCompute` - Semantic code analysis
 - `NodePatternExtractionCompute` - Extract patterns from code
 - `NodePatternLearningCompute` - ML pattern learning pipeline
-- `NodePatternMatchingCompute` - Match patterns against code (stub)
+- `NodePatternMatchingCompute` - Match patterns against code
 - `NodeIntentClassifierCompute` - User prompt intent classification
-- `NodeExecutionTraceParserCompute` - Parse execution traces (stub)
-- `NodeSuccessCriteriaMatcherCompute` - Match success criteria (stub)
+- `NodeExecutionTraceParserCompute` - Parse execution traces
+- `NodeSuccessCriteriaMatcherCompute` - Match success criteria
 
 **Effect Nodes**:
 - `NodeClaudeHookEventEffect` - Process Claude Code hook events
@@ -124,6 +124,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 - `NodePatternPromotionEffect` - Promote patterns (provisional → validated)
 - `NodePatternDemotionEffect` - Demote patterns (validated → deprecated)
 - `NodePatternFeedbackEffect` - Record session outcomes and metrics
+- `NodePatternLifecycleEffect` - Atomic pattern lifecycle transitions with audit trail
 
 ---
 
@@ -483,14 +484,6 @@ async def handle_store_pattern(
     # All operations use the provided connection
     await pattern_store.store_pattern(..., conn=conn)
 ```
-
-### Kafka Connection (CRITICAL)
-
-Use correct bootstrap servers based on context:
-- **Docker services**: `omninode-bridge-redpanda:9092`
-- **Host scripts**: `192.168.86.200:29092`
-
-See `~/.claude/CLAUDE.md` for full infrastructure topology.
 
 ### Protocol Design Guidelines
 
