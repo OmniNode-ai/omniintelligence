@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2025 OmniNode Team
-"""Integration-contract tests for _reshape_daemon_hook_payload_v1.
+"""Unit-contract tests for _reshape_daemon_hook_payload_v1.
 
 Validates that the reshape function correctly transforms flat daemon-shaped
 payloads into the nested structure expected by ModelClaudeCodeHookEvent.
