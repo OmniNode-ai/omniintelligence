@@ -39,6 +39,7 @@ from omniintelligence.nodes.node_pattern_extraction_compute.models import (
     ModelPatternExtractionMetadata,
     ModelPatternExtractionOutput,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 from omniintelligence.runtime.dispatch_handler_pattern_learning import (
     MAX_PATTERNS_PER_SESSION,
     PUBLISH_BATCH_SIZE,
@@ -46,6 +47,7 @@ from omniintelligence.runtime.dispatch_handler_pattern_learning import (
     _transform_insights_to_pattern_events,
     create_pattern_learning_dispatch_handler,
 )
+from omniintelligence.testing.mock_record import MockRecord
 
 # =============================================================================
 # Constants
@@ -72,6 +74,7 @@ def mock_repository() -> MagicMock:
     repo.fetch = AsyncMock(return_value=[])
     repo.fetchrow = AsyncMock(return_value=None)
     repo.execute = AsyncMock(return_value="UPDATE 0")
+    assert isinstance(repo, ProtocolPatternRepository)
     return repo
 
 
@@ -639,42 +642,42 @@ class TestFetchSessionSnapshot:
         now = datetime.now(UTC)
         mock_repository.fetch = AsyncMock(
             side_effect=[
-                # First call: agent_actions
+                # First call: agent_actions (MockRecord emulates asyncpg.Record)
                 [
-                    {
-                        "action_type": "read",
-                        "tool_name": "Read",
-                        "file_path": "src/main.py",
-                        "status": "success",
-                        "error_message": None,
-                        "created_at": now,
-                    },
-                    {
-                        "action_type": "edit",
-                        "tool_name": "Edit",
-                        "file_path": "src/utils.py",
-                        "status": "success",
-                        "error_message": None,
-                        "created_at": now,
-                    },
-                    {
-                        "action_type": "read",
-                        "tool_name": "Read",
-                        "file_path": "src/broken.py",
-                        "status": "error",
-                        "error_message": "File not found",
-                        "created_at": now,
-                    },
+                    MockRecord(
+                        action_type="read",
+                        tool_name="Read",
+                        file_path="src/main.py",
+                        status="success",
+                        error_message=None,
+                        created_at=now,
+                    ),
+                    MockRecord(
+                        action_type="edit",
+                        tool_name="Edit",
+                        file_path="src/utils.py",
+                        status="success",
+                        error_message=None,
+                        created_at=now,
+                    ),
+                    MockRecord(
+                        action_type="read",
+                        tool_name="Read",
+                        file_path="src/broken.py",
+                        status="error",
+                        error_message="File not found",
+                        created_at=now,
+                    ),
                 ],
-                # Second call: workflow_steps
+                # Second call: workflow_steps (MockRecord emulates asyncpg.Record)
                 [
-                    {
-                        "step_name": "analysis",
-                        "status": "completed",
-                        "error_message": None,
-                        "started_at": now,
-                        "completed_at": now,
-                    },
+                    MockRecord(
+                        step_name="analysis",
+                        status="completed",
+                        error_message=None,
+                        started_at=now,
+                        completed_at=now,
+                    ),
                 ],
             ]
         )

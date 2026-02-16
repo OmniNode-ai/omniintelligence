@@ -14,10 +14,11 @@ Note on Defaults:
 """
 
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from omniintelligence.enums import EnumPatternLifecycleStatus
 
 
 class ModelDomainCandidate(BaseModel):
@@ -86,7 +87,7 @@ class ModelLearnedPatternRow(BaseModel):
     )
 
     # Lifecycle
-    status: Literal["candidate", "provisional", "validated", "deprecated"] = Field(
+    status: EnumPatternLifecycleStatus = Field(
         ...,
         description="Pattern status: candidate, provisional, validated, deprecated",
     )

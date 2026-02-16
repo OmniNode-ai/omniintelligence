@@ -11,6 +11,7 @@ tests.fixtures when run from within the src directory.
 
 Modules:
     mock_pattern_store: Mock implementations of pattern storage protocols
+    mock_record: Mock asyncpg.Record for database row testing
 """
 
 from omniintelligence.testing.mock_pattern_store import (
@@ -20,10 +21,12 @@ from omniintelligence.testing.mock_pattern_store import (
     create_valid_pattern_input,
     make_discovered_event,
 )
+from omniintelligence.testing.mock_record import MockRecord
 
 __all__ = [
     "MockPatternStateManager",
     "MockPatternStore",
+    "MockRecord",
     "create_low_confidence_input_dict",
     "create_valid_pattern_input",
     "make_discovered_event",

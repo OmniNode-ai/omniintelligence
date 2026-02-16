@@ -348,12 +348,14 @@ async def _build_enriched_gate_snapshot(
     pattern: PatternMetricsRow,
     *,
     conn: ProtocolPatternRepository,
+    correlation_id: UUID,
 ) -> ModelGateSnapshot:
     """Build gate snapshot enriched with evidence tier data.
 
     Args:
         pattern: Pattern record from SQL query.
         conn: Database connection for attribution count lookup.
+        correlation_id: Correlation ID for traceability in warning logs.
 
     Returns:
         ModelGateSnapshot with evidence tier fields populated.
@@ -381,7 +383,14 @@ async def _build_enriched_gate_snapshot(
         # with exc_info=True so the full traceback is visible, then fall
         # through with attribution_count=0 so promotion evaluation can still
         # proceed with conservative defaults.
-        logger.warning("Failed to count attributions for gate snapshot", exc_info=True)
+        logger.warning(
+            "Failed to count attributions for gate snapshot",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+            },
+            exc_info=True,
+        )
 
     # Get latest run result (validate against known values)
     latest_run_result = None
@@ -394,7 +403,12 @@ async def _build_enriched_gate_snapshot(
         # Same rationale as attribution count above. DB errors yield
         # latest_run_result=None (conservative default).
         logger.warning(
-            "Failed to get latest run result for gate snapshot", exc_info=True
+            "Failed to get latest run result for gate snapshot",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+            },
+            exc_info=True,
         )
 
     return ModelGateSnapshot(
@@ -504,7 +518,7 @@ async def handle_auto_promote_check(
 
         try:
             gate_snapshot = await _build_enriched_gate_snapshot(
-                pattern, conn=repository
+                pattern, conn=repository, correlation_id=effective_correlation_id
             )
             transition_result = await apply_transition_fn(
                 repository,
@@ -605,7 +619,7 @@ async def handle_auto_promote_check(
 
         try:
             gate_snapshot = await _build_enriched_gate_snapshot(
-                pattern, conn=repository
+                pattern, conn=repository, correlation_id=effective_correlation_id
             )
             transition_result = await apply_transition_fn(
                 repository,

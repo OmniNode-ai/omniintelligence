@@ -26,6 +26,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.protocols import ProtocolPatternRepository
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
     DISPATCH_ALIAS_PATTERN_DISCOVERED,
@@ -73,6 +74,7 @@ def mock_repository() -> MagicMock:
     repo.fetch = AsyncMock(return_value=[])
     repo.fetchrow = AsyncMock(return_value=None)
     repo.execute = AsyncMock(return_value="UPDATE 0")
+    assert isinstance(repo, ProtocolPatternRepository)
     return repo
 
 

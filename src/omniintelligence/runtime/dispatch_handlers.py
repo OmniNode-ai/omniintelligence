@@ -1299,7 +1299,27 @@ def create_dispatch_callback(
             if hasattr(msg, "value"):
                 raw_value = msg.value
                 if isinstance(raw_value, bytes | bytearray):
-                    payload_dict = json.loads(raw_value.decode("utf-8"))
+                    try:
+                        decoded_value = raw_value.decode("utf-8")
+                    except UnicodeDecodeError as ude:
+                        # Invalid UTF-8 will never become valid on retry --
+                        # ACK to prevent infinite redelivery.
+                        safe_preview = get_log_sanitizer().sanitize(
+                            repr(raw_value[:200])
+                        )
+                        logger.error(
+                            "Invalid UTF-8 in message body, ACKing to "
+                            "prevent infinite retry (error=%s, "
+                            "raw_preview=%s, correlation_id=%s). "
+                            "Message discarded (permanent parse failure).",
+                            ude,
+                            safe_preview,
+                            msg_correlation_id,
+                        )
+                        if hasattr(msg, "ack"):
+                            await msg.ack()
+                        return
+                    payload_dict = json.loads(decoded_value)
                 elif isinstance(raw_value, str):
                     payload_dict = json.loads(raw_value)
                 elif isinstance(raw_value, dict):
@@ -1386,12 +1406,13 @@ def create_dispatch_callback(
                     raw_preview = repr(raw_bytes[:200])
                 elif isinstance(raw_bytes, str):
                     raw_preview = raw_bytes[:200]
+            sanitized_preview = get_log_sanitizer().sanitize(raw_preview)
             logger.error(
                 "Malformed JSON in message body, ACKing to prevent infinite retry "
                 "(error=%s, raw_preview=%s, correlation_id=%s). "
                 "Message discarded (permanent parse failure).",
                 e,
-                raw_preview,
+                sanitized_preview,
                 msg_correlation_id,
             )
             if hasattr(msg, "ack"):
