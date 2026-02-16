@@ -156,6 +156,14 @@ before reshaping.  Defined as a module-level tuple to avoid
 reconstructing on every call.
 """
 
+_MAX_DIAGNOSTIC_KEYS: int = 10
+"""Maximum number of payload keys to include in error messages.
+
+Defence-in-depth measure: future payloads may carry sensitive domain keys.
+Diagnostic messages truncate the key list to this limit and append an
+ellipsis indicator when truncated.
+"""
+
 
 # =============================================================================
 # Bridge Handler: Claude Hook Event
@@ -229,21 +237,30 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
             (``emitted_at``, ``event_type``, ``session_id``,
             ``correlation_id``) is missing or has a null value.  The
             error message distinguishes between the two cases and
-            includes ``sorted(raw.keys())`` for diagnostics.
+            includes a bounded subset of ``sorted(raw.keys())`` for
+            diagnostics (capped at ``_MAX_DIAGNOSTIC_KEYS``).
     """
     # --- require four mandatory envelope keys ---
     # Distinguish between missing keys and keys present with null values
     # so that error messages accurately describe the problem.
+    # Key list is bounded to _MAX_DIAGNOSTIC_KEYS to avoid exposing
+    # sensitive domain key names in future payloads.
     for _key in _REQUIRED_ENVELOPE_KEYS:
         if _key not in raw:
+            all_keys = sorted(raw.keys())
+            diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
+            truncated = "..." if len(all_keys) > _MAX_DIAGNOSTIC_KEYS else ""
             raise ValueError(
                 f"Daemon payload missing required key '{_key}' "
-                f"(keys={sorted(raw.keys())})"
+                f"(keys={diagnostic_keys}{truncated})"
             )
         if raw[_key] is None:
+            all_keys = sorted(raw.keys())
+            diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
+            truncated = "..." if len(all_keys) > _MAX_DIAGNOSTIC_KEYS else ""
             raise ValueError(
                 f"Daemon payload has null value for required key '{_key}' "
-                f"(keys={sorted(raw.keys())})"
+                f"(keys={diagnostic_keys}{truncated})"
             )
 
     emitted_at = raw["emitted_at"]

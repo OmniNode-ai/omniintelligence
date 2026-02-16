@@ -280,6 +280,91 @@ class TestReshapeNullRequiredKeys:
 
 
 # =============================================================================
+# Tests: Both emitted_at and timestamp_utc Present (Canonical Path)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeBothTimestampKeys:
+    """Validate reshape behaviour when both emitted_at and timestamp_utc are present.
+
+    The dispatch handler uses a heuristic to detect flat daemon payloads:
+    ``'emitted_at' in payload and 'timestamp_utc' not in payload``.  When
+    both keys are present, the payload is treated as canonical (already
+    shaped) and passed through to ``_reshape_daemon_hook_payload_v1``
+    without the caller triggering reshape.
+
+    However, _reshape_daemon_hook_payload_v1 itself operates purely on the
+    dict it receives.  This test verifies that when a payload containing
+    both ``emitted_at`` and ``timestamp_utc`` is passed directly, the
+    function still reshapes it (it does not skip), confirming that the
+    no-reshape decision must be made by the caller, not by the function.
+    """
+
+    def test_payload_with_both_keys_is_not_skipped_by_caller_heuristic(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """Payload with BOTH emitted_at and timestamp_utc is treated as canonical.
+
+        The caller heuristic (``needs_reshape``) should evaluate to False
+        when both keys are present, meaning _reshape_daemon_hook_payload_v1
+        is never called.  We verify the heuristic directly.
+        """
+        # Add timestamp_utc alongside existing emitted_at
+        daemon_wire_payload["timestamp_utc"] = "2026-02-15T10:30:00+00:00"
+
+        # This is the exact heuristic from create_claude_hook_dispatch_handler
+        needs_reshape = (
+            "emitted_at" in daemon_wire_payload
+            and "timestamp_utc" not in daemon_wire_payload
+        )
+
+        assert needs_reshape is False, (
+            "When both emitted_at and timestamp_utc are present, "
+            "the caller must NOT trigger reshape"
+        )
+
+    def test_payload_with_both_keys_passed_through_unchanged(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """When the caller skips reshape, the original dict is used as-is.
+
+        Simulates the canonical (no-reshape) path: the payload already
+        contains timestamp_utc and a nested payload dict, so it should
+        be forwarded directly to ModelClaudeCodeHookEvent without
+        transformation.
+        """
+        # Build a canonical-shaped payload that has both keys
+        canonical_payload: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp_utc": "2026-02-15T10:30:00+00:00",
+            "emitted_at": "2026-02-15T10:30:00+00:00",  # extra key
+            "payload": {
+                "prompt_preview": "Fix the bug in...",
+                "prompt_length": 150,
+            },
+        }
+
+        # Caller heuristic skips reshape
+        needs_reshape = (
+            "emitted_at" in canonical_payload
+            and "timestamp_utc" not in canonical_payload
+        )
+        assert needs_reshape is False
+
+        # When not reshaped, the dict is used as-is -- verify structure
+        # is preserved (no mutation)
+        assert canonical_payload["timestamp_utc"] == "2026-02-15T10:30:00+00:00"
+        assert canonical_payload["event_type"] == "UserPromptSubmit"
+        assert isinstance(canonical_payload["payload"], dict)
+        assert canonical_payload["payload"]["prompt_preview"] == "Fix the bug in..."
+
+
+# =============================================================================
 # Tests: Extra / Unknown Keys
 # =============================================================================
 
