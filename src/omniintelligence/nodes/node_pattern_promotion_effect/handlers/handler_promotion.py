@@ -91,6 +91,7 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelPromotionResult,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,7 @@ LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'provisional'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
+LIMIT 500
 """
 
 # Direct promotion SQL - used as FALLBACK when Kafka is unavailable (OMN-1805)
@@ -481,13 +483,14 @@ async def check_and_promote_patterns(
                     exc_info=True,
                 )
                 # Record the failed promotion attempt with error reason
+                sanitized_err = get_log_sanitizer().sanitize(str(exc))
                 failed_result = ModelPromotionResult(
                     pattern_id=pattern_id,
                     pattern_signature=pattern_signature,
                     from_status="provisional",
                     to_status="validated",
                     promoted_at=None,
-                    reason=f"promotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     gate_snapshot=build_gate_snapshot(pattern),
                     dry_run=False,
                 )

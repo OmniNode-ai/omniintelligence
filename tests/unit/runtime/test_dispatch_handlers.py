@@ -1822,13 +1822,17 @@ class TestCreateDispatchCallback:
         assert not msg._nacked
 
     @pytest.mark.asyncio
-    async def test_callback_nacks_on_invalid_json(
+    async def test_callback_acks_on_invalid_json(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """Callback should nack the message if JSON parsing fails."""
+        """Callback should ACK malformed JSON to prevent infinite retry.
+
+        Malformed JSON will never succeed on retry, so the message is ACKed
+        (not nacked) and routed to DLQ as best-effort.
+        """
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
@@ -1846,8 +1850,8 @@ class TestCreateDispatchCallback:
 
         await callback(msg)
 
-        assert msg._nacked, "Message should be nacked on parse failure"
-        assert not msg._acked
+        assert msg._acked, "Message should be acked to prevent infinite retry"
+        assert not msg._nacked
 
     @pytest.mark.asyncio
     async def test_callback_handles_dict_message(

@@ -343,7 +343,7 @@ async def record_session_outcome(
     # connection context. If the repository is pool-backed (auto-commit per
     # statement), a crash mid-sequence can leave partially-committed state.
     # See docstring "Partial Failure Recovery" for details.
-    logger.warning(
+    logger.debug(
         "Starting non-atomic multi-step session outcome recording — "
         "atomicity relies on caller's connection/transaction context",
         extra={

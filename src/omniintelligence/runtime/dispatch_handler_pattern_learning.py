@@ -482,7 +482,7 @@ async def _fetch_session_snapshot(
             metadata={"source": "postgresql", "action_count": len(actions)},
         )
 
-    except Exception as e:
+    except (OSError, TimeoutError) as e:
         logger.warning(
             "Failed to fetch session data from DB, using synthetic snapshot "
             "(session_id=%s, error=%s, correlation_id=%s)",
@@ -491,6 +491,23 @@ async def _fetch_session_snapshot(
             correlation_id,
         )
         return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
+    except Exception as e:
+        # Check for asyncpg database errors (have sqlstate attribute) without
+        # importing asyncpg directly (ARCH-002 boundary).
+        if hasattr(e, "sqlstate"):
+            logger.warning(
+                "Failed to fetch session data from DB, using synthetic snapshot "
+                "(session_id=%s, error=%s, correlation_id=%s)",
+                session_id,
+                type(e).__name__,
+                correlation_id,
+            )
+            return _create_synthetic_snapshot(
+                session_id=deterministic_session_id, now=now
+            )
+        # Programming errors (AttributeError, TypeError, KeyError, ValueError)
+        # must propagate so bugs are not silently hidden.
+        raise
 
 
 def _create_synthetic_snapshot(

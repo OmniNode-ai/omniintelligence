@@ -1200,6 +1200,27 @@ def create_dispatch_callback(
                 if hasattr(msg, "nack"):
                     await msg.nack()
 
+        except json.JSONDecodeError as e:
+            # Malformed JSON will never succeed on retry -- ACK to prevent
+            # infinite redelivery. Log truncated raw bytes for diagnosis.
+            raw_preview = ""
+            if hasattr(msg, "value"):
+                raw_bytes = msg.value
+                if isinstance(raw_bytes, bytes | bytearray):
+                    raw_preview = repr(raw_bytes[:200])
+                elif isinstance(raw_bytes, str):
+                    raw_preview = raw_bytes[:200]
+            logger.error(
+                "Malformed JSON in message body, ACKing to prevent infinite retry "
+                "(error=%s, raw_preview=%s, correlation_id=%s). "
+                "Message routed to DLQ (best-effort).",
+                e,
+                raw_preview,
+                msg_correlation_id,
+            )
+            if hasattr(msg, "ack"):
+                await msg.ack()
+
         except Exception as e:
             logger.exception(
                 "Failed to dispatch message via engine: %s (correlation_id=%s)",

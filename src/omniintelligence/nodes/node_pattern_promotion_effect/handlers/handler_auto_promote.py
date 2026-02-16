@@ -496,11 +496,14 @@ async def handle_auto_promote_check(
             continue
 
         pattern_id = pattern["id"]
-        gate_snapshot = await _build_enriched_gate_snapshot(pattern, conn=repository)
+        gate_snapshot: ModelGateSnapshot | None = None
         request_id = uuid4()
         now = datetime.now(UTC)
 
         try:
+            gate_snapshot = await _build_enriched_gate_snapshot(
+                pattern, conn=repository
+            )
             transition_result = await apply_transition_fn(
                 repository,
                 idempotency_store,
@@ -554,7 +557,9 @@ async def handle_auto_promote_check(
                     promoted=False,
                     reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
-                    gate_snapshot=gate_snapshot.model_dump(mode="json"),
+                    gate_snapshot=gate_snapshot.model_dump(mode="json")
+                    if gate_snapshot is not None
+                    else {},
                 )
             )
 
@@ -592,11 +597,14 @@ async def handle_auto_promote_check(
             continue
 
         pattern_id = pattern["id"]
-        gate_snapshot = await _build_enriched_gate_snapshot(pattern, conn=repository)
+        gate_snapshot: ModelGateSnapshot | None = None
         request_id = uuid4()
         now = datetime.now(UTC)
 
         try:
+            gate_snapshot = await _build_enriched_gate_snapshot(
+                pattern, conn=repository
+            )
             transition_result = await apply_transition_fn(
                 repository,
                 idempotency_store,
@@ -650,7 +658,9 @@ async def handle_auto_promote_check(
                     promoted=False,
                     reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
-                    gate_snapshot=gate_snapshot.model_dump(mode="json"),
+                    gate_snapshot=gate_snapshot.model_dump(mode="json")
+                    if gate_snapshot is not None
+                    else {},
                 )
             )
 
