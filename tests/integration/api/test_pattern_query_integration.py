@@ -4,6 +4,14 @@ Tests the full request path from HTTP endpoint through handler to
 the AdapterPatternStore using a real database connection pool.
 Skips gracefully when PostgreSQL is not available.
 
+Note: Filter tests (domain, confidence, status) validate constraints on
+returned results but may pass vacuously if the test database has no
+matching patterns. This is intentional -- these are smoke tests that
+verify the endpoint wiring and SQL execution, not the filter logic
+(which is covered by unit tests with mock data). Seeding test data
+would require schema coupling and test-database cleanup that is out
+of scope for this endpoint-wiring validation.
+
 Ticket: OMN-2253
 """
 

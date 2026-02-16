@@ -9,6 +9,7 @@ Ticket: OMN-2253
 from __future__ import annotations
 
 import pytest
+from omnibase_core.models.contracts import ModelDbRepositoryContract
 
 from omniintelligence.repositories.adapter_pattern_store import load_contract
 
@@ -18,7 +19,7 @@ class TestQueryPatternsContract:
     """Tests for query_patterns operation in the repository contract."""
 
     @pytest.fixture
-    def contract(self):
+    def contract(self) -> ModelDbRepositoryContract:
         """Load the repository contract."""
         return load_contract()
 

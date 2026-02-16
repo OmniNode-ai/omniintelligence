@@ -35,7 +35,7 @@ def sample_pattern_row() -> dict:
     return {
         "id": uuid4(),
         "pattern_signature": "def handle_error(exc): log(exc); raise",
-        "signature_hash": "abc123def456",
+        "signature_hash": "testhash_error_handling_v2",
         "domain_id": "error_handling",
         "quality_score": 0.85,
         "confidence": 0.9,

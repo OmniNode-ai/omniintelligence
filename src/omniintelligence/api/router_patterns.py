@@ -14,7 +14,8 @@ Ticket: OMN-2253
 # and query parameter extraction. PEP 563 (stringified annotations) would
 # prevent FastAPI from recognizing Depends() and Query() at runtime.
 
-from typing import Annotated, Any
+from collections.abc import Awaitable, Callable
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
@@ -25,7 +26,7 @@ from omniintelligence.repositories.adapter_pattern_store import AdapterPatternSt
 
 def create_pattern_router(
     *,
-    get_adapter: Any,
+    get_adapter: Callable[[], Awaitable[AdapterPatternStore]],
 ) -> APIRouter:
     """Create a FastAPI router for pattern query endpoints.
 

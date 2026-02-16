@@ -5,7 +5,6 @@ with pattern query endpoints. Connection pool lifecycle is managed
 via FastAPI lifespan events.
 
 Usage:
-    >>> import asyncpg
     >>> app = create_app(database_url="postgresql://...")
     >>> # Run with uvicorn:
     >>> # uvicorn omniintelligence.api.app:create_app --factory
@@ -16,12 +15,13 @@ Ticket: OMN-2253
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from omniintelligence.api.router_patterns import create_pattern_router
 from omniintelligence.repositories.adapter_pattern_store import (
@@ -32,6 +32,35 @@ from omniintelligence.repositories.adapter_pattern_store import (
 logger = logging.getLogger(__name__)
 
 
+class DatabaseSettings(BaseSettings):
+    """PostgreSQL connection settings loaded from POSTGRES_* environment variables.
+
+    Follows the LogSanitizerSettings pattern established in this codebase.
+    Required fields (host, password) will raise ValidationError if not set.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="POSTGRES_")
+
+    host: str = Field(..., description="PostgreSQL host address")
+    port: int = Field(default=5436, description="PostgreSQL port")
+    database: str = Field(
+        default="omninode_bridge", description="PostgreSQL database name"
+    )
+    user: str = Field(default="postgres", description="PostgreSQL user")
+    password: str = Field(..., description="PostgreSQL password")
+
+    def get_dsn(self) -> str:
+        """Build PostgreSQL DSN from validated settings.
+
+        Returns:
+            PostgreSQL connection string.
+        """
+        return (
+            f"postgresql://{self.user}:{self.password}"
+            f"@{self.host}:{self.port}/{self.database}"
+        )
+
+
 def create_app(
     *,
     database_url: str | None = None,
@@ -40,7 +69,8 @@ def create_app(
 
     Args:
         database_url: PostgreSQL connection URL. If not provided,
-            falls back to environment variables (POSTGRES_HOST, etc.).
+            falls back to POSTGRES_* environment variables via
+            DatabaseSettings.
 
     Returns:
         Configured FastAPI application.
@@ -57,10 +87,14 @@ def create_app(
         """Manage connection pool lifecycle."""
         import asyncpg
 
-        dsn = state["database_url"] or _build_dsn_from_env()
+        dsn = state["database_url"] or DatabaseSettings().get_dsn()  # type: ignore[call-arg]
         logger.info("Connecting to database...")
         pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
-        adapter = await create_pattern_store_adapter(pool)
+        try:
+            adapter = await create_pattern_store_adapter(pool)
+        except Exception:
+            await pool.close()
+            raise
         state["pool"] = pool
         state["adapter"] = adapter
         logger.info("Database connection pool established")
@@ -94,29 +128,4 @@ def create_app(
     return app
 
 
-def _build_dsn_from_env() -> str:
-    """Build PostgreSQL DSN from environment variables.
-
-    Returns:
-        PostgreSQL connection string.
-
-    Raises:
-        ValueError: If required environment variables are missing.
-    """
-    host = os.getenv("POSTGRES_HOST")
-    port = os.getenv("POSTGRES_PORT", "5436")
-    database = os.getenv("POSTGRES_DATABASE", "omninode_bridge")
-    user = os.getenv("POSTGRES_USER", "postgres")
-    password = os.getenv("POSTGRES_PASSWORD")
-
-    if not host:
-        msg = "POSTGRES_HOST environment variable is required"
-        raise ValueError(msg)
-    if not password:
-        msg = "POSTGRES_PASSWORD environment variable is required"
-        raise ValueError(msg)
-
-    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
-
-
-__all__ = ["create_app"]
+__all__ = ["DatabaseSettings", "create_app"]
