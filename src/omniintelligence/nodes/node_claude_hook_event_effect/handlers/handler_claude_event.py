@@ -633,7 +633,8 @@ async def handle_user_prompt_submit(
             metadata["kafka_emission_error"] = get_log_sanitizer().sanitize(str(e))
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
             metadata["kafka_publish_warning"] = (
-                f"Kafka publish failed despite producer being available: {e}"
+                f"Kafka publish failed despite producer being available: "
+                f"{get_log_sanitizer().sanitize(str(e))}"
             )
     elif kafka_producer is None:
         metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value

@@ -335,7 +335,7 @@ class PluginIntelligence:
             await self._cleanup_on_failure(config)
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -808,11 +808,12 @@ class PluginIntelligence:
             try:
                 await unsub()
             except Exception as unsub_error:
-                errors.append(f"unsubscribe: {unsub_error}")
+                sanitized_unsub = get_log_sanitizer().sanitize(str(unsub_error))
+                errors.append(f"unsubscribe: {sanitized_unsub}")
                 logger.warning(
                     "Failed to unsubscribe intelligence consumer: %s "
                     "(correlation_id=%s)",
-                    unsub_error,
+                    sanitized_unsub,
                     correlation_id,
                 )
         self._unsubscribe_callbacks = []
@@ -826,11 +827,12 @@ class PluginIntelligence:
                     correlation_id,
                 )
             except Exception as pool_close_error:
-                errors.append(f"pool_close: {pool_close_error}")
+                sanitized_pool = get_log_sanitizer().sanitize(str(pool_close_error))
+                errors.append(f"pool_close: {sanitized_pool}")
                 logger.warning(
                     "Failed to close Intelligence PostgreSQL pool: %s "
                     "(correlation_id=%s)",
-                    pool_close_error,
+                    sanitized_pool,
                     correlation_id,
                 )
             self._pool = None

@@ -162,6 +162,7 @@ class AdapterIdempotencyStorePostgres:
         #   which means schema changes to this table cannot be tracked,
         #   versioned, or rolled back. Create an Alembic/migration entry
         #   for the pattern_idempotency_keys table and remove this method.
+        # Note: CREATE TABLE IF NOT EXISTS is idempotent, so concurrent calls are safe albeit duplicative.
         result = await self._pool.execute(SQL_ENSURE_IDEMPOTENCY_TABLE)
         if not self._table_ensured:
             # Detect if the table was actually created (not just already existed).

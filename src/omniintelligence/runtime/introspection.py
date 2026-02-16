@@ -238,6 +238,13 @@ async def publish_intelligence_introspection(
                 "(Note: calls with event_bus=None are exempt from this guard "
                 "because they are no-ops that create no proxies or tasks.)"
             )
+        # Set guard BEFORE releasing the lock so that concurrent asyncio tasks
+        # (which share the same thread) or other threads see the guard
+        # immediately, not after the await-heavy registration loop below.
+        # The guard is set optimistically: if the loop fails, the guard
+        # remains set, which is correct (the function must not be retried).
+        if event_bus is not None:
+            _introspection_published = True
 
     if event_bus is None:
         # No-op path: intentionally does NOT set _introspection_published.
@@ -298,12 +305,6 @@ async def publish_intelligence_introspection(
                 get_log_sanitizer().sanitize(str(e)),
                 correlation_id,
             )
-
-    # Set the single-call guard AFTER the loop completes successfully.
-    # If an exception propagates out of the loop, the guard remains unset,
-    # allowing a legitimate retry instead of permanently blocking.
-    with _introspection_lock:
-        _introspection_published = True
 
     logger.info(
         "Intelligence introspection published: %d/%d nodes (correlation_id=%s)",

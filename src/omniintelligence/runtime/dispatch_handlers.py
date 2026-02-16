@@ -701,7 +701,7 @@ def create_pattern_storage_dispatch_handler(
             )
             raw_confidence = 0.5
         if raw_confidence < 0.5:
-            logger.error(
+            logger.warning(
                 "Pattern confidence %.3f below minimum 0.5, clamping to 0.5 "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
                 raw_confidence,
@@ -711,7 +711,7 @@ def create_pattern_storage_dispatch_handler(
                 extra={"original_confidence": raw_confidence},
             )
         if raw_confidence > 1.0:
-            logger.error(
+            logger.warning(
                 "Pattern confidence %.3f above maximum 1.0, clamping to 1.0 "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
                 raw_confidence,
