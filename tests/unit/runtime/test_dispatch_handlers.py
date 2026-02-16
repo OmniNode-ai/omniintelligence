@@ -471,6 +471,392 @@ class TestClaudeHookDispatchHandler:
         result = await handler(envelope, context)
         assert isinstance(result, str)
 
+    @pytest.mark.asyncio
+    async def test_handler_reconstructs_stripped_envelope_payload(
+        self,
+        correlation_id: UUID,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """Handler should reconstruct daemon keys stripped by envelope deserialization.
+
+        OMN-2322: When the Kafka consumer deserializes a flat daemon dict into
+        ModelEventEnvelope, envelope-level keys (event_type, correlation_id) are
+        absorbed into the envelope object and removed from envelope.payload.
+        The handler must reconstruct the full payload from envelope fields.
+        """
+        from unittest.mock import patch
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        # Simulate what happens after envelope deserialization strips daemon keys:
+        # - event_type absorbed into envelope.event_type
+        # - correlation_id absorbed into envelope.correlation_id
+        # - emitted_at and session_id silently dropped (not envelope fields)
+        # - only domain-specific keys remain in envelope.payload
+        stripped_payload = {
+            "prompt_preview": "Hello world",
+            "prompt_length": 11,
+            "prompt_b64": "SGVsbG8gd29ybGQ=",
+        }
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_intent_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # The envelope has the daemon keys absorbed into its own fields
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped_payload,
+            event_type="UserPromptSubmit",
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={
+                    "message_category": "command",
+                    "session_id": "test-session-stripped",
+                },
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        # Patch route_hook_event to capture the reconstructed event argument
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+        ) as mock_route_hook:
+            mock_result = MagicMock()
+            mock_result.status = "success"
+            mock_result.event_type = "UserPromptSubmit"
+            mock_route_hook.return_value = mock_result
+
+            result = await handler(envelope, context)
+            assert isinstance(result, str)
+
+            # Verify route_hook_event was called with correctly reconstructed event
+            mock_route_hook.assert_called_once()
+            call_kwargs = mock_route_hook.call_args.kwargs
+            event = call_kwargs["event"]
+
+            assert event.event_type == "UserPromptSubmit", (
+                f"Expected event_type='UserPromptSubmit', got {event.event_type!r}"
+            )
+            assert str(event.correlation_id) == str(correlation_id), (
+                f"Expected correlation_id={correlation_id}, got {event.correlation_id}"
+            )
+            assert event.session_id == "test-session-stripped", (
+                f"Expected session_id='test-session-stripped', got {event.session_id!r}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_handler_reconstruction_does_not_interfere_with_normal_payload(
+        self,
+        sample_claude_hook_payload: dict[str, Any],
+        correlation_id: UUID,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """Reconstruction must not alter payloads that already have daemon keys.
+
+        When envelope.payload already contains daemon keys (the normal case),
+        _reconstruct_payload_from_envelope should return it unchanged.
+        """
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_intent_classifier,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=sample_claude_hook_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        # Normal payload with all keys present should still work
+        result = await handler(envelope, context)
+        assert isinstance(result, str)
+
+
+# =============================================================================
+# Tests: Envelope Payload Reconstruction (OMN-2322)
+# =============================================================================
+
+
+class TestReconstructPayloadFromEnvelope:
+    """Validate _reconstruct_payload_from_envelope behavior.
+
+    OMN-2322: The envelope deserialization layer can strip daemon keys
+    (event_type, session_id, correlation_id, emitted_at) from the payload.
+    _reconstruct_payload_from_envelope merges them back from the envelope.
+    """
+
+    def test_reconstruction_adds_missing_daemon_keys(self) -> None:
+        """Stripped payload should get daemon keys from envelope."""
+        from datetime import UTC, datetime
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        stripped = {"prompt_preview": "Hello", "prompt_length": 5}
+        ts = datetime(2026, 2, 14, 23, 21, 25, tzinfo=UTC)
+        corr_id = uuid4()
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped,
+            event_type="UserPromptSubmit",
+            correlation_id=corr_id,
+            envelope_timestamp=ts,
+            metadata=ModelEnvelopeMetadata(
+                tags={"session_id": "test-session-recon"},
+            ),
+        )
+
+        result = _reconstruct_payload_from_envelope(stripped, envelope)
+
+        assert result["event_type"] == "UserPromptSubmit"
+        assert result["correlation_id"] == str(corr_id)
+        assert result["emitted_at"] == ts.isoformat()
+        assert result["session_id"] == "test-session-recon"
+        assert result["_envelope_reconstructed"] is True
+        # Original keys preserved
+        assert result["prompt_preview"] == "Hello"
+        assert result["prompt_length"] == 5
+
+    def test_reconstruction_skips_when_daemon_keys_present(self) -> None:
+        """Payload with existing daemon keys should be returned unchanged."""
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        full_payload: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session",
+            "correlation_id": str(uuid4()),
+            "emitted_at": "2026-02-14T23:21:25+00:00",
+            "prompt_preview": "Hello",
+        }
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=full_payload,
+            correlation_id=uuid4(),
+        )
+
+        result = _reconstruct_payload_from_envelope(full_payload, envelope)
+
+        # Should be the original dict, unchanged
+        assert result is full_payload
+
+    def test_reconstruction_returns_new_dict(self) -> None:
+        """Reconstruction must not mutate the original payload dict."""
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        stripped = {"prompt_preview": "Hello"}
+        original_keys = set(stripped.keys())
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped,
+            event_type="UserPromptSubmit",
+            correlation_id=uuid4(),
+        )
+
+        result = _reconstruct_payload_from_envelope(stripped, envelope)
+
+        # Original dict must not be mutated
+        assert set(stripped.keys()) == original_keys
+        # Result must be a different dict
+        assert result is not stripped
+
+    def test_reconstruction_handles_missing_envelope_event_type(self) -> None:
+        """Envelope with event_type=None should return original payload unchanged.
+
+        When event_type cannot be recovered from the envelope, reconstruction
+        aborts and returns the original payload so downstream handlers see the
+        raw payload and fail with a clearer error path.
+        """
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        stripped = {"prompt_preview": "Hello"}
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped,
+            event_type=None,
+            correlation_id=uuid4(),
+        )
+
+        result = _reconstruct_payload_from_envelope(stripped, envelope)
+
+        # Reconstruction cannot recover event_type, so it returns original
+        assert result is stripped
+        assert "event_type" not in result
+        assert "emitted_at" not in result
+        assert "correlation_id" not in result
+
+    def test_reconstruction_handles_missing_correlation_id(self) -> None:
+        """Envelope with correlation_id=None should not inject correlation_id."""
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        stripped = {"prompt_preview": "Hello"}
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped,
+            event_type="UserPromptSubmit",
+            correlation_id=None,
+        )
+
+        result = _reconstruct_payload_from_envelope(stripped, envelope)
+
+        assert result["event_type"] == "UserPromptSubmit"
+        assert "correlation_id" not in result
+        assert "emitted_at" in result
+
+    def test_reconstruction_without_session_id_in_metadata(self) -> None:
+        """Reconstruction without session_id metadata should omit session_id key."""
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        stripped = {"prompt_preview": "Hello"}
+
+        # No session_id in metadata tags
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped,
+            event_type="UserPromptSubmit",
+            correlation_id=uuid4(),
+        )
+
+        result = _reconstruct_payload_from_envelope(stripped, envelope)
+
+        assert result["event_type"] == "UserPromptSubmit"
+        assert "correlation_id" in result
+        assert "emitted_at" in result
+        # session_id should NOT be present (unrecoverable)
+        assert "session_id" not in result
+
+    def test_reconstruction_with_empty_payload(self) -> None:
+        """Empty dict payload should trigger reconstruction from envelope."""
+        from datetime import UTC, datetime
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        empty_payload: dict[str, Any] = {}
+        ts = datetime(2026, 2, 16, 12, 0, 0, tzinfo=UTC)
+        corr_id = uuid4()
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=empty_payload,
+            event_type="UserPromptSubmit",
+            correlation_id=corr_id,
+            envelope_timestamp=ts,
+            metadata=ModelEnvelopeMetadata(
+                tags={"session_id": "test-session-empty"},
+            ),
+        )
+
+        result = _reconstruct_payload_from_envelope(empty_payload, envelope)
+
+        # Reconstruction should fire (empty dict has none of the required keys)
+        assert result is not empty_payload
+        assert result["event_type"] == "UserPromptSubmit"
+        assert result["correlation_id"] == str(corr_id)
+        assert result["emitted_at"] == ts.isoformat()
+        assert result["session_id"] == "test-session-empty"
+        assert result["_envelope_reconstructed"] is True
+
+    def test_reconstruction_with_partial_daemon_keys_is_noop(self) -> None:
+        """Payload with even one daemon key should not trigger reconstruction."""
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        # Has emitted_at (one of the 4 required daemon keys) -> no reconstruction
+        partial_payload: dict[str, Any] = {
+            "emitted_at": "2026-02-14T23:21:25+00:00",
+            "prompt_preview": "Hello",
+        }
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=partial_payload,
+            event_type="UserPromptSubmit",
+            correlation_id=uuid4(),
+        )
+
+        result = _reconstruct_payload_from_envelope(partial_payload, envelope)
+
+        # Should be the original dict, unchanged
+        assert result is partial_payload
+
 
 # =============================================================================
 # Tests: Session Outcome Handler
