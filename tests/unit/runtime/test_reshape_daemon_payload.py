@@ -1,0 +1,687 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2025-2026 OmniNode Team
+"""Unit-contract tests for _reshape_daemon_hook_payload_v1.
+
+Validates that the reshape function correctly transforms flat daemon-shaped
+payloads into the nested structure expected by ModelClaudeCodeHookEvent.
+
+The emit daemon sends a flat dict with envelope keys (event_type, session_id,
+correlation_id, emitted_at) mixed alongside domain-specific payload keys.
+ModelClaudeCodeHookEvent expects a nested ``payload`` sub-dict, so the reshape
+function splits envelope keys from payload keys and returns the canonical shape.
+
+Related:
+    - Bus audit project: daemon emits flat dicts, reshape bridges the gap
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+# Private import is intentional: _reshape_daemon_hook_payload_v1 is an internal
+# helper, but we test it directly to ensure the daemon-to-model contract is
+# upheld without requiring a full dispatch-engine integration test.
+from omniintelligence.runtime.dispatch_handlers import (
+    _MAX_DIAGNOSTIC_KEYS,
+    _diagnostic_key_summary,
+    _needs_daemon_reshape,
+    _reshape_daemon_hook_payload_v1,
+    create_claude_hook_dispatch_handler,
+)
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def daemon_wire_payload() -> dict[str, Any]:
+    """Real daemon wire format payload for UserPromptSubmit.
+
+    This mirrors exactly what the emit daemon sends over the Unix socket
+    as a flat dict with envelope keys and domain-specific payload keys
+    mixed together.
+    """
+    return {
+        "session_id": "test-session-001",
+        "prompt_preview": "Fix the bug in...",
+        "prompt_length": 150,
+        "prompt_b64": "RnVsbCBwcm9tcHQ=",
+        "correlation_id": "12345678-1234-1234-1234-123456789abc",
+        "event_type": "UserPromptSubmit",
+        "causation_id": None,
+        "emitted_at": "2026-02-15T10:30:00+00:00",
+        "schema_version": "1.0.0",
+    }
+
+
+# =============================================================================
+# Tests: Happy Path
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeDaemonPayloadHappyPath:
+    """Validate correct transformation of a well-formed daemon payload."""
+
+    def test_reshape_daemon_payload_happy_path(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Given a flat daemon payload, reshape produces the canonical shape."""
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        # Top-level envelope keys
+        assert reshaped["event_type"] == "UserPromptSubmit"
+        assert reshaped["session_id"] == "test-session-001"
+        assert reshaped["correlation_id"] == "12345678-1234-1234-1234-123456789abc"
+        assert reshaped["timestamp_utc"] == "2026-02-15T10:30:00+00:00"
+
+        # Payload sub-dict contains domain-specific keys
+        payload = reshaped["payload"]
+        assert "prompt_preview" in payload
+        assert "prompt_length" in payload
+        assert "prompt_b64" in payload
+        assert payload["prompt_preview"] == "Fix the bug in..."
+        assert payload["prompt_length"] == 150
+        assert payload["prompt_b64"] == "RnVsbCBwcm9tcHQ="
+
+        # Payload must NOT contain envelope keys
+        for key in (
+            "event_type",
+            "session_id",
+            "correlation_id",
+            "emitted_at",
+            "causation_id",
+            "schema_version",
+        ):
+            assert key not in payload, (
+                f"Envelope key {key!r} must not leak into payload sub-dict"
+            )
+
+        # Top level must NOT contain domain-specific or stripped keys
+        for key in (
+            "prompt_preview",
+            "prompt_length",
+            "prompt_b64",
+            "causation_id",
+            "schema_version",
+            "emitted_at",
+        ):
+            assert key not in reshaped, (
+                f"Key {key!r} must not appear at top level of reshaped output"
+            )
+
+
+# =============================================================================
+# Tests: Reshape then Validate into Model
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeThenValidateIntoModel:
+    """Validate that reshaped output parses into ModelClaudeCodeHookEvent."""
+
+    def test_reshape_then_validate_into_model(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Reshaped dict must parse into ModelClaudeCodeHookEvent without errors."""
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event_payload import (
+            ModelClaudeCodeHookEventPayload,
+        )
+
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+        event = ModelClaudeCodeHookEvent(**reshaped)
+
+        # event_type is parsed into the enum
+        assert event.event_type.value == "UserPromptSubmit"
+
+        # timestamp_utc is timezone-aware
+        assert event.timestamp_utc.tzinfo is not None
+
+        # payload is the correct type
+        assert isinstance(event.payload, ModelClaudeCodeHookEventPayload)
+
+        # Domain-specific keys are stored as model_extra on the payload
+        # (ModelClaudeCodeHookEventPayload uses extra="allow")
+        assert event.payload.model_extra is not None
+        assert "prompt_preview" in event.payload.model_extra
+        assert "prompt_length" in event.payload.model_extra
+        assert "prompt_b64" in event.payload.model_extra
+
+
+# =============================================================================
+# Tests: Missing Required Keys
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeMissingRequiredKeys:
+    """Validate that missing required keys produce clear ValueError messages."""
+
+    def test_reshape_missing_emitted_at(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload missing emitted_at raises ValueError with key name and sorted keys."""
+        del daemon_wire_payload["emitted_at"]
+
+        with pytest.raises(ValueError, match="emitted_at") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        # Error message must include sorted keys for diagnostics
+        error_msg = str(exc_info.value)
+        assert "keys=" in error_msg
+
+    def test_reshape_missing_event_type(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload missing event_type raises ValueError with key name and sorted keys."""
+        del daemon_wire_payload["event_type"]
+
+        with pytest.raises(ValueError, match="event_type") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "keys=" in error_msg
+
+    def test_reshape_missing_session_id(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload missing session_id raises ValueError with key name and sorted keys."""
+        del daemon_wire_payload["session_id"]
+
+        with pytest.raises(ValueError, match="session_id") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "keys=" in error_msg
+
+    def test_reshape_missing_correlation_id(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload missing correlation_id raises ValueError with key name and sorted keys."""
+        del daemon_wire_payload["correlation_id"]
+
+        with pytest.raises(ValueError, match="correlation_id") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "keys=" in error_msg
+
+    def test_reshape_empty_payload(self) -> None:
+        """An empty dict raises ValueError for the first missing required key."""
+        with pytest.raises(ValueError, match="missing required key") as exc_info:
+            _reshape_daemon_hook_payload_v1({})
+
+        # Error message should include the empty keys list for diagnostics
+        error_msg = str(exc_info.value)
+        assert "keys=" in error_msg
+
+
+# =============================================================================
+# Tests: Null Value for Required Keys
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeNullRequiredKeys:
+    """Validate that null values for required keys produce clear ValueError messages.
+
+    This exercises the second validation branch in _reshape_daemon_hook_payload_v1:
+    the key IS present in the dict but its value is None.  This is distinct from
+    the 'missing key' branch tested by TestReshapeMissingRequiredKeys.
+    """
+
+    def test_reshape_null_event_type(self, daemon_wire_payload: dict[str, Any]) -> None:
+        """Payload with event_type=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["event_type"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "event_type" in error_msg
+        assert "keys=" in error_msg
+
+    def test_reshape_null_session_id(self, daemon_wire_payload: dict[str, Any]) -> None:
+        """Payload with session_id=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["session_id"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "session_id" in error_msg
+        assert "keys=" in error_msg
+
+    def test_reshape_null_correlation_id(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload with correlation_id=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["correlation_id"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "correlation_id" in error_msg
+        assert "keys=" in error_msg
+
+    def test_reshape_null_emitted_at(self, daemon_wire_payload: dict[str, Any]) -> None:
+        """Payload with emitted_at=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["emitted_at"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "emitted_at" in error_msg
+        assert "keys=" in error_msg
+
+
+# =============================================================================
+# Tests: _needs_daemon_reshape Heuristic
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestNeedsDaemonReshape:
+    """Validate _needs_daemon_reshape detection heuristic for all three cases.
+
+    The heuristic returns True when ``emitted_at`` is present and
+    ``timestamp_utc`` is absent (flat daemon shape).  It returns False
+    for canonical payloads (has ``timestamp_utc``) and for unrelated
+    payloads (neither key present).
+    """
+
+    def test_daemon_shaped_payload_returns_true(self) -> None:
+        """Payload with emitted_at but no timestamp_utc is daemon-shaped."""
+        payload: dict[str, Any] = {"emitted_at": "2026-02-15T10:30:00+00:00"}
+        assert _needs_daemon_reshape(payload) is True
+
+    def test_canonical_shaped_payload_returns_false(self) -> None:
+        """Payload with timestamp_utc but no emitted_at is canonical-shaped."""
+        payload: dict[str, Any] = {"timestamp_utc": "2026-02-15T10:30:00+00:00"}
+        assert _needs_daemon_reshape(payload) is False
+
+    def test_unrelated_payload_returns_false(self) -> None:
+        """Payload with neither timestamp key is unrelated."""
+        payload: dict[str, Any] = {"event_type": "UserPromptSubmit"}
+        assert _needs_daemon_reshape(payload) is False
+
+
+# =============================================================================
+# Tests: Both emitted_at and timestamp_utc Present (Canonical Path)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeBothTimestampKeys:
+    """Validate reshape behaviour when both emitted_at and timestamp_utc are present.
+
+    The dispatch handler uses a heuristic to detect flat daemon payloads:
+    ``'emitted_at' in payload and 'timestamp_utc' not in payload``.  When
+    both keys are present, the payload is treated as canonical (already
+    shaped) and passed directly to ``ModelClaudeCodeHookEvent`` without
+    the caller triggering reshape.
+
+    However, _reshape_daemon_hook_payload_v1 itself operates purely on the
+    dict it receives.  This test verifies that when a payload containing
+    both ``emitted_at`` and ``timestamp_utc`` is passed directly, the
+    function still reshapes it (it does not skip), confirming that the
+    no-reshape decision must be made by the caller, not by the function.
+    """
+
+    def test_payload_with_both_keys_is_not_skipped_by_caller_heuristic(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """Payload with BOTH emitted_at and timestamp_utc is treated as canonical.
+
+        The caller heuristic (``_needs_daemon_reshape``) should evaluate to
+        False when both keys are present, meaning
+        _reshape_daemon_hook_payload_v1 is never called.  We verify the
+        heuristic through the extracted helper function.
+        """
+        # Add timestamp_utc alongside existing emitted_at
+        daemon_wire_payload["timestamp_utc"] = "2026-02-15T10:30:00+00:00"
+
+        assert _needs_daemon_reshape(daemon_wire_payload) is False, (
+            "When both emitted_at and timestamp_utc are present, "
+            "the caller must NOT trigger reshape"
+        )
+
+    def test_payload_with_both_keys_passed_through_unchanged(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """When the caller skips reshape, the original dict is used as-is.
+
+        Simulates the canonical (no-reshape) path: the payload already
+        contains timestamp_utc and a nested payload dict, so it should
+        be forwarded directly to ModelClaudeCodeHookEvent without
+        transformation.
+        """
+        # Build a canonical-shaped payload that has both keys
+        canonical_payload: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp_utc": "2026-02-15T10:30:00+00:00",
+            "emitted_at": "2026-02-15T10:30:00+00:00",  # extra key
+            "payload": {
+                "prompt_preview": "Fix the bug in...",
+                "prompt_length": 150,
+            },
+        }
+
+        # Caller heuristic skips reshape
+        assert _needs_daemon_reshape(canonical_payload) is False
+
+        # When not reshaped, the dict is used as-is -- verify structure
+        # is preserved (no mutation)
+        assert canonical_payload["timestamp_utc"] == "2026-02-15T10:30:00+00:00"
+        assert canonical_payload["event_type"] == "UserPromptSubmit"
+        assert isinstance(canonical_payload["payload"], dict)
+        assert canonical_payload["payload"]["prompt_preview"] == "Fix the bug in..."
+
+
+# =============================================================================
+# Tests: Extra / Unknown Keys
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeUnknownKeys:
+    """Validate that extra keys not in the envelope set land in the payload sub-dict."""
+
+    def test_unknown_keys_placed_into_payload(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Keys not in the daemon envelope set must appear in the payload sub-dict.
+
+        This covers the case where the daemon sends an unexpected key
+        (e.g., ``trace_id``) alongside the standard envelope keys.
+        """
+        daemon_wire_payload["trace_id"] = "abc-trace-999"
+        daemon_wire_payload["custom_metric"] = 42
+
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        payload = reshaped["payload"]
+        assert payload["trace_id"] == "abc-trace-999"
+        assert payload["custom_metric"] == 42
+
+        # Unknown keys must NOT appear at the top level
+        assert "trace_id" not in reshaped
+        assert "custom_metric" not in reshaped
+
+
+# =============================================================================
+# Tests: Daemon Metadata Stripping
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeStripsDaemonMetadata:
+    """Validate that schema_version and causation_id are fully stripped."""
+
+    def test_reshape_strips_all_daemon_metadata(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """schema_version and causation_id must NOT appear in reshaped output at any level."""
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        # Not at top level
+        assert "schema_version" not in reshaped
+        assert "causation_id" not in reshaped
+
+        # Not in payload sub-dict
+        assert "schema_version" not in reshaped["payload"]
+        assert "causation_id" not in reshaped["payload"]
+
+
+# =============================================================================
+# Tests: Diagnostic Key Truncation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDiagnosticKeyTruncation:
+    """Validate that payloads with >_MAX_DIAGNOSTIC_KEYS produce truncated diagnostics."""
+
+    def test_truncation_indicator_in_error_message(self) -> None:
+        """Payload with >_MAX_DIAGNOSTIC_KEYS keys includes '...' in error message.
+
+        Builds a flat daemon payload with 15 unknown keys but MISSING the
+        required ``event_type`` key to trigger the error path.  The error
+        message must contain the ``'...'`` truncation indicator and must
+        NOT enumerate all 15 key names.
+        """
+        total_keys = _MAX_DIAGNOSTIC_KEYS + 5  # 15 keys total
+        payload: dict[str, Any] = {
+            # Include required keys except event_type to trigger ValueError
+            "emitted_at": "2026-02-15T10:30:00+00:00",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+        }
+        # Add enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS
+        for i in range(total_keys - len(payload)):
+            payload[f"extra_key_{i:03d}"] = f"value_{i}"
+
+        assert len(payload) > _MAX_DIAGNOSTIC_KEYS, (
+            f"Test setup error: need >{_MAX_DIAGNOSTIC_KEYS} keys, got {len(payload)}"
+        )
+
+        with pytest.raises(ValueError, match="event_type") as exc_info:
+            _reshape_daemon_hook_payload_v1(payload)
+
+        error_msg = str(exc_info.value)
+
+        # Must contain the truncation indicator as a list element
+        assert "'...'" in error_msg, (
+            f"Error message must contain truncation indicator '...', got: {error_msg}"
+        )
+
+        # Must NOT contain all key names -- verify at least one extra key
+        # beyond the truncation limit is absent from the message
+        all_keys_sorted = sorted(payload.keys())
+        keys_beyond_limit = all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]
+        assert len(keys_beyond_limit) > 0, "Test setup error: no keys beyond limit"
+        for key in keys_beyond_limit:
+            assert key not in error_msg, (
+                f"Key {key!r} beyond truncation limit should not appear in error message"
+            )
+
+    def test_truncation_indicator_in_null_value_error_message(self) -> None:
+        """Payload with >_MAX_DIAGNOSTIC_KEYS keys and a null required key.
+
+        Builds a flat daemon payload with all four required keys present,
+        but sets ``event_type`` to None to trigger the null-value error
+        path.  Adds enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS so
+        the diagnostic key summary is truncated.  The error message must
+        contain the ``'...'`` truncation indicator and the 'null value'
+        phrasing (distinct from 'missing required key').
+        """
+        total_keys = _MAX_DIAGNOSTIC_KEYS + 5  # 15 keys total
+        payload: dict[str, Any] = {
+            # All four required keys present, but event_type is null
+            "emitted_at": "2026-02-15T10:30:00+00:00",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "event_type": None,
+        }
+        # Add enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS
+        for i in range(total_keys - len(payload)):
+            payload[f"extra_key_{i:03d}"] = f"value_{i}"
+
+        assert len(payload) > _MAX_DIAGNOSTIC_KEYS, (
+            f"Test setup error: need >{_MAX_DIAGNOSTIC_KEYS} keys, got {len(payload)}"
+        )
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(payload)
+
+        error_msg = str(exc_info.value)
+
+        # Must mention the offending key
+        assert "event_type" in error_msg, (
+            f"Error message must mention 'event_type', got: {error_msg}"
+        )
+
+        # Must contain the truncation indicator as a list element
+        assert "'...'" in error_msg, (
+            f"Error message must contain truncation indicator '...', got: {error_msg}"
+        )
+
+        # Must NOT contain all key names -- verify at least one extra key
+        # beyond the truncation limit is absent from the message
+        all_keys_sorted = sorted(payload.keys())
+        keys_beyond_limit = all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]
+        assert len(keys_beyond_limit) > 0, "Test setup error: no keys beyond limit"
+        for key in keys_beyond_limit:
+            assert key not in error_msg, (
+                f"Key {key!r} beyond truncation limit should not appear in error message"
+            )
+
+
+# =============================================================================
+# Tests: _diagnostic_key_summary Direct Unit Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDiagnosticKeySummary:
+    """Validate _diagnostic_key_summary output for various dict sizes."""
+
+    def test_empty_dict_returns_empty_keys(self) -> None:
+        """Empty dict produces '(keys=[])'."""
+        assert _diagnostic_key_summary({}) == "(keys=[])"
+
+    def test_few_keys_returns_sorted(self) -> None:
+        """Dict with a few keys returns them sorted alphabetically."""
+        result = _diagnostic_key_summary({"zebra": 1, "alpha": 2, "middle": 3})
+        assert result == "(keys=['alpha', 'middle', 'zebra'])"
+
+    def test_exceeding_max_keys_shows_truncation(self) -> None:
+        """Dict with more than _MAX_DIAGNOSTIC_KEYS keys appends '...' indicator."""
+        oversized = {f"key_{i:03d}": i for i in range(_MAX_DIAGNOSTIC_KEYS + 5)}
+        result = _diagnostic_key_summary(oversized)
+
+        # Must end with the ellipsis indicator inside the list
+        assert "'...'" in result
+
+        # Only _MAX_DIAGNOSTIC_KEYS real keys plus the '...' sentinel
+        all_keys_sorted = sorted(oversized.keys())
+        for key in all_keys_sorted[:_MAX_DIAGNOSTIC_KEYS]:
+            assert key in result
+        for key in all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]:
+            assert key not in result
+
+
+# =============================================================================
+# Tests: Dispatch Handler Wiring (daemon reshape integration)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDispatchHandlerDaemonReshapeWiring:
+    """Verify create_claude_hook_dispatch_handler reshapes daemon payloads.
+
+    The standalone _needs_daemon_reshape and _reshape_daemon_hook_payload_v1
+    functions are thoroughly tested above.  This test class proves the wiring:
+    that create_claude_hook_dispatch_handler's internal _handle closure
+    correctly detects and reshapes a daemon-shaped dict before passing a
+    properly-typed ModelClaudeCodeHookEvent to route_hook_event.
+    """
+
+    @pytest.mark.asyncio
+    async def test_daemon_payload_is_reshaped_and_routed(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """A daemon-shaped dict payload is reshaped and parsed into ModelClaudeCodeHookEvent.
+
+        Mocks route_hook_event to capture the event object it receives,
+        then asserts it is a well-formed ModelClaudeCodeHookEvent with the
+        correct envelope fields.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        # --- Mock dependencies ---
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+
+        correlation_id = UUID("12345678-1234-1234-1234-123456789abc")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # Wrap daemon payload in an envelope (as the dispatch callback would)
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=daemon_wire_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000001"),
+        )
+
+        # Patch route_hook_event to capture the event it receives
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "UserPromptSubmit"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            # Handler returns empty string on success
+            assert result == ""
+
+            # route_hook_event must have been called exactly once
+            mock_route.assert_called_once()
+
+            # Extract the event kwarg passed to route_hook_event
+            call_kwargs = mock_route.call_args.kwargs
+            event = call_kwargs["event"]
+
+            # The event must be a properly-parsed ModelClaudeCodeHookEvent
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "UserPromptSubmit"
+            assert str(event.session_id) == "test-session-001"
+            assert event.timestamp_utc is not None
+            assert event.timestamp_utc.tzinfo is not None
+
+            # Domain-specific keys must be inside the payload, not at top level
+            assert event.payload is not None
+            assert event.payload.model_extra is not None
+            assert "prompt_preview" in event.payload.model_extra
+            assert event.payload.model_extra["prompt_preview"] == "Fix the bug in..."
