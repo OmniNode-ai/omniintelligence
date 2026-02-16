@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2025 OmniNode Team
+# Copyright (c) 2025-2026 OmniNode Team
 """Unit-contract tests for _reshape_daemon_hook_payload_v1.
 
 Validates that the reshape function correctly transforms flat daemon-shaped
@@ -28,6 +28,7 @@ from omniintelligence.runtime.dispatch_handlers import (
     _diagnostic_key_summary,
     _needs_daemon_reshape,
     _reshape_daemon_hook_payload_v1,
+    create_claude_hook_dispatch_handler,
 )
 
 # =============================================================================
@@ -580,3 +581,107 @@ class TestDiagnosticKeySummary:
             assert key in result
         for key in all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]:
             assert key not in result
+
+
+# =============================================================================
+# Tests: Dispatch Handler Wiring (daemon reshape integration)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDispatchHandlerDaemonReshapeWiring:
+    """Verify create_claude_hook_dispatch_handler reshapes daemon payloads.
+
+    The standalone _needs_daemon_reshape and _reshape_daemon_hook_payload_v1
+    functions are thoroughly tested above.  This test class proves the wiring:
+    that create_claude_hook_dispatch_handler's internal _handle closure
+    correctly detects and reshapes a daemon-shaped dict before passing a
+    properly-typed ModelClaudeCodeHookEvent to route_hook_event.
+    """
+
+    @pytest.mark.asyncio
+    async def test_daemon_payload_is_reshaped_and_routed(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """A daemon-shaped dict payload is reshaped and parsed into ModelClaudeCodeHookEvent.
+
+        Mocks route_hook_event to capture the event object it receives,
+        then asserts it is a well-formed ModelClaudeCodeHookEvent with the
+        correct envelope fields.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        # --- Mock dependencies ---
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+
+        correlation_id = UUID("12345678-1234-1234-1234-123456789abc")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # Wrap daemon payload in an envelope (as the dispatch callback would)
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=daemon_wire_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000001"),
+        )
+
+        # Patch route_hook_event to capture the event it receives
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "UserPromptSubmit"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            # Handler returns empty string on success
+            assert result == ""
+
+            # route_hook_event must have been called exactly once
+            mock_route.assert_called_once()
+
+            # Extract the event kwarg passed to route_hook_event
+            call_kwargs = mock_route.call_args.kwargs
+            event = call_kwargs["event"]
+
+            # The event must be a properly-parsed ModelClaudeCodeHookEvent
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "UserPromptSubmit"
+            assert str(event.session_id) == "test-session-001"
+            assert event.timestamp_utc is not None
+            assert event.timestamp_utc.tzinfo is not None
+
+            # Domain-specific keys must be inside the payload, not at top level
+            assert event.payload is not None
+            assert event.payload.model_extra is not None
+            assert "prompt_preview" in event.payload.model_extra
+            assert event.payload.model_extra["prompt_preview"] == "Fix the bug in..."
