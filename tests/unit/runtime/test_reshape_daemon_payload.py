@@ -24,6 +24,8 @@ import pytest
 # helper, but we test it directly to ensure the daemon-to-model contract is
 # upheld without requiring a full dispatch-engine integration test.
 from omniintelligence.runtime.dispatch_handlers import (
+    _MAX_DIAGNOSTIC_KEYS,
+    _needs_daemon_reshape,
     _reshape_daemon_hook_payload_v1,
 )
 
@@ -307,20 +309,15 @@ class TestReshapeBothTimestampKeys:
     ) -> None:
         """Payload with BOTH emitted_at and timestamp_utc is treated as canonical.
 
-        The caller heuristic (``needs_reshape``) should evaluate to False
-        when both keys are present, meaning _reshape_daemon_hook_payload_v1
-        is never called.  We verify the heuristic directly.
+        The caller heuristic (``_needs_daemon_reshape``) should evaluate to
+        False when both keys are present, meaning
+        _reshape_daemon_hook_payload_v1 is never called.  We verify the
+        heuristic through the extracted helper function.
         """
         # Add timestamp_utc alongside existing emitted_at
         daemon_wire_payload["timestamp_utc"] = "2026-02-15T10:30:00+00:00"
 
-        # This is the exact heuristic from create_claude_hook_dispatch_handler
-        needs_reshape = (
-            "emitted_at" in daemon_wire_payload
-            and "timestamp_utc" not in daemon_wire_payload
-        )
-
-        assert needs_reshape is False, (
+        assert _needs_daemon_reshape(daemon_wire_payload) is False, (
             "When both emitted_at and timestamp_utc are present, "
             "the caller must NOT trigger reshape"
         )
@@ -350,11 +347,7 @@ class TestReshapeBothTimestampKeys:
         }
 
         # Caller heuristic skips reshape
-        needs_reshape = (
-            "emitted_at" in canonical_payload
-            and "timestamp_utc" not in canonical_payload
-        )
-        assert needs_reshape is False
+        assert _needs_daemon_reshape(canonical_payload) is False
 
         # When not reshaped, the dict is used as-is -- verify structure
         # is preserved (no mutation)
@@ -417,3 +410,56 @@ class TestReshapeStripsDaemonMetadata:
         # Not in payload sub-dict
         assert "schema_version" not in reshaped["payload"]
         assert "causation_id" not in reshaped["payload"]
+
+
+# =============================================================================
+# Tests: Diagnostic Key Truncation
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDiagnosticKeyTruncation:
+    """Validate that payloads with >_MAX_DIAGNOSTIC_KEYS produce truncated diagnostics."""
+
+    def test_truncation_indicator_in_error_message(self) -> None:
+        """Payload with >_MAX_DIAGNOSTIC_KEYS keys includes '...' in error message.
+
+        Builds a flat daemon payload with 15 unknown keys but MISSING the
+        required ``event_type`` key to trigger the error path.  The error
+        message must contain the ``'...'`` truncation indicator and must
+        NOT enumerate all 15 key names.
+        """
+        total_keys = _MAX_DIAGNOSTIC_KEYS + 5  # 15 keys total
+        payload: dict[str, Any] = {
+            # Include required keys except event_type to trigger ValueError
+            "emitted_at": "2026-02-15T10:30:00+00:00",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+        }
+        # Add enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS
+        for i in range(total_keys - len(payload)):
+            payload[f"extra_key_{i:03d}"] = f"value_{i}"
+
+        assert len(payload) > _MAX_DIAGNOSTIC_KEYS, (
+            f"Test setup error: need >{_MAX_DIAGNOSTIC_KEYS} keys, got {len(payload)}"
+        )
+
+        with pytest.raises(ValueError, match="event_type") as exc_info:
+            _reshape_daemon_hook_payload_v1(payload)
+
+        error_msg = str(exc_info.value)
+
+        # Must contain the truncation indicator as a list element
+        assert "'...'" in error_msg, (
+            f"Error message must contain truncation indicator '...', got: {error_msg}"
+        )
+
+        # Must NOT contain all key names -- verify at least one extra key
+        # beyond the truncation limit is absent from the message
+        all_keys_sorted = sorted(payload.keys())
+        keys_beyond_limit = all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]
+        assert len(keys_beyond_limit) > 0, "Test setup error: no keys beyond limit"
+        for key in keys_beyond_limit:
+            assert key not in error_msg, (
+                f"Key {key!r} beyond truncation limit should not appear in error message"
+            )

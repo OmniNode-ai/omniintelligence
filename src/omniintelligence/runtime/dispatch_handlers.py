@@ -169,13 +169,14 @@ def _diagnostic_key_summary(raw: dict[str, Any]) -> str:
     """Return a bounded, sorted key summary for diagnostic error messages.
 
     Produces a string like ``"(keys=['a', 'b', 'c'])"`` or
-    ``"(keys=['a', 'b', ...])"`` when the key count exceeds
+    ``"(keys=['a', 'b', '...'])"`` when the key count exceeds
     ``_MAX_DIAGNOSTIC_KEYS``.
     """
     all_keys = sorted(raw.keys())
     diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
-    truncated = "..." if len(all_keys) > _MAX_DIAGNOSTIC_KEYS else ""
-    return f"(keys={diagnostic_keys}{truncated})"
+    if len(all_keys) > _MAX_DIAGNOSTIC_KEYS:
+        diagnostic_keys.append("...")
+    return f"(keys={diagnostic_keys})"
 
 
 # =============================================================================
@@ -220,6 +221,22 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
     envelope["payload"] = nested_payload
 
     return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
+
+
+def _needs_daemon_reshape(payload: dict[str, Any]) -> bool:
+    """Return True if the payload is a flat daemon dict that needs reshaping.
+
+    The emit daemon sends a flat dict with ``emitted_at`` as its timestamp
+    key, while the canonical ``ModelClaudeCodeHookEvent`` shape uses
+    ``timestamp_utc``.  When ``emitted_at`` is present and ``timestamp_utc``
+    is absent, the payload is treated as a flat daemon payload that must
+    be reshaped.
+
+    When **both** keys are present, the payload is treated as canonical
+    (already shaped) and no reshape is needed.  See inline comment in
+    ``create_claude_hook_dispatch_handler`` for the ambiguity note.
+    """
+    return "emitted_at" in payload and "timestamp_utc" not in payload
 
 
 def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
@@ -346,10 +363,7 @@ def create_claude_hook_dispatch_handler(
                 # message that happens to include "timestamp_utc" as a
                 # domain key.  In practice this has not occurred; if it
                 # does, Pydantic validation will surface the mismatch.
-                needs_reshape = (
-                    "emitted_at" in payload and "timestamp_utc" not in payload
-                )
-                if needs_reshape:
+                if _needs_daemon_reshape(payload):
                     parsed = _reshape_daemon_hook_payload_v1(payload)
                 else:
                     parsed = payload
