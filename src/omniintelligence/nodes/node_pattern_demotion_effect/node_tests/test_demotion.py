@@ -43,7 +43,6 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demoti
     MIN_FAILURE_STREAK_FOR_DEMOTION,
     MIN_INJECTION_COUNT_FOR_DEMOTION,
     DemotionPatternRecord,
-    _parse_update_count,
     build_effective_thresholds,
     build_gate_snapshot,
     calculate_hours_since_promotion,
@@ -2093,54 +2092,6 @@ class TestGetDemotionReason:
         assert reason is not None
         assert "failure_streak" in reason
         assert "low_success_rate" not in reason
-
-
-# =============================================================================
-# Test Class: _parse_update_count Helper Function
-# =============================================================================
-
-
-@pytest.mark.unit
-class TestParseUpdateCount:
-    """Tests for the _parse_update_count helper function.
-
-    This function parses PostgreSQL status strings like "UPDATE 5" to extract
-    the affected row count.
-    """
-
-    def test_parses_update_status(self) -> None:
-        """Parses 'UPDATE N' format correctly."""
-        assert _parse_update_count("UPDATE 5") == 5
-        assert _parse_update_count("UPDATE 0") == 0
-        assert _parse_update_count("UPDATE 100") == 100
-
-    def test_parses_insert_status(self) -> None:
-        """Parses 'INSERT oid N' format correctly (takes last number)."""
-        assert _parse_update_count("INSERT 0 1") == 1
-        assert _parse_update_count("INSERT 0 5") == 5
-
-    def test_parses_delete_status(self) -> None:
-        """Parses 'DELETE N' format correctly."""
-        assert _parse_update_count("DELETE 3") == 3
-        assert _parse_update_count("DELETE 0") == 0
-
-    def test_empty_string_returns_zero(self) -> None:
-        """Empty string returns 0."""
-        assert _parse_update_count("") == 0
-
-    def test_none_returns_zero(self) -> None:
-        """None value returns 0."""
-        assert _parse_update_count(None) == 0
-
-    def test_single_word_returns_zero(self) -> None:
-        """Single word (no count) returns 0."""
-        assert _parse_update_count("UPDATE") == 0
-        assert _parse_update_count("error") == 0
-
-    def test_invalid_number_returns_zero(self) -> None:
-        """Non-numeric count returns 0."""
-        assert _parse_update_count("UPDATE abc") == 0
-        assert _parse_update_count("UPDATE foo bar") == 0
 
 
 # =============================================================================

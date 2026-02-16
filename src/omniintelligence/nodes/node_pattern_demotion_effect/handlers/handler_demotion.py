@@ -101,7 +101,6 @@ from datetime import UTC, datetime
 from typing import TypedDict, cast
 from uuid import UUID, uuid4
 
-from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_DEPRECATED_V1
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
 from omniintelligence.nodes.node_pattern_demotion_effect.models import (
@@ -110,7 +109,6 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelDemotionGateSnapshot,
     ModelDemotionResult,
     ModelEffectiveThresholds,
-    ModelPatternDeprecatedEvent,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -1099,93 +1097,3 @@ async def _emit_lifecycle_event(
             "topic": topic,
         },
     )
-
-
-async def _emit_deprecation_event(
-    producer: ProtocolKafkaPublisher,
-    pattern_id: UUID,
-    pattern_signature: str,
-    reason: str,
-    gate_snapshot: ModelDemotionGateSnapshot,
-    thresholds: ModelEffectiveThresholds,
-    deprecated_at: datetime,
-    correlation_id: UUID | None,
-    *,
-    topic_env_prefix: str,
-) -> None:
-    """Emit a pattern-deprecated event to Kafka.
-
-    NOTE: This function is retained for downstream notification AFTER the
-    reducer/effect node completes the actual transition. It is NOT used
-    in the new event-driven demotion flow (see _emit_lifecycle_event).
-
-    Args:
-        producer: Kafka producer implementing ProtocolKafkaPublisher.
-        pattern_id: The deprecated pattern ID.
-        pattern_signature: The pattern signature.
-        reason: The demotion reason.
-        gate_snapshot: Gate values at demotion time.
-        thresholds: Effective thresholds used for this demotion.
-        deprecated_at: Demotion timestamp.
-        correlation_id: Correlation ID for tracing.
-        topic_env_prefix: Environment prefix for topic (e.g., "dev", "prod").
-            Required parameter - must be provided by caller from configuration.
-    """
-    # Build topic name with environment prefix
-    topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_DEPRECATED_V1}"
-
-    # Build event payload using the model
-    event = ModelPatternDeprecatedEvent(
-        event_type="PatternDeprecated",
-        pattern_id=pattern_id,
-        pattern_signature=pattern_signature,
-        from_status="validated",
-        to_status="deprecated",
-        reason=reason,
-        gate_snapshot=gate_snapshot,
-        effective_thresholds=thresholds,
-        deprecated_at=deprecated_at,
-        correlation_id=correlation_id,
-    )
-
-    # Publish to Kafka
-    await producer.publish(
-        topic=topic,
-        key=str(pattern_id),
-        value=event.model_dump(mode="json"),
-    )
-
-    logger.debug(
-        "Emitted pattern-deprecated event",
-        extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
-            "pattern_id": str(pattern_id),
-            "topic": topic,
-        },
-    )
-
-
-def _parse_update_count(status: str | None) -> int:
-    """Parse the row count from a PostgreSQL status string.
-
-    PostgreSQL returns status strings like:
-        - "UPDATE 5" (5 rows updated)
-        - "INSERT 0 1" (1 row inserted)
-        - "DELETE 3" (3 rows deleted)
-
-    Args:
-        status: PostgreSQL status string from execute(), or None.
-
-    Returns:
-        Number of affected rows, or 0 if status is None or parsing fails.
-    """
-    if not status:
-        return 0
-
-    parts = status.split()
-    if len(parts) >= 2:
-        try:
-            return int(parts[-1])
-        except ValueError:
-            return 0
-    return 0

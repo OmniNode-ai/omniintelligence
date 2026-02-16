@@ -248,7 +248,7 @@ def create_claude_hook_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -369,7 +369,7 @@ def create_session_outcome_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -571,7 +571,7 @@ def create_pattern_lifecycle_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -804,9 +804,9 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
                 get_log_sanitizer().sanitize(str(e)),
             )
-            # Treat as idempotent -- return empty string (success) rather than
+            # Treat as idempotent -- return "ok" (success) rather than
             # raising, since the pattern already exists in the DB.
-            return ""
+            return "ok"
         except Exception as e:
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
@@ -829,7 +829,7 @@ def create_pattern_storage_dispatch_handler(
                 version,
                 ctx_correlation_id,
             )
-            return ""
+            return "ok"
 
         now = datetime.now(UTC)
 
@@ -867,7 +867,7 @@ def create_pattern_storage_dispatch_handler(
                     exc_info=True,
                 )
 
-        return ""
+        return "ok"
 
     return _handle
 

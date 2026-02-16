@@ -14,6 +14,7 @@ Note on Defaults:
 """
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -85,7 +86,7 @@ class ModelLearnedPatternRow(BaseModel):
     )
 
     # Lifecycle
-    status: str = Field(
+    status: Literal["candidate", "provisional", "validated", "deprecated"] = Field(
         ...,
         description="Pattern status: candidate, provisional, validated, deprecated",
     )

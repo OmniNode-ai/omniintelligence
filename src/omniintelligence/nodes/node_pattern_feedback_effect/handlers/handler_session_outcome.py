@@ -200,6 +200,12 @@ WHERE id = ANY($1)
 RETURNING id, quality_score
 """
 
+# Query to count all injections for a session (regardless of outcome_recorded status)
+# Used to distinguish "no injections exist" from "all injections already recorded"
+SQL_COUNT_SESSION_INJECTIONS = """
+SELECT COUNT(*) as count FROM pattern_injections WHERE session_id = $1
+"""
+
 
 # =============================================================================
 # Type Definitions
@@ -364,7 +370,7 @@ async def record_session_outcome(
         # No injections found - could be already recorded or no patterns were injected
         # Check if there are any injections at all for this session
         check_result = await repository.fetch(
-            "SELECT COUNT(*) as count FROM pattern_injections WHERE session_id = $1",
+            SQL_COUNT_SESSION_INJECTIONS,
             session_id,
         )
         has_any = check_result[0]["count"] > 0 if check_result else False

@@ -66,10 +66,12 @@ def handle_receive_intent(
     Returns:
         ModelIntentReceipt confirming the intent was received and recorded.
     """
-    # Extract payload intent_type safely
-    payload_intent_type: str | None = None
-    if hasattr(intent.payload, "intent_type"):
-        payload_intent_type = str(intent.payload.intent_type)
+    # Extract payload intent_type safely (getattr avoids suppressing
+    # property-access errors that hasattr would silently swallow).
+    _intent_type = getattr(intent.payload, "intent_type", None)
+    payload_intent_type: str | None = (
+        str(_intent_type) if _intent_type is not None else None
+    )
 
     logger.info(
         "Intent received from reducer",

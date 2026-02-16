@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import os
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
@@ -76,8 +77,13 @@ batch optimization). The batch grouping provides log grouping (batch_start/end
 in warnings) and error isolation -- a failed event does not abort the remaining
 events in the batch or subsequent batches."""
 
-_SESSION_QUERY_TIMEOUT_SECONDS: float = 2.0
-"""Hard timeout for session enrichment DB queries."""
+_SESSION_QUERY_TIMEOUT_SECONDS: float = float(
+    os.environ.get("INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS", "2.0")
+)
+"""Hard timeout for session enrichment DB queries.
+
+Configurable via INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS environment variable.
+Defaults to 2.0 seconds."""
 
 _TAXONOMY_VERSION: str = "1.0.0"
 """Domain taxonomy version included in pattern metadata."""
@@ -247,7 +253,7 @@ def create_pattern_learning_dispatch_handler(
                 exc,
                 ctx_correlation_id,
             )
-            return ""
+            return "ok"
 
         if not extraction_output.success:
             logger.warning(
@@ -258,7 +264,7 @@ def create_pattern_learning_dispatch_handler(
                 extraction_output.metadata.message,
                 ctx_correlation_id,
             )
-            return ""
+            return "ok"
 
         # Collect all insights (new + updated)
         all_insights: list[ModelCodebaseInsight] = [
@@ -317,7 +323,7 @@ def create_pattern_learning_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
