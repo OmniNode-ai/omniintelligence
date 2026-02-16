@@ -343,6 +343,7 @@ def create_session_outcome_dispatch_handler(
             success = bool(payload.get("success", False))
 
         failure_reason = payload.get("failure_reason")
+        failure_reason = str(failure_reason) if failure_reason is not None else None
 
         logger.info(
             "Dispatching session-outcome via MessageDispatchEngine "
@@ -547,7 +548,7 @@ def create_pattern_lifecycle_dispatch_handler(
             from_status=from_status,
             to_status=to_status,
             trigger=trigger,
-            actor=payload.get("actor", "dispatch"),
+            actor=str(payload.get("actor", "dispatch")),
             reason=payload.get("reason"),
             # gate_snapshot contract: apply_transition accepts
             # ModelGateSnapshot | dict[str, object] | None.  Payload

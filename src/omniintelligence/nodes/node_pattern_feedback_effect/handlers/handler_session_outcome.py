@@ -315,6 +315,16 @@ async def record_session_outcome(
         succeeds), data may be left in an inconsistent state where injections
         are marked as recorded but pattern metrics are not updated.
 
+        Partial Failure Recovery: If the caller passes a pool-backed repository
+        without an explicit transaction (e.g., AdapterPatternRepositoryPostgres),
+        each SQL statement auto-commits independently. A crash after step 3
+        (mark injections recorded) but before step 5 (update rolling metrics)
+        leaves the session permanently marked as processed while metrics are
+        never updated. Re-running returns ALREADY_RECORDED, making metrics
+        permanently skewed. Recovery requires manual SQL to reset
+        ``outcome_recorded = FALSE`` and ``outcome_recorded_at = NULL``
+        for affected sessions in the ``pattern_injections`` table.
+
         Heuristic Idempotency: Contribution heuristics are only written for
         injections where contribution_heuristic IS NULL. This prevents retries
         from overwriting previously computed attributions.
@@ -325,6 +335,21 @@ async def record_session_outcome(
             "correlation_id": str(correlation_id) if correlation_id else None,
             "session_id": str(session_id),
             "success": success,
+        },
+    )
+
+    # ATOMICITY WARNING: The following multi-step sequence (steps 1-7) is NOT
+    # wrapped in a single transaction. Atomicity depends on the caller's
+    # connection context. If the repository is pool-backed (auto-commit per
+    # statement), a crash mid-sequence can leave partially-committed state.
+    # See docstring "Partial Failure Recovery" for details.
+    logger.warning(
+        "Starting non-atomic multi-step session outcome recording — "
+        "atomicity relies on caller's connection/transaction context",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "step_count": 7,
         },
     )
 

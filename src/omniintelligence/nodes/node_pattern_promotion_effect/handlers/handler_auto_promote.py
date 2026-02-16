@@ -112,6 +112,7 @@ WHERE lp.status = 'candidate'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
   AND lp.evidence_tier IN ('observed', 'measured', 'verified')
+LIMIT 500
 """
 
 # Fetch provisional patterns eligible for PROVISIONAL -> VALIDATED promotion
@@ -128,6 +129,7 @@ WHERE lp.status = 'provisional'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
   AND lp.evidence_tier IN ('measured', 'verified')
+LIMIT 500
 """
 
 # Count measured attributions for a pattern (for gate snapshot)

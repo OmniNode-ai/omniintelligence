@@ -633,6 +633,14 @@ class PluginIntelligence:
             unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
 
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+                if topic not in topic_handlers:
+                    logger.warning(
+                        "Topic %s declared in contract but has no registered "
+                        "dispatch route, skipping (correlation_id=%s)",
+                        topic,
+                        correlation_id,
+                    )
+                    continue
                 handler = topic_handlers[topic]
                 logger.info(
                     "Subscribing to intelligence topic: %s "

@@ -277,6 +277,7 @@ FROM learned_patterns lp
 LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'validated'
   AND lp.is_current = TRUE
+LIMIT 500
 """
 
 

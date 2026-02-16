@@ -486,16 +486,47 @@ async def _bind_single_pattern(
         )
 
     # Step 4: Insert attribution record (always, for audit trail)
-    attr_row = await conn.fetchrow(
-        SQL_INSERT_ATTRIBUTION,
-        pattern_id,
-        session_id,
-        run_id,
-        computed_tier.value,
-        attribution_json,
-        correlation_id,
-    )
-    attribution_id = attr_row["id"] if attr_row else None
+    # The INSERT ... WHERE NOT EXISTS is not fully atomic under concurrent
+    # writes: two sessions binding the same (pattern_id, session_id) can
+    # both pass the NOT EXISTS check before either INSERT completes,
+    # causing a UniqueViolationError (SQLSTATE 23505) from the partial
+    # unique index. We catch this and treat it as an idempotent no-op
+    # (same semantics as the WHERE NOT EXISTS returning zero rows).
+    #
+    # Note: We catch Exception and check for SQLSTATE 23505 instead of
+    # importing asyncpg.UniqueViolationError to comply with the I/O audit
+    # rule that forbids net-client imports in node handlers (ARCH-002).
+    try:
+        attr_row = await conn.fetchrow(
+            SQL_INSERT_ATTRIBUTION,
+            pattern_id,
+            session_id,
+            run_id,
+            computed_tier.value,
+            attribution_json,
+            correlation_id,
+        )
+        attribution_id = attr_row["id"] if attr_row else None
+    except Exception as exc:
+        # SQLSTATE 23505 = unique_violation (PostgreSQL error code).
+        # asyncpg sets this as the `sqlstate` attribute on its exceptions.
+        if getattr(exc, "sqlstate", None) == "23505":
+            # Concurrent write already inserted the attribution for this
+            # (pattern_id, session_id) pair. This is the expected race
+            # condition and is safe to treat as a no-op.
+            logger.debug(
+                "Attribution INSERT hit unique_violation (SQLSTATE 23505) — "
+                "concurrent write already inserted this (pattern_id, session_id) "
+                "pair, treating as idempotent no-op",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "pattern_id": str(pattern_id),
+                    "session_id": str(session_id),
+                },
+            )
+            attribution_id = None
+        else:
+            raise
 
     # Step 5: Update evidence_tier (monotonic - only if computed > current)
     tier_updated = False
