@@ -12,7 +12,7 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_trans
 )
 
 __all__ = [
-    # Protocols (locally defined)
+    # Protocols (canonical definition in omniintelligence.protocols)
     "ProtocolIdempotencyStore",
     # Handler functions
     "apply_transition",

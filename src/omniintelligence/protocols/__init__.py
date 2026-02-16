@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
+from uuid import UUID
 
 
 @runtime_checkable
@@ -72,9 +73,88 @@ class ProtocolKafkaPublisher(Protocol):
         ...
 
 
-# TODO: dispatch_handlers.py maintains local copies of ProtocolIdempotencyStore
-# and ProtocolIntentClassifier to avoid circular imports with their handler modules
-# (handler_transition.py and handler_claude_event.py). If those protocols are
-# extracted here in the future, dispatch_handlers.py should import from this module.
+@runtime_checkable
+class ProtocolIdempotencyStore(Protocol):
+    """Protocol for idempotency key tracking.
 
-__all__ = ["ProtocolKafkaPublisher", "ProtocolPatternRepository"]
+    This protocol defines the interface for checking and recording
+    idempotency keys (request_id values) to prevent duplicate transitions.
+
+    The implementation may use PostgreSQL, Redis, or in-memory storage
+    depending on the deployment environment.
+
+    Idempotency Timing:
+        To ensure operations are retriable on failure, the idempotency key
+        should be recorded AFTER successful completion:
+
+        1. Call exists() to check for duplicates
+        2. If duplicate, return cached success
+        3. Perform the operation
+        4. On SUCCESS, call record() to mark as processed
+        5. On FAILURE, do NOT record - allows retry
+
+        This ensures that failed operations can be retried with the same
+        request_id, while preventing duplicate processing of successful ones.
+    """
+
+    async def check_and_record(self, request_id: UUID) -> bool:
+        """Check if request_id exists, and if not, record it atomically.
+
+        This operation must be atomic (check-and-set) to prevent race
+        conditions between concurrent requests with the same request_id.
+
+        Args:
+            request_id: The idempotency key to check and record.
+
+        Returns:
+            True if this is a DUPLICATE (request_id already existed).
+            False if this is NEW (request_id was just recorded).
+        """
+        ...
+
+    async def exists(self, request_id: UUID) -> bool:
+        """Check if request_id exists without recording.
+
+        Args:
+            request_id: The idempotency key to check.
+
+        Returns:
+            True if request_id exists, False otherwise.
+        """
+        ...
+
+    async def record(self, request_id: UUID) -> None:
+        """Record a request_id as processed (without checking).
+
+        This should be called AFTER successful operation completion to
+        prevent replay of the same request_id.
+
+        Args:
+            request_id: The idempotency key to record.
+
+        Note:
+            If the request_id already exists, this is a no-op (idempotent).
+        """
+        ...
+
+
+@runtime_checkable
+class ProtocolIntentClassifier(Protocol):
+    """Protocol for intent classification compute nodes.
+
+    Defines a simplified interface for classifying user prompt intent.
+    The implementation delegates to a compute node that performs
+    pattern-matching-based classification.
+    """
+
+    async def compute(
+        self, input_data: Any
+    ) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
+
+
+__all__ = [
+    "ProtocolIdempotencyStore",
+    "ProtocolIntentClassifier",
+    "ProtocolKafkaPublisher",
+    "ProtocolPatternRepository",
+]

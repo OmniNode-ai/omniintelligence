@@ -98,7 +98,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import TypedDict, cast
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_DEPRECATED_V1
@@ -112,6 +112,8 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelEffectiveThresholds,
     ModelPatternDeprecatedEvent,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -255,78 +257,6 @@ class DemotionPatternRecord(_DemotionPatternRecordRequired, total=False):
     failure_streak: int | None
     promoted_at: datetime | None
     is_disabled: bool
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    This protocol defines the minimal interface required for database operations
-    in the demotion handler. It is intentionally generic to support both
-    asyncpg connections and mock implementations for testing.
-
-    The methods mirror asyncpg.Connection semantics:
-        - fetch: Execute query and return list of Records
-        - execute: Execute query and return status string (e.g., "UPDATE 5")
-
-    Note:
-        Parameters use asyncpg-style positional placeholders ($1, $2, etc.)
-        rather than named parameters.
-    """
-
-    async def fetch(self, query: str, *args: object) -> list[DemotionPatternRecord]:
-        """Execute a query and return all results as Records.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            List of record objects with dict-like access to columns.
-        """
-        ...
-
-    async def execute(self, query: str, *args: object) -> str:
-        """Execute a query and return the status string.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Status string from PostgreSQL (e.g., "UPDATE 5", "INSERT 0 1").
-        """
-        ...
-
-
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Protocol for Kafka event publishers.
-
-    Defines a simplified interface for publishing events to Kafka topics.
-    This protocol uses a dict-based value for flexibility, with serialization
-    handled by the implementation.
-    """
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, object],
-    ) -> None:
-        """Publish an event to a Kafka topic.
-
-        Args:
-            topic: Target Kafka topic name.
-            key: Message key for partitioning.
-            value: Event payload as a dictionary (serialized by implementation).
-        """
-        ...
 
 
 # =============================================================================
@@ -700,7 +630,12 @@ async def check_and_demote_patterns(
         )
 
     # Step 3: Fetch all validated patterns
-    patterns = await repository.fetch(SQL_FETCH_VALIDATED_PATTERNS)
+    # Cast from generic Mapping[str, Any] to DemotionPatternRecord since the SQL
+    # query returns columns matching the TypedDict shape.
+    patterns = cast(
+        list[DemotionPatternRecord],
+        await repository.fetch(SQL_FETCH_VALIDATED_PATTERNS),
+    )
 
     logger.debug(
         "Fetched validated patterns",
@@ -859,7 +794,7 @@ async def check_and_demote_patterns(
                     from_status="validated",
                     to_status="deprecated",
                     deprecated_at=None,
-                    reason=f"demotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"demotion_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
                     gate_snapshot=build_gate_snapshot(pattern),
                     effective_thresholds=thresholds,
                     dry_run=False,
@@ -1032,7 +967,7 @@ async def demote_pattern(
             from_status="validated",
             to_status="deprecated",
             deprecated_at=None,  # None indicates event was NOT emitted
-            reason=f"kafka_publish_failed: {type(exc).__name__}: {exc!s}",
+            reason=f"kafka_publish_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
             gate_snapshot=gate_snapshot,
             effective_thresholds=thresholds,
             dry_run=False,

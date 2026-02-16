@@ -29,9 +29,6 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demoti
     SUCCESS_RATE_THRESHOLD_MIN,
     # Type definitions
     DemotionPatternRecord,
-    # Protocols
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     # Pure functions
     build_effective_thresholds,
     build_gate_snapshot,
@@ -44,6 +41,7 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demoti
     is_cooldown_active,
     validate_threshold_overrides,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 __all__ = [
     # Constants

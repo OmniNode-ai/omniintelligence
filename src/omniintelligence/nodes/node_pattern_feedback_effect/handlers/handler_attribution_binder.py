@@ -96,7 +96,11 @@ WHERE id = $1
   )
 """
 
-# Insert attribution record into the audit table
+# Insert attribution record into the audit table.
+# ON CONFLICT guards against duplicate records from Kafka redelivery:
+# the same (pattern_id, session_id) pair should only produce one attribution
+# row per session. When a duplicate arrives, the INSERT is silently skipped
+# and RETURNING yields no rows (handled by the caller).
 SQL_INSERT_ATTRIBUTION = """
 INSERT INTO pattern_measured_attributions (
     pattern_id,
@@ -106,6 +110,7 @@ INSERT INTO pattern_measured_attributions (
     measured_attribution_json,
     correlation_id
 ) VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (pattern_id, session_id) DO NOTHING
 RETURNING id
 """
 

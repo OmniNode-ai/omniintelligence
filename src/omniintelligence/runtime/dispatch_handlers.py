@@ -32,7 +32,6 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from asyncpg import (  # asyncpg is a required dependency (pyproject.toml [core])
@@ -61,31 +60,17 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Dependency Protocols (structural typing for dispatch handler deps)
 # =============================================================================
-# ProtocolPatternRepository and ProtocolKafkaPublisher are imported from the
-# canonical location. ProtocolIdempotencyStore and ProtocolIntentClassifier
-# are defined locally to avoid circular imports with their handler modules
-# (handler_transition.py and handler_claude_event.py respectively).
+# All protocols imported from the canonical location (omniintelligence.protocols).
+# No circular import risk: handler modules (handler_transition.py,
+# handler_claude_event.py) do not import from this module. The handler imports
+# in this file are deferred (inside function bodies) to further ensure safety.
 
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
-
-
-@runtime_checkable
-class ProtocolIdempotencyStore(Protocol):
-    """Idempotency key tracking protocol."""
-
-    async def exists(self, request_id: UUID) -> bool: ...
-    async def record(self, request_id: UUID) -> None: ...
-    async def check_and_record(self, request_id: UUID) -> bool: ...
-
-
-@runtime_checkable
-class ProtocolIntentClassifier(Protocol):
-    """Intent classification protocol."""
-
-    async def compute(
-        self, input_data: Any
-    ) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
-
+from omniintelligence.protocols import (
+    ProtocolIdempotencyStore,
+    ProtocolIntentClassifier,
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
 
 # =============================================================================
 # Topic Alias Mapping
@@ -777,7 +762,7 @@ def create_pattern_storage_dispatch_handler(
         )
 
         try:
-            await repository.execute(
+            upsert_status = await repository.execute(
                 _SQL_UPSERT_LEARNED_PATTERN,
                 pattern_id,
                 signature,
@@ -822,6 +807,20 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
             )
             raise
+
+        # ON CONFLICT DO NOTHING silently drops duplicates. Log when no row
+        # was inserted so operators can trace redelivery / idempotency hits.
+        if upsert_status == "INSERT 0 0":
+            logger.debug(
+                "Duplicate pattern skipped by ON CONFLICT DO NOTHING "
+                "(pattern_signature=%s, domain_id=%s, version=%d, "
+                "correlation_id=%s)",
+                signature,
+                domain_id,
+                version,
+                ctx_correlation_id,
+            )
+            return ""
 
         now = datetime.now(UTC)
 

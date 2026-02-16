@@ -35,7 +35,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+from uuid import NAMESPACE_DNS, UUID, uuid4, uuid5
 
 from asyncpg import InterfaceError as AsyncpgInterfaceError
 from asyncpg import InternalClientError as AsyncpgInternalClientError
@@ -354,7 +354,7 @@ async def _fetch_session_snapshot(
     # Convert string session_id to a deterministic UUID so downstream
     # source_session_ids are compatible with the UUID[] column in
     # learned_patterns. Same string always produces the same UUID.
-    deterministic_session_id = str(uuid5(NAMESPACE_URL, session_id))
+    deterministic_session_id = str(uuid5(NAMESPACE_DNS, session_id))
 
     try:
         # Query agent_actions for the session (bounded by asyncio timeout).

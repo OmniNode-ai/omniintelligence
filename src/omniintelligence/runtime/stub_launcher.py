@@ -52,7 +52,11 @@ def _run_health_server(
     host: str = "0.0.0.0",
     port: int = 8000,
 ) -> HTTPServer:
-    """Run a health check HTTP server in a daemon thread."""
+    """Run a health check HTTP server in a daemon thread.
+
+    NOTE: Binds to 0.0.0.0 for container health probes (Kubernetes/Docker).
+    No authentication -- intended for internal network only.
+    """
 
     class HealthHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:

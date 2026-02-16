@@ -28,6 +28,7 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -42,8 +43,6 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demoti
     MIN_FAILURE_STREAK_FOR_DEMOTION,
     MIN_INJECTION_COUNT_FOR_DEMOTION,
     DemotionPatternRecord,
-    ProtocolKafkaPublisher,
-    ProtocolPatternRepository,
     _parse_update_count,
     build_effective_thresholds,
     build_gate_snapshot,
@@ -62,6 +61,7 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelDemotionResult,
     ModelEffectiveThresholds,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -128,8 +128,8 @@ class MockPatternRepository:
         """Add a pattern to the mock database."""
         self.patterns[pattern.id] = pattern
 
-    async def fetch(self, query: str, *args: object) -> list[DemotionPatternRecord]:
-        """Execute a query and return results as DemotionPatternRecord objects.
+    async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
+        """Execute a query and return results as record-like mappings.
 
         Simulates asyncpg fetch() behavior. Supports the specific queries
         used by the demotion handlers.
@@ -138,7 +138,7 @@ class MockPatternRepository:
 
         # Handle: Fetch validated patterns eligible for demotion check
         if "learned_patterns" in query and "validated" in query:
-            results: list[DemotionPatternRecord] = []
+            results: list[Mapping[str, Any]] = []
             for p in self.patterns.values():
                 if p.status == "validated" and p.is_current:
                     results.append(
@@ -158,6 +158,15 @@ class MockPatternRepository:
             return results
 
         return []
+
+    async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
+        """Execute a query and return the first row, or None.
+
+        Simulates asyncpg fetchrow() behavior. Required by the canonical
+        ProtocolPatternRepository interface.
+        """
+        rows = await self.fetch(query, *args)
+        return rows[0] if rows else None
 
     async def execute(self, query: str, *args: object) -> str:
         """Execute a query and return status string.

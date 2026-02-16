@@ -78,7 +78,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumEvidenceTier, EnumPatternLifecycleStatus
@@ -87,7 +86,11 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,
     ModelTransitionResult,
 )
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
+from omniintelligence.protocols import (
+    ProtocolIdempotencyStore,
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -99,85 +102,6 @@ logger = logging.getLogger(__name__)
 
 PROVISIONAL_STATUS: EnumPatternLifecycleStatus = EnumPatternLifecycleStatus.PROVISIONAL
 """Legacy status that new transitions are not allowed to target."""
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolIdempotencyStore(Protocol):
-    """Protocol for idempotency key tracking.
-
-    This protocol defines the interface for checking and recording
-    idempotency keys (request_id values) to prevent duplicate transitions.
-
-    The implementation may use PostgreSQL, Redis, or in-memory storage
-    depending on the deployment environment.
-
-    Idempotency Timing:
-        To ensure operations are retriable on failure, the idempotency key
-        should be recorded AFTER successful completion:
-
-        1. Call exists() to check for duplicates
-        2. If duplicate, return cached success
-        3. Perform the operation
-        4. On SUCCESS, call record() to mark as processed
-        5. On FAILURE, do NOT record - allows retry
-
-        This ensures that failed operations can be retried with the same
-        request_id, while preventing duplicate processing of successful ones.
-    """
-
-    async def check_and_record(self, request_id: UUID) -> bool:
-        """Check if request_id exists, and if not, record it atomically.
-
-        This operation must be atomic (check-and-set) to prevent race
-        conditions between concurrent requests with the same request_id.
-
-        Args:
-            request_id: The idempotency key to check and record.
-
-        Returns:
-            True if this is a DUPLICATE (request_id already existed).
-            False if this is NEW (request_id was just recorded).
-
-        Note:
-            Returns True for duplicates (not False) because the common
-            case is "not a duplicate" and we want that to be falsy for
-            easy if-statement guards.
-
-        Warning:
-            For operations that may fail, prefer using exists() + record()
-            separately to ensure failed operations remain retriable.
-        """
-        ...
-
-    async def exists(self, request_id: UUID) -> bool:
-        """Check if request_id exists without recording.
-
-        Args:
-            request_id: The idempotency key to check.
-
-        Returns:
-            True if request_id exists, False otherwise.
-        """
-        ...
-
-    async def record(self, request_id: UUID) -> None:
-        """Record a request_id as processed (without checking).
-
-        This should be called AFTER successful operation completion to
-        prevent replay of the same request_id.
-
-        Args:
-            request_id: The idempotency key to record.
-
-        Note:
-            If the request_id already exists, this is a no-op (idempotent).
-        """
-        ...
 
 
 # =============================================================================
@@ -633,13 +557,14 @@ async def apply_transition(
         )
 
     except Exception as exc:
+        sanitized_error = get_log_sanitizer().sanitize(str(exc))
         logger.error(
             "Failed to apply pattern lifecycle transition",
             extra={
                 "correlation_id": str(correlation_id),
                 "request_id": str(request_id),
                 "pattern_id": str(pattern_id),
-                "error": str(exc),
+                "error": sanitized_error,
                 "error_type": type(exc).__name__,
             },
             exc_info=True,
@@ -653,7 +578,7 @@ async def apply_transition(
             transition_id=None,
             reason=f"Database error: {type(exc).__name__}",
             transitioned_at=None,
-            error_message=str(exc),
+            error_message=sanitized_error,
         )
 
     # Step 5: Emit Kafka event (if producer available)

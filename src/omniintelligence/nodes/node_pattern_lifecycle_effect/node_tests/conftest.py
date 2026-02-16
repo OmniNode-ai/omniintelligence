@@ -19,10 +19,11 @@ from uuid import UUID
 
 import pytest
 
-from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+from omniintelligence.protocols import (
     ProtocolIdempotencyStore,
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
 )
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation

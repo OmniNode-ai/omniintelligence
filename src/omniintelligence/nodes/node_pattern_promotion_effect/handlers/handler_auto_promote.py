@@ -48,15 +48,16 @@ from uuid import UUID, uuid4
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import EvidenceTierLiteral, ModelGateSnapshot
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
-        ProtocolIdempotencyStore,
-    )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
         ModelTransitionResult,
     )
-    from omniintelligence.protocols import ProtocolKafkaPublisher
+    from omniintelligence.protocols import (
+        ProtocolIdempotencyStore,
+        ProtocolKafkaPublisher,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -548,7 +549,7 @@ async def handle_auto_promote_check(
                     from_status="candidate",
                     to_status="provisional",
                     promoted=False,
-                    reason=f"promotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
                     gate_snapshot=gate_snapshot.model_dump(mode="json"),
                 )
@@ -643,7 +644,7 @@ async def handle_auto_promote_check(
                     from_status="provisional",
                     to_status="validated",
                     promoted=False,
-                    reason=f"promotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
                     gate_snapshot=gate_snapshot.model_dump(mode="json"),
                 )
