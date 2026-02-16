@@ -143,6 +143,19 @@ domain-specific payload keys.  Defined as a module-level frozenset to
 avoid reconstructing the set on every call.
 """
 
+_REQUIRED_ENVELOPE_KEYS: tuple[str, ...] = (
+    "emitted_at",
+    "event_type",
+    "session_id",
+    "correlation_id",
+)
+"""Envelope keys that must be present and non-null in every daemon payload.
+
+Used by ``_reshape_daemon_hook_payload_v1`` to validate required fields
+before reshaping.  Defined as a module-level tuple to avoid
+reconstructing on every call.
+"""
+
 
 # =============================================================================
 # Bridge Handler: Claude Hook Event
@@ -221,12 +234,6 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     # --- require four mandatory envelope keys ---
     # Distinguish between missing keys and keys present with null values
     # so that error messages accurately describe the problem.
-    _REQUIRED_ENVELOPE_KEYS = (
-        "emitted_at",
-        "event_type",
-        "session_id",
-        "correlation_id",
-    )
     for _key in _REQUIRED_ENVELOPE_KEYS:
         if _key not in raw:
             raise ValueError(

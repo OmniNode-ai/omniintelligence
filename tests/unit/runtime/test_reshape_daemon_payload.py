@@ -219,6 +219,67 @@ class TestReshapeMissingRequiredKeys:
 
 
 # =============================================================================
+# Tests: Null Value for Required Keys
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeNullRequiredKeys:
+    """Validate that null values for required keys produce clear ValueError messages.
+
+    This exercises the second validation branch in _reshape_daemon_hook_payload_v1:
+    the key IS present in the dict but its value is None.  This is distinct from
+    the 'missing key' branch tested by TestReshapeMissingRequiredKeys.
+    """
+
+    def test_reshape_null_event_type(self, daemon_wire_payload: dict[str, Any]) -> None:
+        """Payload with event_type=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["event_type"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "event_type" in error_msg
+        assert "keys=" in error_msg
+
+    def test_reshape_null_session_id(self, daemon_wire_payload: dict[str, Any]) -> None:
+        """Payload with session_id=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["session_id"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "session_id" in error_msg
+        assert "keys=" in error_msg
+
+    def test_reshape_null_correlation_id(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload with correlation_id=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["correlation_id"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "correlation_id" in error_msg
+        assert "keys=" in error_msg
+
+    def test_reshape_null_emitted_at(self, daemon_wire_payload: dict[str, Any]) -> None:
+        """Payload with emitted_at=None raises ValueError with 'null value' message."""
+        daemon_wire_payload["emitted_at"] = None
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        error_msg = str(exc_info.value)
+        assert "emitted_at" in error_msg
+        assert "keys=" in error_msg
+
+
+# =============================================================================
 # Tests: Extra / Unknown Keys
 # =============================================================================
 
