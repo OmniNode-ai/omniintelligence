@@ -134,6 +134,7 @@ _DAEMON_ENVELOPE_KEYS: frozenset[str] = frozenset(
         "emitted_at",
         "causation_id",
         "schema_version",
+        "_envelope_reconstructed",
     }
 )
 """Keys belonging to the daemon envelope layer.
@@ -321,6 +322,20 @@ def _reconstruct_payload_from_envelope(
     # Mark the payload so downstream handlers can distinguish an
     # approximate reconstructed payload from an accurate original one.
     reconstructed["_envelope_reconstructed"] = True
+
+    # Guard: if event_type could not be recovered (envelope had None),
+    # the reconstructed dict is missing the critical routing field.
+    # Return the ORIGINAL payload unchanged so downstream handlers
+    # see the raw payload and fail with a clearer error path instead
+    # of a confusing reshape error on a half-reconstructed dict.
+    if "event_type" not in reconstructed:
+        logger.warning(
+            "Envelope reconstruction could not recover the critical "
+            "'event_type' routing field; returning original payload "
+            "unchanged to avoid confusing reshape errors. %s",
+            _diagnostic_key_summary(payload),
+        )
+        return payload
 
     return reconstructed
 

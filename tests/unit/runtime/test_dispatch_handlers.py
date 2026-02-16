@@ -648,6 +648,7 @@ class TestReconstructPayloadFromEnvelope:
         assert result["correlation_id"] == str(corr_id)
         assert result["emitted_at"] == ts.isoformat()
         assert result["session_id"] == "test-session-recon"
+        assert result["_envelope_reconstructed"] is True
         # Original keys preserved
         assert result["prompt_preview"] == "Hello"
         assert result["prompt_length"] == 5
@@ -707,7 +708,12 @@ class TestReconstructPayloadFromEnvelope:
         assert result is not stripped
 
     def test_reconstruction_handles_missing_envelope_event_type(self) -> None:
-        """Envelope with event_type=None should not inject event_type key."""
+        """Envelope with event_type=None should return original payload unchanged.
+
+        When event_type cannot be recovered from the envelope, reconstruction
+        aborts and returns the original payload so downstream handlers see the
+        raw payload and fail with a clearer error path.
+        """
         from omnibase_core.models.events.model_event_envelope import (
             ModelEventEnvelope,
         )
@@ -726,9 +732,11 @@ class TestReconstructPayloadFromEnvelope:
 
         result = _reconstruct_payload_from_envelope(stripped, envelope)
 
+        # Reconstruction cannot recover event_type, so it returns original
+        assert result is stripped
         assert "event_type" not in result
-        assert "emitted_at" in result  # timestamp always set
-        assert "correlation_id" in result
+        assert "emitted_at" not in result
+        assert "correlation_id" not in result
 
     def test_reconstruction_handles_missing_correlation_id(self) -> None:
         """Envelope with correlation_id=None should not inject correlation_id."""
@@ -780,6 +788,45 @@ class TestReconstructPayloadFromEnvelope:
         assert "emitted_at" in result
         # session_id should NOT be present (unrecoverable)
         assert "session_id" not in result
+
+    def test_reconstruction_with_empty_payload(self) -> None:
+        """Empty dict payload should trigger reconstruction from envelope."""
+        from datetime import UTC, datetime
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        empty_payload: dict[str, Any] = {}
+        ts = datetime(2026, 2, 16, 12, 0, 0, tzinfo=UTC)
+        corr_id = uuid4()
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=empty_payload,
+            event_type="UserPromptSubmit",
+            correlation_id=corr_id,
+            envelope_timestamp=ts,
+            metadata=ModelEnvelopeMetadata(
+                tags={"session_id": "test-session-empty"},
+            ),
+        )
+
+        result = _reconstruct_payload_from_envelope(empty_payload, envelope)
+
+        # Reconstruction should fire (empty dict has none of the required keys)
+        assert result is not empty_payload
+        assert result["event_type"] == "UserPromptSubmit"
+        assert result["correlation_id"] == str(corr_id)
+        assert result["emitted_at"] == ts.isoformat()
+        assert result["session_id"] == "test-session-empty"
+        assert result["_envelope_reconstructed"] is True
 
     def test_reconstruction_with_partial_daemon_keys_is_noop(self) -> None:
         """Payload with even one daemon key should not trigger reconstruction."""
