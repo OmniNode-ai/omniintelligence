@@ -599,7 +599,7 @@ async def handle_auto_promote_check(
             continue
 
         pattern_id = pattern["id"]
-        gate_snapshot: ModelGateSnapshot | None = None
+        gate_snapshot = None
         request_id = uuid4()
         now = datetime.now(UTC)
 
