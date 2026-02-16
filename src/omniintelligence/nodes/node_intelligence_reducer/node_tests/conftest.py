@@ -11,12 +11,15 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_intelligence_reducer.models.model_pattern_lifecycle_reducer_input import (
     ModelPatternLifecycleReducerInput,
 )
@@ -68,7 +71,7 @@ def sample_transition_at() -> datetime:
 
 
 @pytest.fixture
-def make_reducer_input():
+def make_reducer_input() -> Callable[..., ModelReducerInputPatternLifecycle]:
     """Factory fixture for creating ModelReducerInputPatternLifecycle instances.
 
     Returns a callable that creates input models with customizable fields.
@@ -87,10 +90,10 @@ def make_reducer_input():
         from_status: str | EnumPatternLifecycleStatus = "candidate",
         to_status: str | EnumPatternLifecycleStatus = "validated",
         trigger: str = "promote_direct",
-        actor_type: str = "handler",
+        actor_type: Literal["system", "admin", "handler"] = "handler",
         actor: str = "test_actor",
         reason: str | None = "Test reason",
-        gate_snapshot: dict | None = None,
+        gate_snapshot: ModelGateSnapshot | None = None,
         request_id: UUID | None = None,
         correlation_id: UUID | None = None,
     ) -> ModelReducerInputPatternLifecycle:

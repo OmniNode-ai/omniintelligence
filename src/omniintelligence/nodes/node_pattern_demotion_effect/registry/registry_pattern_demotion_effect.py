@@ -74,13 +74,13 @@ from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type al
 )
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
-    )
     from omniintelligence.nodes.node_pattern_demotion_effect.models import (
         ModelDemotionCheckRequest,
         ModelDemotionCheckResult,
+    )
+    from omniintelligence.protocols import (
+        ProtocolKafkaPublisher,
+        ProtocolPatternRepository,
     )
 
 logger = logging.getLogger(__name__)

@@ -192,9 +192,14 @@ async def handle_consume_discovered(
         )
         return store_result
 
-    assert (
-        store_result.event is not None
-    )  # Invariant: success=True implies event is set
+    # Invariant: success=True implies event is set. Use explicit check
+    # instead of assert so it is not stripped by Python -O.
+    if store_result.event is None:
+        raise RuntimeError(
+            "Invariant violation: store_result.event must not be None "
+            "after successful store (discovery_id="
+            f"{event.discovery_id})"
+        )
 
     logger.info(
         "Pattern.discovered event consumed and stored",

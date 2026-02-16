@@ -29,7 +29,7 @@ import hashlib
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+from uuid import NAMESPACE_DNS, UUID, uuid4, uuid5
 
 import pytest
 
@@ -39,6 +39,7 @@ from omniintelligence.nodes.node_pattern_extraction_compute.models import (
     ModelPatternExtractionMetadata,
     ModelPatternExtractionOutput,
 )
+from omniintelligence.protocols import ProtocolPatternRepository
 from omniintelligence.runtime.dispatch_handler_pattern_learning import (
     MAX_PATTERNS_PER_SESSION,
     PUBLISH_BATCH_SIZE,
@@ -46,6 +47,7 @@ from omniintelligence.runtime.dispatch_handler_pattern_learning import (
     _transform_insights_to_pattern_events,
     create_pattern_learning_dispatch_handler,
 )
+from omniintelligence.testing.mock_record import MockRecord
 
 # =============================================================================
 # Constants
@@ -72,6 +74,7 @@ def mock_repository() -> MagicMock:
     repo.fetch = AsyncMock(return_value=[])
     repo.fetchrow = AsyncMock(return_value=None)
     repo.execute = AsyncMock(return_value="UPDATE 0")
+    assert isinstance(repo, ProtocolPatternRepository)
     return repo
 
 
@@ -92,7 +95,7 @@ def sample_session_id() -> str:
 @pytest.fixture
 def deterministic_session_id(sample_session_id: str) -> str:
     """Deterministic UUID5 of sample_session_id, as produced by _fetch_session_snapshot."""
-    return str(uuid5(NAMESPACE_URL, sample_session_id))
+    return str(uuid5(NAMESPACE_DNS, sample_session_id))
 
 
 @pytest.fixture
@@ -358,7 +361,7 @@ class TestPatternLearningHandlerErrors:
         ):
             result = await handler(envelope, context)
 
-        assert result == ""
+        assert result == "ok"
         mock_kafka_producer.publish.assert_not_called()
 
 
@@ -639,42 +642,42 @@ class TestFetchSessionSnapshot:
         now = datetime.now(UTC)
         mock_repository.fetch = AsyncMock(
             side_effect=[
-                # First call: agent_actions
+                # First call: agent_actions (MockRecord emulates asyncpg.Record)
                 [
-                    {
-                        "action_type": "read",
-                        "tool_name": "Read",
-                        "file_path": "src/main.py",
-                        "status": "success",
-                        "error_message": None,
-                        "created_at": now,
-                    },
-                    {
-                        "action_type": "edit",
-                        "tool_name": "Edit",
-                        "file_path": "src/utils.py",
-                        "status": "success",
-                        "error_message": None,
-                        "created_at": now,
-                    },
-                    {
-                        "action_type": "read",
-                        "tool_name": "Read",
-                        "file_path": "src/broken.py",
-                        "status": "error",
-                        "error_message": "File not found",
-                        "created_at": now,
-                    },
+                    MockRecord(
+                        action_type="read",
+                        tool_name="Read",
+                        file_path="src/main.py",
+                        status="success",
+                        error_message=None,
+                        created_at=now,
+                    ),
+                    MockRecord(
+                        action_type="edit",
+                        tool_name="Edit",
+                        file_path="src/utils.py",
+                        status="success",
+                        error_message=None,
+                        created_at=now,
+                    ),
+                    MockRecord(
+                        action_type="read",
+                        tool_name="Read",
+                        file_path="src/broken.py",
+                        status="error",
+                        error_message="File not found",
+                        created_at=now,
+                    ),
                 ],
-                # Second call: workflow_steps
+                # Second call: workflow_steps (MockRecord emulates asyncpg.Record)
                 [
-                    {
-                        "step_name": "analysis",
-                        "status": "completed",
-                        "error_message": None,
-                        "started_at": now,
-                        "completed_at": now,
-                    },
+                    MockRecord(
+                        step_name="analysis",
+                        status="completed",
+                        error_message=None,
+                        started_at=now,
+                        completed_at=now,
+                    ),
                 ],
             ]
         )
@@ -685,7 +688,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "session-with-data"))
+        assert snapshot.session_id == str(uuid5(NAMESPACE_DNS, "session-with-data"))
         assert "src/main.py" in snapshot.files_accessed
         assert "src/utils.py" in snapshot.files_accessed
         assert "src/utils.py" in snapshot.files_modified
@@ -711,7 +714,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "empty-session"))
+        assert snapshot.session_id == str(uuid5(NAMESPACE_DNS, "empty-session"))
         assert snapshot.metadata["source"] == "synthetic"
         assert snapshot.metadata["reason"] == "db_unavailable"
         assert snapshot.outcome == "unknown"
@@ -736,7 +739,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "error-session"))
+        assert snapshot.session_id == str(uuid5(NAMESPACE_DNS, "error-session"))
         assert snapshot.metadata["source"] == "synthetic"
         assert snapshot.metadata["reason"] == "db_unavailable"
 
@@ -758,7 +761,7 @@ class TestFetchSessionSnapshot:
             correlation_id=correlation_id,
         )
 
-        assert snapshot.session_id == str(uuid5(NAMESPACE_URL, "timeout-session"))
+        assert snapshot.session_id == str(uuid5(NAMESPACE_DNS, "timeout-session"))
         assert snapshot.metadata["source"] == "synthetic"
 
 
@@ -977,8 +980,8 @@ class TestInsightTransformer:
     ) -> None:
         """Existing evidence_session_ids are preserved and current session appended."""
         # evidence_session_ids are already uuid5-converted by extraction pipeline
-        prev_a = str(uuid5(NAMESPACE_URL, "prev-session-a"))
-        prev_b = str(uuid5(NAMESPACE_URL, "prev-session-b"))
+        prev_a = str(uuid5(NAMESPACE_DNS, "prev-session-a"))
+        prev_b = str(uuid5(NAMESPACE_DNS, "prev-session-b"))
         insight = _make_insight(
             evidence_session_ids=(prev_a, prev_b),
         )

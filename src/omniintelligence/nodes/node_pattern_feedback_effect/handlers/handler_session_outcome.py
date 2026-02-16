@@ -71,6 +71,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     ModelSessionOutcomeResult,
 )
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,12 @@ WHERE id = ANY($1)
 RETURNING id, quality_score
 """
 
+# Query to count all injections for a session (regardless of outcome_recorded status)
+# Used to distinguish "no injections exist" from "all injections already recorded"
+SQL_COUNT_SESSION_INJECTIONS = """
+SELECT COUNT(*) as count FROM pattern_injections WHERE session_id = $1
+"""
+
 
 # =============================================================================
 # Type Definitions
@@ -315,6 +322,16 @@ async def record_session_outcome(
         succeeds), data may be left in an inconsistent state where injections
         are marked as recorded but pattern metrics are not updated.
 
+        Partial Failure Recovery: If the caller passes a pool-backed repository
+        without an explicit transaction (e.g., AdapterPatternRepositoryPostgres),
+        each SQL statement auto-commits independently. A crash after step 3
+        (mark injections recorded) but before step 5 (update rolling metrics)
+        leaves the session permanently marked as processed while metrics are
+        never updated. Re-running returns ALREADY_RECORDED, making metrics
+        permanently skewed. Recovery requires manual SQL to reset
+        ``outcome_recorded = FALSE`` and ``outcome_recorded_at = NULL``
+        for affected sessions in the ``pattern_injections`` table.
+
         Heuristic Idempotency: Contribution heuristics are only written for
         injections where contribution_heuristic IS NULL. This prevents retries
         from overwriting previously computed attributions.
@@ -325,6 +342,21 @@ async def record_session_outcome(
             "correlation_id": str(correlation_id) if correlation_id else None,
             "session_id": str(session_id),
             "success": success,
+        },
+    )
+
+    # ATOMICITY WARNING: The following multi-step sequence (steps 1-7) is NOT
+    # wrapped in a single transaction. Atomicity depends on the caller's
+    # connection context. If the repository is pool-backed (auto-commit per
+    # statement), a crash mid-sequence can leave partially-committed state.
+    # See docstring "Partial Failure Recovery" for details.
+    logger.debug(
+        "Starting non-atomic multi-step session outcome recording — "
+        "atomicity relies on caller's connection/transaction context",
+        extra={
+            "correlation_id": str(correlation_id) if correlation_id else None,
+            "session_id": str(session_id),
+            "step_count": 7,
         },
     )
 
@@ -339,7 +371,7 @@ async def record_session_outcome(
         # No injections found - could be already recorded or no patterns were injected
         # Check if there are any injections at all for this session
         check_result = await repository.fetch(
-            "SELECT COUNT(*) as count FROM pattern_injections WHERE session_id = $1",
+            SQL_COUNT_SESSION_INJECTIONS,
             session_id,
         )
         has_any = check_result[0]["count"] > 0 if check_result else False
@@ -400,7 +432,7 @@ async def record_session_outcome(
     )
 
     # Parse number of updated rows from status string (e.g., "UPDATE 5")
-    injections_updated = _parse_update_count(update_status)
+    injections_updated = parse_pg_status_count(update_status)
 
     logger.debug(
         "Marked injections as recorded",
@@ -601,7 +633,7 @@ async def compute_and_store_heuristics(
             confidence,
         )
         # Check if row was actually updated (idempotency check may skip it)
-        if _parse_update_count(status) > 0:
+        if parse_pg_status_count(status) > 0:
             updated_count += 1
 
     return updated_count
@@ -648,7 +680,7 @@ async def update_pattern_rolling_metrics(
     # Execute update (pass ROLLING_WINDOW_SIZE as $2 parameter)
     status = await repository.execute(sql, pattern_ids, ROLLING_WINDOW_SIZE)
 
-    return _parse_update_count(status)
+    return parse_pg_status_count(status)
 
 
 async def update_effectiveness_scores(
@@ -689,44 +721,6 @@ async def update_effectiveness_scores(
     )
 
     return {row["id"]: float(row["quality_score"]) for row in rows}
-
-
-def _parse_update_count(status: str | None) -> int:
-    """Parse the row count from a PostgreSQL status string.
-
-    PostgreSQL returns status strings like:
-        - "UPDATE 5" (5 rows updated)
-        - "INSERT 0 1" (1 row inserted)
-        - "DELETE 3" (3 rows deleted)
-
-    Args:
-        status: PostgreSQL status string from execute(), or None.
-
-    Returns:
-        Number of affected rows, or 0 if status is None or parsing fails.
-
-    Examples:
-        >>> _parse_update_count("UPDATE 5")
-        5
-        >>> _parse_update_count("INSERT 0 1")
-        1
-        >>> _parse_update_count("DELETE 0")
-        0
-        >>> _parse_update_count(None)
-        0
-    """
-    if not status:
-        return 0
-
-    parts = status.split()
-    if len(parts) >= 2:
-        try:
-            # For UPDATE/DELETE, count is second part
-            # For INSERT, count is third part (INSERT oid count)
-            return int(parts[-1])
-        except ValueError:
-            return 0
-    return 0
 
 
 __all__ = [

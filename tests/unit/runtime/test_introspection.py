@@ -17,36 +17,16 @@ from uuid import UUID, uuid4
 
 import pytest
 
-# The introspection module itself has no problematic imports, but importing it
-# triggers omniintelligence.runtime.__init__.py which imports PluginIntelligence.
-# PluginIntelligence runs collect_subscribe_topics_from_contracts() at module
-# level, which scans all node packages via importlib.resources.files(). This
-# causes node_pattern_feedback_effect.__init__.py to load, which imports
-# handler_attribution_binder.py, which requires EnumEvidenceTier from
-# omnibase_core.enums.pattern_learning. That enum does not exist in the
-# currently installed omnibase_core version.
-#
-# Blocked on OMN-2134 ("[omnibase_core] L1: Add EnumEvidenceTier enum with
-# ordering support"), which is in Backlog. Once omnibase_core publishes
-# EnumEvidenceTier in omnibase_core.enums.pattern_learning and this repo's
-# dependency is updated, remove this guard and the skipif marker below.
-# TODO(OMN-2134): Unblock when EnumEvidenceTier is available in omnibase_core
-try:
-    from omniintelligence.runtime.introspection import (
-        INTELLIGENCE_NODES,
-        IntrospectionResult,
-        publish_intelligence_introspection,
-        publish_intelligence_shutdown,
-        reset_introspection_guard,
-    )
+from omniintelligence.runtime.introspection import (
+    INTELLIGENCE_NODES,
+    IntrospectionResult,
+    publish_intelligence_introspection,
+    publish_intelligence_shutdown,
+    reset_introspection_guard,
+)
 
-    _CAN_IMPORT = True
-except ImportError:
-    _CAN_IMPORT = False
-
-# ProtocolEventBus lives in omnibase_core and may not be available when the
-# OMN-2134 blocker is active. Import separately so conformance assertions
-# degrade gracefully.
+# ProtocolEventBus lives in omnibase_core and may not be available in all
+# environments. Import separately so conformance assertions degrade gracefully.
 _HAS_PROTOCOL_EVENT_BUS = False
 try:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus  # noqa: I001
@@ -55,28 +35,15 @@ try:
 except (ImportError, ModuleNotFoundError):
     pass
 
-_skipif_no_import = pytest.mark.skipif(
-    not _CAN_IMPORT,
-    reason=(
-        "Cannot import introspection module: omniintelligence.runtime.__init__ "
-        "triggers contract topic scanning which imports "
-        "node_pattern_feedback_effect -> handler_attribution_binder -> "
-        "EnumEvidenceTier (missing from installed omnibase_core)"
-    ),
-)
-
 
 @pytest.fixture(autouse=True)
 def _reset_guard():
     """Reset the single-call guard before and after each test."""
-    if _CAN_IMPORT:
-        reset_introspection_guard()
+    reset_introspection_guard()
     yield
-    if _CAN_IMPORT:
-        reset_introspection_guard()
+    reset_introspection_guard()
 
 
-@_skipif_no_import
 @pytest.mark.unit
 class TestNodeDescriptor:
     """Test node descriptor deterministic node ID generation via public API."""
@@ -99,7 +66,6 @@ class TestNodeDescriptor:
             assert isinstance(desc.node_id, UUID), f"{desc.name} node_id is not a UUID"
 
 
-@_skipif_no_import
 @pytest.mark.unit
 class TestIntelligenceNodes:
     """Test the INTELLIGENCE_NODES registry."""
@@ -156,7 +122,6 @@ class TestIntelligenceNodes:
         assert len(ids) == len(set(ids)), "Duplicate node IDs found"
 
 
-@_skipif_no_import
 @pytest.mark.unit
 class TestPublishIntelligenceIntrospection:
     """Test publish_intelligence_introspection function."""
@@ -239,7 +204,6 @@ class TestPublishIntelligenceIntrospection:
         assert result.registered_nodes == []
 
 
-@_skipif_no_import
 @pytest.mark.unit
 class TestPublishIntelligenceShutdown:
     """Test publish_intelligence_shutdown function."""
@@ -280,23 +244,24 @@ class TestPublishIntelligenceShutdown:
 
 
 # =============================================================================
-# CI Tripwire: detect when the skipif guard can be removed
+# CI Tripwire: detect when omnibase_core publishes EnumEvidenceTier
 # =============================================================================
-# This test does NOT have the _skipif_no_import marker, so it always runs.
-# When OMN-2134 is resolved and EnumEvidenceTier becomes importable, this
-# test fails loudly to remind us to remove the skipif guards above.
+# When OMN-2134 is resolved and omnibase_core publishes EnumEvidenceTier,
+# this test fails to remind us to switch from the local definition back
+# to the omnibase_core canonical export.
 
 
 @pytest.mark.unit
-def test_skipif_guard_still_needed() -> None:
-    """Fail if OMN-2134 blocker is resolved so the skipif guard gets removed."""
+def test_omnibase_core_evidence_tier_tripwire() -> None:
+    """Fail if OMN-2134 is resolved so we can switch to the canonical import."""
     try:
-        from omnibase_core.models.model_enum_evidence_tier import EnumEvidenceTier  # noqa: F401, I001
+        from omnibase_core.enums.pattern_learning import EnumEvidenceTier  # type: ignore[attr-defined]  # noqa: F401, I001
     except ImportError:
-        # Blocker still present -- guard is still needed
+        # OMN-2134 still pending -- local definition is correct
         return
 
     pytest.fail(
-        "OMN-2134 is resolved: remove the skipif guard from this module "
-        "and re-enable all tests"
+        "OMN-2134 is resolved: omnibase_core now exports EnumEvidenceTier. "
+        "Replace the local definition in omniintelligence.enums.enum_evidence_tier "
+        "with a re-export from omnibase_core.enums.pattern_learning."
     )

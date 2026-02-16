@@ -18,9 +18,10 @@ Reference:
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
@@ -34,53 +35,10 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelIntentResult,
     ModelPatternLearningCommand,
 )
+from omniintelligence.protocols import ProtocolIntentClassifier, ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
-if TYPE_CHECKING:
-    from omniintelligence.nodes.node_intent_classifier_compute.models import (
-        ModelIntentClassificationInput,
-        ModelIntentClassificationOutput,
-    )
-
-
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolIntentClassifier(Protocol):
-    """Protocol for intent classifier compute nodes.
-
-    Defines the interface expected by handler functions for classifying
-    user prompts. Any compute node implementing this protocol can be used
-    as an intent classifier.
-    """
-
-    async def compute(
-        self,
-        input_data: ModelIntentClassificationInput,
-    ) -> ModelIntentClassificationOutput:
-        """Classify the intent of user input."""
-        ...
-
-
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Protocol for Kafka event publishers.
-
-    Defines a simplified interface for publishing events to Kafka topics.
-    """
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, object],
-    ) -> None:
-        """Publish an event to a Kafka topic."""
-        ...
-
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Handler Class (Declarative Pattern with Constructor Injection)
@@ -306,7 +264,7 @@ async def handle_stop(
         - OMN-2210: Wire intelligence nodes into registration + pattern extraction
     """
     start_time = time.perf_counter()
-    metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
+    metadata: dict[str, object] = {"handler": "stop_trigger_pattern_learning"}
 
     # Resolve correlation_id to a non-None UUID for downstream calls that
     # require UUID (not UUID | None).
@@ -342,6 +300,10 @@ async def handle_stop(
             metadata["pattern_learning_error"] = sanitized_error
 
             # Route to DLQ per effect-node guidelines.
+            # Known limitation: DLQ publish uses the same producer that failed.
+            # If the failure is producer-level (connection lost), the DLQ write will
+            # also fail and be swallowed. Topic-level errors will succeed. See _route_to_dlq.
+            #
             # Sanitize error before passing to DLQ for defense-in-depth
             # (_route_to_dlq also sanitizes internally, but we sanitize at
             # the call site to avoid passing raw exception strings across
@@ -383,10 +345,10 @@ async def _route_to_dlq(
     *,
     producer: ProtocolKafkaPublisher,
     topic: str,
-    envelope: dict[str, Any],
+    envelope: dict[str, object],
     error_message: str,
     session_id: str,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> None:
     """Route a failed message to the dead-letter queue.
 
@@ -412,12 +374,15 @@ async def _route_to_dlq(
         # sanitization. This is acceptable because the current envelope
         # source (ModelPatternLearningCommand.model_dump()) produces only
         # top-level string fields (session_id, correlation_id, timestamp).
+        # INVARIANT: DLQ payloads from this handler are flat dicts; nested
+        # sanitization is not required. If this changes (e.g. envelope gains
+        # nested objects), add recursive sanitization here.
         sanitized_envelope = {
             k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
             for k, v in envelope.items()
         }
 
-        dlq_payload: dict[str, Any] = {
+        dlq_payload: dict[str, object] = {
             "original_topic": topic,
             "original_envelope": sanitized_envelope,
             "error_message": sanitizer.sanitize(error_message),
@@ -433,7 +398,13 @@ async def _route_to_dlq(
         )
         metadata["pattern_learning_dlq"] = dlq_topic
     except Exception:
-        # DLQ publish failed -- swallow to preserve graceful degradation
+        # DLQ publish failed -- swallow to preserve graceful degradation,
+        # but log at WARNING so operators can detect persistent Kafka issues.
+        logger.warning(
+            "DLQ publish failed for topic %s -- message lost",
+            dlq_topic,
+            exc_info=True,
+        )
         metadata["pattern_learning_dlq"] = "failed"
 
 
@@ -630,7 +601,8 @@ async def handle_user_prompt_submit(
             metadata["kafka_emission_error"] = get_log_sanitizer().sanitize(str(e))
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.FAILED.value
             metadata["kafka_publish_warning"] = (
-                f"Kafka publish failed despite producer being available: {e}"
+                f"Kafka publish failed despite producer being available: "
+                f"{get_log_sanitizer().sanitize(str(e))}"
             )
     elif kafka_producer is None:
         metadata["kafka_emission"] = EnumKafkaEmissionStatus.NO_PRODUCER.value

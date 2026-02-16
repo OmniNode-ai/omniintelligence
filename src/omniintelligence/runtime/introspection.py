@@ -28,6 +28,7 @@ Related:
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_DNS, UUID, uuid5
@@ -47,8 +48,9 @@ logger = logging.getLogger(__name__)
 # Guard for single-call invariant on publish_intelligence_introspection.
 # See the function docstring for rationale: calling it more than once orphans
 # heartbeat tasks from the first call, leaking asyncio tasks.
-# Thread-safety: not required. Plugin lifecycle methods are called sequentially
-# by the kernel.
+# Thread-safety: the lock protects the check-and-set of _introspection_published
+# to prevent races when multiple plugins or test runners share the same module.
+_introspection_lock = threading.Lock()
 _introspection_published: bool = False
 
 # Standard DNS namespace for deterministic UUID5 generation.
@@ -226,15 +228,23 @@ async def publish_intelligence_introspection(
         for lifecycle management.
     """
     global _introspection_published
-    if _introspection_published:
-        raise RuntimeError(
-            "publish_intelligence_introspection() has already been called "
-            "with a real event bus. Calling it again would orphan heartbeat "
-            "tasks from the first invocation. This violates the single-call "
-            "invariant documented in the function docstring. "
-            "(Note: calls with event_bus=None are exempt from this guard "
-            "because they are no-ops that create no proxies or tasks.)"
-        )
+    with _introspection_lock:
+        if _introspection_published:
+            raise RuntimeError(
+                "publish_intelligence_introspection() has already been called "
+                "with a real event bus. Calling it again would orphan heartbeat "
+                "tasks from the first invocation. This violates the single-call "
+                "invariant documented in the function docstring. "
+                "(Note: calls with event_bus=None are exempt from this guard "
+                "because they are no-ops that create no proxies or tasks.)"
+            )
+        # Set guard BEFORE releasing the lock so that concurrent asyncio tasks
+        # (which share the same thread) or other threads see the guard
+        # immediately, not after the await-heavy registration loop below.
+        # The guard is set optimistically: if the loop fails, the guard
+        # remains set, which is correct (the function must not be retried).
+        if event_bus is not None:
+            _introspection_published = True
 
     if event_bus is None:
         # No-op path: intentionally does NOT set _introspection_published.
@@ -295,11 +305,6 @@ async def publish_intelligence_introspection(
                 get_log_sanitizer().sanitize(str(e)),
                 correlation_id,
             )
-
-    # Set the single-call guard AFTER the loop completes successfully.
-    # If an exception propagates out of the loop, the guard remains unset,
-    # allowing a legitimate retry instead of permanently blocking.
-    _introspection_published = True
 
     logger.info(
         "Intelligence introspection published: %d/%d nodes (correlation_id=%s)",
@@ -397,9 +402,14 @@ def reset_introspection_guard() -> None:
     Called during shutdown to allow re-initialization, and in tests for
     isolation between test cases that invoke
     ``publish_intelligence_introspection``.
+
+    Thread-safe: acquires ``_introspection_lock`` to ensure symmetry with
+    ``publish_intelligence_introspection()`` which also holds the lock
+    when reading and writing the guard flag.
     """
     global _introspection_published
-    _introspection_published = False
+    with _introspection_lock:
+        _introspection_published = False
 
 
 __all__ = [

@@ -32,10 +32,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import os
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+from uuid import NAMESPACE_DNS, UUID, uuid4, uuid5
 
 from asyncpg import InterfaceError as AsyncpgInterfaceError
 from asyncpg import InternalClientError as AsyncpgInternalClientError
@@ -76,8 +77,16 @@ batch optimization). The batch grouping provides log grouping (batch_start/end
 in warnings) and error isolation -- a failed event does not abort the remaining
 events in the batch or subsequent batches."""
 
-_SESSION_QUERY_TIMEOUT_SECONDS: float = 2.0
-"""Hard timeout for session enrichment DB queries."""
+try:
+    _SESSION_QUERY_TIMEOUT_SECONDS: float = float(
+        os.environ.get("INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS", "2.0")
+    )
+except ValueError:
+    _SESSION_QUERY_TIMEOUT_SECONDS = 2.0
+"""Hard timeout for session enrichment DB queries.
+
+Configurable via INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS environment variable.
+Defaults to 2.0 seconds."""
 
 _TAXONOMY_VERSION: str = "1.0.0"
 """Domain taxonomy version included in pattern metadata."""
@@ -190,7 +199,7 @@ def create_pattern_learning_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        session_id = str(raw_session_id)
+        session_id = str(raw_session_id)[:256]  # Bound untrusted input
 
         # Override correlation_id from payload if present
         raw_payload_correlation = payload.get("correlation_id")
@@ -247,7 +256,7 @@ def create_pattern_learning_dispatch_handler(
                 exc,
                 ctx_correlation_id,
             )
-            return ""
+            return "ok"
 
         if not extraction_output.success:
             logger.warning(
@@ -258,7 +267,7 @@ def create_pattern_learning_dispatch_handler(
                 extraction_output.metadata.message,
                 ctx_correlation_id,
             )
-            return ""
+            return "ok"
 
         # Collect all insights (new + updated)
         all_insights: list[ModelCodebaseInsight] = [
@@ -317,7 +326,7 @@ def create_pattern_learning_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -354,10 +363,12 @@ async def _fetch_session_snapshot(
     # Convert string session_id to a deterministic UUID so downstream
     # source_session_ids are compatible with the UUID[] column in
     # learned_patterns. Same string always produces the same UUID.
-    deterministic_session_id = str(uuid5(NAMESPACE_URL, session_id))
+    deterministic_session_id = str(uuid5(NAMESPACE_DNS, session_id))
 
     try:
-        # Query agent_actions for the session (bounded by asyncio timeout)
+        # Query agent_actions for the session (bounded by asyncio timeout).
+        # NOTE: session_id is passed as a plain string. The agent_actions
+        # table defines session_id as TEXT (not UUID), so no cast is needed.
         try:
             actions = await asyncio.wait_for(
                 repository.fetch(_SQL_SESSION_ACTIONS, session_id),
@@ -480,7 +491,7 @@ async def _fetch_session_snapshot(
             metadata={"source": "postgresql", "action_count": len(actions)},
         )
 
-    except Exception as e:
+    except (OSError, TimeoutError) as e:
         logger.warning(
             "Failed to fetch session data from DB, using synthetic snapshot "
             "(session_id=%s, error=%s, correlation_id=%s)",
@@ -489,6 +500,23 @@ async def _fetch_session_snapshot(
             correlation_id,
         )
         return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
+    except Exception as e:
+        # Check for asyncpg database errors (have sqlstate attribute) without
+        # importing asyncpg directly (ARCH-002 boundary).
+        if hasattr(e, "sqlstate"):
+            logger.warning(
+                "Failed to fetch session data from DB, using synthetic snapshot "
+                "(session_id=%s, error=%s, correlation_id=%s)",
+                session_id,
+                type(e).__name__,
+                correlation_id,
+            )
+            return _create_synthetic_snapshot(
+                session_id=deterministic_session_id, now=now
+            )
+        # Programming errors (AttributeError, TypeError, KeyError, ValueError)
+        # must propagate so bugs are not silently hidden.
+        raise
 
 
 def _create_synthetic_snapshot(

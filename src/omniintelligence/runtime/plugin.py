@@ -109,7 +109,14 @@ logger = logging.getLogger(__name__)
 #   - node_pattern_lifecycle_effect/contract.yaml
 #   - node_pattern_storage_effect/contract.yaml
 
-INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = collect_subscribe_topics_from_contracts()
+try:
+    INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = collect_subscribe_topics_from_contracts()
+except Exception:
+    logger.error(
+        "Failed to collect subscribe topics from contracts — plugin will not receive events",
+        exc_info=True,
+    )
+    INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = []  # type: ignore[no-redef]
 """All input topics the intelligence plugin subscribes to (contract-driven)."""
 
 
@@ -335,7 +342,7 @@ class PluginIntelligence:
             await self._cleanup_on_failure(config)
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -411,7 +418,7 @@ class PluginIntelligence:
             )
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -476,9 +483,14 @@ class PluginIntelligence:
 
             intent_classifier = AdapterIntentClassifier()
 
-            # Kafka publisher: optional (graceful degradation in handlers)
+            # Kafka publisher: optional (graceful degradation in handlers).
+            # Use isinstance against ProtocolEventBusPublish (runtime_checkable)
+            # to verify the event bus exposes the correct publish signature,
+            # not just any attribute named "publish".
+            from omniintelligence.runtime.adapters import ProtocolEventBusPublish
+
             kafka_publisher = None
-            if hasattr(config.event_bus, "publish"):
+            if isinstance(config.event_bus, ProtocolEventBusPublish):
                 kafka_publisher = AdapterKafkaPublisher(config.event_bus)
 
             # Read publish topics from contract.yaml declarations
@@ -583,7 +595,7 @@ class PluginIntelligence:
             self._dispatch_engine = None
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -628,6 +640,14 @@ class PluginIntelligence:
             unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
 
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+                if topic not in topic_handlers:
+                    logger.warning(
+                        "Topic %s declared in contract but has no registered "
+                        "dispatch route, skipping (correlation_id=%s)",
+                        topic,
+                        correlation_id,
+                    )
+                    continue
                 handler = topic_handlers[topic]
                 logger.info(
                     "Subscribing to intelligence topic: %s "
@@ -671,7 +691,7 @@ class PluginIntelligence:
             )
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -744,8 +764,10 @@ class PluginIntelligence:
 
         try:
             return await self._do_shutdown(config)
-        finally:
+        except Exception:
+            # Reset on failure so shutdown can be retried
             self._shutdown_in_progress = False
+            raise
 
     async def _do_shutdown(
         self,
@@ -803,11 +825,12 @@ class PluginIntelligence:
             try:
                 await unsub()
             except Exception as unsub_error:
-                errors.append(f"unsubscribe: {unsub_error}")
+                sanitized_unsub = get_log_sanitizer().sanitize(str(unsub_error))
+                errors.append(f"unsubscribe: {sanitized_unsub}")
                 logger.warning(
                     "Failed to unsubscribe intelligence consumer: %s "
                     "(correlation_id=%s)",
-                    unsub_error,
+                    sanitized_unsub,
                     correlation_id,
                 )
         self._unsubscribe_callbacks = []
@@ -821,11 +844,12 @@ class PluginIntelligence:
                     correlation_id,
                 )
             except Exception as pool_close_error:
-                errors.append(f"pool_close: {pool_close_error}")
+                sanitized_pool = get_log_sanitizer().sanitize(str(pool_close_error))
+                errors.append(f"pool_close: {sanitized_pool}")
                 logger.warning(
                     "Failed to close Intelligence PostgreSQL pool: %s "
                     "(correlation_id=%s)",
-                    pool_close_error,
+                    sanitized_pool,
                     correlation_id,
                 )
             self._pool = None

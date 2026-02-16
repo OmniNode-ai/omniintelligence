@@ -14,6 +14,7 @@ from omniintelligence.utils.log_sanitizer import (
     get_sanitizer_settings,
     sanitize_logs,
 )
+from omniintelligence.utils.pg_status import parse_pg_status_count
 from omniintelligence.utils.util_token_counter import (
     count_tokens,
     get_tokenizer,
@@ -29,6 +30,8 @@ __all__ = [
     "LogSanitizer",
     "LogSanitizerSettings",
     "check_injection_safety",
+    # PostgreSQL status parsing
+    "parse_pg_status_count",
     # Token counting
     "count_tokens",
     "get_log_sanitizer",
