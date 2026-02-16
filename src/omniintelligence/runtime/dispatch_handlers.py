@@ -239,6 +239,67 @@ def _needs_daemon_reshape(payload: dict[str, Any]) -> bool:
     return "emitted_at" in payload and "timestamp_utc" not in payload
 
 
+def _reconstruct_payload_from_envelope(
+    payload: dict[str, Any],
+    envelope: ModelEventEnvelope[object],
+) -> dict[str, Any]:
+    """Reconstruct daemon keys stripped by envelope deserialization.
+
+    When the Kafka consumer deserializes a flat daemon dict into a
+    ``ModelEventEnvelope``, envelope-level keys (``event_type``,
+    ``correlation_id``) are absorbed into the envelope object and removed
+    from ``envelope.payload``.  The daemon keys ``session_id`` and
+    ``emitted_at`` are not envelope fields, so they are silently discarded
+    by Pydantic's default ``extra="ignore"`` policy.
+
+    This function detects the stripped-envelope scenario and reconstructs
+    the full flat dict by merging envelope fields back into the payload.
+    It only fires when the payload is missing *all four* required daemon
+    keys, which is the signature of envelope-level key absorption.
+
+    If any of the four daemon keys are already present in the payload,
+    the payload is returned unchanged (it was not stripped).
+
+    Args:
+        payload: The dict from ``envelope.payload`` (potentially stripped).
+        envelope: The ``ModelEventEnvelope`` that may hold absorbed keys.
+
+    Returns:
+        A new dict with daemon keys restored from the envelope, or the
+        original payload if reconstruction was not needed.
+    """
+    # Quick check: if the payload already has any of the four required
+    # daemon keys, it was not stripped -- return as-is.
+    if any(k in payload for k in _REQUIRED_ENVELOPE_KEYS):
+        return payload
+
+    # The payload is missing all required daemon keys.  Attempt to
+    # recover them from the envelope's own fields.
+    reconstructed = dict(payload)
+
+    # event_type: envelope.event_type is str | None
+    if envelope.event_type is not None:
+        reconstructed["event_type"] = envelope.event_type
+
+    # correlation_id: envelope.correlation_id is UUID | None
+    if envelope.correlation_id is not None:
+        reconstructed["correlation_id"] = str(envelope.correlation_id)
+
+    # emitted_at: envelope.envelope_timestamp is always set (default factory).
+    # Use ISO format string so Pydantic can parse it downstream.
+    reconstructed["emitted_at"] = envelope.envelope_timestamp.isoformat()
+
+    # session_id: ModelEventEnvelope has no session_id field, so it cannot
+    # be recovered from the envelope.  However, Kafka message headers or
+    # the envelope metadata tags may carry it.  Check metadata tags first.
+    if "session_id" not in reconstructed:
+        meta_session = envelope.get_metadata_value("session_id")
+        if meta_session is not None:
+            reconstructed["session_id"] = str(meta_session)
+
+    return reconstructed
+
+
 def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     """Transform a flat daemon payload into ``ModelClaudeCodeHookEvent`` shape.
 
@@ -353,6 +414,17 @@ def create_claude_hook_dispatch_handler(
             event = payload
         elif isinstance(payload, dict):
             try:
+                # OMN-2322: Reconstruct daemon keys that were stripped by
+                # envelope deserialization.  When the Kafka consumer parses
+                # a flat daemon dict as ModelEventEnvelope, envelope-level
+                # keys (event_type, correlation_id) are absorbed into the
+                # envelope object and removed from envelope.payload.  This
+                # causes _needs_daemon_reshape() to return False because
+                # emitted_at is no longer in the payload.  Reconstructing
+                # the payload from the envelope restores those keys so
+                # downstream reshape/parsing succeeds.
+                payload = _reconstruct_payload_from_envelope(payload, envelope)
+
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
                         "Claude hook payload keys before reshape: %s (correlation_id=%s)",
