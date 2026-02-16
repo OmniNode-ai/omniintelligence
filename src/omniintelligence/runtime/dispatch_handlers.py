@@ -54,6 +54,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
 )
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -819,7 +820,7 @@ def create_pattern_storage_dispatch_handler(
 
         # ON CONFLICT DO NOTHING silently drops duplicates. Log when no row
         # was inserted so operators can trace redelivery / idempotency hits.
-        if upsert_status == "INSERT 0 0":
+        if parse_pg_status_count(upsert_status) == 0:
             logger.debug(
                 "Duplicate pattern skipped by ON CONFLICT DO NOTHING "
                 "(pattern_signature=%s, domain_id=%s, version=%d, "

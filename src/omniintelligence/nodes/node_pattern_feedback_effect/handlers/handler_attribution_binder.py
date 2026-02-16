@@ -51,6 +51,7 @@ from uuid import UUID
 
 from omniintelligence.enums import EnumEvidenceTier
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -539,7 +540,7 @@ async def _bind_single_pattern(
         # execute() returns a command tag string like "UPDATE 1" or "UPDATE 0".
         # Parse the count rather than comparing raw strings for consistency
         # with other handlers in the codebase.
-        updated_count = _parse_update_count(update_status)
+        updated_count = parse_pg_status_count(update_status)
         if updated_count == 0:
             logger.debug(
                 "Evidence tier update matched no rows — tier already at or above computed value",
@@ -571,32 +572,6 @@ async def _bind_single_pattern(
         attribution_id=attribution_id,
         run_id=run_id,
     )
-
-
-def _parse_update_count(status: str | None) -> int:
-    """Parse the row count from a PostgreSQL status string.
-
-    PostgreSQL returns status strings like:
-        - "UPDATE 5" (5 rows updated)
-        - "INSERT 0 1" (1 row inserted)
-        - "DELETE 3" (3 rows deleted)
-
-    Args:
-        status: PostgreSQL status string from execute(), or None.
-
-    Returns:
-        Number of affected rows, or 0 if status is None or parsing fails.
-    """
-    if not status:
-        return 0
-
-    parts = status.split()
-    if len(parts) >= 2:
-        try:
-            return int(parts[-1])
-        except ValueError:
-            return 0
-    return 0
 
 
 __all__ = [

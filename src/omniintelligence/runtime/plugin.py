@@ -112,8 +112,8 @@ logger = logging.getLogger(__name__)
 try:
     INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = collect_subscribe_topics_from_contracts()
 except Exception:
-    logger.warning(
-        "Failed to collect subscribe topics from contracts, using empty list",
+    logger.error(
+        "Failed to collect subscribe topics from contracts — plugin will not receive events",
         exc_info=True,
     )
     INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = []  # type: ignore[no-redef]
@@ -762,7 +762,12 @@ class PluginIntelligence:
             )
         self._shutdown_in_progress = True
 
-        return await self._do_shutdown(config)
+        try:
+            return await self._do_shutdown(config)
+        except Exception:
+            # Reset on failure so shutdown can be retried
+            self._shutdown_in_progress = False
+            raise
 
     async def _do_shutdown(
         self,

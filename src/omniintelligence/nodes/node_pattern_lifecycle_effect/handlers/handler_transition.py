@@ -92,6 +92,7 @@ from omniintelligence.protocols import (
     ProtocolPatternRepository,
 )
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -469,7 +470,7 @@ async def apply_transition(
             transition_at,
             from_status.value,  # Status guard - must match current status
         )
-        rows_updated = _parse_update_count(update_status)
+        rows_updated = parse_pg_status_count(update_status)
 
         if rows_updated == 0:
             # Status guard failed - current status doesn't match from_status
@@ -821,32 +822,6 @@ async def _send_to_dlq(
                 "error_type": type(dlq_exc).__name__,
             },
         )
-
-
-def _parse_update_count(status: str | None) -> int:
-    """Parse the row count from a PostgreSQL status string.
-
-    PostgreSQL returns status strings like:
-        - "UPDATE 5" (5 rows updated)
-        - "INSERT 0 1" (1 row inserted)
-        - "DELETE 3" (3 rows deleted)
-
-    Args:
-        status: PostgreSQL status string from execute(), or None.
-
-    Returns:
-        Number of affected rows, or 0 if status is None or parsing fails.
-    """
-    if not status:
-        return 0
-
-    parts = status.split()
-    if len(parts) >= 2:
-        try:
-            return int(parts[-1])
-        except ValueError:
-            return 0
-    return 0
 
 
 __all__ = [

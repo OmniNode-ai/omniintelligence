@@ -71,6 +71,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     ModelSessionOutcomeResult,
 )
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -431,7 +432,7 @@ async def record_session_outcome(
     )
 
     # Parse number of updated rows from status string (e.g., "UPDATE 5")
-    injections_updated = _parse_update_count(update_status)
+    injections_updated = parse_pg_status_count(update_status)
 
     logger.debug(
         "Marked injections as recorded",
@@ -632,7 +633,7 @@ async def compute_and_store_heuristics(
             confidence,
         )
         # Check if row was actually updated (idempotency check may skip it)
-        if _parse_update_count(status) > 0:
+        if parse_pg_status_count(status) > 0:
             updated_count += 1
 
     return updated_count
@@ -679,7 +680,7 @@ async def update_pattern_rolling_metrics(
     # Execute update (pass ROLLING_WINDOW_SIZE as $2 parameter)
     status = await repository.execute(sql, pattern_ids, ROLLING_WINDOW_SIZE)
 
-    return _parse_update_count(status)
+    return parse_pg_status_count(status)
 
 
 async def update_effectiveness_scores(
@@ -720,44 +721,6 @@ async def update_effectiveness_scores(
     )
 
     return {row["id"]: float(row["quality_score"]) for row in rows}
-
-
-def _parse_update_count(status: str | None) -> int:
-    """Parse the row count from a PostgreSQL status string.
-
-    PostgreSQL returns status strings like:
-        - "UPDATE 5" (5 rows updated)
-        - "INSERT 0 1" (1 row inserted)
-        - "DELETE 3" (3 rows deleted)
-
-    Args:
-        status: PostgreSQL status string from execute(), or None.
-
-    Returns:
-        Number of affected rows, or 0 if status is None or parsing fails.
-
-    Examples:
-        >>> _parse_update_count("UPDATE 5")
-        5
-        >>> _parse_update_count("INSERT 0 1")
-        1
-        >>> _parse_update_count("DELETE 0")
-        0
-        >>> _parse_update_count(None)
-        0
-    """
-    if not status:
-        return 0
-
-    parts = status.split()
-    if len(parts) >= 2:
-        try:
-            # For UPDATE/DELETE, count is second part
-            # For INSERT, count is third part (INSERT oid count)
-            return int(parts[-1])
-        except ValueError:
-            return 0
-    return 0
 
 
 __all__ = [

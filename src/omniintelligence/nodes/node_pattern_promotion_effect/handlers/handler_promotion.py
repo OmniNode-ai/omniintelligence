@@ -92,6 +92,7 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -615,7 +616,7 @@ async def promote_pattern(
         result = await repository.execute(SQL_PROMOTE_PATTERN, pattern_id)
 
         # Check if promotion actually happened (pattern was still provisional)
-        if "UPDATE 0" in result:
+        if parse_pg_status_count(result) == 0:
             logger.debug(
                 "Pattern was not in provisional status - no promotion performed",
                 extra={

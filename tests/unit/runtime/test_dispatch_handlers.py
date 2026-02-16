@@ -1194,6 +1194,9 @@ class TestPatternStorageDispatchHandler:
         mock_kafka = MagicMock()
         mock_kafka.publish = AsyncMock(return_value=None)
 
+        # Successful INSERT returns "INSERT 0 1" (1 row inserted).
+        mock_repository.execute = AsyncMock(return_value="INSERT 0 1")
+
         handler = create_pattern_storage_dispatch_handler(
             repository=mock_repository,
             kafka_producer=mock_kafka,

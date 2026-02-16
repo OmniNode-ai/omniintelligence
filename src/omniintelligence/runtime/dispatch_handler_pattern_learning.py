@@ -77,9 +77,12 @@ batch optimization). The batch grouping provides log grouping (batch_start/end
 in warnings) and error isolation -- a failed event does not abort the remaining
 events in the batch or subsequent batches."""
 
-_SESSION_QUERY_TIMEOUT_SECONDS: float = float(
-    os.environ.get("INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS", "2.0")
-)
+try:
+    _SESSION_QUERY_TIMEOUT_SECONDS: float = float(
+        os.environ.get("INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS", "2.0")
+    )
+except ValueError:
+    _SESSION_QUERY_TIMEOUT_SECONDS = 2.0
 """Hard timeout for session enrichment DB queries.
 
 Configurable via INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS environment variable.
