@@ -165,6 +165,19 @@ ellipsis indicator when truncated.
 """
 
 
+def _diagnostic_key_summary(raw: dict[str, Any]) -> str:
+    """Return a bounded, sorted key summary for diagnostic error messages.
+
+    Produces a string like ``"(keys=['a', 'b', 'c'])"`` or
+    ``"(keys=['a', 'b', ...])"`` when the key count exceeds
+    ``_MAX_DIAGNOSTIC_KEYS``.
+    """
+    all_keys = sorted(raw.keys())
+    diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
+    truncated = "..." if len(all_keys) > _MAX_DIAGNOSTIC_KEYS else ""
+    return f"(keys={diagnostic_keys}{truncated})"
+
+
 # =============================================================================
 # Bridge Handler: Claude Hook Event
 # =============================================================================
@@ -247,20 +260,14 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     # sensitive domain key names in future payloads.
     for _key in _REQUIRED_ENVELOPE_KEYS:
         if _key not in raw:
-            all_keys = sorted(raw.keys())
-            diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
-            truncated = "..." if len(all_keys) > _MAX_DIAGNOSTIC_KEYS else ""
             raise ValueError(
                 f"Daemon payload missing required key '{_key}' "
-                f"(keys={diagnostic_keys}{truncated})"
+                f"{_diagnostic_key_summary(raw)}"
             )
         if raw[_key] is None:
-            all_keys = sorted(raw.keys())
-            diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
-            truncated = "..." if len(all_keys) > _MAX_DIAGNOSTIC_KEYS else ""
             raise ValueError(
                 f"Daemon payload has null value for required key '{_key}' "
-                f"(keys={diagnostic_keys}{truncated})"
+                f"{_diagnostic_key_summary(raw)}"
             )
 
     emitted_at = raw["emitted_at"]
