@@ -357,7 +357,9 @@ async def _fetch_session_snapshot(
     deterministic_session_id = str(uuid5(NAMESPACE_URL, session_id))
 
     try:
-        # Query agent_actions for the session (bounded by asyncio timeout)
+        # Query agent_actions for the session (bounded by asyncio timeout).
+        # NOTE: session_id is passed as a plain string. The agent_actions
+        # table defines session_id as TEXT (not UUID), so no cast is needed.
         try:
             actions = await asyncio.wait_for(
                 repository.fetch(_SQL_SESSION_ACTIONS, session_id),

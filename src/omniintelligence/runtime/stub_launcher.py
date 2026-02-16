@@ -73,7 +73,12 @@ def _run_health_server(
         def log_message(self, format: str, *args: object) -> None:
             logger.debug("Health check: %s", format % args)
 
-    server = HTTPServer((host, port), HealthHandler)
+    try:
+        server = HTTPServer((host, port), HealthHandler)
+    except OSError as exc:
+        logger.error("Health server failed to bind to port %d: %s", port, exc)
+        raise
+
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     logger.info("Health check server running on http://%s:%d/health", host, port)

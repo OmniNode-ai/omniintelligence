@@ -559,7 +559,12 @@ def create_pattern_lifecycle_dispatch_handler(
             trigger=trigger,
             actor=payload.get("actor", "dispatch"),
             reason=payload.get("reason"),
-            gate_snapshot=payload.get("gate_snapshot"),
+            # gate_snapshot contract: apply_transition accepts
+            # ModelGateSnapshot | dict[str, object] | None.  Payload
+            # deserialization always yields dict | None here.
+            gate_snapshot=payload.get("gate_snapshot")
+            if isinstance(payload.get("gate_snapshot"), dict)
+            else None,
             transition_at=transition_at,
             publish_topic=publish_topic if kafka_producer else None,
         )
@@ -696,22 +701,24 @@ def create_pattern_storage_dispatch_handler(
             )
             raw_confidence = 0.5
         if raw_confidence < 0.5:
-            logger.warning(
-                "Pattern confidence %.3f below minimum 0.5, clamping "
+            logger.error(
+                "Pattern confidence %.3f below minimum 0.5, clamping to 0.5 "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
                 raw_confidence,
                 event_type,
                 pattern_id,
                 ctx_correlation_id,
+                extra={"original_confidence": raw_confidence},
             )
         if raw_confidence > 1.0:
-            logger.warning(
-                "Pattern confidence %.3f above maximum 1.0, clamping "
+            logger.error(
+                "Pattern confidence %.3f above maximum 1.0, clamping to 1.0 "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
                 raw_confidence,
                 event_type,
                 pattern_id,
                 ctx_correlation_id,
+                extra={"original_confidence": raw_confidence},
             )
         confidence = max(0.5, min(1.0, raw_confidence))
         try:

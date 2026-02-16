@@ -370,12 +370,12 @@ async def _build_enriched_gate_snapshot(
         count_row = await conn.fetchrow(SQL_COUNT_ATTRIBUTIONS, pattern_id)
         if count_row:
             attribution_count = count_row["count"]
-    except Exception:
-        # Broad catch intentional: asyncpg raises driver-specific exceptions
-        # (InterfaceError, PostgresError, etc.) that are not stable across
-        # versions. We log with exc_info=True so the full traceback is
-        # visible, then fall through with attribution_count=0 so promotion
-        # evaluation can still proceed with conservative defaults.
+    except Exception:  # broad-catch-ok: asyncpg driver boundary
+        # asyncpg raises driver-specific exceptions (InterfaceError,
+        # PostgresError, etc.) that are not stable across versions. We log
+        # with exc_info=True so the full traceback is visible, then fall
+        # through with attribution_count=0 so promotion evaluation can still
+        # proceed with conservative defaults.
         logger.warning("Failed to count attributions for gate snapshot", exc_info=True)
 
     # Get latest run result (validate against known values)
@@ -385,9 +385,9 @@ async def _build_enriched_gate_snapshot(
         if run_row:
             raw_result = run_row.get("run_result")
             latest_run_result = raw_result if raw_result in _VALID_RUN_RESULTS else None
-    except Exception:
-        # Broad catch intentional: same rationale as attribution count above.
-        # DB errors yield latest_run_result=None (conservative default).
+    except Exception:  # broad-catch-ok: asyncpg driver boundary
+        # Same rationale as attribution count above. DB errors yield
+        # latest_run_result=None (conservative default).
         logger.warning(
             "Failed to get latest run result for gate snapshot", exc_info=True
         )
@@ -532,7 +532,7 @@ async def handle_auto_promote_check(
                 )
             )
 
-        except Exception as exc:
+        except Exception as exc:  # broad-catch-ok: asyncpg driver boundary
             logger.error(
                 "Failed to promote candidate pattern",
                 extra={
@@ -627,7 +627,7 @@ async def handle_auto_promote_check(
                 )
             )
 
-        except Exception as exc:
+        except Exception as exc:  # broad-catch-ok: asyncpg driver boundary
             logger.error(
                 "Failed to promote provisional pattern",
                 extra={

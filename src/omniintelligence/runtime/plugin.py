@@ -476,9 +476,14 @@ class PluginIntelligence:
 
             intent_classifier = AdapterIntentClassifier()
 
-            # Kafka publisher: optional (graceful degradation in handlers)
+            # Kafka publisher: optional (graceful degradation in handlers).
+            # Use isinstance against ProtocolEventBusPublish (runtime_checkable)
+            # to verify the event bus exposes the correct publish signature,
+            # not just any attribute named "publish".
+            from omniintelligence.runtime.adapters import ProtocolEventBusPublish
+
             kafka_publisher = None
-            if hasattr(config.event_bus, "publish"):
+            if isinstance(config.event_bus, ProtocolEventBusPublish):
                 kafka_publisher = AdapterKafkaPublisher(config.event_bus)
 
             # Read publish topics from contract.yaml declarations

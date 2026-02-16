@@ -412,6 +412,9 @@ async def _route_to_dlq(
         # sanitization. This is acceptable because the current envelope
         # source (ModelPatternLearningCommand.model_dump()) produces only
         # top-level string fields (session_id, correlation_id, timestamp).
+        # INVARIANT: DLQ payloads from this handler are flat dicts; nested
+        # sanitization is not required. If this changes (e.g. envelope gains
+        # nested objects), add recursive sanitization here.
         sanitized_envelope = {
             k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
             for k, v in envelope.items()
