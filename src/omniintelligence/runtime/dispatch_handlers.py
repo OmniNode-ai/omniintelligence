@@ -32,10 +32,13 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 from uuid import UUID, uuid4
 
-from asyncpg import ForeignKeyViolationError, UniqueViolationError
+from asyncpg import (  # asyncpg is a required dependency (pyproject.toml [core])
+    ForeignKeyViolationError,
+    UniqueViolationError,
+)
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
 from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
@@ -51,37 +54,25 @@ from pydantic import ValidationError
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
 )
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Dependency Protocols (structural typing for dispatch handler deps)
 # =============================================================================
-# ProtocolPatternRepository and ProtocolKafkaPublisher are imported from the
-# canonical location. ProtocolIdempotencyStore and ProtocolIntentClassifier
-# are defined locally to avoid circular imports with their handler modules
-# (handler_transition.py and handler_claude_event.py respectively).
+# All protocols imported from the canonical location (omniintelligence.protocols).
+# No circular import risk: handler modules (handler_transition.py,
+# handler_claude_event.py) do not import from this module. The handler imports
+# in this file are deferred (inside function bodies) to further ensure safety.
 
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
-
-
-@runtime_checkable
-class ProtocolIdempotencyStore(Protocol):
-    """Idempotency key tracking protocol."""
-
-    async def exists(self, request_id: UUID) -> bool: ...
-    async def record(self, request_id: UUID) -> None: ...
-    async def check_and_record(self, request_id: UUID) -> bool: ...
-
-
-@runtime_checkable
-class ProtocolIntentClassifier(Protocol):
-    """Intent classification protocol."""
-
-    async def compute(
-        self, input_data: Any
-    ) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
-
+from omniintelligence.protocols import (
+    ProtocolIdempotencyStore,
+    ProtocolIntentClassifier,
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
 
 # =============================================================================
 # Topic Alias Mapping
@@ -378,8 +369,9 @@ def create_claude_hook_dispatch_handler(
                     # correlation context so the error is traceable in logs.
                     # Without this, ValidationError (a ValueError subclass)
                     # would propagate without the correlation_id annotation.
+                    sanitized = get_log_sanitizer().sanitize(str(e))
                     msg = (
-                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {sanitized} "
                         f"(correlation_id={ctx_correlation_id})"
                     )
                     logger.warning(msg)
@@ -424,7 +416,7 @@ def create_claude_hook_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -519,6 +511,7 @@ def create_session_outcome_dispatch_handler(
             success = bool(payload.get("success", False))
 
         failure_reason = payload.get("failure_reason")
+        failure_reason = str(failure_reason) if failure_reason is not None else None
 
         logger.info(
             "Dispatching session-outcome via MessageDispatchEngine "
@@ -544,7 +537,7 @@ def create_session_outcome_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -683,7 +676,7 @@ def create_pattern_lifecycle_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg) from e
-        trigger = payload.get("trigger", "dispatch")
+        trigger = str(payload.get("trigger", "dispatch"))
 
         # Parse optional transition_at or default to now
         raw_transition_at = payload.get("transition_at")
@@ -723,9 +716,16 @@ def create_pattern_lifecycle_dispatch_handler(
             from_status=from_status,
             to_status=to_status,
             trigger=trigger,
-            actor=payload.get("actor", "dispatch"),
-            reason=payload.get("reason"),
-            gate_snapshot=payload.get("gate_snapshot"),
+            actor=str(payload.get("actor", "dispatch")),
+            reason=str(_reason)
+            if (_reason := payload.get("reason")) is not None
+            else None,
+            # gate_snapshot contract: apply_transition accepts
+            # ModelGateSnapshot | dict[str, object] | None.  Payload
+            # deserialization always yields dict | None here.
+            gate_snapshot=_gate
+            if isinstance((_gate := payload.get("gate_snapshot")), dict)
+            else None,
             transition_at=transition_at,
             publish_topic=publish_topic if kafka_producer else None,
         )
@@ -739,7 +739,7 @@ def create_pattern_lifecycle_dispatch_handler(
             ctx_correlation_id,
         )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -823,7 +823,10 @@ def create_pattern_storage_dispatch_handler(
 
         pattern_id = raw_pattern_id or uuid4()
         # Prefer 'signature' (omniclaude producers) over 'pattern_signature' (DB column name).
-        signature = str(payload.get("signature", payload.get("pattern_signature", "")))
+        # Bound untrusted input to 4096 chars to prevent oversized payloads.
+        signature = str(payload.get("signature", payload.get("pattern_signature", "")))[
+            :4096
+        ]
 
         if not signature:
             msg = (
@@ -847,7 +850,10 @@ def create_pattern_storage_dispatch_handler(
             raise ValueError(msg)
         # Default 'general' must exist in domain_taxonomy (FK constraint).
         # If missing, ForeignKeyViolationError is caught and raised as ValueError.
-        domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
+        # Bound untrusted input to 128 chars to prevent oversized payloads.
+        domain_id = str(payload.get("domain_id", payload.get("domain", "general")))[
+            :128
+        ]
         domain_version = str(payload.get("domain_version", "1.0.0"))
         try:
             raw_confidence = float(payload.get("confidence", 0.5))
@@ -861,23 +867,27 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
             )
             raw_confidence = 0.5
+        # extra field for structured logging backends (JSON/ELK); the positional
+        # arg renders in human-readable format, extra survives for machine parsing.
         if raw_confidence < 0.5:
             logger.warning(
-                "Pattern confidence %.3f below minimum 0.5, clamping "
+                "Pattern confidence %.3f below minimum 0.5, clamping to 0.5 "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
                 raw_confidence,
                 event_type,
                 pattern_id,
                 ctx_correlation_id,
+                extra={"original_confidence": raw_confidence},
             )
         if raw_confidence > 1.0:
             logger.warning(
-                "Pattern confidence %.3f above maximum 1.0, clamping "
+                "Pattern confidence %.3f above maximum 1.0, clamping to 1.0 "
                 "(event_type=%s, pattern_id=%s, correlation_id=%s)",
                 raw_confidence,
                 event_type,
                 pattern_id,
                 ctx_correlation_id,
+                extra={"original_confidence": raw_confidence},
             )
         confidence = max(0.5, min(1.0, raw_confidence))
         try:
@@ -929,7 +939,7 @@ def create_pattern_storage_dispatch_handler(
         )
 
         try:
-            await repository.execute(
+            upsert_status = await repository.execute(
                 _SQL_UPSERT_LEARNED_PATTERN,
                 pattern_id,
                 signature,
@@ -960,20 +970,34 @@ def create_pattern_storage_dispatch_handler(
                 domain_id,
                 version,
                 ctx_correlation_id,
-                e,
+                get_log_sanitizer().sanitize(str(e)),
             )
-            # Treat as idempotent -- return empty string (success) rather than
+            # Treat as idempotent -- return "ok" (success) rather than
             # raising, since the pattern already exists in the DB.
-            return ""
+            return "ok"
         except Exception as e:
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
                 "(pattern_id=%s, error=%s, correlation_id=%s)",
                 pattern_id,
-                e,
+                get_log_sanitizer().sanitize(str(e)),
                 ctx_correlation_id,
             )
             raise
+
+        # ON CONFLICT DO NOTHING silently drops duplicates. Log when no row
+        # was inserted so operators can trace redelivery / idempotency hits.
+        if parse_pg_status_count(upsert_status) == 0:
+            logger.debug(
+                "Duplicate pattern skipped by ON CONFLICT DO NOTHING "
+                "(pattern_signature=%s, domain_id=%s, version=%d, "
+                "correlation_id=%s)",
+                signature,
+                domain_id,
+                version,
+                ctx_correlation_id,
+            )
+            return "ok"
 
         now = datetime.now(UTC)
 
@@ -1011,7 +1035,7 @@ def create_pattern_storage_dispatch_handler(
                     exc_info=True,
                 )
 
-        return ""
+        return "ok"
 
     return _handle
 
@@ -1275,7 +1299,27 @@ def create_dispatch_callback(
             if hasattr(msg, "value"):
                 raw_value = msg.value
                 if isinstance(raw_value, bytes | bytearray):
-                    payload_dict = json.loads(raw_value.decode("utf-8"))
+                    try:
+                        decoded_value = raw_value.decode("utf-8")
+                    except UnicodeDecodeError as ude:
+                        # Invalid UTF-8 will never become valid on retry --
+                        # ACK to prevent infinite redelivery.
+                        safe_preview = get_log_sanitizer().sanitize(
+                            repr(raw_value[:200])
+                        )
+                        logger.error(
+                            "Invalid UTF-8 in message body, ACKing to "
+                            "prevent infinite retry (error=%s, "
+                            "raw_preview=%s, correlation_id=%s). "
+                            "Message discarded (permanent parse failure).",
+                            ude,
+                            safe_preview,
+                            msg_correlation_id,
+                        )
+                        if hasattr(msg, "ack"):
+                            await msg.ack()
+                        return
+                    payload_dict = json.loads(decoded_value)
                 elif isinstance(raw_value, str):
                     payload_dict = json.loads(raw_value)
                 elif isinstance(raw_value, dict):
@@ -1352,10 +1396,32 @@ def create_dispatch_callback(
                 if hasattr(msg, "nack"):
                     await msg.nack()
 
+        except json.JSONDecodeError as e:
+            # Malformed JSON will never succeed on retry -- ACK to prevent
+            # infinite redelivery. Log truncated raw bytes for diagnosis.
+            raw_preview = ""
+            if hasattr(msg, "value"):
+                raw_bytes = msg.value
+                if isinstance(raw_bytes, bytes | bytearray):
+                    raw_preview = repr(raw_bytes[:200])
+                elif isinstance(raw_bytes, str):
+                    raw_preview = raw_bytes[:200]
+            sanitized_preview = get_log_sanitizer().sanitize(raw_preview)
+            logger.error(
+                "Malformed JSON in message body, ACKing to prevent infinite retry "
+                "(error=%s, raw_preview=%s, correlation_id=%s). "
+                "Message discarded (permanent parse failure).",
+                e,
+                sanitized_preview,
+                msg_correlation_id,
+            )
+            if hasattr(msg, "ack"):
+                await msg.ack()
+
         except Exception as e:
             logger.exception(
                 "Failed to dispatch message via engine: %s (correlation_id=%s)",
-                e,
+                get_log_sanitizer().sanitize(str(e)),
                 msg_correlation_id,
             )
             if hasattr(msg, "nack"):

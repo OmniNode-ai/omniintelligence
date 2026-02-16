@@ -628,7 +628,12 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
 
         # Health check port
         if health_port := os.environ.get(f"{prefix}HEALTH_CHECK_PORT"):
-            config_data["health_check_port"] = int(health_port)
+            try:
+                config_data["health_check_port"] = int(health_port)
+            except ValueError:
+                raise ValueError(
+                    f"{prefix}HEALTH_CHECK_PORT must be numeric, got: {health_port!r}"
+                ) from None
 
         # Metrics
         if metrics_enabled := os.environ.get(f"{prefix}METRICS_ENABLED"):
@@ -639,7 +644,12 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             )
 
         if metrics_port := os.environ.get(f"{prefix}METRICS_PORT"):
-            config_data["metrics_port"] = int(metrics_port)
+            try:
+                config_data["metrics_port"] = int(metrics_port)
+            except ValueError:
+                raise ValueError(
+                    f"{prefix}METRICS_PORT must be numeric, got: {metrics_port!r}"
+                ) from None
 
         # Event bus configuration
         event_bus_data: dict[str, object] = {}

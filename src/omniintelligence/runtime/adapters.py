@@ -150,13 +150,33 @@ class AdapterIdempotencyStorePostgres:
         """Create the idempotency keys table if it does not exist.
 
         Safe to call multiple times.  Logs on first successful creation.
+
+        .. warning::
+            This method creates the table via raw DDL (CREATE TABLE IF NOT
+            EXISTS), bypassing the migration system. This is acceptable as a
+            transitional bootstrap convenience but must be replaced with a
+            proper migration before production hardening.
         """
-        await self._pool.execute(SQL_ENSURE_IDEMPOTENCY_TABLE)
+        # TODO(migration): Replace raw DDL with a proper database migration.
+        #   This CREATE TABLE IF NOT EXISTS bypasses the migration system,
+        #   which means schema changes to this table cannot be tracked,
+        #   versioned, or rolled back. Create an Alembic/migration entry
+        #   for the pattern_idempotency_keys table and remove this method.
+        # Note: CREATE TABLE IF NOT EXISTS is idempotent, so concurrent calls are safe albeit duplicative.
+        result = await self._pool.execute(SQL_ENSURE_IDEMPOTENCY_TABLE)
         if not self._table_ensured:
-            logger.info(
-                "Idempotency table 'pattern_idempotency_keys' ensured "
-                "(CREATE TABLE IF NOT EXISTS)"
-            )
+            # Detect if the table was actually created (not just already existed).
+            # asyncpg returns "CREATE TABLE" for new tables vs no-op for existing.
+            if result == "CREATE TABLE":
+                logger.warning(
+                    "Idempotency table 'pattern_idempotency_keys' created via "
+                    "raw DDL (bypasses migration system). This is transitional "
+                    "and must be replaced with a proper migration."
+                )
+            else:
+                logger.info(
+                    "Idempotency table 'pattern_idempotency_keys' already exists"
+                )
             self._table_ensured = True
 
     async def exists(self, request_id: UUID) -> bool:

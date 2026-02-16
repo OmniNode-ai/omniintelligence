@@ -68,13 +68,11 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_intelligence_reducer.models import (
         ModelPayloadUpdatePatternStatus,
     )
-    from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
-        ProtocolIdempotencyStore,
-    )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
         ModelTransitionResult,
     )
     from omniintelligence.protocols import (
+        ProtocolIdempotencyStore,
         ProtocolKafkaPublisher,
         ProtocolPatternRepository,
     )

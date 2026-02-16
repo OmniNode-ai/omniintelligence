@@ -41,9 +41,6 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     update_effectiveness_scores,
     update_pattern_rolling_metrics,
 )
-from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
-    _parse_update_count,
-)
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
 )
@@ -51,6 +48,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.node import (
     NodePatternFeedbackEffect,
 )
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -1488,13 +1486,13 @@ class TestResultModelValidation:
 
 
 # =============================================================================
-# Test Class: _parse_update_count Helper Function
+# Test Class: parse_pg_status_count Helper Function
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestParseUpdateCount:
-    """Tests for the _parse_update_count helper function.
+    """Tests for the parse_pg_status_count helper function.
 
     This function parses PostgreSQL status strings like "UPDATE 5" to extract
     the affected row count.
@@ -1502,41 +1500,41 @@ class TestParseUpdateCount:
 
     def test_parses_update_status(self) -> None:
         """Parses 'UPDATE N' format correctly."""
-        assert _parse_update_count("UPDATE 5") == 5
-        assert _parse_update_count("UPDATE 0") == 0
-        assert _parse_update_count("UPDATE 100") == 100
+        assert parse_pg_status_count("UPDATE 5") == 5
+        assert parse_pg_status_count("UPDATE 0") == 0
+        assert parse_pg_status_count("UPDATE 100") == 100
 
     def test_parses_insert_status(self) -> None:
         """Parses 'INSERT oid N' format correctly (takes last number)."""
-        assert _parse_update_count("INSERT 0 1") == 1
-        assert _parse_update_count("INSERT 0 5") == 5
+        assert parse_pg_status_count("INSERT 0 1") == 1
+        assert parse_pg_status_count("INSERT 0 5") == 5
 
     def test_parses_delete_status(self) -> None:
         """Parses 'DELETE N' format correctly."""
-        assert _parse_update_count("DELETE 3") == 3
-        assert _parse_update_count("DELETE 0") == 0
+        assert parse_pg_status_count("DELETE 3") == 3
+        assert parse_pg_status_count("DELETE 0") == 0
 
     def test_empty_string_returns_zero(self) -> None:
         """Empty string returns 0."""
-        assert _parse_update_count("") == 0
+        assert parse_pg_status_count("") == 0
 
     def test_none_returns_zero(self) -> None:
         """None value returns 0."""
-        assert _parse_update_count(None) == 0
+        assert parse_pg_status_count(None) == 0
 
     def test_single_word_returns_zero(self) -> None:
         """Single word (no count) returns 0."""
-        assert _parse_update_count("UPDATE") == 0
-        assert _parse_update_count("error") == 0
+        assert parse_pg_status_count("UPDATE") == 0
+        assert parse_pg_status_count("error") == 0
 
     def test_invalid_number_returns_zero(self) -> None:
         """Non-numeric count returns 0."""
-        assert _parse_update_count("UPDATE abc") == 0
-        assert _parse_update_count("UPDATE foo bar") == 0
+        assert parse_pg_status_count("UPDATE abc") == 0
+        assert parse_pg_status_count("UPDATE foo bar") == 0
 
     def test_whitespace_handling(self) -> None:
         """Handles various whitespace patterns."""
-        assert _parse_update_count("  UPDATE  5  ") == 5
+        assert parse_pg_status_count("  UPDATE  5  ") == 5
 
 
 # =============================================================================

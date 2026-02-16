@@ -43,12 +43,10 @@ import importlib
 import importlib.resources
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
-
-T = TypeVar("T")
 
 
 class HandlerConfig(BaseModel):

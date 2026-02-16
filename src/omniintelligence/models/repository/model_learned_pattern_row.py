@@ -18,6 +18,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.enums import EnumPatternLifecycleStatus
+
 
 class ModelDomainCandidate(BaseModel):
     """A candidate domain classification with its confidence score.
@@ -85,7 +87,7 @@ class ModelLearnedPatternRow(BaseModel):
     )
 
     # Lifecycle
-    status: str = Field(
+    status: EnumPatternLifecycleStatus = Field(
         ...,
         description="Pattern status: candidate, provisional, validated, deprecated",
     )

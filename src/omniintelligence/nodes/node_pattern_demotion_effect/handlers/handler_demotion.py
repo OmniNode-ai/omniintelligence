@@ -98,10 +98,9 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import TypedDict, cast
 from uuid import UUID, uuid4
 
-from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_DEPRECATED_V1
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
 from omniintelligence.nodes.node_pattern_demotion_effect.models import (
@@ -110,8 +109,9 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelDemotionGateSnapshot,
     ModelDemotionResult,
     ModelEffectiveThresholds,
-    ModelPatternDeprecatedEvent,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -258,78 +258,6 @@ class DemotionPatternRecord(_DemotionPatternRecordRequired, total=False):
 
 
 # =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternRepository(Protocol):
-    """Protocol for pattern data access operations.
-
-    This protocol defines the minimal interface required for database operations
-    in the demotion handler. It is intentionally generic to support both
-    asyncpg connections and mock implementations for testing.
-
-    The methods mirror asyncpg.Connection semantics:
-        - fetch: Execute query and return list of Records
-        - execute: Execute query and return status string (e.g., "UPDATE 5")
-
-    Note:
-        Parameters use asyncpg-style positional placeholders ($1, $2, etc.)
-        rather than named parameters.
-    """
-
-    async def fetch(self, query: str, *args: object) -> list[DemotionPatternRecord]:
-        """Execute a query and return all results as Records.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            List of record objects with dict-like access to columns.
-        """
-        ...
-
-    async def execute(self, query: str, *args: object) -> str:
-        """Execute a query and return the status string.
-
-        Args:
-            query: SQL query with $1, $2, etc. positional placeholders.
-            *args: Positional arguments corresponding to placeholders.
-
-        Returns:
-            Status string from PostgreSQL (e.g., "UPDATE 5", "INSERT 0 1").
-        """
-        ...
-
-
-@runtime_checkable
-class ProtocolKafkaPublisher(Protocol):
-    """Protocol for Kafka event publishers.
-
-    Defines a simplified interface for publishing events to Kafka topics.
-    This protocol uses a dict-based value for flexibility, with serialization
-    handled by the implementation.
-    """
-
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        value: dict[str, object],
-    ) -> None:
-        """Publish an event to a Kafka topic.
-
-        Args:
-            topic: Target Kafka topic name.
-            key: Message key for partitioning.
-            value: Event payload as a dictionary (serialized by implementation).
-        """
-        ...
-
-
-# =============================================================================
 # SQL Queries
 # =============================================================================
 
@@ -347,6 +275,8 @@ FROM learned_patterns lp
 LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'validated'
   AND lp.is_current = TRUE
+ORDER BY lp.created_at ASC
+LIMIT 500
 """
 
 
@@ -699,8 +629,26 @@ async def check_and_demote_patterns(
             },
         )
 
+    # Step 2b: Validate topic_env_prefix BEFORE the loop.
+    # When producer is available and this is NOT a dry run, topic_env_prefix
+    # is required. Checking here surfaces the configuration error once
+    # (fail-fast) instead of raising ValueError per-pattern inside
+    # demote_pattern, where the generic except would silently record each
+    # as a failed_result. Dry runs never publish to Kafka, so the prefix
+    # is not needed.
+    if producer is not None and topic_env_prefix is None and not request.dry_run:
+        raise ValueError(
+            "topic_env_prefix is required when Kafka producer is available. "
+            "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
+        )
+
     # Step 3: Fetch all validated patterns
-    patterns = await repository.fetch(SQL_FETCH_VALIDATED_PATTERNS)
+    # Cast from generic Mapping[str, Any] to DemotionPatternRecord since the SQL
+    # query returns columns matching the TypedDict shape.
+    patterns = cast(
+        list[DemotionPatternRecord],
+        await repository.fetch(SQL_FETCH_VALIDATED_PATTERNS),
+    )
 
     logger.debug(
         "Fetched validated patterns",
@@ -839,6 +787,7 @@ async def check_and_demote_patterns(
             except Exception as exc:
                 # Isolate per-pattern failures - continue processing other patterns
                 failed_count += 1
+                sanitized_err = get_log_sanitizer().sanitize(str(exc))
                 logger.error(
                     "Failed to demote pattern - continuing with remaining patterns",
                     extra={
@@ -847,7 +796,7 @@ async def check_and_demote_patterns(
                         else None,
                         "pattern_id": str(pattern_id),
                         "pattern_signature": pattern_signature,
-                        "error": str(exc),
+                        "error": sanitized_err,
                         "error_type": type(exc).__name__,
                     },
                     exc_info=True,
@@ -859,7 +808,7 @@ async def check_and_demote_patterns(
                     from_status="validated",
                     to_status="deprecated",
                     deprecated_at=None,
-                    reason=f"demotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"demotion_failed: {type(exc).__name__}: {sanitized_err}",
                     gate_snapshot=build_gate_snapshot(pattern),
                     effective_thresholds=thresholds,
                     dry_run=False,
@@ -1016,13 +965,14 @@ async def demote_pattern(
         )
     except Exception as exc:
         # Log the error but don't fail - Kafka is optional for effect nodes
+        sanitized_err = get_log_sanitizer().sanitize(str(exc))
         logger.warning(
             "Failed to emit lifecycle event to Kafka - demotion not processed",
             extra={
                 "correlation_id": str(correlation_id) if correlation_id else None,
                 "pattern_id": str(pattern_id),
                 "pattern_signature": pattern_signature,
-                "error": str(exc),
+                "error": sanitized_err,
                 "error_type": type(exc).__name__,
             },
         )
@@ -1032,7 +982,7 @@ async def demote_pattern(
             from_status="validated",
             to_status="deprecated",
             deprecated_at=None,  # None indicates event was NOT emitted
-            reason=f"kafka_publish_failed: {type(exc).__name__}: {exc!s}",
+            reason=f"kafka_publish_failed: {type(exc).__name__}: {sanitized_err}",
             gate_snapshot=gate_snapshot,
             effective_thresholds=thresholds,
             dry_run=False,
@@ -1147,93 +1097,3 @@ async def _emit_lifecycle_event(
             "topic": topic,
         },
     )
-
-
-async def _emit_deprecation_event(
-    producer: ProtocolKafkaPublisher,
-    pattern_id: UUID,
-    pattern_signature: str,
-    reason: str,
-    gate_snapshot: ModelDemotionGateSnapshot,
-    thresholds: ModelEffectiveThresholds,
-    deprecated_at: datetime,
-    correlation_id: UUID | None,
-    *,
-    topic_env_prefix: str,
-) -> None:
-    """Emit a pattern-deprecated event to Kafka.
-
-    NOTE: This function is retained for downstream notification AFTER the
-    reducer/effect node completes the actual transition. It is NOT used
-    in the new event-driven demotion flow (see _emit_lifecycle_event).
-
-    Args:
-        producer: Kafka producer implementing ProtocolKafkaPublisher.
-        pattern_id: The deprecated pattern ID.
-        pattern_signature: The pattern signature.
-        reason: The demotion reason.
-        gate_snapshot: Gate values at demotion time.
-        thresholds: Effective thresholds used for this demotion.
-        deprecated_at: Demotion timestamp.
-        correlation_id: Correlation ID for tracing.
-        topic_env_prefix: Environment prefix for topic (e.g., "dev", "prod").
-            Required parameter - must be provided by caller from configuration.
-    """
-    # Build topic name with environment prefix
-    topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_DEPRECATED_V1}"
-
-    # Build event payload using the model
-    event = ModelPatternDeprecatedEvent(
-        event_type="PatternDeprecated",
-        pattern_id=pattern_id,
-        pattern_signature=pattern_signature,
-        from_status="validated",
-        to_status="deprecated",
-        reason=reason,
-        gate_snapshot=gate_snapshot,
-        effective_thresholds=thresholds,
-        deprecated_at=deprecated_at,
-        correlation_id=correlation_id,
-    )
-
-    # Publish to Kafka
-    await producer.publish(
-        topic=topic,
-        key=str(pattern_id),
-        value=event.model_dump(mode="json"),
-    )
-
-    logger.debug(
-        "Emitted pattern-deprecated event",
-        extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
-            "pattern_id": str(pattern_id),
-            "topic": topic,
-        },
-    )
-
-
-def _parse_update_count(status: str | None) -> int:
-    """Parse the row count from a PostgreSQL status string.
-
-    PostgreSQL returns status strings like:
-        - "UPDATE 5" (5 rows updated)
-        - "INSERT 0 1" (1 row inserted)
-        - "DELETE 3" (3 rows deleted)
-
-    Args:
-        status: PostgreSQL status string from execute(), or None.
-
-    Returns:
-        Number of affected rows, or 0 if status is None or parsing fails.
-    """
-    if not status:
-        return 0
-
-    parts = status.split()
-    if len(parts) >= 2:
-        try:
-            return int(parts[-1])
-        except ValueError:
-            return 0
-    return 0

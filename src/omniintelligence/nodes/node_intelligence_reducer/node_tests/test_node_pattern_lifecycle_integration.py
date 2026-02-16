@@ -24,6 +24,7 @@ Reference:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from uuid import UUID
 
 import pytest
@@ -45,9 +46,15 @@ from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_l
 from omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state import (
     ModelIntelligenceState,
 )
+from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
+    ModelReducerInputPatternLifecycle,
+)
 from omniintelligence.nodes.node_intelligence_reducer.node import (
     NodeIntelligenceReducer,
 )
+
+# Type alias for the factory fixture callable
+_ReducerInputFactory = Callable[..., ModelReducerInputPatternLifecycle]
 
 # =============================================================================
 # Pytest Fixtures
@@ -102,7 +109,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_provisional_to_validated_via_process(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test: provisional -> validated via node.process()."""
         # Arrange
@@ -125,7 +132,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_candidate_to_validated_via_promote_direct(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test: candidate -> validated via promote_direct (skipping provisional)."""
         # Arrange
@@ -148,7 +155,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_candidate_to_deprecated_via_deprecate(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test: candidate -> deprecated via deprecate."""
         # Arrange
@@ -170,7 +177,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_provisional_to_deprecated_via_deprecate(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test: provisional -> deprecated via deprecate."""
         # Arrange
@@ -192,7 +199,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_validated_to_deprecated_via_deprecate(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test: validated -> deprecated via deprecate."""
         # Arrange
@@ -214,7 +221,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_deprecated_to_candidate_via_manual_reenable_admin(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test: deprecated -> candidate via manual_reenable with admin.
 
@@ -241,7 +248,7 @@ class TestSuccessfulTransitionsViaNode:
     async def test_all_valid_transitions_via_process(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Comprehensive test: all 7 valid transitions via node.process().
 
@@ -294,7 +301,7 @@ class TestFailedTransitionsViaNode:
 
     async def test_invalid_from_status_rejected_at_model_creation(
         self,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that unknown from_status is rejected at model creation time.
 
@@ -312,7 +319,7 @@ class TestFailedTransitionsViaNode:
     async def test_invalid_trigger_produces_error_output(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that unknown trigger produces error output with no intents."""
         # Arrange
@@ -328,6 +335,7 @@ class TestFailedTransitionsViaNode:
         # Assert - Error output
         assert output.result.success is False
         assert output.result.error_code == ERROR_INVALID_TRIGGER
+        assert output.result.error_message is not None
         assert "unknown_trigger" in output.result.error_message
 
         # Assert - No intents
@@ -336,7 +344,7 @@ class TestFailedTransitionsViaNode:
     async def test_invalid_transition_produces_error_output(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that valid state/trigger with no transition produces error output.
 
@@ -356,6 +364,7 @@ class TestFailedTransitionsViaNode:
         # Assert - Error output
         assert output.result.success is False
         assert output.result.error_code == ERROR_INVALID_TRANSITION
+        assert output.result.error_message is not None
         assert "validated" in output.result.error_message
         assert "promote_direct" in output.result.error_message
 
@@ -365,7 +374,7 @@ class TestFailedTransitionsViaNode:
     async def test_state_mismatch_produces_error_output(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that wrong to_status for valid transition produces error output.
 
@@ -385,6 +394,7 @@ class TestFailedTransitionsViaNode:
         # Assert - Error output with STATE_MISMATCH
         assert output.result.success is False
         assert output.result.error_code == ERROR_STATE_MISMATCH
+        assert output.result.error_message is not None
         assert "validated" in output.result.error_message  # Expected
         assert "deprecated" in output.result.error_message  # Provided
 
@@ -394,7 +404,7 @@ class TestFailedTransitionsViaNode:
     async def test_guard_condition_failure_produces_error_output(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that guard condition failure produces error output.
 
@@ -414,6 +424,7 @@ class TestFailedTransitionsViaNode:
         # Assert - Error output with GUARD_CONDITION_FAILED
         assert output.result.success is False
         assert output.result.error_code == ERROR_GUARD_CONDITION_FAILED
+        assert output.result.error_message is not None
         assert "admin" in output.result.error_message
         assert "handler" in output.result.error_message
 
@@ -423,7 +434,7 @@ class TestFailedTransitionsViaNode:
     async def test_guard_failure_with_system_actor_type(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that even system actor_type fails manual_reenable guard."""
         # Arrange
@@ -440,13 +451,14 @@ class TestFailedTransitionsViaNode:
         # Assert
         assert output.result.success is False
         assert output.result.error_code == ERROR_GUARD_CONDITION_FAILED
+        assert output.result.error_message is not None
         assert "system" in output.result.error_message
         assert len(output.intents) == 0
 
     async def test_error_output_contains_entity_id(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_pattern_id: str,
     ) -> None:
         """Test that error output still contains entity_id for tracing.
@@ -472,7 +484,7 @@ class TestFailedTransitionsViaNode:
     async def test_error_output_contains_transition_details(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that error output contains from_status, to_status, trigger."""
         # Arrange
@@ -512,7 +524,7 @@ class TestIntentVerificationViaNode:
     async def test_intent_type_is_extension(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that emitted intent has intent_type='extension'."""
         # Arrange
@@ -535,7 +547,7 @@ class TestIntentVerificationViaNode:
     async def test_intent_target_contains_pattern_id(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_pattern_id: str,
     ) -> None:
         """Test that intent target URI contains the pattern_id."""
@@ -559,7 +571,7 @@ class TestIntentVerificationViaNode:
     async def test_intent_payload_is_extension_type(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that intent payload is a ModelPayloadExtension instance."""
         # Arrange
@@ -584,7 +596,7 @@ class TestIntentVerificationViaNode:
     async def test_intent_payload_contains_update_pattern_status_fields(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_pattern_id: str,
         sample_request_id: UUID,
         sample_correlation_id: UUID,
@@ -608,7 +620,9 @@ class TestIntentVerificationViaNode:
         # Assert
         assert output.result.success is True
         # Payload is wrapped in ModelPayloadExtension, data is in .data field
-        payload_data = output.intents[0].payload.data
+        payload = output.intents[0].payload
+        assert isinstance(payload, ModelPayloadExtension)
+        payload_data = payload.data
 
         # Verify expected payload fields
         assert payload_data["intent_type"] == "postgres.update_pattern_status"
@@ -626,7 +640,7 @@ class TestIntentVerificationViaNode:
     async def test_intent_payload_request_id_flows_through(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_request_id: UUID,
     ) -> None:
         """Test that request_id is preserved in intent payload for idempotency."""
@@ -642,13 +656,15 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        payload_data = output.intents[0].payload.data
+        payload = output.intents[0].payload
+        assert isinstance(payload, ModelPayloadExtension)
+        payload_data = payload.data
         assert payload_data["request_id"] == str(sample_request_id)
 
     async def test_intent_payload_correlation_id_flows_through(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_correlation_id: UUID,
     ) -> None:
         """Test that correlation_id is preserved in intent payload for tracing."""
@@ -664,13 +680,15 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        payload_data = output.intents[0].payload.data
+        payload = output.intents[0].payload
+        assert isinstance(payload, ModelPayloadExtension)
+        payload_data = payload.data
         assert payload_data["correlation_id"] == str(sample_correlation_id)
 
     async def test_intent_payload_gate_snapshot_preserved(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that gate_snapshot is preserved in intent payload."""
         # Arrange
@@ -691,7 +709,9 @@ class TestIntentVerificationViaNode:
         output = await reducer_node.process(input_data)
 
         # Assert
-        payload_data = output.intents[0].payload.data
+        payload = output.intents[0].payload
+        assert isinstance(payload, ModelPayloadExtension)
+        payload_data = payload.data
         # gate_snapshot is serialized to JSON in the payload
         assert payload_data["gate_snapshot"] == gate_snapshot.model_dump(mode="json")
 
@@ -713,7 +733,7 @@ class TestOutputStructureVerification:
     async def test_success_output_has_typed_result(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that successful output has a ModelIntelligenceState result with expected attributes."""
         # Arrange
@@ -744,7 +764,7 @@ class TestOutputStructureVerification:
     async def test_success_output_intents_is_tuple(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that successful output.intents is a tuple."""
         # Arrange
@@ -764,7 +784,7 @@ class TestOutputStructureVerification:
     async def test_error_output_has_typed_result_with_error_fields(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that error output has a ModelIntelligenceState result with error fields.
 
@@ -790,7 +810,7 @@ class TestOutputStructureVerification:
     async def test_error_output_intents_is_empty_tuple(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that error output.intents is an empty tuple.
 
@@ -814,7 +834,7 @@ class TestOutputStructureVerification:
     async def test_entity_id_preserved_in_both_success_and_error(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_pattern_id: str,
     ) -> None:
         """Test that entity_id is always in result for tracing."""
@@ -857,7 +877,7 @@ class TestLoggingVerification:
     async def test_warning_logged_on_rejection(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that a warning is logged when transition is rejected.
@@ -888,7 +908,7 @@ class TestLoggingVerification:
     async def test_info_logged_on_acceptance(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that info is logged when transition is accepted."""
@@ -915,7 +935,7 @@ class TestLoggingVerification:
     async def test_rejection_log_contains_correlation_id(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_correlation_id: UUID,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
@@ -946,7 +966,7 @@ class TestLoggingVerification:
     async def test_acceptance_log_contains_pattern_id(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
         sample_pattern_id: str,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
@@ -985,7 +1005,7 @@ class TestCaseSensitivityViaNode:
     async def test_uppercase_normalized_in_output(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that uppercase inputs are normalized in output."""
         # Arrange
@@ -1007,7 +1027,7 @@ class TestCaseSensitivityViaNode:
     async def test_uppercase_normalized_in_intent_payload(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that uppercase inputs are normalized in intent payload."""
         # Arrange
@@ -1022,7 +1042,9 @@ class TestCaseSensitivityViaNode:
 
         # Assert - Normalized in payload data
         assert output.result.success is True
-        payload_data = output.intents[0].payload.data
+        payload = output.intents[0].payload
+        assert isinstance(payload, ModelPayloadExtension)
+        payload_data = payload.data
         assert payload_data["from_status"] == "candidate"
         assert payload_data["to_status"] == "validated"
         assert payload_data["trigger"] == "promote_direct"
@@ -1044,7 +1066,7 @@ class TestNodeInstanceBehavior:
     async def test_node_can_process_multiple_transitions(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that node can process multiple transitions in sequence."""
         # First transition
@@ -1079,7 +1101,7 @@ class TestNodeInstanceBehavior:
     async def test_node_instance_is_stateless_between_calls(
         self,
         reducer_node: NodeIntelligenceReducer,
-        make_reducer_input,
+        make_reducer_input: _ReducerInputFactory,
     ) -> None:
         """Test that node doesn't retain state between process() calls.
 

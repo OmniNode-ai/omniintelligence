@@ -663,8 +663,8 @@ class TestDispatchHandlerDaemonReshapeWiring:
         ) as mock_route:
             result = await handler(envelope, context)
 
-            # Handler returns empty string on success
-            assert result == ""
+            # Handler returns "ok" on success
+            assert result == "ok"
 
             # route_hook_event must have been called exactly once
             mock_route.assert_called_once()

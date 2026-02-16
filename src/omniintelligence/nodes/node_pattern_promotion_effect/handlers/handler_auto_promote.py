@@ -48,15 +48,16 @@ from uuid import UUID, uuid4
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import EvidenceTierLiteral, ModelGateSnapshot
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
-    from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
-        ProtocolIdempotencyStore,
-    )
     from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
         ModelTransitionResult,
     )
-    from omniintelligence.protocols import ProtocolKafkaPublisher
+    from omniintelligence.protocols import (
+        ProtocolIdempotencyStore,
+        ProtocolKafkaPublisher,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,8 @@ WHERE lp.status = 'candidate'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
   AND lp.evidence_tier IN ('observed', 'measured', 'verified')
+ORDER BY lp.created_at ASC
+LIMIT 500
 """
 
 # Fetch provisional patterns eligible for PROVISIONAL -> VALIDATED promotion
@@ -127,6 +130,8 @@ WHERE lp.status = 'provisional'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
   AND lp.evidence_tier IN ('measured', 'verified')
+ORDER BY lp.created_at ASC
+LIMIT 500
 """
 
 # Count measured attributions for a pattern (for gate snapshot)
@@ -343,12 +348,14 @@ async def _build_enriched_gate_snapshot(
     pattern: PatternMetricsRow,
     *,
     conn: ProtocolPatternRepository,
+    correlation_id: UUID,
 ) -> ModelGateSnapshot:
     """Build gate snapshot enriched with evidence tier data.
 
     Args:
         pattern: Pattern record from SQL query.
         conn: Database connection for attribution count lookup.
+        correlation_id: Correlation ID for traceability in warning logs.
 
     Returns:
         ModelGateSnapshot with evidence tier fields populated.
@@ -370,13 +377,20 @@ async def _build_enriched_gate_snapshot(
         count_row = await conn.fetchrow(SQL_COUNT_ATTRIBUTIONS, pattern_id)
         if count_row:
             attribution_count = count_row["count"]
-    except Exception:
-        # Broad catch intentional: asyncpg raises driver-specific exceptions
-        # (InterfaceError, PostgresError, etc.) that are not stable across
-        # versions. We log with exc_info=True so the full traceback is
-        # visible, then fall through with attribution_count=0 so promotion
-        # evaluation can still proceed with conservative defaults.
-        logger.warning("Failed to count attributions for gate snapshot", exc_info=True)
+    except Exception:  # broad-catch-ok: asyncpg driver boundary
+        # asyncpg raises driver-specific exceptions (InterfaceError,
+        # PostgresError, etc.) that are not stable across versions. We log
+        # with exc_info=True so the full traceback is visible, then fall
+        # through with attribution_count=0 so promotion evaluation can still
+        # proceed with conservative defaults.
+        logger.warning(
+            "Failed to count attributions for gate snapshot",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+            },
+            exc_info=True,
+        )
 
     # Get latest run result (validate against known values)
     latest_run_result = None
@@ -385,11 +399,16 @@ async def _build_enriched_gate_snapshot(
         if run_row:
             raw_result = run_row.get("run_result")
             latest_run_result = raw_result if raw_result in _VALID_RUN_RESULTS else None
-    except Exception:
-        # Broad catch intentional: same rationale as attribution count above.
-        # DB errors yield latest_run_result=None (conservative default).
+    except Exception:  # broad-catch-ok: asyncpg driver boundary
+        # Same rationale as attribution count above. DB errors yield
+        # latest_run_result=None (conservative default).
         logger.warning(
-            "Failed to get latest run result for gate snapshot", exc_info=True
+            "Failed to get latest run result for gate snapshot",
+            extra={
+                "correlation_id": str(correlation_id),
+                "pattern_id": str(pattern_id),
+            },
+            exc_info=True,
         )
 
     return ModelGateSnapshot(
@@ -493,11 +512,14 @@ async def handle_auto_promote_check(
             continue
 
         pattern_id = pattern["id"]
-        gate_snapshot = await _build_enriched_gate_snapshot(pattern, conn=repository)
+        gate_snapshot: ModelGateSnapshot | None = None
         request_id = uuid4()
         now = datetime.now(UTC)
 
         try:
+            gate_snapshot = await _build_enriched_gate_snapshot(
+                pattern, conn=repository, correlation_id=effective_correlation_id
+            )
             transition_result = await apply_transition_fn(
                 repository,
                 idempotency_store,
@@ -532,13 +554,14 @@ async def handle_auto_promote_check(
                 )
             )
 
-        except Exception as exc:
+        except Exception as exc:  # broad-catch-ok: asyncpg driver boundary
+            sanitized_err = get_log_sanitizer().sanitize(str(exc))
             logger.error(
                 "Failed to promote candidate pattern",
                 extra={
                     "correlation_id": str(effective_correlation_id),
                     "pattern_id": str(pattern_id),
-                    "error": str(exc),
+                    "error": sanitized_err,
                 },
                 exc_info=True,
             )
@@ -548,9 +571,11 @@ async def handle_auto_promote_check(
                     from_status="candidate",
                     to_status="provisional",
                     promoted=False,
-                    reason=f"promotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
-                    gate_snapshot=gate_snapshot.model_dump(mode="json"),
+                    gate_snapshot=gate_snapshot.model_dump(mode="json")
+                    if gate_snapshot is not None
+                    else {},
                 )
             )
 
@@ -588,11 +613,14 @@ async def handle_auto_promote_check(
             continue
 
         pattern_id = pattern["id"]
-        gate_snapshot = await _build_enriched_gate_snapshot(pattern, conn=repository)
+        gate_snapshot = None
         request_id = uuid4()
         now = datetime.now(UTC)
 
         try:
+            gate_snapshot = await _build_enriched_gate_snapshot(
+                pattern, conn=repository, correlation_id=effective_correlation_id
+            )
             transition_result = await apply_transition_fn(
                 repository,
                 idempotency_store,
@@ -627,13 +655,14 @@ async def handle_auto_promote_check(
                 )
             )
 
-        except Exception as exc:
+        except Exception as exc:  # broad-catch-ok: asyncpg driver boundary
+            sanitized_err = get_log_sanitizer().sanitize(str(exc))
             logger.error(
                 "Failed to promote provisional pattern",
                 extra={
                     "correlation_id": str(effective_correlation_id),
                     "pattern_id": str(pattern_id),
-                    "error": str(exc),
+                    "error": sanitized_err,
                 },
                 exc_info=True,
             )
@@ -643,9 +672,11 @@ async def handle_auto_promote_check(
                     from_status="provisional",
                     to_status="validated",
                     promoted=False,
-                    reason=f"promotion_failed: {type(exc).__name__}: {exc!s}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
-                    gate_snapshot=gate_snapshot.model_dump(mode="json"),
+                    gate_snapshot=gate_snapshot.model_dump(mode="json")
+                    if gate_snapshot is not None
+                    else {},
                 )
             )
 

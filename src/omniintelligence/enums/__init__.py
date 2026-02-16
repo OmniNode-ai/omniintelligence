@@ -15,6 +15,7 @@ from omniintelligence.enums.enum_domain_taxonomy import (
     EnumDomainTaxonomy,
 )
 from omniintelligence.enums.enum_entity import EnumEntityType, EnumRelationshipType
+from omniintelligence.enums.enum_evidence_tier import EnumEvidenceTier
 from omniintelligence.enums.enum_fsm import EnumFSMType
 from omniintelligence.enums.enum_injection import (
     COHORT_CONTROL_PERCENTAGE,
@@ -41,6 +42,7 @@ __all__ = [
     "EnumCohort",
     "EnumDomainTaxonomy",
     "EnumEntityType",
+    "EnumEvidenceTier",
     "EnumFSMType",
     "EnumHeuristicMethod",
     "EnumInjectionContext",

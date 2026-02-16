@@ -49,9 +49,9 @@ import logging
 from typing import NotRequired, TypedDict
 from uuid import UUID
 
-from omnibase_core.enums.pattern_learning import EnumEvidenceTier
-
+from omniintelligence.enums import EnumEvidenceTier
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,16 @@ WHERE id = $1
   )
 """
 
-# Insert attribution record into the audit table
+# Insert attribution record into the audit table.
+# Idempotency guard against duplicate records from Kafka redelivery:
+# the same (pattern_id, session_id) pair should only produce one attribution
+# row per session. When a duplicate arrives, the INSERT is silently skipped
+# and RETURNING yields no rows (handled by the caller).
+#
+# NOTE: We use INSERT ... WHERE NOT EXISTS instead of ON CONFLICT because
+# the database uses PARTIAL unique indexes (with WHERE predicates).
+# PostgreSQL's ON CONFLICT column-list syntax does not match partial indexes,
+# which would cause a runtime error.
 SQL_INSERT_ATTRIBUTION = """
 INSERT INTO pattern_measured_attributions (
     pattern_id,
@@ -106,7 +115,12 @@ INSERT INTO pattern_measured_attributions (
     evidence_tier,
     measured_attribution_json,
     correlation_id
-) VALUES ($1, $2, $3, $4, $5, $6)
+)
+SELECT $1, $2, $3, $4, $5, $6
+WHERE NOT EXISTS (
+    SELECT 1 FROM pattern_measured_attributions
+    WHERE pattern_id = $1 AND session_id = $2
+)
 RETURNING id
 """
 
@@ -473,16 +487,47 @@ async def _bind_single_pattern(
         )
 
     # Step 4: Insert attribution record (always, for audit trail)
-    attr_row = await conn.fetchrow(
-        SQL_INSERT_ATTRIBUTION,
-        pattern_id,
-        session_id,
-        run_id,
-        computed_tier.value,
-        attribution_json,
-        correlation_id,
-    )
-    attribution_id = attr_row["id"] if attr_row else None
+    # The INSERT ... WHERE NOT EXISTS is not fully atomic under concurrent
+    # writes: two sessions binding the same (pattern_id, session_id) can
+    # both pass the NOT EXISTS check before either INSERT completes,
+    # causing a UniqueViolationError (SQLSTATE 23505) from the partial
+    # unique index. We catch this and treat it as an idempotent no-op
+    # (same semantics as the WHERE NOT EXISTS returning zero rows).
+    #
+    # Note: We catch Exception and check for SQLSTATE 23505 instead of
+    # importing asyncpg.UniqueViolationError to comply with the I/O audit
+    # rule that forbids net-client imports in node handlers (ARCH-002).
+    try:
+        attr_row = await conn.fetchrow(
+            SQL_INSERT_ATTRIBUTION,
+            pattern_id,
+            session_id,
+            run_id,
+            computed_tier.value,
+            attribution_json,
+            correlation_id,
+        )
+        attribution_id = attr_row["id"] if attr_row else None
+    except Exception as exc:
+        # SQLSTATE 23505 = unique_violation (PostgreSQL error code).
+        # asyncpg sets this as the `sqlstate` attribute on its exceptions.
+        if getattr(exc, "sqlstate", None) == "23505":
+            # Concurrent write already inserted the attribution for this
+            # (pattern_id, session_id) pair. This is the expected race
+            # condition and is safe to treat as a no-op.
+            logger.debug(
+                "Attribution INSERT hit unique_violation (SQLSTATE 23505) — "
+                "concurrent write already inserted this (pattern_id, session_id) "
+                "pair, treating as idempotent no-op",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "pattern_id": str(pattern_id),
+                    "session_id": str(session_id),
+                },
+            )
+            attribution_id = None
+        else:
+            raise
 
     # Step 5: Update evidence_tier (monotonic - only if computed > current)
     tier_updated = False
@@ -493,11 +538,10 @@ async def _bind_single_pattern(
             computed_tier.value,
         )
         # execute() returns a command tag string like "UPDATE 1" or "UPDATE 0".
-        # "UPDATE 0" means the WHERE clause matched no rows, which indicates
-        # a concurrent update already advanced the tier past our computed value
-        # (the monotonic SQL guard rejected the write). This is expected under
-        # concurrency and not an error.
-        if update_status == "UPDATE 0":
+        # Parse the count rather than comparing raw strings for consistency
+        # with other handlers in the codebase.
+        updated_count = parse_pg_status_count(update_status)
+        if updated_count == 0:
             logger.debug(
                 "Evidence tier update matched no rows — tier already at or above computed value",
                 extra={
@@ -506,7 +550,7 @@ async def _bind_single_pattern(
                     "computed_tier": computed_tier.value,
                 },
             )
-        tier_updated = update_status == "UPDATE 1"
+        tier_updated = updated_count > 0
 
         if tier_updated:
             logger.info(
