@@ -549,14 +549,14 @@ def create_pattern_lifecycle_dispatch_handler(
             to_status=to_status,
             trigger=trigger,
             actor=str(payload.get("actor", "dispatch")),
-            reason=str(payload["reason"])
-            if payload.get("reason") is not None
+            reason=str(_reason)
+            if (_reason := payload.get("reason")) is not None
             else None,
             # gate_snapshot contract: apply_transition accepts
             # ModelGateSnapshot | dict[str, object] | None.  Payload
             # deserialization always yields dict | None here.
-            gate_snapshot=payload.get("gate_snapshot")
-            if isinstance(payload.get("gate_snapshot"), dict)
+            gate_snapshot=_gate
+            if isinstance((_gate := payload.get("gate_snapshot")), dict)
             else None,
             transition_at=transition_at,
             publish_topic=publish_topic if kafka_producer else None,
@@ -655,7 +655,10 @@ def create_pattern_storage_dispatch_handler(
 
         pattern_id = raw_pattern_id or uuid4()
         # Prefer 'signature' (omniclaude producers) over 'pattern_signature' (DB column name).
-        signature = str(payload.get("signature", payload.get("pattern_signature", "")))
+        # Bound untrusted input to 4096 chars to prevent oversized payloads.
+        signature = str(payload.get("signature", payload.get("pattern_signature", "")))[
+            :4096
+        ]
 
         if not signature:
             msg = (
@@ -679,7 +682,10 @@ def create_pattern_storage_dispatch_handler(
             raise ValueError(msg)
         # Default 'general' must exist in domain_taxonomy (FK constraint).
         # If missing, ForeignKeyViolationError is caught and raised as ValueError.
-        domain_id = str(payload.get("domain_id", payload.get("domain", "general")))
+        # Bound untrusted input to 128 chars to prevent oversized payloads.
+        domain_id = str(payload.get("domain_id", payload.get("domain", "general")))[
+            :128
+        ]
         domain_version = str(payload.get("domain_version", "1.0.0"))
         try:
             raw_confidence = float(payload.get("confidence", 0.5))

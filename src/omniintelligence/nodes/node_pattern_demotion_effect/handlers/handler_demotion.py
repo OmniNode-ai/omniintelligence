@@ -277,6 +277,7 @@ FROM learned_patterns lp
 LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'validated'
   AND lp.is_current = TRUE
+ORDER BY lp.created_at ASC
 LIMIT 500
 """
 
@@ -628,6 +629,19 @@ async def check_and_demote_patterns(
                 "min_injection_count": thresholds.min_injection_count,
                 "cooldown_hours": thresholds.cooldown_hours,
             },
+        )
+
+    # Step 2b: Validate topic_env_prefix BEFORE the loop.
+    # When producer is available and this is NOT a dry run, topic_env_prefix
+    # is required. Checking here surfaces the configuration error once
+    # (fail-fast) instead of raising ValueError per-pattern inside
+    # demote_pattern, where the generic except would silently record each
+    # as a failed_result. Dry runs never publish to Kafka, so the prefix
+    # is not needed.
+    if producer is not None and topic_env_prefix is None and not request.dry_run:
+        raise ValueError(
+            "topic_env_prefix is required when Kafka producer is available. "
+            "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
         )
 
     # Step 3: Fetch all validated patterns

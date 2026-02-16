@@ -112,6 +112,7 @@ WHERE lp.status = 'candidate'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
   AND lp.evidence_tier IN ('observed', 'measured', 'verified')
+ORDER BY lp.created_at ASC
 LIMIT 500
 """
 
@@ -129,6 +130,7 @@ WHERE lp.status = 'provisional'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
   AND lp.evidence_tier IN ('measured', 'verified')
+ORDER BY lp.created_at ASC
 LIMIT 500
 """
 

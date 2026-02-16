@@ -18,6 +18,7 @@ Reference:
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -36,6 +37,8 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
 )
 from omniintelligence.protocols import ProtocolIntentClassifier, ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Handler Class (Declarative Pattern with Constructor Injection)
@@ -395,7 +398,13 @@ async def _route_to_dlq(
         )
         metadata["pattern_learning_dlq"] = dlq_topic
     except Exception:
-        # DLQ publish failed -- swallow to preserve graceful degradation
+        # DLQ publish failed -- swallow to preserve graceful degradation,
+        # but log at WARNING so operators can detect persistent Kafka issues.
+        logger.warning(
+            "DLQ publish failed for topic %s -- message lost",
+            dlq_topic,
+            exc_info=True,
+        )
         metadata["pattern_learning_dlq"] = "failed"
 
 

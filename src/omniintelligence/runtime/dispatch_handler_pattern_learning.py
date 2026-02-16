@@ -190,7 +190,7 @@ def create_pattern_learning_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        session_id = str(raw_session_id)
+        session_id = str(raw_session_id)[:256]  # Bound untrusted input
 
         # Override correlation_id from payload if present
         raw_payload_correlation = payload.get("correlation_id")

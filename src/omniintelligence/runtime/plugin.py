@@ -755,10 +755,7 @@ class PluginIntelligence:
             )
         self._shutdown_in_progress = True
 
-        try:
-            return await self._do_shutdown(config)
-        finally:
-            self._shutdown_in_progress = False
+        return await self._do_shutdown(config)
 
     async def _do_shutdown(
         self,

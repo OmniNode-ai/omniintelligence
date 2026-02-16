@@ -398,8 +398,21 @@ def _determine_loser(
 
     # Tie-break 3: Larger leader (member_ids[0]) loses
     # Smaller alphabetically is better, so larger loses
-    a_leader = cluster_a["member_ids"][0]
-    b_leader = cluster_b["member_ids"][0]
+    a_members = cluster_a["member_ids"]
+    b_members = cluster_b["member_ids"]
+
+    # Guard against empty member_ids: if both are empty, fall back to
+    # cluster_id comparison for determinism (larger cluster_id loses).
+    if not a_members and not b_members:
+        return a_id if a_id > b_id else b_id
+    # If only one is empty, the empty one is the loser (less data).
+    if not a_members:
+        return a_id
+    if not b_members:
+        return b_id
+
+    a_leader = a_members[0]
+    b_leader = b_members[0]
     return a_id if a_leader > b_leader else b_id
 
 

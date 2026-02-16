@@ -465,9 +465,9 @@ async def apply_transition(
         update_status = await db.execute(
             SQL_UPDATE_PATTERN_STATUS,
             pattern_id,
-            to_status,
+            to_status.value,
             transition_at,
-            from_status,  # Status guard - must match current status
+            from_status.value,  # Status guard - must match current status
         )
         rows_updated = _parse_update_count(update_status)
 
@@ -525,8 +525,8 @@ async def apply_transition(
             SQL_INSERT_LIFECYCLE_TRANSITION,
             transition_id,
             pattern_id,
-            from_status,
-            to_status,
+            from_status.value,
+            to_status.value,
             trigger,
             actor,
             reason,

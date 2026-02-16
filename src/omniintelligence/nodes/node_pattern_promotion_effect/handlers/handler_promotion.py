@@ -172,6 +172,7 @@ LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'provisional'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
+ORDER BY lp.created_at ASC
 LIMIT 500
 """
 
