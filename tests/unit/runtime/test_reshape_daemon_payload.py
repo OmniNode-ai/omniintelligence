@@ -25,6 +25,7 @@ import pytest
 # upheld without requiring a full dispatch-engine integration test.
 from omniintelligence.runtime.dispatch_handlers import (
     _MAX_DIAGNOSTIC_KEYS,
+    _diagnostic_key_summary,
     _needs_daemon_reshape,
     _reshape_daemon_hook_payload_v1,
 )
@@ -545,3 +546,37 @@ class TestDiagnosticKeyTruncation:
             assert key not in error_msg, (
                 f"Key {key!r} beyond truncation limit should not appear in error message"
             )
+
+
+# =============================================================================
+# Tests: _diagnostic_key_summary Direct Unit Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDiagnosticKeySummary:
+    """Validate _diagnostic_key_summary output for various dict sizes."""
+
+    def test_empty_dict_returns_empty_keys(self) -> None:
+        """Empty dict produces '(keys=[])'."""
+        assert _diagnostic_key_summary({}) == "(keys=[])"
+
+    def test_few_keys_returns_sorted(self) -> None:
+        """Dict with a few keys returns them sorted alphabetically."""
+        result = _diagnostic_key_summary({"zebra": 1, "alpha": 2, "middle": 3})
+        assert result == "(keys=['alpha', 'middle', 'zebra'])"
+
+    def test_exceeding_max_keys_shows_truncation(self) -> None:
+        """Dict with more than _MAX_DIAGNOSTIC_KEYS keys appends '...' indicator."""
+        oversized = {f"key_{i:03d}": i for i in range(_MAX_DIAGNOSTIC_KEYS + 5)}
+        result = _diagnostic_key_summary(oversized)
+
+        # Must end with the ellipsis indicator inside the list
+        assert "'...'" in result
+
+        # Only _MAX_DIAGNOSTIC_KEYS real keys plus the '...' sentinel
+        all_keys_sorted = sorted(oversized.keys())
+        for key in all_keys_sorted[:_MAX_DIAGNOSTIC_KEYS]:
+            assert key in result
+        for key in all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]:
+            assert key not in result

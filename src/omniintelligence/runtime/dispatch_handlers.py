@@ -293,6 +293,9 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     correlation_id_value = raw["correlation_id"]
 
     # --- collect remaining keys into payload sub-dict ---
+    # Note: causation_id and schema_version are intentionally discarded here.
+    # They belong to the daemon envelope layer and are not forwarded to the
+    # reshaped output consumed by ModelClaudeCodeHookEvent.
     payload_fields = {k: v for k, v in raw.items() if k not in _DAEMON_ENVELOPE_KEYS}
 
     return {
@@ -369,7 +372,20 @@ def create_claude_hook_dispatch_handler(
                 else:
                     parsed = payload
                 event = ModelClaudeCodeHookEvent(**parsed)
-            except ValueError:
+            except ValueError as e:
+                if isinstance(e, ValidationError):
+                    # Pydantic model validation error -- wrap with
+                    # correlation context so the error is traceable in logs.
+                    # Without this, ValidationError (a ValueError subclass)
+                    # would propagate without the correlation_id annotation.
+                    msg = (
+                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                        f"(correlation_id={ctx_correlation_id})"
+                    )
+                    logger.warning(msg)
+                    raise ValueError(msg) from e
+                # Reshape validation errors (from _reshape_daemon_hook_payload_v1)
+                # already carry structured diagnostic context -- propagate as-is.
                 raise
             except Exception as e:
                 msg = (
