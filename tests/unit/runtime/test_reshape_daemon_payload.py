@@ -685,3 +685,310 @@ class TestDispatchHandlerDaemonReshapeWiring:
             assert event.payload.model_extra is not None
             assert "prompt_preview" in event.payload.model_extra
             assert event.payload.model_extra["prompt_preview"] == "Fix the bug in..."
+
+
+# =============================================================================
+# Tests: OMN-2322 Stripped-Envelope Reconstruction
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestStrippedEnvelopeReconstruction:
+    """Verify OMN-2322 fix: reconstruct envelope keys consumed during deserialization.
+
+    When the Kafka consumer (or upstream middleware) deserializes a flat daemon
+    dict into a ModelEventEnvelope, fields like ``event_type``,
+    ``correlation_id``, and the timestamp (mapped to ``envelope_timestamp``)
+    are extracted from the payload dict and set on the envelope object.  The
+    remaining ``envelope.payload`` dict therefore lacks those keys.
+
+    Without the OMN-2322 fix, ``_needs_daemon_reshape()`` returns False
+    (because ``emitted_at`` is absent from the stripped payload), and the
+    raw domain-only dict is passed directly to ModelClaudeCodeHookEvent,
+    which fails Pydantic validation with missing-field errors.
+
+    The fix merges envelope-level attributes back into the dict so that
+    ``_needs_daemon_reshape()`` fires and produces the canonical shape.
+    """
+
+    @pytest.mark.asyncio
+    async def test_handler_reconstructs_stripped_envelope_payload(
+        self,
+    ) -> None:
+        """Stripped payload (only domain keys) is reconstructed from envelope fields.
+
+        Simulates what happens when the Kafka consumer extracts envelope keys
+        (event_type, correlation_id, timestamp) from the flat dict into the
+        ModelEventEnvelope, leaving only domain-specific keys in the payload.
+        The handler must reconstruct the missing keys from the envelope and
+        successfully parse into ModelClaudeCodeHookEvent.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+
+        correlation_id = UUID("12345678-1234-1234-1234-123456789abc")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # Stripped payload: only domain keys remain.
+        # No emitted_at, no timestamp_utc, no event_type, no correlation_id.
+        # These were consumed by the envelope during deserialization.
+        stripped_payload: dict[str, Any] = {
+            "tool_name_raw": "Edit",
+            "file_path": "/some/path/file.py",
+            "session_id": "test-session-stripped",
+        }
+
+        # Envelope carries the consumed keys
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped_payload,
+            event_type="PostToolUse",
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000002"),
+        )
+
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "PostToolUse"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            # Handler returns empty string on success
+            assert result == ""
+
+            # route_hook_event must have been called exactly once
+            mock_route.assert_called_once()
+
+            # Extract the event kwarg passed to route_hook_event
+            call_kwargs = mock_route.call_args.kwargs
+            event = call_kwargs["event"]
+
+            # The event must be a properly-parsed ModelClaudeCodeHookEvent
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "PostToolUse"
+            assert str(event.session_id) == "test-session-stripped"
+            assert event.timestamp_utc is not None
+            assert event.timestamp_utc.tzinfo is not None
+
+            # Domain-specific keys must be inside the payload
+            assert event.payload is not None
+            assert event.payload.model_extra is not None
+            assert "tool_name_raw" in event.payload.model_extra
+            assert event.payload.model_extra["tool_name_raw"] == "Edit"
+            assert "file_path" in event.payload.model_extra
+            assert event.payload.model_extra["file_path"] == "/some/path/file.py"
+
+    @pytest.mark.asyncio
+    async def test_handler_passes_canonical_payload_unchanged(
+        self,
+    ) -> None:
+        """Canonical payload (has timestamp_utc + nested payload) skips reconstruction.
+
+        When the payload dict already contains ``timestamp_utc`` and a nested
+        ``payload`` sub-dict, the OMN-2322 reconstruction must NOT fire.  This
+        prevents double-wrapping of already well-formed payloads.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+
+        correlation_id = UUID("12345678-1234-1234-1234-123456789abc")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # Canonical payload: already has timestamp_utc and nested payload dict.
+        canonical_payload: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session-canonical",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp_utc": "2026-02-15T10:30:00+00:00",
+            "payload": {
+                "prompt_preview": "Hello world",
+                "prompt_length": 11,
+            },
+        }
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=canonical_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000003"),
+        )
+
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "UserPromptSubmit"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            # Handler returns empty string on success
+            assert result == ""
+
+            mock_route.assert_called_once()
+            call_kwargs = mock_route.call_args.kwargs
+            event = call_kwargs["event"]
+
+            # The event must be a properly-parsed ModelClaudeCodeHookEvent
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "UserPromptSubmit"
+            assert str(event.session_id) == "test-session-canonical"
+            assert event.timestamp_utc is not None
+
+            # Domain keys must be in the payload, correctly nested
+            assert event.payload is not None
+            assert event.payload.model_extra is not None
+            assert "prompt_preview" in event.payload.model_extra
+            assert event.payload.model_extra["prompt_preview"] == "Hello world"
+
+    @pytest.mark.asyncio
+    async def test_handler_passes_flat_daemon_payload_with_emitted_at(
+        self,
+        daemon_wire_payload: dict[str, Any],
+    ) -> None:
+        """Flat daemon payload (has emitted_at) reshapes correctly (PR #110 regression).
+
+        This is a regression test for the original daemon reshape scenario: the
+        emit daemon sends a flat dict with ``emitted_at`` as its timestamp key.
+        The handler must detect the flat format via ``_needs_daemon_reshape()``
+        and transform it into the canonical ``ModelClaudeCodeHookEvent`` shape.
+
+        The OMN-2322 reconstruction must NOT fire for this payload because
+        ``emitted_at`` IS present in the dict -- only the stripped-envelope
+        case (neither ``emitted_at`` nor ``timestamp_utc``) triggers
+        reconstruction.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+
+        correlation_id = UUID("12345678-1234-1234-1234-123456789abc")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # daemon_wire_payload already has emitted_at (from fixture)
+        assert "emitted_at" in daemon_wire_payload
+        assert "timestamp_utc" not in daemon_wire_payload
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=daemon_wire_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000004"),
+        )
+
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "UserPromptSubmit"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            # Handler returns empty string on success
+            assert result == ""
+
+            mock_route.assert_called_once()
+            call_kwargs = mock_route.call_args.kwargs
+            event = call_kwargs["event"]
+
+            # The event must be a properly-parsed ModelClaudeCodeHookEvent
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "UserPromptSubmit"
+            assert str(event.session_id) == "test-session-001"
+            assert event.timestamp_utc is not None
+            assert event.timestamp_utc.tzinfo is not None
+
+            # Domain-specific keys must be inside the payload
+            assert event.payload is not None
+            assert event.payload.model_extra is not None
+            assert "prompt_preview" in event.payload.model_extra
+            assert event.payload.model_extra["prompt_preview"] == "Fix the bug in..."
+            assert "prompt_length" in event.payload.model_extra
+            assert event.payload.model_extra["prompt_length"] == 150

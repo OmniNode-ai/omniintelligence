@@ -348,6 +348,50 @@ def create_claude_hook_dispatch_handler(
 
         payload = envelope.payload
 
+        # OMN-2322: Reconstruct envelope-level keys that were consumed during
+        # envelope deserialization.  When the Kafka consumer (or upstream
+        # middleware) deserializes the flat daemon dict into a
+        # ModelEventEnvelope, fields like ``event_type``, ``correlation_id``,
+        # and the timestamp (mapped to ``envelope_timestamp``) are extracted
+        # from the payload dict and set on the envelope object.  The remaining
+        # ``envelope.payload`` dict therefore lacks those keys, which causes
+        # ``_needs_daemon_reshape()`` to return False (it requires
+        # ``emitted_at`` to be present).  The net effect is that the raw
+        # domain-only dict is passed directly to ModelClaudeCodeHookEvent and
+        # fails Pydantic validation with 17+ missing-field errors.
+        #
+        # The fix: when the payload dict is missing *both* ``emitted_at`` and
+        # ``timestamp_utc``, assume the envelope consumed them and merge the
+        # envelope-level attributes back into the dict.  This allows
+        # ``_needs_daemon_reshape()`` to fire and produce the canonical shape.
+        # ``session_id`` is NOT a ModelEventEnvelope field so it should remain
+        # in the payload dict already; it is not reconstructed here.
+        if (
+            isinstance(payload, dict)
+            and "emitted_at" not in payload
+            and "timestamp_utc" not in payload
+        ):
+            reconstructed: dict[str, Any] = dict(payload)
+            if envelope.event_type is not None:
+                reconstructed.setdefault("event_type", envelope.event_type)
+            if envelope.correlation_id is not None:
+                reconstructed.setdefault("correlation_id", str(envelope.correlation_id))
+            # Use envelope_timestamp as emitted_at so _needs_daemon_reshape
+            # detects the flat daemon format and reshapes accordingly.
+            if envelope.envelope_timestamp is not None:
+                reconstructed.setdefault(
+                    "emitted_at", envelope.envelope_timestamp.isoformat()
+                )
+            if logger.isEnabledFor(logging.DEBUG):
+                added = sorted(set(reconstructed.keys()) - set(payload.keys()))
+                logger.debug(
+                    "OMN-2322: Reconstructed envelope keys into payload "
+                    "(added_keys=%s, correlation_id=%s)",
+                    added,
+                    ctx_correlation_id,
+                )
+            payload = reconstructed
+
         # Parse payload into ModelClaudeCodeHookEvent
         if isinstance(payload, ModelClaudeCodeHookEvent):
             event = payload
