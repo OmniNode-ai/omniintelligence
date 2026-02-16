@@ -411,7 +411,7 @@ class PluginIntelligence:
             )
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -588,7 +588,7 @@ class PluginIntelligence:
             self._dispatch_engine = None
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 
@@ -676,7 +676,7 @@ class PluginIntelligence:
             )
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
-                error_message=str(e),
+                error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
 

@@ -35,7 +35,10 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
-from asyncpg import ForeignKeyViolationError, UniqueViolationError
+from asyncpg import (  # asyncpg is a required dependency (pyproject.toml [core])
+    ForeignKeyViolationError,
+    UniqueViolationError,
+)
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
 from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
@@ -807,11 +810,13 @@ def create_pattern_storage_dispatch_handler(
             # raising, since the pattern already exists in the DB.
             return ""
         except Exception as e:
+            from omniintelligence.utils.log_sanitizer import get_log_sanitizer
+
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
                 "(pattern_id=%s, error=%s, correlation_id=%s)",
                 pattern_id,
-                e,
+                get_log_sanitizer().sanitize(str(e)),
                 ctx_correlation_id,
             )
             raise

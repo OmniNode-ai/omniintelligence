@@ -306,7 +306,7 @@ async def handle_stop(
         - OMN-2210: Wire intelligence nodes into registration + pattern extraction
     """
     start_time = time.perf_counter()
-    metadata: dict[str, Any] = {"handler": "stop_trigger_pattern_learning"}
+    metadata: dict[str, object] = {"handler": "stop_trigger_pattern_learning"}
 
     # Resolve correlation_id to a non-None UUID for downstream calls that
     # require UUID (not UUID | None).
@@ -383,10 +383,10 @@ async def _route_to_dlq(
     *,
     producer: ProtocolKafkaPublisher,
     topic: str,
-    envelope: dict[str, Any],
+    envelope: dict[str, object],
     error_message: str,
     session_id: str,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> None:
     """Route a failed message to the dead-letter queue.
 
@@ -420,7 +420,7 @@ async def _route_to_dlq(
             for k, v in envelope.items()
         }
 
-        dlq_payload: dict[str, Any] = {
+        dlq_payload: dict[str, object] = {
             "original_topic": topic,
             "original_envelope": sanitized_envelope,
             "error_message": sanitizer.sanitize(error_message),

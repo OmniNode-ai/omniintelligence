@@ -403,14 +403,13 @@ def reset_introspection_guard() -> None:
     isolation between test cases that invoke
     ``publish_intelligence_introspection``.
 
-    **Not thread-safe by design**: This function is intended for sequential
-    call sites (shutdown path, test teardown). It does not acquire
-    ``_introspection_lock`` because the caller is responsible for ensuring
-    no concurrent ``publish_intelligence_introspection`` calls are in flight.
-    Using it concurrently with publish is a programming error.
+    Thread-safe: acquires ``_introspection_lock`` to ensure symmetry with
+    ``publish_intelligence_introspection()`` which also holds the lock
+    when reading and writing the guard flag.
     """
     global _introspection_published
-    _introspection_published = False
+    with _introspection_lock:
+        _introspection_published = False
 
 
 __all__ = [

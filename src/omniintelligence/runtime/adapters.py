@@ -157,7 +157,7 @@ class AdapterIdempotencyStorePostgres:
             transitional bootstrap convenience but must be replaced with a
             proper migration before production hardening.
         """
-        # TODO(OMN-XXXX): Replace raw DDL with a proper database migration.
+        # TODO(migration): Replace raw DDL with a proper database migration.
         #   This CREATE TABLE IF NOT EXISTS bypasses the migration system,
         #   which means schema changes to this table cannot be tracked,
         #   versioned, or rolled back. Create an Alembic/migration entry
