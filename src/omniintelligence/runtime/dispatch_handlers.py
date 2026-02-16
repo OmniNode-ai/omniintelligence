@@ -352,7 +352,7 @@ def create_claude_hook_dispatch_handler(
             try:
                 logger.debug(
                     "Claude hook payload keys before reshape: %s (correlation_id=%s)",
-                    sorted(payload.keys()),
+                    _diagnostic_key_summary(payload),
                     ctx_correlation_id,
                 )
                 # Detect payload format: flat daemon (has emitted_at) vs

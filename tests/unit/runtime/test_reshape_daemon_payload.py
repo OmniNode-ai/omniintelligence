@@ -282,6 +282,37 @@ class TestReshapeNullRequiredKeys:
 
 
 # =============================================================================
+# Tests: _needs_daemon_reshape Heuristic
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestNeedsDaemonReshape:
+    """Validate _needs_daemon_reshape detection heuristic for all three cases.
+
+    The heuristic returns True when ``emitted_at`` is present and
+    ``timestamp_utc`` is absent (flat daemon shape).  It returns False
+    for canonical payloads (has ``timestamp_utc``) and for unrelated
+    payloads (neither key present).
+    """
+
+    def test_daemon_shaped_payload_returns_true(self) -> None:
+        """Payload with emitted_at but no timestamp_utc is daemon-shaped."""
+        payload: dict[str, Any] = {"emitted_at": "2026-02-15T10:30:00+00:00"}
+        assert _needs_daemon_reshape(payload) is True
+
+    def test_canonical_shaped_payload_returns_false(self) -> None:
+        """Payload with timestamp_utc but no emitted_at is canonical-shaped."""
+        payload: dict[str, Any] = {"timestamp_utc": "2026-02-15T10:30:00+00:00"}
+        assert _needs_daemon_reshape(payload) is False
+
+    def test_unrelated_payload_returns_false(self) -> None:
+        """Payload with neither timestamp key is unrelated."""
+        payload: dict[str, Any] = {"event_type": "UserPromptSubmit"}
+        assert _needs_daemon_reshape(payload) is False
+
+
+# =============================================================================
 # Tests: Both emitted_at and timestamp_utc Present (Canonical Path)
 # =============================================================================
 
