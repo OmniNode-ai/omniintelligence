@@ -275,6 +275,12 @@ def _reconstruct_payload_from_envelope(
 
     # The payload is missing all required daemon keys.  Attempt to
     # recover them from the envelope's own fields.
+    logger.debug(
+        "Envelope reconstruction triggered: payload missing all required "
+        "daemon keys %s, recovering from envelope fields %s",
+        _REQUIRED_ENVELOPE_KEYS,
+        _diagnostic_key_summary(payload),
+    )
     reconstructed = dict(payload)
 
     # event_type: envelope.event_type is str | None
@@ -287,6 +293,12 @@ def _reconstruct_payload_from_envelope(
 
     # emitted_at: envelope.envelope_timestamp is always set (default factory).
     # Use ISO format string so Pydantic can parse it downstream.
+    # NOTE: envelope_timestamp defaults to deserialization time, not the
+    # original daemon emission time, so this value is approximate.
+    logger.debug(
+        "emitted_at falling back to envelope_timestamp (approximate): %s",
+        envelope.envelope_timestamp.isoformat(),
+    )
     reconstructed["emitted_at"] = envelope.envelope_timestamp.isoformat()
 
     # session_id: ModelEventEnvelope has no session_id field, so it cannot
