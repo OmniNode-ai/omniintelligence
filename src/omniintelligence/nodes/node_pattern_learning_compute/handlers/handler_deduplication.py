@@ -70,7 +70,7 @@ _SIGNATURE_MAX_KEYWORDS: Final[int] = 20
 
 
 def generate_pattern_signature(
-    cluster: PatternClusterDict,
+    cluster: PatternClusterDict | None,
 ) -> PatternSignatureResultDict:
     """Generate versioned, deterministic signature for a pattern cluster.
 
@@ -100,6 +100,14 @@ def generate_pattern_signature(
         ...     sig["result"]["signature"]
         'a1b2c3d4...'
     """
+    # Guard against None or empty cluster input
+    if cluster is None:
+        return PatternSignatureResultDict(
+            success=False,
+            result=None,
+            error_message="Empty cluster: cannot generate signature from None or empty input",
+        )
+
     try:
         centroid = cluster["centroid_features"]
         pattern_type = cluster["pattern_type"]

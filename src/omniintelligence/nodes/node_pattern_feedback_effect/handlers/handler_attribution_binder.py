@@ -49,8 +49,7 @@ import logging
 from typing import NotRequired, TypedDict
 from uuid import UUID
 
-from omnibase_core.enums.pattern_learning import EnumEvidenceTier
-
+from omniintelligence.enums import EnumEvidenceTier
 from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)

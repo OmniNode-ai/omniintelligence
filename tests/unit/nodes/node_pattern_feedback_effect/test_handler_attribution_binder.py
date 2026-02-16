@@ -22,8 +22,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from omnibase_core.enums.pattern_learning import EnumEvidenceTier
 
+from omniintelligence.enums import EnumEvidenceTier
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
     ProtocolPatternRepository,
     compute_evidence_tier,
@@ -96,8 +96,12 @@ class MockPatternRepository:
 
         if "run_id" in query and "pattern_injections" in query:
             # SQL_GET_SESSION_RUN_ID
-            session_id = args[0] if args else None
-            run_id = self.injection_run_ids.get(session_id)
+            session_id: UUID | None = args[0] if args else None
+            run_id = (
+                self.injection_run_ids.get(session_id)
+                if session_id is not None
+                else None
+            )
             if run_id is not None:
                 return MockRecord(run_id=run_id)
             return None

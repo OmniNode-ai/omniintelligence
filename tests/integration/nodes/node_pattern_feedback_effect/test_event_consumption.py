@@ -148,8 +148,10 @@ class TestContractConfiguration:
         assert "event_bus" in contract, "Missing event_bus section"
         assert contract["event_bus"]["event_bus_enabled"] is True
         assert "subscribe_topics" in contract["event_bus"]
+        # Contract topics use {env}. prefix; runtime strips it at the
+        # event-bus layer (see contract_topics._read_event_bus_topics).
         assert (
-            "onex.cmd.omniintelligence.session-outcome.v1"
+            "{env}.onex.cmd.omniintelligence.session-outcome.v1"
             in contract["event_bus"]["subscribe_topics"]
         )
 
@@ -158,7 +160,7 @@ class TestContractConfiguration:
         with open(CONTRACT_PATH) as f:
             contract = yaml.safe_load(f)
 
-        topic = "onex.cmd.omniintelligence.session-outcome.v1"
+        topic = "{env}.onex.cmd.omniintelligence.session-outcome.v1"
         metadata = contract["event_bus"]["subscribe_topic_metadata"][topic]
 
         # Should use stable alias, not brittle file path

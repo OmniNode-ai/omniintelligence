@@ -245,7 +245,7 @@ class EventPublisher:
             logger.warning("Kafka not available, producer not initialized")
             return
 
-        producer_config = {
+        producer_config: dict[str, str | int | float | bool] = {
             "bootstrap.servers": self.bootstrap_servers,
             # Performance tuning
             "linger.ms": 10,  # Batch messages for 10ms for throughput

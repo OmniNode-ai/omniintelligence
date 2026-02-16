@@ -81,9 +81,7 @@ from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
-from omnibase_core.enums.pattern_learning import EnumEvidenceTier
-
-from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.enums import EnumEvidenceTier, EnumPatternLifecycleStatus
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,

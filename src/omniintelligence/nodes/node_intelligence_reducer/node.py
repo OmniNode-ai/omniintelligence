@@ -67,7 +67,8 @@ class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deser
 
     async def process(
         self,
-        input_data: ModelReducerInput[dict[str, Any]],
+        input_data: ModelReducerInput[dict[str, Any]]
+        | ModelReducerInputPatternLifecycle,
     ) -> ModelReducerOutput[ModelIntelligenceState]:
         """Process reducer input with FSM type routing.
 

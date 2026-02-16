@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any  # any-ok: test mocks implement asyncpg Protocol with *args: Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pydantic
@@ -41,6 +41,7 @@ from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demoti
     MAX_SUCCESS_RATE_FOR_DEMOTION,
     MIN_FAILURE_STREAK_FOR_DEMOTION,
     MIN_INJECTION_COUNT_FOR_DEMOTION,
+    DemotionPatternRecord,
     ProtocolKafkaPublisher,
     ProtocolPatternRepository,
     _parse_update_count,
@@ -67,20 +68,18 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
 # =============================================================================
 
 
-class MockRecord(dict):
-    """Dict-like object that mimics asyncpg.Record behavior.
+def create_mock_record(data: dict[str, Any]) -> DemotionPatternRecord:
+    """Create a DemotionPatternRecord from a plain dict.
 
     asyncpg.Record supports both dict-style access (record["column"]) and
-    attribute access (record.column). This mock provides the same interface
-    for testing.
-    """
+    attribute access (record.column). For type-checking purposes, we cast
+    the dict to DemotionPatternRecord so that handler functions accept it
+    without mypy arg-type errors.
 
-    def __getattr__(self, name: str) -> Any:
-        """Allow attribute-style access to columns."""
-        try:
-            return self[name]
-        except KeyError:
-            raise AttributeError(f"Record has no column '{name}'")
+    At runtime, Python dicts support all the .get() calls that the handlers use,
+    making this cast safe for testing.
+    """
+    return cast(DemotionPatternRecord, data)
 
 
 # =============================================================================
@@ -123,14 +122,14 @@ class MockPatternRepository:
     def __init__(self) -> None:
         """Initialize empty repository state."""
         self.patterns: dict[UUID, DemotablePattern] = {}
-        self.queries_executed: list[tuple[str, tuple[Any, ...]]] = []
+        self.queries_executed: list[tuple[str, tuple[object, ...]]] = []
 
     def add_pattern(self, pattern: DemotablePattern) -> None:
         """Add a pattern to the mock database."""
         self.patterns[pattern.id] = pattern
 
-    async def fetch(self, query: str, *args: Any) -> list[MockRecord]:
-        """Execute a query and return results as MockRecord objects.
+    async def fetch(self, query: str, *args: object) -> list[DemotionPatternRecord]:
+        """Execute a query and return results as DemotionPatternRecord objects.
 
         Simulates asyncpg fetch() behavior. Supports the specific queries
         used by the demotion handlers.
@@ -139,11 +138,11 @@ class MockPatternRepository:
 
         # Handle: Fetch validated patterns eligible for demotion check
         if "learned_patterns" in query and "validated" in query:
-            results = []
+            results: list[DemotionPatternRecord] = []
             for p in self.patterns.values():
                 if p.status == "validated" and p.is_current:
                     results.append(
-                        MockRecord(
+                        create_mock_record(
                             {
                                 "id": p.id,
                                 "pattern_signature": p.pattern_signature,
@@ -160,7 +159,7 @@ class MockPatternRepository:
 
         return []
 
-    async def execute(self, query: str, *args: Any) -> str:
+    async def execute(self, query: str, *args: object) -> str:
         """Execute a query and return status string.
 
         Simulates asyncpg execute() behavior. Implements the actual
@@ -170,7 +169,7 @@ class MockPatternRepository:
 
         # Handle: Demote a single pattern
         if "UPDATE learned_patterns" in query and "deprecated" in query:
-            pattern_id = args[0]
+            pattern_id = cast(UUID, args[0])
             if pattern_id in self.patterns:
                 p = self.patterns[pattern_id]
                 if p.status == "validated":
@@ -194,13 +193,13 @@ class MockKafkaPublisher:
 
     def __init__(self) -> None:
         """Initialize with empty published events list."""
-        self.published_events: list[tuple[str, str, dict[str, Any]]] = []
+        self.published_events: list[tuple[str, str, dict[str, object]]] = []
 
     async def publish(
         self,
         topic: str,
         key: str,
-        value: dict[str, Any],
+        value: dict[str, object],
     ) -> None:
         """Record the published event."""
         self.published_events.append((topic, key, value))
@@ -310,7 +309,7 @@ class TestMinimumInjectionCount:
         The success rate gate requires minimum injection count. With only 9 injections
         (below the 10 minimum), the low success rate gate cannot trigger.
         """
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 9,
                 "success_count_rolling_20": 2,  # 22% success rate (below 40%)
@@ -328,7 +327,7 @@ class TestMinimumInjectionCount:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with exactly 10 injections can be demoted for low success rate."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 3,  # 30% success rate (below 40%)
@@ -346,7 +345,7 @@ class TestMinimumInjectionCount:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with 20 injections and low success rate should be demoted."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 20,
                 "success_count_rolling_20": 5,  # 25% success rate (below 40%)
@@ -364,7 +363,7 @@ class TestMinimumInjectionCount:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with None injection count is treated as 0 (no demotion)."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": None,
                 "success_count_rolling_20": 0,
@@ -401,7 +400,7 @@ class TestSuccessRateGate:
     ) -> None:
         """Pattern with 30% success rate (below 40%) should be demoted."""
         # 30% success rate: 3 successes, 7 failures
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 3,
@@ -424,7 +423,7 @@ class TestSuccessRateGate:
         The gate uses < threshold, so exactly 40% does not trigger demotion.
         """
         # Exactly 40%: 4 successes, 6 failures
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 4,
@@ -442,7 +441,7 @@ class TestSuccessRateGate:
     ) -> None:
         """Pattern with 50% success rate should NOT be demoted."""
         # 50% success rate: 5 successes, 5 failures
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 5,
@@ -460,7 +459,7 @@ class TestSuccessRateGate:
     ) -> None:
         """Success rate check is skipped if injection count < 10."""
         # Low success rate but insufficient data
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 5,  # Below 10
                 "success_count_rolling_20": 1,  # 20% success rate
@@ -496,7 +495,7 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with exactly 5 consecutive failures (at threshold) should be demoted."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 7,  # 70% success rate (good overall)
@@ -515,7 +514,7 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with 7 consecutive failures (above threshold) should be demoted."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 7,
@@ -534,7 +533,7 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with 4 consecutive failures (below threshold) should NOT be demoted."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,  # 80% success rate
@@ -551,7 +550,7 @@ class TestFailureStreakGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with None failure streak is treated as 0."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -576,7 +575,7 @@ class TestFailureStreakGate:
         Unlike the success rate gate, failure streak doesn't require minimum
         injection count - 5 consecutive failures is enough signal.
         """
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 5,  # Below 10
                 "success_count_rolling_20": 0,
@@ -608,7 +607,7 @@ class TestManualDisableGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Disabled pattern should be demoted regardless of metrics."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 0,  # No data
                 "success_count_rolling_20": 0,
@@ -625,7 +624,7 @@ class TestManualDisableGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Disabled pattern with excellent metrics should still be demoted."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 20,
                 "success_count_rolling_20": 18,  # 90% success rate
@@ -642,7 +641,7 @@ class TestManualDisableGate:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Disabled patterns get 'manual_disable' reason."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 2,  # Low success rate too
@@ -903,7 +902,7 @@ class TestCooldownLogic:
 
     def test_is_cooldown_active_true_when_within_period(self) -> None:
         """is_cooldown_active returns True when within cooldown period."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(hours=12),
             }
@@ -912,7 +911,7 @@ class TestCooldownLogic:
 
     def test_is_cooldown_active_false_when_expired(self) -> None:
         """is_cooldown_active returns False when cooldown expired."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(hours=48),
             }
@@ -921,7 +920,7 @@ class TestCooldownLogic:
 
     def test_is_cooldown_active_false_when_promoted_at_none(self) -> None:
         """is_cooldown_active returns False when promoted_at is None."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": None,
             }
@@ -1547,8 +1546,8 @@ class TestEventPayloadVerification:
 
         _topic, _key, value = mock_producer.published_events[0]
         assert "gate_snapshot" in value
-        gate_snapshot = value["gate_snapshot"]
-        assert abs(gate_snapshot["success_rate_rolling_20"] - 0.2) < 1e-9
+        gate_snapshot = cast(dict[str, object], value["gate_snapshot"])
+        assert abs(cast(float, gate_snapshot["success_rate_rolling_20"]) - 0.2) < 1e-9
         assert gate_snapshot["injection_count_rolling_20"] == 15
         assert gate_snapshot["failure_streak"] == 1
 
@@ -1691,7 +1690,7 @@ class TestEventPayloadVerification:
 
         _topic, _key, value = mock_producer.published_events[0]
         assert "reason" in value
-        assert "low_success_rate" in value["reason"]
+        assert "low_success_rate" in cast(str, value["reason"])
         # NOTE: pattern_signature is no longer in lifecycle events (OMN-1805)
         # It's in the gate_snapshot if needed for diagnostics
 
@@ -1707,7 +1706,7 @@ class TestCalculateSuccessRate:
 
     def test_calculates_50_percent_rate(self) -> None:
         """Calculates 50% success rate correctly."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 5,
                 "failure_count_rolling_20": 5,
@@ -1717,7 +1716,7 @@ class TestCalculateSuccessRate:
 
     def test_calculates_100_percent_rate(self) -> None:
         """Calculates 100% success rate correctly."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 10,
                 "failure_count_rolling_20": 0,
@@ -1727,7 +1726,7 @@ class TestCalculateSuccessRate:
 
     def test_calculates_0_percent_rate(self) -> None:
         """Calculates 0% success rate correctly."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 0,
                 "failure_count_rolling_20": 10,
@@ -1737,7 +1736,7 @@ class TestCalculateSuccessRate:
 
     def test_returns_zero_when_no_outcomes(self) -> None:
         """Returns 0.0 when no outcomes recorded (division by zero protection)."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 0,
                 "failure_count_rolling_20": 0,
@@ -1747,7 +1746,7 @@ class TestCalculateSuccessRate:
 
     def test_handles_none_values(self) -> None:
         """Handles None values by treating them as 0."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": None,
                 "failure_count_rolling_20": None,
@@ -1757,7 +1756,7 @@ class TestCalculateSuccessRate:
 
     def test_clamps_rate_to_max_1(self) -> None:
         """Success rate is clamped to maximum 1.0."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 10,
                 "failure_count_rolling_20": -5,  # Negative would cause > 1.0
@@ -1767,7 +1766,7 @@ class TestCalculateSuccessRate:
 
     def test_clamps_rate_to_min_0(self) -> None:
         """Success rate is clamped to minimum 0.0."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": -3,  # Negative success
                 "failure_count_rolling_20": 10,
@@ -1789,7 +1788,7 @@ class TestBuildGateSnapshot:
     def test_builds_snapshot_with_all_fields(self) -> None:
         """Builds snapshot with all fields populated correctly."""
         promoted_at = datetime.now(UTC) - timedelta(hours=36)
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 15,
                 "success_count_rolling_20": 12,
@@ -1813,7 +1812,7 @@ class TestBuildGateSnapshot:
     def test_hours_since_promotion_calculated_correctly(self) -> None:
         """hours_since_promotion is calculated correctly."""
         promoted_at = datetime.now(UTC) - timedelta(hours=24)
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -1830,7 +1829,7 @@ class TestBuildGateSnapshot:
 
     def test_hours_since_promotion_none_when_no_timestamp(self) -> None:
         """hours_since_promotion is None when promoted_at is None."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -1846,7 +1845,7 @@ class TestBuildGateSnapshot:
 
     def test_snapshot_is_frozen_model(self) -> None:
         """Snapshot is immutable (frozen model)."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -1923,7 +1922,7 @@ class TestIsCooldownActive:
 
     def test_true_when_within_cooldown_period(self) -> None:
         """Returns True when pattern was promoted within cooldown period."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(hours=12),
             }
@@ -1932,7 +1931,7 @@ class TestIsCooldownActive:
 
     def test_false_when_cooldown_expired(self) -> None:
         """Returns False when cooldown period has elapsed."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(hours=48),
             }
@@ -1941,7 +1940,7 @@ class TestIsCooldownActive:
 
     def test_false_when_promoted_at_is_none(self) -> None:
         """Returns False when promoted_at is None (no cooldown applies)."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": None,
             }
@@ -1950,7 +1949,7 @@ class TestIsCooldownActive:
 
     def test_boundary_just_before_expiry(self) -> None:
         """Returns True when just before cooldown expiry."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(hours=23, minutes=59),
             }
@@ -1959,7 +1958,7 @@ class TestIsCooldownActive:
 
     def test_boundary_just_after_expiry(self) -> None:
         """Returns False when just after cooldown expiry."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(hours=24, minutes=1),
             }
@@ -1968,7 +1967,7 @@ class TestIsCooldownActive:
 
     def test_zero_cooldown_hours(self) -> None:
         """Returns False when cooldown_hours is 0 (no cooldown)."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "promoted_at": datetime.now(UTC) - timedelta(minutes=1),
             }
@@ -1993,7 +1992,7 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns 'manual_disable' for disabled patterns."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -2008,7 +2007,7 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns failure streak reason when failure_streak >= threshold."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -2024,7 +2023,7 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns low success rate reason when rate < threshold."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 15,
                 "success_count_rolling_20": 3,  # 20%
@@ -2042,7 +2041,7 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Returns None when pattern passes all gates."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 15,
                 "success_count_rolling_20": 10,  # 67%
@@ -2057,7 +2056,7 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """manual_disable takes priority over failure_streak."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 0,
@@ -2072,7 +2071,7 @@ class TestGetDemotionReason:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """failure_streak takes priority over low_success_rate."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 15,
                 "success_count_rolling_20": 3,  # 20% - would trigger low_success_rate
@@ -2237,7 +2236,7 @@ class TestEdgeCases:
     ) -> None:
         """Pattern dict with missing keys is handled gracefully."""
         # Empty pattern dict - all values default to 0/False
-        pattern = MockRecord({})
+        pattern = create_mock_record({})
         reason = get_demotion_reason(pattern, default_thresholds)
         assert reason is None  # No criteria met with defaults
 
@@ -2308,7 +2307,7 @@ class TestNumericalEdgeCases:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Pattern with negative injection count cannot trigger success rate gate."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": -5,
                 "success_count_rolling_20": 0,
@@ -2322,7 +2321,7 @@ class TestNumericalEdgeCases:
 
     def test_negative_success_count(self) -> None:
         """Negative success count produces valid clamped rate."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": -3,
                 "failure_count_rolling_20": 10,
@@ -2333,7 +2332,7 @@ class TestNumericalEdgeCases:
 
     def test_negative_failure_count_clamped(self) -> None:
         """Negative failure count is clamped to valid range."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 5,
                 "failure_count_rolling_20": -2,
@@ -2344,7 +2343,7 @@ class TestNumericalEdgeCases:
 
     def test_very_large_counts(self) -> None:
         """Very large counts are handled correctly without overflow."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "success_count_rolling_20": 800_000,
                 "failure_count_rolling_20": 200_000,
@@ -2358,7 +2357,7 @@ class TestNumericalEdgeCases:
     ) -> None:
         """Success rate at 39.9% triggers demotion."""
         # 399/1000 = 0.399 (just below 0.4)
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 1000,
                 "success_count_rolling_20": 399,
@@ -2376,7 +2375,7 @@ class TestNumericalEdgeCases:
     ) -> None:
         """Success rate at exactly 40% does NOT trigger demotion."""
         # 400/1000 = 0.400 (exactly at threshold)
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 1000,
                 "success_count_rolling_20": 400,
@@ -2392,7 +2391,7 @@ class TestNumericalEdgeCases:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Failure streak of 4 does NOT trigger demotion."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -2408,7 +2407,7 @@ class TestNumericalEdgeCases:
         self, default_thresholds: ModelEffectiveThresholds
     ) -> None:
         """Failure streak of 5 DOES trigger demotion."""
-        pattern = MockRecord(
+        pattern = create_mock_record(
             {
                 "injection_count_rolling_20": 10,
                 "success_count_rolling_20": 8,
@@ -2622,7 +2621,7 @@ class TestDemotePatternDirect:
                 failure_streak=0,
             )
         )
-        pattern_data = MockRecord(
+        pattern_data = create_mock_record(
             {
                 "id": sample_pattern_id,
                 "pattern_signature": "test_sig",
@@ -2674,7 +2673,7 @@ class TestDemotePatternDirect:
                 failure_streak=0,
             )
         )
-        pattern_data = MockRecord(
+        pattern_data = create_mock_record(
             {
                 "id": sample_pattern_id,
                 "pattern_signature": "test_sig",
@@ -2721,7 +2720,7 @@ class TestDemotePatternDirect:
                 failure_streak=1,
             )
         )
-        pattern_data = MockRecord(
+        pattern_data = create_mock_record(
             {
                 "id": sample_pattern_id,
                 "pattern_signature": "test_sig",
