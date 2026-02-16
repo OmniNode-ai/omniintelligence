@@ -123,6 +123,63 @@ _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 
 
 # =============================================================================
+# Daemon Envelope Constants
+# =============================================================================
+
+_DAEMON_ENVELOPE_KEYS: frozenset[str] = frozenset(
+    {
+        "event_type",
+        "session_id",
+        "correlation_id",
+        "emitted_at",
+        "causation_id",
+        "schema_version",
+    }
+)
+"""Keys belonging to the daemon envelope layer.
+
+Used by ``_reshape_daemon_hook_payload_v1`` to split envelope keys from
+domain-specific payload keys.  Defined as a module-level frozenset to
+avoid reconstructing the set on every call.
+"""
+
+_REQUIRED_ENVELOPE_KEYS: tuple[str, ...] = (
+    "emitted_at",
+    "event_type",
+    "session_id",
+    "correlation_id",
+)
+"""Envelope keys that must be present and non-null in every daemon payload.
+
+Used by ``_reshape_daemon_hook_payload_v1`` to validate required fields
+before reshaping.  Defined as a module-level tuple to avoid
+reconstructing on every call.
+"""
+
+_MAX_DIAGNOSTIC_KEYS: int = 10
+"""Maximum number of payload keys to include in error messages.
+
+Defence-in-depth measure: future payloads may carry sensitive domain keys.
+Diagnostic messages truncate the key list to this limit and append an
+ellipsis indicator when truncated.
+"""
+
+
+def _diagnostic_key_summary(raw: dict[str, Any]) -> str:
+    """Return a bounded, sorted key summary for diagnostic error messages.
+
+    Produces a string like ``"(keys=['a', 'b', 'c'])"`` or
+    ``"(keys=['a', 'b', '...'])"`` when the key count exceeds
+    ``_MAX_DIAGNOSTIC_KEYS``.
+    """
+    all_keys = sorted(raw.keys())
+    diagnostic_keys = all_keys[:_MAX_DIAGNOSTIC_KEYS]
+    if len(all_keys) > _MAX_DIAGNOSTIC_KEYS:
+        diagnostic_keys.append("...")
+    return f"(keys={diagnostic_keys})"
+
+
+# =============================================================================
 # Bridge Handler: Claude Hook Event
 # =============================================================================
 
@@ -164,6 +221,90 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
     envelope["payload"] = nested_payload
 
     return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
+
+
+def _needs_daemon_reshape(payload: dict[str, Any]) -> bool:
+    """Return True if the payload is a flat daemon dict that needs reshaping.
+
+    The emit daemon sends a flat dict with ``emitted_at`` as its timestamp
+    key, while the canonical ``ModelClaudeCodeHookEvent`` shape uses
+    ``timestamp_utc``.  When ``emitted_at`` is present and ``timestamp_utc``
+    is absent, the payload is treated as a flat daemon payload that must
+    be reshaped.
+
+    When **both** keys are present, the payload is treated as canonical
+    (already shaped) and no reshape is needed.  See inline comment in
+    ``create_claude_hook_dispatch_handler`` for the ambiguity note.
+    """
+    return "emitted_at" in payload and "timestamp_utc" not in payload
+
+
+def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
+    """Transform a flat daemon payload into ``ModelClaudeCodeHookEvent`` shape.
+
+    The emit daemon sends a flat dict with envelope keys (``event_type``,
+    ``session_id``, ``correlation_id``, ``emitted_at``, …) mixed alongside
+    domain-specific payload keys.  ``ModelClaudeCodeHookEvent`` expects a
+    nested ``payload`` sub-dict, so this function splits envelope keys from
+    payload keys and returns the canonical shape.
+
+    Args:
+        raw: Flat dict as emitted by the daemon.
+
+    Returns:
+        Dict matching ``ModelClaudeCodeHookEvent`` constructor kwargs::
+
+            {
+                "event_type": ...,
+                "session_id": ...,
+                "correlation_id": ...,
+                "timestamp_utc": ...,   # from ``emitted_at``
+                "payload": { ... },     # remaining keys
+            }
+
+    Raises:
+        ValueError: If any of the four required envelope keys
+            (``emitted_at``, ``event_type``, ``session_id``,
+            ``correlation_id``) is missing or has a null value.  The
+            error message distinguishes between the two cases and
+            includes a bounded subset of ``sorted(raw.keys())`` for
+            diagnostics (capped at ``_MAX_DIAGNOSTIC_KEYS``).
+    """
+    # --- require four mandatory envelope keys ---
+    # Distinguish between missing keys and keys present with null values
+    # so that error messages accurately describe the problem.
+    # Key list is bounded to _MAX_DIAGNOSTIC_KEYS to avoid exposing
+    # sensitive domain key names in future payloads.
+    for key in _REQUIRED_ENVELOPE_KEYS:
+        if key not in raw:
+            raise ValueError(
+                f"Daemon payload missing required key '{key}' "
+                f"{_diagnostic_key_summary(raw)}"
+            )
+        if raw[key] is None:
+            raise ValueError(
+                f"Daemon payload has null value for required key '{key}' "
+                f"{_diagnostic_key_summary(raw)}"
+            )
+
+    emitted_at = raw["emitted_at"]
+    event_type = raw["event_type"]
+    session_id = raw["session_id"]
+    correlation_id_value = raw["correlation_id"]
+
+    # --- collect remaining keys into payload sub-dict ---
+    # Note: causation_id and schema_version are intentionally discarded here.
+    # They belong to the daemon envelope layer and are not forwarded to the
+    # reshaped output consumed by ModelClaudeCodeHookEvent.
+    payload_fields = {k: v for k, v in raw.items() if k not in _DAEMON_ENVELOPE_KEYS}
+
+    return {
+        "event_type": event_type,
+        "session_id": session_id,
+        "correlation_id": correlation_id_value,
+        "timestamp_utc": emitted_at,  # Pydantic parses ISO string -> datetime
+        "payload": payload_fields,
+    }
 
 
 def create_claude_hook_dispatch_handler(
@@ -212,22 +353,47 @@ def create_claude_hook_dispatch_handler(
             event = payload
         elif isinstance(payload, dict):
             try:
-                # The omniclaude publisher emits a flat payload with all fields
-                # at the top level. ModelClaudeCodeHookEvent expects a nested
-                # structure with timestamp_utc and a payload wrapper.
-                # Attempt direct parse first; if it fails, reshape the flat
-                # payload into the nested envelope format.
-                event = ModelClaudeCodeHookEvent(**payload)
-            except (ValidationError, TypeError):
-                try:
-                    event = _reshape_flat_hook_payload(payload)
-                except Exception as e:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Claude hook payload keys before reshape: %s (correlation_id=%s)",
+                        _diagnostic_key_summary(payload),
+                        ctx_correlation_id,
+                    )
+                # Detect payload format: flat daemon (has emitted_at) vs
+                # canonical (has timestamp_utc + nested payload dict).
+                # NOTE: If a payload contains BOTH "emitted_at" and
+                # "timestamp_utc", we treat it as canonical (no reshape).
+                # This is ambiguous -- such a payload could be a daemon
+                # message that happens to include "timestamp_utc" as a
+                # domain key.  In practice this has not occurred; if it
+                # does, Pydantic validation will surface the mismatch.
+                if _needs_daemon_reshape(payload):
+                    parsed = _reshape_daemon_hook_payload_v1(payload)
+                else:
+                    parsed = payload
+                event = ModelClaudeCodeHookEvent(**parsed)
+            except ValueError as e:
+                if isinstance(e, ValidationError):
+                    # Pydantic model validation error -- wrap with
+                    # correlation context so the error is traceable in logs.
+                    # Without this, ValidationError (a ValueError subclass)
+                    # would propagate without the correlation_id annotation.
                     msg = (
                         f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
                         f"(correlation_id={ctx_correlation_id})"
                     )
                     logger.warning(msg)
                     raise ValueError(msg) from e
+                # Reshape validation errors (from _reshape_daemon_hook_payload_v1)
+                # already carry structured diagnostic context -- propagate as-is.
+                raise
+            except Exception as e:
+                msg = (
+                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                    f"(correlation_id={ctx_correlation_id})"
+                )
+                logger.warning(msg)
+                raise ValueError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
