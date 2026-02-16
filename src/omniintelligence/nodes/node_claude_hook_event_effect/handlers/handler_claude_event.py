@@ -342,6 +342,10 @@ async def handle_stop(
             metadata["pattern_learning_error"] = sanitized_error
 
             # Route to DLQ per effect-node guidelines.
+            # Known limitation: DLQ publish uses the same producer that failed.
+            # If the failure is producer-level (connection lost), the DLQ write will
+            # also fail and be swallowed. Topic-level errors will succeed. See _route_to_dlq.
+            #
             # Sanitize error before passing to DLQ for defense-in-depth
             # (_route_to_dlq also sanitizes internally, but we sanitize at
             # the call site to avoid passing raw exception strings across

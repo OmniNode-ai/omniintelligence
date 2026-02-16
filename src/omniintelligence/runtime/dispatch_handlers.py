@@ -54,6 +54,7 @@ from pydantic import ValidationError
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
 )
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -225,8 +226,9 @@ def create_claude_hook_dispatch_handler(
                 try:
                     event = _reshape_flat_hook_payload(payload)
                 except Exception as e:
+                    sanitized = get_log_sanitizer().sanitize(str(e))
                     msg = (
-                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {sanitized} "
                         f"(correlation_id={ctx_correlation_id})"
                     )
                     logger.warning(msg)
@@ -703,6 +705,8 @@ def create_pattern_storage_dispatch_handler(
                 ctx_correlation_id,
             )
             raw_confidence = 0.5
+        # extra field for structured logging backends (JSON/ELK); the positional
+        # arg renders in human-readable format, extra survives for machine parsing.
         if raw_confidence < 0.5:
             logger.warning(
                 "Pattern confidence %.3f below minimum 0.5, clamping to 0.5 "
@@ -804,14 +808,12 @@ def create_pattern_storage_dispatch_handler(
                 domain_id,
                 version,
                 ctx_correlation_id,
-                e,
+                get_log_sanitizer().sanitize(str(e)),
             )
             # Treat as idempotent -- return empty string (success) rather than
             # raising, since the pattern already exists in the DB.
             return ""
         except Exception as e:
-            from omniintelligence.utils.log_sanitizer import get_log_sanitizer
-
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
                 "(pattern_id=%s, error=%s, correlation_id=%s)",
@@ -1201,7 +1203,7 @@ def create_dispatch_callback(
         except Exception as e:
             logger.exception(
                 "Failed to dispatch message via engine: %s (correlation_id=%s)",
-                e,
+                get_log_sanitizer().sanitize(str(e)),
                 msg_correlation_id,
             )
             if hasattr(msg, "nack"):
