@@ -534,12 +534,13 @@ async def handle_auto_promote_check(
             )
 
         except Exception as exc:  # broad-catch-ok: asyncpg driver boundary
+            sanitized_err = get_log_sanitizer().sanitize(str(exc))
             logger.error(
                 "Failed to promote candidate pattern",
                 extra={
                     "correlation_id": str(effective_correlation_id),
                     "pattern_id": str(pattern_id),
-                    "error": str(exc),
+                    "error": sanitized_err,
                 },
                 exc_info=True,
             )
@@ -549,7 +550,7 @@ async def handle_auto_promote_check(
                     from_status="candidate",
                     to_status="provisional",
                     promoted=False,
-                    reason=f"promotion_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
                     gate_snapshot=gate_snapshot.model_dump(mode="json"),
                 )
@@ -629,12 +630,13 @@ async def handle_auto_promote_check(
             )
 
         except Exception as exc:  # broad-catch-ok: asyncpg driver boundary
+            sanitized_err = get_log_sanitizer().sanitize(str(exc))
             logger.error(
                 "Failed to promote provisional pattern",
                 extra={
                     "correlation_id": str(effective_correlation_id),
                     "pattern_id": str(pattern_id),
-                    "error": str(exc),
+                    "error": sanitized_err,
                 },
                 exc_info=True,
             )
@@ -644,7 +646,7 @@ async def handle_auto_promote_check(
                     from_status="provisional",
                     to_status="validated",
                     promoted=False,
-                    reason=f"promotion_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
+                    reason=f"promotion_failed: {type(exc).__name__}: {sanitized_err}",
                     evidence_tier=pattern.get("evidence_tier", "unknown"),
                     gate_snapshot=gate_snapshot.model_dump(mode="json"),
                 )

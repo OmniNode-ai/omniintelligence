@@ -774,6 +774,7 @@ async def check_and_demote_patterns(
             except Exception as exc:
                 # Isolate per-pattern failures - continue processing other patterns
                 failed_count += 1
+                sanitized_err = get_log_sanitizer().sanitize(str(exc))
                 logger.error(
                     "Failed to demote pattern - continuing with remaining patterns",
                     extra={
@@ -782,7 +783,7 @@ async def check_and_demote_patterns(
                         else None,
                         "pattern_id": str(pattern_id),
                         "pattern_signature": pattern_signature,
-                        "error": str(exc),
+                        "error": sanitized_err,
                         "error_type": type(exc).__name__,
                     },
                     exc_info=True,
@@ -794,7 +795,7 @@ async def check_and_demote_patterns(
                     from_status="validated",
                     to_status="deprecated",
                     deprecated_at=None,
-                    reason=f"demotion_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
+                    reason=f"demotion_failed: {type(exc).__name__}: {sanitized_err}",
                     gate_snapshot=build_gate_snapshot(pattern),
                     effective_thresholds=thresholds,
                     dry_run=False,
@@ -951,13 +952,14 @@ async def demote_pattern(
         )
     except Exception as exc:
         # Log the error but don't fail - Kafka is optional for effect nodes
+        sanitized_err = get_log_sanitizer().sanitize(str(exc))
         logger.warning(
             "Failed to emit lifecycle event to Kafka - demotion not processed",
             extra={
                 "correlation_id": str(correlation_id) if correlation_id else None,
                 "pattern_id": str(pattern_id),
                 "pattern_signature": pattern_signature,
-                "error": str(exc),
+                "error": sanitized_err,
                 "error_type": type(exc).__name__,
             },
         )
@@ -967,7 +969,7 @@ async def demote_pattern(
             from_status="validated",
             to_status="deprecated",
             deprecated_at=None,  # None indicates event was NOT emitted
-            reason=f"kafka_publish_failed: {type(exc).__name__}: {get_log_sanitizer().sanitize(str(exc))}",
+            reason=f"kafka_publish_failed: {type(exc).__name__}: {sanitized_err}",
             gate_snapshot=gate_snapshot,
             effective_thresholds=thresholds,
             dry_run=False,

@@ -97,10 +97,15 @@ WHERE id = $1
 """
 
 # Insert attribution record into the audit table.
-# ON CONFLICT guards against duplicate records from Kafka redelivery:
+# Idempotency guard against duplicate records from Kafka redelivery:
 # the same (pattern_id, session_id) pair should only produce one attribution
 # row per session. When a duplicate arrives, the INSERT is silently skipped
 # and RETURNING yields no rows (handled by the caller).
+#
+# NOTE: We use INSERT ... WHERE NOT EXISTS instead of ON CONFLICT because
+# the database uses PARTIAL unique indexes (with WHERE predicates).
+# PostgreSQL's ON CONFLICT column-list syntax does not match partial indexes,
+# which would cause a runtime error.
 SQL_INSERT_ATTRIBUTION = """
 INSERT INTO pattern_measured_attributions (
     pattern_id,
@@ -109,8 +114,12 @@ INSERT INTO pattern_measured_attributions (
     evidence_tier,
     measured_attribution_json,
     correlation_id
-) VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (pattern_id, session_id) DO NOTHING
+)
+SELECT $1, $2, $3, $4, $5, $6
+WHERE NOT EXISTS (
+    SELECT 1 FROM pattern_measured_attributions
+    WHERE pattern_id = $1 AND session_id = $2
+)
 RETURNING id
 """
 
