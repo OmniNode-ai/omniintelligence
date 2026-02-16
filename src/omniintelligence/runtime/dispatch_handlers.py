@@ -308,6 +308,19 @@ def _reconstruct_payload_from_envelope(
         meta_session = envelope.get_metadata_value("session_id")
         if meta_session is not None:
             reconstructed["session_id"] = str(meta_session)
+        else:
+            logger.warning(
+                "session_id could not be recovered from envelope metadata "
+                "during payload reconstruction; it will be missing from the "
+                "reconstructed payload. This is caused by envelope "
+                "deserialization stripping daemon keys that have no "
+                "corresponding envelope field. %s",
+                _diagnostic_key_summary(reconstructed),
+            )
+
+    # Mark the payload so downstream handlers can distinguish an
+    # approximate reconstructed payload from an accurate original one.
+    reconstructed["_envelope_reconstructed"] = True
 
     return reconstructed
 

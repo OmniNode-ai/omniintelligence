@@ -482,6 +482,8 @@ class TestClaudeHookDispatchHandler:
         absorbed into the envelope object and removed from envelope.payload.
         The handler must reconstruct the full payload from envelope fields.
         """
+        from unittest.mock import patch
+
         from omnibase_core.models.core.model_envelope_metadata import (
             ModelEnvelopeMetadata,
         )
@@ -525,9 +527,34 @@ class TestClaudeHookDispatchHandler:
             envelope_id=uuid4(),
         )
 
-        # Should succeed by reconstructing the full payload from envelope fields
-        result = await handler(envelope, context)
-        assert isinstance(result, str)
+        # Patch route_hook_event to capture the reconstructed event argument
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+        ) as mock_route_hook:
+            mock_result = MagicMock()
+            mock_result.status = "success"
+            mock_result.event_type = "UserPromptSubmit"
+            mock_route_hook.return_value = mock_result
+
+            result = await handler(envelope, context)
+            assert isinstance(result, str)
+
+            # Verify route_hook_event was called with correctly reconstructed event
+            mock_route_hook.assert_called_once()
+            call_kwargs = mock_route_hook.call_args.kwargs
+            event = call_kwargs["event"]
+
+            assert event.event_type == "UserPromptSubmit", (
+                f"Expected event_type='UserPromptSubmit', got {event.event_type!r}"
+            )
+            assert str(event.correlation_id) == str(correlation_id), (
+                f"Expected correlation_id={correlation_id}, got {event.correlation_id}"
+            )
+            assert event.session_id == "test-session-stripped", (
+                f"Expected session_id='test-session-stripped', got {event.session_id!r}"
+            )
 
     @pytest.mark.asyncio
     async def test_handler_reconstruction_does_not_interfere_with_normal_payload(
