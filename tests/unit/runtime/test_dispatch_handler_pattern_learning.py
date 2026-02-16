@@ -358,7 +358,7 @@ class TestPatternLearningHandlerErrors:
         ):
             result = await handler(envelope, context)
 
-        assert result == ""
+        assert result == "ok"
         mock_kafka_producer.publish.assert_not_called()
 
 
