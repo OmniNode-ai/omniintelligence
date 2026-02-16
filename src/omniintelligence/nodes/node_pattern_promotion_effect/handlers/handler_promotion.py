@@ -477,7 +477,7 @@ async def check_and_promote_patterns(
                         else None,
                         "pattern_id": str(pattern_id),
                         "pattern_signature": pattern_signature,
-                        "error": str(exc),
+                        "error": get_log_sanitizer().sanitize(str(exc)),
                         "error_type": type(exc).__name__,
                     },
                     exc_info=True,

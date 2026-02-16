@@ -508,7 +508,7 @@ def create_pattern_lifecycle_dispatch_handler(
             )
             logger.warning(msg)
             raise ValueError(msg) from e
-        trigger = payload.get("trigger", "dispatch")
+        trigger = str(payload.get("trigger", "dispatch"))
 
         # Parse optional transition_at or default to now
         raw_transition_at = payload.get("transition_at")
@@ -549,7 +549,9 @@ def create_pattern_lifecycle_dispatch_handler(
             to_status=to_status,
             trigger=trigger,
             actor=str(payload.get("actor", "dispatch")),
-            reason=payload.get("reason"),
+            reason=str(payload["reason"])
+            if payload.get("reason") is not None
+            else None,
             # gate_snapshot contract: apply_transition accepts
             # ModelGateSnapshot | dict[str, object] | None.  Payload
             # deserialization always yields dict | None here.
@@ -1213,7 +1215,7 @@ def create_dispatch_callback(
             logger.error(
                 "Malformed JSON in message body, ACKing to prevent infinite retry "
                 "(error=%s, raw_preview=%s, correlation_id=%s). "
-                "Message routed to DLQ (best-effort).",
+                "Message discarded (permanent parse failure).",
                 e,
                 raw_preview,
                 msg_correlation_id,
