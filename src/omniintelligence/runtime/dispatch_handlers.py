@@ -350,11 +350,12 @@ def create_claude_hook_dispatch_handler(
             event = payload
         elif isinstance(payload, dict):
             try:
-                logger.debug(
-                    "Claude hook payload keys before reshape: %s (correlation_id=%s)",
-                    _diagnostic_key_summary(payload),
-                    ctx_correlation_id,
-                )
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Claude hook payload keys before reshape: %s (correlation_id=%s)",
+                        _diagnostic_key_summary(payload),
+                        ctx_correlation_id,
+                    )
                 # Detect payload format: flat daemon (has emitted_at) vs
                 # canonical (has timestamp_utc + nested payload dict).
                 # NOTE: If a payload contains BOTH "emitted_at" and
@@ -368,6 +369,8 @@ def create_claude_hook_dispatch_handler(
                 else:
                     parsed = payload
                 event = ModelClaudeCodeHookEvent(**parsed)
+            except ValueError:
+                raise
             except Exception as e:
                 msg = (
                     f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "

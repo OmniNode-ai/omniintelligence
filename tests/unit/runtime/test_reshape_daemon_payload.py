@@ -494,3 +494,54 @@ class TestDiagnosticKeyTruncation:
             assert key not in error_msg, (
                 f"Key {key!r} beyond truncation limit should not appear in error message"
             )
+
+    def test_truncation_indicator_in_null_value_error_message(self) -> None:
+        """Payload with >_MAX_DIAGNOSTIC_KEYS keys and a null required key.
+
+        Builds a flat daemon payload with all four required keys present,
+        but sets ``event_type`` to None to trigger the null-value error
+        path.  Adds enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS so
+        the diagnostic key summary is truncated.  The error message must
+        contain the ``'...'`` truncation indicator and the 'null value'
+        phrasing (distinct from 'missing required key').
+        """
+        total_keys = _MAX_DIAGNOSTIC_KEYS + 5  # 15 keys total
+        payload: dict[str, Any] = {
+            # All four required keys present, but event_type is null
+            "emitted_at": "2026-02-15T10:30:00+00:00",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "event_type": None,
+        }
+        # Add enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS
+        for i in range(total_keys - len(payload)):
+            payload[f"extra_key_{i:03d}"] = f"value_{i}"
+
+        assert len(payload) > _MAX_DIAGNOSTIC_KEYS, (
+            f"Test setup error: need >{_MAX_DIAGNOSTIC_KEYS} keys, got {len(payload)}"
+        )
+
+        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+            _reshape_daemon_hook_payload_v1(payload)
+
+        error_msg = str(exc_info.value)
+
+        # Must mention the offending key
+        assert "event_type" in error_msg, (
+            f"Error message must mention 'event_type', got: {error_msg}"
+        )
+
+        # Must contain the truncation indicator as a list element
+        assert "'...'" in error_msg, (
+            f"Error message must contain truncation indicator '...', got: {error_msg}"
+        )
+
+        # Must NOT contain all key names -- verify at least one extra key
+        # beyond the truncation limit is absent from the message
+        all_keys_sorted = sorted(payload.keys())
+        keys_beyond_limit = all_keys_sorted[_MAX_DIAGNOSTIC_KEYS:]
+        assert len(keys_beyond_limit) > 0, "Test setup error: no keys beyond limit"
+        for key in keys_beyond_limit:
+            assert key not in error_msg, (
+                f"Key {key!r} beyond truncation limit should not appear in error message"
+            )
