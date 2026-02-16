@@ -324,8 +324,8 @@ class TestReshapeBothTimestampKeys:
     The dispatch handler uses a heuristic to detect flat daemon payloads:
     ``'emitted_at' in payload and 'timestamp_utc' not in payload``.  When
     both keys are present, the payload is treated as canonical (already
-    shaped) and passed through to ``_reshape_daemon_hook_payload_v1``
-    without the caller triggering reshape.
+    shaped) and passed directly to ``ModelClaudeCodeHookEvent`` without
+    the caller triggering reshape.
 
     However, _reshape_daemon_hook_payload_v1 itself operates purely on the
     dict it receives.  This test verifies that when a payload containing

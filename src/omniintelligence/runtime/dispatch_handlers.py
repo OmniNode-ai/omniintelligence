@@ -275,15 +275,15 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     # so that error messages accurately describe the problem.
     # Key list is bounded to _MAX_DIAGNOSTIC_KEYS to avoid exposing
     # sensitive domain key names in future payloads.
-    for _key in _REQUIRED_ENVELOPE_KEYS:
-        if _key not in raw:
+    for key in _REQUIRED_ENVELOPE_KEYS:
+        if key not in raw:
             raise ValueError(
-                f"Daemon payload missing required key '{_key}' "
+                f"Daemon payload missing required key '{key}' "
                 f"{_diagnostic_key_summary(raw)}"
             )
-        if raw[_key] is None:
+        if raw[key] is None:
             raise ValueError(
-                f"Daemon payload has null value for required key '{_key}' "
+                f"Daemon payload has null value for required key '{key}' "
                 f"{_diagnostic_key_summary(raw)}"
             )
 
