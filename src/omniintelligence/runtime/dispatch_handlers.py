@@ -166,6 +166,85 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
     return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
 
 
+def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
+    """Transform a flat daemon payload into ``ModelClaudeCodeHookEvent`` shape.
+
+    The emit daemon sends a flat dict with envelope keys (``event_type``,
+    ``session_id``, ``correlation_id``, ``emitted_at``, …) mixed alongside
+    domain-specific payload keys.  ``ModelClaudeCodeHookEvent`` expects a
+    nested ``payload`` sub-dict, so this function splits envelope keys from
+    payload keys and returns the canonical shape.
+
+    Args:
+        raw: Flat dict as emitted by the daemon.
+
+    Returns:
+        Dict matching ``ModelClaudeCodeHookEvent`` constructor kwargs::
+
+            {
+                "event_type": ...,
+                "session_id": ...,
+                "correlation_id": ...,
+                "timestamp_utc": ...,   # from ``emitted_at``
+                "payload": { ... },     # remaining keys
+            }
+
+    Raises:
+        ValueError: If any of the four required envelope keys
+            (``emitted_at``, ``event_type``, ``session_id``,
+            ``correlation_id``) is missing.  The error message includes
+            ``sorted(raw.keys())`` for diagnostics.
+    """
+    ENVELOPE_KEYS = {
+        "event_type",
+        "session_id",
+        "correlation_id",
+        "emitted_at",
+        "causation_id",
+        "schema_version",
+    }
+
+    # --- require four mandatory envelope keys ---
+    emitted_at = raw.get("emitted_at")
+    if emitted_at is None:
+        raise ValueError(
+            f"Daemon payload missing required key 'emitted_at' "
+            f"(keys={sorted(raw.keys())})"
+        )
+
+    event_type = raw.get("event_type")
+    if event_type is None:
+        raise ValueError(
+            f"Daemon payload missing required key 'event_type' "
+            f"(keys={sorted(raw.keys())})"
+        )
+
+    session_id = raw.get("session_id")
+    if session_id is None:
+        raise ValueError(
+            f"Daemon payload missing required key 'session_id' "
+            f"(keys={sorted(raw.keys())})"
+        )
+
+    correlation_id_value = raw.get("correlation_id")
+    if correlation_id_value is None:
+        raise ValueError(
+            f"Daemon payload missing required key 'correlation_id' "
+            f"(keys={sorted(raw.keys())})"
+        )
+
+    # --- collect remaining keys into payload sub-dict ---
+    payload_fields = {k: v for k, v in raw.items() if k not in ENVELOPE_KEYS}
+
+    return {
+        "event_type": event_type,
+        "session_id": session_id,
+        "correlation_id": correlation_id_value,
+        "timestamp_utc": emitted_at,  # Pydantic parses ISO string -> datetime
+        "payload": payload_fields,
+    }
+
+
 def create_claude_hook_dispatch_handler(
     *,
     intent_classifier: ProtocolIntentClassifier,
@@ -212,22 +291,28 @@ def create_claude_hook_dispatch_handler(
             event = payload
         elif isinstance(payload, dict):
             try:
-                # The omniclaude publisher emits a flat payload with all fields
-                # at the top level. ModelClaudeCodeHookEvent expects a nested
-                # structure with timestamp_utc and a payload wrapper.
-                # Attempt direct parse first; if it fails, reshape the flat
-                # payload into the nested envelope format.
-                event = ModelClaudeCodeHookEvent(**payload)
-            except (ValidationError, TypeError):
-                try:
-                    event = _reshape_flat_hook_payload(payload)
-                except Exception as e:
-                    msg = (
-                        f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
-                        f"(correlation_id={ctx_correlation_id})"
-                    )
-                    logger.warning(msg)
-                    raise ValueError(msg) from e
+                logger.debug(
+                    "Claude hook payload keys before reshape: %s (correlation_id=%s)",
+                    sorted(payload.keys()),
+                    ctx_correlation_id,
+                )
+                # Detect payload format: flat daemon (has emitted_at) vs
+                # canonical (has timestamp_utc + nested payload dict).
+                needs_reshape = (
+                    "emitted_at" in payload and "timestamp_utc" not in payload
+                )
+                if needs_reshape:
+                    parsed = _reshape_daemon_hook_payload_v1(payload)
+                else:
+                    parsed = payload
+                event = ModelClaudeCodeHookEvent(**parsed)
+            except Exception as e:
+                msg = (
+                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                    f"(correlation_id={ctx_correlation_id})"
+                )
+                logger.warning(msg)
+                raise ValueError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
