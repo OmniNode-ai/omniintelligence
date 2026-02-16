@@ -123,6 +123,28 @@ _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 
 
 # =============================================================================
+# Daemon Envelope Constants
+# =============================================================================
+
+_DAEMON_ENVELOPE_KEYS: frozenset[str] = frozenset(
+    {
+        "event_type",
+        "session_id",
+        "correlation_id",
+        "emitted_at",
+        "causation_id",
+        "schema_version",
+    }
+)
+"""Keys belonging to the daemon envelope layer.
+
+Used by ``_reshape_daemon_hook_payload_v1`` to split envelope keys from
+domain-specific payload keys.  Defined as a module-level frozenset to
+avoid reconstructing the set on every call.
+"""
+
+
+# =============================================================================
 # Bridge Handler: Claude Hook Event
 # =============================================================================
 
@@ -192,49 +214,38 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     Raises:
         ValueError: If any of the four required envelope keys
             (``emitted_at``, ``event_type``, ``session_id``,
-            ``correlation_id``) is missing.  The error message includes
-            ``sorted(raw.keys())`` for diagnostics.
+            ``correlation_id``) is missing or has a null value.  The
+            error message distinguishes between the two cases and
+            includes ``sorted(raw.keys())`` for diagnostics.
     """
-    ENVELOPE_KEYS = {
+    # --- require four mandatory envelope keys ---
+    # Distinguish between missing keys and keys present with null values
+    # so that error messages accurately describe the problem.
+    _REQUIRED_ENVELOPE_KEYS = (
+        "emitted_at",
         "event_type",
         "session_id",
         "correlation_id",
-        "emitted_at",
-        "causation_id",
-        "schema_version",
-    }
+    )
+    for _key in _REQUIRED_ENVELOPE_KEYS:
+        if _key not in raw:
+            raise ValueError(
+                f"Daemon payload missing required key '{_key}' "
+                f"(keys={sorted(raw.keys())})"
+            )
+        if raw[_key] is None:
+            raise ValueError(
+                f"Daemon payload has null value for required key '{_key}' "
+                f"(keys={sorted(raw.keys())})"
+            )
 
-    # --- require four mandatory envelope keys ---
-    emitted_at = raw.get("emitted_at")
-    if emitted_at is None:
-        raise ValueError(
-            f"Daemon payload missing required key 'emitted_at' "
-            f"(keys={sorted(raw.keys())})"
-        )
-
-    event_type = raw.get("event_type")
-    if event_type is None:
-        raise ValueError(
-            f"Daemon payload missing required key 'event_type' "
-            f"(keys={sorted(raw.keys())})"
-        )
-
-    session_id = raw.get("session_id")
-    if session_id is None:
-        raise ValueError(
-            f"Daemon payload missing required key 'session_id' "
-            f"(keys={sorted(raw.keys())})"
-        )
-
-    correlation_id_value = raw.get("correlation_id")
-    if correlation_id_value is None:
-        raise ValueError(
-            f"Daemon payload missing required key 'correlation_id' "
-            f"(keys={sorted(raw.keys())})"
-        )
+    emitted_at = raw["emitted_at"]
+    event_type = raw["event_type"]
+    session_id = raw["session_id"]
+    correlation_id_value = raw["correlation_id"]
 
     # --- collect remaining keys into payload sub-dict ---
-    payload_fields = {k: v for k, v in raw.items() if k not in ENVELOPE_KEYS}
+    payload_fields = {k: v for k, v in raw.items() if k not in _DAEMON_ENVELOPE_KEYS}
 
     return {
         "event_type": event_type,
@@ -298,6 +309,12 @@ def create_claude_hook_dispatch_handler(
                 )
                 # Detect payload format: flat daemon (has emitted_at) vs
                 # canonical (has timestamp_utc + nested payload dict).
+                # NOTE: If a payload contains BOTH "emitted_at" and
+                # "timestamp_utc", we treat it as canonical (no reshape).
+                # This is ambiguous -- such a payload could be a daemon
+                # message that happens to include "timestamp_utc" as a
+                # domain key.  In practice this has not occurred; if it
+                # does, Pydantic validation will surface the mismatch.
                 needs_reshape = (
                     "emitted_at" in payload and "timestamp_utc" not in payload
                 )

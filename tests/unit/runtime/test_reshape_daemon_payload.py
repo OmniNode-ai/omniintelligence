@@ -20,6 +20,9 @@ from typing import Any
 
 import pytest
 
+# Private import is intentional: _reshape_daemon_hook_payload_v1 is an internal
+# helper, but we test it directly to ensure the daemon-to-model contract is
+# upheld without requiring a full dispatch-engine integration test.
 from omniintelligence.runtime.dispatch_handlers import (
     _reshape_daemon_hook_payload_v1,
 )
@@ -204,6 +207,46 @@ class TestReshapeMissingRequiredKeys:
 
         error_msg = str(exc_info.value)
         assert "keys=" in error_msg
+
+    def test_reshape_empty_payload(self) -> None:
+        """An empty dict raises ValueError for the first missing required key."""
+        with pytest.raises(ValueError, match="missing required key") as exc_info:
+            _reshape_daemon_hook_payload_v1({})
+
+        # Error message should include the empty keys list for diagnostics
+        error_msg = str(exc_info.value)
+        assert "keys=" in error_msg
+
+
+# =============================================================================
+# Tests: Extra / Unknown Keys
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeUnknownKeys:
+    """Validate that extra keys not in the envelope set land in the payload sub-dict."""
+
+    def test_unknown_keys_placed_into_payload(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Keys not in the daemon envelope set must appear in the payload sub-dict.
+
+        This covers the case where the daemon sends an unexpected key
+        (e.g., ``trace_id``) alongside the standard envelope keys.
+        """
+        daemon_wire_payload["trace_id"] = "abc-trace-999"
+        daemon_wire_payload["custom_metric"] = 42
+
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        payload = reshaped["payload"]
+        assert payload["trace_id"] == "abc-trace-999"
+        assert payload["custom_metric"] == 42
+
+        # Unknown keys must NOT appear at the top level
+        assert "trace_id" not in reshaped
+        assert "custom_metric" not in reshaped
 
 
 # =============================================================================
