@@ -50,9 +50,9 @@ pre-commit = ">=4.5.0"
 # ONEX private ecosystem dependencies (NOT on public PyPI)
 # Installed via editable installs from sibling repos or private registry.
 # Version constraints use caret syntax: ^0.9.10 = >=0.9.10,<0.10.0
-omnibase-core = "^0.16.0"
-omnibase-spi = "^0.7.0"
-omnibase-infra = "^0.6.0"
+omnibase-core = "^0.18.0"
+omnibase-spi = "^0.9.0"
+omnibase-infra = "^0.7.0"
 # Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
 # Included here for self-contained --only core installs
 pydantic = ">=2.9.0"
@@ -99,7 +99,7 @@ intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
 
 [project]
 name = "omniintelligence"
-version = "0.2.0"
+version = "0.2.1"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 authors = [{name = "OmniNode Team", email = "team@omninode.ai"}]
 readme = "README.md"
@@ -138,16 +138,16 @@ dev = [
 
 # Core node system dependencies
 # Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
-#   ^0.16.0 = >=0.16.0,<0.17.0  (compatible releases within 0.16.x)
+#   ^0.18.0 = >=0.18.0,<0.19.0  (compatible releases within 0.18.x)
+#   ^0.9.0 = >=0.9.0,<0.10.0  (compatible releases within 0.9.x)
 #   ^0.7.0 = >=0.7.0,<0.8.0  (compatible releases within 0.7.x)
-#   ^0.6.0 = >=0.6.0,<0.7.0  (compatible releases within 0.6.x)
 core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.16.0,<0.17.0",
-    "omnibase-spi>=0.7.0,<0.8.0",
-    "omnibase-infra>=0.6.0,<0.7.0",
+    "omnibase-core>=0.18.0,<0.19.0",
+    "omnibase-spi>=0.9.0,<0.10.0",
+    "omnibase-infra>=0.7.0,<0.8.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
