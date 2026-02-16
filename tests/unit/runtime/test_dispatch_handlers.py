@@ -727,6 +727,33 @@ class TestReconstructPayloadFromEnvelope:
         assert "correlation_id" not in result
         assert "emitted_at" in result
 
+    def test_reconstruction_without_session_id_in_metadata(self) -> None:
+        """Reconstruction without session_id metadata should omit session_id key."""
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _reconstruct_payload_from_envelope,
+        )
+
+        stripped = {"prompt_preview": "Hello"}
+
+        # No session_id in metadata tags
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=stripped,
+            event_type="UserPromptSubmit",
+            correlation_id=uuid4(),
+        )
+
+        result = _reconstruct_payload_from_envelope(stripped, envelope)
+
+        assert result["event_type"] == "UserPromptSubmit"
+        assert "correlation_id" in result
+        assert "emitted_at" in result
+        # session_id should NOT be present (unrecoverable)
+        assert "session_id" not in result
+
     def test_reconstruction_with_partial_daemon_keys_is_noop(self) -> None:
         """Payload with even one daemon key should not trigger reconstruction."""
         from omnibase_core.models.events.model_event_envelope import (
