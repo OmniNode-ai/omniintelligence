@@ -81,6 +81,9 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_con
     convert_file_patterns,
     convert_tool_patterns,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_core_models import (
+    handle_pattern_extraction_core,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_error_patterns import (
     extract_error_patterns,
 )
@@ -137,6 +140,8 @@ __all__ = [
     "create_error_result",
     # Main handler (orchestrates all extraction)
     "extract_all_patterns",
+    # Core model adapter (OMN-1594)
+    "handle_pattern_extraction_core",
     # Extractors
     "extract_architecture_patterns",
     "extract_error_patterns",
