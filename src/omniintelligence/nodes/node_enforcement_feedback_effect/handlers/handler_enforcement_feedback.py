@@ -98,13 +98,6 @@ SET
 WHERE id = $1
 """
 
-# Verify a pattern exists before attempting adjustment.
-# Parameters: $1 = pattern_id
-SQL_CHECK_PATTERN_EXISTS = """
-SELECT id FROM learned_patterns WHERE id = $1
-"""
-
-
 # =============================================================================
 # Handler Functions
 # =============================================================================
@@ -263,8 +256,9 @@ async def _apply_confidence_adjustment(
 ) -> ModelConfidenceAdjustment | None:
     """Apply a single confidence adjustment to a pattern.
 
-    Checks that the pattern exists, then applies the adjustment.
-    Returns None if the pattern does not exist (skip silently).
+    Applies the adjustment via UPDATE and checks the row count to detect
+    whether the pattern exists. Returns None if the pattern was not found
+    (0 rows updated).
 
     Args:
         pattern_id: The pattern to adjust.
@@ -276,20 +270,7 @@ async def _apply_confidence_adjustment(
         ModelConfidenceAdjustment if adjustment was applied, None if
         pattern does not exist.
     """
-    # Verify pattern exists before adjusting
-    row = await repository.fetchrow(SQL_CHECK_PATTERN_EXISTS, pattern_id)
-    if row is None:
-        logger.warning(
-            "Pattern not found for confidence adjustment - skipping",
-            extra={
-                "correlation_id": str(correlation_id),
-                "pattern_id": str(pattern_id),
-                "pattern_name": pattern_name,
-            },
-        )
-        return None
-
-    # Apply the adjustment
+    # Apply the adjustment; row count of 0 means the pattern does not exist
     status = await repository.execute(
         SQL_ADJUST_QUALITY_SCORE,
         pattern_id,
@@ -299,10 +280,11 @@ async def _apply_confidence_adjustment(
 
     if rows_updated == 0:
         logger.warning(
-            "Pattern quality_score not updated (0 rows affected)",
+            "Pattern not found for confidence adjustment - skipping",
             extra={
                 "correlation_id": str(correlation_id),
                 "pattern_id": str(pattern_id),
+                "pattern_name": pattern_name,
             },
         )
         return None

@@ -119,6 +119,10 @@ HANDLER_ENTRY_POINTS = [
         "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers",
         "apply_transition",
     ),
+    (
+        "omniintelligence.nodes.node_enforcement_feedback_effect.handlers",
+        "process_enforcement_feedback",
+    ),
     # --- Reducer ---
     (
         "omniintelligence.nodes.node_intelligence_reducer.handlers",

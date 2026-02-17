@@ -79,7 +79,7 @@ class ModelEnforcementFeedbackResult(BaseModel):
         error_message: Error details if status is ERROR.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     status: EnumEnforcementFeedbackStatus = Field(
         ...,
