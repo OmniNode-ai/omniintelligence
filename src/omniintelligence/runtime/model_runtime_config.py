@@ -89,21 +89,21 @@ class ModelTopicConfig(BaseModel):
     """
 
     commands: str = Field(
-        default="onex.intelligence.cmd.v1",
+        default="onex.cmd.omniintelligence.claude-hook-event.v1",
         description="Topic for incoming command messages",
-        examples=["onex.intelligence.cmd.v1", "dev.intelligence.cmd.v1"],
+        examples=["onex.cmd.omniintelligence.claude-hook-event.v1"],
     )
 
     events: str = Field(
-        default="onex.intelligence.evt.v1",
+        default="onex.evt.omniintelligence.intent-classified.v1",
         description="Topic for outgoing event messages",
-        examples=["onex.intelligence.evt.v1", "dev.intelligence.evt.v1"],
+        examples=["onex.evt.omniintelligence.intent-classified.v1"],
     )
 
     dlq: str | None = Field(
         default=None,
         description="Dead letter queue topic for failed messages",
-        examples=["onex.intelligence.dlq.v1"],
+        examples=["onex.dlq.omniintelligence.v1"],
     )
 
     model_config = ConfigDict(
@@ -391,8 +391,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                         "bootstrap_servers": "kafka-broker:9092",
                         "consumer_group": "intelligence-runtime",
                         "topics": {
-                            "commands": "onex.intelligence.cmd.v1",
-                            "events": "onex.intelligence.evt.v1",
+                            "commands": "onex.cmd.omniintelligence.claude-hook-event.v1",
+                            "events": "onex.evt.omniintelligence.intent-classified.v1",
                         },
                     },
                     "handlers": [
@@ -716,9 +716,9 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 bootstrap_servers="localhost:9092",
                 consumer_group="intelligence-dev",
                 topics=ModelTopicConfig(
-                    commands="dev.intelligence.cmd.v1",
-                    events="dev.intelligence.evt.v1",
-                    dlq="dev.intelligence.dlq.v1",
+                    commands="onex.cmd.omniintelligence.claude-hook-event.v1",
+                    events="onex.evt.omniintelligence.intent-classified.v1",
+                    dlq="onex.dlq.omniintelligence.v1",
                 ),
             ),
             handlers=[
@@ -761,9 +761,9 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 bootstrap_servers=bootstrap_servers,
                 consumer_group="intelligence-prod",
                 topics=ModelTopicConfig(
-                    commands="onex.intelligence.cmd.v1",
-                    events="onex.intelligence.evt.v1",
-                    dlq="onex.intelligence.dlq.v1",
+                    commands="onex.cmd.omniintelligence.claude-hook-event.v1",
+                    events="onex.evt.omniintelligence.intent-classified.v1",
+                    dlq="onex.dlq.omniintelligence.v1",
                 ),
             ),
             handlers=[
