@@ -280,7 +280,10 @@ def _reshape_tool_content_to_hook_event(
         ``event_type="PostToolUse"`` and nested payload.
     """
     # Extract envelope-level fields from the tool-content payload.
-    session_id = payload.get("session_id") or "unknown"
+    # Use "unknown" only when session_id is missing (None), not when it's
+    # explicitly set to empty string (which should be preserved).
+    session_id_raw = payload.get("session_id")
+    session_id: str = str(session_id_raw) if session_id_raw is not None else "unknown"
 
     # Correlation ID: prefer payload string, fall back to envelope UUID.
     corr_id: UUID | None = None
