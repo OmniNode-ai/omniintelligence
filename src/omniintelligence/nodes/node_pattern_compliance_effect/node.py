@@ -8,7 +8,7 @@ Classified as EFFECT (not COMPUTE) because it performs external I/O via
 ProtocolLlmClient.chat_completion(). COMPUTE nodes must be pure (no side effects).
 
 Callers invoke the handler directly with their dependencies:
-    result = await handle_pattern_compliance_compute(
+    result = await handle_evaluate_compliance(
         request, llm_client=client, model="Qwen/Qwen2.5-Coder-14B-Instruct"
     )
 
@@ -27,7 +27,7 @@ class NodePatternComplianceEffect(NodeEffect):
     """Effect node for evaluating code compliance against patterns.
 
     This node is a pure declarative shell following the ONEX pattern.
-    All logic is delegated to handle_pattern_compliance_compute.
+    All logic is delegated to handle_evaluate_compliance.
 
     Classified as EFFECT because the handler performs external LLM I/O
     via ProtocolLlmClient. COMPUTE nodes must be pure (no side effects).
@@ -39,10 +39,10 @@ class NodePatternComplianceEffect(NodeEffect):
     Example::
 
         from omniintelligence.nodes.node_pattern_compliance_effect.handlers import (
-            handle_pattern_compliance_compute,
+            handle_evaluate_compliance,
         )
 
-        result = await handle_pattern_compliance_compute(
+        result = await handle_evaluate_compliance(
             request,
             llm_client=my_llm_client,
             model="Qwen/Qwen2.5-Coder-14B-Instruct",

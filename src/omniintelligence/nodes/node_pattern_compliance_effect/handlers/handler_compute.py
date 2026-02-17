@@ -10,6 +10,19 @@ The handler:
     - Parses the response via handler_compliance functions
     - Returns ModelComplianceResult (Pydantic model)
     - Handles all error cases gracefully (returns structured output)
+    - Routes failures to DLQ when kafka_producer is available (optional)
+
+Kafka Publisher Optionality:
+----------------------------
+The ``kafka_producer`` dependency is OPTIONAL (contract marks it as ``required: false``).
+When the Kafka publisher is unavailable (None), compliance evaluations still return
+structured error output, but failed evaluations are NOT routed to the Dead Letter Queue.
+
+DLQ Routing:
+------------
+When ``kafka_producer`` is provided and an evaluation fails (LLM error or parse error),
+the failure payload is routed to ``{DLQ_TOPIC}`` for downstream analysis and retry.
+DLQ publish failures are caught and logged -- they never propagate as exceptions.
 
 Ticket: OMN-2256
 """
@@ -19,6 +32,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
+from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID
 
@@ -41,6 +55,8 @@ from omniintelligence.nodes.node_pattern_compliance_effect.models.model_complian
     ModelComplianceResult,
     ModelComplianceViolation,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher
+from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +70,9 @@ STATUS_LLM_ERROR: Final[str] = "llm_error"
 STATUS_PARSE_ERROR: Final[str] = "parse_error"
 STATUS_UNKNOWN_ERROR: Final[str] = "unknown_error"
 
+# DLQ topic for failed compliance evaluations.
+DLQ_TOPIC: Final[str] = "onex.evt.omniintelligence.pattern-compliance-evaluation.v1.dlq"
+
 # System prompt for the LLM.
 _SYSTEM_PROMPT: Final[str] = (
     "You are a code compliance evaluator. You analyze source code against "
@@ -62,13 +81,15 @@ _SYSTEM_PROMPT: Final[str] = (
 )
 
 
-async def handle_pattern_compliance_compute(
+async def handle_evaluate_compliance(
     input_data: ModelComplianceRequest,
     *,
     llm_client: ProtocolLlmClient,
     model: str = DEFAULT_MODEL,
+    correlation_id: UUID | None = None,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
 ) -> ModelComplianceResult:
-    """Handle pattern compliance compute operation.
+    """Handle evaluate_compliance operation.
 
     Orchestrates the compliance evaluation workflow:
     1. Validates input
@@ -76,6 +97,7 @@ async def handle_pattern_compliance_compute(
     3. Calls the LLM via ProtocolLlmClient
     4. Parses the response into violations
     5. Constructs the output model with metadata
+    6. Routes failures to DLQ when kafka_producer is available
 
     Error Handling:
         Domain errors (LLM failures, parse failures) are returned as
@@ -83,10 +105,23 @@ async def handle_pattern_compliance_compute(
         violations (ComplianceValidationError) propagate as exceptions,
         which are caught at this level and returned as structured output.
 
+    Kafka DLQ Routing:
+        When ``kafka_producer`` is provided and an evaluation fails (LLM error,
+        parse error, or unknown error), the failure is routed to the Dead Letter
+        Queue topic for downstream analysis and retry. DLQ publish failures are
+        caught and logged -- they never propagate as exceptions.
+
     Args:
         input_data: Typed input model with code and patterns.
         llm_client: LLM client for inference calls.
         model: Model identifier for LLM (default: Coder-14B).
+        correlation_id: Explicit correlation ID for tracing. If provided,
+            overrides input_data.correlation_id. Falls back to
+            input_data.correlation_id when None.
+        kafka_producer: Optional Kafka producer for DLQ routing. When None,
+            the handler operates normally without DLQ routing. When provided,
+            failed evaluations are routed to the DLQ topic. Kafka failures
+            are caught and logged, never raised.
 
     Returns:
         ModelComplianceResult with compliance status, violations, and metadata.
@@ -94,15 +129,35 @@ async def handle_pattern_compliance_compute(
     """
     start_time = time.perf_counter()
     patterns_count = len(input_data.applicable_patterns)
-    cid = input_data.correlation_id
+    cid = correlation_id if correlation_id is not None else input_data.correlation_id
+
+    logger.debug(
+        "Starting compliance evaluation. source_path=%s, language=%s, "
+        "patterns_count=%d, model=%s",
+        input_data.source_path,
+        input_data.language,
+        patterns_count,
+        model,
+        extra={"correlation_id": str(cid)},
+    )
 
     try:
         return await _execute_compliance(
-            input_data, llm_client=llm_client, model=model, start_time=start_time
+            input_data,
+            llm_client=llm_client,
+            model=model,
+            start_time=start_time,
+            correlation_id=cid,
+            kafka_producer=kafka_producer,
         )
 
     except ComplianceValidationError as e:
         processing_time = _safe_elapsed_ms(start_time)
+        logger.warning(
+            "Compliance validation error: %s",
+            e,
+            extra={"correlation_id": str(cid)},
+        )
         return _create_error_output(
             correlation_id=cid,
             status=STATUS_VALIDATION_ERROR,
@@ -131,13 +186,25 @@ async def handle_pattern_compliance_compute(
                     extra={"correlation_id": str(cid)},
                 )
 
-        return _create_error_output(
+        error_result = _create_error_output(
             correlation_id=cid,
             status=STATUS_UNKNOWN_ERROR,
             message=f"Unhandled error: {e}",
             processing_time_ms=processing_time,
             patterns_checked=patterns_count,
         )
+
+        if kafka_producer is not None:
+            await _route_to_dlq(
+                producer=kafka_producer,
+                correlation_id=cid,
+                source_path=getattr(input_data, "source_path", "<unknown>"),
+                language=getattr(input_data, "language", "<unknown>"),
+                error_status=STATUS_UNKNOWN_ERROR,
+                error_message=f"Unhandled error: {e}",
+            )
+
+        return error_result
 
 
 async def _execute_compliance(
@@ -146,17 +213,23 @@ async def _execute_compliance(
     llm_client: ProtocolLlmClient,
     model: str,
     start_time: float,
+    correlation_id: UUID,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
 ) -> ModelComplianceResult:
     """Execute the compliance evaluation logic.
 
     Domain errors (LLM failures, parse failures) are returned as structured
-    output rather than raised, following the ONEX handler convention.
+    output rather than raised, following the ONEX handler convention. When
+    ``kafka_producer`` is provided, failures are also routed to the DLQ.
 
     Args:
         input_data: Typed input model with code and patterns.
         llm_client: LLM client for inference calls.
         model: Model identifier for LLM.
         start_time: Performance counter start time for timing.
+        correlation_id: Resolved correlation ID for tracing. Already resolved
+            by the caller (explicit kwarg or input_data fallback).
+        kafka_producer: Optional Kafka producer for DLQ routing on failures.
 
     Returns:
         ModelComplianceResult with evaluation results or structured error.
@@ -164,7 +237,7 @@ async def _execute_compliance(
     Raises:
         ComplianceValidationError: If input validation fails (invariant).
     """
-    cid = input_data.correlation_id
+    cid = correlation_id
     patterns_count = len(input_data.applicable_patterns)
 
     # 1. Build prompt
@@ -180,6 +253,13 @@ async def _execute_compliance(
         {"role": "user", "content": prompt},
     ]
 
+    logger.debug(
+        "Calling LLM for compliance evaluation. model=%s, patterns_count=%d",
+        model,
+        patterns_count,
+        extra={"correlation_id": str(cid)},
+    )
+
     try:
         raw_response = await llm_client.chat_completion(
             messages=messages,
@@ -189,15 +269,27 @@ async def _execute_compliance(
         )
     except Exception as e:
         processing_time = _safe_elapsed_ms(start_time)
+        error_msg = f"LLM inference failed: {e}"
         logger.warning(
             "LLM inference failed: %s",
             e,
             extra={"correlation_id": str(cid)},
         )
+
+        if kafka_producer is not None:
+            await _route_to_dlq(
+                producer=kafka_producer,
+                correlation_id=cid,
+                source_path=input_data.source_path,
+                language=input_data.language,
+                error_status=STATUS_LLM_ERROR,
+                error_message=error_msg,
+            )
+
         return _create_error_output(
             correlation_id=cid,
             status=STATUS_LLM_ERROR,
-            message=f"LLM inference failed: {e}",
+            message=error_msg,
             processing_time_ms=processing_time,
             patterns_checked=patterns_count,
         )
@@ -215,6 +307,23 @@ async def _execute_compliance(
     # the raw_response differs from the original LLM response (it contains
     # the error message instead).
     if parsed["confidence"] == 0.0 and parsed["raw_response"] != raw_response:
+        logger.warning(
+            "LLM response parse failed. source_path=%s, processing_time_ms=%.2f",
+            input_data.source_path,
+            processing_time,
+            extra={"correlation_id": str(cid)},
+        )
+
+        if kafka_producer is not None:
+            await _route_to_dlq(
+                producer=kafka_producer,
+                correlation_id=cid,
+                source_path=input_data.source_path,
+                language=input_data.language,
+                error_status=STATUS_PARSE_ERROR,
+                error_message=parsed["raw_response"],
+            )
+
         return _create_error_output(
             correlation_id=cid,
             status=STATUS_PARSE_ERROR,
@@ -235,18 +344,28 @@ async def _execute_compliance(
         for v in parsed["violations"]
     ]
 
+    logger.debug(
+        "Compliance evaluation completed. compliant=%s, violations=%d, "
+        "confidence=%.2f, processing_time_ms=%.2f",
+        parsed["compliant"],
+        len(violations),
+        parsed["confidence"],
+        processing_time,
+        extra={"correlation_id": str(cid)},
+    )
+
     return ModelComplianceResult(
         success=True,
         violations=violations,
         compliant=parsed["compliant"],
         confidence=parsed["confidence"],
         metadata=ModelComplianceMetadata(
-            correlation_id=input_data.correlation_id,
+            correlation_id=cid,
             status=STATUS_COMPLETED,
             compliance_prompt_version=COMPLIANCE_PROMPT_VERSION,
             model_used=model,
             processing_time_ms=processing_time,
-            patterns_checked=len(input_data.applicable_patterns),
+            patterns_checked=patterns_count,
         ),
     )
 
@@ -304,4 +423,77 @@ def _safe_elapsed_ms(start_time: float) -> float:
         return 0.0
 
 
-__all__ = ["handle_pattern_compliance_compute"]
+async def _route_to_dlq(
+    *,
+    producer: ProtocolKafkaPublisher,
+    correlation_id: UUID,
+    source_path: str,
+    language: str,
+    error_status: str,
+    error_message: str,
+) -> None:
+    """Route a failed compliance evaluation to the Dead Letter Queue.
+
+    Follows the effect-node DLQ guideline: on evaluation failure, publish
+    the error context to ``{DLQ_TOPIC}`` for downstream analysis and retry.
+    Secrets are sanitized via ``LogSanitizer``. Any errors from the DLQ
+    publish attempt are swallowed to preserve graceful degradation.
+
+    This function NEVER raises -- all exceptions are caught and logged.
+
+    Args:
+        producer: Kafka producer for DLQ publish.
+        correlation_id: Correlation ID for distributed tracing.
+        source_path: Path of the source file that was being evaluated.
+        language: Programming language of the source file.
+        error_status: Error status code (e.g., "llm_error", "parse_error").
+        error_message: Error description from the failed evaluation.
+    """
+    try:
+        sanitizer = get_log_sanitizer()
+
+        dlq_payload: dict[str, object] = {
+            "original_topic": "pattern-compliance-evaluation",
+            "correlation_id": str(correlation_id),
+            "source_path": sanitizer.sanitize(source_path),
+            "language": language,
+            "error_status": error_status,
+            "error_message": sanitizer.sanitize(error_message),
+            "error_timestamp": datetime.now(UTC).isoformat(),
+            "service": "omniintelligence",
+            "node": "node_pattern_compliance_effect",
+        }
+
+        await producer.publish(
+            topic=DLQ_TOPIC,
+            key=str(correlation_id),
+            value=dlq_payload,
+        )
+
+        logger.info(
+            "Failed compliance evaluation routed to DLQ",
+            extra={
+                "correlation_id": str(correlation_id),
+                "dlq_topic": DLQ_TOPIC,
+                "error_status": error_status,
+            },
+        )
+
+    except Exception as dlq_exc:
+        # DLQ publish failed -- swallow to preserve graceful degradation,
+        # but log at WARNING so operators can detect persistent Kafka issues.
+        sanitizer = get_log_sanitizer()
+        sanitized_dlq_error = sanitizer.sanitize(str(dlq_exc))
+
+        logger.warning(
+            "DLQ publish failed for compliance evaluation -- message lost",
+            extra={
+                "correlation_id": str(correlation_id),
+                "dlq_topic": DLQ_TOPIC,
+                "error": sanitized_dlq_error,
+                "error_type": type(dlq_exc).__name__,
+            },
+        )
+
+
+__all__ = ["DLQ_TOPIC", "handle_evaluate_compliance"]

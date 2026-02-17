@@ -66,7 +66,7 @@ handler_routing:
   handlers:
     - operation: "evaluate_compliance"
       handler:
-        function: "handle_pattern_compliance_compute"
+        function: "handle_evaluate_compliance"
         module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers"
         type: "async"
 
@@ -74,8 +74,8 @@ handler_routing:
 # EVENT BUS SUBCONTRACT
 # =============================================================================
 # This node is called directly (not via Kafka subscription).
-# Event bus is disabled - no subscribe or publish topics yet.
-# A future PR may add Kafka integration for async compliance checks.
+# Event bus is disabled for subscription -- no subscribe topics.
+# DLQ publish is handled directly in the handler (not via RuntimeHostProcess).
 event_bus:
   version:
     major: 1
@@ -83,7 +83,8 @@ event_bus:
     patch: 0
   event_bus_enabled: false
   subscribe_topics: []
-  publish_topics: []
+  publish_topics:
+    - "onex.evt.omniintelligence.pattern-compliance-evaluation.v1.dlq"
 
 # =============================================================================
 # DEPENDENCIES
@@ -95,6 +96,16 @@ dependencies:
     module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols"
     required: true
     description: "OpenAI-compatible LLM client for compliance evaluation (Coder-14B). This is external I/O."
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    required: false
+    description: >-
+      Optional Kafka producer for DLQ routing of failed compliance evaluations.
+      When unavailable (None), evaluations still return structured error output
+      but failures are not routed to the Dead Letter Queue. Kafka failures in
+      DLQ routing are caught and logged, never raised.
 
 # =============================================================================
 # ERROR HANDLING
@@ -106,16 +117,9 @@ error_handling:
       description: "Input validation failed (e.g., empty content, no patterns)"
       recoverable: false
       retry_strategy: "none"
-    - name: "ComplianceLlmError"
-      error_code: "COMPLIANCE_002"
-      description: "LLM inference call failed (timeout, connection, etc.)"
-      recoverable: true
-      retry_strategy: "exponential_backoff"
-    - name: "ComplianceParseError"
-      error_code: "COMPLIANCE_003"
-      description: "LLM response could not be parsed into violations"
-      recoverable: true
-      retry_strategy: "immediate_retry"
+  # COMPLIANCE_002 (LLM errors) and COMPLIANCE_003 (parse errors) are handled
+  # via structured error output in ModelComplianceResult, not exception classes.
+  # See handler_compute.py for the structured error return paths.
 
 # =============================================================================
 # CAPABILITIES
@@ -134,7 +138,7 @@ capabilities:
 idempotency:
   enabled: true
   strategy: "correlation_id_tracking"
-  hash_fields: ["correlation_id", "source_path", "content"]
+  hash_fields: ["correlation_id", "source_path", "content", "applicable_patterns"]
   description: "Compliance evaluation is idempotent for the same code content and pattern set.
     Re-evaluating the same request with the same correlation_id returns cached results."
 

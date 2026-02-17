@@ -3,6 +3,10 @@
 Domain-specific exceptions for pattern compliance evaluation operations.
 Follows the ONEX pattern of explicit, typed error handling.
 
+LLM and parse errors are handled via structured error output (not exceptions),
+following the ONEX convention that domain/expected errors are data, not exceptions.
+Only invariant violations (ComplianceValidationError) use exception classes.
+
 Ticket: OMN-2256
 """
 
@@ -14,27 +18,10 @@ class ComplianceValidationError(Exception):
 
     Indicates that the input to a compliance function is invalid
     (e.g., empty content, no patterns provided, unsupported language).
-    """
-
-
-class ComplianceLlmError(Exception):
-    """Raised when the LLM call fails during compliance evaluation.
-
-    Indicates an error during the LLM inference call itself
-    (e.g., timeout, connection error, malformed response).
-    """
-
-
-class ComplianceParseError(Exception):
-    """Raised when parsing the LLM response fails.
-
-    Indicates that the LLM returned a response that could not be
-    parsed into the expected violation structure.
+    This is an invariant violation that must halt orchestration.
     """
 
 
 __all__ = [
-    "ComplianceLlmError",
-    "ComplianceParseError",
     "ComplianceValidationError",
 ]

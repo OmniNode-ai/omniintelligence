@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Final, cast
+from typing import Final, cast, get_args
 
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ComplianceLlmResponseDict,
@@ -35,10 +35,9 @@ logger = logging.getLogger(__name__)
 # Increment when the prompt template changes materially.
 COMPLIANCE_PROMPT_VERSION: Final[str] = "1.0.0"
 
-# Valid severity levels for violations.
-VALID_SEVERITIES: Final[frozenset[str]] = frozenset(
-    {"critical", "major", "minor", "info"}
-)
+# Valid severity levels for violations -- derived from the canonical
+# SeverityLiteral type so the two cannot drift apart.
+VALID_SEVERITIES: Final[frozenset[str]] = frozenset(get_args(SeverityLiteral))
 
 
 def build_compliance_prompt(

@@ -10,6 +10,7 @@ Handler Pattern:
     - Delegates LLM inference to an injected ProtocolLlmClient
     - Parses the JSON response into typed violations
     - Returns a structured ModelComplianceResult
+    - Routes failures to DLQ when kafka_producer is available (optional)
 
 The pure handler functions (build_compliance_prompt, parse_llm_response)
 contain no I/O and can be tested independently.
@@ -27,22 +28,26 @@ from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_comp
 )
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute import (
     DEFAULT_MODEL,
-    handle_pattern_compliance_compute,
+    DLQ_TOPIC,
+    handle_evaluate_compliance,
 )
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ComplianceLlmResponseDict,
     ComplianceViolationDict,
     ProtocolLlmClient,
 )
+from omniintelligence.protocols import ProtocolKafkaPublisher
 
 __all__ = [
     "COMPLIANCE_PROMPT_VERSION",
     "DEFAULT_MODEL",
+    "DLQ_TOPIC",
     "ComplianceLlmResponseDict",
     "ComplianceValidationError",
     "ComplianceViolationDict",
+    "ProtocolKafkaPublisher",
     "ProtocolLlmClient",
     "build_compliance_prompt",
-    "handle_pattern_compliance_compute",
+    "handle_evaluate_compliance",
     "parse_llm_response",
 ]
