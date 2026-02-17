@@ -12,6 +12,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from fastapi import HTTPException
+from pydantic import ValidationError
+
 from omniintelligence.api.models_pattern_query import (
     ModelPatternQueryPage,
     ModelPatternQueryResponse,
@@ -60,15 +63,33 @@ async def handle_query_patterns(
         offset,
     )
 
-    rows = await adapter.query_patterns(
-        domain=domain,
-        language=language,
-        min_confidence=min_confidence,
-        limit=limit,
-        offset=offset,
-    )
+    try:
+        rows = await adapter.query_patterns(
+            domain=domain,
+            language=language,
+            min_confidence=min_confidence,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception:
+        logger.exception("Database query failed in pattern store adapter")
+        raise HTTPException(
+            status_code=502,
+            detail="Pattern query failed due to a database error.",
+        )
 
-    patterns = [ModelPatternQueryResponse.model_validate(row) for row in rows]
+    try:
+        patterns = [ModelPatternQueryResponse.model_validate(row) for row in rows]
+    except ValidationError as exc:
+        logger.error(
+            "Failed to validate pattern rows from database: %s",
+            exc.error_count(),
+            exc_info=exc,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Pattern query returned rows with unexpected schema.",
+        )
 
     return ModelPatternQueryPage(
         patterns=patterns,

@@ -15,6 +15,7 @@ Ticket: OMN-2253
 from __future__ import annotations
 
 import logging
+import urllib.parse
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -52,11 +53,16 @@ class DatabaseSettings(BaseSettings):
     def get_dsn(self) -> str:
         """Build PostgreSQL DSN from validated settings.
 
+        URL-encodes user and password to handle special characters
+        (@, /, :, %, #) that would otherwise break DSN parsing.
+
         Returns:
             PostgreSQL connection string.
         """
+        encoded_user = urllib.parse.quote_plus(self.user)
+        encoded_password = urllib.parse.quote_plus(self.password)
         return (
-            f"postgresql://{self.user}:{self.password}"
+            f"postgresql://{encoded_user}:{encoded_password}"
             f"@{self.host}:{self.port}/{self.database}"
         )
 
@@ -89,7 +95,15 @@ def create_app(
 
         dsn = state["database_url"] or DatabaseSettings().get_dsn()  # type: ignore[call-arg]
         logger.info("Connecting to database...")
-        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
+        try:
+            pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
+        except Exception:
+            logger.exception(
+                "Failed to create database connection pool. "
+                "Verify POSTGRES_HOST, POSTGRES_PORT, and POSTGRES_PASSWORD "
+                "are correct and that the database is reachable."
+            )
+            raise
         try:
             adapter = await create_pattern_store_adapter(pool)
         except Exception:
@@ -124,6 +138,13 @@ def create_app(
 
     pattern_router = create_pattern_router(get_adapter=get_adapter)
     app.include_router(pattern_router)
+
+    @app.get("/health", tags=["infrastructure"])
+    async def health_check() -> dict[str, str]:
+        """Liveness/readiness probe for load balancers and orchestrators."""
+        if state["pool"] is None:
+            return {"status": "starting"}
+        return {"status": "healthy"}
 
     return app
 

@@ -9,6 +9,7 @@ Ticket: OMN-2253
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,9 +47,9 @@ class ModelPatternQueryResponse(BaseModel):
         le=1.0,
         description="Pattern confidence score",
     )
-    status: str = Field(
+    status: Literal["validated", "provisional"] = Field(
         ...,
-        description="Lifecycle status: validated or provisional",
+        description="Lifecycle status (validated or provisional)",
     )
     is_current: bool = Field(
         default=True,

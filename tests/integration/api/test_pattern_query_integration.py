@@ -10,7 +10,8 @@ matching patterns. This is intentional -- these are smoke tests that
 verify the endpoint wiring and SQL execution, not the filter logic
 (which is covered by unit tests with mock data). Seeding test data
 would require schema coupling and test-database cleanup that is out
-of scope for this endpoint-wiring validation.
+of scope for this endpoint-wiring validation. Full round-trip testing
+with seeded data is tracked for future work.
 
 Ticket: OMN-2253
 """
