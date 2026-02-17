@@ -69,7 +69,7 @@ class DatabaseSettings(BaseSettings):
         )
 
 
-async def _create_pool(database_url: str | None) -> asyncpg.Pool:  # type: ignore[type-arg]
+async def _create_pool(database_url: str | None) -> asyncpg.Pool:
     """Create asyncpg connection pool without keeping credentials in scope.
 
     When *database_url* is supplied it is used directly.  Otherwise the
@@ -122,7 +122,7 @@ class _AppState:
 
     database_url: str | None = None
     adapter: AdapterPatternStore | None = None
-    pool: asyncpg.Pool | None = None  # type: ignore[type-arg]
+    pool: asyncpg.Pool | None = None
 
 
 def create_app(
