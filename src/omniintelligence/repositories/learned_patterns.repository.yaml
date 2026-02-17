@@ -1014,3 +1014,84 @@ db_repository:
       returns:
         model_ref: IdResult
         many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Upsert pattern (ON CONFLICT DO NOTHING)
+    # -------------------------------------------------------------------------
+    # Used by the dispatch bridge handler to idempotently store patterns from
+    # pattern-learned and pattern.discovered events.  ON CONFLICT DO NOTHING
+    # silently drops duplicate (pattern_signature, domain_id, version) rows.
+    # is_current defaults to FALSE to avoid violating idx_current_pattern;
+    # version promotion (setting is_current=TRUE) is handled by the lifecycle handler.
+    upsert_pattern:
+      mode: write
+      description: |
+        Idempotently insert a pattern, skipping duplicates by (pattern_signature, domain_id, version).
+        ON CONFLICT DO NOTHING means duplicate rows are silently dropped.
+        is_current is set to FALSE; lifecycle handler manages promotion.
+      sql: |
+        INSERT INTO learned_patterns (
+          id, pattern_signature, signature_hash, domain_id,
+          domain_version, confidence, version,
+          source_session_ids,
+          status, is_current
+        )
+        VALUES (
+          :id, :signature, :signature_hash, :domain_id,
+          :domain_version, :confidence, :version,
+          :source_session_ids,
+          'candidate', FALSE
+        )
+        ON CONFLICT (pattern_signature, domain_id, version)
+        DO NOTHING
+        RETURNING id
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Pattern UUID
+        signature:
+          name: signature
+          param_type: string
+          required: true
+          description: Pattern signature text
+        signature_hash:
+          name: signature_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of canonicalized signature
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: true
+          min_length: 1
+          max_length: 128
+          description: Domain identifier for the pattern
+        domain_version:
+          name: domain_version
+          param_type: string
+          required: false
+          default: "1.0.0"
+          description: Schema version within a domain
+        confidence:
+          name: confidence
+          param_type: number
+          required: true
+          ge: 0.5
+          le: 1.0
+          description: Confidence score for the pattern
+        version:
+          name: version
+          param_type: integer
+          required: true
+          ge: 1
+          description: Version number for this pattern
+        source_session_ids:
+          name: source_session_ids
+          param_type: string
+          required: true
+          description: PostgreSQL array literal for session UUIDs
+      returns:
+        model_ref: IdResult
+        many: false

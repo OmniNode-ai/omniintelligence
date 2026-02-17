@@ -9,6 +9,7 @@ Validates:
 
 Related:
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
+    - OMN-2326: Migrate intelligence DB writes to omnibase_infra effect boundary
 """
 
 from __future__ import annotations
@@ -20,14 +21,10 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.runtime.adapters import (
-    SQL_ENSURE_IDEMPOTENCY_TABLE,
-    SQL_IDEMPOTENCY_CHECK_AND_RECORD,
-    SQL_IDEMPOTENCY_EXISTS,
-    SQL_IDEMPOTENCY_RECORD,
-    AdapterIdempotencyStorePostgres,
+    AdapterIdempotencyStoreInfra,
     AdapterIntentClassifier,
     AdapterKafkaPublisher,
-    AdapterPatternRepositoryPostgres,
+    AdapterPatternRepositoryRuntime,
 )
 
 pytestmark = pytest.mark.unit
@@ -54,13 +51,15 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_trans
 
 
 @pytest.fixture()
-def mock_pool() -> MagicMock:
-    """Create a mock asyncpg.Pool with async methods."""
+def mock_runtime() -> MagicMock:
+    """Create a mock PostgresRepositoryRuntime with async pool methods."""
+    runtime = MagicMock()
     pool = MagicMock()
     pool.fetch = AsyncMock(return_value=[])
     pool.fetchrow = AsyncMock(return_value=None)
     pool.execute = AsyncMock(return_value="OK")
-    return pool
+    runtime._pool = pool
+    return runtime
 
 
 @pytest.fixture()
@@ -71,192 +70,167 @@ def mock_event_bus() -> MagicMock:
     return bus
 
 
+@pytest.fixture()
+def mock_infra_idempotency_store() -> MagicMock:
+    """Create a mock omnibase_infra idempotency store."""
+    store = MagicMock()
+    store.check_and_record = AsyncMock(return_value=True)  # True = new
+    store.is_processed = AsyncMock(return_value=False)
+    store.mark_processed = AsyncMock()
+    return store
+
+
 # =============================================================================
-# AdapterPatternRepositoryPostgres
+# AdapterPatternRepositoryRuntime
 # =============================================================================
 
 
-class TestAdapterPatternRepositoryPostgres:
-    """Tests for AdapterPatternRepositoryPostgres."""
+class TestAdapterPatternRepositoryRuntime:
+    """Tests for AdapterPatternRepositoryRuntime."""
 
-    def test_protocol_conformance(self, mock_pool: MagicMock) -> None:
+    def test_protocol_conformance(self, mock_runtime: MagicMock) -> None:
         """Adapter satisfies ProtocolPatternRepository."""
-        adapter = AdapterPatternRepositoryPostgres(mock_pool)
+        adapter = AdapterPatternRepositoryRuntime(mock_runtime)
         assert isinstance(adapter, ProtocolPatternRepository)
 
     @pytest.mark.asyncio()
-    async def test_fetch_delegates_to_pool(self, mock_pool: MagicMock) -> None:
-        """fetch() delegates with exact args to pool.fetch()."""
-        expected = [{"id": 1, "name": "test"}]
-        mock_pool.fetch.return_value = expected
+    async def test_fetch_delegates_to_runtime_pool(
+        self, mock_runtime: MagicMock
+    ) -> None:
+        """fetch() delegates with exact args to runtime pool."""
+        # asyncpg Records -> dicts
+        mock_runtime._pool.fetch.return_value = [{"id": 1, "name": "test"}]
 
-        adapter = AdapterPatternRepositoryPostgres(mock_pool)
+        adapter = AdapterPatternRepositoryRuntime(mock_runtime)
         query = "SELECT * FROM patterns WHERE id = $1"
         result = await adapter.fetch(query, 42)
 
-        mock_pool.fetch.assert_awaited_once_with(query, 42)
-        assert result == expected
+        mock_runtime._pool.fetch.assert_awaited_once_with(query, 42)
+        assert result == [{"id": 1, "name": "test"}]
 
     @pytest.mark.asyncio()
-    async def test_fetch_passes_multiple_args(self, mock_pool: MagicMock) -> None:
+    async def test_fetch_passes_multiple_args(self, mock_runtime: MagicMock) -> None:
         """fetch() passes multiple positional args through."""
-        adapter = AdapterPatternRepositoryPostgres(mock_pool)
+        adapter = AdapterPatternRepositoryRuntime(mock_runtime)
         query = "SELECT * FROM patterns WHERE id = $1 AND status = $2"
         await adapter.fetch(query, 1, "active")
 
-        mock_pool.fetch.assert_awaited_once_with(query, 1, "active")
+        mock_runtime._pool.fetch.assert_awaited_once_with(query, 1, "active")
 
     @pytest.mark.asyncio()
-    async def test_fetchrow_delegates_to_pool(self, mock_pool: MagicMock) -> None:
-        """fetchrow() delegates with exact args to pool.fetchrow()."""
-        expected = {"id": 1, "status": "validated"}
-        mock_pool.fetchrow.return_value = expected
+    async def test_fetchrow_delegates_to_runtime_pool(
+        self, mock_runtime: MagicMock
+    ) -> None:
+        """fetchrow() delegates with exact args to runtime pool."""
+        mock_runtime._pool.fetchrow.return_value = {"id": 1, "status": "validated"}
 
-        adapter = AdapterPatternRepositoryPostgres(mock_pool)
+        adapter = AdapterPatternRepositoryRuntime(mock_runtime)
         query = "SELECT * FROM patterns WHERE id = $1"
         result = await adapter.fetchrow(query, 99)
 
-        mock_pool.fetchrow.assert_awaited_once_with(query, 99)
-        assert result == expected
+        mock_runtime._pool.fetchrow.assert_awaited_once_with(query, 99)
+        assert result == {"id": 1, "status": "validated"}
 
     @pytest.mark.asyncio()
     async def test_fetchrow_returns_none_when_no_row(
-        self, mock_pool: MagicMock
+        self, mock_runtime: MagicMock
     ) -> None:
         """fetchrow() returns None when pool returns None."""
-        mock_pool.fetchrow.return_value = None
+        mock_runtime._pool.fetchrow.return_value = None
 
-        adapter = AdapterPatternRepositoryPostgres(mock_pool)
+        adapter = AdapterPatternRepositoryRuntime(mock_runtime)
         result = await adapter.fetchrow("SELECT 1 WHERE FALSE")
 
         assert result is None
 
     @pytest.mark.asyncio()
-    async def test_execute_delegates_to_pool(self, mock_pool: MagicMock) -> None:
-        """execute() delegates with exact args to pool.execute()."""
-        mock_pool.execute.return_value = "UPDATE 1"
+    async def test_execute_delegates_to_runtime_pool(
+        self, mock_runtime: MagicMock
+    ) -> None:
+        """execute() delegates with exact args to runtime pool."""
+        mock_runtime._pool.execute.return_value = "UPDATE 1"
 
-        adapter = AdapterPatternRepositoryPostgres(mock_pool)
+        adapter = AdapterPatternRepositoryRuntime(mock_runtime)
         query = "UPDATE patterns SET status = $1 WHERE id = $2"
         result = await adapter.execute(query, "deprecated", 5)
 
-        mock_pool.execute.assert_awaited_once_with(query, "deprecated", 5)
+        mock_runtime._pool.execute.assert_awaited_once_with(query, "deprecated", 5)
         assert result == "UPDATE 1"
 
 
 # =============================================================================
-# AdapterIdempotencyStorePostgres
+# AdapterIdempotencyStoreInfra
 # =============================================================================
 
 
-class TestAdapterIdempotencyStorePostgres:
-    """Tests for AdapterIdempotencyStorePostgres."""
+class TestAdapterIdempotencyStoreInfra:
+    """Tests for AdapterIdempotencyStoreInfra."""
 
-    def test_protocol_conformance(self, mock_pool: MagicMock) -> None:
+    def test_protocol_conformance(
+        self, mock_infra_idempotency_store: MagicMock
+    ) -> None:
         """Adapter satisfies ProtocolIdempotencyStore."""
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
+        adapter = AdapterIdempotencyStoreInfra(mock_infra_idempotency_store)
         assert isinstance(adapter, ProtocolIdempotencyStore)
 
     @pytest.mark.asyncio()
-    async def test_ensure_table_calls_create_table_sql(
-        self, mock_pool: MagicMock
+    async def test_check_and_record_inverts_semantics_for_new(
+        self, mock_infra_idempotency_store: MagicMock
     ) -> None:
-        """ensure_table() executes the CREATE TABLE IF NOT EXISTS SQL."""
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
-        await adapter.ensure_table()
-
-        mock_pool.execute.assert_awaited_once_with(SQL_ENSURE_IDEMPOTENCY_TABLE)
-
-    @pytest.mark.asyncio()
-    async def test_ensure_table_logs_on_first_call_only(
-        self, mock_pool: MagicMock
-    ) -> None:
-        """ensure_table() logs on first call, not on subsequent calls."""
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
-
-        with patch("omniintelligence.runtime.adapters.logger") as mock_logger:
-            await adapter.ensure_table()
-            assert mock_logger.info.call_count == 1
-
-            mock_logger.info.reset_mock()
-            await adapter.ensure_table()
-            assert mock_logger.info.call_count == 0
-
-    @pytest.mark.asyncio()
-    async def test_exists_returns_true_when_row_found(
-        self, mock_pool: MagicMock
-    ) -> None:
-        """exists() returns True when pool.fetchrow returns a row."""
-        mock_pool.fetchrow.return_value = {"?column?": 1}
+        """check_and_record() returns False (new) when infra returns True (new)."""
+        mock_infra_idempotency_store.check_and_record.return_value = True  # new
         request_id = uuid4()
 
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
+        adapter = AdapterIdempotencyStoreInfra(mock_infra_idempotency_store)
+        result = await adapter.check_and_record(request_id)
+
+        mock_infra_idempotency_store.check_and_record.assert_awaited_once_with(
+            message_id=request_id, domain="pattern_lifecycle"
+        )
+        assert result is False  # intelligence: False = new
+
+    @pytest.mark.asyncio()
+    async def test_check_and_record_inverts_semantics_for_duplicate(
+        self, mock_infra_idempotency_store: MagicMock
+    ) -> None:
+        """check_and_record() returns True (duplicate) when infra returns False (duplicate)."""
+        mock_infra_idempotency_store.check_and_record.return_value = False  # duplicate
+        request_id = uuid4()
+
+        adapter = AdapterIdempotencyStoreInfra(mock_infra_idempotency_store)
+        result = await adapter.check_and_record(request_id)
+
+        assert result is True  # intelligence: True = duplicate
+
+    @pytest.mark.asyncio()
+    async def test_exists_delegates_to_is_processed(
+        self, mock_infra_idempotency_store: MagicMock
+    ) -> None:
+        """exists() delegates to infra is_processed()."""
+        mock_infra_idempotency_store.is_processed.return_value = True
+        request_id = uuid4()
+
+        adapter = AdapterIdempotencyStoreInfra(mock_infra_idempotency_store)
         result = await adapter.exists(request_id)
 
-        mock_pool.fetchrow.assert_awaited_once_with(SQL_IDEMPOTENCY_EXISTS, request_id)
+        mock_infra_idempotency_store.is_processed.assert_awaited_once_with(
+            message_id=request_id, domain="pattern_lifecycle"
+        )
         assert result is True
 
     @pytest.mark.asyncio()
-    async def test_exists_returns_false_when_no_row(self, mock_pool: MagicMock) -> None:
-        """exists() returns False when pool.fetchrow returns None."""
-        mock_pool.fetchrow.return_value = None
+    async def test_record_delegates_to_mark_processed(
+        self, mock_infra_idempotency_store: MagicMock
+    ) -> None:
+        """record() delegates to infra mark_processed()."""
         request_id = uuid4()
 
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
-        result = await adapter.exists(request_id)
-
-        mock_pool.fetchrow.assert_awaited_once_with(SQL_IDEMPOTENCY_EXISTS, request_id)
-        assert result is False
-
-    @pytest.mark.asyncio()
-    async def test_record_delegates_insert_to_pool(self, mock_pool: MagicMock) -> None:
-        """record() delegates INSERT to pool.execute."""
-        request_id = uuid4()
-
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
+        adapter = AdapterIdempotencyStoreInfra(mock_infra_idempotency_store)
         await adapter.record(request_id)
 
-        mock_pool.execute.assert_awaited_once_with(SQL_IDEMPOTENCY_RECORD, request_id)
-
-    @pytest.mark.asyncio()
-    async def test_check_and_record_returns_true_for_duplicate(
-        self, mock_pool: MagicMock
-    ) -> None:
-        """check_and_record() returns True (duplicate) when fetchrow returns None.
-
-        When INSERT ... ON CONFLICT DO NOTHING RETURNING yields no row,
-        it means the row already existed (conflict), so this is a duplicate.
-        """
-        mock_pool.fetchrow.return_value = None
-        request_id = uuid4()
-
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
-        result = await adapter.check_and_record(request_id)
-
-        mock_pool.fetchrow.assert_awaited_once_with(
-            SQL_IDEMPOTENCY_CHECK_AND_RECORD, request_id
+        mock_infra_idempotency_store.mark_processed.assert_awaited_once_with(
+            message_id=request_id, domain="pattern_lifecycle"
         )
-        assert result is True
-
-    @pytest.mark.asyncio()
-    async def test_check_and_record_returns_false_for_new(
-        self, mock_pool: MagicMock
-    ) -> None:
-        """check_and_record() returns False (new) when fetchrow returns a row.
-
-        When INSERT ... RETURNING yields a row, it means the insert succeeded
-        (no conflict), so this is a new request.
-        """
-        mock_pool.fetchrow.return_value = {"request_id": uuid4()}
-        request_id = uuid4()
-
-        adapter = AdapterIdempotencyStorePostgres(mock_pool)
-        result = await adapter.check_and_record(request_id)
-
-        mock_pool.fetchrow.assert_awaited_once_with(
-            SQL_IDEMPOTENCY_CHECK_AND_RECORD, request_id
-        )
-        assert result is False
 
 
 # =============================================================================

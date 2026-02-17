@@ -89,6 +89,18 @@ def mock_idempotency_store() -> MagicMock:
 
 
 @pytest.fixture
+def mock_upsert_store() -> MagicMock:
+    """Mock ProtocolPatternUpsertStore for pattern storage tests.
+
+    Returns a UUID by default (simulating a successful insert).
+    Set return_value to None to simulate duplicate (ON CONFLICT DO NOTHING).
+    """
+    store = MagicMock()
+    store.upsert_pattern = AsyncMock(return_value=uuid4())
+    return store
+
+
+@pytest.fixture
 def mock_intent_classifier() -> MagicMock:
     """Mock ProtocolIntentClassifier for dispatch handler tests."""
     classifier = MagicMock()
@@ -1566,9 +1578,9 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_happy_path(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
-        """Valid payload with all fields must execute SQL and publish to Kafka."""
+        """Valid payload with all fields must call upsert and publish to Kafka."""
         from omnibase_core.models.core.model_envelope_metadata import (
             ModelEnvelopeMetadata,
         )
@@ -1582,16 +1594,15 @@ class TestPatternStorageDispatchHandler:
         mock_kafka = MagicMock()
         mock_kafka.publish = AsyncMock(return_value=None)
 
-        # Successful INSERT returns "INSERT 0 1" (1 row inserted).
-        mock_repository.execute = AsyncMock(return_value="INSERT 0 1")
+        pattern_id = uuid4()
+        mock_upsert_store.upsert_pattern = AsyncMock(return_value=pattern_id)
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             kafka_producer=mock_kafka,
             correlation_id=correlation_id,
         )
 
-        pattern_id = uuid4()
         session_id_1 = uuid4()
         envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
             payload={
@@ -1619,18 +1630,16 @@ class TestPatternStorageDispatchHandler:
         result = await handler(envelope, context)
         assert isinstance(result, str)
 
-        # SQL must have been executed
-        mock_repository.execute.assert_called_once()
-        call_args = mock_repository.execute.call_args
-        # Positional args: SQL, pattern_id, signature, signature_hash,
-        #   domain_id, domain_version, confidence, version, source_session_ids
-        assert call_args[0][1] == pattern_id
-        assert call_args[0][2] == "def foo(): pass"
-        assert call_args[0][3] == "abc123hash"
-        assert call_args[0][4] == "python"
-        assert call_args[0][6] == 0.85
-        assert call_args[0][7] == 2
-        assert call_args[0][8] == [session_id_1]
+        # upsert_pattern must have been called with correct kwargs
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        call_kwargs = mock_upsert_store.upsert_pattern.call_args.kwargs
+        assert call_kwargs["pattern_id"] == pattern_id
+        assert call_kwargs["signature"] == "def foo(): pass"
+        assert call_kwargs["signature_hash"] == "abc123hash"
+        assert call_kwargs["domain_id"] == "python"
+        assert call_kwargs["confidence"] == 0.85
+        assert call_kwargs["version"] == 2
+        assert call_kwargs["source_session_ids"] == [session_id_1]
 
         # Kafka must have been called
         mock_kafka.publish.assert_called_once()
@@ -1642,7 +1651,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_missing_pattern_id(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Payload without pattern_id or discovery_id generates a new UUID."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -1656,7 +1665,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -1683,16 +1692,18 @@ class TestPatternStorageDispatchHandler:
         result = await handler(envelope, context)
         assert isinstance(result, str)
 
-        # SQL should have been called with a generated UUID
-        mock_repository.execute.assert_called_once()
-        stored_pattern_id = mock_repository.execute.call_args[0][1]
+        # upsert_pattern should have been called with a generated UUID
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        stored_pattern_id = mock_upsert_store.upsert_pattern.call_args.kwargs[
+            "pattern_id"
+        ]
         assert isinstance(stored_pattern_id, UUID)
 
     @pytest.mark.asyncio
     async def test_pattern_storage_handler_empty_signature_rejected(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Empty signature must be rejected with ValueError."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -1706,7 +1717,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -1733,14 +1744,14 @@ class TestPatternStorageDispatchHandler:
         with pytest.raises(ValueError, match="missing pattern_signature"):
             await handler(envelope, context)
 
-        # SQL must NOT have been called
-        mock_repository.execute.assert_not_called()
+        # upsert_pattern must NOT have been called
+        mock_upsert_store.upsert_pattern.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_pattern_storage_handler_confidence_clamped_below(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Confidence below 0.5 must be clamped to 0.5."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -1754,7 +1765,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -1780,8 +1791,10 @@ class TestPatternStorageDispatchHandler:
 
         await handler(envelope, context)
 
-        mock_repository.execute.assert_called_once()
-        stored_confidence = mock_repository.execute.call_args[0][6]
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        stored_confidence = mock_upsert_store.upsert_pattern.call_args.kwargs[
+            "confidence"
+        ]
         assert stored_confidence == 0.5, (
             f"Expected confidence clamped to 0.5, got {stored_confidence}"
         )
@@ -1790,7 +1803,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_confidence_clamped_above(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Confidence above 1.0 must be clamped to 1.0."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -1804,7 +1817,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -1830,8 +1843,10 @@ class TestPatternStorageDispatchHandler:
 
         await handler(envelope, context)
 
-        mock_repository.execute.assert_called_once()
-        stored_confidence = mock_repository.execute.call_args[0][6]
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        stored_confidence = mock_upsert_store.upsert_pattern.call_args.kwargs[
+            "confidence"
+        ]
         assert stored_confidence == 1.0, (
             f"Expected confidence clamped to 1.0, got {stored_confidence}"
         )
@@ -1840,7 +1855,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_version_clamped(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Version below 1 must be clamped to 1."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -1854,7 +1869,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -1880,8 +1895,8 @@ class TestPatternStorageDispatchHandler:
 
         await handler(envelope, context)
 
-        mock_repository.execute.assert_called_once()
-        stored_version = mock_repository.execute.call_args[0][7]
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        stored_version = mock_upsert_store.upsert_pattern.call_args.kwargs["version"]
         assert stored_version == 1, (
             f"Expected version clamped to 1, got {stored_version}"
         )
@@ -1890,9 +1905,9 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_kafka_optional(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
-        """No Kafka producer must not prevent SQL from executing."""
+        """No Kafka producer must not prevent upsert from executing."""
         from omnibase_core.models.core.model_envelope_metadata import (
             ModelEnvelopeMetadata,
         )
@@ -1904,7 +1919,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             kafka_producer=None,
             correlation_id=correlation_id,
         )
@@ -1932,16 +1947,16 @@ class TestPatternStorageDispatchHandler:
         result = await handler(envelope, context)
         assert isinstance(result, str)
 
-        # SQL must still have been called
-        mock_repository.execute.assert_called_once()
+        # upsert_pattern must still have been called
+        mock_upsert_store.upsert_pattern.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_pattern_storage_handler_fk_violation(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
-        """ForeignKeyViolationError from repository must raise ValueError."""
+        """ForeignKeyViolationError from upsert store must raise ValueError."""
         from asyncpg import ForeignKeyViolationError
         from omnibase_core.models.core.model_envelope_metadata import (
             ModelEnvelopeMetadata,
@@ -1953,14 +1968,14 @@ class TestPatternStorageDispatchHandler:
             ModelEventEnvelope,
         )
 
-        mock_repository.execute = AsyncMock(
+        mock_upsert_store.upsert_pattern = AsyncMock(
             side_effect=ForeignKeyViolationError(
                 "insert or update on table violates foreign key constraint"
             ),
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -1992,7 +2007,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_discovery_id_fallback(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """discovery_id must be used when pattern_id is absent."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -2006,7 +2021,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -2033,8 +2048,10 @@ class TestPatternStorageDispatchHandler:
 
         await handler(envelope, context)
 
-        mock_repository.execute.assert_called_once()
-        stored_pattern_id = mock_repository.execute.call_args[0][1]
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        stored_pattern_id = mock_upsert_store.upsert_pattern.call_args.kwargs[
+            "pattern_id"
+        ]
         assert stored_pattern_id == discovery_id, (
             f"Expected discovery_id {discovery_id} to be used as pattern_id, "
             f"got {stored_pattern_id}"
@@ -2044,7 +2061,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_drops_invalid_session_ids(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Invalid UUIDs in source_session_ids must be silently dropped."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -2058,7 +2075,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -2090,8 +2107,10 @@ class TestPatternStorageDispatchHandler:
 
         await handler(envelope, context)
 
-        mock_repository.execute.assert_called_once()
-        stored_session_ids = mock_repository.execute.call_args[0][8]
+        mock_upsert_store.upsert_pattern.assert_called_once()
+        stored_session_ids = mock_upsert_store.upsert_pattern.call_args.kwargs[
+            "source_session_ids"
+        ]
         assert len(stored_session_ids) == 1, (
             f"Expected 1 valid session ID, got {len(stored_session_ids)}"
         )
@@ -2101,7 +2120,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_raises_for_non_dict_payload(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Handler should raise ValueError for non-dict payloads."""
         from omnibase_core.models.effect.model_effect_context import (
@@ -2112,7 +2131,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -2132,7 +2151,7 @@ class TestPatternStorageDispatchHandler:
     async def test_pattern_storage_handler_missing_signature_hash_rejected(
         self,
         correlation_id: UUID,
-        mock_repository: MagicMock,
+        mock_upsert_store: MagicMock,
     ) -> None:
         """Missing signature_hash must be rejected with ValueError."""
         from omnibase_core.models.core.model_envelope_metadata import (
@@ -2146,7 +2165,7 @@ class TestPatternStorageDispatchHandler:
         )
 
         handler = create_pattern_storage_dispatch_handler(
-            repository=mock_repository,
+            pattern_upsert_store=mock_upsert_store,
             correlation_id=correlation_id,
         )
 
@@ -2172,7 +2191,7 @@ class TestPatternStorageDispatchHandler:
         with pytest.raises(ValueError, match="missing signature_hash"):
             await handler(envelope, context)
 
-        mock_repository.execute.assert_not_called()
+        mock_upsert_store.upsert_pattern.assert_not_called()
 
 
 # =============================================================================

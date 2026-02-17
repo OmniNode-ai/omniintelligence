@@ -35,10 +35,6 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from asyncpg import (  # asyncpg is a required dependency (pyproject.toml [core])
-    ForeignKeyViolationError,
-    UniqueViolationError,
-)
 from omnibase_core.enums.enum_execution_shape import EnumMessageCategory
 from omnibase_core.enums.enum_node_kind import EnumNodeKind
 from omnibase_core.integrations.claude_code import ClaudeCodeSessionOutcome
@@ -56,7 +52,6 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEventPayload,
 )
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
-from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +68,7 @@ from omniintelligence.protocols import (
     ProtocolIntentClassifier,
     ProtocolKafkaPublisher,
     ProtocolPatternRepository,
+    ProtocolPatternUpsertStore,
 )
 
 # =============================================================================
@@ -967,7 +963,7 @@ def create_pattern_lifecycle_dispatch_handler(
 
 def create_pattern_storage_dispatch_handler(
     *,
-    repository: ProtocolPatternRepository,
+    pattern_upsert_store: ProtocolPatternUpsertStore,
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str | None = None,
     correlation_id: UUID | None = None,
@@ -978,17 +974,11 @@ def create_pattern_storage_dispatch_handler(
     """Create a dispatch engine handler for pattern storage events.
 
     Handles pattern-learned and pattern.discovered events by persisting
-    patterns to the learned_patterns table via the repository adapter.
-
-    For pattern-learned events: extracts pattern fields from the payload
-    and inserts into learned_patterns using an upsert on
-    (pattern_signature, domain_id, version).
-
-    For pattern.discovered events: maps the discovery event payload to
-    the same storage fields and inserts identically.
+    patterns via the pattern upsert store (contract-driven, behind effect
+    boundary).
 
     Args:
-        repository: REQUIRED database repository for pattern storage.
+        pattern_upsert_store: REQUIRED store for idempotent pattern storage.
         kafka_producer: Optional Kafka producer (graceful degradation if absent).
         publish_topic: Full topic for pattern-stored events (from contract).
             Falls back to "onex.evt.omniintelligence.pattern-stored.v1" if None.
@@ -1002,7 +992,7 @@ def create_pattern_storage_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> pattern storage via repository."""
+        """Bridge handler: envelope -> pattern storage via upsert store."""
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
         )
@@ -1065,7 +1055,6 @@ def create_pattern_storage_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
         # Default 'general' must exist in domain_taxonomy (FK constraint).
-        # If missing, ForeignKeyViolationError is caught and raised as ValueError.
         # Bound untrusted input to 128 chars to prevent oversized payloads.
         domain_id = str(payload.get("domain_id", payload.get("domain", "general")))[
             :128
@@ -1155,43 +1144,45 @@ def create_pattern_storage_dispatch_handler(
         )
 
         try:
-            upsert_status = await repository.execute(
-                _SQL_UPSERT_LEARNED_PATTERN,
-                pattern_id,
-                signature,
-                signature_hash,
-                domain_id,
-                domain_version,
-                confidence,
-                version,
-                source_session_ids,
+            stored_id = await pattern_upsert_store.upsert_pattern(
+                pattern_id=pattern_id,
+                signature=signature,
+                signature_hash=signature_hash,
+                domain_id=domain_id,
+                domain_version=domain_version,
+                confidence=confidence,
+                version=version,
+                source_session_ids=source_session_ids,
             )
-        except ForeignKeyViolationError as e:
-            msg = (
-                f"Unknown domain_id {domain_id!r} not found in domain_taxonomy "
-                f"(pattern_id={pattern_id}, correlation_id={ctx_correlation_id}). "
-                f"Ensure the domain is registered before publishing pattern events."
-            )
-            logger.error(msg)
-            raise ValueError(msg) from e
-        except UniqueViolationError as e:
-            # Handles constraint violations from partial unique indexes
-            # (e.g., idx_current_pattern, unique_signature_hash_domain_version).
-            logger.warning(
-                "Duplicate pattern skipped due to unique constraint "
-                "(pattern_id=%s, signature_hash=%s, domain_id=%s, version=%d, "
-                "correlation_id=%s): %s",
-                pattern_id,
-                signature_hash,
-                domain_id,
-                version,
-                ctx_correlation_id,
-                get_log_sanitizer().sanitize(str(e)),
-            )
-            # Treat as idempotent -- return "ok" (success) rather than
-            # raising, since the pattern already exists in the DB.
-            return "ok"
         except Exception as e:
+            # Catch DB-specific errors (FK violations, unique constraint)
+            # that propagate through the effect boundary as generic exceptions.
+            # Check for sqlstate attribute (DB errors) without importing driver.
+            if hasattr(e, "sqlstate"):
+                sqlstate = getattr(e, "sqlstate", "")
+                # 23503 = foreign_key_violation
+                if sqlstate == "23503":
+                    msg = (
+                        f"Unknown domain_id {domain_id!r} not found in domain_taxonomy "
+                        f"(pattern_id={pattern_id}, correlation_id={ctx_correlation_id}). "
+                        f"Ensure the domain is registered before publishing pattern events."
+                    )
+                    logger.error(msg)
+                    raise ValueError(msg) from e
+                # 23505 = unique_violation
+                if sqlstate == "23505":
+                    logger.warning(
+                        "Duplicate pattern skipped due to unique constraint "
+                        "(pattern_id=%s, signature_hash=%s, domain_id=%s, version=%d, "
+                        "correlation_id=%s): %s",
+                        pattern_id,
+                        signature_hash,
+                        domain_id,
+                        version,
+                        ctx_correlation_id,
+                        get_log_sanitizer().sanitize(str(e)),
+                    )
+                    return "ok"
             logger.error(
                 "Failed to persist pattern via dispatch bridge "
                 "(pattern_id=%s, error=%s, correlation_id=%s)",
@@ -1201,9 +1192,8 @@ def create_pattern_storage_dispatch_handler(
             )
             raise
 
-        # ON CONFLICT DO NOTHING silently drops duplicates. Log when no row
-        # was inserted so operators can trace redelivery / idempotency hits.
-        if parse_pg_status_count(upsert_status) == 0:
+        # ON CONFLICT DO NOTHING: stored_id is None when duplicate
+        if stored_id is None:
             logger.debug(
                 "Duplicate pattern skipped by ON CONFLICT DO NOTHING "
                 "(pattern_signature=%s, domain_id=%s, version=%d, "
@@ -1256,25 +1246,6 @@ def create_pattern_storage_dispatch_handler(
     return _handle
 
 
-# SQL for upserting learned patterns via the dispatch bridge.
-# Uses asyncpg positional parameters ($1...$8).
-# ON CONFLICT skips duplicate (pattern_signature, domain_id, version) combinations.
-# is_current defaults to FALSE to avoid violating the partial unique index
-# idx_current_pattern ON (pattern_signature, domain_id) WHERE is_current = TRUE.
-# Version promotion (setting is_current = TRUE) is handled by the lifecycle handler.
-_SQL_UPSERT_LEARNED_PATTERN = """\
-INSERT INTO learned_patterns (
-    id, pattern_signature, signature_hash, domain_id,
-    domain_version, confidence, version,
-    source_session_ids,
-    status, is_current
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'candidate', FALSE)
-ON CONFLICT (pattern_signature, domain_id, version)
-DO NOTHING;
-"""
-
-
 # =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
@@ -1287,6 +1258,7 @@ def create_intelligence_dispatch_engine(
     intent_classifier: ProtocolIntentClassifier,
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topics: dict[str, str] | None = None,
+    pattern_upsert_store: ProtocolPatternUpsertStore | None = None,
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
@@ -1305,6 +1277,8 @@ def create_intelligence_dispatch_engine(
             Keys: "claude_hook", "lifecycle", "pattern_storage",
             "pattern_learning". Values: full topic strings from contract
             event_bus.publish_topics.
+        pattern_upsert_store: Optional contract-driven upsert store. If None,
+            falls back to repository for backwards compatibility.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -1402,8 +1376,13 @@ def create_intelligence_dispatch_engine(
     )
 
     # --- Handler 4: pattern-storage (pattern-learned + pattern.discovered) ---
+    # Use pattern_upsert_store (contract-driven) if available, otherwise
+    # fall back to repository for backwards compatibility in tests.
+    _upsert_store = (
+        pattern_upsert_store if pattern_upsert_store is not None else repository
+    )
     pattern_storage_handler = create_pattern_storage_dispatch_handler(
-        repository=repository,
+        pattern_upsert_store=_upsert_store,  # type: ignore[arg-type]
         kafka_producer=kafka_producer,
         publish_topic=topics.get("pattern_storage"),
     )
