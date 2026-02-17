@@ -72,6 +72,12 @@ async def handle_query_patterns(
             limit=limit,
             offset=offset,
         )
+    except ValueError as exc:
+        logger.warning("Invalid query parameters: %s", exc)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid query parameters: {exc}",
+        )
     except (asyncpg.PostgresError, asyncpg.InterfaceError, OSError):
         logger.exception("Database query failed in pattern store adapter")
         raise HTTPException(

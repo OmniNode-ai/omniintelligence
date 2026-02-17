@@ -30,6 +30,10 @@ def create_pattern_router(
 ) -> APIRouter:
     """Create a FastAPI router for pattern query endpoints.
 
+    Authentication/authorization is intentionally omitted. This API is
+    designed for internal service-to-service access only and is not
+    exposed to external clients.
+
     Args:
         get_adapter: Dependency callable that returns an AdapterPatternStore.
             Typically a closure over a connection pool:
@@ -60,6 +64,7 @@ def create_pattern_router(
         domain: Annotated[
             str | None,
             Query(
+                min_length=1,
                 max_length=50,
                 description="Domain identifier to filter patterns by",
             ),
@@ -67,6 +72,7 @@ def create_pattern_router(
         language: Annotated[
             str | None,
             Query(
+                min_length=1,
                 max_length=50,
                 description="Programming language to filter by",
             ),

@@ -174,6 +174,25 @@ class TestGetPatternsEndpoint:
         response = await client.get("/api/v1/patterns?offset=-1")
         assert response.status_code == 422
 
+    async def test_rejects_empty_domain(self, client: AsyncClient) -> None:
+        """Endpoint rejects empty-string domain with 422.
+
+        An empty string is not NULL -- it bypasses the SQL IS NULL guard
+        and silently matches no rows. min_length=1 ensures FastAPI rejects
+        it at the validation layer.
+        """
+        response = await client.get("/api/v1/patterns?domain=")
+        assert response.status_code == 422
+
+    async def test_rejects_empty_language(self, client: AsyncClient) -> None:
+        """Endpoint rejects empty-string language with 422.
+
+        Same rationale as test_rejects_empty_domain: empty string is not
+        NULL and would silently return zero results.
+        """
+        response = await client.get("/api/v1/patterns?language=")
+        assert response.status_code == 422
+
     async def test_all_params_combined(
         self,
         client: AsyncClient,

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import urllib.parse
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -51,22 +50,6 @@ class DatabaseSettings(BaseSettings):
     )
     user: str = Field(default="postgres", description="PostgreSQL user")
     password: str = Field(..., description="PostgreSQL password")
-
-    def get_dsn(self) -> str:
-        """Build PostgreSQL DSN from validated settings.
-
-        URL-encodes user and password to handle special characters
-        (@, /, :, %, #) that would otherwise break DSN parsing.
-
-        Returns:
-            PostgreSQL connection string.
-        """
-        encoded_user = urllib.parse.quote_plus(self.user)
-        encoded_password = urllib.parse.quote_plus(self.password)
-        return (
-            f"postgresql://{encoded_user}:{encoded_password}"
-            f"@{self.host}:{self.port}/{self.database}"
-        )
 
 
 async def _create_pool(database_url: str | None) -> asyncpg.Pool:
@@ -179,6 +162,8 @@ def create_app(
     pattern_router = create_pattern_router(get_adapter=get_adapter)
     app.include_router(pattern_router)
 
+    # Health endpoint is intentionally mounted at root path (not under /api/v1)
+    # so that load balancers and orchestrators can reach it without versioned paths.
     @app.get("/health", tags=["infrastructure"])
     async def health_check() -> JSONResponse:
         """Liveness/readiness probe for load balancers and orchestrators."""
