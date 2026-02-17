@@ -270,6 +270,84 @@ db_repository:
         many: true
 
     # -------------------------------------------------------------------------
+    # READ: Query patterns for enforcement (OMN-2253)
+    # -------------------------------------------------------------------------
+    # REST API query endpoint for compliance/enforcement nodes.
+    # Filters by domain, language (via keywords), and min_confidence.
+    # Returns validated/provisional patterns only.
+    query_patterns:
+      mode: read
+      description: |
+        Query patterns applicable to a domain and language with minimum
+        confidence threshold. Used by Epic 3 compliance nodes to find
+        applicable patterns before checking code.
+        Only returns validated/provisional, current patterns.
+        Ordered by status (validated first), then confidence DESC.
+      sql: |
+        SELECT
+          id,
+          pattern_signature,
+          signature_hash,
+          domain_id,
+          quality_score,
+          confidence,
+          status,
+          is_current,
+          version,
+          created_at
+        FROM learned_patterns
+        WHERE status IN ('validated', 'provisional')
+          AND is_current = TRUE
+          AND confidence >= :min_confidence
+          AND (:domain_id IS NULL OR domain_id = :domain_id)
+          AND (:language IS NULL OR :language = ANY(keywords))
+        ORDER BY
+          CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
+          confidence DESC,
+          id ASC
+        LIMIT :limit
+        OFFSET :offset
+      params:
+        domain_id:
+          name: domain_id
+          param_type: string
+          required: false
+          max_length: 50
+          description: Domain identifier to filter patterns by (optional)
+        language:
+          name: language
+          param_type: string
+          required: false
+          max_length: 50
+          description: Programming language to filter by (matched against keywords array)
+        min_confidence:
+          name: min_confidence
+          param_type: number
+          required: false
+          default: 0.7
+          ge: 0.0
+          le: 1.0
+          description: Minimum confidence threshold for pattern inclusion
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 50
+          ge: 1
+          le: 200
+          description: Maximum number of patterns to return per page
+        offset:
+          name: offset
+          param_type: integer
+          required: false
+          default: 0
+          ge: 0
+          description: Number of patterns to skip for pagination
+      returns:
+        model_ref: PatternSummary
+        many: true
+
+    # -------------------------------------------------------------------------
     # READ: Get promotion candidates
     # -------------------------------------------------------------------------
     list_promotion_candidates:
