@@ -185,6 +185,16 @@ _HOOK_EVENT_TOP_LEVEL_FIELDS = {
     "timestamp_utc",
 }
 
+_TOOL_CONTENT_ENVELOPE_KEYS: frozenset[str] = frozenset(
+    {"session_id", "correlation_id", "timestamp"}
+)
+"""Keys belonging to the tool-content envelope layer.
+
+Used by ``_reshape_tool_content_to_hook_event`` to split envelope keys from
+tool-content payload keys when building the nested payload dict.  Defined as
+a module-level frozenset to avoid reconstructing the set on every call.
+"""
+
 
 def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEvent:
     """Reshape a flat omniclaude publisher payload into ModelClaudeCodeHookEvent.
@@ -302,7 +312,6 @@ def _reshape_tool_content_to_hook_event(
         timestamp_utc = timestamp_utc.replace(tzinfo=UTC)
 
     # Build nested payload: all fields except the ones extracted above.
-    _TOOL_CONTENT_ENVELOPE_KEYS = {"session_id", "correlation_id", "timestamp"}
     nested = {k: v for k, v in payload.items() if k not in _TOOL_CONTENT_ENVELOPE_KEYS}
 
     return ModelClaudeCodeHookEvent(
@@ -553,6 +562,13 @@ def create_claude_hook_dispatch_handler(
                 # message that happens to include "timestamp_utc" as a
                 # domain key.  In practice this has not occurred; if it
                 # does, Pydantic validation will surface the mismatch.
+                #
+                # Detection order matters: daemon reshape check runs first
+                # because _reconstruct_payload_from_envelope may inject
+                # emitted_at into payloads, which would match
+                # _needs_daemon_reshape. Tool-content payloads lack
+                # daemon-specific keys (session_id, hook_type) so they
+                # won't false-match the daemon reshape path.
                 if _needs_daemon_reshape(payload):
                     parsed = _reshape_daemon_hook_payload_v1(payload)
                     event = ModelClaudeCodeHookEvent(**parsed)
