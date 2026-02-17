@@ -8,6 +8,8 @@ Ticket: OMN-2256
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -57,6 +59,7 @@ class ModelComplianceRequest(BaseModel):
     The patterns are typically retrieved from the pattern store API (OMN-2253).
 
     Attributes:
+        correlation_id: UUID for end-to-end tracing across operations.
         source_path: Path to the source file being evaluated.
         content: Source code content to evaluate.
         language: Programming language of the content.
@@ -65,6 +68,10 @@ class ModelComplianceRequest(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    correlation_id: UUID = Field(
+        ...,
+        description="Correlation ID for end-to-end tracing",
+    )
     source_path: str = Field(
         ...,
         min_length=1,

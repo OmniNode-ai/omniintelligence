@@ -20,6 +20,7 @@ import contextlib
 import logging
 import time
 from typing import Final
+from uuid import UUID
 
 from omniintelligence.nodes.node_pattern_compliance_compute.handlers.exceptions import (
     ComplianceLlmError,
@@ -95,6 +96,7 @@ async def handle_pattern_compliance_compute(
     """
     start_time = time.perf_counter()
     patterns_count = len(input_data.applicable_patterns)
+    cid = input_data.correlation_id
 
     try:
         return await _execute_compliance(
@@ -104,6 +106,7 @@ async def handle_pattern_compliance_compute(
     except ComplianceValidationError as e:
         processing_time = _safe_elapsed_ms(start_time)
         return _create_error_output(
+            correlation_id=cid,
             status=STATUS_VALIDATION_ERROR,
             message=str(e),
             processing_time_ms=processing_time,
@@ -113,6 +116,7 @@ async def handle_pattern_compliance_compute(
     except ComplianceLlmError as e:
         processing_time = _safe_elapsed_ms(start_time)
         return _create_error_output(
+            correlation_id=cid,
             status=STATUS_LLM_ERROR,
             message=str(e),
             processing_time_ms=processing_time,
@@ -122,6 +126,7 @@ async def handle_pattern_compliance_compute(
     except ComplianceParseError as e:
         processing_time = _safe_elapsed_ms(start_time)
         return _create_error_output(
+            correlation_id=cid,
             status=STATUS_PARSE_ERROR,
             message=str(e),
             processing_time_ms=processing_time,
@@ -134,7 +139,9 @@ async def handle_pattern_compliance_compute(
         try:
             logger.exception(
                 "Unhandled exception in pattern compliance compute. "
-                "source_path=%s, language=%s, processing_time_ms=%.2f",
+                "correlation_id=%s, source_path=%s, language=%s, "
+                "processing_time_ms=%.2f",
+                cid,
                 getattr(input_data, "source_path", "<unknown>"),
                 getattr(input_data, "language", "<unknown>"),
                 processing_time,
@@ -144,6 +151,7 @@ async def handle_pattern_compliance_compute(
                 logger.error("Pattern compliance compute failed: %s", e)
 
         return _create_error_output(
+            correlation_id=cid,
             status=STATUS_UNKNOWN_ERROR,
             message=f"Unhandled error: {e}",
             processing_time_ms=processing_time,
@@ -223,6 +231,7 @@ async def _execute_compliance(
         compliant=parsed["compliant"],
         confidence=parsed["confidence"],
         metadata=ModelComplianceMetadata(
+            correlation_id=input_data.correlation_id,
             status=STATUS_COMPLETED,
             compliance_prompt_version=COMPLIANCE_PROMPT_VERSION,
             model_used=model,
@@ -234,6 +243,7 @@ async def _execute_compliance(
 
 def _create_error_output(
     *,
+    correlation_id: UUID,
     status: str,
     message: str,
     processing_time_ms: float,
@@ -242,6 +252,7 @@ def _create_error_output(
     """Create error output with consistent structure.
 
     Args:
+        correlation_id: Correlation ID for tracing.
         status: Error status code.
         message: Error message.
         processing_time_ms: Elapsed time in milliseconds.
@@ -256,6 +267,7 @@ def _create_error_output(
         compliant=False,
         confidence=0.0,
         metadata=ModelComplianceMetadata(
+            correlation_id=correlation_id,
             status=status,
             message=message,
             compliance_prompt_version=COMPLIANCE_PROMPT_VERSION,

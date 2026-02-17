@@ -9,6 +9,7 @@ Ticket: OMN-2256
 from __future__ import annotations
 
 import json
+from uuid import UUID
 
 import pytest
 
@@ -16,6 +17,7 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_pattern_compliance_compute.handlers import (
     COMPLIANCE_PROMPT_VERSION,
+    ProtocolLlmClient,
     handle_pattern_compliance_compute,
 )
 from omniintelligence.nodes.node_pattern_compliance_compute.models import (
@@ -39,15 +41,20 @@ def _make_pattern(
     )
 
 
+_TEST_CORRELATION_ID = UUID("12345678-1234-5678-1234-567812345678")
+
+
 def _make_request(
     content: str = "class Foo: pass",
     language: str = "python",
     patterns: list[ModelApplicablePattern] | None = None,
+    correlation_id: UUID = _TEST_CORRELATION_ID,
 ) -> ModelComplianceRequest:
     """Helper to create test requests."""
     if patterns is None:
         patterns = [_make_pattern()]
     return ModelComplianceRequest(
+        correlation_id=correlation_id,
         source_path="test.py",
         content=content,
         language=language,
@@ -63,6 +70,7 @@ class MockLlmClient:
         self.call_count = 0
         self.last_messages: list[dict[str, str]] = []
         self.last_model: str = ""
+        assert isinstance(self, ProtocolLlmClient)
 
     async def chat_completion(
         self,
@@ -80,6 +88,9 @@ class MockLlmClient:
 
 class MockLlmClientError:
     """Mock LLM client that raises an error."""
+
+    def __init__(self) -> None:
+        assert isinstance(self, ProtocolLlmClient)
 
     async def chat_completion(
         self,

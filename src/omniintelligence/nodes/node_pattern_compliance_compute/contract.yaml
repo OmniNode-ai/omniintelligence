@@ -34,6 +34,7 @@ operations:
   - name: "evaluate_compliance"
     description: "Evaluate code compliance against applicable patterns"
     input_fields:
+      - correlation_id
       - source_path
       - content
       - language

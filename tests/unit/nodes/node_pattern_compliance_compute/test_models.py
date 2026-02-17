@@ -7,10 +7,14 @@ Ticket: OMN-2256
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import pytest
 from pydantic import ValidationError
 
 pytestmark = pytest.mark.unit
+
+_TEST_CID = UUID("12345678-1234-5678-1234-567812345678")
 
 from omniintelligence.nodes.node_pattern_compliance_compute.models import (
     ModelApplicablePattern,
@@ -73,6 +77,7 @@ class TestModelComplianceRequest:
     def test_valid_request(self) -> None:
         """Valid request should be created successfully."""
         r = ModelComplianceRequest(
+            correlation_id=_TEST_CID,
             source_path="test.py",
             content="class Foo: pass",
             language="python",
@@ -87,11 +92,13 @@ class TestModelComplianceRequest:
         )
         assert r.source_path == "test.py"
         assert len(r.applicable_patterns) == 1
+        assert r.correlation_id == _TEST_CID
 
     def test_empty_patterns_rejected(self) -> None:
         """Empty applicable_patterns list should be rejected."""
         with pytest.raises(ValidationError):
             ModelComplianceRequest(
+                correlation_id=_TEST_CID,
                 source_path="test.py",
                 content="class Foo: pass",
                 language="python",
@@ -102,6 +109,7 @@ class TestModelComplianceRequest:
         """Empty content should be rejected."""
         with pytest.raises(ValidationError):
             ModelComplianceRequest(
+                correlation_id=_TEST_CID,
                 source_path="test.py",
                 content="",
                 language="python",
@@ -118,6 +126,7 @@ class TestModelComplianceRequest:
     def test_frozen_model(self) -> None:
         """Request model should be frozen (immutable)."""
         r = ModelComplianceRequest(
+            correlation_id=_TEST_CID,
             source_path="test.py",
             content="class Foo: pass",
             language="python",
@@ -136,6 +145,7 @@ class TestModelComplianceRequest:
     def test_default_language_is_python(self) -> None:
         """Default language should be python."""
         r = ModelComplianceRequest(
+            correlation_id=_TEST_CID,
             source_path="test.py",
             content="class Foo: pass",
             applicable_patterns=[
