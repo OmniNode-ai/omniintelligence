@@ -1,0 +1,97 @@
+---
+# ONEX Node Contract - Pattern Compliance Compute Node
+# =============================================================================
+# Ticket: OMN-2256
+# Depends on: OMN-2253 (pattern store query API - provides applicable patterns)
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_pattern_compliance_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for evaluating code against applicable patterns using Coder-14B.
+  Receives code content and a list of patterns (from OMN-2253 pattern store API),
+  calls the LLM to identify violations, and returns a structured compliance result
+  with violation details, compliance status, and confidence score.
+input_model:
+  name: "ModelComplianceRequest"
+  module: "omniintelligence.nodes.node_pattern_compliance_compute.models"
+  description: "Input containing code to evaluate and applicable patterns to check against."
+output_model:
+  name: "ModelComplianceResult"
+  module: "omniintelligence.nodes.node_pattern_compliance_compute.models"
+  description: "Output containing compliance violations, compliance status, and confidence."
+metadata_model:
+  name: "ModelComplianceMetadata"
+  module: "omniintelligence.nodes.node_pattern_compliance_compute.models"
+  description: "Typed metadata for compliance output (status, prompt version, model used, timing)."
+operations:
+  - name: "evaluate_compliance"
+    description: "Evaluate code compliance against applicable patterns"
+    input_fields:
+      - file_path
+      - content
+      - language
+      - applicable_patterns
+    output_fields:
+      - success
+      - violations
+      - compliant
+      - confidence
+      - metadata
+# Handler Routing (Declarative Pattern)
+# =====================================
+# Compute nodes use a single async handler for all operations.
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "evaluate_compliance"
+      handler:
+        function: "handle_pattern_compliance_compute"
+        module: "omniintelligence.nodes.node_pattern_compliance_compute.handlers"
+        type: "async"
+dependencies:
+  - name: "llm_client"
+    type: "protocol"
+    class_name: "ProtocolLlmClient"
+    module: "omniintelligence.nodes.node_pattern_compliance_compute.handlers.protocols"
+    required: true
+    description: "OpenAI-compatible LLM client for compliance evaluation (Coder-14B)"
+# Error Handling Configuration
+# ============================
+error_handling:
+  error_types:
+    - name: "ComplianceValidationError"
+      error_code: "COMPLIANCE_001"
+      description: "Input validation failed (e.g., empty content, no patterns)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ComplianceLlmError"
+      error_code: "COMPLIANCE_002"
+      description: "LLM inference call failed (timeout, connection, etc.)"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ComplianceParseError"
+      error_code: "COMPLIANCE_003"
+      description: "LLM response could not be parsed into violations"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+# Note: health_check omitted - compute nodes with injected LLM client
+# delegate health monitoring to the infrastructure layer.
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-17"
+  updated: "2026-02-17"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "compliance"
+    - "patterns"
+    - "llm"
+    - "coder-14b"
