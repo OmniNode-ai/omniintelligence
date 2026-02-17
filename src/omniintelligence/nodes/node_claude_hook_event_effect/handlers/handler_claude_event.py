@@ -18,6 +18,7 @@ Reference:
 
 from __future__ import annotations
 
+import base64
 import logging
 import time
 from datetime import UTC, datetime
@@ -413,6 +414,12 @@ def _extract_prompt_from_payload(
 ) -> tuple[str, str]:
     """Extract the user prompt from a hook event payload.
 
+    Supports multiple payload formats:
+    - Direct ``prompt`` attribute (canonical publisher format)
+    - ``prompt`` in model_extra (extra="allow" captures it)
+    - ``prompt_b64`` in model_extra (daemon format, base64-encoded full prompt)
+    - ``prompt_preview`` in model_extra (daemon format, truncated fallback)
+
     Args:
         payload: The hook event payload to extract from.
 
@@ -429,13 +436,32 @@ def _extract_prompt_from_payload(
         if direct_value is not None and direct_value != "":
             return str(direct_value), "direct_attribute"
 
-    # Strategy 2: Extract from model_extra
+    # Strategy 2: Extract "prompt" from model_extra
     if payload.model_extra:
         prompt_value = payload.model_extra.get("prompt")
         if prompt_value is not None and prompt_value != "":
             return str(prompt_value), "model_extra"
 
-    # Strategy 3: Not found
+    # Strategy 3: Decode prompt_b64 from model_extra (daemon format)
+    if payload.model_extra:
+        b64_value = payload.model_extra.get("prompt_b64")
+        if b64_value is not None and b64_value != "":
+            try:
+                decoded = base64.b64decode(str(b64_value)).decode("utf-8")
+                if decoded:
+                    return decoded, "prompt_b64"
+            except (ValueError, UnicodeDecodeError):
+                logger.warning(
+                    "Failed to decode prompt_b64, falling back to prompt_preview"
+                )
+
+    # Strategy 4: Use prompt_preview from model_extra (daemon format, truncated)
+    if payload.model_extra:
+        preview_value = payload.model_extra.get("prompt_preview")
+        if preview_value is not None and preview_value != "":
+            return str(preview_value), "prompt_preview"
+
+    # Strategy 5: Not found
     return "", "not_found"
 
 
