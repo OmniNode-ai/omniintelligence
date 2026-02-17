@@ -363,20 +363,16 @@ def _raw_events_to_sessions(
 
             if tool_name:
                 tool_executions.append(
-                    LocalToolExecution(
-                        tool_name=str(tool_name),
-                        success=bool(success),
-                        error_message=str(ev["error_message"])
-                        if ev.get("error_message")
-                        else None,
-                        error_type=str(ev["error_type"])
-                        if ev.get("error_type")
-                        else None,
-                        duration_ms=int(float(str(ev["duration_ms"])))
-                        if ev.get("duration_ms") is not None
-                        else None,
-                        tool_parameters=ev.get("tool_parameters"),
-                        timestamp=ts,
+                    LocalToolExecution.model_validate(
+                        {
+                            "tool_name": str(tool_name),
+                            "success": success,
+                            "error_message": ev.get("error_message"),
+                            "error_type": ev.get("error_type"),
+                            "duration_ms": ev.get("duration_ms"),
+                            "tool_parameters": ev.get("tool_parameters"),
+                            "timestamp": ts,
+                        }
                     )
                 )
 
