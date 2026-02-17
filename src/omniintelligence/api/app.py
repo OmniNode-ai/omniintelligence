@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 import asyncpg
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from omniintelligence.api.router_patterns import create_pattern_router
@@ -84,6 +84,13 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
             min_size=2,
             max_size=10,
         )
+    except ValidationError:
+        logger.exception(
+            "Missing required database configuration. "
+            "Check POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, "
+            "POSTGRES_PASSWORD, POSTGRES_DATABASE environment variables."
+        )
+        raise
     except Exception:
         logger.exception(
             "Failed to create database connection pool. "
@@ -204,6 +211,7 @@ def create_app(
         try:
             await pool.fetchval("SELECT 1")
         except (asyncpg.PostgresError, asyncpg.InterfaceError, OSError):
+            logger.warning("Health check failed: database unreachable", exc_info=True)
             return JSONResponse(
                 status_code=503,
                 content={"status": "degraded", "detail": "database unreachable"},

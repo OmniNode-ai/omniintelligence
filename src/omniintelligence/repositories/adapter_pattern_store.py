@@ -419,6 +419,11 @@ class AdapterPatternStore:
     ) -> list[dict[str, Any]]:
         """Query validated/provisional patterns by domain, language, and confidence.
 
+        This method is intentionally NOT part of the ProtocolPatternStore protocol.
+        It is an API-layer concern (query/filter operations) rather than a core
+        storage operation. Other ProtocolPatternStore implementations are not
+        required to implement it.
+
         Used by the REST API endpoint (OMN-2253) to serve pattern queries
         for compliance/enforcement nodes.
 

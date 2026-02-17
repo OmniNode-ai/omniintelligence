@@ -80,7 +80,10 @@ class ModelPatternQueryPage(BaseModel):
     total_returned: int = Field(
         ...,
         ge=0,
-        description="Number of patterns in this page",
+        description=(
+            "Number of patterns in this page. "
+            "When total_returned < limit, this is the final page."
+        ),
     )
     limit: int = Field(
         ...,

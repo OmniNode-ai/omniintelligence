@@ -32,7 +32,9 @@ def create_pattern_router(
 
     Authentication/authorization is intentionally omitted. This API is
     designed for internal service-to-service access only and is not
-    exposed to external clients.
+    exposed to external clients. Access is restricted to internal
+    networks via deployment configuration. See infrastructure docs
+    for network topology.
 
     Args:
         get_adapter: Dependency callable that returns an AdapterPatternStore.
