@@ -163,11 +163,11 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
     )
-    from omniintelligence.nodes.node_pattern_demotion_effect.node import (
-        NodePatternDemotionEffect as NodePatternDemotionEffect,
-    )
     from omniintelligence.nodes.node_pattern_compliance_compute.node import (
         NodePatternComplianceCompute as NodePatternComplianceCompute,
+    )
+    from omniintelligence.nodes.node_pattern_demotion_effect.node import (
+        NodePatternDemotionEffect as NodePatternDemotionEffect,
     )
     from omniintelligence.nodes.node_pattern_extraction_compute.node import (
         NodePatternExtractionCompute as NodePatternExtractionCompute,

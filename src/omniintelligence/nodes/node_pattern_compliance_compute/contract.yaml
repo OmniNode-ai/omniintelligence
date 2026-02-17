@@ -15,10 +15,9 @@ node_version:
 name: "node_pattern_compliance_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Compute node for evaluating code against applicable patterns using Coder-14B.
-  Receives code content and a list of patterns (from OMN-2253 pattern store API),
-  calls the LLM to identify violations, and returns a structured compliance result
-  with violation details, compliance status, and confidence score.
+  Compute node for evaluating code against applicable patterns using Coder-14B. Receives code content
+  and a list of patterns (from OMN-2253 pattern store API), calls the LLM to identify violations, and
+  returns a structured compliance result with violation details, compliance status, and confidence score.
 input_model:
   name: "ModelComplianceRequest"
   module: "omniintelligence.nodes.node_pattern_compliance_compute.models"
