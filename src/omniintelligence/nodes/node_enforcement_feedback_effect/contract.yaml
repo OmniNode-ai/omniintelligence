@@ -42,7 +42,7 @@ description: >
   events containing patterns_checked, violations_found, and per-violation details (was_advised, was_corrected).
   Applies conservative confidence adjustments (-0.01 per confirmed violation) to quality_score in learned_patterns.
   A violation is only confirmed when was_advised=true AND was_corrected=true, ensuring false positives
-  do not erode pattern confidence. #magic___^_^___line
+  do not erode pattern confidence.
 # =============================================================================
 # I/O MODELS
 # =============================================================================

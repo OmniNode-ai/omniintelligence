@@ -28,10 +28,11 @@ import pytest
 # Relative to project root; resolved via project_root fixture in tests.
 NODES_DIR = Path("src/omniintelligence/nodes")
 
-# All 17 node directories that MUST be importable for HandlerPluginLoader.
+# All 18 node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
+    "node_enforcement_feedback_effect",
     "node_execution_trace_parser_compute",
     "node_intelligence_orchestrator",
     "node_intelligence_reducer",
