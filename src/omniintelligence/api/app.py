@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -93,7 +94,7 @@ def create_app(
         """Manage connection pool lifecycle."""
         import asyncpg
 
-        dsn = state["database_url"] or DatabaseSettings().get_dsn()  # type: ignore[call-arg]
+        dsn = state["database_url"] or DatabaseSettings().get_dsn()  # type: ignore[call-arg]  # fields populated from env vars at runtime
         logger.info("Connecting to database...")
         try:
             pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
@@ -140,11 +141,19 @@ def create_app(
     app.include_router(pattern_router)
 
     @app.get("/health", tags=["infrastructure"])
-    async def health_check() -> dict[str, str]:
+    async def health_check() -> JSONResponse:
         """Liveness/readiness probe for load balancers and orchestrators."""
-        if state["pool"] is None:
-            return {"status": "starting"}
-        return {"status": "healthy"}
+        pool = state["pool"]
+        if pool is None:
+            return JSONResponse(content={"status": "starting"})
+        try:
+            await pool.fetchval("SELECT 1")
+        except Exception:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "degraded", "detail": "database unreachable"},
+            )
+        return JSONResponse(content={"status": "healthy"})
 
     return app
 

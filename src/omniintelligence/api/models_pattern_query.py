@@ -36,10 +36,10 @@ class ModelPatternQueryResponse(BaseModel):
     )
     domain_id: str = Field(..., max_length=50, description="Domain identifier")
     quality_score: float | None = Field(
-        default=0.5,
+        default=None,
         ge=0.0,
         le=1.0,
-        description="Overall quality score (0.0-1.0)",
+        description="Overall quality score (0.0-1.0). None means not yet computed.",
     )
     confidence: float = Field(
         ...,

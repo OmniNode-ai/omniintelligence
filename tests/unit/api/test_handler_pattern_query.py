@@ -12,7 +12,9 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import asyncpg
 import pytest
+from fastapi import HTTPException
 
 from omniintelligence.api.handler_pattern_query import handle_query_patterns
 from omniintelligence.api.models_pattern_query import (
@@ -159,3 +161,31 @@ class TestHandleQueryPatterns:
             limit=50,
             offset=0,
         )
+
+    async def test_database_error_returns_502(self, mock_adapter: AsyncMock) -> None:
+        """Handler returns HTTPException 502 when database query fails."""
+        mock_adapter.query_patterns.side_effect = asyncpg.PostgresError(
+            "connection refused"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await handle_query_patterns(adapter=mock_adapter)
+
+        assert exc_info.value.status_code == 502
+        assert "database error" in exc_info.value.detail.lower()
+
+    async def test_validation_error_returns_502(
+        self, mock_adapter: AsyncMock
+    ) -> None:
+        """Handler returns HTTPException 502 when rows have unexpected schema."""
+        # Return a row missing required fields so model_validate raises
+        # ValidationError.
+        mock_adapter.query_patterns.return_value = [
+            {"bad_field": "not_a_valid_pattern"}
+        ]
+
+        with pytest.raises(HTTPException) as exc_info:
+            await handle_query_patterns(adapter=mock_adapter)
+
+        assert exc_info.value.status_code == 502
+        assert "unexpected schema" in exc_info.value.detail.lower()

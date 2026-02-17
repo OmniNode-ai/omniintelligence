@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import asyncpg
 from fastapi import HTTPException
 from pydantic import ValidationError
 
@@ -71,7 +72,7 @@ async def handle_query_patterns(
             limit=limit,
             offset=offset,
         )
-    except Exception:
+    except (asyncpg.PostgresError, OSError, ConnectionError):
         logger.exception("Database query failed in pattern store adapter")
         raise HTTPException(
             status_code=502,
