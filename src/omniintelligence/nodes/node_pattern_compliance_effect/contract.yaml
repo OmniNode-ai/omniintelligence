@@ -16,11 +16,10 @@ node_version:
 name: "node_pattern_compliance_effect"
 node_type: "EFFECT_GENERIC"
 description: >-
-  Effect node for evaluating code against applicable patterns using Coder-14B. Receives code content
-  and a list of patterns (from OMN-2253 pattern store API), calls the LLM to identify violations, and
-  returns a structured compliance result with violation details, compliance status, and confidence score.
-  Classified as EFFECT because it performs external I/O (LLM inference via ProtocolLlmClient).
-
+  Effect node for evaluating code against applicable patterns using Coder-14B. Receives code content and
+  a list of patterns (from OMN-2253 pattern store API), calls the LLM to identify violations, and returns
+  a structured compliance result with violation details, compliance status, and confidence score. Classified
+  as EFFECT because it performs external I/O (LLM inference via ProtocolLlmClient). #magic___^_^___line
 # =============================================================================
 # I/O MODELS
 # =============================================================================
@@ -95,17 +94,17 @@ dependencies:
     class_name: "ProtocolLlmClient"
     module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols"
     required: true
-    description: "OpenAI-compatible LLM client for compliance evaluation (Coder-14B). This is external I/O."
+    description: "OpenAI-compatible LLM client for compliance evaluation (Coder-14B). This is external
+      I/O."
   - name: "kafka_producer"
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
     module: "omniintelligence.protocols"
     required: false
     description: >-
-      Optional Kafka producer for DLQ routing of failed compliance evaluations.
-      When unavailable (None), evaluations still return structured error output
-      but failures are not routed to the Dead Letter Queue. Kafka failures in
-      DLQ routing are caught and logged, never raised.
+      Optional Kafka producer for DLQ routing of failed compliance evaluations. When unavailable (None),
+      evaluations still return structured error output but failures are not routed to the Dead Letter
+      Queue. Kafka failures in DLQ routing are caught and logged, never raised.
 
 # =============================================================================
 # ERROR HANDLING
@@ -117,9 +116,9 @@ error_handling:
       description: "Input validation failed (e.g., empty content, no patterns)"
       recoverable: false
       retry_strategy: "none"
-  # COMPLIANCE_002 (LLM errors) and COMPLIANCE_003 (parse errors) are handled
-  # via structured error output in ModelComplianceResult, not exception classes.
-  # See handler_compute.py for the structured error return paths.
+      # COMPLIANCE_002 (LLM errors) and COMPLIANCE_003 (parse errors) are handled
+      # via structured error output in ModelComplianceResult, not exception classes.
+      # See handler_compute.py for the structured error return paths.
 
 # =============================================================================
 # CAPABILITIES
@@ -139,8 +138,8 @@ idempotency:
   enabled: true
   strategy: "correlation_id_tracking"
   hash_fields: ["correlation_id", "source_path", "content", "applicable_patterns"]
-  description: "Compliance evaluation is idempotent for the same code content and pattern set.
-    Re-evaluating the same request with the same correlation_id returns cached results."
+  description: "Compliance evaluation is idempotent for the same code content and pattern set. Re-evaluating
+    the same request with the same correlation_id returns cached results."
 
 # =============================================================================
 # METADATA
