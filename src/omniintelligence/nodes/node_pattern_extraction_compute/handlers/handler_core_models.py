@@ -372,7 +372,7 @@ def _raw_events_to_sessions(
                         error_type=str(ev["error_type"])
                         if ev.get("error_type")
                         else None,
-                        duration_ms=int(float(ev["duration_ms"]))
+                        duration_ms=int(float(str(ev["duration_ms"])))
                         if ev.get("duration_ms") is not None
                         else None,
                         tool_parameters=ev.get("tool_parameters"),
