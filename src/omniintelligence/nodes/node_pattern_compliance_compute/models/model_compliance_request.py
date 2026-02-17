@@ -57,7 +57,7 @@ class ModelComplianceRequest(BaseModel):
     The patterns are typically retrieved from the pattern store API (OMN-2253).
 
     Attributes:
-        file_path: Path to the source file being evaluated.
+        source_path: Path to the source file being evaluated.
         content: Source code content to evaluate.
         language: Programming language of the content.
         applicable_patterns: List of patterns to check compliance against.
@@ -65,7 +65,7 @@ class ModelComplianceRequest(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    file_path: str = Field(
+    source_path: str = Field(
         ...,
         min_length=1,
         description="Path to the source file being evaluated",

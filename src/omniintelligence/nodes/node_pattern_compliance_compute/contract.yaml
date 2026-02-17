@@ -35,7 +35,7 @@ operations:
   - name: "evaluate_compliance"
     description: "Evaluate code compliance against applicable patterns"
     input_fields:
-      - file_path
+      - source_path
       - content
       - language
       - applicable_patterns

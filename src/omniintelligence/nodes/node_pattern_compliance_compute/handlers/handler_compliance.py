@@ -42,13 +42,6 @@ VALID_SEVERITIES: Final[frozenset[str]] = frozenset(
     {"critical", "major", "minor", "info"}
 )
 
-# System prompt for the compliance evaluation LLM call.
-_SYSTEM_PROMPT: Final[str] = (
-    "You are a code compliance evaluator. You analyze source code against "
-    "a set of patterns and report violations. You respond ONLY with valid JSON, "
-    "no markdown fences, no commentary."
-)
-
 
 def build_compliance_prompt(
     *,

@@ -4,8 +4,13 @@ Evaluates code against applicable patterns using Coder-14B (via ProtocolLlmClien
 This node follows the ONEX declarative pattern where the node class is a thin
 shell that delegates all logic to handler functions.
 
-The LLM client is injected via constructor, following the registry pattern
-used by effect nodes (see NodePatternPromotionEffect for precedent).
+Callers invoke the handler directly with their dependencies:
+    result = await handle_pattern_compliance_compute(
+        request, llm_client=client, model="Qwen/Qwen2.5-Coder-14B-Instruct"
+    )
+
+Or use RuntimeHostProcess for event-driven execution, which reads
+handler_routing from contract.yaml.
 
 Ticket: OMN-2256
 """
@@ -14,11 +19,6 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers import (
-    DEFAULT_MODEL,
-    ProtocolLlmClient,
-    handle_pattern_compliance_compute,
-)
 from omniintelligence.nodes.node_pattern_compliance_compute.models import (
     ModelComplianceRequest,
     ModelComplianceResult,
@@ -30,40 +30,27 @@ class NodePatternComplianceCompute(
 ):
     """Compute node for evaluating code compliance against patterns.
 
-    Delegates all logic to the handler function. The LLM client is
-    injected via constructor to allow testing with mocks.
+    This node is a pure declarative shell following the ONEX pattern.
+    All logic is delegated to handle_pattern_compliance_compute.
 
-    This node is a thin shell following the ONEX declarative pattern.
+    Handlers are invoked directly by callers with their dependencies
+    (llm_client, model). This node contains NO instance variables
+    for handlers or registries.
+
+    Example::
+
+        from omniintelligence.nodes.node_pattern_compliance_compute.handlers import (
+            handle_pattern_compliance_compute,
+        )
+
+        result = await handle_pattern_compliance_compute(
+            request,
+            llm_client=my_llm_client,
+            model="Qwen/Qwen2.5-Coder-14B-Instruct",
+        )
     """
 
-    def __init__(
-        self,
-        *args: object,
-        llm_client: ProtocolLlmClient,
-        model: str = DEFAULT_MODEL,
-        **kwargs: object,
-    ) -> None:
-        """Initialize with LLM client dependency.
-
-        Args:
-            llm_client: LLM client for inference calls.
-            model: Model identifier (default: Coder-14B).
-            *args: Passed to NodeCompute.
-            **kwargs: Passed to NodeCompute.
-        """
-        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        self._llm_client = llm_client
-        self._model = model
-
-    async def compute(
-        self, input_data: ModelComplianceRequest
-    ) -> ModelComplianceResult:
-        """Evaluate code compliance by delegating to handler function."""
-        return await handle_pattern_compliance_compute(
-            input_data,
-            llm_client=self._llm_client,
-            model=self._model,
-        )
+    # Pure declarative shell - all behavior defined in contract.yaml
 
 
 __all__ = ["NodePatternComplianceCompute"]

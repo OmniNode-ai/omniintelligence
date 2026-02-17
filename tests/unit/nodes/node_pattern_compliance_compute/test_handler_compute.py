@@ -48,7 +48,7 @@ def _make_request(
     if patterns is None:
         patterns = [_make_pattern()]
     return ModelComplianceRequest(
-        file_path="test.py",
+        source_path="test.py",
         content=content,
         language=language,
         applicable_patterns=patterns,

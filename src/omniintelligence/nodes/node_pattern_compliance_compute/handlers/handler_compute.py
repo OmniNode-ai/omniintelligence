@@ -134,8 +134,8 @@ async def handle_pattern_compliance_compute(
         try:
             logger.exception(
                 "Unhandled exception in pattern compliance compute. "
-                "file_path=%s, language=%s, processing_time_ms=%.2f",
-                getattr(input_data, "file_path", "<unknown>"),
+                "source_path=%s, language=%s, processing_time_ms=%.2f",
+                getattr(input_data, "source_path", "<unknown>"),
                 getattr(input_data, "language", "<unknown>"),
                 processing_time,
             )

@@ -73,7 +73,7 @@ class TestModelComplianceRequest:
     def test_valid_request(self) -> None:
         """Valid request should be created successfully."""
         r = ModelComplianceRequest(
-            file_path="test.py",
+            source_path="test.py",
             content="class Foo: pass",
             language="python",
             applicable_patterns=[
@@ -85,14 +85,14 @@ class TestModelComplianceRequest:
                 )
             ],
         )
-        assert r.file_path == "test.py"
+        assert r.source_path == "test.py"
         assert len(r.applicable_patterns) == 1
 
     def test_empty_patterns_rejected(self) -> None:
         """Empty applicable_patterns list should be rejected."""
         with pytest.raises(ValidationError):
             ModelComplianceRequest(
-                file_path="test.py",
+                source_path="test.py",
                 content="class Foo: pass",
                 language="python",
                 applicable_patterns=[],
@@ -102,7 +102,7 @@ class TestModelComplianceRequest:
         """Empty content should be rejected."""
         with pytest.raises(ValidationError):
             ModelComplianceRequest(
-                file_path="test.py",
+                source_path="test.py",
                 content="",
                 language="python",
                 applicable_patterns=[
@@ -118,7 +118,7 @@ class TestModelComplianceRequest:
     def test_frozen_model(self) -> None:
         """Request model should be frozen (immutable)."""
         r = ModelComplianceRequest(
-            file_path="test.py",
+            source_path="test.py",
             content="class Foo: pass",
             language="python",
             applicable_patterns=[
@@ -136,7 +136,7 @@ class TestModelComplianceRequest:
     def test_default_language_is_python(self) -> None:
         """Default language should be python."""
         r = ModelComplianceRequest(
-            file_path="test.py",
+            source_path="test.py",
             content="class Foo: pass",
             applicable_patterns=[
                 ModelApplicablePattern(
