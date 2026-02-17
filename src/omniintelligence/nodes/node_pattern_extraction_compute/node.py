@@ -60,6 +60,17 @@ class NodePatternExtractionCompute(
     async def compute_core(self, input_data: CorePatternInput) -> CorePatternOutput:
         """Extract patterns using core models by delegating to handler.
 
+        **Design note -- secondary entry point outside NodeCompute[I, O] contract**:
+
+        This method intentionally exists outside the generic ``compute()`` contract.
+        ``RuntimeHostProcess`` discovers and invokes only the primary ``compute()``
+        method (which uses local models).  ``compute_core()`` is a direct-call entry
+        point for callers that already hold a reference to this node instance and need
+        to work with the canonical ``omnibase_core`` pattern extraction models
+        (e.g., orchestrators, integration tests, or the pattern assembler pipeline).
+
+        It is NOT discovered or routed by ``RuntimeHostProcess``; that is intentional.
+
         This method uses the canonical ``ModelPatternExtractionInput`` and
         ``ModelPatternExtractionOutput`` from ``omnibase_core``, bridging
         to the existing local extraction pipeline.

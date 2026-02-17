@@ -361,7 +361,7 @@ def _raw_events_to_sessions(
                         error_type=str(ev["error_type"])
                         if ev.get("error_type")
                         else None,
-                        duration_ms=int(str(ev["duration_ms"]))
+                        duration_ms=int(float(ev["duration_ms"]))
                         if ev.get("duration_ms") is not None
                         else None,
                         tool_parameters=ev.get("tool_parameters"),
@@ -373,8 +373,6 @@ def _raw_events_to_sessions(
                 err_msg = ev.get("error_message")
                 if err_msg:
                     errors_encountered.append(str(err_msg))
-                if outcome != "failure":
-                    outcome = "partial" if success else "failure"
 
         # Determine outcome from events
         all_success = all(ev.get("success", True) for ev in events)
@@ -471,9 +469,19 @@ def _insights_to_patterns_by_kind(
     result: dict[EnumPatternKind, list[ModelPatternRecord]] = {}
 
     for insight in insights:
-        kind = kind_override or _INSIGHT_TO_KIND.get(
-            insight.insight_type, EnumPatternKind.FILE_ACCESS
-        )
+        if kind_override is not None:
+            kind = kind_override
+        else:
+            mapped = _INSIGHT_TO_KIND.get(insight.insight_type)
+            if mapped is None:
+                logger.warning(
+                    "Unmapped insight type %r falling back to FILE_ACCESS; "
+                    "update _INSIGHT_TO_KIND to handle this type explicitly",
+                    insight.insight_type,
+                )
+                kind = EnumPatternKind.FILE_ACCESS
+            else:
+                kind = mapped
 
         record = ModelPatternRecord(
             pattern_id=_stable_uuid(insight.insight_id),

@@ -413,8 +413,9 @@ class TestExtractPatternsCore:
 
         assert result.success is True
         err_patterns = result.patterns_by_kind[EnumPatternKind.ERROR]
-        # Should detect error-prone file or error sequence patterns
-        assert len(err_patterns) >= 0  # May or may not detect depending on threshold
+        # 3 sessions with the same ConnectionError on the same file should produce
+        # at least one error pattern at min_occurrences=1 / min_confidence=0.1
+        assert len(err_patterns) > 0
 
     def test_tool_usage_patterns_detected(
         self, raw_events_with_tools: list[dict]
