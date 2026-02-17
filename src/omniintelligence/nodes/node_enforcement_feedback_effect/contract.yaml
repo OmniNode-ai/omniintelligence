@@ -76,6 +76,7 @@ handler_routing:
         - violations_found
         - confirmed_violations
         - adjustments
+        - processing_errors
         - processed_at
         - error_message
 
@@ -100,6 +101,7 @@ io_operations:
       - violations_found
       - confirmed_violations
       - adjustments
+      - processing_errors
       - processed_at
       - error_message
 
@@ -166,7 +168,7 @@ event_bus:
 # =============================================================================
 idempotency:
   enabled: true
-  strategy: "event_id_tracking"
+  strategy: "best_effort_bounded"
   hash_fields: ["correlation_id", "session_id"]
   description: >
     Each enforcement event is uniquely identified by (correlation_id, session_id). The quality_score adjustment
