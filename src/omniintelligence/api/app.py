@@ -14,11 +14,11 @@ Ticket: OMN-2253
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import urllib.parse
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any
 
 import asyncpg
 from fastapi import FastAPI
@@ -69,6 +69,62 @@ class DatabaseSettings(BaseSettings):
         )
 
 
+async def _create_pool(database_url: str | None) -> asyncpg.Pool:  # type: ignore[type-arg]
+    """Create asyncpg connection pool without keeping credentials in scope.
+
+    When *database_url* is supplied it is used directly.  Otherwise the
+    pool is created from discrete ``DatabaseSettings`` fields so that no
+    assembled DSN string lingers in a local variable that could leak
+    through exception tracebacks.
+
+    Args:
+        database_url: Optional pre-built PostgreSQL DSN.
+
+    Returns:
+        An initialised asyncpg connection pool.
+
+    Raises:
+        Exception: Re-raises any pool creation error after logging an
+            actionable diagnostic message.
+    """
+    try:
+        if database_url is not None:
+            return await asyncpg.create_pool(
+                dsn=database_url, min_size=2, max_size=10
+            )
+
+        settings = DatabaseSettings()  # type: ignore[call-arg]  # fields populated from env vars at runtime
+        return await asyncpg.create_pool(
+            host=settings.host,
+            port=settings.port,
+            user=settings.user,
+            password=settings.password,
+            database=settings.database,
+            min_size=2,
+            max_size=10,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to create database connection pool. "
+            "Verify POSTGRES_HOST, POSTGRES_PORT, and POSTGRES_PASSWORD "
+            "are correct and that the database is reachable."
+        )
+        raise
+
+
+@dataclasses.dataclass
+class _AppState:
+    """Typed shared state for the FastAPI lifespan and dependency closures.
+
+    Replaces an untyped ``dict[str, Any]`` to make the contract explicit
+    and prevent key-name typos at the cost of one small class.
+    """
+
+    database_url: str | None = None
+    adapter: AdapterPatternStore | None = None
+    pool: asyncpg.Pool | None = None  # type: ignore[type-arg]
+
+
 def create_app(
     *,
     database_url: str | None = None,
@@ -83,47 +139,33 @@ def create_app(
     Returns:
         Configured FastAPI application.
     """
-    # Store shared state for the lifespan and dependency
-    state: dict[str, Any] = {
-        "database_url": database_url,
-        "adapter": None,
-        "pool": None,
-    }
+    state = _AppState(database_url=database_url)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
         """Manage connection pool lifecycle."""
-        dsn = state["database_url"] or DatabaseSettings().get_dsn()  # type: ignore[call-arg]  # fields populated from env vars at runtime
         logger.info("Connecting to database...")
-        try:
-            pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
-        except Exception:
-            logger.exception(
-                "Failed to create database connection pool. "
-                "Verify POSTGRES_HOST, POSTGRES_PORT, and POSTGRES_PASSWORD "
-                "are correct and that the database is reachable."
-            )
-            raise
+        pool = await _create_pool(state.database_url)
         try:
             adapter = await create_pattern_store_adapter(pool)
         except Exception:
             await pool.close()
             raise
-        state["pool"] = pool
-        state["adapter"] = adapter
+        state.pool = pool
+        state.adapter = adapter
         logger.info("Database connection pool established")
 
         yield
 
         logger.info("Closing database connection pool...")
         await pool.close()
-        state["pool"] = None
-        state["adapter"] = None
+        state.pool = None
+        state.adapter = None
         logger.info("Database connection pool closed")
 
     async def get_adapter() -> AdapterPatternStore:
         """FastAPI dependency that returns the pattern store adapter."""
-        adapter = state["adapter"]
+        adapter = state.adapter
         if not isinstance(adapter, AdapterPatternStore):
             msg = "Pattern store adapter not initialized. Is the app running?"
             raise RuntimeError(msg)
@@ -142,12 +184,15 @@ def create_app(
     @app.get("/health", tags=["infrastructure"])
     async def health_check() -> JSONResponse:
         """Liveness/readiness probe for load balancers and orchestrators."""
-        pool = state["pool"]
+        pool = state.pool
         if pool is None:
-            return JSONResponse(content={"status": "starting"})
+            return JSONResponse(
+                status_code=503,
+                content={"status": "starting"},
+            )
         try:
             await pool.fetchval("SELECT 1")
-        except (asyncpg.PostgresError, OSError):
+        except (asyncpg.PostgresError, asyncpg.InterfaceError, OSError):
             return JSONResponse(
                 status_code=503,
                 content={"status": "degraded", "detail": "database unreachable"},
