@@ -50,6 +50,7 @@ from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
     ModelEnforcementEvent,
     ModelEnforcementFeedbackResult,
     ModelPatternViolation,
+    ModelProcessingError,
 )
 from omniintelligence.protocols import ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -103,7 +104,7 @@ WHERE id = $1
 # =============================================================================
 
 
-def _filter_confirmed_violations(
+def filter_confirmed_violations(
     violations: list[ModelPatternViolation],
 ) -> list[ModelPatternViolation]:
     """Filter violations to only those meeting the confirmation criteria.
@@ -175,7 +176,7 @@ async def process_enforcement_feedback(
         )
 
     # Step 2: Filter to confirmed violations (advised AND corrected)
-    confirmed = _filter_confirmed_violations(event.violations)
+    confirmed = filter_confirmed_violations(event.violations)
 
     if not confirmed:
         logger.info(
@@ -197,8 +198,14 @@ async def process_enforcement_feedback(
             processed_at=datetime.now(UTC),
         )
 
-    # Step 3: Apply confidence adjustments for each confirmed violation
+    # Step 3: Apply confidence adjustments for each confirmed violation.
+    #
+    # Each adjustment runs as an independent UPDATE because the
+    # ProtocolPatternRepository does not expose transaction control.
+    # Failures are captured per-violation so callers can see exactly
+    # which adjustments succeeded and which failed.
     adjustments: list[ModelConfidenceAdjustment] = []
+    processing_errors: list[ModelProcessingError] = []
 
     for violation in confirmed:
         try:
@@ -224,6 +231,21 @@ async def process_enforcement_feedback(
                 },
                 exc_info=True,
             )
+            processing_errors.append(
+                ModelProcessingError(
+                    pattern_id=violation.pattern_id,
+                    pattern_name=violation.pattern_name,
+                    error=sanitized_error,
+                    error_type=type(exc).__name__,
+                )
+            )
+
+    # Determine status: PARTIAL_SUCCESS when any adjustment failed
+    # (regardless of whether others succeeded), SUCCESS otherwise.
+    if processing_errors:
+        status = EnumEnforcementFeedbackStatus.PARTIAL_SUCCESS
+    else:
+        status = EnumEnforcementFeedbackStatus.SUCCESS
 
     logger.info(
         "Enforcement feedback processing complete",
@@ -232,17 +254,19 @@ async def process_enforcement_feedback(
             "session_id": str(event.session_id),
             "confirmed_violations": len(confirmed),
             "adjustments_applied": len(adjustments),
+            "processing_errors": len(processing_errors),
         },
     )
 
     return ModelEnforcementFeedbackResult(
-        status=EnumEnforcementFeedbackStatus.SUCCESS,
+        status=status,
         correlation_id=event.correlation_id,
         session_id=event.session_id,
         patterns_checked=event.patterns_checked,
         violations_found=event.violations_found,
         confirmed_violations=len(confirmed),
         adjustments=adjustments,
+        processing_errors=processing_errors,
         processed_at=datetime.now(UTC),
     )
 
@@ -309,5 +333,6 @@ async def _apply_confidence_adjustment(
 
 __all__ = [
     "CONFIDENCE_ADJUSTMENT_PER_VIOLATION",
+    "filter_confirmed_violations",
     "process_enforcement_feedback",
 ]

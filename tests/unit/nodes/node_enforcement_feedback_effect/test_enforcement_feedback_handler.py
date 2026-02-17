@@ -20,7 +20,7 @@ import pytest
 
 from omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback import (
     CONFIDENCE_ADJUSTMENT_PER_VIOLATION,
-    _filter_confirmed_violations,
+    filter_confirmed_violations,
     process_enforcement_feedback,
 )
 from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
@@ -83,10 +83,10 @@ assert isinstance(_MockRepo(), ProtocolPatternRepository)
 
 @pytest.mark.unit
 class TestFilterConfirmedViolations:
-    """Tests for _filter_confirmed_violations pure function."""
+    """Tests for filter_confirmed_violations pure function."""
 
     def test_empty_list(self) -> None:
-        assert _filter_confirmed_violations([]) == []
+        assert filter_confirmed_violations([]) == []
 
     def test_only_confirmed(self) -> None:
         v = ModelPatternViolation(
@@ -95,7 +95,7 @@ class TestFilterConfirmedViolations:
             was_advised=True,
             was_corrected=True,
         )
-        result = _filter_confirmed_violations([v])
+        result = filter_confirmed_violations([v])
         assert len(result) == 1
         assert result[0] is v
 
@@ -106,7 +106,7 @@ class TestFilterConfirmedViolations:
             was_advised=True,
             was_corrected=False,
         )
-        assert _filter_confirmed_violations([v]) == []
+        assert filter_confirmed_violations([v]) == []
 
     def test_mixed(self) -> None:
         confirmed = ModelPatternViolation(
@@ -121,7 +121,7 @@ class TestFilterConfirmedViolations:
             was_advised=True,
             was_corrected=False,
         )
-        result = _filter_confirmed_violations([confirmed, unconfirmed])
+        result = filter_confirmed_violations([confirmed, unconfirmed])
         assert len(result) == 1
         assert result[0] is confirmed
 
@@ -165,6 +165,7 @@ class TestProcessEnforcementFeedback:
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
         assert result.confirmed_violations == 1
         assert len(result.adjustments) == 1
+        assert result.processing_errors == []
         assert repo.patterns[pid]["quality_score"] == pytest.approx(0.79)
 
     @pytest.mark.asyncio

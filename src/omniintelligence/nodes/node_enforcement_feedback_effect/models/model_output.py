@@ -22,7 +22,9 @@ class EnumEnforcementFeedbackStatus(str, Enum):
     """Status of the enforcement feedback processing.
 
     Attributes:
-        SUCCESS: Feedback processed and confidence adjustments applied.
+        SUCCESS: Feedback processed and all confidence adjustments applied.
+        PARTIAL_SUCCESS: Some adjustments applied but others failed. Check
+            ``processing_errors`` for details on which patterns failed.
         NO_ADJUSTMENTS: Event processed but no adjustments were needed
             (e.g., no confirmed violations meeting the criteria).
         NO_VIOLATIONS: Event processed but contained zero violations.
@@ -30,6 +32,7 @@ class EnumEnforcementFeedbackStatus(str, Enum):
     """
 
     SUCCESS = "success"
+    PARTIAL_SUCCESS = "partial_success"
     NO_ADJUSTMENTS = "no_adjustments"
     NO_VIOLATIONS = "no_violations"
     ERROR = "error"
@@ -60,11 +63,57 @@ class ModelConfidenceAdjustment(BaseModel):
     )
 
 
+class ModelProcessingError(BaseModel):
+    """Record of a failed confidence adjustment for a single pattern.
+
+    Captured when ``_apply_confidence_adjustment`` raises an exception so
+    that callers can see exactly which patterns failed and why.
+
+    Attributes:
+        pattern_id: The pattern whose adjustment failed.
+        pattern_name: Human-readable name for diagnostics.
+        error: Sanitized error message describing the failure.
+        error_type: The exception class name (e.g., ``"ConnectionError"``).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pattern_id: UUID = Field(
+        ...,
+        description="The pattern whose adjustment failed",
+    )
+    pattern_name: str = Field(
+        default="",
+        description="Human-readable name of the pattern",
+    )
+    error: str = Field(
+        ...,
+        description="Sanitized error message describing the failure",
+    )
+    error_type: str = Field(
+        ...,
+        description="The exception class name (e.g., 'ConnectionError')",
+    )
+
+
 class ModelEnforcementFeedbackResult(BaseModel):
     """Result of processing an enforcement feedback event.
 
     Returned by the handler after consuming an enforcement event and
     applying any confidence adjustments.
+
+    Partial Failure Reporting:
+        Each confirmed violation is processed independently. If some
+        adjustments succeed and others fail (e.g., due to transient DB
+        errors), the result accurately reports both:
+        - ``adjustments``: only successfully applied adjustments
+        - ``processing_errors``: per-pattern error details for failures
+        - ``status``: ``PARTIAL_SUCCESS`` when some but not all succeeded
+
+        This design is intentional: the ``ProtocolPatternRepository`` does
+        not expose transaction control, so each UPDATE runs independently.
+        Rather than hiding partial failures behind a generic SUCCESS, the
+        result model makes them visible to callers.
 
     Attributes:
         status: Overall processing status.
@@ -74,7 +123,10 @@ class ModelEnforcementFeedbackResult(BaseModel):
         violations_found: Number of violations found in the enforcement event.
         confirmed_violations: Number of violations that met the criteria for
             confidence adjustment (advised AND corrected).
-        adjustments: Per-pattern confidence adjustments that were applied.
+        adjustments: Per-pattern confidence adjustments that were successfully
+            applied. Only contains adjustments that committed to the database.
+        processing_errors: Per-pattern error details for adjustments that
+            failed. Empty when all adjustments succeed.
         processed_at: Timestamp of when processing completed.
         error_message: Error details if status is ERROR.
     """
@@ -107,7 +159,11 @@ class ModelEnforcementFeedbackResult(BaseModel):
     )
     adjustments: list[ModelConfidenceAdjustment] = Field(
         default_factory=list,
-        description="Per-pattern confidence adjustments that were applied",
+        description="Per-pattern confidence adjustments that were successfully applied",
+    )
+    processing_errors: list[ModelProcessingError] = Field(
+        default_factory=list,
+        description="Per-pattern error details for adjustments that failed",
     )
     processed_at: datetime | None = Field(
         default=None,
@@ -123,4 +179,5 @@ __all__ = [
     "EnumEnforcementFeedbackStatus",
     "ModelConfidenceAdjustment",
     "ModelEnforcementFeedbackResult",
+    "ModelProcessingError",
 ]

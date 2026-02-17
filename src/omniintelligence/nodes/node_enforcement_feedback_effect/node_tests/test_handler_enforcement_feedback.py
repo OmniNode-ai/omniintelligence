@@ -562,7 +562,8 @@ class TestErrorHandling:
 
         Per handler error policy: return structured errors, don't raise for
         expected failures. The handler catches exceptions per-violation and
-        continues with remaining violations.
+        continues with remaining violations, reporting failures in
+        processing_errors.
         """
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
         mock_repository.simulate_db_error = Exception("Connection refused")
@@ -573,10 +574,75 @@ class TestErrorHandling:
             repository=mock_repository,
         )
 
-        # Should succeed at the handler level even though the DB call failed
-        assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
+        # Status is PARTIAL_SUCCESS because the error is reported structurally
+        assert result.status == EnumEnforcementFeedbackStatus.PARTIAL_SUCCESS
         assert result.confirmed_violations == 1
         assert len(result.adjustments) == 0  # No adjustments due to error
+        assert len(result.processing_errors) == 1
+        assert result.processing_errors[0].pattern_id == sample_pattern_id_a
+        assert result.processing_errors[0].error_type == "Exception"
+        assert "Connection refused" in result.processing_errors[0].error
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_reports_both_successes_and_errors(
+        self,
+        mock_repository: MockEnforcementRepository,
+        sample_correlation_id: UUID,
+        sample_session_id: UUID,
+        sample_pattern_id_a: UUID,
+        sample_pattern_id_b: UUID,
+    ) -> None:
+        """When one adjustment succeeds and another fails, both are reported.
+
+        The result should have PARTIAL_SUCCESS status with the successful
+        adjustment in ``adjustments`` and the failure in ``processing_errors``.
+        """
+        mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
+        mock_repository.add_pattern(sample_pattern_id_b, quality_score=0.9)
+
+        # Make only pattern_b fail by injecting a per-call error handler
+        original_execute = mock_repository.execute
+
+        async def _execute_with_selective_failure(query: str, *args: object) -> str:
+            if args and args[0] == sample_pattern_id_b:
+                raise ConnectionError("Transient DB failure")
+            return await original_execute(query, *args)
+
+        mock_repository.execute = _execute_with_selective_failure  # type: ignore[assignment]
+
+        event = ModelEnforcementEvent(
+            correlation_id=sample_correlation_id,
+            session_id=sample_session_id,
+            patterns_checked=10,
+            violations_found=2,
+            violations=[
+                ModelPatternViolation(
+                    pattern_id=sample_pattern_id_a,
+                    pattern_name="pattern-a",
+                    was_advised=True,
+                    was_corrected=True,
+                ),
+                ModelPatternViolation(
+                    pattern_id=sample_pattern_id_b,
+                    pattern_name="pattern-b",
+                    was_advised=True,
+                    was_corrected=True,
+                ),
+            ],
+        )
+
+        result = await process_enforcement_feedback(
+            event=event,
+            repository=mock_repository,
+        )
+
+        assert result.status == EnumEnforcementFeedbackStatus.PARTIAL_SUCCESS
+        assert result.confirmed_violations == 2
+        assert len(result.adjustments) == 1
+        assert result.adjustments[0].pattern_id == sample_pattern_id_a
+        assert len(result.processing_errors) == 1
+        assert result.processing_errors[0].pattern_id == sample_pattern_id_b
+        assert result.processing_errors[0].error_type == "ConnectionError"
 
 
 # =============================================================================

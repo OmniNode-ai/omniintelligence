@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelPatternViolation(BaseModel):
@@ -98,6 +98,23 @@ class ModelEnforcementEvent(BaseModel):
         default_factory=list,
         description="Detailed per-pattern violation information",
     )
+
+    @model_validator(mode="after")
+    def _check_violations_found_matches_len(self) -> ModelEnforcementEvent:
+        """Ensure violations_found is consistent with the violations list.
+
+        This prevents callers from independently setting violations_found
+        to a value that does not match the actual number of violations
+        provided.
+        """
+        expected = len(self.violations)
+        if self.violations_found != expected:
+            msg = (
+                f"violations_found ({self.violations_found}) does not match "
+                f"len(violations) ({expected})"
+            )
+            raise ValueError(msg)
+        return self
 
 
 __all__ = [

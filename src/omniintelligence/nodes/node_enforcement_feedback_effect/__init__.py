@@ -15,6 +15,7 @@ from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
     ModelEnforcementEvent,
     ModelEnforcementFeedbackResult,
     ModelPatternViolation,
+    ModelProcessingError,
 )
 from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
     NodeEnforcementFeedbackEffect,
@@ -27,6 +28,7 @@ __all__ = [
     "ModelEnforcementEvent",
     "ModelEnforcementFeedbackResult",
     "ModelPatternViolation",
+    "ModelProcessingError",
     "NodeEnforcementFeedbackEffect",
     "process_enforcement_feedback",
 ]

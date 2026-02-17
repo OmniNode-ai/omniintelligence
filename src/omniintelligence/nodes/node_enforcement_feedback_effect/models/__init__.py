@@ -15,6 +15,7 @@ from omniintelligence.nodes.node_enforcement_feedback_effect.models.model_output
     EnumEnforcementFeedbackStatus,
     ModelConfidenceAdjustment,
     ModelEnforcementFeedbackResult,
+    ModelProcessingError,
 )
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "ModelEnforcementEvent",
     "ModelEnforcementFeedbackResult",
     "ModelPatternViolation",
+    "ModelProcessingError",
 ]
