@@ -16,9 +16,12 @@ Related:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 
 # Private import is intentional: _reshape_daemon_hook_payload_v1 is an internal
 # helper, but we test it directly to ensure the daemon-to-model contract is
@@ -26,8 +29,10 @@ import pytest
 from omniintelligence.runtime.dispatch_handlers import (
     _MAX_DIAGNOSTIC_KEYS,
     _diagnostic_key_summary,
+    _is_tool_content_payload,
     _needs_daemon_reshape,
     _reshape_daemon_hook_payload_v1,
+    _reshape_tool_content_to_hook_event,
     create_claude_hook_dispatch_handler,
 )
 
@@ -685,3 +690,407 @@ class TestDispatchHandlerDaemonReshapeWiring:
             assert event.payload.model_extra is not None
             assert "prompt_preview" in event.payload.model_extra
             assert event.payload.model_extra["prompt_preview"] == "Fix the bug in..."
+
+
+# =============================================================================
+# Tests: _is_tool_content_payload Detection
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestIsToolContentPayload:
+    """Validate _is_tool_content_payload detection for all payload formats.
+
+    Tool-content payloads are identified by the presence of ``tool_name_raw``
+    and the absence of ``event_type``.  This distinguishes them from daemon
+    flat payloads (which have both) and canonical hook events (which have
+    ``event_type``).
+    """
+
+    def test_tool_content_payload_returns_true(self) -> None:
+        """Flat tool-content dict with tool_name_raw and no event_type."""
+        payload: dict[str, Any] = {
+            "tool_name_raw": "Write",
+            "tool_name": "Write",
+            "file_path": "/workspace/src/main.py",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp": "2026-02-16T10:30:00Z",
+        }
+        assert _is_tool_content_payload(payload) is True
+
+    def test_daemon_payload_returns_false(self) -> None:
+        """Daemon flat payload has event_type, so not tool-content."""
+        payload: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session-001",
+            "emitted_at": "2026-02-16T10:30:00Z",
+            "tool_name_raw": "Read",
+        }
+        assert _is_tool_content_payload(payload) is False
+
+    def test_canonical_payload_returns_false(self) -> None:
+        """Canonical ModelClaudeCodeHookEvent shape has event_type."""
+        payload: dict[str, Any] = {
+            "event_type": "PostToolUse",
+            "session_id": "test-session-001",
+            "timestamp_utc": "2026-02-16T10:30:00Z",
+            "payload": {"tool_name_raw": "Write"},
+        }
+        assert _is_tool_content_payload(payload) is False
+
+    def test_empty_payload_returns_false(self) -> None:
+        """Empty dict is not a tool-content payload."""
+        assert _is_tool_content_payload({}) is False
+
+    def test_payload_without_tool_name_raw_returns_false(self) -> None:
+        """Dict without tool_name_raw is not tool-content even without event_type."""
+        payload: dict[str, Any] = {"some_key": "some_value"}
+        assert _is_tool_content_payload(payload) is False
+
+    def test_shared_keys_do_not_bypass_detection(self) -> None:
+        """Payload with session_id and correlation_id but also tool_name_raw
+        is correctly detected as tool-content, not misidentified as a hook
+        envelope due to shared key overlap.
+        """
+        payload: dict[str, Any] = {
+            "tool_name_raw": "Write",
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+        }
+        assert _is_tool_content_payload(payload) is True
+
+
+# =============================================================================
+# Tests: _reshape_tool_content_to_hook_event
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestReshapeToolContentToHookEvent:
+    """Validate _reshape_tool_content_to_hook_event for tool-content payloads.
+
+    The function wraps a flat ModelToolExecutionContent dict into a
+    ModelClaudeCodeHookEvent with event_type=PostToolUse.
+    """
+
+    @pytest.fixture
+    def tool_content_payload(self) -> dict[str, Any]:
+        """Real tool-content wire format payload.
+
+        Mirrors what omniclaude's _emit_tool_content sends to Kafka:
+        ModelToolExecutionContent.model_dump_json() deserialized.
+        """
+        return {
+            "tool_name_raw": "Write",
+            "tool_name": "Write",
+            "file_path": "/workspace/src/main.py",
+            "language": "python",
+            "content_preview": "def main():\n    pass",
+            "content_length": 42,
+            "content_hash": "sha256:abc123",
+            "is_content_redacted": False,
+            "redaction_policy_version": None,
+            "success": True,
+            "error_type": None,
+            "error_message": None,
+            "duration_ms": 15.3,
+            "session_id": "test-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp": "2026-02-16T10:30:00+00:00",
+        }
+
+    @pytest.fixture
+    def mock_envelope(self) -> ModelEventEnvelope[object]:
+        from uuid import UUID
+
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        return ModelEventEnvelope(
+            payload={},
+            correlation_id=UUID("99999999-9999-9999-9999-999999999999"),
+        )
+
+    def test_reshape_produces_valid_hook_event(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """Reshape produces a valid ModelClaudeCodeHookEvent with PostToolUse type."""
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+
+        assert event.event_type.value == "PostToolUse"
+        assert event.session_id == "test-session-001"
+        assert event.timestamp_utc.tzinfo is not None
+
+    def test_reshape_preserves_correlation_id_from_payload(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """Correlation ID from tool-content payload takes precedence over envelope."""
+        from uuid import UUID
+
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+        assert event.correlation_id == UUID("12345678-1234-1234-1234-123456789abc")
+
+    def test_reshape_nests_tool_fields_in_payload(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """Tool-content fields end up in the nested payload, not at top level."""
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+
+        # Access extra fields via model_extra (extra="allow")
+        assert event.payload.model_extra["tool_name_raw"] == "Write"
+        assert event.payload.model_extra["tool_name"] == "Write"
+        assert event.payload.model_extra["file_path"] == "/workspace/src/main.py"
+        assert event.payload.model_extra["content_length"] == 42
+
+    def test_reshape_excludes_envelope_keys_from_nested_payload(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """session_id, correlation_id, timestamp are NOT in nested payload."""
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+
+        assert "session_id" not in event.payload.model_extra
+        assert "correlation_id" not in event.payload.model_extra
+        assert "timestamp" not in event.payload.model_extra
+
+    def test_reshape_with_missing_session_id_uses_unknown(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """When session_id is None, falls back to 'unknown'."""
+        tool_content_payload["session_id"] = None
+
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+        assert event.session_id == "unknown"
+
+    def test_reshape_with_missing_correlation_id_uses_envelope(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """When correlation_id is None in payload, falls back to envelope."""
+        from uuid import UUID
+
+        tool_content_payload["correlation_id"] = None
+
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+        assert event.correlation_id == UUID("99999999-9999-9999-9999-999999999999")
+
+    def test_reshape_with_missing_timestamp_uses_envelope(
+        self,
+        tool_content_payload: dict[str, Any],
+        mock_envelope: ModelEventEnvelope[object],
+    ) -> None:
+        """When timestamp is None, falls back to envelope_timestamp."""
+        tool_content_payload["timestamp"] = None
+
+        event = _reshape_tool_content_to_hook_event(tool_content_payload, mock_envelope)
+        assert event.timestamp_utc is not None
+        assert event.timestamp_utc.tzinfo is not None
+
+
+# =============================================================================
+# Tests: Dispatch Handler Wiring (tool-content integration)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDispatchHandlerToolContentWiring:
+    """Verify create_claude_hook_dispatch_handler reshapes tool-content payloads.
+
+    This proves the wiring: that the handler's _handle closure correctly
+    detects and reshapes a tool-content dict before passing a properly-typed
+    ModelClaudeCodeHookEvent to route_hook_event.
+    """
+
+    @pytest.mark.asyncio
+    async def test_tool_content_payload_is_reshaped_and_routed(self) -> None:
+        """A tool-content dict payload is reshaped as PostToolUse and routed.
+
+        Mocks route_hook_event to capture the event object it receives,
+        then asserts it is a well-formed ModelClaudeCodeHookEvent with
+        event_type=PostToolUse and nested tool fields.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        # --- Real wire payload from omniclaude tool-content topic ---
+        tool_content_wire = {
+            "tool_name_raw": "Write",
+            "tool_name": "Write",
+            "file_path": "/workspace/src/main.py",
+            "language": "python",
+            "content_preview": "def main():\n    pass",
+            "content_length": 42,
+            "content_hash": None,
+            "is_content_redacted": False,
+            "redaction_policy_version": None,
+            "success": True,
+            "error_type": None,
+            "error_message": None,
+            "duration_ms": 15.3,
+            "session_id": "test-session-tool",
+            "correlation_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "timestamp": "2026-02-16T10:30:00+00:00",
+        }
+
+        # --- Mock dependencies ---
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+
+        correlation_id = UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        # Wrap in envelope (as create_dispatch_callback would)
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=tool_content_wire,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000002"),
+        )
+
+        # Patch route_hook_event to capture the event
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "PostToolUse"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            # Handler returns "ok" on success
+            assert result == "ok"
+
+            # route_hook_event must have been called exactly once
+            mock_route.assert_called_once()
+
+            # Extract the event kwarg passed to route_hook_event
+            call_kwargs = mock_route.call_args.kwargs
+            event = call_kwargs["event"]
+
+            # The event must be a properly-parsed ModelClaudeCodeHookEvent
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "PostToolUse"
+            assert event.session_id == "test-session-tool"
+            assert event.timestamp_utc is not None
+            assert event.timestamp_utc.tzinfo is not None
+
+            # Tool fields must be inside the nested payload
+            assert event.payload is not None
+            assert event.payload.model_extra is not None
+            assert event.payload.model_extra["tool_name_raw"] == "Write"
+            assert event.payload.model_extra["file_path"] == "/workspace/src/main.py"
+
+            # Envelope keys must NOT be in the nested payload
+            assert "session_id" not in event.payload.model_extra
+            assert "correlation_id" not in event.payload.model_extra
+            assert "timestamp" not in event.payload.model_extra
+
+    @pytest.mark.asyncio
+    async def test_hook_event_payload_still_parses_unchanged(self) -> None:
+        """A canonical hook-event payload still works after the tool-content fix.
+
+        Ensures the new tool-content reshape path does not interfere with
+        the existing canonical (already-structured) payload path.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+        from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
+            ModelClaudeCodeHookEvent,
+        )
+
+        # --- Canonical hook-event payload (already structured) ---
+        canonical_payload = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session-canonical",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp_utc": "2026-02-16T10:30:00+00:00",
+            "payload": {"prompt": "What does this function do?"},
+        }
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+        correlation_id = UUID("12345678-1234-1234-1234-123456789abc")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=canonical_payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000003"),
+        )
+
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "UserPromptSubmit"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+            ".route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            result = await handler(envelope, context)
+
+            assert result == "ok"
+            mock_route.assert_called_once()
+
+            event = mock_route.call_args.kwargs["event"]
+            assert isinstance(event, ModelClaudeCodeHookEvent)
+            assert event.event_type.value == "UserPromptSubmit"
+            assert event.session_id == "test-session-canonical"

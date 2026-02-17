@@ -75,8 +75,8 @@ defaults:
     bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
     consumer_group: "intelligence-runtime"
     topics:
-      commands: "onex.intelligence.cmd.v1"
-      events: "onex.intelligence.evt.v1"
+      commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
+      events: "onex.evt.omniintelligence.intent-classified.v1"
       dlq: null
     auto_offset_reset: "earliest"
     enable_auto_commit: false
@@ -176,9 +176,9 @@ environments:
       bootstrap_servers: "localhost:9092"
       consumer_group: "intelligence-dev"
       topics:
-        commands: "dev.intelligence.cmd.v1"
-        events: "dev.intelligence.evt.v1"
-        dlq: "dev.intelligence.dlq.v1"
+        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
+        events: "onex.evt.omniintelligence.intent-classified.v1"
+        dlq: "onex.dlq.omniintelligence.v1"
 
   staging:
     log_level: "INFO"
@@ -186,9 +186,9 @@ environments:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
       consumer_group: "intelligence-staging"
       topics:
-        commands: "staging.intelligence.cmd.v1"
-        events: "staging.intelligence.evt.v1"
-        dlq: "staging.intelligence.dlq.v1"
+        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
+        events: "onex.evt.omniintelligence.intent-classified.v1"
+        dlq: "onex.dlq.omniintelligence.v1"
 
   production:
     log_level: "INFO"
@@ -196,9 +196,9 @@ environments:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
       consumer_group: "intelligence-prod"
       topics:
-        commands: "onex.intelligence.cmd.v1"
-        events: "onex.intelligence.evt.v1"
-        dlq: "onex.intelligence.dlq.v1"
+        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
+        events: "onex.evt.omniintelligence.intent-classified.v1"
+        dlq: "onex.dlq.omniintelligence.v1"
 
 # Metadata
 author: omniintelligence
