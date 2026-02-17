@@ -323,7 +323,7 @@ async def record_session_outcome(
         are marked as recorded but pattern metrics are not updated.
 
         Partial Failure Recovery: If the caller passes a pool-backed repository
-        without an explicit transaction (e.g., AdapterPatternRepositoryPostgres),
+        without an explicit transaction (e.g., AdapterPatternRepositoryRuntime),
         each SQL statement auto-commits independently. A crash after step 3
         (mark injections recorded) but before step 5 (update rolling metrics)
         leaves the session permanently marked as processed while metrics are

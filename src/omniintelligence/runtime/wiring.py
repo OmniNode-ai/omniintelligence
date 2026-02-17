@@ -33,7 +33,6 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import asyncpg
     from omnibase_infra.runtime.models import ModelDomainPluginConfig
 
 logger = logging.getLogger(__name__)
@@ -75,7 +74,7 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
 
 
 async def wire_intelligence_handlers(
-    pool: asyncpg.Pool,
+    pool: object,
     config: ModelDomainPluginConfig,
 ) -> list[str]:
     """Wire intelligence domain handlers into the container.
@@ -88,7 +87,7 @@ async def wire_intelligence_handlers(
     database connections wired at initialization time.
 
     Args:
-        pool: asyncpg connection pool for database operations.
+        pool: Connection pool (opaque object, managed by plugin).
         config: Plugin configuration with container and correlation_id.
 
     Returns:

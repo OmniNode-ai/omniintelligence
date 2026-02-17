@@ -408,6 +408,64 @@ class AdapterPatternStore:
             return stored_at
         return None
 
+    async def upsert_pattern(
+        self,
+        *,
+        pattern_id: UUID,
+        signature: str,
+        signature_hash: str,
+        domain_id: str,
+        domain_version: str = "1.0.0",
+        confidence: float,
+        version: int,
+        source_session_ids: list[UUID],
+    ) -> UUID | None:
+        """Idempotently insert a pattern via ON CONFLICT DO NOTHING.
+
+        Used by the dispatch bridge handler for pattern-learned and
+        pattern.discovered events. Duplicates are silently dropped.
+
+        Args:
+            pattern_id: Unique identifier for this pattern instance.
+            signature: Pattern signature text.
+            signature_hash: SHA256 hash of the signature.
+            domain_id: Domain where the pattern was learned.
+            domain_version: Schema version within the domain.
+            confidence: Confidence score (0.5-1.0).
+            version: Version number for this pattern.
+            source_session_ids: Session UUIDs that produced this pattern.
+
+        Returns:
+            The pattern UUID if inserted, None if duplicate (conflict).
+        """
+        # Format source_session_ids as PostgreSQL array literal
+        session_ids_literal = (
+            "{" + ",".join(str(sid) for sid in source_session_ids) + "}"
+            if source_session_ids
+            else "{}"
+        )
+
+        args = self._build_positional_args(
+            "upsert_pattern",
+            {
+                "id": str(pattern_id),
+                "signature": signature,
+                "signature_hash": signature_hash,
+                "domain_id": domain_id,
+                "domain_version": domain_version,
+                "confidence": confidence,
+                "version": version,
+                "source_session_ids": session_ids_literal,
+            },
+        )
+
+        result = await self._runtime.call("upsert_pattern", *args)
+
+        # ON CONFLICT DO NOTHING: result is None when duplicate
+        if result and isinstance(result, dict) and "id" in result:
+            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+        return None
+
     async def query_patterns(
         self,
         *,
