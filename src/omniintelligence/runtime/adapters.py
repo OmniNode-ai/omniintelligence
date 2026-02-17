@@ -105,10 +105,6 @@ class AdapterPatternRepositoryRuntime:
         return str(result)
 
 
-# Keep the old name as an alias for backwards compatibility in tests
-AdapterPatternRepositoryPostgres = AdapterPatternRepositoryRuntime
-
-
 # =============================================================================
 # AdapterIdempotencyStoreInfra
 # =============================================================================
@@ -153,10 +149,11 @@ class AdapterIdempotencyStoreInfra:
 
     async def exists(self, request_id: UUID) -> bool:
         """Check if request_id has been recorded."""
-        return await self._store.is_processed(
+        result: bool = await self._store.is_processed(
             message_id=request_id,
             domain="pattern_lifecycle",
         )
+        return result
 
     async def record(self, request_id: UUID) -> None:
         """Record request_id as processed."""
@@ -164,10 +161,6 @@ class AdapterIdempotencyStoreInfra:
             message_id=request_id,
             domain="pattern_lifecycle",
         )
-
-
-# Keep old name as alias for backwards compatibility in tests
-AdapterIdempotencyStorePostgres = AdapterIdempotencyStoreInfra
 
 
 # =============================================================================
@@ -259,10 +252,8 @@ class AdapterIntentClassifier:
 
 __all__ = [
     "AdapterIdempotencyStoreInfra",
-    "AdapterIdempotencyStorePostgres",
     "AdapterIntentClassifier",
     "AdapterKafkaPublisher",
-    "AdapterPatternRepositoryPostgres",
     "AdapterPatternRepositoryRuntime",
     "ProtocolEventBusPublish",
 ]
