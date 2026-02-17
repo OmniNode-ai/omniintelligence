@@ -15,12 +15,12 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers import (
     COMPLIANCE_PROMPT_VERSION,
     ProtocolLlmClient,
     handle_pattern_compliance_compute,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.models import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models import (
     ModelApplicablePattern,
     ModelComplianceRequest,
 )
@@ -316,3 +316,46 @@ class TestHandlePatternComplianceCompute:
         )
 
         assert client.last_model == "custom-model-v2"
+
+    @pytest.mark.asyncio
+    async def test_correlation_id_in_metadata(self) -> None:
+        """Correlation ID from input must be propagated to output metadata."""
+        llm_response = json.dumps(
+            {
+                "compliant": True,
+                "confidence": 0.9,
+                "violations": [],
+            }
+        )
+        client = MockLlmClient(llm_response)
+        request = _make_request()
+
+        result = await handle_pattern_compliance_compute(request, llm_client=client)
+
+        assert result.metadata is not None
+        assert result.metadata.correlation_id == _TEST_CORRELATION_ID
+
+    @pytest.mark.asyncio
+    async def test_correlation_id_in_error_metadata(self) -> None:
+        """Correlation ID must be present in error output metadata."""
+        client = MockLlmClientError()
+        request = _make_request()
+
+        result = await handle_pattern_compliance_compute(request, llm_client=client)
+
+        assert result.metadata is not None
+        assert result.metadata.correlation_id == _TEST_CORRELATION_ID
+
+
+class TestMockProtocolConformance:
+    """Verify that test mocks conform to the ProtocolLlmClient protocol."""
+
+    def test_mock_llm_client_conforms_to_protocol(self) -> None:
+        """MockLlmClient must satisfy ProtocolLlmClient at runtime."""
+        client = MockLlmClient("test")
+        assert isinstance(client, ProtocolLlmClient)
+
+    def test_mock_llm_client_error_conforms_to_protocol(self) -> None:
+        """MockLlmClientError must satisfy ProtocolLlmClient at runtime."""
+        client = MockLlmClientError()
+        assert isinstance(client, ProtocolLlmClient)

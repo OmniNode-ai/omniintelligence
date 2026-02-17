@@ -1,0 +1,161 @@
+---
+# ONEX Node Contract - Pattern Compliance Effect Node
+# =============================================================================
+# Ticket: OMN-2256
+# Depends on: OMN-2253 (pattern store query API - provides applicable patterns)
+#
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 1
+  patch: 0
+name: "node_pattern_compliance_effect"
+node_type: "EFFECT_GENERIC"
+description: >-
+  Effect node for evaluating code against applicable patterns using Coder-14B. Receives code content
+  and a list of patterns (from OMN-2253 pattern store API), calls the LLM to identify violations, and
+  returns a structured compliance result with violation details, compliance status, and confidence score.
+  Classified as EFFECT because it performs external I/O (LLM inference via ProtocolLlmClient).
+
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelComplianceRequest"
+  module: "omniintelligence.nodes.node_pattern_compliance_effect.models"
+  description: "Input containing code to evaluate and applicable patterns to check against."
+output_model:
+  name: "ModelComplianceResult"
+  module: "omniintelligence.nodes.node_pattern_compliance_effect.models"
+  description: "Output containing compliance violations, compliance status, and confidence."
+metadata_model:
+  name: "ModelComplianceMetadata"
+  module: "omniintelligence.nodes.node_pattern_compliance_effect.models"
+  description: "Typed metadata for compliance output (status, prompt version, model used, timing)."
+
+# =============================================================================
+# OPERATIONS
+# =============================================================================
+operations:
+  - name: "evaluate_compliance"
+    description: "Evaluate code compliance against applicable patterns"
+    input_fields:
+      - correlation_id
+      - source_path
+      - content
+      - language
+      - applicable_patterns
+    output_fields:
+      - success
+      - violations
+      - compliant
+      - confidence
+      - metadata
+
+# =============================================================================
+# HANDLER ROUTING (Declarative Pattern)
+# =============================================================================
+# Effect node uses a single async handler for compliance evaluation.
+# The handler performs external I/O (LLM inference) and returns structured results.
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "evaluate_compliance"
+      handler:
+        function: "handle_pattern_compliance_compute"
+        module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers"
+        type: "async"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+# This node is called directly (not via Kafka subscription).
+# Event bus is disabled - no subscribe or publish topics yet.
+# A future PR may add Kafka integration for async compliance checks.
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: false
+  subscribe_topics: []
+  publish_topics: []
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "llm_client"
+    type: "protocol"
+    class_name: "ProtocolLlmClient"
+    module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols"
+    required: true
+    description: "OpenAI-compatible LLM client for compliance evaluation (Coder-14B). This is external I/O."
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  error_types:
+    - name: "ComplianceValidationError"
+      error_code: "COMPLIANCE_001"
+      description: "Input validation failed (e.g., empty content, no patterns)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ComplianceLlmError"
+      error_code: "COMPLIANCE_002"
+      description: "LLM inference call failed (timeout, connection, etc.)"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ComplianceParseError"
+      error_code: "COMPLIANCE_003"
+      description: "LLM response could not be parsed into violations"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "pattern_compliance.evaluate"
+    description: "Evaluate code compliance against applicable patterns via LLM"
+    version: "1.0.0"
+  - name: "pattern_compliance.llm_inference"
+    description: "External LLM I/O via ProtocolLlmClient (Coder-14B)"
+    version: "1.0.0"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "correlation_id_tracking"
+  hash_fields: ["correlation_id", "source_path", "content"]
+  description: "Compliance evaluation is idempotent for the same code content and pattern set.
+    Re-evaluating the same request with the same correlation_id returns cached results."
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-17"
+  updated: "2026-02-17"
+  tags:
+    - "ONEX"
+    - "effect"
+    - "compliance"
+    - "patterns"
+    - "llm"
+    - "coder-14b"
+  references:
+    - ticket: "OMN-2256"
+      url: "https://linear.app/omninode/issue/OMN-2256"
+      description: "Pattern compliance effect node"
+    - ticket: "OMN-2253"
+      url: "https://linear.app/omninode/issue/OMN-2253"
+      description: "Pattern store query API for enforcement"

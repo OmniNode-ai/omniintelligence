@@ -9,7 +9,10 @@ Ticket: OMN-2256
 
 from __future__ import annotations
 
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import Literal, Protocol, TypedDict, runtime_checkable
+
+#: Valid severity levels for compliance violations.
+SeverityLiteral = Literal["critical", "major", "minor", "info"]
 
 
 class ComplianceViolationDict(TypedDict):
@@ -26,7 +29,7 @@ class ComplianceViolationDict(TypedDict):
     pattern_id: str
     pattern_signature: str
     description: str
-    severity: str
+    severity: SeverityLiteral
     line_reference: str | None
 
 

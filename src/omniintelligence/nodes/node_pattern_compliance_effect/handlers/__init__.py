@@ -17,21 +17,19 @@ contain no I/O and can be tested independently.
 Ticket: OMN-2256
 """
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.exceptions import (
-    ComplianceLlmError,
-    ComplianceParseError,
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.exceptions import (
     ComplianceValidationError,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.handler_compliance import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compliance import (
     COMPLIANCE_PROMPT_VERSION,
     build_compliance_prompt,
     parse_llm_response,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.handler_compute import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute import (
     DEFAULT_MODEL,
     handle_pattern_compliance_compute,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.protocols import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ComplianceLlmResponseDict,
     ComplianceViolationDict,
     ProtocolLlmClient,
@@ -40,9 +38,7 @@ from omniintelligence.nodes.node_pattern_compliance_compute.handlers.protocols i
 __all__ = [
     "COMPLIANCE_PROMPT_VERSION",
     "DEFAULT_MODEL",
-    "ComplianceLlmError",
     "ComplianceLlmResponseDict",
-    "ComplianceParseError",
     "ComplianceValidationError",
     "ComplianceViolationDict",
     "ProtocolLlmClient",

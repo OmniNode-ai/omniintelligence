@@ -8,9 +8,13 @@ Ticket: OMN-2256
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+#: Valid severity levels for compliance violations.
+SeverityLiteral = Literal["critical", "major", "minor", "info"]
 
 
 class ModelComplianceViolation(BaseModel):
@@ -41,7 +45,7 @@ class ModelComplianceViolation(BaseModel):
         min_length=1,
         description="Human-readable description of how the code violates the pattern",
     )
-    severity: str = Field(
+    severity: SeverityLiteral = Field(
         default="major",
         description="Severity level: critical, major, minor, info",
     )
@@ -142,4 +146,5 @@ __all__ = [
     "ModelComplianceMetadata",
     "ModelComplianceResult",
     "ModelComplianceViolation",
+    "SeverityLiteral",
 ]

@@ -3,11 +3,11 @@
 Provides type-safe input and output models for pattern compliance evaluation.
 """
 
-from omniintelligence.nodes.node_pattern_compliance_compute.models.model_compliance_request import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelApplicablePattern,
     ModelComplianceRequest,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.models.model_compliance_result import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_result import (
     ModelComplianceMetadata,
     ModelComplianceResult,
     ModelComplianceViolation,

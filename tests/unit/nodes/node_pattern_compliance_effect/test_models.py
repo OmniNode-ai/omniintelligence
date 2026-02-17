@@ -16,7 +16,7 @@ pytestmark = pytest.mark.unit
 
 _TEST_CID = UUID("12345678-1234-5678-1234-567812345678")
 
-from omniintelligence.nodes.node_pattern_compliance_compute.models import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models import (
     ModelApplicablePattern,
     ModelComplianceMetadata,
     ModelComplianceRequest,

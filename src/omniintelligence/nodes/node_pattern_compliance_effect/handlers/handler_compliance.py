@@ -8,7 +8,7 @@ The handler:
     - Builds a structured prompt from code + patterns
     - Delegates the LLM call to the injected client
     - Parses the JSON response into typed violations
-    - Returns a ComplianceLlmResponseDict
+    - Returns a ComplianceLlmResponseDict (including structured errors)
 
 Ticket: OMN-2256
 """
@@ -18,16 +18,14 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Final
+from typing import Final, cast
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.exceptions import (
-    ComplianceParseError,
-)
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.protocols import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ComplianceLlmResponseDict,
     ComplianceViolationDict,
+    SeverityLiteral,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.models.model_compliance_request import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelApplicablePattern,
 )
 
@@ -107,16 +105,18 @@ def parse_llm_response(
     Extracts JSON from the LLM response, validates the structure, and
     enriches violations with pattern signature from the input patterns.
 
+    Returns a structured error result (compliant=False, confidence=0.0) when
+    parsing fails, rather than raising exceptions. This follows the ONEX
+    handler convention: domain errors are data, not exceptions.
+
     Args:
         raw_text: Raw text response from the LLM.
         patterns: The patterns that were checked (for signature lookup).
 
     Returns:
-        Parsed compliance result with violations.
-
-    Raises:
-        ComplianceParseError: If the response cannot be parsed as valid JSON
-            or has an unexpected structure.
+        Parsed compliance result with violations. On parse failure, returns
+        a result with compliant=False, confidence=0.0, empty violations,
+        and the error detail in raw_response.
     """
     # Build a lookup for pattern signatures by ID.
     pattern_lookup: dict[str, str] = {
@@ -129,13 +129,23 @@ def parse_llm_response(
     try:
         data = json.loads(json_text)
     except json.JSONDecodeError as e:
-        raise ComplianceParseError(
+        logger.warning(
+            "LLM response is not valid JSON: %s. Raw (first 500 chars): %s",
+            e,
+            raw_text[:500],
+        )
+        return _parse_error_result(
             f"LLM response is not valid JSON: {e}. "
             f"Raw response (first 500 chars): {raw_text[:500]}"
         )
 
     if not isinstance(data, dict):
-        raise ComplianceParseError(
+        logger.warning(
+            "Expected JSON object, got %s. Raw (first 500 chars): %s",
+            type(data).__name__,
+            raw_text[:500],
+        )
+        return _parse_error_result(
             f"Expected JSON object, got {type(data).__name__}. "
             f"Raw response (first 500 chars): {raw_text[:500]}"
         )
@@ -161,6 +171,7 @@ def parse_llm_response(
         # Normalize severity to valid values.
         if severity not in VALID_SEVERITIES:
             severity = "major"
+        typed_severity = cast(SeverityLiteral, severity)
 
         # Look up the pattern signature from input patterns.
         pattern_signature = pattern_lookup.get(
@@ -172,7 +183,7 @@ def parse_llm_response(
                 pattern_id=pattern_id,
                 pattern_signature=pattern_signature,
                 description=description,
-                severity=severity,
+                severity=typed_severity,
                 line_reference=str(line_ref) if line_ref is not None else None,
             )
         )
@@ -186,6 +197,23 @@ def parse_llm_response(
         violations=violations,
         confidence=confidence,
         raw_response=raw_text,
+    )
+
+
+def _parse_error_result(error_message: str) -> ComplianceLlmResponseDict:
+    """Create a structured error result for parse failures.
+
+    Args:
+        error_message: Description of the parse failure.
+
+    Returns:
+        ComplianceLlmResponseDict indicating parse failure.
+    """
+    return ComplianceLlmResponseDict(
+        compliant=False,
+        violations=[],
+        confidence=0.0,
+        raw_response=error_message,
     )
 
 

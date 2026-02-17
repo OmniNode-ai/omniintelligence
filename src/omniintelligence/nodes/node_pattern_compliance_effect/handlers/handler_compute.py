@@ -22,23 +22,21 @@ import time
 from typing import Final
 from uuid import UUID
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.exceptions import (
-    ComplianceLlmError,
-    ComplianceParseError,
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.exceptions import (
     ComplianceValidationError,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.handler_compliance import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compliance import (
     COMPLIANCE_PROMPT_VERSION,
     build_compliance_prompt,
     parse_llm_response,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.protocols import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ProtocolLlmClient,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.models.model_compliance_request import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelComplianceRequest,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.models.model_compliance_result import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_result import (
     ModelComplianceMetadata,
     ModelComplianceResult,
     ModelComplianceViolation,
@@ -80,10 +78,10 @@ async def handle_pattern_compliance_compute(
     5. Constructs the output model with metadata
 
     Error Handling:
-        - ComplianceValidationError: Returns output with validation_error status
-        - ComplianceLlmError: Returns output with llm_error status
-        - ComplianceParseError: Returns output with parse_error status
-        - All errors are caught and returned as structured output (no exceptions raised)
+        Domain errors (LLM failures, parse failures) are returned as
+        structured output with the appropriate status code. Only invariant
+        violations (ComplianceValidationError) propagate as exceptions,
+        which are caught at this level and returned as structured output.
 
     Args:
         input_data: Typed input model with code and patterns.
@@ -113,42 +111,25 @@ async def handle_pattern_compliance_compute(
             patterns_checked=patterns_count,
         )
 
-    except ComplianceLlmError as e:
-        processing_time = _safe_elapsed_ms(start_time)
-        return _create_error_output(
-            correlation_id=cid,
-            status=STATUS_LLM_ERROR,
-            message=str(e),
-            processing_time_ms=processing_time,
-            patterns_checked=patterns_count,
-        )
-
-    except ComplianceParseError as e:
-        processing_time = _safe_elapsed_ms(start_time)
-        return _create_error_output(
-            correlation_id=cid,
-            status=STATUS_PARSE_ERROR,
-            message=str(e),
-            processing_time_ms=processing_time,
-            patterns_checked=patterns_count,
-        )
-
     except Exception as e:
         processing_time = _safe_elapsed_ms(start_time)
 
         try:
             logger.exception(
                 "Unhandled exception in pattern compliance compute. "
-                "correlation_id=%s, source_path=%s, language=%s, "
-                "processing_time_ms=%.2f",
-                cid,
+                "source_path=%s, language=%s, processing_time_ms=%.2f",
                 getattr(input_data, "source_path", "<unknown>"),
                 getattr(input_data, "language", "<unknown>"),
                 processing_time,
+                extra={"correlation_id": str(cid)},
             )
         except Exception:
             with contextlib.suppress(Exception):
-                logger.error("Pattern compliance compute failed: %s", e)
+                logger.error(
+                    "Pattern compliance compute failed: %s",
+                    e,
+                    extra={"correlation_id": str(cid)},
+                )
 
         return _create_error_output(
             correlation_id=cid,
@@ -168,6 +149,9 @@ async def _execute_compliance(
 ) -> ModelComplianceResult:
     """Execute the compliance evaluation logic.
 
+    Domain errors (LLM failures, parse failures) are returned as structured
+    output rather than raised, following the ONEX handler convention.
+
     Args:
         input_data: Typed input model with code and patterns.
         llm_client: LLM client for inference calls.
@@ -175,13 +159,14 @@ async def _execute_compliance(
         start_time: Performance counter start time for timing.
 
     Returns:
-        ModelComplianceResult with evaluation results.
+        ModelComplianceResult with evaluation results or structured error.
 
     Raises:
-        ComplianceValidationError: If input validation fails.
-        ComplianceLlmError: If the LLM call fails.
-        ComplianceParseError: If the LLM response cannot be parsed.
+        ComplianceValidationError: If input validation fails (invariant).
     """
+    cid = input_data.correlation_id
+    patterns_count = len(input_data.applicable_patterns)
+
     # 1. Build prompt
     prompt = build_compliance_prompt(
         content=input_data.content,
@@ -203,15 +188,40 @@ async def _execute_compliance(
             max_tokens=2048,
         )
     except Exception as e:
-        raise ComplianceLlmError(f"LLM inference failed: {e}")
+        processing_time = _safe_elapsed_ms(start_time)
+        logger.warning(
+            "LLM inference failed: %s",
+            e,
+            extra={"correlation_id": str(cid)},
+        )
+        return _create_error_output(
+            correlation_id=cid,
+            status=STATUS_LLM_ERROR,
+            message=f"LLM inference failed: {e}",
+            processing_time_ms=processing_time,
+            patterns_checked=patterns_count,
+        )
 
-    # 3. Parse response
+    # 3. Parse response (returns structured error on failure)
     parsed = parse_llm_response(
         raw_text=raw_response,
         patterns=list(input_data.applicable_patterns),
     )
 
     processing_time = (time.perf_counter() - start_time) * 1000
+
+    # Check if parsing returned an error result (no violations, confidence=0.0).
+    # A parse error is indicated by confidence=0.0 and empty violations when
+    # the raw_response differs from the original LLM response (it contains
+    # the error message instead).
+    if parsed["confidence"] == 0.0 and parsed["raw_response"] != raw_response:
+        return _create_error_output(
+            correlation_id=cid,
+            status=STATUS_PARSE_ERROR,
+            message=parsed["raw_response"],
+            processing_time_ms=processing_time,
+            patterns_checked=patterns_count,
+        )
 
     # 4. Build violations list
     violations = [

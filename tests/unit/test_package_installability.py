@@ -37,7 +37,7 @@ EXPECTED_NODE_DIRS = [
     "node_intelligence_reducer",
     "node_intent_classifier_compute",
     "node_pattern_assembler_orchestrator",
-    "node_pattern_compliance_compute",
+    "node_pattern_compliance_effect",
     "node_pattern_demotion_effect",
     "node_pattern_extraction_compute",
     "node_pattern_feedback_effect",

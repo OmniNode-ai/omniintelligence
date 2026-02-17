@@ -12,10 +12,10 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers import (
     build_compliance_prompt,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.models import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models import (
     ModelApplicablePattern,
 )
 

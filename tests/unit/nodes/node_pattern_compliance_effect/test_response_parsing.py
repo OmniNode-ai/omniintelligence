@@ -14,13 +14,10 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers import (
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers import (
     parse_llm_response,
 )
-from omniintelligence.nodes.node_pattern_compliance_compute.handlers.exceptions import (
-    ComplianceParseError,
-)
-from omniintelligence.nodes.node_pattern_compliance_compute.models import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models import (
     ModelApplicablePattern,
 )
 
@@ -267,17 +264,25 @@ class TestParseMarkdownFences:
 class TestParseErrorHandling:
     """Tests for error handling during response parsing."""
 
-    def test_invalid_json_raises_parse_error(self) -> None:
-        """Non-JSON response should raise ComplianceParseError."""
+    def test_invalid_json_returns_structured_error(self) -> None:
+        """Non-JSON response should return structured error result."""
         patterns = [_make_pattern()]
-        with pytest.raises(ComplianceParseError, match="not valid JSON"):
-            parse_llm_response(raw_text="not json at all", patterns=patterns)
+        result = parse_llm_response(raw_text="not json at all", patterns=patterns)
 
-    def test_non_dict_json_raises_parse_error(self) -> None:
-        """JSON array instead of object should raise ComplianceParseError."""
+        assert result["compliant"] is False
+        assert result["confidence"] == 0.0
+        assert result["violations"] == []
+        assert "not valid JSON" in result["raw_response"]
+
+    def test_non_dict_json_returns_structured_error(self) -> None:
+        """JSON array instead of object should return structured error result."""
         patterns = [_make_pattern()]
-        with pytest.raises(ComplianceParseError, match="Expected JSON object"):
-            parse_llm_response(raw_text="[1, 2, 3]", patterns=patterns)
+        result = parse_llm_response(raw_text="[1, 2, 3]", patterns=patterns)
+
+        assert result["compliant"] is False
+        assert result["confidence"] == 0.0
+        assert result["violations"] == []
+        assert "Expected JSON object" in result["raw_response"]
 
     def test_missing_compliant_field_defaults_true(self) -> None:
         """Missing compliant field should default to True."""

@@ -30,7 +30,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (5)
+    # Effects (6)
+    "NodePatternComplianceEffect": (
+        "omniintelligence.nodes.node_pattern_compliance_effect.node",
+        "NodePatternComplianceEffect",
+    ),
     "NodePatternDemotionEffect": (
         "omniintelligence.nodes.node_pattern_demotion_effect.node",
         "NodePatternDemotionEffect",
@@ -87,7 +91,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
-    # Computes (9)
+    # Computes (8)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.node_execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
@@ -103,10 +107,6 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodePatternLearningCompute": (
         "omniintelligence.nodes.node_pattern_learning_compute.node",
         "NodePatternLearningCompute",
-    ),
-    "NodePatternComplianceCompute": (
-        "omniintelligence.nodes.node_pattern_compliance_compute.node",
-        "NodePatternComplianceCompute",
     ),
     "NodePatternMatchingCompute": (
         "omniintelligence.nodes.node_pattern_matching_compute.node",
@@ -163,8 +163,8 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
     )
-    from omniintelligence.nodes.node_pattern_compliance_compute.node import (
-        NodePatternComplianceCompute as NodePatternComplianceCompute,
+    from omniintelligence.nodes.node_pattern_compliance_effect.node import (
+        NodePatternComplianceEffect as NodePatternComplianceEffect,
     )
     from omniintelligence.nodes.node_pattern_demotion_effect.node import (
         NodePatternDemotionEffect as NodePatternDemotionEffect,
@@ -242,17 +242,17 @@ __all__ = [
     "NodePatternAssemblerOrchestrator",
     # Nodes — Reducers (1)
     "NodeIntelligenceReducer",
-    # Nodes — Computes (9)
+    # Nodes — Computes (8)
     "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
-    "NodePatternComplianceCompute",
     "NodePatternExtractionCompute",
     "NodePatternLearningCompute",
     "NodePatternMatchingCompute",
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (5)
+    # Nodes — Effects (6)
+    "NodePatternComplianceEffect",
     "NodePatternDemotionEffect",
     "NodePatternFeedbackEffect",
     "NodePatternLifecycleEffect",
