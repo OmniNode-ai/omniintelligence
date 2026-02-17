@@ -34,7 +34,9 @@ class ModelPatternQueryResponse(BaseModel):
         ...,
         description="SHA256 hash for stable lineage identity",
     )
-    domain_id: str = Field(..., min_length=1, max_length=50, description="Domain identifier")
+    domain_id: str = Field(
+        ..., min_length=1, max_length=50, description="Domain identifier"
+    )
     quality_score: float | None = Field(
         default=None,
         ge=0.0,

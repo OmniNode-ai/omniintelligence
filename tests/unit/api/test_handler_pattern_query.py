@@ -174,9 +174,7 @@ class TestHandleQueryPatterns:
         assert exc_info.value.status_code == 502
         assert "database error" in exc_info.value.detail.lower()
 
-    async def test_validation_error_returns_502(
-        self, mock_adapter: AsyncMock
-    ) -> None:
+    async def test_validation_error_returns_502(self, mock_adapter: AsyncMock) -> None:
         """Handler returns HTTPException 502 when rows have unexpected schema."""
         # Return a row missing required fields so model_validate raises
         # ValidationError.

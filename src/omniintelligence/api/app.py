@@ -89,9 +89,7 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
     """
     try:
         if database_url is not None:
-            return await asyncpg.create_pool(
-                dsn=database_url, min_size=2, max_size=10
-            )
+            return await asyncpg.create_pool(dsn=database_url, min_size=2, max_size=10)
 
         settings = DatabaseSettings()  # type: ignore[call-arg]  # fields populated from env vars at runtime
         return await asyncpg.create_pool(
