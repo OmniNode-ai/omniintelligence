@@ -120,10 +120,10 @@ logger = logging.getLogger(__name__)
 # Topic Constants
 # =============================================================================
 
-TOPIC_SUFFIX_PATTERN_LIFECYCLE_V1: str = (
+TOPIC_PATTERN_LIFECYCLE_CMD_V1: str = (
     "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 )
-"""Topic suffix for pattern lifecycle transition commands (INPUT to reducer).
+"""Canonical topic for pattern lifecycle transition commands (INPUT to reducer).
 
 Handlers publish lifecycle events to this topic. The reducer consumes them,
 validates the transition, and emits an intent for the effect node.
@@ -1014,7 +1014,7 @@ async def _emit_lifecycle_event(
         The request_id is generated here as the idempotency key. It flows
         end-to-end: Event.request_id → Reducer → Intent → Audit table.
     """
-    topic = TOPIC_SUFFIX_PATTERN_LIFECYCLE_V1
+    topic = TOPIC_PATTERN_LIFECYCLE_CMD_V1
 
     # Generate idempotency key for this demotion attempt
     request_id = uuid4()
