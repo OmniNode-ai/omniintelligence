@@ -37,6 +37,7 @@ EXPECTED_NODE_DIRS = [
     "node_intelligence_reducer",
     "node_intent_classifier_compute",
     "node_pattern_assembler_orchestrator",
+    "node_pattern_compliance_effect",
     "node_pattern_demotion_effect",
     "node_pattern_extraction_compute",
     "node_pattern_feedback_effect",
@@ -92,6 +93,10 @@ HANDLER_ENTRY_POINTS = [
     (
         "omniintelligence.nodes.node_claude_hook_event_effect.handlers",
         "HandlerClaudeHookEvent",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_compliance_effect.handlers",
+        "handle_evaluate_compliance",
     ),
     (
         "omniintelligence.nodes.node_pattern_storage_effect.handlers",
