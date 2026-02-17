@@ -7,18 +7,26 @@ no custom routing, iteration, or computation logic.
 Pattern: "Thin shell, fat handler"
 
 All extraction logic is implemented in:
-    handlers/handler_extract_all_patterns.py
+    handlers/handler_extract_all_patterns.py  (local models)
+    handlers/handler_core_models.py           (core models - OMN-1594)
 
-Ticket: OMN-1402
+Tickets: OMN-1402, OMN-1594
 """
 
 from __future__ import annotations
 
 from omnibase_core.models.container import ModelONEXContainer
+from omnibase_core.models.intelligence.model_pattern_extraction_input import (
+    ModelPatternExtractionInput as CorePatternInput,
+)
+from omnibase_core.models.intelligence.model_pattern_extraction_output import (
+    ModelPatternExtractionOutput as CorePatternOutput,
+)
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
     extract_all_patterns,
+    extract_patterns_core,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
     ModelPatternExtractionInput,
@@ -31,8 +39,12 @@ class NodePatternExtractionCompute(
 ):
     """Thin declarative shell for pattern extraction.
 
-    All business logic is delegated to the extract_all_patterns handler.
+    All business logic is delegated to handler functions.
     This node only provides the ONEX container interface.
+
+    Two compute paths are available:
+        - ``compute()``: Uses local models (ModelPatternExtractionInput/Output)
+        - ``compute_core()``: Uses canonical core models from omnibase_core
     """
 
     def __init__(self, container: ModelONEXContainer) -> None:
@@ -42,8 +54,23 @@ class NodePatternExtractionCompute(
     async def compute(
         self, input_data: ModelPatternExtractionInput
     ) -> ModelPatternExtractionOutput:
-        """Extract patterns by delegating to handler."""
+        """Extract patterns using local models by delegating to handler."""
         return extract_all_patterns(input_data)
+
+    async def compute_core(self, input_data: CorePatternInput) -> CorePatternOutput:
+        """Extract patterns using core models by delegating to handler.
+
+        This method uses the canonical ``ModelPatternExtractionInput`` and
+        ``ModelPatternExtractionOutput`` from ``omnibase_core``, bridging
+        to the existing local extraction pipeline.
+
+        Args:
+            input_data: Core input with session_ids and/or raw_events.
+
+        Returns:
+            Core output with patterns_by_kind structure.
+        """
+        return extract_patterns_core(input_data)
 
 
 __all__ = ["NodePatternExtractionCompute"]
