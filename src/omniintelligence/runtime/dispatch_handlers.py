@@ -53,6 +53,7 @@ from pydantic import ValidationError
 
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
+    ModelClaudeCodeHookEventPayload,
 )
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 from omniintelligence.utils.pg_status import parse_pg_status_count
@@ -184,6 +185,16 @@ _HOOK_EVENT_TOP_LEVEL_FIELDS = {
     "timestamp_utc",
 }
 
+_TOOL_CONTENT_ENVELOPE_KEYS: frozenset[str] = frozenset(
+    {"session_id", "correlation_id", "timestamp"}
+)
+"""Keys belonging to the tool-content envelope layer.
+
+Used by ``_reshape_tool_content_to_hook_event`` to split envelope keys from
+tool-content payload keys when building the nested payload dict.  Defined as
+a module-level frozenset to avoid reconstructing the set on every call.
+"""
+
 
 def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEvent:
     """Reshape a flat omniclaude publisher payload into ModelClaudeCodeHookEvent.
@@ -229,6 +240,90 @@ def _needs_daemon_reshape(payload: dict[str, Any]) -> bool:
     ``create_claude_hook_dispatch_handler`` for the ambiguity note.
     """
     return "emitted_at" in payload and "timestamp_utc" not in payload
+
+
+def _is_tool_content_payload(payload: dict[str, Any]) -> bool:
+    """Return True if the payload is a ``ModelToolExecutionContent`` dict.
+
+    Tool-content payloads arrive on the ``tool-content`` topic with fields
+    like ``tool_name_raw`` and ``tool_name`` but **without** ``event_type``
+    or ``timestamp_utc`` (which are ``ModelClaudeCodeHookEvent`` envelope
+    fields).  This distinguishes them from both daemon flat payloads
+    (which have ``emitted_at``) and canonical hook events (which have
+    ``event_type``).
+    """
+    return "tool_name_raw" in payload and "event_type" not in payload
+
+
+def _reshape_tool_content_to_hook_event(
+    payload: dict[str, Any],
+    envelope: ModelEventEnvelope[object],
+) -> ModelClaudeCodeHookEvent:
+    """Reshape a ``ModelToolExecutionContent`` dict into ``ModelClaudeCodeHookEvent``.
+
+    Tool-content payloads are flat dicts from the ``tool-content`` topic that
+    represent PostToolUse events with file/command content.  This function
+    wraps them in the ``ModelClaudeCodeHookEvent`` envelope structure.
+
+    The ``session_id`` and ``correlation_id`` fields are extracted from the
+    payload (where ``ModelToolExecutionContent`` includes them as optional
+    string fields).  The ``timestamp`` field is mapped to ``timestamp_utc``.
+    All remaining tool-content fields become the nested payload.
+
+    Args:
+        payload: Flat dict from ``ModelToolExecutionContent.model_dump()``.
+        envelope: The ``ModelEventEnvelope`` wrapping this message (used as
+            fallback for ``correlation_id`` and ``timestamp``).
+
+    Returns:
+        A fully constructed ``ModelClaudeCodeHookEvent`` with
+        ``event_type="PostToolUse"`` and nested payload.
+    """
+    # Extract envelope-level fields from the tool-content payload.
+    # Use "unknown" only when session_id is missing (None), not when it's
+    # explicitly set to empty string (which should be preserved).
+    session_id_raw = payload.get("session_id")
+    session_id: str = str(session_id_raw) if session_id_raw is not None else "unknown"
+
+    # Correlation ID: prefer payload string, fall back to envelope UUID.
+    corr_id: UUID | None = None
+    raw_corr = payload.get("correlation_id")
+    if raw_corr:
+        with contextlib.suppress(ValueError):
+            corr_id = UUID(str(raw_corr))
+    if corr_id is None and envelope.correlation_id is not None:
+        corr_id = (
+            envelope.correlation_id
+            if isinstance(envelope.correlation_id, UUID)
+            else UUID(str(envelope.correlation_id))
+        )
+
+    # Timestamp: prefer payload.timestamp, fall back to envelope timestamp.
+    timestamp_raw = payload.get("timestamp")
+    if timestamp_raw is not None:
+        if isinstance(timestamp_raw, str):
+            timestamp_utc = datetime.fromisoformat(timestamp_raw)
+        elif isinstance(timestamp_raw, datetime):
+            timestamp_utc = timestamp_raw
+        else:
+            timestamp_utc = datetime.now(UTC)
+    else:
+        timestamp_utc = envelope.envelope_timestamp
+
+    # Ensure timezone-aware (ModelClaudeCodeHookEvent validates this).
+    if timestamp_utc.tzinfo is None:
+        timestamp_utc = timestamp_utc.replace(tzinfo=UTC)
+
+    # Build nested payload: all fields except the ones extracted above.
+    nested = {k: v for k, v in payload.items() if k not in _TOOL_CONTENT_ENVELOPE_KEYS}
+
+    return ModelClaudeCodeHookEvent(
+        event_type="PostToolUse",  # type: ignore[arg-type]
+        session_id=session_id,
+        correlation_id=corr_id,
+        timestamp_utc=timestamp_utc,
+        payload=ModelClaudeCodeHookEventPayload(**nested),
+    )
 
 
 def _reconstruct_payload_from_envelope(
@@ -470,11 +565,20 @@ def create_claude_hook_dispatch_handler(
                 # message that happens to include "timestamp_utc" as a
                 # domain key.  In practice this has not occurred; if it
                 # does, Pydantic validation will surface the mismatch.
+                #
+                # Detection order matters: daemon reshape check runs first
+                # because _reconstruct_payload_from_envelope may inject
+                # emitted_at into payloads, which would match
+                # _needs_daemon_reshape. Tool-content payloads lack
+                # daemon-specific keys (session_id, hook_type) so they
+                # won't false-match the daemon reshape path.
                 if _needs_daemon_reshape(payload):
                     parsed = _reshape_daemon_hook_payload_v1(payload)
+                    event = ModelClaudeCodeHookEvent(**parsed)
+                elif _is_tool_content_payload(payload):
+                    event = _reshape_tool_content_to_hook_event(payload, envelope)
                 else:
-                    parsed = payload
-                event = ModelClaudeCodeHookEvent(**parsed)
+                    event = ModelClaudeCodeHookEvent(**payload)
             except ValueError as e:
                 if isinstance(e, ValidationError):
                     # Pydantic model validation error -- wrap with
