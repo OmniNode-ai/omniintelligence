@@ -26,7 +26,7 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_cor
     _insights_to_patterns_by_kind,
     _raw_events_to_sessions,
     _stable_uuid,
-    extract_patterns_core,
+    handle_pattern_extraction_core,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models.enum_insight_type import (
     EnumInsightType,
@@ -293,7 +293,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert isinstance(result, CoreOutput)
         assert result.success is True
@@ -313,7 +313,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.deterministic is True
 
@@ -331,7 +331,7 @@ class TestExtractPatternsCore:
                 },
             ],
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         assert len(result.warnings) >= 1
@@ -344,7 +344,7 @@ class TestExtractPatternsCore:
         core_input = CoreInput(
             raw_events=[{"not_a_tool": True}],
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         # Should still succeed - empty/invalid events just produce no sessions
         # The handler should handle gracefully
@@ -359,7 +359,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.correlation_id == cid
 
@@ -374,7 +374,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.source_snapshot_id == snap_id
 
@@ -388,7 +388,7 @@ class TestExtractPatternsCore:
             min_occurrences=2,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         fa_patterns = result.patterns_by_kind[EnumPatternKind.FILE_ACCESS]
@@ -409,7 +409,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         err_patterns = result.patterns_by_kind[EnumPatternKind.ERROR]
@@ -426,7 +426,7 @@ class TestExtractPatternsCore:
             min_occurrences=2,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         tool_patterns = result.patterns_by_kind[EnumPatternKind.TOOL_USAGE]
@@ -445,7 +445,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         arch_patterns = result.patterns_by_kind[EnumPatternKind.ARCHITECTURE]
@@ -464,7 +464,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         # ERROR, ARCHITECTURE, TOOL_USAGE, TOOL_FAILURE should be empty
         assert len(result.patterns_by_kind[EnumPatternKind.ERROR]) == 0
@@ -481,7 +481,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         # All kinds should be present in output (even if empty)
@@ -497,7 +497,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         actual_count = sum(len(v) for v in result.patterns_by_kind.values())
         assert result.total_patterns_found == actual_count
@@ -511,7 +511,7 @@ class TestExtractPatternsCore:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         for kind, patterns in result.patterns_by_kind.items():
             for p in patterns:
@@ -538,7 +538,7 @@ class TestTimeWindowFiltering:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is True
         # Should analyze fewer sessions than total
@@ -555,7 +555,7 @@ class TestTimeWindowFiltering:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.success is False
         assert len(result.errors) > 0
@@ -571,7 +571,7 @@ class TestTimeWindowFiltering:
             min_occurrences=1,
             min_confidence=0.1,
         )
-        result = extract_patterns_core(core_input)
+        result = handle_pattern_extraction_core(core_input)
 
         assert result.sessions_analyzed == 4  # 4 sessions in fixture
 
@@ -1118,3 +1118,171 @@ class TestNodeComputeCore:
         result = await node.compute(local_input)
 
         assert result.success is True
+
+
+# =============================================================================
+# Tests: TOOL_FAILURE routing (regression test for CodeRabbit review)
+# =============================================================================
+
+
+class TestToolFailureRouting:
+    """Verify TOOL_FAILURE insights are routed to the TOOL_FAILURE bucket."""
+
+    def test_tool_failure_not_duplicated_into_error(
+        self, raw_events_with_tools: list[dict], base_time: datetime
+    ) -> None:
+        """TOOL_FAILURE extraction does not duplicate into ERROR bucket."""
+        # Build events that trigger tool failures across sessions
+        fail_events = []
+        for i in range(4):
+            t = base_time + timedelta(hours=i)
+            fail_events.extend(
+                [
+                    {
+                        "session_id": f"fail-session-{i}",
+                        "tool_name": "Bash",
+                        "success": False,
+                        "error_type": "CommandError",
+                        "error_message": "Command failed with exit code 1",
+                        "timestamp": t.isoformat(),
+                        "duration_ms": 100,
+                        "working_directory": "/project",
+                    },
+                    {
+                        "session_id": f"fail-session-{i}",
+                        "tool_name": "Bash",
+                        "success": False,
+                        "error_type": "CommandError",
+                        "error_message": "Command failed with exit code 1",
+                        "timestamp": (t + timedelta(seconds=10)).isoformat(),
+                        "duration_ms": 150,
+                        "working_directory": "/project",
+                    },
+                ]
+            )
+
+        # Request only TOOL_FAILURE, not ERROR
+        core_input = CoreInput(
+            raw_events=fail_events,
+            kinds=[EnumPatternKind.TOOL_FAILURE],
+            min_occurrences=1,
+            min_confidence=0.1,
+        )
+        result = handle_pattern_extraction_core(core_input)
+
+        assert result.success is True
+        # ERROR bucket should be empty since we only asked for TOOL_FAILURE
+        assert len(result.patterns_by_kind[EnumPatternKind.ERROR]) == 0
+
+    def test_tool_failure_patterns_in_correct_bucket(self) -> None:
+        """TOOL_FAILURE patterns appear under TOOL_FAILURE kind, not ERROR."""
+        now = datetime.now(UTC)
+        fail_events = []
+        for i in range(4):
+            t = now + timedelta(hours=i)
+            fail_events.append(
+                {
+                    "session_id": f"tf-session-{i}",
+                    "tool_name": "Read",
+                    "success": False,
+                    "error_type": "FileNotFoundError",
+                    "error_message": "File not found: /missing.py",
+                    "timestamp": t.isoformat(),
+                    "duration_ms": 5,
+                    "working_directory": "/project",
+                }
+            )
+
+        core_input = CoreInput(
+            raw_events=fail_events,
+            kinds=[EnumPatternKind.TOOL_FAILURE],
+            min_occurrences=1,
+            min_confidence=0.1,
+        )
+        result = handle_pattern_extraction_core(core_input)
+
+        assert result.success is True
+        tf_patterns = result.patterns_by_kind[EnumPatternKind.TOOL_FAILURE]
+        for p in tf_patterns:
+            assert p.kind == EnumPatternKind.TOOL_FAILURE
+
+
+# =============================================================================
+# Tests: Naive timestamp normalization (regression test for CodeRabbit review)
+# =============================================================================
+
+
+class TestNaiveTimestampNormalization:
+    """Verify naive timestamps are normalized to UTC."""
+
+    def test_naive_timestamp_string_normalized(self) -> None:
+        """ISO timestamp without timezone info is normalized to UTC."""
+        events: list[dict] = [
+            {
+                "session_id": "s1",
+                "tool_name": "Read",
+                "success": True,
+                "timestamp": "2025-06-15T10:00:00",  # naive - no tz
+                "working_directory": "/project",
+            },
+        ]
+        sessions = _raw_events_to_sessions(events)
+
+        assert len(sessions) == 1
+        assert sessions[0].started_at.tzinfo is not None
+
+    def test_naive_datetime_object_normalized(self) -> None:
+        """Naive datetime objects passed as timestamps are normalized to UTC."""
+        naive_dt = datetime(2025, 6, 15, 10, 0, 0)  # no tzinfo
+        events: list[dict] = [
+            {
+                "session_id": "s1",
+                "tool_name": "Read",
+                "success": True,
+                "timestamp": naive_dt,
+                "working_directory": "/project",
+            },
+        ]
+        sessions = _raw_events_to_sessions(events)
+
+        assert len(sessions) == 1
+        assert sessions[0].started_at.tzinfo is not None
+
+    def test_z_suffix_timestamp_parsed(self) -> None:
+        """Timestamp with 'Z' suffix is correctly parsed as UTC."""
+        events: list[dict] = [
+            {
+                "session_id": "s1",
+                "tool_name": "Read",
+                "success": True,
+                "timestamp": "2025-06-15T10:00:00Z",
+                "working_directory": "/project",
+            },
+        ]
+        sessions = _raw_events_to_sessions(events)
+
+        assert len(sessions) == 1
+        assert sessions[0].started_at.tzinfo is not None
+
+    def test_naive_timestamps_with_time_window_no_error(self) -> None:
+        """Naive timestamps do not cause TypeError with tz-aware time window."""
+        now = datetime(2025, 6, 15, 10, 0, 0, tzinfo=UTC)
+        events: list[dict] = [
+            {
+                "session_id": "s1",
+                "tool_name": "Read",
+                "success": True,
+                "timestamp": "2025-06-15T10:00:00",  # naive
+                "working_directory": "/project",
+            },
+        ]
+        core_input = CoreInput(
+            raw_events=events,
+            time_window_start=now - timedelta(hours=1),
+            time_window_end=now + timedelta(hours=1),
+            min_occurrences=1,
+            min_confidence=0.1,
+        )
+        # This should not raise TypeError
+        result = handle_pattern_extraction_core(core_input)
+        assert isinstance(result, CoreOutput)

@@ -91,7 +91,7 @@ _INSIGHT_TO_KIND: dict[EnumInsightType, EnumPatternKind] = {
 # ---------------------------------------------------------------------------
 
 
-def extract_patterns_core(input_data: CoreInput) -> CoreOutput:
+def handle_pattern_extraction_core(input_data: CoreInput) -> CoreOutput:
     """Extract patterns using core models from omnibase_core.
 
     This handler bridges the canonical core input/output models to the existing
@@ -204,11 +204,6 @@ def extract_patterns_core(input_data: CoreInput) -> CoreOutput:
             )
             all_insights.extend(convert_error_patterns(results_err, ref_time))
 
-            results_fail = extract_tool_failure_patterns(
-                sessions, min_occ, min_conf, min_distinct, max_results
-            )
-            all_insights.extend(convert_error_patterns(results_fail, ref_time))
-
         if EnumPatternKind.ARCHITECTURE in kinds_to_extract:
             results_arch = extract_architecture_patterns(
                 sessions, min_occ, min_conf, min_distinct, max_results
@@ -221,19 +216,27 @@ def extract_patterns_core(input_data: CoreInput) -> CoreOutput:
             )
             all_insights.extend(convert_tool_patterns(results_tool, ref_time))
 
+        tool_failure_insights: list[ModelCodebaseInsight] = []
         if EnumPatternKind.TOOL_FAILURE in kinds_to_extract:
             results_tf = extract_tool_failure_patterns(
                 sessions, min_occ, min_conf, min_distinct, max_results
             )
-            fail_insights = convert_error_patterns(results_tf, ref_time)
-            # Re-tag these as TOOL_FAILURE kind during record conversion
-            for ins in fail_insights:
-                all_insights.append(ins)
+            tool_failure_insights = convert_error_patterns(results_tf, ref_time)
 
         # ------------------------------------------------------------------
         # 5. Convert insights -> ModelPatternRecord, grouped by kind
         # ------------------------------------------------------------------
         patterns_by_kind = _insights_to_patterns_by_kind(all_insights)
+
+        # Route tool-failure insights into the TOOL_FAILURE bucket explicitly
+        if tool_failure_insights:
+            tf_records = _insights_to_patterns_by_kind(
+                tool_failure_insights,
+                kind_override=EnumPatternKind.TOOL_FAILURE,
+            )
+            patterns_by_kind.setdefault(EnumPatternKind.TOOL_FAILURE, []).extend(
+                tf_records.get(EnumPatternKind.TOOL_FAILURE, [])
+            )
 
         # Ensure all kinds present (validator requires it)
         for kind in EnumPatternKind:
@@ -333,11 +336,15 @@ def _raw_events_to_sessions(
             ts: dt_cls
             if isinstance(ts_raw, str):
                 try:
-                    ts = dt_cls.fromisoformat(ts_raw)
+                    ts = dt_cls.fromisoformat(ts_raw.replace("Z", "+00:00"))
                 except ValueError:
                     ts = now
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=UTC)
             elif isinstance(ts_raw, dt_cls):
                 ts = ts_raw
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=UTC)
             else:
                 ts = now
 
@@ -448,11 +455,15 @@ def _derive_reference_time(sessions: Sequence[ModelSessionSnapshot]) -> datetime
 
 def _insights_to_patterns_by_kind(
     insights: list[ModelCodebaseInsight],
+    *,
+    kind_override: EnumPatternKind | None = None,
 ) -> dict[EnumPatternKind, list[ModelPatternRecord]]:
     """Convert local insights to core ModelPatternRecords grouped by kind.
 
     Args:
         insights: Local insight objects.
+        kind_override: If provided, all insights are assigned this kind
+            instead of using the ``_INSIGHT_TO_KIND`` mapping.
 
     Returns:
         Dict mapping EnumPatternKind to lists of ModelPatternRecord.
@@ -460,7 +471,9 @@ def _insights_to_patterns_by_kind(
     result: dict[EnumPatternKind, list[ModelPatternRecord]] = {}
 
     for insight in insights:
-        kind = _INSIGHT_TO_KIND.get(insight.insight_type, EnumPatternKind.FILE_ACCESS)
+        kind = kind_override or _INSIGHT_TO_KIND.get(
+            insight.insight_type, EnumPatternKind.FILE_ACCESS
+        )
 
         record = ModelPatternRecord(
             pattern_id=_stable_uuid(insight.insight_id),
@@ -559,4 +572,4 @@ def _error_output(
     )
 
 
-__all__ = ["extract_patterns_core"]
+__all__ = ["handle_pattern_extraction_core"]

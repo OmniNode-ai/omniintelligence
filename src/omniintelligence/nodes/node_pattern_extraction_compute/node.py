@@ -26,7 +26,7 @@ from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
     extract_all_patterns,
-    extract_patterns_core,
+    handle_pattern_extraction_core,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
     ModelPatternExtractionInput,
@@ -70,7 +70,7 @@ class NodePatternExtractionCompute(
         Returns:
             Core output with patterns_by_kind structure.
         """
-        return extract_patterns_core(input_data)
+        return handle_pattern_extraction_core(input_data)
 
 
 __all__ = ["NodePatternExtractionCompute"]
