@@ -134,10 +134,7 @@ def _make_mock_pool() -> MagicMock:
     """Create a mock asyncpg pool with async methods.
 
     The mock pool is used to satisfy wire_dispatchers() which creates
-    protocol adapters from the pool. The key methods needed:
-    - execute: For AdapterIdempotencyStorePostgres.ensure_table()
-    - fetchrow: For AdapterPatternRepositoryPostgres
-    - fetch: For AdapterPatternRepositoryPostgres
+    protocol adapters from the pool.
     """
     pool = MagicMock()
     pool.execute = AsyncMock(return_value="CREATE TABLE")
@@ -147,16 +144,41 @@ def _make_mock_pool() -> MagicMock:
     return pool
 
 
+def _make_mock_runtime() -> MagicMock:
+    """Create a mock PostgresRepositoryRuntime with a mock pool."""
+    runtime = MagicMock()
+    runtime._pool = _make_mock_pool()
+    runtime.contract = MagicMock()
+    runtime.call = AsyncMock(return_value=None)
+
+    # Mock the contract ops for AdapterPatternStore._build_positional_args
+    runtime.contract.ops = {}
+    return runtime
+
+
+def _make_mock_idempotency_store() -> MagicMock:
+    """Create a mock omnibase_infra idempotency store."""
+    store = MagicMock()
+    store.check_and_record = AsyncMock(return_value=True)
+    store.is_processed = AsyncMock(return_value=False)
+    store.mark_processed = AsyncMock()
+    store.shutdown = AsyncMock()
+    return store
+
+
 async def _wire_plugin(
     plugin: PluginIntelligence,
     config: Any,
 ) -> Any:
-    """Wire dispatchers on a plugin with a mocked pool.
+    """Wire dispatchers on a plugin with mocked infra resources.
 
-    Sets plugin._pool to a mock and calls wire_dispatchers().
+    Sets plugin._pool, _pattern_runtime, and _idempotency_store to mocks
+    and calls wire_dispatchers().
     Returns the wire_dispatchers result.
     """
     plugin._pool = _make_mock_pool()
+    plugin._pattern_runtime = _make_mock_runtime()
+    plugin._idempotency_store = _make_mock_idempotency_store()
     return await plugin.wire_dispatchers(config)
 
 
@@ -222,7 +244,7 @@ class TestPluginWireDispatchers:
         result = await plugin.wire_dispatchers(config)
 
         assert not result.success
-        assert "pool not initialized" in result.error_message.lower()
+        assert "not initialized" in result.error_message.lower()
         assert plugin._dispatch_engine is None
 
     @pytest.mark.asyncio
@@ -230,6 +252,8 @@ class TestPluginWireDispatchers:
         """wire_dispatchers should return failed result when engine creation raises."""
         plugin = PluginIntelligence()
         plugin._pool = _make_mock_pool()
+        plugin._pattern_runtime = _make_mock_runtime()
+        plugin._idempotency_store = _make_mock_idempotency_store()
         config = _make_config()
 
         with patch(

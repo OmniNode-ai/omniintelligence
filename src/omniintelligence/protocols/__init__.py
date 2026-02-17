@@ -139,6 +139,35 @@ class ProtocolIdempotencyStore(Protocol):
 
 
 @runtime_checkable
+class ProtocolPatternUpsertStore(Protocol):
+    """Protocol for idempotent pattern storage (ON CONFLICT DO NOTHING).
+
+    Used by the dispatch bridge handler for pattern-learned and
+    pattern.discovered events. Returns the UUID if inserted, None if
+    duplicate (conflict).
+    """
+
+    async def upsert_pattern(
+        self,
+        *,
+        pattern_id: UUID,
+        signature: str,
+        signature_hash: str,
+        domain_id: str,
+        domain_version: str,
+        confidence: float,
+        version: int,
+        source_session_ids: list[UUID],
+    ) -> UUID | None:
+        """Idempotently insert a pattern.
+
+        Returns:
+            UUID if inserted, None if duplicate.
+        """
+        ...
+
+
+@runtime_checkable
 class ProtocolIntentClassifier(Protocol):
     """Protocol for intent classification compute nodes.
 
@@ -157,4 +186,5 @@ __all__ = [
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
     "ProtocolPatternRepository",
+    "ProtocolPatternUpsertStore",
 ]

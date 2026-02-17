@@ -70,9 +70,10 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import asyncpg
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
     from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
+    from omnibase_infra.idempotency.store_postgres import StoreIdempotencyPostgres
+    from omnibase_infra.runtime.db import PostgresRepositoryRuntime
     from omnibase_infra.runtime.registry import RegistryMessageType
 
     from omniintelligence.runtime.introspection import (
@@ -130,7 +131,7 @@ class PluginIntelligence:
     - Claude hook event processing
 
     Resources Created:
-        - PostgreSQL connection pool (asyncpg.Pool)
+        - PostgreSQL connection pool (via omnibase_infra effect boundary)
         - Intelligence domain handlers (via wiring module)
 
     Thread Safety:
@@ -139,14 +140,18 @@ class PluginIntelligence:
         should be via container-resolved handlers.
 
     Attributes:
-        _pool: PostgreSQL connection pool (created in initialize())
+        _pool: PostgreSQL connection pool (shared from idempotency store)
+        _pattern_runtime: Contract-driven repository runtime
+        _idempotency_store: omnibase_infra idempotency store (owns the pool)
         _unsubscribe_callbacks: Callbacks for Kafka unsubscription
         _shutdown_in_progress: Guard against concurrent shutdown calls
     """
 
     def __init__(self) -> None:
         """Initialize the plugin with empty state."""
-        self._pool: asyncpg.Pool | None = None
+        self._pool: object | None = None  # shared from idempotency store
+        self._pattern_runtime: PostgresRepositoryRuntime | None = None
+        self._idempotency_store: StoreIdempotencyPostgres | None = None
         self._unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._shutdown_in_progress: bool = False
         self._services_registered: list[str] = []
@@ -167,7 +172,7 @@ class PluginIntelligence:
         return "Intelligence"
 
     @property
-    def postgres_pool(self) -> asyncpg.Pool | None:
+    def postgres_pool(self) -> object | None:
         """Return the PostgreSQL pool (for external access)."""
         return self._pool
 
@@ -205,7 +210,11 @@ class PluginIntelligence:
         """Initialize Intelligence resources.
 
         Creates:
-        - PostgreSQL connection pool for pattern storage
+        - StoreIdempotencyPostgres for pattern lifecycle idempotency (owns its pool)
+        - PostgresRepositoryRuntime for contract-driven DB access (shares idempotency pool)
+
+        All database access flows through omnibase_infra's effect boundary.
+        No direct database driver imports in this module.
 
         Args:
             config: Plugin configuration with container and correlation_id.
@@ -213,14 +222,20 @@ class PluginIntelligence:
         Returns:
             Result with resources_created list on success.
         """
-        import asyncpg
+        from omnibase_infra.idempotency.models.model_postgres_idempotency_store_config import (
+            ModelPostgresIdempotencyStoreConfig,
+        )
+        from omnibase_infra.idempotency.store_postgres import StoreIdempotencyPostgres
+        from omnibase_infra.runtime.db import PostgresRepositoryRuntime
+
+        from omniintelligence.repositories.adapter_pattern_store import load_contract
 
         start_time = time.time()
         resources_created: list[str] = []
         correlation_id = config.correlation_id
 
         try:
-            # Create PostgreSQL pool from OMNIINTELLIGENCE_DB_URL
+            # Read DB URL from environment
             db_url = os.getenv("OMNIINTELLIGENCE_DB_URL")
             if not db_url:
                 duration = time.time() - start_time
@@ -259,38 +274,50 @@ class PluginIntelligence:
                     command_timeout,
                 )
 
-            self._pool = await asyncpg.create_pool(
-                db_url,
-                min_size=min_pool,
-                max_size=max_pool,
+            # Create idempotency store via omnibase_infra (owns its own pool)
+            idempotency_config = ModelPostgresIdempotencyStoreConfig(
+                dsn=db_url,
+                pool_min_size=min_pool,
+                pool_max_size=max_pool,
                 command_timeout=command_timeout,
             )
+            idempotency_store = StoreIdempotencyPostgres(config=idempotency_config)
+            await idempotency_store.initialize()
+            self._idempotency_store = idempotency_store
+            resources_created.append("idempotency_store")
 
-            # Validate pool creation succeeded
-            if self._pool is None:
+            # Share the idempotency store's pool for the repository runtime.
+            # This avoids creating a second pool while keeping all DB access
+            # behind the omnibase_infra effect boundary.
+            pool = idempotency_store._pool
+            if pool is None:
                 duration = time.time() - start_time
                 return ModelDomainPluginResult.failed(
                     plugin_id=self.plugin_id,
                     error_message=(
-                        "PostgreSQL pool creation returned None - "
-                        "connection may have failed"
+                        "Idempotency store pool is None after initialization"
                     ),
                     duration_seconds=duration,
                 )
 
+            self._pool = pool  # kept for lifecycle management (close on shutdown)
             resources_created.append("postgres_pool")
             logger.info(
-                "Intelligence PostgreSQL pool created (correlation_id=%s)",
+                "Intelligence PostgreSQL pool created via infra (correlation_id=%s)",
                 correlation_id,
                 extra={
                     "db_url": _safe_db_url_display(db_url),
                 },
             )
 
+            # Create PostgresRepositoryRuntime for contract-driven DB access
+            contract = load_contract()
+            self._pattern_runtime = PostgresRepositoryRuntime(
+                pool=pool, contract=contract
+            )
+            resources_created.append("pattern_runtime")
+
             # Register intelligence message types (OMN-2039)
-            # NOTE: This creates a plugin-local registry for the intelligence
-            # domain only.  Cross-domain validation requires a kernel-level
-            # shared registry (future enhancement).
             from omnibase_infra.runtime.registry import RegistryMessageType
 
             from omniintelligence.runtime.message_type_registration import (
@@ -351,17 +378,21 @@ class PluginIntelligence:
         correlation_id = config.correlation_id
 
         self._message_type_registry = None
+        self._pattern_runtime = None
 
-        if self._pool is not None:
+        # Pool is owned by idempotency store -- just clear the reference
+        self._pool = None
+
+        if self._idempotency_store is not None:
             try:
-                await self._pool.close()
+                await self._idempotency_store.shutdown()
             except Exception as cleanup_error:
                 logger.warning(
-                    "Cleanup failed for PostgreSQL pool close: %s (correlation_id=%s)",
+                    "Cleanup failed for idempotency store shutdown: %s (correlation_id=%s)",
                     cleanup_error,
                     correlation_id,
                 )
-            self._pool = None
+            self._idempotency_store = None
 
     async def wire_handlers(
         self,
@@ -428,7 +459,7 @@ class PluginIntelligence:
     ) -> ModelDomainPluginResult:
         """Wire intelligence domain dispatchers with real dependencies.
 
-        Creates protocol adapters from infrastructure (asyncpg pool, event bus),
+        Creates protocol adapters from infrastructure (effect boundary, event bus),
         reads publish topics from contracts, and builds a MessageDispatchEngine
         with all 5 intelligence domain handlers (7 routes) wired to real
         business logic.
@@ -450,11 +481,14 @@ class PluginIntelligence:
         Returns:
             Result indicating success/failure and dispatchers registered.
         """
+        from omniintelligence.repositories.adapter_pattern_store import (
+            AdapterPatternStore,
+        )
         from omniintelligence.runtime.adapters import (
-            AdapterIdempotencyStorePostgres,
+            AdapterIdempotencyStoreInfra,
             AdapterIntentClassifier,
             AdapterKafkaPublisher,
-            AdapterPatternRepositoryPostgres,
+            AdapterPatternRepositoryRuntime,
         )
         from omniintelligence.runtime.contract_topics import (
             collect_publish_topics_for_dispatch,
@@ -466,20 +500,40 @@ class PluginIntelligence:
         start_time = time.time()
         correlation_id = config.correlation_id
 
-        if self._pool is None:
+        if self._pool is None or self._pattern_runtime is None:
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
                 error_message=(
-                    "Cannot wire dispatchers: PostgreSQL pool not initialized"
+                    "Cannot wire dispatchers: PostgreSQL pool or runtime not initialized"
                 ),
             )
 
         try:
-            # Create required protocol adapters from pool
-            repository = AdapterPatternRepositoryPostgres(self._pool)
+            # Create protocol adapters from infra effect boundary
+            repository = AdapterPatternRepositoryRuntime(self._pattern_runtime)
 
-            idempotency_store = AdapterIdempotencyStorePostgres(self._pool)
-            await idempotency_store.ensure_table()
+            # Create contract-driven upsert store for pattern storage handler
+            pattern_upsert_store = AdapterPatternStore(self._pattern_runtime)
+
+            # Create idempotency adapter from infra store
+            if self._idempotency_store is not None:
+                idempotency_store = AdapterIdempotencyStoreInfra(
+                    self._idempotency_store
+                )
+            else:
+                # Fallback: should not happen if initialize() succeeded
+                logger.warning(
+                    "Idempotency store not initialized, creating in-memory fallback "
+                    "(correlation_id=%s)",
+                    correlation_id,
+                )
+                from omnibase_infra.idempotency.store_inmemory import (
+                    StoreIdempotencyInmemory,
+                )
+
+                idempotency_store = AdapterIdempotencyStoreInfra(
+                    StoreIdempotencyInmemory()
+                )
 
             intent_classifier = AdapterIntentClassifier()
 
@@ -502,6 +556,7 @@ class PluginIntelligence:
                 intent_classifier=intent_classifier,
                 kafka_producer=kafka_publisher,
                 publish_topics=publish_topics,
+                pattern_upsert_store=pattern_upsert_store,
             )
 
             # Store event_bus reference for introspection publishing.
@@ -835,24 +890,29 @@ class PluginIntelligence:
                 )
         self._unsubscribe_callbacks = []
 
-        # Close pool
-        if self._pool is not None:
+        # Clear runtime reference (must happen before pool shutdown)
+        self._pattern_runtime = None
+
+        # Shutdown idempotency store (owns the shared pool, closes it on shutdown)
+        if self._idempotency_store is not None:
             try:
-                await self._pool.close()
+                await self._idempotency_store.shutdown()
                 logger.debug(
-                    "Intelligence PostgreSQL pool closed (correlation_id=%s)",
+                    "Intelligence idempotency store shut down (correlation_id=%s)",
                     correlation_id,
                 )
-            except Exception as pool_close_error:
-                sanitized_pool = get_log_sanitizer().sanitize(str(pool_close_error))
-                errors.append(f"pool_close: {sanitized_pool}")
+            except Exception as idemp_error:
+                sanitized_idemp = get_log_sanitizer().sanitize(str(idemp_error))
+                errors.append(f"idempotency_shutdown: {sanitized_idemp}")
                 logger.warning(
-                    "Failed to close Intelligence PostgreSQL pool: %s "
-                    "(correlation_id=%s)",
-                    sanitized_pool,
+                    "Failed to shut down idempotency store: %s (correlation_id=%s)",
+                    sanitized_idemp,
                     correlation_id,
                 )
-            self._pool = None
+            self._idempotency_store = None
+
+        # Pool is owned by the idempotency store -- just clear the reference
+        self._pool = None
 
         self._services_registered = []
         self._dispatch_engine = None

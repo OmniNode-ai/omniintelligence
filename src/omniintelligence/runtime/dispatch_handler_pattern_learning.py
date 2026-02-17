@@ -38,9 +38,6 @@ from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from uuid import NAMESPACE_DNS, UUID, uuid4, uuid5
 
-from asyncpg import InterfaceError as AsyncpgInterfaceError
-from asyncpg import InternalClientError as AsyncpgInternalClientError
-from asyncpg import PostgresConnectionError
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
@@ -374,17 +371,12 @@ async def _fetch_session_snapshot(
                 repository.fetch(_SQL_SESSION_ACTIONS, session_id),
                 timeout=_SESSION_QUERY_TIMEOUT_SECONDS,
             )
-        except (
-            TimeoutError,
-            OSError,
-            PostgresConnectionError,
-            AsyncpgInterfaceError,
-            AsyncpgInternalClientError,
-        ):
+        except (TimeoutError, OSError, ConnectionError) as e:
             logger.warning(
-                "Session actions query failed (timeout or connection error), "
+                "Session actions query failed (%s), "
                 "using synthetic snapshot "
                 "(session_id=%s, correlation_id=%s)",
+                type(e).__name__,
                 session_id,
                 correlation_id,
             )
@@ -459,16 +451,11 @@ async def _fetch_session_snapshot(
                         outcome = "success"
                     elif step_status in ("failed", "error"):
                         outcome = "failure"
-        except (
-            TimeoutError,
-            OSError,
-            PostgresConnectionError,
-            AsyncpgInterfaceError,
-            AsyncpgInternalClientError,
-        ):
+        except (TimeoutError, OSError, ConnectionError) as e:
             logger.debug(
-                "Failed to query workflow_steps (timeout or connection error), "
+                "Failed to query workflow_steps (%s), "
                 "using default outcome (session_id=%s, correlation_id=%s)",
+                type(e).__name__,
                 session_id,
                 correlation_id,
             )
@@ -501,8 +488,8 @@ async def _fetch_session_snapshot(
         )
         return _create_synthetic_snapshot(session_id=deterministic_session_id, now=now)
     except Exception as e:
-        # Check for asyncpg database errors (have sqlstate attribute) without
-        # importing asyncpg directly (ARCH-002 boundary).
+        # Check for database errors (have sqlstate attribute) without
+        # importing driver directly (ARCH-002 boundary).
         if hasattr(e, "sqlstate"):
             logger.warning(
                 "Failed to fetch session data from DB, using synthetic snapshot "
