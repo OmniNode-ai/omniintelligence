@@ -408,6 +408,54 @@ class AdapterPatternStore:
             return stored_at
         return None
 
+    async def query_patterns(
+        self,
+        *,
+        domain: str | None = None,
+        language: str | None = None,
+        min_confidence: float = 0.7,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Query validated/provisional patterns by domain, language, and confidence.
+
+        This method is intentionally NOT part of the ProtocolPatternStore protocol.
+        It is an API-layer concern (query/filter operations) rather than a core
+        storage operation. Other ProtocolPatternStore implementations are not
+        required to implement it.
+
+        Used by the REST API endpoint (OMN-2253) to serve pattern queries
+        for compliance/enforcement nodes.
+
+        Args:
+            domain: Optional domain identifier to filter by.
+            language: Optional programming language to filter by (matched
+                against the keywords array in the database).
+            min_confidence: Minimum confidence threshold (0.0-1.0, default 0.7).
+            limit: Maximum number of patterns to return (1-200, default 50).
+            offset: Number of patterns to skip for pagination (default 0).
+
+        Returns:
+            List of pattern dicts matching the query criteria.
+        """
+        args = self._build_positional_args(
+            "query_patterns",
+            {
+                "domain_id": domain,
+                "language": language,
+                "min_confidence": min_confidence,
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        result = await self._runtime.call("query_patterns", *args)
+
+        if isinstance(result, list):
+            return result
+        if result is None:
+            return []
+        return [result]
+
     async def store_with_version_transition(
         self,
         *,
