@@ -57,8 +57,7 @@ Used in:
 # directly (no env prefix). These constants match the contract declarations.
 #
 # NOTE: The TOPIC_SUFFIX_ prefix is a legacy naming artifact. The dispatch engine
-# uses these as canonical topics (no prefix), but handler_promotion and
-# handler_demotion still concatenate them as suffixes with topic_env_prefix.
+# uses these as canonical topics (no prefix).
 # The names will be removed entirely with OMN-1546; renaming is not worthwhile.
 # =============================================================================
 

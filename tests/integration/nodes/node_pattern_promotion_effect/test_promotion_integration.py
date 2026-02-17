@@ -22,6 +22,7 @@ import asyncpg
 import pytest
 
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
+    TOPIC_PATTERN_LIFECYCLE_CMD_V1,
     check_and_promote_patterns,
 )
 from tests.integration.nodes.node_pattern_promotion_effect.conftest import (
@@ -109,7 +110,6 @@ class TestPromotionIntegration:
             repository=db_conn,
             producer=mock_kafka_publisher,
             dry_run=True,
-            topic_env_prefix="test",
         )
 
         # Assert: Results show what would happen
@@ -183,7 +183,6 @@ class TestPromotionIntegration:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # Assert: Our validated pattern should not appear in promoted list
@@ -223,7 +222,6 @@ class TestPromotionIntegration:
             min_injection_count=10,
             min_success_rate=0.75,
             max_failure_streak=3,
-            topic_env_prefix="test",
         )
 
         # Assert: Only 1 pattern meets the stricter criteria
@@ -285,7 +283,6 @@ class TestPromotionIntegration:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # Assert: Pattern was processed safely
@@ -439,7 +436,6 @@ class TestPromotionEdgeCases:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # Pattern should be checked but not promoted
@@ -545,7 +541,6 @@ class TestPromotionGate4DisabledPatterns:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # Assert: Disabled pattern should NOT appear in eligible or promoted lists
@@ -863,7 +858,6 @@ class TestPromotionLargeBatch:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # Assert: Correct filtering
@@ -949,7 +943,6 @@ class TestPromotionMetricsAccuracy:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # Find our pattern in results
@@ -1029,7 +1022,6 @@ class TestPromotionMetricsAccuracy:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=True,  # Use dry run to avoid mutation
-                topic_env_prefix="test",
             )
 
             our_promotion = next(
@@ -1113,7 +1105,6 @@ class TestPromotionZeroToleranceMode:
                 producer=mock_kafka_publisher,
                 dry_run=True,
                 max_failure_streak=1,  # 1 means streak >= 1 blocks, so only 0 passes
-                topic_env_prefix="test",
             )
 
             promoted_ids = {p.pattern_id for p in result.patterns_promoted}
@@ -1211,7 +1202,6 @@ class TestPromotionZeroToleranceMode:
                 producer=mock_kafka_publisher,
                 dry_run=True,
                 max_failure_streak=1,  # Strict mode
-                topic_env_prefix="test",
             )
 
             promoted_ids = {p.pattern_id for p in result.patterns_promoted}
@@ -1284,7 +1274,6 @@ class TestPromotionPartialFailure:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="test",
             )
 
             # All 5 should be processed
@@ -1447,7 +1436,6 @@ class TestPromotionKafkaEvents:
                 producer=mock_kafka_publisher,
                 dry_run=False,
                 correlation_id=sample_correlation_id,
-                topic_env_prefix="test",
             )
 
             # Verify event was published
@@ -1528,7 +1516,6 @@ class TestPromotionKafkaEvents:
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=True,  # DRY RUN
-                topic_env_prefix="test",
             )
 
             # Pattern should be eligible
@@ -1545,14 +1532,15 @@ class TestPromotionKafkaEvents:
                 pattern_id,
             )
 
-    async def test_kafka_topic_includes_env_prefix(
+    async def test_kafka_topic_uses_lifecycle_constant(
         self,
         db_conn: asyncpg.Connection,
         mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
-        """Kafka topic includes the environment prefix.
+        """Kafka topic uses the canonical lifecycle command topic constant.
 
-        Topic format: {env}.pattern-promoted.v1
+        Topic is the TOPIC_PATTERN_LIFECYCLE_CMD_V1 constant directly,
+        with no environment prefix.
         """
         from datetime import UTC, datetime
         from uuid import uuid4
@@ -1570,7 +1558,7 @@ class TestPromotionKafkaEvents:
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
             pattern_id,
-            f"test_topic_prefix_{pattern_id}",
+            f"test_topic_constant_{pattern_id}",
             str(pattern_id),  # signature_hash
             "code_generation",
             "1.0",
@@ -1586,21 +1574,17 @@ class TestPromotionKafkaEvents:
         )
 
         try:
-            # Use custom prefix
             result = await check_and_promote_patterns(
                 repository=db_conn,
                 producer=mock_kafka_publisher,
                 dry_run=False,
-                topic_env_prefix="staging",
             )
 
-            # Verify topic prefix
+            # Verify topic is the canonical constant with no prefix
             assert len(mock_kafka_publisher.published_events) >= 1
             topic, _, _ = mock_kafka_publisher.published_events[0]
-            assert topic.startswith("staging."), (
-                f"Topic should start with 'staging.', got: {topic}"
-            )
-            assert "pattern-lifecycle" in topic
+            assert topic == TOPIC_PATTERN_LIFECYCLE_CMD_V1
+            assert topic == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
         finally:
             await db_conn.execute(

@@ -127,8 +127,6 @@ TOPIC_SUFFIX_PATTERN_LIFECYCLE_V1: str = (
 
 Handlers publish lifecycle events to this topic. The reducer consumes them,
 validates the transition, and emits an intent for the effect node.
-
-Full topic at runtime: {env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
 """
 
 
@@ -550,7 +548,6 @@ async def check_and_demote_patterns(
     producer: ProtocolKafkaPublisher | None = None,
     *,
     request: ModelDemotionCheckRequest,
-    topic_env_prefix: str | None = None,
 ) -> ModelDemotionCheckResult:
     """Check and demote validated patterns that meet demotion criteria.
 
@@ -571,8 +568,6 @@ async def check_and_demote_patterns(
             If None, Kafka events are not emitted but database demotions still
             occur. See "Kafka Optionality" section in module docstring.
         request: Demotion check request with threshold values and dry_run flag.
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-            Required when producer is not None. Ignored when producer is None.
 
     Returns:
         ModelDemotionCheckResult with counts, individual demotion results,
@@ -627,19 +622,6 @@ async def check_and_demote_patterns(
                 "min_injection_count": thresholds.min_injection_count,
                 "cooldown_hours": thresholds.cooldown_hours,
             },
-        )
-
-    # Step 2b: Validate topic_env_prefix BEFORE the loop.
-    # When producer is available and this is NOT a dry run, topic_env_prefix
-    # is required. Checking here surfaces the configuration error once
-    # (fail-fast) instead of raising ValueError per-pattern inside
-    # demote_pattern, where the generic except would silently record each
-    # as a failed_result. Dry runs never publish to Kafka, so the prefix
-    # is not needed.
-    if producer is not None and topic_env_prefix is None and not request.dry_run:
-        raise ValueError(
-            "topic_env_prefix is required when Kafka producer is available. "
-            "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
         )
 
     # Step 3: Fetch all validated patterns
@@ -741,7 +723,6 @@ async def check_and_demote_patterns(
                     reason=reason,
                     thresholds=thresholds,
                     correlation_id=correlation_id,
-                    topic_env_prefix=topic_env_prefix,
                 )
 
                 # Check for kafka issues - track separately but still add result
@@ -853,8 +834,6 @@ async def demote_pattern(
     reason: str,
     thresholds: ModelEffectiveThresholds,
     correlation_id: UUID | None = None,
-    *,
-    topic_env_prefix: str | None = None,
 ) -> ModelDemotionResult:
     """Request demotion of a pattern by emitting a lifecycle event.
 
@@ -884,8 +863,6 @@ async def demote_pattern(
             "failure_streak: 5 consecutive failures", "low_success_rate: 35.0%").
         thresholds: Effective thresholds used for this demotion.
         correlation_id: Optional correlation ID for tracing.
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-            Required when producer is not None. Ignored when producer is None.
 
     Returns:
         ModelDemotionResult with demotion details and gate snapshot.
@@ -936,13 +913,6 @@ async def demote_pattern(
             dry_run=False,
         )
 
-    # Validate topic_env_prefix is provided when using Kafka
-    if topic_env_prefix is None:
-        raise ValueError(
-            "topic_env_prefix is required when Kafka producer is available. "
-            "Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
-        )
-
     # Determine actor_type based on reason
     # Manual disable is an admin action; auto-demotion is a handler action
     is_manual_disable = reason == "manual_disable"
@@ -961,7 +931,6 @@ async def demote_pattern(
             actor=actor,
             actor_type=actor_type,
             requested_at=requested_at,
-            topic_env_prefix=topic_env_prefix,
         )
     except Exception as exc:
         # Log the error but don't fail - Kafka is optional for effect nodes
@@ -1023,8 +992,6 @@ async def _emit_lifecycle_event(
     actor: str,
     actor_type: str,
     requested_at: datetime,
-    *,
-    topic_env_prefix: str,
 ) -> None:
     """Emit a pattern lifecycle event to Kafka for reducer processing.
 
@@ -1042,15 +1009,12 @@ async def _emit_lifecycle_event(
         actor: Who initiated the transition (e.g., "demotion_handler").
         actor_type: Actor classification ("handler" for auto-demote, "admin" for manual).
         requested_at: Timestamp when demotion was requested.
-        topic_env_prefix: Environment prefix for topic (e.g., "dev", "prod").
-            Required parameter - must be provided by caller from configuration.
 
     Note:
         The request_id is generated here as the idempotency key. It flows
         end-to-end: Event.request_id → Reducer → Intent → Audit table.
     """
-    # Build topic name with environment prefix
-    topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_V1}"
+    topic = TOPIC_SUFFIX_PATTERN_LIFECYCLE_V1
 
     # Generate idempotency key for this demotion attempt
     request_id = uuid4()

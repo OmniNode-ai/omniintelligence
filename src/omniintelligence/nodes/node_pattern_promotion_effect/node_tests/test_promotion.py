@@ -35,6 +35,7 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
     MIN_SUCCESS_RATE,
+    TOPIC_PATTERN_LIFECYCLE_CMD_V1,
     build_gate_snapshot,
     calculate_success_rate,
     check_and_promote_patterns,
@@ -898,7 +899,6 @@ class TestActualPromotion:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1014,7 +1014,6 @@ class TestActualPromotion:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1046,7 +1045,6 @@ class TestActualPromotion:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
         after = datetime.now(UTC)
@@ -1086,13 +1084,13 @@ class TestEventPayloadVerification:
     """
 
     @pytest.mark.asyncio
-    async def test_event_topic_uses_env_prefix_and_lifecycle_topic(
+    async def test_event_topic_uses_lifecycle_topic_constant(
         self,
         mock_repository: MockPatternRepository,
         mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
     ) -> None:
-        """Event is published to lifecycle command topic with correct env prefix."""
+        """Event is published to the canonical lifecycle command topic constant."""
         # Arrange
         mock_repository.add_pattern(
             PromotablePattern(
@@ -1108,14 +1106,13 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="prod",
             dry_run=False,
         )
 
         # Assert
         topic, _key, _value = mock_producer.published_events[0]
-        assert topic.startswith("prod.")
-        assert "pattern-lifecycle-transition" in topic
+        assert topic == TOPIC_PATTERN_LIFECYCLE_CMD_V1
+        assert topic == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
     @pytest.mark.asyncio
     async def test_event_key_is_pattern_id(
@@ -1140,7 +1137,6 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1171,7 +1167,6 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1205,7 +1200,6 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1244,7 +1238,6 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             correlation_id=sample_correlation_id,
             dry_run=False,
         )
@@ -1276,7 +1269,6 @@ class TestEventPayloadVerification:
         await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1338,7 +1330,6 @@ class TestPromotePatternDirect:
             producer=mock_producer,
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
-            topic_env_prefix="test",
         )
 
         # Assert
@@ -1432,7 +1423,6 @@ class TestPromotePatternDirect:
             producer=mock_producer,
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
-            topic_env_prefix="test",
         )
 
         # Assert
@@ -1499,7 +1489,6 @@ class TestResultModelValidation:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             correlation_id=sample_correlation_id,
             dry_run=False,
         )
@@ -1537,7 +1526,6 @@ class TestResultModelValidation:
         result = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
         )
 
@@ -1983,7 +1971,6 @@ class TestConfigurableThresholds:
         result_lenient = await check_and_promote_patterns(
             repository=mock_repository,
             producer=mock_producer,
-            topic_env_prefix="test",
             dry_run=False,
             min_injection_count=2,
             min_success_rate=0.4,

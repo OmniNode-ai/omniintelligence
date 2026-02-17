@@ -105,11 +105,9 @@ class RegistryDemotionHandlers:
     Attributes:
         check_and_demote: Handler function for checking and demoting patterns.
             Dependencies (repository, producer) are already bound.
-        topic_env_prefix: Environment prefix for Kafka topics.
     """
 
     check_and_demote: HandlerFunction
-    topic_env_prefix: str = "dev"
 
     _handlers: dict[str, HandlerFunction] = field(
         default_factory=dict, repr=False, compare=False, hash=False
@@ -152,7 +150,6 @@ class RegistryPatternDemotionEffect:
         >>> registry = RegistryPatternDemotionEffect.create_registry(
         ...     repository=db_connection,
         ...     producer=kafka_producer,  # Optional, can be None
-        ...     topic_env_prefix="prod",
         ... )
         >>> handler = registry.get_handler("check_and_demote_patterns")
         >>> result = await handler(request)
@@ -165,8 +162,6 @@ class RegistryPatternDemotionEffect:
     def create_registry(
         repository: ProtocolPatternRepository,
         producer: ProtocolKafkaPublisher | None = None,
-        *,
-        topic_env_prefix: str = "dev",
     ) -> RegistryDemotionHandlers:
         """Create a frozen registry with all handlers wired.
 
@@ -181,15 +176,12 @@ class RegistryPatternDemotionEffect:
             producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
                 Optional - when None, demotions succeed but Kafka events are
                 not emitted.
-            topic_env_prefix: Environment prefix for Kafka topics.
-                Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
         Returns:
             A frozen RegistryDemotionHandlers with handlers wired.
 
         Raises:
             ValueError: If repository is None.
-            ValueError: If topic_env_prefix is invalid.
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
@@ -203,15 +195,6 @@ class RegistryPatternDemotionEffect:
                 "Provide a ProtocolPatternRepository implementation."
             )
 
-        # Validate topic_env_prefix
-        if not topic_env_prefix:
-            raise ValueError("topic_env_prefix cannot be empty")
-        if not all(c.isalnum() or c in "-_" for c in topic_env_prefix):
-            raise ValueError(
-                f"topic_env_prefix '{topic_env_prefix}' contains invalid characters. "
-                "Only alphanumeric characters, hyphens, and underscores are allowed."
-            )
-
         # Create handler with bound dependencies
         async def bound_check_and_demote(
             request: ModelDemotionCheckRequest,
@@ -221,13 +204,11 @@ class RegistryPatternDemotionEffect:
                 repository=repository,
                 producer=producer,
                 request=request,
-                topic_env_prefix=topic_env_prefix,
             )
 
         # Create frozen registry
         registry = RegistryDemotionHandlers(
             check_and_demote=bound_check_and_demote,
-            topic_env_prefix=topic_env_prefix,
         )
 
         # Store in module-level storage

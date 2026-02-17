@@ -88,7 +88,6 @@ class NodePatternPromotionEffect(NodeEffect):
             producer=kafka_producer,
             dry_run=False,
             correlation_id=correlation_id,
-            topic_env_prefix="dev",
         )
 
         # Or use RuntimeHostProcess for event-driven execution

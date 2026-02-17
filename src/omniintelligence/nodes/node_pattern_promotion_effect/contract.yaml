@@ -145,7 +145,6 @@ io_operations:
       - min_injection_count
       - min_success_rate
       - max_failure_streak
-      - topic_env_prefix
     output_fields:
       - dry_run
       - patterns_checked
@@ -162,7 +161,6 @@ io_operations:
       - pattern_id
       - pattern_data
       - correlation_id
-      - topic_env_prefix
     output_fields:
       - pattern_id
       - pattern_signature

@@ -691,7 +691,6 @@ class TestManualDisableGate:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Should be demoted despite cooldown
@@ -730,7 +729,6 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Should be skipped due to cooldown
@@ -754,7 +752,6 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Should be demoted - cooldown expired
@@ -786,7 +783,6 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Should be demoted - no cooldown applies
@@ -823,7 +819,6 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Should be demoted - custom cooldown (4h) has expired
@@ -854,7 +849,6 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Manual disable bypasses cooldown
@@ -900,7 +894,6 @@ class TestCooldownLogic:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 3
@@ -1112,7 +1105,6 @@ class TestDryRunMode:
             repository=mock_repository,
             producer=None,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Only fetch query executed (no UPDATE)
@@ -1147,7 +1139,6 @@ class TestDryRunMode:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         # No events published
@@ -1176,7 +1167,6 @@ class TestDryRunMode:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert len(result.patterns_demoted) == 1
@@ -1226,7 +1216,6 @@ class TestDryRunMode:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 3
@@ -1281,7 +1270,6 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert result.dry_run is False
@@ -1320,7 +1308,6 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=None,  # No Kafka producer
             request=request,
-            topic_env_prefix="test",
         )
 
         # Pattern eligible and result IS included (not dropped)
@@ -1356,7 +1343,6 @@ class TestActualDemotion:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 1
@@ -1398,7 +1384,6 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert len(result.patterns_demoted) == 2
@@ -1429,7 +1414,6 @@ class TestActualDemotion:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
         after = datetime.now(UTC)
 
@@ -1447,7 +1431,6 @@ class TestActualDemotion:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 0
@@ -1465,13 +1448,13 @@ class TestEventPayloadVerification:
     """Tests verifying the structure and content of emitted Kafka events."""
 
     @pytest.mark.asyncio
-    async def test_event_topic_uses_env_prefix(
+    async def test_event_topic_uses_lifecycle_topic_constant(
         self,
         mock_repository: MockPatternRepository,
         mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
     ) -> None:
-        """Event is published to topic with correct environment prefix."""
+        """Event is published to the lifecycle topic constant directly."""
         mock_repository.add_pattern(
             DemotablePattern(
                 id=sample_pattern_id,
@@ -1488,12 +1471,10 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="prod",
         )
 
         topic, _key, _value = mock_producer.published_events[0]
-        assert topic.startswith("prod.")
-        assert "pattern-lifecycle-transition" in topic
+        assert topic == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
     @pytest.mark.asyncio
     async def test_event_key_is_pattern_id(
@@ -1519,7 +1500,6 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         _topic, key, _value = mock_producer.published_events[0]
@@ -1549,7 +1529,6 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1587,7 +1566,6 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1623,7 +1601,6 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1662,7 +1639,6 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -1693,7 +1669,6 @@ class TestEventPayloadVerification:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         _topic, _key, value = mock_producer.published_events[0]
@@ -2126,7 +2101,6 @@ class TestEdgeCases:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Not found in validated query
@@ -2156,7 +2130,6 @@ class TestEdgeCases:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         # Not found in query
@@ -2185,7 +2158,6 @@ class TestEdgeCases:
         result = await check_and_demote_patterns(
             repository=mock_repository,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert result.patterns_checked == 100
@@ -2237,7 +2209,6 @@ class TestEdgeCases:
             repository=mock_repository,
             producer=None,  # Kafka unavailable
             request=request,
-            topic_env_prefix="test",
         )
 
         # Pattern was checked and found eligible
@@ -2443,7 +2414,6 @@ class TestResultModelValidation:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         assert isinstance(result, ModelDemotionCheckResult)
@@ -2480,7 +2450,6 @@ class TestResultModelValidation:
             repository=mock_repository,
             producer=mock_producer,
             request=request,
-            topic_env_prefix="test",
         )
 
         demotion = result.patterns_demoted[0]
@@ -2601,7 +2570,6 @@ class TestDemotePatternDirect:
             pattern_data=pattern_data,
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
-            topic_env_prefix="test",
         )
 
         assert result.from_status == "validated"
@@ -2653,7 +2621,6 @@ class TestDemotePatternDirect:
             pattern_data=pattern_data,
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
-            topic_env_prefix="test",
         )
 
         # Demotion skipped, not silently executed
@@ -2700,7 +2667,6 @@ class TestDemotePatternDirect:
             pattern_data=pattern_data,
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
-            topic_env_prefix="test",
         )
 
         assert result.gate_snapshot is not None
