@@ -74,6 +74,12 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+_WRITE_TOOL_NAMES: frozenset[str] = frozenset({"Edit", "Write", "NotebookEdit"})
+"""Tool names that represent file-write operations (used to populate files_modified)."""
+
+# ---------------------------------------------------------------------------
 # Insight type -> Pattern kind mapping
 # ---------------------------------------------------------------------------
 _INSIGHT_TO_KIND: dict[EnumInsightType, EnumPatternKind] = {
@@ -270,7 +276,7 @@ def handle_pattern_extraction_core(input_data: CoreInput) -> CoreOutput:
             errors=[
                 ModelPatternError(
                     code="EXTRACTION_FAILED",
-                    message=f"Extraction failed: {e}",
+                    message="Internal extraction error occurred",
                     recoverable=True,
                 ),
             ],
@@ -330,7 +336,12 @@ def _raw_events_to_sessions(
             if file_path:
                 files_accessed.append(str(file_path))
 
-            success = ev.get("success", True)
+                # Track write-type tool events for MODIFICATION_CLUSTER
+                # pattern discovery.
+                if str(tool_name) in _WRITE_TOOL_NAMES:
+                    files_modified.append(str(file_path))
+
+            success = bool(ev.get("success", True))
 
             ts_raw = ev.get("timestamp")
             ts: dt_cls
@@ -375,11 +386,13 @@ def _raw_events_to_sessions(
                     errors_encountered.append(str(err_msg))
 
         # Determine outcome from events
-        all_success = all(ev.get("success", True) for ev in events)
-        any_failure = any(not ev.get("success", True) for ev in events)
+        all_success = all(bool(ev.get("success", True)) for ev in events)
+        any_failure = any(not bool(ev.get("success", True)) for ev in events)
         if all_success:
             outcome = "success"
-        elif any_failure and not all(not ev.get("success", True) for ev in events):
+        elif any_failure and not all(
+            not bool(ev.get("success", True)) for ev in events
+        ):
             outcome = "partial"
         elif any_failure:
             outcome = "failure"
@@ -422,6 +435,16 @@ def _apply_time_window(
     """
     if start is None and end is None:
         return sessions
+
+    # Normalize naive bounds to UTC-aware so comparisons with UTC-aware
+    # session timestamps (produced by _raw_events_to_sessions) don't raise
+    # TypeError.
+    from datetime import UTC
+
+    if start is not None and start.tzinfo is None:
+        start = start.replace(tzinfo=UTC)
+    if end is not None and end.tzinfo is None:
+        end = end.replace(tzinfo=UTC)
 
     filtered: list[ModelSessionSnapshot] = []
     for s in sessions:

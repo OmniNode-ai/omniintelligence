@@ -1287,3 +1287,53 @@ class TestNaiveTimestampNormalization:
         # This should not raise TypeError
         result = handle_pattern_extraction_core(core_input)
         assert isinstance(result, CoreOutput)
+
+    def test_naive_time_window_with_aware_sessions(self) -> None:
+        """Naive time_window bounds do not cause TypeError with tz-aware sessions."""
+        aware_base = datetime(2025, 6, 15, 10, 0, 0, tzinfo=UTC)
+        events: list[dict] = [
+            {
+                "session_id": "s1",
+                "tool_name": "Read",
+                "file_path": "src/a.py",
+                "success": True,
+                "timestamp": aware_base.isoformat(),  # aware (UTC)
+                "working_directory": "/project",
+            },
+            {
+                "session_id": "s1",
+                "tool_name": "Edit",
+                "file_path": "src/a.py",
+                "success": True,
+                "timestamp": (aware_base + timedelta(seconds=10)).isoformat(),
+                "working_directory": "/project",
+            },
+            {
+                "session_id": "s2",
+                "tool_name": "Read",
+                "file_path": "src/b.py",
+                "success": True,
+                "timestamp": (aware_base + timedelta(hours=1)).isoformat(),
+                "working_directory": "/project",
+            },
+        ]
+
+        # Naive time window bounds (no tzinfo)
+        naive_start = datetime(2025, 6, 15, 9, 0, 0)  # naive
+        naive_end = datetime(2025, 6, 15, 10, 30, 0)  # naive
+
+        core_input = CoreInput(
+            raw_events=events,
+            time_window_start=naive_start,
+            time_window_end=naive_end,
+            min_occurrences=1,
+            min_confidence=0.1,
+        )
+        # This should not raise TypeError from comparing naive and aware datetimes
+        result = handle_pattern_extraction_core(core_input)
+
+        assert isinstance(result, CoreOutput)
+        assert result.success is True
+        # Only session s1 should be included (ended at ~10:00:10, within window)
+        # Session s2 ended at 11:00:00, outside the naive_end of 10:30:00
+        assert result.sessions_analyzed == 1
