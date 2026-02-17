@@ -75,13 +75,6 @@ This value is intentionally conservative:
 The adjustment is ALWAYS negative (quality decreases on violations).
 """
 
-QUALITY_SCORE_FLOOR: float = 0.0
-"""Minimum quality_score after adjustment.
-
-Quality scores are clamped to [0.0, 1.0]. The GREATEST(..., 0.0) in SQL
-ensures we never store negative values.
-"""
-
 
 # =============================================================================
 # SQL Queries
