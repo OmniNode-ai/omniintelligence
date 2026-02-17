@@ -165,7 +165,7 @@ class EventPublisher:
     Usage:
         publisher = EventPublisher(
             bootstrap_servers="192.168.86.200:29092",
-            service_name="archon-intelligence",
+            service_name="omniintelligence",
             instance_id="instance-123"
         )
 
@@ -196,7 +196,7 @@ class EventPublisher:
 
         Args:
             bootstrap_servers: Kafka bootstrap servers (comma-separated)
-            service_name: Name of publishing service (e.g., "archon-intelligence")
+            service_name: Name of publishing service (e.g., "omniintelligence")
             instance_id: Service instance ID
             hostname: Optional hostname/container name
             max_retries: Maximum retry attempts before DLQ (default: 3)
