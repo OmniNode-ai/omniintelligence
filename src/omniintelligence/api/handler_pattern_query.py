@@ -72,7 +72,7 @@ async def handle_query_patterns(
             limit=limit,
             offset=offset,
         )
-    except (asyncpg.PostgresError, OSError, ConnectionError):
+    except (asyncpg.PostgresError, OSError):
         logger.exception("Database query failed in pattern store adapter")
         raise HTTPException(
             status_code=502,

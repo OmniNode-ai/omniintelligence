@@ -20,6 +20,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
+import asyncpg
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import Field
@@ -92,8 +93,6 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
         """Manage connection pool lifecycle."""
-        import asyncpg
-
         dsn = state["database_url"] or DatabaseSettings().get_dsn()  # type: ignore[call-arg]  # fields populated from env vars at runtime
         logger.info("Connecting to database...")
         try:
@@ -148,7 +147,7 @@ def create_app(
             return JSONResponse(content={"status": "starting"})
         try:
             await pool.fetchval("SELECT 1")
-        except Exception:
+        except (asyncpg.PostgresError, OSError):
             return JSONResponse(
                 status_code=503,
                 content={"status": "degraded", "detail": "database unreachable"},
