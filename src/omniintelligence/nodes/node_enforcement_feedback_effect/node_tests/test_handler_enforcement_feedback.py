@@ -608,7 +608,7 @@ class TestErrorHandling:
                 raise ConnectionError("Transient DB failure")
             return await original_execute(query, *args)
 
-        mock_repository.execute = _execute_with_selective_failure  # type: ignore[assignment]
+        mock_repository.execute = _execute_with_selective_failure  # type: ignore[method-assign]
 
         event = ModelEnforcementEvent(
             correlation_id=sample_correlation_id,
