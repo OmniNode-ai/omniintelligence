@@ -31,11 +31,11 @@ from uuid import UUID, uuid4
 import pydantic
 import pytest
 
+from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
     MIN_SUCCESS_RATE,
-    TOPIC_PATTERN_LIFECYCLE_CMD_V1,
     build_gate_snapshot,
     calculate_success_rate,
     check_and_promote_patterns,
@@ -1112,7 +1112,6 @@ class TestEventPayloadVerification:
         # Assert
         topic, _key, _value = mock_producer.published_events[0]
         assert topic == TOPIC_PATTERN_LIFECYCLE_CMD_V1
-        assert topic == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
     @pytest.mark.asyncio
     async def test_event_key_is_pattern_id(

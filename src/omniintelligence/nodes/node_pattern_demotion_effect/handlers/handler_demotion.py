@@ -101,6 +101,7 @@ from datetime import UTC, datetime
 from typing import TypedDict, cast
 from uuid import UUID, uuid4
 
+from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
 from omniintelligence.nodes.node_pattern_demotion_effect.models import (
@@ -114,20 +115,6 @@ from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRe
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
-
-
-# =============================================================================
-# Topic Constants
-# =============================================================================
-
-TOPIC_PATTERN_LIFECYCLE_CMD_V1: str = (
-    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-)
-"""Canonical topic for pattern lifecycle transition commands (INPUT to reducer).
-
-Handlers publish lifecycle events to this topic. The reducer consumes them,
-validates the transition, and emits an intent for the effect node.
-"""
 
 
 # =============================================================================

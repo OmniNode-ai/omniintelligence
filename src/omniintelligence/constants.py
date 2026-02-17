@@ -174,6 +174,18 @@ Reference: OMN-1805
 Deletion ticket: OMN-1546
 """
 
+TOPIC_PATTERN_LIFECYCLE_CMD_V1: str = (
+    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+)
+"""Canonical topic for pattern lifecycle transition commands (INPUT to reducer).
+
+NodePatternPromotionEffect and NodePatternDemotionEffect publish lifecycle events
+to this topic. The reducer consumes them, validates the transition against the
+contract.yaml FSM, and the effect node applies the actual database update.
+
+Reference: OMN-1805
+"""
+
 # NOTE: The pattern.discovered topic string lives exclusively in
 # node_pattern_storage_effect/contract.yaml (subscribe_topics).
 # No Python constant is needed because RuntimeHostProcess reads
@@ -186,6 +198,7 @@ Deletion ticket: OMN-1546
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
+    "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",

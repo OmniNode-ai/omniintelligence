@@ -21,8 +21,8 @@ from uuid import UUID
 import asyncpg
 import pytest
 
+from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
-    TOPIC_PATTERN_LIFECYCLE_CMD_V1,
     check_and_promote_patterns,
 )
 from tests.integration.nodes.node_pattern_promotion_effect.conftest import (
@@ -1584,7 +1584,6 @@ class TestPromotionKafkaEvents:
             assert len(mock_kafka_publisher.published_events) >= 1
             topic, _, _ = mock_kafka_publisher.published_events[0]
             assert topic == TOPIC_PATTERN_LIFECYCLE_CMD_V1
-            assert topic == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
         finally:
             await db_conn.execute(

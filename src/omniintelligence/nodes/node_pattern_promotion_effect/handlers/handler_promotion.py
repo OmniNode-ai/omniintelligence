@@ -84,6 +84,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
 from omniintelligence.nodes.node_pattern_promotion_effect.models import (
@@ -138,18 +139,6 @@ Threshold Behavior:
 Note: The check is failure_streak < max_failure_streak, so with the default of 3,
 exactly 3 consecutive failures BLOCKS promotion.
 """
-
-TOPIC_PATTERN_LIFECYCLE_CMD_V1: str = (
-    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-)
-"""Canonical topic for pattern lifecycle transition commands (INPUT to reducer).
-
-This handler publishes lifecycle events to this topic. The reducer consumes them,
-validates transitions against contract.yaml FSM, and emits intents for the effect node.
-
-Reference: OMN-1805
-"""
-
 
 # =============================================================================
 # SQL Queries
