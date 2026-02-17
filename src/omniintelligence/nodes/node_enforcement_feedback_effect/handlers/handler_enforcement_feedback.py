@@ -156,7 +156,8 @@ async def process_enforcement_feedback(
     )
 
     # Step 1: Check if there are any violations to process
-    if event.violations_found == 0 or not event.violations:
+    # (model_validator guarantees violations_found == len(violations))
+    if not event.violations:
         logger.info(
             "No violations in enforcement event - skipping",
             extra={

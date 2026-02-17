@@ -170,9 +170,10 @@ idempotency:
   hash_fields: ["correlation_id", "session_id"]
   description: >
     Each enforcement event is uniquely identified by (correlation_id, session_id). The quality_score adjustment
-    is additive and idempotent by nature: applying the same small delta twice is acceptable (the effect
-    is bounded and convergent). Full deduplication is deferred to a future iteration if duplicate event
-    delivery causes measurable drift.
+    is additive (not strictly idempotent): duplicate delivery would apply the delta twice. The effect
+    is small and bounded (-0.01 per violation, floor-clamped at 0.0), so occasional duplicates cause negligible
+    drift. Full event_id_tracking deduplication is deferred to a future iteration if duplicate delivery
+    causes measurable quality score drift.
 
 # =============================================================================
 # CAPABILITIES
