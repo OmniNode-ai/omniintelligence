@@ -2,14 +2,15 @@
 # Copyright (c) 2025 OmniNode Team
 """Protocol adapters for intelligence dispatch handler dependencies.
 
-Bridges available infrastructure (asyncpg.Pool, event bus) to the protocol
-interfaces expected by intelligence domain handlers.
+Bridges omnibase_infra effect boundary (PostgresRepositoryRuntime,
+StoreIdempotencyPostgres) and event bus to the protocol interfaces
+expected by intelligence domain handlers.
 
 Adapters:
-    - AdapterPatternRepositoryPostgres: asyncpg.Pool → ProtocolPatternRepository
-    - AdapterIdempotencyStorePostgres: asyncpg.Pool → ProtocolIdempotencyStore
-    - AdapterKafkaPublisher: event bus → ProtocolKafkaPublisher
-    - AdapterIntentClassifier: handle_intent_classification → ProtocolIntentClassifier
+    - AdapterPatternRepositoryRuntime: PostgresRepositoryRuntime -> ProtocolPatternRepository
+    - AdapterIdempotencyStoreInfra: omnibase_infra idempotency store -> ProtocolIdempotencyStore
+    - AdapterKafkaPublisher: event bus -> ProtocolKafkaPublisher
+    - AdapterIntentClassifier: handle_intent_classification -> ProtocolIntentClassifier
 
 Design:
     Each adapter is a thin explicit boundary that prevents accidental coupling
@@ -18,6 +19,7 @@ Design:
 
 Related:
     - OMN-2032: Wire real dependencies into dispatch handlers (Phase 2)
+    - OMN-2326: Migrate intelligence DB writes to omnibase_infra effect boundary
 """
 
 from __future__ import annotations
@@ -25,11 +27,14 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
-    import asyncpg
+    from omnibase_infra.idempotency.protocol_idempotency_store import (
+        ProtocolIdempotencyStore as InfraProtocolIdempotencyStore,
+    )
+    from omnibase_infra.runtime.db import PostgresRepositoryRuntime
 
     from omniintelligence.nodes.node_intent_classifier_compute.models import (
         ModelClassificationConfig,
@@ -60,44 +65,17 @@ class ProtocolEventBusPublish(Protocol):
 
 
 # =============================================================================
-# SQL Constants (idempotency store)
-# =============================================================================
-
-SQL_ENSURE_IDEMPOTENCY_TABLE = """\
-CREATE TABLE IF NOT EXISTS pattern_idempotency_keys (
-    request_id UUID PRIMARY KEY,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-"""
-
-SQL_IDEMPOTENCY_EXISTS = """\
-SELECT 1 FROM pattern_idempotency_keys WHERE request_id = $1;
-"""
-
-SQL_IDEMPOTENCY_RECORD = """\
-INSERT INTO pattern_idempotency_keys (request_id)
-VALUES ($1)
-ON CONFLICT (request_id) DO NOTHING;
-"""
-
-SQL_IDEMPOTENCY_CHECK_AND_RECORD = """\
-INSERT INTO pattern_idempotency_keys (request_id)
-VALUES ($1)
-ON CONFLICT (request_id) DO NOTHING
-RETURNING request_id;
-"""
-
-
-# =============================================================================
-# AdapterPatternRepositoryPostgres
+# AdapterPatternRepositoryRuntime
 # =============================================================================
 
 
-class AdapterPatternRepositoryPostgres:
-    """Thin wrapper around asyncpg.Pool implementing ProtocolPatternRepository.
+class AdapterPatternRepositoryRuntime:
+    """Wraps PostgresRepositoryRuntime implementing ProtocolPatternRepository.
 
-    Delegates fetch/fetchrow/execute to the pool while preventing accidental
-    use of asyncpg-specific methods (fetchval, copy_records_to_table, etc.).
+    Delegates fetch/fetchrow/execute to the runtime's underlying pool while
+    preventing accidental use of driver-specific methods. This adapter
+    sits behind the ONEX effect boundary -- all DB access flows through
+    the infra layer.
 
     Note:
         Each call acquires and releases a connection from the pool.  There is
@@ -105,115 +83,84 @@ class AdapterPatternRepositoryPostgres:
         should use optimistic locking and idempotency patterns.
     """
 
-    __slots__ = ("_pool",)
+    __slots__ = ("_runtime",)
 
-    def __init__(self, pool: asyncpg.Pool) -> None:
-        self._pool = pool
+    def __init__(self, runtime: PostgresRepositoryRuntime) -> None:
+        self._runtime = runtime
 
     async def fetch(self, query: str, *args: object) -> list[Mapping[str, Any]]:
-        """Execute query and return all rows."""
-        return cast(list[Mapping[str, Any]], await self._pool.fetch(query, *args))
+        """Execute query and return all rows via the runtime pool."""
+        rows = await self._runtime._pool.fetch(query, *args)
+        # Convert DB Records to dicts for protocol compatibility
+        return [dict(row) for row in rows]
 
     async def fetchrow(self, query: str, *args: object) -> Mapping[str, Any] | None:
         """Execute query and return first row, or None."""
-        return cast(Mapping[str, Any] | None, await self._pool.fetchrow(query, *args))
+        row = await self._runtime._pool.fetchrow(query, *args)
+        return dict(row) if row is not None else None
 
     async def execute(self, query: str, *args: object) -> str:
         """Execute query and return status string."""
-        return cast(str, await self._pool.execute(query, *args))
+        result = await self._runtime._pool.execute(query, *args)
+        return str(result)
 
 
 # =============================================================================
-# AdapterIdempotencyStorePostgres
+# AdapterIdempotencyStoreInfra
 # =============================================================================
 
 
-class AdapterIdempotencyStorePostgres:
-    """PostgreSQL-backed idempotency store for pattern lifecycle transitions.
+class AdapterIdempotencyStoreInfra:
+    """Bridges omnibase_infra idempotency store to intelligence ProtocolIdempotencyStore.
 
-    Uses a dedicated ``pattern_idempotency_keys`` table with UUID primary key.
-    Table creation is handled by ``ensure_table()`` which is safe to call
-    repeatedly (CREATE TABLE IF NOT EXISTS).
+    The intelligence domain ProtocolIdempotencyStore expects:
+        - check_and_record(request_id: UUID) -> bool  (True=duplicate)
+        - exists(request_id: UUID) -> bool
+        - record(request_id: UUID) -> None
 
-    Transitional:
-        Table creation via ensure_table() is a bootstrap convenience.  A proper
-        migration mechanism should replace this in a follow-up ticket.
+    The omnibase_infra ProtocolIdempotencyStore expects:
+        - check_and_record(message_id, domain, correlation_id) -> bool  (True=NEW)
+        - is_processed(message_id, domain) -> bool
+        - mark_processed(message_id, domain, correlation_id, processed_at) -> None
+
+    This adapter bridges the interface differences, including the INVERTED
+    boolean semantics of check_and_record (infra returns True for NEW,
+    intelligence expects True for DUPLICATE).
     """
 
-    __slots__ = ("_pool", "_table_ensured")
+    __slots__ = ("_store",)
 
-    def __init__(self, pool: asyncpg.Pool) -> None:
-        self._pool = pool
-        self._table_ensured = False
-
-    async def ensure_table(self) -> None:
-        """Create the idempotency keys table if it does not exist.
-
-        Safe to call multiple times.  Logs on first successful creation.
-
-        .. warning::
-            This method creates the table via raw DDL (CREATE TABLE IF NOT
-            EXISTS), bypassing the migration system. This is acceptable as a
-            transitional bootstrap convenience but must be replaced with a
-            proper migration before production hardening.
-        """
-        # TODO(migration): Replace raw DDL with a proper database migration.
-        #   This CREATE TABLE IF NOT EXISTS bypasses the migration system,
-        #   which means schema changes to this table cannot be tracked,
-        #   versioned, or rolled back. Create an Alembic/migration entry
-        #   for the pattern_idempotency_keys table and remove this method.
-        # Note: CREATE TABLE IF NOT EXISTS is idempotent, so concurrent calls are safe albeit duplicative.
-        result = await self._pool.execute(SQL_ENSURE_IDEMPOTENCY_TABLE)
-        if not self._table_ensured:
-            # Detect if the table was actually created (not just already existed).
-            # asyncpg returns "CREATE TABLE" for new tables vs no-op for existing.
-            if result == "CREATE TABLE":
-                logger.warning(
-                    "Idempotency table 'pattern_idempotency_keys' created via "
-                    "raw DDL (bypasses migration system). This is transitional "
-                    "and must be replaced with a proper migration."
-                )
-            else:
-                logger.info(
-                    "Idempotency table 'pattern_idempotency_keys' already exists"
-                )
-            self._table_ensured = True
-
-    async def exists(self, request_id: UUID) -> bool:
-        """Check if request_id has been recorded (without recording).
-
-        Args:
-            request_id: Idempotency key to check.
-
-        Returns:
-            True if request_id exists, False otherwise.
-        """
-        row = await self._pool.fetchrow(SQL_IDEMPOTENCY_EXISTS, request_id)
-        return row is not None
-
-    async def record(self, request_id: UUID) -> None:
-        """Record request_id as processed (idempotent, no-op if exists).
-
-        Args:
-            request_id: Idempotency key to record.
-        """
-        await self._pool.execute(SQL_IDEMPOTENCY_RECORD, request_id)
+    def __init__(self, store: InfraProtocolIdempotencyStore) -> None:
+        self._store = store
 
     async def check_and_record(self, request_id: UUID) -> bool:
         """Atomically check and record request_id.
-
-        Args:
-            request_id: Idempotency key to check and record.
 
         Returns:
             True if this is a DUPLICATE (already existed).
             False if this is NEW (just recorded).
         """
-        # INSERT ... ON CONFLICT DO NOTHING RETURNING request_id
-        # If the row was inserted (new), RETURNING yields the row.
-        # If conflict (duplicate), RETURNING yields nothing.
-        row = await self._pool.fetchrow(SQL_IDEMPOTENCY_CHECK_AND_RECORD, request_id)
-        return row is None  # None = conflict = duplicate
+        # Infra returns True for NEW, intelligence expects True for DUPLICATE
+        is_new = await self._store.check_and_record(
+            message_id=request_id,
+            domain="pattern_lifecycle",
+        )
+        return not is_new
+
+    async def exists(self, request_id: UUID) -> bool:
+        """Check if request_id has been recorded."""
+        result: bool = await self._store.is_processed(
+            message_id=request_id,
+            domain="pattern_lifecycle",
+        )
+        return result
+
+    async def record(self, request_id: UUID) -> None:
+        """Record request_id as processed."""
+        await self._store.mark_processed(
+            message_id=request_id,
+            domain="pattern_lifecycle",
+        )
 
 
 # =============================================================================
@@ -304,9 +251,9 @@ class AdapterIntentClassifier:
 
 
 __all__ = [
-    "AdapterIdempotencyStorePostgres",
+    "AdapterIdempotencyStoreInfra",
     "AdapterIntentClassifier",
     "AdapterKafkaPublisher",
-    "AdapterPatternRepositoryPostgres",
+    "AdapterPatternRepositoryRuntime",
     "ProtocolEventBusPublish",
 ]
