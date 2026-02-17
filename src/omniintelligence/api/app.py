@@ -20,7 +20,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import asyncpg
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -99,6 +99,27 @@ class _AppState:
 
     Replaces an untyped ``dict[str, Any]`` to make the contract explicit
     and prevent key-name typos at the cost of one small class.
+
+    Thread-Safety Invariants
+    ------------------------
+    This mutable dataclass is safe under normal FastAPI operation because:
+
+    1. **Startup ordering**: FastAPI's lifespan context manager runs to
+       completion (up to ``yield``) *before* the server begins accepting
+       requests. Therefore ``adapter`` and ``pool`` are always set before
+       any request handler reads them.
+
+    2. **Shutdown ordering**: After the lifespan ``yield`` returns, FastAPI
+       drains in-flight requests before resuming the lifespan teardown.
+       The pool is closed and ``adapter``/``pool`` are set to ``None``
+       only after all request handlers have returned.
+
+    3. **Single-process model**: Uvicorn workers each get their own
+       ``_AppState`` instance. There is no cross-process sharing.
+
+    If these invariants are violated (e.g. a request arrives during
+    shutdown due to a server bug), ``get_adapter()`` returns HTTP 503
+    rather than crashing with an unhandled ``RuntimeError``.
     """
 
     database_url: str | None = None
@@ -145,11 +166,18 @@ def create_app(
         logger.info("Database connection pool closed")
 
     async def get_adapter() -> AdapterPatternStore:
-        """FastAPI dependency that returns the pattern store adapter."""
+        """FastAPI dependency that returns the pattern store adapter.
+
+        Returns HTTP 503 if the adapter is unavailable (during startup
+        before lifespan completes, or during shutdown after the pool
+        has been closed). See ``_AppState`` docstring for invariants.
+        """
         adapter = state.adapter
         if not isinstance(adapter, AdapterPatternStore):
-            msg = "Pattern store adapter not initialized. Is the app running?"
-            raise RuntimeError(msg)
+            raise HTTPException(
+                status_code=503,
+                detail="Service unavailable: pattern store not initialized.",
+            )
         return adapter
 
     app = FastAPI(

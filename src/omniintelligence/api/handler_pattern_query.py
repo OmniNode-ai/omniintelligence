@@ -29,6 +29,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class PatternQueryValidationError(ValueError):
+    """User-input validation error for pattern queries.
+
+    Raised when caller-supplied query parameters are invalid (e.g.,
+    out-of-range confidence, malformed domain filter). Maps to HTTP 400.
+
+    This is distinct from generic ValueError which may indicate internal
+    contract misconfiguration (unknown operation, missing required param)
+    in the adapter layer -- those should surface as HTTP 500.
+    """
+
+
 async def handle_query_patterns(
     *,
     adapter: AdapterPatternStore,
@@ -72,7 +84,7 @@ async def handle_query_patterns(
             limit=limit,
             offset=offset,
         )
-    except ValueError as exc:
+    except PatternQueryValidationError as exc:
         logger.warning("Invalid query parameters: %s", exc)
         raise HTTPException(
             status_code=400,
@@ -106,4 +118,4 @@ async def handle_query_patterns(
     )
 
 
-__all__ = ["handle_query_patterns"]
+__all__ = ["PatternQueryValidationError", "handle_query_patterns"]
