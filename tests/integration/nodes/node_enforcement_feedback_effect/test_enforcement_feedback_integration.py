@@ -111,8 +111,8 @@ class TestEnforcementFeedbackIntegration:
         Implementation notes:
         - Insert a test pattern into learned_patterns with a known quality_score.
         - Publish a ModelEnforcementEvent JSON payload to the Kafka topic
-          'onex.cmd.omniintelligence.enforcement-feedback.v1' (verify topic name
-          in contract.yaml for node_enforcement_feedback_effect).
+          'onex.evt.omniclaude.pattern-enforcement.v1' (subscribe topic from
+          contract.yaml for node_enforcement_feedback_effect).
         - Start NodeClaudeHookEventEffect (or NodeEnforcementFeedbackEffect)
           with the real Kafka consumer and PostgreSQL repository wired together.
         - Wait (with timeout) for the consumer to process the message.
