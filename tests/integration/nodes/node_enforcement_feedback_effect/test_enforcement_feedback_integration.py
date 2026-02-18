@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import pytest
 
+from tests.integration.conftest import requires_kafka, requires_postgres
+
 
 @pytest.mark.integration
 class TestEnforcementFeedbackIntegration:
     """Integration tests requiring PostgreSQL."""
 
     @pytest.mark.asyncio
+    @requires_postgres
     async def test_confirmed_violation_updates_quality_score_in_db(
         self,
         db_conn: object,  # asyncpg connection provided by conftest
@@ -35,12 +38,10 @@ class TestEnforcementFeedbackIntegration:
         3. Verifies quality_score was decreased by 0.01
         4. Cleans up the test pattern
         """
-        pytest.skip(
-            "Integration test requires PostgreSQL with learned_patterns table. "
-            "Run with: pytest -m integration --db-url=<url>"
-        )
+        raise NotImplementedError("Test body not yet implemented")
 
     @pytest.mark.asyncio
+    @requires_postgres
     async def test_quality_score_floor_clamping_in_db(
         self,
         db_conn: object,
@@ -50,12 +51,11 @@ class TestEnforcementFeedbackIntegration:
         This test verifies the GREATEST(..., 0.0) SQL clamping works
         correctly with a real database.
         """
-        pytest.skip(
-            "Integration test requires PostgreSQL with learned_patterns table. "
-            "Run with: pytest -m integration --db-url=<url>"
-        )
+        raise NotImplementedError("Test body not yet implemented")
 
     @pytest.mark.asyncio
+    @requires_postgres
+    @requires_kafka
     async def test_kafka_event_consumption_end_to_end(
         self,
         db_conn: object,
@@ -66,7 +66,4 @@ class TestEnforcementFeedbackIntegration:
         through handler processing to database update. Requires both
         Kafka and PostgreSQL infrastructure.
         """
-        pytest.skip(
-            "Integration test requires Kafka + PostgreSQL infrastructure. "
-            "Run with: pytest -m integration"
-        )
+        raise NotImplementedError("Test body not yet implemented")
