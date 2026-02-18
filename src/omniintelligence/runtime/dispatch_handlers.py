@@ -109,6 +109,7 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
 
+# Uses canonical topic form (not alias) — compliance-evaluate follows ONEX .cmd. naming convention
 DISPATCH_ALIAS_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
 

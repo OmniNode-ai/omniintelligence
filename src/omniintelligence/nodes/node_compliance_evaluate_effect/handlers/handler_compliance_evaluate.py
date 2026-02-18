@@ -335,6 +335,7 @@ async def _publish_event(
         await _route_to_dlq(
             producer=producer,
             correlation_id=cid,
+            # event.source_path is already sanitized (set from safe_source_path at event construction)
             source_path=event.source_path,
             error_message=sanitized_error,
             original_topic=publish_topic,

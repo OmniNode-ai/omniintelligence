@@ -56,7 +56,7 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_seven_topics(self) -> None:
+    def test_returns_exactly_eight_topics(self) -> None:
         """All intelligence effect nodes declare 8 subscribe topics total (OMN-2339 adds compliance-evaluate)."""
         topics = collect_subscribe_topics_from_contracts()
         assert len(topics) == 8
