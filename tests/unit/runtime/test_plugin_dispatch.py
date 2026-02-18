@@ -569,8 +569,6 @@ class TestIntrospectionPublishingGate:
 
         event_bus = _StubEventBus()
         # Make publish_envelope available so introspection proxy can publish
-        from unittest.mock import AsyncMock
-
         event_bus.publish_envelope = AsyncMock(return_value=None)
 
         plugin = PluginIntelligence()
@@ -631,3 +629,24 @@ class TestIntrospectionPublishingGate:
         assert plugin._event_bus is None
         # _introspection_proxies is empty (no heartbeat tasks started)
         assert plugin._introspection_proxies == []
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_shutdown_clears_event_bus_when_gate_on(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When gate is on, shutdown clears _event_bus back to None."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "true")
+
+        event_bus = _StubEventBus()
+        event_bus.publish_envelope = AsyncMock(return_value=None)
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        result = await _wire_plugin(plugin, config)
+        assert result.success
+        assert plugin._event_bus is not None  # captured during wire
+
+        await plugin.shutdown(config)
+        assert plugin._event_bus is None  # cleared after shutdown
