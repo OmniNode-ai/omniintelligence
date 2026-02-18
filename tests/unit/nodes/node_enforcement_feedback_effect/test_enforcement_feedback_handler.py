@@ -163,7 +163,7 @@ class TestProcessEnforcementFeedback:
         )
         result = await process_enforcement_feedback(event=event, repository=repo)
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 1
+        assert result.eligible_violations == 1
         assert len(result.adjustments) == 1
         assert result.processing_errors == []
         assert repo.patterns[pid]["quality_score"] == pytest.approx(0.79)

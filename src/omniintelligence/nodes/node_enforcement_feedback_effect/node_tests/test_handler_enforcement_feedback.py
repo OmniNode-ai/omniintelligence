@@ -64,7 +64,7 @@ class TestNoViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_VIOLATIONS
-        assert result.confirmed_violations == 0
+        assert result.eligible_violations == 0
         assert result.adjustments == []
         assert result.processed_at is not None
 
@@ -131,7 +131,7 @@ class TestUnconfirmedViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
-        assert result.confirmed_violations == 0
+        assert result.eligible_violations == 0
         assert result.adjustments == []
         # Quality score should NOT have changed
         assert mock_repository.patterns[sample_pattern_id_a]["quality_score"] == 0.8
@@ -168,7 +168,7 @@ class TestUnconfirmedViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
-        assert result.confirmed_violations == 0
+        assert result.eligible_violations == 0
 
     @pytest.mark.asyncio
     async def test_corrected_but_not_advised_returns_no_adjustments(
@@ -206,7 +206,7 @@ class TestUnconfirmedViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
-        assert result.confirmed_violations == 0
+        assert result.eligible_violations == 0
 
 
 # =============================================================================
@@ -234,7 +234,7 @@ class TestConfirmedViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 1
+        assert result.eligible_violations == 1
         assert len(result.adjustments) == 1
         assert result.adjustments[0].pattern_id == sample_pattern_id_a
         assert result.adjustments[0].adjustment == CONFIDENCE_ADJUSTMENT_PER_VIOLATION
@@ -293,7 +293,7 @@ class TestMixedViolations:
     """Tests for events with both confirmed and unconfirmed violations."""
 
     @pytest.mark.asyncio
-    async def test_only_confirmed_violations_get_adjusted(
+    async def test_only_eligible_violations_get_adjusted(
         self,
         mock_repository: MockEnforcementRepository,
         sample_enforcement_event_mixed: ModelEnforcementEvent,
@@ -310,7 +310,7 @@ class TestMixedViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 1  # Only pattern A is confirmed
+        assert result.eligible_violations == 1  # Only pattern A is confirmed
         assert len(result.adjustments) == 1
         assert result.adjustments[0].pattern_id == sample_pattern_id_a
         # Pattern A should have decreased
@@ -321,7 +321,7 @@ class TestMixedViolations:
         assert mock_repository.patterns[sample_pattern_id_b]["quality_score"] == 0.9
 
     @pytest.mark.asyncio
-    async def test_multiple_confirmed_violations_all_get_adjusted(
+    async def test_multiple_eligible_violations_all_get_adjusted(
         self,
         mock_repository: MockEnforcementRepository,
         sample_correlation_id: UUID,
@@ -360,7 +360,7 @@ class TestMixedViolations:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 2
+        assert result.eligible_violations == 2
         assert len(result.adjustments) == 2
         adjusted_ids = {a.pattern_id for a in result.adjustments}
         assert sample_pattern_id_a in adjusted_ids
@@ -495,7 +495,7 @@ class TestPatternNotFound:
 
         # Should still succeed but with no adjustments (pattern not found)
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 1
+        assert result.eligible_violations == 1
         assert len(result.adjustments) == 0  # Pattern not found, no adjustment
 
     @pytest.mark.asyncio
@@ -538,7 +538,7 @@ class TestPatternNotFound:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 2
+        assert result.eligible_violations == 2
         assert len(result.adjustments) == 1  # Only pattern A was found
         assert result.adjustments[0].pattern_id == sample_pattern_id_a
 
@@ -577,7 +577,7 @@ class TestErrorHandling:
 
         # Status is PARTIAL_SUCCESS because the error is reported structurally
         assert result.status == EnumEnforcementFeedbackStatus.PARTIAL_SUCCESS
-        assert result.confirmed_violations == 1
+        assert result.eligible_violations == 1
         assert len(result.adjustments) == 0  # No adjustments due to error
         assert len(result.processing_errors) == 1
         assert result.processing_errors[0].pattern_id == sample_pattern_id_a
@@ -638,7 +638,7 @@ class TestErrorHandling:
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.PARTIAL_SUCCESS
-        assert result.confirmed_violations == 2
+        assert result.eligible_violations == 2
         assert len(result.adjustments) == 1
         assert result.adjustments[0].pattern_id == sample_pattern_id_a
         assert len(result.processing_errors) == 1
@@ -719,7 +719,7 @@ class TestModelValidation:
         )
 
         with pytest.raises(pydantic.ValidationError):
-            result.confirmed_violations = 99
+            result.eligible_violations = 99
 
 
 # =============================================================================
@@ -732,7 +732,7 @@ class TestDuplicatePatternId:
     """Tests for the same pattern_id appearing in multiple confirmed violations."""
 
     @pytest.mark.asyncio
-    async def test_same_pattern_id_in_two_confirmed_violations_applies_both(
+    async def test_same_pattern_id_in_two_eligible_violations_applies_both(
         self,
         mock_repository: MockEnforcementRepository,
         sample_correlation_id: UUID,
@@ -781,7 +781,7 @@ class TestDuplicatePatternId:
 
         # Both violations are confirmed and produce adjustment records
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
-        assert result.confirmed_violations == 2
+        assert result.eligible_violations == 2
         assert len(result.adjustments) == 2
 
         # Both adjustments reference the same pattern_id
