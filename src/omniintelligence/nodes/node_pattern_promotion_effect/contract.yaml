@@ -54,12 +54,12 @@ output_models:
   - name: "ModelPromotionCheckResult"
     module: "omniintelligence.nodes.node_pattern_promotion_effect.models"
     operation: "check_and_promote"
-    topic: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
+    topic: "onex.evt.omniintelligence.pattern-promoted.v1"
     description: "Aggregated result of promotion check operation."
   - name: "ModelPromotionResult"
     module: "omniintelligence.nodes.node_pattern_promotion_effect.models"
     operation: "promote_pattern"
-    topic: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    topic: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     description: "Individual pattern promotion result with gate snapshot."
 
 # =============================================================================
@@ -138,14 +138,13 @@ io_operations:
     description: "Check all provisional patterns and promote eligible ones"
     input_model: "ModelPromotionCheckRequest"
     output_model: "ModelPromotionCheckResult"
-    output_topic: "{env}.onex.evt.omniintelligence.pattern-promoted.v1"
+    output_topic: "onex.evt.omniintelligence.pattern-promoted.v1"
     input_fields:
       - dry_run
       - correlation_id
       - min_injection_count
       - min_success_rate
       - max_failure_streak
-      - topic_env_prefix
     output_fields:
       - dry_run
       - patterns_checked
@@ -157,12 +156,11 @@ io_operations:
     description: "Promote a single pattern via lifecycle event"
     input_model: "ModelPromotionCheckRequest"
     output_model: "ModelPromotionResult"
-    output_topic: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    output_topic: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     input_fields:
       - pattern_id
       - pattern_data
       - correlation_id
-      - topic_env_prefix
     output_fields:
       - pattern_id
       - pattern_signature
@@ -221,11 +219,11 @@ event_bus:
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    - "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
 
   # Metadata for published topics
   publish_topic_metadata:
-    "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
+    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
       schema_ref: "omniintelligence.models.events.ModelPatternLifecycleEvent"
       description: "Lifecycle event for pattern status transitions (promote, demote)"
       content_type: "application/json"

@@ -84,6 +84,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
 from omniintelligence.nodes.node_pattern_promotion_effect.models import (
@@ -138,20 +139,6 @@ Threshold Behavior:
 Note: The check is failure_streak < max_failure_streak, so with the default of 3,
 exactly 3 consecutive failures BLOCKS promotion.
 """
-
-TOPIC_SUFFIX_PATTERN_LIFECYCLE_CMD_V1: str = (
-    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-)
-"""Topic suffix for pattern lifecycle transition commands (INPUT to reducer).
-
-Full topic at runtime: {env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
-
-This handler publishes lifecycle events to this topic. The reducer consumes them,
-validates transitions against contract.yaml FSM, and emits intents for the effect node.
-
-Reference: OMN-1805
-"""
-
 
 # =============================================================================
 # SQL Queries
@@ -315,7 +302,6 @@ async def check_and_promote_patterns(
     min_success_rate: float = MIN_SUCCESS_RATE,
     max_failure_streak: int = MAX_FAILURE_STREAK,
     correlation_id: UUID | None = None,
-    topic_env_prefix: str | None = None,
 ) -> ModelPromotionCheckResult:
     """Check and promote eligible provisional patterns.
 
@@ -340,8 +326,6 @@ async def check_and_promote_patterns(
             Defaults to MAX_FAILURE_STREAK (3). Set to 0 for zero-tolerance mode
             where any failure blocks promotion, or 1 to block on a single failure.
         correlation_id: Optional correlation ID for distributed tracing.
-        topic_env_prefix: Environment prefix for Kafka topic (e.g., "dev", "prod").
-            Required when producer is not None. Ignored when producer is None.
 
     Returns:
         ModelPromotionCheckResult with counts and individual promotion results.
@@ -445,7 +429,6 @@ async def check_and_promote_patterns(
                     pattern_id=pattern_id,
                     pattern_data=pattern,
                     correlation_id=correlation_id,
-                    topic_env_prefix=topic_env_prefix,
                 )
 
                 # Check for no-op (pattern was already promoted or status changed)
@@ -531,8 +514,6 @@ async def promote_pattern(
     pattern_id: UUID,
     pattern_data: Mapping[str, Any],
     correlation_id: UUID | None = None,
-    *,
-    topic_env_prefix: str | None = None,
 ) -> ModelPromotionResult:
     """Promote a single pattern from provisional to validated status.
 
@@ -562,8 +543,6 @@ async def promote_pattern(
         pattern_id: The pattern ID to promote.
         pattern_data: Pattern record from SQL query (for gate snapshot).
         correlation_id: Optional correlation ID for tracing.
-        topic_env_prefix: Environment prefix for Kafka topic.
-            Required when producer is not None. Ignored when producer is None.
 
     Returns:
         ModelPromotionResult with promotion details and gate snapshot.
@@ -659,31 +638,6 @@ async def promote_pattern(
         )
 
     # Preferred mode: Event-driven promotion via Kafka -> reducer -> effect
-    # Validate topic_env_prefix is provided when using Kafka
-    if topic_env_prefix is None:
-        logger.error(
-            "topic_env_prefix is required when Kafka producer is available - "
-            "cannot emit lifecycle event without environment prefix",
-            extra={
-                "correlation_id": str(correlation_id) if correlation_id else None,
-                "pattern_id": str(pattern_id),
-                "pattern_signature": pattern_signature,
-            },
-        )
-        return ModelPromotionResult(
-            pattern_id=pattern_id,
-            pattern_signature=pattern_signature,
-            from_status="provisional",
-            to_status="validated",
-            promoted_at=None,
-            reason=(
-                "configuration_error: topic_env_prefix is required when Kafka producer "
-                "is available. Provide environment prefix (e.g., 'dev', 'staging', 'prod')."
-            ),
-            gate_snapshot=gate_snapshot,
-            dry_run=False,
-        )
-
     # Emit lifecycle event to Kafka for reducer to process
     await _emit_lifecycle_event(
         producer=producer,
@@ -691,7 +645,6 @@ async def promote_pattern(
         gate_snapshot=gate_snapshot,
         request_time=request_time,
         correlation_id=correlation_id,
-        topic_env_prefix=topic_env_prefix,
     )
 
     logger.info(
@@ -723,8 +676,6 @@ async def _emit_lifecycle_event(
     gate_snapshot: ModelGateSnapshot,
     request_time: datetime,
     correlation_id: UUID | None,
-    *,
-    topic_env_prefix: str,
 ) -> None:
     """Emit a pattern lifecycle event to Kafka for reducer processing.
 
@@ -737,14 +688,12 @@ async def _emit_lifecycle_event(
         gate_snapshot: Gate values at promotion decision time.
         request_time: When the promotion was requested.
         correlation_id: Correlation ID for distributed tracing.
-        topic_env_prefix: Environment prefix for topic (e.g., "dev", "staging", "prod").
-            Required - must be explicitly provided by caller.
 
     Reference:
         OMN-1805: Event-driven lifecycle transitions
     """
-    # Build topic name with environment prefix
-    topic = f"{topic_env_prefix}.{TOPIC_SUFFIX_PATTERN_LIFECYCLE_CMD_V1}"
+    # Use canonical topic constant directly
+    topic = TOPIC_PATTERN_LIFECYCLE_CMD_V1
 
     # Generate idempotency key for this promotion attempt
     request_id = uuid4()
@@ -795,7 +744,6 @@ __all__ = [
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",
     "SQL_PROMOTE_PATTERN",
-    "TOPIC_SUFFIX_PATTERN_LIFECYCLE_CMD_V1",
     "build_gate_snapshot",
     "calculate_success_rate",
     "check_and_promote_patterns",

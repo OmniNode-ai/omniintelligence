@@ -114,6 +114,12 @@ class ModelEnforcementEvent(BaseModel):
                 f"len(violations) ({expected})"
             )
             raise ValueError(msg)
+        if self.violations_found > self.patterns_checked:
+            msg = (
+                f"violations_found ({self.violations_found}) cannot exceed "
+                f"patterns_checked ({self.patterns_checked})"
+            )
+            raise ValueError(msg)
         return self
 
 

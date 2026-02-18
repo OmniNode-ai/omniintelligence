@@ -26,6 +26,10 @@ import time
 from collections import Counter
 from typing import TYPE_CHECKING
 
+from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
+    analyze_semantics,
+    map_semantic_to_intent_boost,
+)
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     IntentMetadataDict,
     ModelClassificationConfig,
@@ -313,6 +317,7 @@ def classify_intent(
     confidence_threshold: float | None = None,
     multi_label: bool | None = None,
     max_intents: int | None = None,
+    score_boosts: dict[str, float] | None = None,
 ) -> ClassificationResultDict:
     """Classify user intent using TF-IDF scoring.
 
@@ -324,7 +329,8 @@ def classify_intent(
         1. Tokenize and normalize the input text
         2. Calculate term frequency (TF) scores for each token
         3. Match tokens against intent patterns with weighted scoring
-        4. Normalize scores to 0.0-1.0 range
+        4. Max-normalize scores so the top intent receives 1.0 and all others
+           are relative to it (compatible with default_confidence_threshold=0.5)
         5. Return classification results based on confidence threshold
 
     Configuration:
@@ -344,6 +350,9 @@ def classify_intent(
             Defaults to config.default_multi_label (False).
         max_intents: Maximum number of secondary intents to return when
             multi_label is True. Defaults to config.default_max_intents (5).
+        score_boosts: Optional dictionary mapping intent category names to additive
+            boost values applied to raw scores before normalization. Boosts for
+            unknown intent keys are silently ignored. Defaults to None.
 
     Returns:
         Dictionary with classification results:
@@ -445,7 +454,16 @@ def classify_intent(
             intent_scores[intent] = score
             intent_keywords[intent] = matched_keywords
 
+        # Step 3.5: Apply semantic boosts to raw scores before normalization
+        if score_boosts:
+            for intent_key, boost_val in score_boosts.items():
+                if intent_key in intent_scores:
+                    intent_scores[intent_key] += boost_val
+
         # Step 4: Normalize scores to 0.0-1.0 range
+        # Max-normalization: top intent always receives 1.0, all others are
+        # relative to it. This keeps confidence values meaningful against the
+        # calibrated default_confidence_threshold of 0.5.
         max_score = max(intent_scores.values()) if intent_scores else 1.0
         normalized_scores: dict[str, float] = {
             intent: score / max_score if max_score > 0 else 0.0
@@ -767,6 +785,25 @@ def handle_intent_classification(
         confidence_threshold = context.get("confidence_threshold")
         max_intents = context.get("max_intents")
 
+        # Semantic enrichment: compute intent boosts from langextract analysis.
+        # Wrapped in try/except so any unexpected exception from semantic analysis
+        # falls back to empty boosts and allows TF-IDF classification to succeed
+        # normally without semantic enrichment.
+        try:
+            semantic_result = analyze_semantics(content=input_data.content)
+            boosts: dict[str, float] = (
+                map_semantic_to_intent_boost(semantic_result)
+                if semantic_result.get("error") is None
+                else {}
+            )
+        except Exception as e:
+            logger.warning(
+                "Semantic analysis failed, falling back to TF-IDF-only scoring: %s: %s",
+                type(e).__name__,
+                e,
+            )
+            boosts = {}
+
         # Call pure classification function for TF-IDF classification
         # Handler applies config defaults when parameters are None
         result = classify_intent(
@@ -775,6 +812,7 @@ def handle_intent_classification(
             confidence_threshold=confidence_threshold,
             multi_label=True,  # Always compute secondary intents
             max_intents=max_intents,
+            score_boosts=boosts,
         )
 
         processing_time = (time.perf_counter() - start_time) * 1000

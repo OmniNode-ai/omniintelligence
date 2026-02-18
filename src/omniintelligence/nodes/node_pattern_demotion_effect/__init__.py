@@ -43,7 +43,6 @@ Usage (Declarative Pattern):
         repository=db_connection,
         producer=kafka_producer,
         request=ModelDemotionCheckRequest(dry_run=False),
-        topic_env_prefix="dev",
     )
 
     # For event-driven execution, use RuntimeHostProcess

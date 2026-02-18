@@ -34,7 +34,7 @@ The actual handler execution and routing is performed by:
     - Or RuntimeHostProcess for workflow coordination
 
 Handlers receive their dependencies directly via parameter injection:
-    - check_and_demote_patterns(repository, producer, request, topic_env_prefix)
+    - check_and_demote_patterns(repository, producer, request)
     - demote_pattern(repository, producer, pattern_id, pattern_data, ...)
 
 Related Modules:
@@ -63,7 +63,7 @@ class NodePatternDemotionEffect(NodeEffect):
 
     Dependency Injection:
         Handlers are invoked by callers with their dependencies
-        (repository, producer, topic_env_prefix). This node contains NO
+        (repository, producer). This node contains NO
         instance variables for handlers or registries.
 
     Example:
@@ -83,7 +83,6 @@ class NodePatternDemotionEffect(NodeEffect):
             repository=db_connection,
             producer=kafka_producer,
             request=ModelDemotionCheckRequest(dry_run=False),
-            topic_env_prefix="dev",
         )
 
         # Or use RuntimeHostProcess for event-driven execution
