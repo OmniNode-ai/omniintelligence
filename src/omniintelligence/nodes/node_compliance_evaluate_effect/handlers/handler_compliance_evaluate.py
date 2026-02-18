@@ -131,7 +131,7 @@ async def handle_compliance_evaluate_command(
         error_event = ModelComplianceEvaluatedEvent(
             event_type="ComplianceEvaluated",
             correlation_id=cid,
-            source_path=command.source_path,
+            source_path=safe_source_path,
             content_sha256=command.content_sha256,
             language=command.language,
             success=False,
@@ -150,7 +150,7 @@ async def handle_compliance_evaluate_command(
             await _route_to_dlq(
                 producer=kafka_producer,
                 correlation_id=cid,
-                source_path=command.source_path,
+                source_path=safe_source_path,
                 error_message=(
                     f"content_sha256 mismatch: declared={command.content_sha256}, "
                     f"computed={computed_sha256}"

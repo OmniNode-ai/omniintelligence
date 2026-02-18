@@ -97,6 +97,10 @@ HANDLER_ENTRY_POINTS = [
         "HandlerClaudeHookEvent",
     ),
     (
+        "omniintelligence.nodes.node_compliance_evaluate_effect.handlers",
+        "handle_compliance_evaluate_command",
+    ),
+    (
         "omniintelligence.nodes.node_pattern_compliance_effect.handlers",
         "handle_evaluate_compliance",
     ),
