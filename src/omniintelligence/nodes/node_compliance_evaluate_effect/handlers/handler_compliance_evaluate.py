@@ -123,7 +123,7 @@ async def handle_compliance_evaluate_command(
             cid,
         )
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-        return ModelComplianceEvaluatedEvent(
+        error_event = ModelComplianceEvaluatedEvent(
             event_type="ComplianceEvaluated",
             correlation_id=cid,
             source_path=command.source_path,
@@ -134,11 +134,25 @@ async def handle_compliance_evaluate_command(
             violations=[],
             confidence=0.0,
             patterns_checked=len(command.applicable_patterns),
-            model_used="none",
+            model_used=None,
             status="validation_error",
             processing_time_ms=elapsed_ms,
             evaluated_at=datetime.now(UTC).isoformat(),
         )
+        # Route to DLQ so operators can inspect and replay tampered/stale messages.
+        # Mirrors the DLQ routing in _publish_event() for Kafka publish failures.
+        if kafka_producer is not None:
+            await _route_to_dlq(
+                producer=kafka_producer,
+                correlation_id=cid,
+                source_path=command.source_path,
+                error_message=(
+                    f"content_sha256 mismatch: declared={command.content_sha256}, "
+                    f"computed={computed_sha256}"
+                ),
+                original_topic=publish_topic,
+            )
+        return error_event
 
     sanitizer = get_log_sanitizer()
     # Sanitize source_path once up front so the in-memory event object never
@@ -248,7 +262,7 @@ async def handle_compliance_evaluate_command(
         result.compliant,
         len(violations),
         result.confidence,
-        processing_time_ms,
+        (processing_time_ms or 0.0),
         cid,
     )
 

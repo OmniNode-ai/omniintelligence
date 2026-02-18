@@ -1287,17 +1287,11 @@ def create_compliance_evaluate_dispatch_handler(
         OMN-2339: node_compliance_evaluate_effect
 
     Note:
-        TODO (OMN-2339): Idempotency is declared in contract.yaml
-        (strategy: content_hash_tracking, key: source_path + content_sha256 +
-        pattern_id) but is NOT yet wired here. Unlike
-        create_pattern_lifecycle_dispatch_handler, this factory does not accept
-        an idempotency_store parameter because the ProtocolIdempotencyStore is
-        scoped to the top-level dispatch engine factory and was not threaded
-        down to this factory when OMN-2339 was initially implemented.
-        To wire idempotency: add an ``idempotency_store: ProtocolIdempotencyStore``
-        parameter here (mirroring create_pattern_lifecycle_dispatch_handler),
-        update create_intelligence_dispatch_engine to pass it, and call
-        idempotency_store.is_duplicate() before handle_compliance_evaluate_command().
+        # DEFERRED (OMN-2339): Idempotency declared in contract.yaml (strategy:
+        # content_hash_tracking, key: source_path + content_sha256 + pattern_id) is
+        # intentionally NOT wired here. The idempotency_store infrastructure is not
+        # available in this handler factory's current scope. Duplicate commands will
+        # trigger redundant LLM calls until this is addressed. Tracked in OMN-2339.
     """
 
     async def _handle(
@@ -1305,6 +1299,7 @@ def create_compliance_evaluate_dispatch_handler(
         context: ProtocolHandlerContext,
     ) -> str:
         """Bridge handler: envelope -> handle_compliance_evaluate_command()."""
+        # Deferred import to avoid circular dependency at module load time.
         from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
             handle_compliance_evaluate_command,
         )
@@ -1372,7 +1367,7 @@ def create_compliance_evaluate_dispatch_handler(
                 violations=[],
                 confidence=0.0,
                 patterns_checked=len(command.applicable_patterns),
-                model_used="none",
+                model_used=None,
                 status="llm_error",
                 processing_time_ms=0.0,
                 evaluated_at=datetime.now(UTC).isoformat(),

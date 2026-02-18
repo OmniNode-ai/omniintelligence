@@ -422,3 +422,45 @@ async def test_evaluated_at_is_iso_string(
 
     assert isinstance(result.evaluated_at, str)
     assert "T" in result.evaluated_at  # basic ISO-8601 check
+
+
+# =============================================================================
+# sha256 mismatch validation
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_sha256_mismatch_returns_validation_error(
+    compliant_llm_client: MockLlmClient,
+    mock_kafka_producer: MockKafkaProducer,
+) -> None:
+    """A content_sha256 that does not match the actual SHA-256 of content
+    returns success=False with status='validation_error' and never calls the LLM.
+    A DLQ entry is also published when kafka_producer is available.
+    """
+    # "b" * 64 is a valid 64-char lowercase hex string but intentionally wrong
+    # for the content "class Foo: pass" (whose real sha256 is FIXED_CONTENT_SHA256).
+    wrong_sha256 = "b" * 64
+    assert wrong_sha256 != FIXED_CONTENT_SHA256, (
+        "Sanity: wrong_sha256 must differ from the actual sha256 of the content"
+    )
+
+    command = _make_command(
+        content="class Foo: pass",
+        content_sha256=wrong_sha256,
+    )
+
+    result = await handle_compliance_evaluate_command(
+        command,
+        llm_client=compliant_llm_client,
+        kafka_producer=mock_kafka_producer,
+    )
+
+    assert result.success is False
+    assert result.status == "validation_error"
+    # LLM must not have been called — mismatch is caught before inference
+    assert compliant_llm_client.call_count == 0
+    # DLQ must have received exactly one entry
+    assert len(mock_kafka_producer.published) == 1
+    dlq_entry = mock_kafka_producer.published[0]
+    assert dlq_entry["topic"] == DLQ_TOPIC
