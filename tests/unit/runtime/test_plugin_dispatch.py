@@ -613,14 +613,11 @@ class TestIntrospectionPublishingGate:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """When gate is off, _event_bus is still captured (needed for shutdown path).
+        """When gate is off, _event_bus is NOT captured.
 
-        The shutdown path gates on _event_bus being non-None before attempting
-        publish_intelligence_shutdown(). With introspection off, _event_bus is
-        still set so the shutdown codepath is predictable: _event_bus is not None
-        but _introspection_proxies is empty, so shutdown skips proxy stopping
-        and may call publish_intelligence_shutdown() with an empty proxy list.
-        This test documents the expected state.
+        The shutdown path gates on _event_bus being non-None. When introspection
+        publishing is disabled, _event_bus remains None so publish_intelligence_shutdown
+        is never called from this container — no spurious shutdown events emitted.
         """
         monkeypatch.delenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", raising=False)
 
@@ -630,7 +627,7 @@ class TestIntrospectionPublishingGate:
 
         await _wire_plugin(plugin, config)
 
-        # _event_bus is captured regardless of gate state (needed for shutdown)
-        assert plugin._event_bus is not None
+        # _event_bus is None (gate off = no introspection publishing = no shutdown signal)
+        assert plugin._event_bus is None
         # _introspection_proxies is empty (no heartbeat tasks started)
         assert plugin._introspection_proxies == []

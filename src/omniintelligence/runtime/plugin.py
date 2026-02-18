@@ -593,14 +593,6 @@ class PluginIntelligence:
                 pattern_upsert_store=pattern_upsert_store,
             )
 
-            # Store event_bus reference for introspection publishing.
-            # NOTE: This reference is captured at wire time and used during
-            # shutdown. The caller is responsible for keeping the event bus
-            # alive until shutdown completes.
-            # Best-effort: if event_bus is closed before shutdown,
-            # publish_intelligence_shutdown silently handles errors.
-            self._event_bus = config.event_bus
-
             # Publish introspection events for all intelligence nodes
             # (OMN-2210: Wire intelligence nodes into registration)
             #
@@ -609,11 +601,18 @@ class PluginIntelligence:
             # introspection. Worker/effects containers leave this var unset
             # so they process events without starting duplicate heartbeat loops
             # for the same deterministic node IDs.
+            #
+            # _event_bus is captured only when publishing is enabled so that
+            # the shutdown path (which gates on _event_bus is not None) does
+            # not emit spurious shutdown events from worker containers.
             from omniintelligence.runtime.introspection import (
                 publish_intelligence_introspection,
             )
 
             if _introspection_publishing_enabled():
+                # Capture event_bus for shutdown path only when this container
+                # is the designated introspection publisher.
+                self._event_bus = config.event_bus
                 introspection_result = await publish_intelligence_introspection(
                     event_bus=config.event_bus,
                     correlation_id=correlation_id,
@@ -892,8 +891,8 @@ class PluginIntelligence:
         errors: list[str] = []
 
         # Publish shutdown introspection for all intelligence nodes.
-        # Gate on _event_bus (set in wire_dispatchers before introspection
-        # is attempted), NOT on _introspection_nodes. If all individual
+        # Gate on _event_bus (set in wire_dispatchers only when introspection
+        # publishing is enabled), NOT on _introspection_nodes. If all individual
         # publish calls failed, _introspection_nodes is empty but the
         # single-call guard (_introspection_published) is still set.
         # publish_intelligence_shutdown resets that guard, so we must call
@@ -1006,5 +1005,4 @@ _: ProtocolDomainPlugin = PluginIntelligence()
 __all__: list[str] = [
     "INTELLIGENCE_SUBSCRIBE_TOPICS",
     "PluginIntelligence",
-    "_introspection_publishing_enabled",
 ]
