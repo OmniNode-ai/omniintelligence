@@ -124,11 +124,16 @@ class TestEnforcementFeedbackIntegration:
 
         Dependencies: Kafka running at KAFKA_BOOTSTRAP_SERVERS (see .env),
         PostgreSQL running at POSTGRES_HOST:POSTGRES_PORT (see .env).
+
+        Kafka topic to publish to (from contract.yaml subscribe_topics):
+            onex.evt.omniclaude.pattern-enforcement.v1
         """
         # TODO: implement - see handler SQL for test requirements
         pytest.skip(
             "TODO: implement - end-to-end test publishing ModelEnforcementEvent to Kafka "
-            "and verifying the handler consumes it and applies SQL_ADJUST_QUALITY_SCORE "
+            "topic 'onex.evt.omniclaude.pattern-enforcement.v1' (the subscribe topic "
+            "declared in contract.yaml for node_enforcement_feedback_effect) and verifying "
+            "the handler consumes it and applies SQL_ADJUST_QUALITY_SCORE "
             "(-0.01) to the pattern's quality_score in the learned_patterns table; "
             "requires both Kafka (KAFKA_BOOTSTRAP_SERVERS) and PostgreSQL infrastructure"
         )

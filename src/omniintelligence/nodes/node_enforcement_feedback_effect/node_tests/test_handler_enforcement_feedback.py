@@ -723,6 +723,88 @@ class TestModelValidation:
 
 
 # =============================================================================
+# Test Class: Duplicate Pattern ID
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDuplicatePatternId:
+    """Tests for the same pattern_id appearing in multiple confirmed violations."""
+
+    @pytest.mark.asyncio
+    async def test_same_pattern_id_in_two_confirmed_violations_applies_both(
+        self,
+        mock_repository: MockEnforcementRepository,
+        sample_correlation_id: UUID,
+        sample_session_id: UUID,
+        sample_pattern_id_a: UUID,
+    ) -> None:
+        """Same pattern_id in two confirmed violations results in two independent UPDATEs.
+
+        The handler processes each confirmed violation separately (no deduplication).
+        When the same pattern_id appears twice, each generates its own UPDATE call.
+        This is the documented behavior (see handler module docstring and idempotency
+        section in contract.yaml: "best_effort_bounded").
+
+        Asserts:
+        - len(result.adjustments) == 2 (both violations produce adjustment records)
+        - mock repository's execute was called twice for the same pattern_id
+        - quality_score is decremented twice (2 * CONFIDENCE_ADJUSTMENT_PER_VIOLATION)
+        """
+        mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
+
+        event = ModelEnforcementEvent(
+            correlation_id=sample_correlation_id,
+            session_id=sample_session_id,
+            patterns_checked=5,
+            violations_found=2,
+            violations=[
+                ModelPatternViolation(
+                    pattern_id=sample_pattern_id_a,
+                    pattern_name="test-pattern-a-first",
+                    was_advised=True,
+                    was_corrected=True,
+                ),
+                ModelPatternViolation(
+                    pattern_id=sample_pattern_id_a,
+                    pattern_name="test-pattern-a-second",
+                    was_advised=True,
+                    was_corrected=True,
+                ),
+            ],
+        )
+
+        result = await process_enforcement_feedback(
+            event=event,
+            repository=mock_repository,
+        )
+
+        # Both violations are confirmed and produce adjustment records
+        assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
+        assert result.confirmed_violations == 2
+        assert len(result.adjustments) == 2
+
+        # Both adjustments reference the same pattern_id
+        assert result.adjustments[0].pattern_id == sample_pattern_id_a
+        assert result.adjustments[1].pattern_id == sample_pattern_id_a
+
+        # execute was called twice for the same pattern_id (two independent UPDATEs)
+        execute_calls = [
+            args
+            for query, args in mock_repository.queries_executed
+            if "UPDATE learned_patterns" in query
+        ]
+        assert len(execute_calls) == 2
+        assert execute_calls[0][0] == sample_pattern_id_a
+        assert execute_calls[1][0] == sample_pattern_id_a
+
+        # quality_score was decremented twice
+        assert mock_repository.patterns[sample_pattern_id_a][
+            "quality_score"
+        ] == pytest.approx(0.8 + 2 * CONFIDENCE_ADJUSTMENT_PER_VIOLATION)
+
+
+# =============================================================================
 # Test Class: Protocol Compliance
 # =============================================================================
 

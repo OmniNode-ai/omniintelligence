@@ -785,13 +785,24 @@ def handle_intent_classification(
         confidence_threshold = context.get("confidence_threshold")
         max_intents = context.get("max_intents")
 
-        # Semantic enrichment: compute intent boosts from langextract analysis
-        semantic_result = analyze_semantics(content=input_data.content)
-        boosts: dict[str, float] = (
-            map_semantic_to_intent_boost(semantic_result)
-            if semantic_result.get("error") is None
-            else {}
-        )
+        # Semantic enrichment: compute intent boosts from langextract analysis.
+        # Wrapped in try/except so any unexpected exception from semantic analysis
+        # falls back to empty boosts and allows TF-IDF classification to succeed
+        # normally without semantic enrichment.
+        try:
+            semantic_result = analyze_semantics(content=input_data.content)
+            boosts: dict[str, float] = (
+                map_semantic_to_intent_boost(semantic_result)
+                if semantic_result.get("error") is None
+                else {}
+            )
+        except Exception as e:
+            logger.warning(
+                "Semantic analysis failed, falling back to TF-IDF-only scoring: %s: %s",
+                type(e).__name__,
+                e,
+            )
+            boosts = {}
 
         # Call pure classification function for TF-IDF classification
         # Handler applies config defaults when parameters are None
