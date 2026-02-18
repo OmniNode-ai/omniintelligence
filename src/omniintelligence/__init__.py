@@ -26,7 +26,7 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     score_code_quality,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 __all__ = [
     # Configuration
