@@ -609,6 +609,7 @@ class PluginIntelligence:
                 publish_intelligence_introspection,
             )
 
+            # Read env var at call time (intentionally not cached: re-read on retry).
             if _introspection_publishing_enabled():
                 # Capture event_bus for shutdown path only when this container
                 # is the designated introspection publisher.

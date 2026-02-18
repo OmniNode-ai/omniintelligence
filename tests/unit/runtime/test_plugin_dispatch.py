@@ -578,8 +578,9 @@ class TestIntrospectionPublishingGate:
 
         assert result.success, f"wire_dispatchers failed: {result.error_message}"
         assert plugin._dispatch_engine is not None
-        # Introspection nodes registered (gate is open)
+        # Introspection nodes and proxies registered (gate is open)
         assert len(plugin._introspection_nodes) > 0
+        assert len(plugin._introspection_proxies) > 0
 
     @pytest.mark.unit
     @pytest.mark.asyncio
