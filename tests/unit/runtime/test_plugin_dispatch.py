@@ -274,7 +274,7 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.route_count == 8
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_five_handlers(self) -> None:
+    async def test_wire_dispatchers_engine_has_six_handlers(self) -> None:
         """Engine should have exactly 6 handlers (OMN-2339 adds compliance-evaluate)."""
         plugin = PluginIntelligence()
         config = _make_config()
