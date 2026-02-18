@@ -329,7 +329,8 @@ def classify_intent(
         1. Tokenize and normalize the input text
         2. Calculate term frequency (TF) scores for each token
         3. Match tokens against intent patterns with weighted scoring
-        4. Normalize scores to 0.0-1.0 range
+        4. Max-normalize scores so the top intent receives 1.0 and all others
+           are relative to it (compatible with default_confidence_threshold=0.5)
         5. Return classification results based on confidence threshold
 
     Configuration:
@@ -460,9 +461,12 @@ def classify_intent(
                     intent_scores[intent_key] += boost_val
 
         # Step 4: Normalize scores to 0.0-1.0 range
-        sum_scores = sum(intent_scores.values()) if intent_scores else 1.0
+        # Max-normalization: top intent always receives 1.0, all others are
+        # relative to it. This keeps confidence values meaningful against the
+        # calibrated default_confidence_threshold of 0.5.
+        max_score = max(intent_scores.values()) if intent_scores else 1.0
         normalized_scores: dict[str, float] = {
-            intent: score / sum_scores if sum_scores > 0 else 0.0
+            intent: score / max_score if max_score > 0 else 0.0
             for intent, score in intent_scores.items()
         }
 
