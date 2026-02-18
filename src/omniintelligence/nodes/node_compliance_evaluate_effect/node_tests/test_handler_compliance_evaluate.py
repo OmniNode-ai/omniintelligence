@@ -1,16 +1,22 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2025 OmniNode Team
 """Unit tests for handle_compliance_evaluate_command.
 
 Covers:
-- Compliant evaluation (no violations)
-- Violating evaluation (violations found)
-- LLM error path (structured error output)
-- Kafka publish success
-- Kafka publish failure -> DLQ routing
-- No kafka_producer (graceful degradation)
-- Idempotency key fields present in event
-- Protocol conformance assertions
+- Compliant evaluation (no violations) — 3 tests
+- Violating evaluation (violations found, signature enriched) — 2 tests
+- LLM error path (structured error output) — 1 test
+- Kafka publish on compliant and violating results — 2 tests
+- Kafka publish failure -> DLQ routing — 1 test
+- Kafka and DLQ both fail -> swallowed, no raise — 1 test
+- No kafka_producer (graceful degradation) — 1 test
+- Idempotency key fields present in event — 1 test
+- Multi-pattern evaluation (patterns_checked count) — 1 test
+- Processing timing (processing_time_ms populated) — 1 test
+- evaluated_at timestamp (ISO-8601 string) — 1 test
+
+Protocol conformance is asserted inline in Mock constructors
+(MockLlmClient, MockKafkaProducer) via isinstance() checks.
 
 Ticket: OMN-2339
 """
@@ -41,6 +47,22 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest 
 )
 
 pytestmark = pytest.mark.unit
+
+# =============================================================================
+# Topic constants
+# =============================================================================
+
+
+def test_publish_topic_matches_contract() -> None:
+    """PUBLISH_TOPIC constant matches contract.yaml publish_topics[0]."""
+    assert PUBLISH_TOPIC == "onex.evt.omniintelligence.compliance-evaluated.v1"
+
+
+def test_dlq_topic_is_publish_topic_with_dlq_suffix() -> None:
+    """DLQ_TOPIC is PUBLISH_TOPIC with .dlq appended."""
+    assert f"{PUBLISH_TOPIC}.dlq" == DLQ_TOPIC
+    assert DLQ_TOPIC == "onex.evt.omniintelligence.compliance-evaluated.v1.dlq"
+
 
 # =============================================================================
 # Compliant path
@@ -287,7 +309,7 @@ async def test_kafka_and_dlq_failure_is_swallowed(
 
 
 @pytest.mark.asyncio
-async def test_event_carries_idempotency_fields(
+async def test_idempotency_fields_match_command_source_and_sha256(
     sample_command: ModelComplianceEvaluateCommand,
     compliant_llm_client: MockLlmClient,
 ) -> None:
@@ -307,7 +329,7 @@ async def test_event_carries_idempotency_fields(
 
 
 @pytest.mark.asyncio
-async def test_patterns_count_in_event(
+async def test_patterns_checked_reflects_applicable_patterns_count(
     compliant_llm_client: MockLlmClient,
 ) -> None:
     """patterns_checked in event reflects number of applicable_patterns."""

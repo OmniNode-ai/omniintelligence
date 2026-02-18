@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2025 OmniNode Team
 """Shared fixtures for node_compliance_evaluate_effect tests.
 
