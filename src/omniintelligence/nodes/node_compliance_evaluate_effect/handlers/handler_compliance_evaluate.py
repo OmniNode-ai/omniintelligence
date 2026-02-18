@@ -127,16 +127,24 @@ async def handle_compliance_evaluate_command(
     )
 
     # 3. Call the leaf handler (all error handling is inside).
+    # Pass kafka_producer=None so the leaf handler does not attempt its own
+    # DLQ routing to its own DLQ topic.  The outer handler (_publish_event /
+    # _route_to_dlq) owns all DLQ routing for this node's topic boundary.
+    # Forwarding kafka_producer to the leaf would cause dual DLQ publishes on
+    # error paths, and the leaf's DLQ payload omits the content_sha256
+    # idempotency fields required by node_compliance_evaluate_effect.
     result = await handle_evaluate_compliance(
         request,
         llm_client=llm_client,
         model=model,
         correlation_id=cid,
-        kafka_producer=kafka_producer,
+        kafka_producer=None,
     )
 
     evaluated_at = datetime.now(UTC).isoformat()
-    processing_time_ms = (time.perf_counter() - start_time) * 1000
+    processing_time_ms = (
+        time.perf_counter() - start_time
+    ) * 1000  # excludes Kafka publish latency
 
     # 4. Map result violations to event payload format.
     violations = [

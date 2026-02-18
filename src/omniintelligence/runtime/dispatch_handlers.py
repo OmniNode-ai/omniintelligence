@@ -51,6 +51,9 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
 )
+from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
+    ProtocolLlmClient,
+)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -106,9 +109,7 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
 
-DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
-    "onex.commands.omniintelligence.compliance-evaluate.v1"
-)
+DISPATCH_ALIAS_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
 
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
@@ -1258,7 +1259,7 @@ def create_pattern_storage_dispatch_handler(
 
 def create_compliance_evaluate_dispatch_handler(
     *,
-    llm_client: Any,  # any-ok: ProtocolLlmClient from node_pattern_compliance_effect
+    llm_client: ProtocolLlmClient | None,
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str | None = None,
     correlation_id: UUID | None = None,
@@ -1399,7 +1400,7 @@ def create_intelligence_dispatch_engine(
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topics: dict[str, str] | None = None,
     pattern_upsert_store: ProtocolPatternUpsertStore | None = None,
-    llm_client: Any = None,  # any-ok: ProtocolLlmClient; optional for backwards compat
+    llm_client: ProtocolLlmClient | None = None,
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 

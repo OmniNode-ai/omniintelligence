@@ -80,6 +80,7 @@ class ModelComplianceEvaluatedEvent(BaseModel):
         ...,
         min_length=64,
         max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
         description="SHA-256 hex digest of the evaluated content (idempotency key)",
     )
     language: str = Field(
