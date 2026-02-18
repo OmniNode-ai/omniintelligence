@@ -1343,6 +1343,8 @@ def create_compliance_evaluate_dispatch_handler(
         # When None, return a structured error event rather than propagating
         # an AttributeError from the leaf handler. This matches the documented
         # behaviour ("will return LLM-error results when llm_client=None").
+        # NOTE: This path does not route to DLQ; the leaf-level guard in
+        # _execute_compliance handles DLQ routing on direct calls.
         safe_source_path = get_log_sanitizer().sanitize(command.source_path)
         if llm_client is None:
             from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (

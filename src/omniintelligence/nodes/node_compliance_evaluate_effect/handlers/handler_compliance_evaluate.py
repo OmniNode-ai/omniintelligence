@@ -109,6 +109,11 @@ async def handle_compliance_evaluate_command(
     start_time = time.perf_counter()
     cid = command.correlation_id
 
+    # Sanitize source_path once up front so all log calls (including early-return
+    # branches) use the safe form and never emit an unsanitized path.
+    sanitizer = get_log_sanitizer()
+    safe_source_path: str = sanitizer.sanitize(command.source_path)
+
     # Validate that content_sha256 matches the actual SHA-256 of content.
     # A mismatch means the caller sent a stale or incorrect hash, which would
     # cause incorrect idempotency deduplication at the dispatch layer.
@@ -119,7 +124,7 @@ async def handle_compliance_evaluate_command(
             "source_path=%s, correlation_id=%s",
             command.content_sha256,
             computed_sha256,
-            command.source_path,
+            safe_source_path,
             cid,
         )
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -154,11 +159,6 @@ async def handle_compliance_evaluate_command(
             )
         return error_event
 
-    sanitizer = get_log_sanitizer()
-    # Sanitize source_path once up front so the in-memory event object never
-    # carries an unsanitized value.  Any downstream consumer that logs or
-    # re-publishes event.source_path will therefore always emit the safe form.
-    safe_source_path: str = sanitizer.sanitize(command.source_path)
     logger.info(
         "Processing compliance-evaluate command. "
         "source_path=%s, language=%s, patterns=%d, correlation_id=%s",
