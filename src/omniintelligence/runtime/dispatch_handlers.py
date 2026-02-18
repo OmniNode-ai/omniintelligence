@@ -1326,6 +1326,7 @@ def create_compliance_evaluate_dispatch_handler(
         # When None, return a structured error event rather than propagating
         # an AttributeError from the leaf handler. This matches the documented
         # behaviour ("will return LLM-error results when llm_client=None").
+        safe_source_path = get_log_sanitizer().sanitize(command.source_path)
         if llm_client is None:
             from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (
                 ModelComplianceEvaluatedEvent,
@@ -1335,13 +1336,13 @@ def create_compliance_evaluate_dispatch_handler(
                 "compliance-evaluate command received but llm_client=None; "
                 "returning llm_error result without inference "
                 "(source_path=%s, correlation_id=%s)",
-                command.source_path,
+                safe_source_path,
                 ctx_correlation_id,
             )
             result = ModelComplianceEvaluatedEvent(
                 event_type="ComplianceEvaluated",
                 correlation_id=ctx_correlation_id,
-                source_path=command.source_path,
+                source_path=safe_source_path,
                 content_sha256=command.content_sha256,
                 language=command.language,
                 success=False,
@@ -1358,7 +1359,7 @@ def create_compliance_evaluate_dispatch_handler(
             logger.info(
                 "Dispatching compliance-evaluate command via MessageDispatchEngine "
                 "(source_path=%s, patterns=%d, correlation_id=%s)",
-                command.source_path,
+                safe_source_path,
                 len(command.applicable_patterns),
                 ctx_correlation_id,
             )
@@ -1375,7 +1376,7 @@ def create_compliance_evaluate_dispatch_handler(
             "Compliance-evaluate command processed via dispatch engine "
             "(source_path=%s, success=%s, compliant=%s, violations=%d, "
             "correlation_id=%s)",
-            command.source_path,
+            safe_source_path,
             result.success,
             result.compliant,
             len(result.violations),

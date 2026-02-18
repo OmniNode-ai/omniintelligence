@@ -30,7 +30,7 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 # =============================================================================
 
 FIXED_CORRELATION_ID: UUID = UUID("12345678-1234-5678-1234-567812345678")
-FIXED_CONTENT_SHA256: str = "a" * 64  # 64-char hex placeholder
+FIXED_CONTENT_SHA256: str = "62317e7166ae196fbee81c56aeedfed1294bae41544e57ee229c939c5c970c6f"  # sha256("class Foo: pass")
 
 # =============================================================================
 # Mock implementations

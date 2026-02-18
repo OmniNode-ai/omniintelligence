@@ -37,6 +37,14 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_com
 from omniintelligence.nodes.node_compliance_evaluate_effect.models import (
     ModelComplianceEvaluateCommand,
 )
+
+# _make_command and _make_pattern are imported directly as module-level helpers
+# rather than being wrapped in pytest fixtures. This is intentional: these
+# helpers accept arguments (e.g. custom patterns list, custom content), which
+# makes them unsuitable as zero-argument pytest fixtures. Exposing them as
+# fixtures would either require parameterization or force callers to import them
+# anyway. Direct import keeps the test code explicit and avoids fixture overhead
+# for helpers that build test data inline.
 from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest import (
     FIXED_CONTENT_SHA256,
     MockKafkaProducer,

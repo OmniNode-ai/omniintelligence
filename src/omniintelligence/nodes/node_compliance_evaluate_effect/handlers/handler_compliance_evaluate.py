@@ -63,7 +63,7 @@ DLQ_TOPIC: Final[str] = f"{PUBLISH_TOPIC}.dlq"
 async def handle_compliance_evaluate_command(
     command: ModelComplianceEvaluateCommand,
     *,
-    llm_client: ProtocolLlmClient,
+    llm_client: ProtocolLlmClient | None,
     model: str = DEFAULT_MODEL,
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str = PUBLISH_TOPIC,
@@ -84,7 +84,9 @@ async def handle_compliance_evaluate_command(
 
     Args:
         command: Deserialized Kafka command payload.
-        llm_client: LLM client for Coder-14B inference.
+        llm_client: LLM client for Coder-14B inference. When None,
+            handle_evaluate_compliance() returns a structured llm_error
+            result; no exception is raised.
         model: Model identifier (default: Coder-14B).
         kafka_producer: Optional Kafka producer for event emission.
         publish_topic: Full publish topic (from contract, default: PUBLISH_TOPIC).
@@ -97,10 +99,14 @@ async def handle_compliance_evaluate_command(
     cid = command.correlation_id
 
     sanitizer = get_log_sanitizer()
+    # Sanitize source_path once up front so the in-memory event object never
+    # carries an unsanitized value.  Any downstream consumer that logs or
+    # re-publishes event.source_path will therefore always emit the safe form.
+    safe_source_path: str = sanitizer.sanitize(command.source_path)
     logger.info(
         "Processing compliance-evaluate command. "
         "source_path=%s, language=%s, patterns=%d, correlation_id=%s",
-        sanitizer.sanitize(command.source_path),
+        safe_source_path,
         command.language,
         len(command.applicable_patterns),
         cid,
@@ -159,11 +165,13 @@ async def handle_compliance_evaluate_command(
     ]
 
     # 5. Build the output event.
+    # Use safe_source_path (sanitized at function entry) so the in-memory
+    # event object never carries an unsanitized path value.
     metadata = result.metadata
     event = ModelComplianceEvaluatedEvent(
         event_type="ComplianceEvaluated",
         correlation_id=cid,
-        source_path=command.source_path,
+        source_path=safe_source_path,
         content_sha256=command.content_sha256,
         language=command.language,
         success=result.success,
@@ -191,7 +199,7 @@ async def handle_compliance_evaluate_command(
         "Compliance evaluate command handled. "
         "source_path=%s, success=%s, compliant=%s, violations=%d, "
         "confidence=%.2f, processing_time_ms=%.2f, correlation_id=%s",
-        sanitizer.sanitize(command.source_path),
+        safe_source_path,
         result.success,
         result.compliant,
         len(violations),
