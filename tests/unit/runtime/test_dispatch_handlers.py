@@ -324,7 +324,7 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_five_handlers(
+    def test_engine_has_six_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
@@ -338,7 +338,7 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.handler_count == 6
 
-    def test_engine_has_seven_routes(
+    def test_engine_has_eight_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,

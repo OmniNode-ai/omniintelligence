@@ -90,10 +90,11 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolLlmClient"
     module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols"
-    required: true
+    required: false
     description: >-
       OpenAI-compatible LLM client for compliance evaluation (Coder-14B). Forwarded to handle_evaluate_compliance()
-      from node_pattern_compliance_effect.
+      from node_pattern_compliance_effect. When unavailable (None), the dispatch handler returns a structured
+      llm_error result rather than raising, so evaluations degrade gracefully without a live LLM.
   - name: "kafka_producer"
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
