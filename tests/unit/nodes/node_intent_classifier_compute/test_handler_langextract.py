@@ -381,8 +381,8 @@ class TestIntegrationWithIntentClassification:
 
         content = "Create a REST API endpoint with tests"
 
-        # Get base classification
-        base_result = classify_intent(content)
+        # Get base classification using threshold=0.0 to obtain the actual top intent
+        base_result = classify_intent(content, confidence_threshold=0.0)
 
         # Get semantic analysis
         semantic_result = analyze_semantics(content)
@@ -414,7 +414,7 @@ class TestIntegrationWithIntentClassification:
         ]
 
         for content, expected in test_cases:
-            tfidf_result = classify_intent(content)
+            tfidf_result = classify_intent(content, confidence_threshold=0.0)
             semantic_result = analyze_semantics(content)
             boosts = map_semantic_to_intent_boost(semantic_result)
 

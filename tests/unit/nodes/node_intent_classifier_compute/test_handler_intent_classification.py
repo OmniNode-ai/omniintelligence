@@ -160,7 +160,7 @@ class TestCodeGenerationIntent:
     @pytest.mark.parametrize("content", SAMPLE_CODE_GENERATION)
     def test_detects_code_generation(self, content: str) -> None:
         """Test detection of code generation intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "code_generation", (
             f"Expected 'code_generation' for: {content!r}, "
             f"got: {result['intent_category']}"
@@ -184,7 +184,7 @@ class TestDebuggingIntent:
     @pytest.mark.parametrize("content", SAMPLE_DEBUGGING)
     def test_detects_debugging(self, content: str) -> None:
         """Test detection of debugging intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "debugging", (
             f"Expected 'debugging' for: {content!r}, got: {result['intent_category']}"
         )
@@ -207,7 +207,7 @@ class TestRefactoringIntent:
     @pytest.mark.parametrize("content", SAMPLE_REFACTORING)
     def test_detects_refactoring(self, content: str) -> None:
         """Test detection of refactoring intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "refactoring", (
             f"Expected 'refactoring' for: {content!r}, got: {result['intent_category']}"
         )
@@ -230,7 +230,7 @@ class TestTestingIntent:
     @pytest.mark.parametrize("content", SAMPLE_TESTING)
     def test_detects_testing(self, content: str) -> None:
         """Test detection of testing intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "testing", (
             f"Expected 'testing' for: {content!r}, got: {result['intent_category']}"
         )
@@ -253,7 +253,7 @@ class TestDocumentationIntent:
     @pytest.mark.parametrize("content", SAMPLE_DOCUMENTATION)
     def test_detects_documentation(self, content: str) -> None:
         """Test detection of documentation intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "documentation", (
             f"Expected 'documentation' for: {content!r}, "
             f"got: {result['intent_category']}"
@@ -277,7 +277,7 @@ class TestAnalysisIntent:
     @pytest.mark.parametrize("content", SAMPLE_ANALYSIS)
     def test_detects_analysis(self, content: str) -> None:
         """Test detection of analysis intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "analysis", (
             f"Expected 'analysis' for: {content!r}, got: {result['intent_category']}"
         )
@@ -300,7 +300,7 @@ class TestPatternLearningIntent:
     @pytest.mark.parametrize("content", SAMPLE_PATTERN_LEARNING)
     def test_detects_pattern_learning(self, content: str) -> None:
         """Test detection of pattern_learning intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "pattern_learning", (
             f"Expected 'pattern_learning' for: {content!r}, "
             f"got: {result['intent_category']}"
@@ -324,7 +324,7 @@ class TestQualityAssessmentIntent:
     @pytest.mark.parametrize("content", SAMPLE_QUALITY_ASSESSMENT)
     def test_detects_quality_assessment(self, content: str) -> None:
         """Test detection of quality_assessment intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "quality_assessment", (
             f"Expected 'quality_assessment' for: {content!r}, "
             f"got: {result['intent_category']}"
@@ -348,7 +348,7 @@ class TestSemanticAnalysisIntent:
     @pytest.mark.parametrize("content", SAMPLE_SEMANTIC_ANALYSIS)
     def test_detects_semantic_analysis(self, content: str) -> None:
         """Test detection of semantic_analysis intent for various phrases."""
-        result = classify_intent(content)
+        result = classify_intent(content, confidence_threshold=0.0)
         assert result["intent_category"] == "semantic_analysis", (
             f"Expected 'semantic_analysis' for: {content!r}, "
             f"got: {result['intent_category']}"
@@ -401,7 +401,8 @@ class TestConfidenceThreshold:
 
     def test_threshold_at_boundary(self) -> None:
         """Test threshold behavior at exact match boundary."""
-        result = classify_intent("generate a Python function")
+        # Use confidence_threshold=0.0 to get the actual top intent and its score
+        result = classify_intent("generate a Python function", confidence_threshold=0.0)
         exact_confidence = result["confidence"]
 
         # Using exact threshold should keep the result
@@ -521,12 +522,16 @@ class TestEdgeCases:
 
     def test_special_characters_handled(self) -> None:
         """Test that special characters don't break classification."""
-        result = classify_intent("Generate a function!!!@#$%^&*()")
+        result = classify_intent(
+            "Generate a function!!!@#$%^&*()", confidence_threshold=0.0
+        )
         assert result["intent_category"] == "code_generation"
 
     def test_numbers_in_content(self) -> None:
         """Test that numbers in content are handled."""
-        result = classify_intent("Generate 10 test functions for version 2.0")
+        result = classify_intent(
+            "Generate 10 test functions for version 2.0", confidence_threshold=0.0
+        )
         # Should still detect testing or code_generation
         assert result["intent_category"] in ["testing", "code_generation"]
 
@@ -536,7 +541,7 @@ class TestEdgeCases:
         unicode_content = (
             "Generate a function to process \u4e2d\u6587 text with caf\u00e9"
         )
-        result = classify_intent(unicode_content)
+        result = classify_intent(unicode_content, confidence_threshold=0.0)
 
         # Should classify as code_generation and return valid result structure
         assert result["intent_category"] == "code_generation"
@@ -686,7 +691,9 @@ class TestConfigurationPassing:
         self, default_config: ModelClassificationConfig
     ) -> None:
         """Test classification with explicitly passed default config."""
-        result = classify_intent("generate a function", config=default_config)
+        result = classify_intent(
+            "generate a function", config=default_config, confidence_threshold=0.0
+        )
         assert result["intent_category"] == "code_generation"
         assert result["confidence"] > 0.0
 
@@ -811,3 +818,62 @@ class TestIntentPatterns:
             assert len(keywords) == len(set(keywords)), (
                 f"Category {category} has duplicate keywords"
             )
+
+
+# =============================================================================
+# Score Boosts Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestScoreBoosts:
+    """Tests for the score_boosts parameter in classify_intent()."""
+
+    def test_score_boosts_none_behaves_identically(self) -> None:
+        """score_boosts=None should be identical to not passing it."""
+        result_default = classify_intent(
+            "generate a function", confidence_threshold=0.0
+        )
+        result_none = classify_intent(
+            "generate a function", confidence_threshold=0.0, score_boosts=None
+        )
+        assert result_default["intent_category"] == result_none["intent_category"]
+        assert result_default["confidence"] == result_none["confidence"]
+
+    def test_score_boosts_can_override_winner(self) -> None:
+        """A very large boost should make that intent win."""
+        result = classify_intent(
+            "generate code",
+            confidence_threshold=0.0,
+            score_boosts={"debugging": 999.0},
+        )
+        assert result["intent_category"] == "debugging"
+
+    def test_score_boosts_unknown_key_ignored(self) -> None:
+        """Boosts for unknown intent keys should be silently ignored."""
+        result = classify_intent(
+            "generate code",
+            confidence_threshold=0.0,
+            score_boosts={"nonexistent_intent": 999.0},
+        )
+        assert result["intent_category"] == "code_generation"
+
+    def test_score_boosts_increases_target_confidence(self) -> None:
+        """Boost should increase confidence for the target intent."""
+        # Use content that matches multiple intents so code_generation doesn't
+        # already saturate at 1.0 before the boost is applied
+        result_no_boost = classify_intent(
+            "generate tests for the api", confidence_threshold=0.0
+        )
+        result_with_boost = classify_intent(
+            "generate tests for the api",
+            confidence_threshold=0.0,
+            score_boosts={"code_generation": 5.0},
+        )
+        assert result_with_boost["confidence"] > result_no_boost["confidence"]
+
+    def test_sum_normalization_scores_not_all_zero(self) -> None:
+        """all_scores should contain nonzero values for content with keyword matches."""
+        result = classify_intent("generate code", confidence_threshold=0.0)
+        assert len(result["all_scores"]) > 0
+        assert any(v > 0.0 for v in result["all_scores"].values())
