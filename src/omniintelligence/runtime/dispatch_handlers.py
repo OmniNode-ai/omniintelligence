@@ -1285,6 +1285,19 @@ def create_compliance_evaluate_dispatch_handler(
 
     Related:
         OMN-2339: node_compliance_evaluate_effect
+
+    Note:
+        TODO (OMN-2339): Idempotency is declared in contract.yaml
+        (strategy: content_hash_tracking, key: source_path + content_sha256 +
+        pattern_id) but is NOT yet wired here. Unlike
+        create_pattern_lifecycle_dispatch_handler, this factory does not accept
+        an idempotency_store parameter because the ProtocolIdempotencyStore is
+        scoped to the top-level dispatch engine factory and was not threaded
+        down to this factory when OMN-2339 was initially implemented.
+        To wire idempotency: add an ``idempotency_store: ProtocolIdempotencyStore``
+        parameter here (mirroring create_pattern_lifecycle_dispatch_handler),
+        update create_intelligence_dispatch_engine to pass it, and call
+        idempotency_store.is_duplicate() before handle_compliance_evaluate_command().
     """
 
     async def _handle(
@@ -1350,7 +1363,7 @@ def create_compliance_evaluate_dispatch_handler(
             )
             result = ModelComplianceEvaluatedEvent(
                 event_type="ComplianceEvaluated",
-                correlation_id=ctx_correlation_id,
+                correlation_id=command.correlation_id,
                 source_path=safe_source_path,
                 content_sha256=command.content_sha256,
                 language=command.language,

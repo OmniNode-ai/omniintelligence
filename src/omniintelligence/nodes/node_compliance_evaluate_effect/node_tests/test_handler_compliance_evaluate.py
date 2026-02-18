@@ -23,6 +23,14 @@ Ticket: OMN-2339
 
 from __future__ import annotations
 
+# _make_command and _make_pattern are imported directly as module-level helpers
+# rather than being wrapped in pytest fixtures. This is intentional: these
+# helpers accept arguments (e.g. custom patterns list, custom content), which
+# makes them unsuitable as zero-argument pytest fixtures. Exposing them as
+# fixtures would either require parameterization or force callers to import them
+# anyway. Direct import keeps the test code explicit and avoids fixture overhead
+# for helpers that build test data inline.
+import hashlib
 from uuid import UUID
 
 import pytest
@@ -37,14 +45,6 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_com
 from omniintelligence.nodes.node_compliance_evaluate_effect.models import (
     ModelComplianceEvaluateCommand,
 )
-
-# _make_command and _make_pattern are imported directly as module-level helpers
-# rather than being wrapped in pytest fixtures. This is intentional: these
-# helpers accept arguments (e.g. custom patterns list, custom content), which
-# makes them unsuitable as zero-argument pytest fixtures. Exposing them as
-# fixtures would either require parameterization or force callers to import them
-# anyway. Direct import keeps the test code explicit and avoids fixture overhead
-# for helpers that build test data inline.
 from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest import (
     FIXED_CONTENT_SHA256,
     MockKafkaProducer,
@@ -71,6 +71,17 @@ def test_dlq_topic_is_publish_topic_with_dlq_suffix() -> None:
     """DLQ_TOPIC is PUBLISH_TOPIC with .dlq appended."""
     assert f"{PUBLISH_TOPIC}.dlq" == DLQ_TOPIC
     assert DLQ_TOPIC == "onex.evt.omniintelligence.compliance-evaluated.v1.dlq"
+
+
+def test_fixed_content_sha256_matches_hash() -> None:
+    """FIXED_CONTENT_SHA256 constant matches the actual SHA-256 of 'class Foo: pass'.
+
+    Guards against the constant becoming stale if the literal content changes.
+    This replaces the module-level bare assert that was stripped by Python's -O flag.
+    """
+    assert hashlib.sha256(b"class Foo: pass").hexdigest() == FIXED_CONTENT_SHA256, (
+        "FIXED_CONTENT_SHA256 constant is stale — recompute sha256('class Foo: pass')"
+    )
 
 
 # =============================================================================

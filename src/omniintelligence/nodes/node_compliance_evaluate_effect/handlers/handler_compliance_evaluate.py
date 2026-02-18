@@ -26,6 +26,7 @@ Ticket: OMN-2339
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from datetime import UTC, datetime
@@ -58,6 +59,16 @@ logger = logging.getLogger(__name__)
 # Publish topic constant - matches contract.yaml publish_topics[0].
 PUBLISH_TOPIC: Final[str] = "onex.evt.omniintelligence.compliance-evaluated.v1"
 DLQ_TOPIC: Final[str] = f"{PUBLISH_TOPIC}.dlq"
+
+# Status constants for the compliance-evaluated event.
+# Mirrors the STATUS_* constants from node_pattern_compliance_effect.handlers.handler_compute
+# for the statuses this node can produce.  Documented in contract.yaml publish_topics
+# and handler docstrings.
+#
+# Status values:
+#   STATUS_EVALUATION_FAILED - fallback when result.metadata is None and
+#                              result.success is False (unexpected leaf behaviour).
+STATUS_EVALUATION_FAILED: Final[str] = "evaluation_failed"
 
 
 async def handle_compliance_evaluate_command(
@@ -97,6 +108,37 @@ async def handle_compliance_evaluate_command(
     """
     start_time = time.perf_counter()
     cid = command.correlation_id
+
+    # Validate that content_sha256 matches the actual SHA-256 of content.
+    # A mismatch means the caller sent a stale or incorrect hash, which would
+    # cause incorrect idempotency deduplication at the dispatch layer.
+    computed_sha256 = hashlib.sha256(command.content.encode()).hexdigest()
+    if computed_sha256 != command.content_sha256:
+        logger.warning(
+            "content_sha256 mismatch: declared=%s, computed=%s, "
+            "source_path=%s, correlation_id=%s",
+            command.content_sha256,
+            computed_sha256,
+            command.source_path,
+            cid,
+        )
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        return ModelComplianceEvaluatedEvent(
+            event_type="ComplianceEvaluated",
+            correlation_id=cid,
+            source_path=command.source_path,
+            content_sha256=command.content_sha256,
+            language=command.language,
+            success=False,
+            compliant=False,
+            violations=[],
+            confidence=0.0,
+            patterns_checked=len(command.applicable_patterns),
+            model_used="none",
+            status="validation_error",
+            processing_time_ms=elapsed_ms,
+            evaluated_at=datetime.now(UTC).isoformat(),
+        )
 
     sanitizer = get_log_sanitizer()
     # Sanitize source_path once up front so the in-memory event object never
@@ -184,7 +226,7 @@ async def handle_compliance_evaluate_command(
         model_used=metadata.model_used if metadata is not None else model,
         status=metadata.status
         if metadata is not None and metadata.status is not None
-        else ("completed" if result.success else "evaluation_failed"),
+        else ("completed" if result.success else STATUS_EVALUATION_FAILED),
         processing_time_ms=processing_time_ms,
         evaluated_at=evaluated_at,
     )
@@ -337,4 +379,9 @@ async def _route_to_dlq(
         )
 
 
-__all__ = ["DLQ_TOPIC", "PUBLISH_TOPIC", "handle_compliance_evaluate_command"]
+__all__ = [
+    "DLQ_TOPIC",
+    "PUBLISH_TOPIC",
+    "STATUS_EVALUATION_FAILED",
+    "handle_compliance_evaluate_command",
+]

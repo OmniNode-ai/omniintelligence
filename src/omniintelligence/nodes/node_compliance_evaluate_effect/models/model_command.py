@@ -32,7 +32,7 @@ class ModelApplicablePatternPayload(BaseModel):
         confidence: Confidence score (0.0-1.0).
     """
 
-    model_config = ConfigDict(frozen=True, extra="ignore")
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     pattern_id: str = Field(
         ...,
