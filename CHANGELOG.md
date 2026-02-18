@@ -5,6 +5,26 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-02-18
+
+### Added
+
+- **Enforcement feedback loop** (`NodeEnforcementFeedbackEffect`) — consumes
+  `onex.evt.omniclaude.pattern-enforcement.v1` events and applies conservative
+  `-0.01` quality score adjustments per confirmed violation (requires both
+  `was_advised=True` and `was_corrected=True`). 50 confirmed violations to drop
+  from 1.0 to 0.5. Per-violation error isolation prevents one DB failure from
+  blocking others. (OMN-2270, #120)
+
+### Fixed
+
+- **Remove hardcoded `topic_env_prefix`** from promotion and demotion effect
+  nodes — all Kafka topics now use canonical constants directly
+  (`TOPIC_PATTERN_LIFECYCLE_CMD_V1`) instead of runtime f-string concatenation
+  with a hardcoded `"dev"` prefix. Fixes broken constant reference where
+  `TOPIC_SUFFIX_PATTERN_LIFECYCLE_CMD_V1` was renamed but usages were not
+  updated. (#121)
+
 ## [0.2.1] - 2026-02-16
 
 ### Changed
