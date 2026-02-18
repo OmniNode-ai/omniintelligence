@@ -557,6 +557,8 @@ class TestIntrospectionPublishingGate:
         # No introspection nodes registered (R1: no publishing from this container)
         assert plugin._introspection_nodes == []
         assert plugin._introspection_proxies == []
+        # _event_bus not captured (gate off → shutdown skips publish_intelligence_shutdown)
+        assert plugin._event_bus is None
 
     @pytest.mark.unit
     @pytest.mark.asyncio
