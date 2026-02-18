@@ -29,6 +29,7 @@ import pytest
 from omniintelligence.runtime.plugin import (
     INTELLIGENCE_SUBSCRIBE_TOPICS,
     PluginIntelligence,
+    _introspection_publishing_enabled,
 )
 
 # ---------------------------------------------------------------------------
@@ -458,3 +459,178 @@ class TestPluginShutdownClearsEngine:
 
         await plugin.shutdown(config)
         assert plugin._dispatch_engine is None
+
+
+# =============================================================================
+# Tests: OMNIINTELLIGENCE_PUBLISH_INTROSPECTION gate (OMN-2342)
+# =============================================================================
+
+
+class TestIntrospectionPublishingGate:
+    """Validate the OMNIINTELLIGENCE_PUBLISH_INTROSPECTION env var gate.
+
+    R1: Exactly 1 heartbeat source — only the designated container publishes.
+    R2: Workers still process intelligence events (only publishing is gated).
+    R3: Env var defaults to false/off safely.
+    """
+
+    # -------------------------------------------------------------------------
+    # _introspection_publishing_enabled() unit tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.unit
+    def test_enabled_when_var_is_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns True when env var is 'true'."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "true")
+        assert _introspection_publishing_enabled() is True
+
+    @pytest.mark.unit
+    def test_enabled_when_var_is_1(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns True when env var is '1'."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "1")
+        assert _introspection_publishing_enabled() is True
+
+    @pytest.mark.unit
+    def test_enabled_when_var_is_yes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns True when env var is 'yes'."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "yes")
+        assert _introspection_publishing_enabled() is True
+
+    @pytest.mark.unit
+    def test_enabled_case_insensitive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns True for 'TRUE', 'True', 'YES', 'Yes' (case-insensitive)."""
+        for value in ("TRUE", "True", "YES", "Yes"):
+            monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", value)
+            assert _introspection_publishing_enabled() is True, (
+                f"Expected True for value={value!r}"
+            )
+
+    @pytest.mark.unit
+    def test_disabled_when_var_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns False (R3: safe default) when env var is not set."""
+        monkeypatch.delenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", raising=False)
+        assert _introspection_publishing_enabled() is False
+
+    @pytest.mark.unit
+    def test_disabled_when_var_is_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns False when env var is 'false'."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "false")
+        assert _introspection_publishing_enabled() is False
+
+    @pytest.mark.unit
+    def test_disabled_when_var_is_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns False when env var is empty string."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "")
+        assert _introspection_publishing_enabled() is False
+
+    @pytest.mark.unit
+    def test_disabled_when_var_is_0(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Returns False when env var is '0'."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "0")
+        assert _introspection_publishing_enabled() is False
+
+    # -------------------------------------------------------------------------
+    # wire_dispatchers() gate integration tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_skips_introspection_when_gate_off(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """R3: introspection is skipped when OMNIINTELLIGENCE_PUBLISH_INTROSPECTION absent.
+
+        Validates R1 (no duplicate publishers) and R2 (dispatch engine still
+        created; handler wiring unaffected).
+        """
+        monkeypatch.delenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", raising=False)
+
+        plugin = PluginIntelligence()
+        config = _make_config()
+
+        result = await _wire_plugin(plugin, config)
+
+        assert result.success, f"wire_dispatchers failed: {result.error_message}"
+        # Dispatch engine must still be created (R2: processing unaffected)
+        assert plugin._dispatch_engine is not None
+        # No introspection nodes registered (R1: no publishing from this container)
+        assert plugin._introspection_nodes == []
+        assert plugin._introspection_proxies == []
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_publishes_introspection_when_gate_on(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """R1: introspection is published when OMNIINTELLIGENCE_PUBLISH_INTROSPECTION=true."""
+        monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "true")
+
+        event_bus = _StubEventBus()
+        # Make publish_envelope available so introspection proxy can publish
+        from unittest.mock import AsyncMock
+
+        event_bus.publish_envelope = AsyncMock(return_value=None)
+
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        result = await _wire_plugin(plugin, config)
+
+        assert result.success, f"wire_dispatchers failed: {result.error_message}"
+        assert plugin._dispatch_engine is not None
+        # Introspection nodes registered (gate is open)
+        assert len(plugin._introspection_nodes) > 0
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_gate_off_still_starts_consumers(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """R2: workers without gate still subscribe to all intelligence topics."""
+        monkeypatch.delenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", raising=False)
+
+        event_bus = _StubEventBus()
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await _wire_plugin(plugin, config)
+        result = await plugin.start_consumers(config)
+
+        assert result.success
+        # All topics subscribed (event processing unaffected by the gate)
+        subscribed_topics = {sub.topic for sub in event_bus.subscriptions}
+        for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+            assert topic in subscribed_topics, (
+                f"Topic {topic} not subscribed despite gate being off"
+            )
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_gate_off_event_bus_not_captured(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When gate is off, _event_bus is still captured (needed for shutdown path).
+
+        The shutdown path gates on _event_bus being non-None before attempting
+        publish_intelligence_shutdown(). With introspection off, _event_bus is
+        still set so the shutdown codepath is predictable: _event_bus is not None
+        but _introspection_proxies is empty, so shutdown skips proxy stopping
+        and may call publish_intelligence_shutdown() with an empty proxy list.
+        This test documents the expected state.
+        """
+        monkeypatch.delenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", raising=False)
+
+        event_bus = _StubEventBus()
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await _wire_plugin(plugin, config)
+
+        # _event_bus is captured regardless of gate state (needed for shutdown)
+        assert plugin._event_bus is not None
+        # _introspection_proxies is empty (no heartbeat tasks started)
+        assert plugin._introspection_proxies == []

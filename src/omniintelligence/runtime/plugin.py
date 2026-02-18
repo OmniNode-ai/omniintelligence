@@ -31,6 +31,17 @@ Configuration:
     The plugin activates based on environment variables:
     - OMNIINTELLIGENCE_DB_URL: Required for plugin activation (pattern storage needs DB)
       Format: postgresql://user:password@host:port/database
+    - OMNIINTELLIGENCE_PUBLISH_INTROSPECTION: Controls whether this container publishes
+      node introspection events and starts heartbeat loops. Defaults to false/off.
+      Only the single designated container (omninode-runtime) should set this to true.
+      Worker and effects containers leave this unset so they process intelligence events
+      without emitting duplicate heartbeats for the same deterministic node IDs.
+      Valid truthy values: "true", "1", "yes" (case-insensitive).
+
+      Rationale (OMN-2342): All runtime containers share x-runtime-env and thus all
+      activate PluginIntelligence. Without this gate, every container independently
+      calls publish_intelligence_introspection() and starts heartbeat loops for the
+      same UUID5-derived node IDs, producing 3x the expected heartbeat traffic.
 
 Example Usage:
     ```python
@@ -94,6 +105,29 @@ from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_di
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
+
+_PUBLISH_INTROSPECTION_ENV_VAR = "OMNIINTELLIGENCE_PUBLISH_INTROSPECTION"
+_TRUTHY_VALUES = frozenset({"true", "1", "yes"})
+
+
+def _introspection_publishing_enabled() -> bool:
+    """Return True if this container is designated to publish introspection events.
+
+    Reads the OMNIINTELLIGENCE_PUBLISH_INTROSPECTION environment variable.
+    Defaults to False (safe/off) when absent or set to a non-truthy value.
+
+    This gate ensures that only the single designated container (omninode-runtime)
+    publishes node introspection events and starts heartbeat loops. Worker and
+    effects containers set this to false (or leave it unset) so that they
+    continue processing intelligence events without emitting duplicate heartbeats
+    for the same deterministic node IDs (OMN-2342).
+
+    Returns:
+        True if the env var is set to a truthy value ("true", "1", "yes").
+        False otherwise (absent, empty, or any other value).
+    """
+    value = os.getenv(_PUBLISH_INTROSPECTION_ENV_VAR, "").strip().lower()
+    return value in _TRUTHY_VALUES
 
 
 # =============================================================================
@@ -569,16 +603,33 @@ class PluginIntelligence:
 
             # Publish introspection events for all intelligence nodes
             # (OMN-2210: Wire intelligence nodes into registration)
+            #
+            # Gate on OMNIINTELLIGENCE_PUBLISH_INTROSPECTION (OMN-2342):
+            # Only the designated container (omninode-runtime) publishes
+            # introspection. Worker/effects containers leave this var unset
+            # so they process events without starting duplicate heartbeat loops
+            # for the same deterministic node IDs.
             from omniintelligence.runtime.introspection import (
                 publish_intelligence_introspection,
             )
 
-            introspection_result = await publish_intelligence_introspection(
-                event_bus=config.event_bus,
-                correlation_id=correlation_id,
-            )
-            self._introspection_nodes = introspection_result.registered_nodes
-            self._introspection_proxies = introspection_result.proxies
+            if _introspection_publishing_enabled():
+                introspection_result = await publish_intelligence_introspection(
+                    event_bus=config.event_bus,
+                    correlation_id=correlation_id,
+                )
+                self._introspection_nodes = introspection_result.registered_nodes
+                self._introspection_proxies = introspection_result.proxies
+            else:
+                logger.info(
+                    "Intelligence introspection publishing skipped: "
+                    "%s is not set to a truthy value "
+                    "(correlation_id=%s)",
+                    _PUBLISH_INTROSPECTION_ENV_VAR,
+                    correlation_id,
+                )
+                self._introspection_nodes = []
+                self._introspection_proxies = []
 
             duration = time.time() - start_time
             logger.info(
@@ -955,4 +1006,5 @@ _: ProtocolDomainPlugin = PluginIntelligence()
 __all__: list[str] = [
     "INTELLIGENCE_SUBSCRIBE_TOPICS",
     "PluginIntelligence",
+    "_introspection_publishing_enabled",
 ]
