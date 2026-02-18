@@ -1586,6 +1586,13 @@ def create_intelligence_dispatch_engine(
 
     engine.freeze()
 
+    if llm_client is None:
+        logger.warning(
+            "Intelligence dispatch engine created with llm_client=None: "
+            "compliance-evaluate commands are registered but will return "
+            "LLM-error results until an llm_client is provided (OMN-2339)."
+        )
+
     logger.info(
         "Intelligence dispatch engine created and frozen "
         "(routes=%d, handlers=%d, compliance_evaluate=%s)",

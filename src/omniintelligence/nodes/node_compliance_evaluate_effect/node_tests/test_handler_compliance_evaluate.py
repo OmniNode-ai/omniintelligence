@@ -21,8 +21,6 @@ from uuid import UUID
 
 import pytest
 
-pytestmark = pytest.mark.unit
-
 from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
     handle_compliance_evaluate_command,
 )
@@ -41,6 +39,8 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest 
     _make_command,
     _make_pattern,
 )
+
+pytestmark = pytest.mark.unit
 
 # =============================================================================
 # Compliant path
