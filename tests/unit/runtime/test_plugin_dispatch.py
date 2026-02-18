@@ -263,7 +263,7 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.is_frozen
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_seven_routes(self) -> None:
+    async def test_wire_dispatchers_engine_has_eight_routes(self) -> None:
         """Engine should have exactly 8 routes (6 command + 2 event topics, OMN-2339 adds compliance-evaluate)."""
         plugin = PluginIntelligence()
         config = _make_config()

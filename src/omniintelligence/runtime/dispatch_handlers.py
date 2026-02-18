@@ -1346,6 +1346,9 @@ def create_compliance_evaluate_dispatch_handler(
         # behaviour ("will return LLM-error results when llm_client=None").
         # NOTE: This path does not route to DLQ; the leaf-level guard in
         # _execute_compliance handles DLQ routing on direct calls.
+        # Duplicates leaf-level error event shape intentionally — the dispatch layer
+        # short-circuits before calling handle_compliance_evaluate_command to avoid
+        # the LLM call overhead. Update both sites if the error response schema changes.
         safe_source_path = get_log_sanitizer().sanitize(command.source_path)
         if llm_client is None:
             from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (

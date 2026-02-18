@@ -182,7 +182,7 @@ async def handle_compliance_evaluate_command(
     # 2. Build the compliance request.
     request = ModelComplianceRequest(
         correlation_id=cid,
-        source_path=command.source_path,
+        source_path=safe_source_path,
         content=command.content,
         language=command.language,
         applicable_patterns=applicable_patterns,

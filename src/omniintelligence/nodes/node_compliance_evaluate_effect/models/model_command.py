@@ -47,6 +47,7 @@ class ModelApplicablePatternPayload(BaseModel):
     domain_id: str = Field(
         ...,
         min_length=1,
+        max_length=50,
         description="Domain the pattern belongs to",
     )
     confidence: float = Field(
