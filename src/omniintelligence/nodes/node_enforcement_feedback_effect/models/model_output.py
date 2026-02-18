@@ -165,8 +165,8 @@ class ModelEnforcementFeedbackResult(BaseModel):
         default_factory=list,
         description="Per-pattern error details for adjustments that failed",
     )
-    processed_at: datetime | None = Field(
-        default=None,
+    processed_at: datetime = Field(
+        ...,
         description="Timestamp of when processing completed",
     )
     error_message: str | None = Field(

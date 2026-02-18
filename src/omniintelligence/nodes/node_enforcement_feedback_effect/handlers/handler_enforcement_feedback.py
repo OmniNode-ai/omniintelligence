@@ -131,12 +131,59 @@ async def process_enforcement_feedback(
     3. Applies conservative confidence adjustments (-0.01 per confirmed violation)
     4. Returns structured result with adjustment details
 
+    Per handler contract: ALL exceptions are caught and returned as structured
+    ERROR results. This function never raises - unexpected errors produce a
+    result with status=EnumEnforcementFeedbackStatus.ERROR.
+
     Args:
         event: The enforcement event from omniclaude's PostToolUse hook.
         repository: Database repository implementing ProtocolPatternRepository.
 
     Returns:
         ModelEnforcementFeedbackResult with processing status and adjustments.
+    """
+    try:
+        return await _process_enforcement_feedback_inner(
+            event=event,
+            repository=repository,
+        )
+    except Exception as exc:
+        # Handler contract: return structured errors, never raise.
+        # This catches unexpected exceptions not handled in the inner function
+        # (e.g., infrastructure failures before any violation processing).
+        sanitized_error = get_log_sanitizer().sanitize(str(exc))
+        logger.exception(
+            "Unhandled exception in enforcement feedback handler",
+            extra={
+                "correlation_id": str(event.correlation_id),
+                "session_id": str(event.session_id),
+                "error": sanitized_error,
+                "error_type": type(exc).__name__,
+            },
+        )
+        return ModelEnforcementFeedbackResult(
+            status=EnumEnforcementFeedbackStatus.ERROR,
+            correlation_id=event.correlation_id,
+            session_id=event.session_id,
+            patterns_checked=event.patterns_checked,
+            violations_found=event.violations_found,
+            confirmed_violations=0,
+            adjustments=[],
+            processed_at=datetime.now(UTC),
+            error_message=sanitized_error,
+        )
+
+
+async def _process_enforcement_feedback_inner(
+    event: ModelEnforcementEvent,
+    *,
+    repository: ProtocolPatternRepository,
+) -> ModelEnforcementFeedbackResult:
+    """Inner implementation of process_enforcement_feedback.
+
+    Separated from the public entry point so the outer function can apply
+    a top-level try/except that catches any unhandled exceptions and converts
+    them to structured ERROR results per the handler contract.
     """
     logger.info(
         "Processing enforcement feedback event",

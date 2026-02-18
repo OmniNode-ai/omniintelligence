@@ -23,6 +23,7 @@ Reference:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -714,6 +715,7 @@ class TestModelValidation:
             status=EnumEnforcementFeedbackStatus.NO_VIOLATIONS,
             correlation_id=uuid4(),
             session_id=uuid4(),
+            processed_at=datetime.now(UTC),
         )
 
         with pytest.raises(pydantic.ValidationError):

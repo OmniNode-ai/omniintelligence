@@ -744,7 +744,6 @@ __all__ = [
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",
     "SQL_PROMOTE_PATTERN",
-    "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "build_gate_snapshot",
     "calculate_success_rate",
     "check_and_promote_patterns",
