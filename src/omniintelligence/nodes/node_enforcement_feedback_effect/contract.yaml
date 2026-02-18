@@ -74,7 +74,7 @@ handler_routing:
         - session_id
         - patterns_checked
         - violations_found
-        - confirmed_violations
+        - eligible_violations
         - adjustments
         - processing_errors
         - processed_at
