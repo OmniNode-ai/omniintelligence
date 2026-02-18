@@ -90,6 +90,7 @@ class ModelComplianceEvaluateCommand(BaseModel):
     content: str = Field(
         ...,
         min_length=1,
+        max_length=1_000_000,
         description="Source code content to evaluate for compliance",
     )
     content_sha256: str = Field(

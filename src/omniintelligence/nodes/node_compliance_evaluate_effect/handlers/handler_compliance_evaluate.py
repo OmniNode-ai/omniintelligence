@@ -182,7 +182,9 @@ async def handle_compliance_evaluate_command(
         if metadata is not None
         else len(applicable_patterns),
         model_used=metadata.model_used if metadata is not None else model,
-        status=metadata.status if metadata is not None else "completed",
+        status=metadata.status
+        if metadata is not None and metadata.status is not None
+        else ("completed" if result.success else "evaluation_failed"),
         processing_time_ms=processing_time_ms,
         evaluated_at=evaluated_at,
     )

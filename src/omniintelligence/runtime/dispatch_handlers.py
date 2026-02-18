@@ -1273,7 +1273,9 @@ def create_compliance_evaluate_dispatch_handler(
     delegates to handle_compliance_evaluate_command(), and returns "ok".
 
     Args:
-        llm_client: REQUIRED LLM client (ProtocolLlmClient) for Coder-14B inference.
+        llm_client: Optional LLM client (ProtocolLlmClient) for Coder-14B inference.
+            When None, evaluation is skipped and a structured ``llm_error`` result
+            is returned without calling the LLM.
         kafka_producer: Optional Kafka producer (graceful degradation if absent).
         publish_topic: Full topic for compliance-evaluated events (from contract).
         correlation_id: Optional fixed correlation ID for tracing.
@@ -1297,9 +1299,16 @@ def create_compliance_evaluate_dispatch_handler(
             ModelComplianceEvaluateCommand,
         )
 
-        ctx_correlation_id = (
-            correlation_id or getattr(context, "correlation_id", None) or uuid4()
-        )
+        _raw_ctx_id = correlation_id or getattr(context, "correlation_id", None)
+        if isinstance(_raw_ctx_id, UUID):
+            ctx_correlation_id: UUID = _raw_ctx_id
+        elif _raw_ctx_id is not None:
+            try:
+                ctx_correlation_id = UUID(str(_raw_ctx_id))
+            except (ValueError, AttributeError):
+                ctx_correlation_id = uuid4()
+        else:
+            ctx_correlation_id = uuid4()
 
         payload = envelope.payload
 

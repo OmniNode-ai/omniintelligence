@@ -243,11 +243,10 @@ async def _execute_compliance(
     patterns_count = len(input_data.applicable_patterns)
 
     # 0. Guard: no LLM client configured -- return structured error immediately.
-    # Defense-in-depth: handle_evaluate_compliance() already short-circuits
-    # before calling this function when llm_client is None. This guard is
-    # therefore dead code for the normal call path but is retained so that
-    # _execute_compliance() remains safe if called directly in isolation
-    # (e.g., from tests or future callers that bypass the outer wrapper).
+    # This is the PRIMARY protection against None llm_client on the normal call
+    # path. handle_evaluate_compliance() does NOT short-circuit before calling
+    # this function; it always delegates to _execute_compliance() unconditionally.
+    # The guard here is live code for every call where llm_client=None.
     if llm_client is None:
         processing_time = _safe_elapsed_ms(start_time)
         error_msg = "LLM client is not configured (llm_client=None)"

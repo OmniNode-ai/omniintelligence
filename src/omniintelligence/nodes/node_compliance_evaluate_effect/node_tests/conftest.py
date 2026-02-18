@@ -31,6 +31,9 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 
 FIXED_CORRELATION_ID: UUID = UUID("12345678-1234-5678-1234-567812345678")
 FIXED_CONTENT_SHA256: str = "62317e7166ae196fbee81c56aeedfed1294bae41544e57ee229c939c5c970c6f"  # sha256("class Foo: pass")
+assert hashlib.sha256(b"class Foo: pass").hexdigest() == FIXED_CONTENT_SHA256, (
+    "FIXED_CONTENT_SHA256 constant is stale — recompute sha256('class Foo: pass')"
+)
 
 # =============================================================================
 # Mock implementations
