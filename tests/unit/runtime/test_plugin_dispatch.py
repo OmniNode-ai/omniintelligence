@@ -264,25 +264,25 @@ class TestPluginWireDispatchers:
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_seven_routes(self) -> None:
-        """Engine should have exactly 7 routes (5 command + 2 event topics)."""
+        """Engine should have exactly 8 routes (6 command + 2 event topics, OMN-2339 adds compliance-evaluate)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 7
+        assert plugin._dispatch_engine.route_count == 8
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_five_handlers(self) -> None:
-        """Engine should have exactly 5 handlers."""
+        """Engine should have exactly 6 handlers (OMN-2339 adds compliance-evaluate)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 5
+        assert plugin._dispatch_engine.handler_count == 6
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:

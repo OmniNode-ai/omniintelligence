@@ -34,6 +34,8 @@ EXPECTED_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transi
 EXPECTED_PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
 EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 
+EXPECTED_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -42,6 +44,7 @@ EXPECTED_TOPICS = {
     EXPECTED_PATTERN_LIFECYCLE,
     EXPECTED_PATTERN_LEARNED,
     EXPECTED_PATTERN_DISCOVERED,
+    EXPECTED_COMPLIANCE_EVALUATE,
 }
 
 
@@ -54,9 +57,9 @@ class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
     def test_returns_exactly_seven_topics(self) -> None:
-        """All 5 intelligence effect nodes declare 7 subscribe topics total."""
+        """All intelligence effect nodes declare 8 subscribe topics total (OMN-2339 adds compliance-evaluate)."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 7
+        assert len(topics) == 8
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -94,7 +97,7 @@ class TestCollectSubscribeTopics:
         assert EXPECTED_TOOL_CONTENT in topics
 
     def test_all_expected_topics_present(self) -> None:
-        """All 7 expected topics must be in the discovered set."""
+        """All 8 expected topics must be in the discovered set (OMN-2339 adds compliance-evaluate)."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 

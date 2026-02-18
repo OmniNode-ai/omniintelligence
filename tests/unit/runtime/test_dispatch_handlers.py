@@ -327,13 +327,13 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 5 intelligence domain handlers must be registered."""
+        """All 6 intelligence domain handlers must be registered (OMN-2339 adds compliance-evaluate)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 5
+        assert engine.handler_count == 6
 
     def test_engine_has_seven_routes(
         self,
@@ -341,13 +341,13 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 7 intelligence domain routes must be registered."""
+        """All 8 intelligence domain routes must be registered (OMN-2339 adds compliance-evaluate)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 7
+        assert engine.route_count == 8
 
 
 # =============================================================================

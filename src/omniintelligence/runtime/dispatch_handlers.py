@@ -106,6 +106,11 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
 
+DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
+    "onex.commands.omniintelligence.compliance-evaluate.v1"
+)
+"""Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
+
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
 
@@ -1247,6 +1252,108 @@ def create_pattern_storage_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Compliance Evaluate (OMN-2339)
+# =============================================================================
+
+
+def create_compliance_evaluate_dispatch_handler(
+    *,
+    llm_client: Any,  # any-ok: ProtocolLlmClient from node_pattern_compliance_effect
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for compliance-evaluate commands.
+
+    Deserializes the Kafka payload into ModelComplianceEvaluateCommand,
+    delegates to handle_compliance_evaluate_command(), and returns "ok".
+
+    Args:
+        llm_client: REQUIRED LLM client (ProtocolLlmClient) for Coder-14B inference.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for compliance-evaluated events (from contract).
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+
+    Related:
+        OMN-2339: node_compliance_evaluate_effect
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> handle_compliance_evaluate_command()."""
+        from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
+            handle_compliance_evaluate_command,
+        )
+        from omniintelligence.nodes.node_compliance_evaluate_effect.models import (
+            ModelComplianceEvaluateCommand,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for compliance-evaluate (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        try:
+            command = ModelComplianceEvaluateCommand(**payload)
+        except Exception as e:
+            sanitized = get_log_sanitizer().sanitize(str(e))
+            msg = (
+                f"Failed to parse payload as ModelComplianceEvaluateCommand: "
+                f"{sanitized} (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
+
+        logger.info(
+            "Dispatching compliance-evaluate command via MessageDispatchEngine "
+            "(source_path=%s, patterns=%d, correlation_id=%s)",
+            command.source_path,
+            len(command.applicable_patterns),
+            ctx_correlation_id,
+        )
+
+        result = await handle_compliance_evaluate_command(
+            command,
+            llm_client=llm_client,
+            kafka_producer=kafka_producer,
+            publish_topic=publish_topic
+            or "onex.evt.omniintelligence.compliance-evaluated.v1",
+        )
+
+        logger.info(
+            "Compliance-evaluate command processed via dispatch engine "
+            "(source_path=%s, success=%s, compliant=%s, violations=%d, "
+            "correlation_id=%s)",
+            command.source_path,
+            result.success,
+            result.compliant,
+            len(result.violations),
+            ctx_correlation_id,
+        )
+
+        return "ok"
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -1259,10 +1366,11 @@ def create_intelligence_dispatch_engine(
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topics: dict[str, str] | None = None,
     pattern_upsert_store: ProtocolPatternUpsertStore | None = None,
+    llm_client: Any = None,  # any-ok: ProtocolLlmClient; optional for backwards compat
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 5 intelligence domain handlers (7 routes)
+    Creates the engine, registers all 6 intelligence domain handlers (8 routes)
     and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
@@ -1275,10 +1383,13 @@ def create_intelligence_dispatch_engine(
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
             Keys: "claude_hook", "lifecycle", "pattern_storage",
-            "pattern_learning". Values: full topic strings from contract
-            event_bus.publish_topics.
+            "pattern_learning", "compliance_evaluate". Values: full topic
+            strings from contract event_bus.publish_topics.
         pattern_upsert_store: Optional contract-driven upsert store. If None,
             falls back to repository for backwards compatibility.
+        llm_client: Optional LLM client (ProtocolLlmClient) for compliance
+            evaluation (OMN-2339). When None, compliance-evaluate commands
+            are still registered but will return LLM-error results.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -1446,12 +1557,41 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 6: compliance-evaluate (OMN-2339) ---
+    compliance_evaluate_handler = create_compliance_evaluate_dispatch_handler(
+        llm_client=llm_client,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get("compliance_evaluate"),
+    )
+    engine.register_handler(
+        handler_id="intelligence-compliance-evaluate-handler",
+        handler=compliance_evaluate_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-compliance-evaluate-route",
+            topic_pattern=DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-compliance-evaluate-handler",
+            description=(
+                "Routes compliance-evaluate commands to handle_compliance_evaluate_command "
+                "(OMN-2339). Calls Coder-14B via handle_evaluate_compliance() and emits "
+                "compliance-evaluated events."
+            ),
+        )
+    )
+
     engine.freeze()
 
     logger.info(
-        "Intelligence dispatch engine created and frozen (routes=%d, handlers=%d)",
+        "Intelligence dispatch engine created and frozen "
+        "(routes=%d, handlers=%d, compliance_evaluate=%s)",
         engine.route_count,
         engine.handler_count,
+        llm_client is not None,
     )
 
     return engine
@@ -1627,6 +1767,7 @@ def create_dispatch_callback(
 
 __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
+    "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
@@ -1634,6 +1775,7 @@ __all__ = [
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
     "create_claude_hook_dispatch_handler",
+    "create_compliance_evaluate_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
     "create_pattern_lifecycle_dispatch_handler",

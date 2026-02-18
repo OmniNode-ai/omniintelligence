@@ -1,0 +1,181 @@
+---
+# ONEX Node Contract - Compliance Evaluate Effect Node
+# =============================================================================
+# Ticket: OMN-2339
+# Depends on: OMN-2256 (node_pattern_compliance_effect - the leaf handler)
+#
+# This node is the RECEIVER side of OMN-2256's event bus wiring.
+# omniclaude (PR #161) emits onex.cmd.omniintelligence.compliance-evaluate.v1.
+# This node closes the loop by consuming those commands, calling
+# handle_evaluate_compliance(), and emitting compliance-evaluated events.
+#
+# Idempotency key: (source_path, content_sha256, pattern_id) -- NOT correlation_id
+# so that identical content re-evaluations deduplicate regardless of origin.
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_compliance_evaluate_effect"
+node_type: "EFFECT_GENERIC"
+description: >-
+  Event-driven effect node that consumes compliance-evaluate commands from omniclaude and calls handle_evaluate_compliance()
+  (from node_pattern_compliance_effect) to evaluate code against applicable patterns via Coder-14B. Emits
+  compliance-evaluated events with violation results and metadata. Classified as EFFECT because it performs
+  external LLM I/O via ProtocolLlmClient. Closes the loop opened by OMN-2256 and omniclaude PR #161. #magic___^_^___line
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelComplianceEvaluateCommand"
+  module: "omniintelligence.nodes.node_compliance_evaluate_effect.models"
+  description: "Kafka payload from onex.cmd.omniintelligence.compliance-evaluate.v1"
+output_model:
+  name: "ModelComplianceEvaluatedEvent"
+  module: "omniintelligence.nodes.node_compliance_evaluate_effect.models"
+  description: "Kafka payload emitted to onex.evt.omniintelligence.compliance-evaluated.v1"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "evaluate_compliance"
+      handler:
+        function: "handle_compliance_evaluate_command"
+        module: "omniintelligence.nodes.node_compliance_evaluate_effect.handlers"
+        type: "async"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.compliance-evaluate.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.compliance-evaluated.v1"
+    - "onex.evt.omniintelligence.compliance-evaluated.v1.dlq"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.compliance-evaluate.v1":
+      schema_ref: "omniintelligence.nodes.node_compliance_evaluate_effect.models.ModelComplianceEvaluateCommand"
+      description: >-
+        Compliance evaluation commands from omniclaude PostToolUse hook (OMN-2256, PR #161). Payload includes
+        source_path, content, language, applicable_patterns, and a content_sha256 fingerprint for idempotency
+        keying. #magic___^_^___line
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.compliance-evaluated.v1":
+      schema_ref: "omniintelligence.nodes.node_compliance_evaluate_effect.models.ModelComplianceEvaluatedEvent"
+      description: "Compliance evaluation results with violations, compliance status, and confidence."
+    "onex.evt.omniintelligence.compliance-evaluated.v1.dlq":
+      description: "Dead letter queue for failed compliance evaluations."
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "llm_client"
+    type: "protocol"
+    class_name: "ProtocolLlmClient"
+    module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols"
+    required: true
+    description: >-
+      OpenAI-compatible LLM client for compliance evaluation (Coder-14B). Forwarded to handle_evaluate_compliance()
+      from node_pattern_compliance_effect.
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    required: false
+    description: >-
+      Optional Kafka producer for publishing compliance-evaluated events and DLQ routing. When unavailable
+      (None), evaluation results are returned but not published.
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 2
+    initial_delay_ms: 200
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "ComplianceEvaluateDeserializationError"
+      error_code: "COMPLIANCE_EVAL_001"
+      description: "Failed to deserialize Kafka payload into ModelComplianceEvaluateCommand"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ComplianceEvaluateHandlerError"
+      error_code: "COMPLIANCE_EVAL_002"
+      description: "handle_evaluate_compliance() returned an error result"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "content_hash_tracking"
+  hash_fields: ["source_path", "content_sha256", "pattern_id"]
+  description: >-
+    Idempotency key is (source_path, content_sha256, pattern_id) so that identical code re-evaluations
+    deduplicate regardless of which correlation_id the caller uses. This prevents redundant LLM calls
+    when omniclaude re-sends the same file content (e.g., no-op tool writes). correlation_id is intentionally
+    NOT part of the key as required by OMN-2339.
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "compliance_evaluate.consume"
+    description: "Consume compliance-evaluate commands from Kafka"
+    version: "1.0.0"
+  - name: "compliance_evaluate.llm_inference"
+    description: "Call Coder-14B via handle_evaluate_compliance()"
+    version: "1.0.0"
+  - name: "compliance_evaluate.publish"
+    description: "Publish compliance-evaluated events to Kafka"
+    version: "1.0.0"
+  - name: "compliance_evaluate.dlq"
+    description: "Route failed evaluations to DLQ"
+    version: "1.0.0"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-18"
+  updated: "2026-02-18"
+  tags:
+    - "ONEX"
+    - "effect"
+    - "compliance"
+    - "kafka"
+    - "coder-14b"
+    - "event-driven"
+  references:
+    - ticket: "OMN-2339"
+      url: "https://linear.app/omninode/issue/OMN-2339"
+      description: "Add node_compliance_evaluate_effect (this node)"
+    - ticket: "OMN-2256"
+      url: "https://linear.app/omninode/issue/OMN-2256"
+      description: "node_pattern_compliance_effect (leaf handler)"
