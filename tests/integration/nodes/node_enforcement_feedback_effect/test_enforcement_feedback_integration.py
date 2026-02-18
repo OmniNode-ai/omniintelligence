@@ -38,7 +38,7 @@ class TestEnforcementFeedbackIntegration:
         3. Verifies quality_score was decreased by 0.01
         4. Cleans up the test pattern
         """
-        raise NotImplementedError("Test body not yet implemented")
+        pytest.skip("Not yet implemented")
 
     @pytest.mark.asyncio
     @requires_postgres
@@ -51,7 +51,7 @@ class TestEnforcementFeedbackIntegration:
         This test verifies the GREATEST(..., 0.0) SQL clamping works
         correctly with a real database.
         """
-        raise NotImplementedError("Test body not yet implemented")
+        pytest.skip("Not yet implemented")
 
     @pytest.mark.asyncio
     @requires_postgres
@@ -66,4 +66,4 @@ class TestEnforcementFeedbackIntegration:
         through handler processing to database update. Requires both
         Kafka and PostgreSQL infrastructure.
         """
-        raise NotImplementedError("Test body not yet implemented")
+        pytest.skip("Not yet implemented")

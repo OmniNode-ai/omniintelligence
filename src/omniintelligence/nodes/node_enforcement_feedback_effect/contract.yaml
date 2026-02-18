@@ -154,12 +154,12 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "{env}.onex.evt.omniclaude.pattern-enforcement.v1"
+    - "onex.evt.omniclaude.pattern-enforcement.v1"
 
   publish_topics: []
 
   subscribe_topic_metadata:
-    "{env}.onex.evt.omniclaude.pattern-enforcement.v1":
+    "onex.evt.omniclaude.pattern-enforcement.v1":
       schema_ref: "omniintelligence.nodes.node_enforcement_feedback_effect.models.ModelEnforcementEvent"
       description: "Pattern enforcement events from omniclaude PostToolUse hook"
 
