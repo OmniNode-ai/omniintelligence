@@ -96,10 +96,11 @@ async def handle_compliance_evaluate_command(
     start_time = time.perf_counter()
     cid = command.correlation_id
 
+    sanitizer = get_log_sanitizer()
     logger.info(
         "Processing compliance-evaluate command. "
         "source_path=%s, language=%s, patterns=%d, correlation_id=%s",
-        command.source_path,
+        sanitizer.sanitize(command.source_path),
         command.language,
         len(command.applicable_patterns),
         cid,
@@ -182,7 +183,7 @@ async def handle_compliance_evaluate_command(
         "Compliance evaluate command handled. "
         "source_path=%s, success=%s, compliant=%s, violations=%d, "
         "confidence=%.2f, processing_time_ms=%.2f, correlation_id=%s",
-        command.source_path,
+        sanitizer.sanitize(command.source_path),
         result.success,
         result.compliant,
         len(violations),

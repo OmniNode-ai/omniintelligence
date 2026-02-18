@@ -10,6 +10,7 @@ Ticket: OMN-2339
 
 from __future__ import annotations
 
+import hashlib
 import json
 from uuid import UUID
 
@@ -99,6 +100,11 @@ class MockKafkaProducer:
 # =============================================================================
 # Helpers
 # =============================================================================
+
+
+def sha256_of(content: str) -> str:
+    """Return the lowercase SHA-256 hex digest of a UTF-8 encoded string."""
+    return hashlib.sha256(content.encode()).hexdigest()
 
 
 def _compliant_llm_response() -> str:
@@ -195,3 +201,13 @@ def error_llm_client() -> MockLlmClientError:
 @pytest.fixture
 def mock_kafka_producer() -> MockKafkaProducer:
     return MockKafkaProducer()
+
+
+@pytest.fixture
+def real_sha256_command() -> ModelComplianceEvaluateCommand:
+    """Command whose content_sha256 is the actual SHA-256 of its content."""
+    content = "class Foo: pass"
+    return _make_command(
+        content=content,
+        content_sha256=sha256_of(content),
+    )

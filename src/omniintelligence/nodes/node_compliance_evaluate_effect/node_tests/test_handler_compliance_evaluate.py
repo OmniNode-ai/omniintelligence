@@ -44,6 +44,7 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest 
     MockLlmClientError,
     _make_command,
     _make_pattern,
+    sha256_of,
 )
 
 pytestmark = pytest.mark.unit
@@ -175,8 +176,8 @@ async def test_llm_error_returns_structured_failure(
     assert result.success is False
     assert result.confidence == 0.0
     assert result.violations == []
-    # Status reflects LLM error
-    assert "error" in result.status.lower() or result.status != "completed"
+    # Status reflects LLM inference failure
+    assert result.status == "llm_error"
 
 
 # =============================================================================
@@ -321,6 +322,23 @@ async def test_idempotency_fields_match_command_source_and_sha256(
 
     assert result.source_path == sample_command.source_path
     assert result.content_sha256 == sample_command.content_sha256
+
+
+@pytest.mark.asyncio
+async def test_real_sha256_matches_content(
+    real_sha256_command: ModelComplianceEvaluateCommand,
+    compliant_llm_client: MockLlmClient,
+) -> None:
+    """content_sha256 is the actual SHA-256 of content, not a placeholder."""
+    expected_sha256 = sha256_of(real_sha256_command.content)
+    assert real_sha256_command.content_sha256 == expected_sha256
+
+    result = await handle_compliance_evaluate_command(
+        real_sha256_command,
+        llm_client=compliant_llm_client,
+    )
+
+    assert result.content_sha256 == expected_sha256
 
 
 # =============================================================================

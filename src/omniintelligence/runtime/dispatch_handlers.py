@@ -1321,21 +1321,54 @@ def create_compliance_evaluate_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg) from e
 
-        logger.info(
-            "Dispatching compliance-evaluate command via MessageDispatchEngine "
-            "(source_path=%s, patterns=%d, correlation_id=%s)",
-            command.source_path,
-            len(command.applicable_patterns),
-            ctx_correlation_id,
-        )
+        # Guard: llm_client is required for compliance evaluation.
+        # When None, return a structured error event rather than propagating
+        # an AttributeError from the leaf handler. This matches the documented
+        # behaviour ("will return LLM-error results when llm_client=None").
+        if llm_client is None:
+            from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (
+                ModelComplianceEvaluatedEvent,
+            )
 
-        result = await handle_compliance_evaluate_command(
-            command,
-            llm_client=llm_client,
-            kafka_producer=kafka_producer,
-            publish_topic=publish_topic
-            or "onex.evt.omniintelligence.compliance-evaluated.v1",
-        )
+            logger.warning(
+                "compliance-evaluate command received but llm_client=None; "
+                "returning llm_error result without inference "
+                "(source_path=%s, correlation_id=%s)",
+                command.source_path,
+                ctx_correlation_id,
+            )
+            result = ModelComplianceEvaluatedEvent(
+                event_type="ComplianceEvaluated",
+                correlation_id=ctx_correlation_id,
+                source_path=command.source_path,
+                content_sha256=command.content_sha256,
+                language=command.language,
+                success=False,
+                compliant=False,
+                violations=[],
+                confidence=0.0,
+                patterns_checked=len(command.applicable_patterns),
+                model_used="none",
+                status="llm_error",
+                processing_time_ms=0.0,
+                evaluated_at=datetime.now(UTC).isoformat(),
+            )
+        else:
+            logger.info(
+                "Dispatching compliance-evaluate command via MessageDispatchEngine "
+                "(source_path=%s, patterns=%d, correlation_id=%s)",
+                command.source_path,
+                len(command.applicable_patterns),
+                ctx_correlation_id,
+            )
+
+            result = await handle_compliance_evaluate_command(
+                command,
+                llm_client=llm_client,
+                kafka_producer=kafka_producer,
+                publish_topic=publish_topic
+                or "onex.evt.omniintelligence.compliance-evaluated.v1",
+            )
 
         logger.info(
             "Compliance-evaluate command processed via dispatch engine "

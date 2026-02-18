@@ -96,6 +96,7 @@ class ModelComplianceEvaluateCommand(BaseModel):
         ...,
         min_length=64,
         max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
         description=(
             "SHA-256 hex digest of content. "
             "Used as idempotency key together with source_path and pattern_id."
