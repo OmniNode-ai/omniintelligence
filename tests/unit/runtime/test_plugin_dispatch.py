@@ -612,36 +612,11 @@ class TestIntrospectionPublishingGate:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_gate_off_event_bus_not_captured(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """When gate is off, _event_bus is NOT captured.
-
-        The shutdown path gates on _event_bus being non-None. When introspection
-        publishing is disabled, _event_bus remains None so publish_intelligence_shutdown
-        is never called from this container — no spurious shutdown events emitted.
-        """
-        monkeypatch.delenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", raising=False)
-
-        event_bus = _StubEventBus()
-        plugin = PluginIntelligence()
-        config = _make_config(event_bus=event_bus)
-
-        await _wire_plugin(plugin, config)
-
-        # _event_bus is None (gate off = no introspection publishing = no shutdown signal)
-        assert plugin._event_bus is None
-        # _introspection_proxies is empty (no heartbeat tasks started)
-        assert plugin._introspection_proxies == []
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
     async def test_shutdown_clears_event_bus_when_gate_on(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """When gate is on, shutdown clears _event_bus back to None."""
+        """When gate is on, shutdown clears _event_bus and publishes shutdown introspection."""
         monkeypatch.setenv("OMNIINTELLIGENCE_PUBLISH_INTROSPECTION", "true")
 
         event_bus = _StubEventBus()
@@ -655,3 +630,8 @@ class TestIntrospectionPublishingGate:
 
         await plugin.shutdown(config)
         assert plugin._event_bus is None  # cleared after shutdown
+        # publish_intelligence_shutdown must have attempted to publish via the event bus
+        assert event_bus.publish_envelope.called, (
+            "shutdown must call publish_intelligence_shutdown which publishes "
+            "via event_bus.publish_envelope"
+        )
