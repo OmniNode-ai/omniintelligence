@@ -96,6 +96,7 @@ from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginResult,
     ProtocolDomainPlugin,
 )
+from pydantic import BaseModel
 
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
@@ -110,11 +111,42 @@ _PUBLISH_INTROSPECTION_ENV_VAR = "OMNIINTELLIGENCE_PUBLISH_INTROSPECTION"
 _TRUTHY_VALUES = frozenset({"true", "1", "yes"})
 
 
+class SettingsPluginIntrospection(BaseModel):
+    """Settings for the introspection-publishing gate (OMN-2342).
+
+    Wraps the OMNIINTELLIGENCE_PUBLISH_INTROSPECTION environment variable
+    in a Pydantic model so that the truthy-value logic and the env-var name
+    live in one place.  Instantiate fresh (``SettingsPluginIntrospection.from_env()``)
+    at each call site to re-evaluate the variable without memoisation.
+
+    Attributes:
+        publish_introspection: True when the env var is set to a truthy value
+            ("true", "1", "yes", case-insensitive).  Defaults to False.
+    """
+
+    publish_introspection: bool = False
+
+    @classmethod
+    def from_env(cls) -> SettingsPluginIntrospection:
+        """Build settings by reading OMNIINTELLIGENCE_PUBLISH_INTROSPECTION.
+
+        Returns:
+            Settings instance with ``publish_introspection`` set according to
+            the current environment.
+        """
+        raw = os.getenv(_PUBLISH_INTROSPECTION_ENV_VAR, "").strip().lower()
+        return cls(publish_introspection=raw in _TRUTHY_VALUES)
+
+
 def _introspection_publishing_enabled() -> bool:
     """Return True if this container is designated to publish introspection events.
 
-    Reads the OMNIINTELLIGENCE_PUBLISH_INTROSPECTION environment variable.
-    Defaults to False (safe/off) when absent or set to a non-truthy value.
+    Delegates to SettingsPluginIntrospection.from_env() so that the
+    environment-variable name and truthy-value logic are centralised in the
+    settings class rather than spread across module-level constants.
+
+    Called at each wire_dispatchers() invocation so that the result is not
+    memoised; a retry re-evaluates the env var fresh.
 
     This gate ensures that only the single designated container (omninode-runtime)
     publishes node introspection events and starts heartbeat loops. Worker and
@@ -128,8 +160,7 @@ def _introspection_publishing_enabled() -> bool:
 
     Intentionally importable by unit tests for behavioral verification.
     """
-    value = os.getenv(_PUBLISH_INTROSPECTION_ENV_VAR, "").strip().lower()
-    return value in _TRUTHY_VALUES
+    return SettingsPluginIntrospection.from_env().publish_introspection
 
 
 # =============================================================================
