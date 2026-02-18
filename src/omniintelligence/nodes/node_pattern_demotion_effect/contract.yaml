@@ -223,16 +223,16 @@ event_bus:
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-    - "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
+    - "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    - "onex.evt.omniintelligence.pattern-deprecated.v1"
 
   # Metadata for published topics
   publish_topic_metadata:
-    "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
+    "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
       schema_ref: "omniintelligence.models.events.ModelPatternLifecycleEvent"
       description: "Lifecycle transition command for reducer to process"
       content_type: "application/json"
-    "{env}.onex.evt.omniintelligence.pattern-deprecated.v1":
+    "onex.evt.omniintelligence.pattern-deprecated.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_demotion_effect.models.ModelPatternDeprecatedEvent"
       description: "Pattern deprecated notification with gate snapshot"
       content_type: "application/json"

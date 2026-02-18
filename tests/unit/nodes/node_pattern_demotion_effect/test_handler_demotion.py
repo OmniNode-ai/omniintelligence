@@ -563,7 +563,6 @@ class TestCheckAndDemotePatterns:
             repository=mock_repository,
             producer=mock_producer,
             request=default_request,
-            topic_env_prefix="dev",
         )
 
         # Disabled pattern should be eligible despite cooldown
@@ -635,32 +634,12 @@ class TestDemotePattern:
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
             correlation_id=uuid4(),
-            topic_env_prefix="dev",
         )
 
         assert isinstance(result, ModelDemotionResult)
         assert result.deprecated_at is not None
         assert result.reason == "low_success_rate: 20.0%"
         mock_producer.publish.assert_called_once()
-
-    async def test_missing_topic_prefix_raises(
-        self,
-        mock_repository: AsyncMock,
-        mock_producer: AsyncMock,
-        low_success_pattern: DemotionPatternRecord,
-        default_thresholds: ModelEffectiveThresholds,
-    ) -> None:
-        """Missing topic_env_prefix with producer raises ValueError."""
-        with pytest.raises(ValueError, match="topic_env_prefix"):
-            await demote_pattern(
-                repository=mock_repository,
-                producer=mock_producer,
-                pattern_id=low_success_pattern["id"],
-                pattern_data=low_success_pattern,
-                reason="low_success_rate: 20.0%",
-                thresholds=default_thresholds,
-                correlation_id=uuid4(),
-            )
 
     async def test_kafka_failure_returns_publish_failed(
         self,
@@ -680,7 +659,6 @@ class TestDemotePattern:
             reason="low_success_rate: 20.0%",
             thresholds=default_thresholds,
             correlation_id=uuid4(),
-            topic_env_prefix="dev",
         )
 
         assert result.deprecated_at is None
@@ -702,7 +680,6 @@ class TestDemotePattern:
             reason="manual_disable",
             thresholds=default_thresholds,
             correlation_id=uuid4(),
-            topic_env_prefix="dev",
         )
 
         assert result.deprecated_at is not None

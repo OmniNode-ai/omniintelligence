@@ -121,8 +121,10 @@ class ModelEnforcementFeedbackResult(BaseModel):
         session_id: Session ID from the input event.
         patterns_checked: Number of patterns checked in the enforcement event.
         violations_found: Number of violations found in the enforcement event.
-        confirmed_violations: Number of violations that met the criteria for
-            confidence adjustment (advised AND corrected).
+        eligible_violations: Number of violations that met the criteria for
+            confidence adjustment (advised AND corrected). These are violations
+            that were eligible for adjustment; see ``adjustments`` for the subset
+            where the DB update was actually applied.
         adjustments: Per-pattern confidence adjustments that were successfully
             applied. Only contains adjustments that committed to the database.
         processing_errors: Per-pattern error details for adjustments that
@@ -153,7 +155,7 @@ class ModelEnforcementFeedbackResult(BaseModel):
         default=0,
         description="Number of violations found in the enforcement event",
     )
-    confirmed_violations: int = Field(
+    eligible_violations: int = Field(
         default=0,
         description="Number of violations meeting criteria (advised AND corrected)",
     )
@@ -165,8 +167,8 @@ class ModelEnforcementFeedbackResult(BaseModel):
         default_factory=list,
         description="Per-pattern error details for adjustments that failed",
     )
-    processed_at: datetime | None = Field(
-        default=None,
+    processed_at: datetime = Field(
+        ...,
         description="Timestamp of when processing completed",
     )
     error_message: str | None = Field(

@@ -47,7 +47,6 @@ Usage (Declarative Pattern):
         producer=kafka_producer,
         dry_run=False,
         correlation_id=correlation_id,
-        topic_env_prefix="dev",
     )
 
     # For event-driven execution, use RuntimeHostProcess

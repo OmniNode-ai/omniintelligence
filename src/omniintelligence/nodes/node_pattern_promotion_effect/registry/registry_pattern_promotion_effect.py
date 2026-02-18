@@ -105,11 +105,9 @@ class RegistryPromotionHandlers:
     Attributes:
         check_and_promote: Handler function for checking and promoting patterns.
             Dependencies (repository, producer) are already bound.
-        topic_env_prefix: Environment prefix for Kafka topics.
     """
 
     check_and_promote: HandlerFunction
-    topic_env_prefix: str = "dev"
 
     _handlers: dict[str, HandlerFunction] = field(
         default_factory=dict, repr=False, compare=False, hash=False
@@ -152,7 +150,6 @@ class RegistryPatternPromotionEffect:
         >>> registry = RegistryPatternPromotionEffect.create_registry(
         ...     repository=db_connection,
         ...     producer=kafka_producer,  # Optional, can be None
-        ...     topic_env_prefix="prod",
         ... )
         >>> handler = registry.get_handler("check_and_promote_patterns")
         >>> result = await handler(request)
@@ -165,8 +162,6 @@ class RegistryPatternPromotionEffect:
     def create_registry(
         repository: ProtocolPatternRepository,
         producer: ProtocolKafkaPublisher | None = None,
-        *,
-        topic_env_prefix: str = "dev",
     ) -> RegistryPromotionHandlers:
         """Create a frozen registry with all handlers wired.
 
@@ -181,15 +176,12 @@ class RegistryPatternPromotionEffect:
             producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
                 Optional - when None, promotions succeed but Kafka events are
                 not emitted.
-            topic_env_prefix: Environment prefix for Kafka topics.
-                Defaults to "dev". Must be non-empty alphanumeric with - or _.
 
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.
 
         Raises:
             ValueError: If repository is None.
-            ValueError: If topic_env_prefix is invalid.
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
@@ -201,15 +193,6 @@ class RegistryPatternPromotionEffect:
             raise ValueError(
                 "repository is required for RegistryPatternPromotionEffect. "
                 "Provide a ProtocolPatternRepository implementation."
-            )
-
-        # Validate topic_env_prefix
-        if not topic_env_prefix:
-            raise ValueError("topic_env_prefix cannot be empty")
-        if not all(c.isalnum() or c in "-_" for c in topic_env_prefix):
-            raise ValueError(
-                f"topic_env_prefix '{topic_env_prefix}' contains invalid characters. "
-                "Only alphanumeric characters, hyphens, and underscores are allowed."
             )
 
         # Create handler with bound dependencies
@@ -225,13 +208,11 @@ class RegistryPatternPromotionEffect:
                 min_success_rate=request.min_success_rate,
                 max_failure_streak=request.max_failure_streak,
                 correlation_id=request.correlation_id,
-                topic_env_prefix=topic_env_prefix,
             )
 
         # Create frozen registry
         registry = RegistryPromotionHandlers(
             check_and_promote=bound_check_and_promote,
-            topic_env_prefix=topic_env_prefix,
         )
 
         # Store in module-level storage
