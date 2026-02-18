@@ -125,6 +125,8 @@ def _introspection_publishing_enabled() -> bool:
     Returns:
         True if the env var is set to a truthy value ("true", "1", "yes").
         False otherwise (absent, empty, or any other value).
+
+    Intentionally importable by unit tests for behavioral verification.
     """
     value = os.getenv(_PUBLISH_INTROSPECTION_ENV_VAR, "").strip().lower()
     return value in _TRUTHY_VALUES

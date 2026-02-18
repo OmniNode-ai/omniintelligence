@@ -581,6 +581,8 @@ class TestIntrospectionPublishingGate:
         # Introspection nodes and proxies registered (gate is open)
         assert len(plugin._introspection_nodes) > 0
         assert len(plugin._introspection_proxies) > 0
+        # _event_bus captured (gate on → shutdown path will call publish_intelligence_shutdown)
+        assert plugin._event_bus is not None
 
     @pytest.mark.unit
     @pytest.mark.asyncio
