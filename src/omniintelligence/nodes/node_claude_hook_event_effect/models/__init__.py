@@ -9,16 +9,24 @@ Reference:
     - OMN-1456: Unified Claude Code hook endpoint
 """
 
+from omniintelligence.nodes.node_claude_hook_event_effect.models.enum_hook_processing_status import (
+    EnumHookProcessingStatus,
+)
+from omniintelligence.nodes.node_claude_hook_event_effect.models.enum_kafka_emission_status import (
+    EnumKafkaEmissionStatus,
+)
+from omniintelligence.nodes.node_claude_hook_event_effect.models.model_claude_hook_result import (
+    ModelClaudeHookResult,
+)
 from omniintelligence.nodes.node_claude_hook_event_effect.models.model_input import (
     EnumClaudeCodeHookEventType,
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
 )
-from omniintelligence.nodes.node_claude_hook_event_effect.models.model_output import (
-    EnumHookProcessingStatus,
-    EnumKafkaEmissionStatus,
-    ModelClaudeHookResult,
+from omniintelligence.nodes.node_claude_hook_event_effect.models.model_intent_result import (
     ModelIntentResult,
+)
+from omniintelligence.nodes.node_claude_hook_event_effect.models.model_pattern_learning_command import (
     ModelPatternLearningCommand,
 )
 

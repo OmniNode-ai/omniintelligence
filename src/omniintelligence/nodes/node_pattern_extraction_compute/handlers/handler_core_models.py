@@ -60,14 +60,14 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_too
 from omniintelligence.nodes.node_pattern_extraction_compute.models.enum_insight_type import (
     EnumInsightType,
 )
-from omniintelligence.nodes.node_pattern_extraction_compute.models.model_input import (
-    ModelSessionSnapshot,
-)
-from omniintelligence.nodes.node_pattern_extraction_compute.models.model_input import (
-    ModelToolExecution as LocalToolExecution,
-)
 from omniintelligence.nodes.node_pattern_extraction_compute.models.model_insight import (
     ModelCodebaseInsight,
+)
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_session_snapshot import (
+    ModelSessionSnapshot,
+)
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_tool_execution import (
+    ModelToolExecution as LocalToolExecution,
 )
 
 logger = logging.getLogger(__name__)

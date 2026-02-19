@@ -1,11 +1,7 @@
 """Models for Intent Classifier Compute Node."""
 
-from omniintelligence.nodes.node_intent_classifier_compute.models.model_config import (
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_classification_config import (
     ModelClassificationConfig,
-    ModelSemanticAnalysisConfig,
-    ModelSemanticBoostsConfig,
-    ModelSemanticLimitsConfig,
-    ModelSemanticScoringConfig,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
     IntentContextDict,
@@ -15,6 +11,18 @@ from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_c
     IntentMetadataDict,
     ModelIntentClassificationOutput,
     SecondaryIntentDict,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_semantic_analysis_config import (
+    ModelSemanticAnalysisConfig,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_semantic_boosts_config import (
+    ModelSemanticBoostsConfig,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_semantic_limits_config import (
+    ModelSemanticLimitsConfig,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_semantic_scoring_config import (
+    ModelSemanticScoringConfig,
 )
 
 __all__ = [

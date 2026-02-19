@@ -11,7 +11,9 @@ ONEX Compliance:
 
 from pydantic import BaseModel, Field
 
-from omniintelligence.enums.enum_code_analysis import EnumAnalysisOperationType
+from omniintelligence.enums.enum_analysis_operation_type import (
+    EnumAnalysisOperationType,
+)
 
 # UUID pattern for correlation_id validation
 UUID_PATTERN = (

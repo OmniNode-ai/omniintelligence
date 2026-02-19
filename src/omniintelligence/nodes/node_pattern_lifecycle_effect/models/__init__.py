@@ -7,8 +7,10 @@ effect node, which applies pattern status transition projections to the
 database with atomicity and idempotency guarantees.
 """
 
-from omniintelligence.nodes.node_pattern_lifecycle_effect.models.model_transition_result import (
+from omniintelligence.nodes.node_pattern_lifecycle_effect.models.model_pattern_lifecycle_transitioned_event import (
     ModelPatternLifecycleTransitionedEvent,
+)
+from omniintelligence.nodes.node_pattern_lifecycle_effect.models.model_transition_result import (
     ModelTransitionResult,
 )
 

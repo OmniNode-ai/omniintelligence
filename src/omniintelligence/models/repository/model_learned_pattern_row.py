@@ -1,8 +1,4 @@
-"""Model for full learned_patterns table row.
-
-Maps all columns from the learned_patterns table for complete
-pattern data access. Used by repository operations that need
-the full pattern state.
+"""Full learned_patterns table row model.
 
 Note on Defaults:
     Default values in this model are for Python-side instantiation and
@@ -19,29 +15,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
-
-
-class ModelDomainCandidate(BaseModel):
-    """A candidate domain classification with its confidence score.
-
-    Represents one entry in the domain_candidates JSONB array stored
-    in the learned_patterns table. Each candidate pairs a domain
-    identifier with a confidence score indicating how well the
-    pattern matches that domain.
-    """
-
-    model_config = ConfigDict(
-        frozen=True,
-        extra="forbid",
-    )
-
-    domain: str = Field(..., description="Domain identifier for this candidate")
-    confidence: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Confidence score for this domain classification",
-    )
+from omniintelligence.models.repository.model_domain_candidate import (
+    ModelDomainCandidate,
+)
 
 
 class ModelLearnedPatternRow(BaseModel):
@@ -182,4 +158,4 @@ class ModelLearnedPatternRow(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
 
-__all__ = ["ModelDomainCandidate", "ModelLearnedPatternRow"]
+__all__ = ["ModelLearnedPatternRow"]

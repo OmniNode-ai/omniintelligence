@@ -25,7 +25,6 @@ import re
 import sys
 import time as time_module  # Avoid conflict with potential 'time' variable names
 from concurrent.futures import ThreadPoolExecutor
-from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -40,6 +39,13 @@ from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from pydantic import BaseModel, ValidationError
 
 from omniintelligence.constants import PERCENTAGE_MULTIPLIER
+from omniintelligence.tools.enum_contract_error_type import EnumContractErrorType
+from omniintelligence.tools.model_contract_validation_error import (
+    ModelContractValidationError,
+)
+from omniintelligence.tools.model_contract_validation_result import (
+    ModelContractValidationResult,
+)
 from omniintelligence.tools.stubs.contract_validator import ProtocolContractValidator
 
 # Module-level logger for contract linter operations
@@ -294,186 +300,6 @@ SENSITIVE_ENV_VAR_PATTERNS: tuple[str, ...] = (
 
 # Redaction placeholder for sensitive values
 REDACTED_VALUE = "***REDACTED***"
-
-
-class EnumContractErrorType(StrEnum):
-    """
-    Enumeration of contract validation error types.
-
-    Values are string-based for easy serialization and integration with
-    error handling pipelines.
-    """
-
-    MISSING_FIELD = "missing_field"
-    INVALID_VALUE = "invalid_value"
-    INVALID_TYPE = "invalid_type"
-    INVALID_ENUM = "invalid_enum"
-    VALIDATION_ERROR = "validation_error"
-    FILE_NOT_FOUND = "file_not_found"
-    NOT_A_FILE = "not_a_file"
-    FILE_READ_ERROR = "file_read_error"
-    FILE_TOO_LARGE = "file_too_large"
-    EMPTY_FILE = "empty_file"
-    YAML_PARSE_ERROR = "yaml_parse_error"
-    UNKNOWN_CONTRACT_TYPE = "unknown_contract_type"
-    UNEXPECTED_ERROR = "unexpected_error"
-    RESERVED_IDENTIFIER = "reserved_identifier"
-
-
-class ModelContractValidationError:
-    """
-    Represents a single validation error with field path information.
-
-    Uses __slots__ instead of BaseModel for minimal memory footprint when
-    handling thousands of validation errors during batch contract validation.
-
-    Attributes:
-        field_path: The field path where the error occurred (e.g., "version.major")
-        error_message: Human-readable error description
-        validation_error_type: Category of error (missing_field, invalid_type, invalid_value, etc.)
-    """
-
-    __slots__ = ("error_message", "field_path", "validation_error_type")
-
-    # Type annotations for mypy (required for __slots__ classes using object.__setattr__)
-    field_path: str
-    error_message: str
-    validation_error_type: EnumContractErrorType
-
-    def __init__(
-        self,
-        *,
-        field_path: str,
-        error_message: str,
-        validation_error_type: EnumContractErrorType,
-    ) -> None:
-        """Initialize validation error with ONEX-compliant field names.
-
-        Args:
-            field_path: The field path where the error occurred
-            error_message: Human-readable error description
-            validation_error_type: Category of error
-        """
-        object.__setattr__(self, "field_path", field_path)
-        object.__setattr__(self, "error_message", error_message)
-        object.__setattr__(self, "validation_error_type", validation_error_type)
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert error to dictionary representation."""
-        return {
-            "field_path": self.field_path,
-            "error_message": self.error_message,
-            "validation_error_type": self.validation_error_type.value,
-        }
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"{self.field_path}: {self.error_message} ({self.validation_error_type})"
-
-    def __repr__(self) -> str:
-        """Return detailed representation of the error."""
-        return (
-            f"ModelContractValidationError("
-            f"field_path={self.field_path!r}, "
-            f"error_message={self.error_message!r}, "
-            f"validation_error_type={self.validation_error_type!r})"
-        )
-
-    def __eq__(self, other: object) -> bool:
-        """Check equality with another error."""
-        if not isinstance(other, ModelContractValidationError):
-            return NotImplemented
-        return (
-            self.field_path == other.field_path
-            and self.error_message == other.error_message
-            and self.validation_error_type == other.validation_error_type
-        )
-
-    def __hash__(self) -> int:
-        """Return hash of the error."""
-        return hash((self.field_path, self.error_message, self.validation_error_type))
-
-
-class ModelContractValidationResult:
-    """
-    Result of validating a contract file.
-
-    Uses __slots__ instead of BaseModel for minimal memory footprint when
-    handling thousands of validation results during batch contract validation.
-
-    Attributes:
-        file_path: Path to the validated contract file
-        is_valid: Whether the contract passed all validation checks
-        validation_errors: List of validation errors found
-        contract_type: Detected contract type (compute, effect, etc.) or None
-    """
-
-    __slots__ = ("contract_type", "file_path", "is_valid", "validation_errors")
-
-    # Type annotations for mypy (required for __slots__ classes using object.__setattr__)
-    file_path: Path
-    is_valid: bool
-    validation_errors: list[ModelContractValidationError]
-    contract_type: str | None
-
-    def __init__(
-        self,
-        *,
-        file_path: Path,
-        is_valid: bool,
-        validation_errors: list[ModelContractValidationError] | None = None,
-        contract_type: str | None = None,
-    ) -> None:
-        """Initialize validation result with ONEX-compliant field names.
-
-        Args:
-            file_path: Path to the validated contract file
-            is_valid: Whether the contract passed validation
-            validation_errors: List of validation errors found (defaults to empty list)
-            contract_type: Detected contract type
-        """
-        object.__setattr__(self, "file_path", file_path)
-        object.__setattr__(self, "is_valid", is_valid)
-        object.__setattr__(
-            self,
-            "validation_errors",
-            validation_errors if validation_errors is not None else [],
-        )
-        object.__setattr__(self, "contract_type", contract_type)
-
-    def to_dict(self) -> dict[str, object]:
-        """Convert result to dictionary representation."""
-        return {
-            "file_path": str(self.file_path),
-            "is_valid": self.is_valid,
-            "validation_errors": [e.to_dict() for e in self.validation_errors],
-            "contract_type": self.contract_type,
-        }
-
-    def __repr__(self) -> str:
-        """Return detailed representation of the result."""
-        return (
-            f"ModelContractValidationResult("
-            f"file_path={self.file_path!r}, "
-            f"is_valid={self.is_valid!r}, "
-            f"validation_errors={self.validation_errors!r}, "
-            f"contract_type={self.contract_type!r})"
-        )
-
-    def __eq__(self, other: object) -> bool:
-        """Check equality with another result."""
-        if not isinstance(other, ModelContractValidationResult):
-            return NotImplemented
-        return (
-            self.file_path == other.file_path
-            and self.is_valid == other.is_valid
-            and self.validation_errors == other.validation_errors
-            and self.contract_type == other.contract_type
-        )
-
-    # Explicitly mark as unhashable since __eq__ is defined
-    # This is required by PLW1641 (object-with-eq-but-no-hash)
-    __hash__ = None  # type: ignore[assignment]
 
 
 def _pydantic_error_to_contract_error(

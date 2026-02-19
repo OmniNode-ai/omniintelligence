@@ -1,15 +1,10 @@
-"""Output models for pattern_promotion_effect.
-
-This module defines the result models for the pattern promotion effect node,
-representing the outcomes of pattern promotion checks and operations.
-"""
+"""ModelPromotionResult - result of a single pattern promotion."""
 
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Import ModelGateSnapshot from shared domain to avoid circular imports
 from omniintelligence.models.domain import ModelGateSnapshot
 
 
@@ -55,95 +50,3 @@ class ModelPromotionResult(BaseModel):
         default=False,
         description="Whether this was a dry run (no actual mutation)",
     )
-
-
-class ModelPromotionCheckResult(BaseModel):
-    """Result of the promotion check operation.
-
-    Aggregates results from checking all provisional patterns for
-    promotion eligibility, including counts and individual promotion
-    results.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    dry_run: bool = Field(
-        ...,
-        description="Whether this was a dry run",
-    )
-    patterns_checked: int = Field(
-        ...,
-        ge=0,
-        description="Total number of provisional patterns checked",
-    )
-    patterns_eligible: int = Field(
-        ...,
-        ge=0,
-        description="Number of patterns meeting promotion criteria",
-    )
-    patterns_promoted: list[ModelPromotionResult] = Field(
-        default_factory=list,
-        description="List of individual promotion results",
-    )
-    correlation_id: UUID | None = Field(
-        default=None,
-        description="Correlation ID for tracing, if provided in request",
-    )
-    error_message: str | None = Field(
-        default=None,
-        description="Error message if an error occurred during promotion check",
-    )
-
-
-class ModelPatternPromotedEvent(BaseModel):
-    """Event payload for pattern-promoted Kafka event.
-
-    This model is published to Kafka when a pattern is promoted, enabling
-    downstream consumers to invalidate caches or update their state.
-    Published to topic: onex.evt.omniintelligence.pattern-promoted.v1
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    event_type: str = Field(
-        default="PatternPromoted",
-        description="Event type identifier",
-    )
-    pattern_id: UUID = Field(
-        ...,
-        description="The promoted pattern ID",
-    )
-    pattern_signature: str = Field(
-        ...,
-        description="The pattern signature for identification",
-    )
-    from_status: str = Field(
-        ...,
-        description="Status before promotion",
-    )
-    to_status: str = Field(
-        ...,
-        description="Status after promotion",
-    )
-    success_rate_rolling_20: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Success rate at time of promotion",
-    )
-    promoted_at: datetime = Field(
-        ...,
-        description="Timestamp of promotion",
-    )
-    correlation_id: UUID | None = Field(
-        default=None,
-        description="Correlation ID for tracing",
-    )
-
-
-__all__ = [
-    "ModelGateSnapshot",
-    "ModelPatternPromotedEvent",
-    "ModelPromotionCheckResult",
-    "ModelPromotionResult",
-]

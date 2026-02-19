@@ -49,35 +49,34 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Final
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from omniintelligence.nodes.node_pattern_storage_effect.constants import (
     VALID_TRANSITIONS,
     is_valid_transition,
 )
+from omniintelligence.nodes.node_pattern_storage_effect.handlers.model_state_transition import (
+    DEFAULT_ACTOR,
+    ModelStateTransition,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.handlers.protocol_pattern_state_manager import (
+    ProtocolPatternStateManager,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_metrics_snapshot import (
+    ModelPatternMetricsSnapshot,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_promoted_event import (
+    ModelPatternPromotedEvent,
+)
 from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_state import (
     EnumPatternState,
 )
-from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_storage_output import (
-    ModelPatternMetricsSnapshot,
-    ModelPatternPromotedEvent,
-)
 
 logger = logging.getLogger(__name__)
-
-# =============================================================================
-# Constants
-# =============================================================================
-
-DEFAULT_ACTOR: Final[str] = "system"
-"""Default actor for state transitions when not specified."""
-
 
 # =============================================================================
 # Pure Validation (Database-Free) - CONSOLIDATED
@@ -229,199 +228,6 @@ class PatternNotFoundError(Exception):
     def __repr__(self) -> str:
         """Return a detailed representation for debugging."""
         return f"{self.__class__.__name__}(pattern_id={self.pattern_id!r})"
-
-
-# =============================================================================
-# Models
-# =============================================================================
-
-
-class ModelStateTransition(BaseModel):
-    """Audit record for a pattern state transition.
-
-    This model represents a single state transition event recorded in the
-    pattern_state_transitions database table for audit trail purposes.
-
-    Attributes:
-        id: Unique identifier for this transition record.
-        pattern_id: The pattern that was transitioned.
-        domain: Domain of the pattern (for lineage context).
-        signature_hash: Signature hash of the pattern (for lineage context).
-        from_state: Previous state before transition (None for initial state).
-        to_state: New state after transition.
-        reason: Human-readable reason for the transition.
-        actor: Identifier of the entity that triggered the transition.
-        event_id: Idempotency key for deduplication.
-        metadata: Additional context as key-value pairs.
-        created_at: Timestamp when the transition was recorded (UTC).
-
-    Example:
-        >>> transition = ModelStateTransition(
-        ...     pattern_id=uuid4(),
-        ...     domain="code_patterns",
-        ...     signature_hash="abc123",
-        ...     from_state=EnumPatternState.CANDIDATE,
-        ...     to_state=EnumPatternState.PROVISIONAL,
-        ...     reason="Pattern met verification criteria",
-        ...     actor="verification_workflow",
-        ...     event_id=uuid4(),
-        ... )
-    """
-
-    model_config = ConfigDict(
-        frozen=True,
-        extra="forbid",
-    )
-
-    id: UUID = Field(
-        default_factory=uuid4,
-        description="Unique identifier for this transition record",
-    )
-    pattern_id: UUID = Field(
-        ...,
-        description="The pattern that was transitioned",
-    )
-    domain: str | None = Field(
-        default=None,
-        description="Domain of the pattern (for lineage context)",
-    )
-    signature_hash: str | None = Field(
-        default=None,
-        description="Signature hash of the pattern (for lineage context)",
-    )
-    from_state: EnumPatternState | None = Field(
-        ...,
-        description="Previous state before transition (None for initial state)",
-    )
-    to_state: EnumPatternState = Field(
-        ...,
-        description="New state after transition",
-    )
-    reason: str = Field(
-        ...,
-        min_length=1,
-        description="Human-readable reason for the transition",
-    )
-    actor: str = Field(
-        default=DEFAULT_ACTOR,
-        min_length=1,
-        description="Identifier of the entity that triggered the transition",
-    )
-    event_id: UUID = Field(
-        default_factory=uuid4,
-        description="Idempotency key for deduplication",
-    )
-    metadata: dict[str, object] = Field(
-        default_factory=dict,
-        description="Additional context as key-value pairs",
-    )
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        description="Timestamp when the transition was recorded (UTC)",
-    )
-
-
-# =============================================================================
-# Protocols
-# =============================================================================
-
-
-@runtime_checkable
-class ProtocolPatternStateManager(Protocol):
-    """Protocol for pattern state management operations.
-
-    This protocol defines the interface for managing pattern states in
-    a storage backend (database). Implementations must provide methods
-    for reading current state, updating state, and recording transitions.
-
-    The protocol is runtime-checkable for isinstance() validation.
-
-    IMPORTANT: Implementations MUST ensure that update_state() and record_transition()
-    are executed atomically (within a single database transaction). If record_transition
-    fails after update_state succeeds, the pattern state would be updated without an
-    audit trail, violating governance compliance requirements.
-
-    Transaction Control:
-        All methods require a `conn` parameter for transaction control. The caller
-        (e.g., infra wiring) owns the transaction spanning idempotency checks and
-        pattern state operations. This ensures atomic operations.
-
-    Usage:
-        class PostgresPatternStateManager:
-            async def get_current_state(
-                self, pattern_id: UUID, conn: AsyncConnection
-            ) -> EnumPatternState | None:
-                # Query database for current state
-                ...
-
-            async def update_state(
-                self,
-                pattern_id: UUID,
-                new_state: EnumPatternState,
-                conn: AsyncConnection,
-            ) -> None:
-                # Update pattern state in database
-                ...
-
-            async def record_transition(
-                self, transition: ModelStateTransition, conn: AsyncConnection
-            ) -> None:
-                # Insert transition record into audit table
-                ...
-
-        state_manager = PostgresPatternStateManager(connection)
-        assert isinstance(state_manager, ProtocolPatternStateManager)
-    """
-
-    async def get_current_state(
-        self,
-        pattern_id: UUID,
-        conn: AsyncConnection,
-    ) -> EnumPatternState | None:
-        """Get the current state of a pattern.
-
-        Args:
-            pattern_id: The pattern to query.
-            conn: Database connection for transaction control.
-
-        Returns:
-            The current state of the pattern, or None if not found.
-        """
-        ...
-
-    async def update_state(
-        self,
-        pattern_id: UUID,
-        new_state: EnumPatternState,
-        conn: AsyncConnection,
-    ) -> None:
-        """Update the state of a pattern.
-
-        Args:
-            pattern_id: The pattern to update.
-            new_state: The new state to set.
-            conn: Database connection for transaction control.
-
-        Raises:
-            PatternNotFoundError: If the pattern does not exist.
-        """
-        ...
-
-    async def record_transition(
-        self,
-        transition: ModelStateTransition,
-        conn: AsyncConnection,
-    ) -> None:
-        """Record a state transition in the audit table.
-
-        Args:
-            transition: The transition record to insert.
-            conn: Database connection for transaction control.
-
-        Raises:
-            Exception: If the insert fails (e.g., duplicate event_id).
-        """
-        ...
 
 
 # =============================================================================

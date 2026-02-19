@@ -8,12 +8,16 @@ Output: ModelComplianceEvaluatedEvent - Kafka event payload emitted after evalua
 Ticket: OMN-2339
 """
 
-from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_command import (
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_applicable_pattern_payload import (
     ModelApplicablePatternPayload,
+)
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluate_command import (
     ModelComplianceEvaluateCommand,
 )
-from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluated_event import (
     ModelComplianceEvaluatedEvent,
+)
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_violation_payload import (
     ModelComplianceViolationPayload,
 )
 

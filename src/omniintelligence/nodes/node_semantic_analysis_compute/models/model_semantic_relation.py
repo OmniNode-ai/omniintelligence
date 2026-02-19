@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
-from omniintelligence.nodes.node_semantic_analysis_compute.models.enums import (
+from omniintelligence.nodes.node_semantic_analysis_compute.models.enum_semantic_relation_type import (
     EnumSemanticRelationType,
 )
 

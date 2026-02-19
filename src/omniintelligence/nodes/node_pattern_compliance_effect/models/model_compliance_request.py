@@ -12,44 +12,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class ModelApplicablePattern(BaseModel):
-    """A single pattern to check compliance against.
-
-    This model represents a pattern retrieved from the pattern store
-    (OMN-2253) that is applicable to the code being evaluated.
-
-    Attributes:
-        pattern_id: Unique identifier for the pattern.
-        pattern_signature: The pattern signature text describing the pattern.
-        domain_id: Domain the pattern belongs to (e.g., "onex", "python").
-        confidence: Confidence score of the pattern (0.0-1.0).
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    pattern_id: str = Field(
-        ...,
-        min_length=1,
-        description="Unique identifier for the pattern",
-    )
-    pattern_signature: str = Field(
-        ...,
-        min_length=1,
-        description="Pattern signature text describing what the pattern enforces",
-    )
-    domain_id: str = Field(
-        ...,
-        min_length=1,
-        max_length=50,
-        description="Domain the pattern belongs to",
-    )
-    confidence: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Confidence score of the pattern",
-    )
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_applicable_pattern import (
+    ModelApplicablePattern,
+)
 
 
 class ModelComplianceRequest(BaseModel):
@@ -93,4 +58,4 @@ class ModelComplianceRequest(BaseModel):
     )
 
 
-__all__ = ["ModelApplicablePattern", "ModelComplianceRequest"]
+__all__ = ["ModelComplianceRequest"]

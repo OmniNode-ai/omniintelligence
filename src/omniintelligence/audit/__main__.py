@@ -36,19 +36,21 @@ import json
 import sys
 from pathlib import Path
 
+from omniintelligence.audit.enum_io_audit_rule import EnumIOAuditRule
 from omniintelligence.audit.io_audit import (
     DEFAULT_WHITELIST_PATH,
     IO_AUDIT_TARGETS,
-    REMEDIATION_HINTS,
-    EnumIOAuditRule,
-    ModelAuditMetrics,
-    ModelAuditResult,
-    ModelIOAuditViolation,
-    ModelWhitelistConfig,
     discover_python_files,
     load_whitelist,
     run_audit,
 )
+from omniintelligence.audit.model_audit_metrics import ModelAuditMetrics
+from omniintelligence.audit.model_audit_result import ModelAuditResult
+from omniintelligence.audit.model_io_audit_violation import (
+    REMEDIATION_HINTS,
+    ModelIOAuditViolation,
+)
+from omniintelligence.audit.model_whitelist_config import ModelWhitelistConfig
 
 # JSON output indentation (spaces)
 JSON_INDENT_SPACES = 2
