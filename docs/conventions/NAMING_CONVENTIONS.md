@@ -226,11 +226,11 @@ Topics follow the pattern: `{env}.onex.{kind}.{producer}.{event-name}.v{version}
 
 | Topic | Direction | Purpose |
 |-------|-----------|---------|
-| `onex.cmd.omniintelligence.claude-hook-event.v1` | Input | Claude Code hooks |
-| `onex.evt.omniintelligence.intent-classified.v1` | Output | Classified intents |
-| `onex.evt.omniintelligence.pattern-stored.v1` | Output | Pattern storage confirmations |
-| `onex.evt.omniintelligence.pattern-promoted.v1` | Output | Pattern promotions |
-| `onex.evt.omniintelligence.pattern-deprecated.v1` | Output | Pattern demotions |
+| `{env}.onex.cmd.omniintelligence.claude-hook-event.v1` | Input | Claude Code hooks |
+| `{env}.onex.evt.omniintelligence.intent-classified.v1` | Output | Classified intents |
+| `{env}.onex.evt.omniintelligence.pattern-stored.v1` | Output | Pattern storage confirmations |
+| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | Output | Pattern promotions |
+| `{env}.onex.evt.omniintelligence.pattern-deprecated.v1` | Output | Pattern demotions |
 
 DLQ suffix: `{topic}.dlq`
 

@@ -1,3 +1,5 @@
+> **Navigation**: [Home](../INDEX.md) > Architecture > ONEX Four-Node Architecture
+
 # ONEX Four-Node Architecture in OmniIntelligence
 
 > **Scope**: OmniIntelligence-specific node inventory, data flow, and implementation patterns.

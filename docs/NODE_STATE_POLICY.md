@@ -1,3 +1,5 @@
+> **Navigation**: [Home](INDEX.md) > Node State Policy
+
 # Node State Policy
 
 **Purpose**: Define node implementation states, enforcement mechanisms, and orchestrator dependency rules
