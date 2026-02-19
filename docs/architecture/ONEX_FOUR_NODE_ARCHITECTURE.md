@@ -1,7 +1,7 @@
 # ONEX Four-Node Architecture in OmniIntelligence
 
 > **Scope**: OmniIntelligence-specific node inventory, data flow, and implementation patterns.
-> **Framework reference**: For base class definitions, handler output constraints, and FSM/workflow contracts, see [`omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md`](../../../omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md).
+> **Framework reference**: For base class definitions, handler output constraints, and FSM/workflow contracts, see `omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md`.
 
 ---
 
@@ -259,4 +259,4 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 ---
 
 **Last Updated**: 2026-02-19
-**See Also**: [`omnibase_core` Four-Node Architecture](../../../omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) for base class definitions, handler output constraints, and FSM/workflow subcontract reference.
+**See Also**: `omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md` — base class definitions, handler output constraints, and FSM/workflow subcontract reference.

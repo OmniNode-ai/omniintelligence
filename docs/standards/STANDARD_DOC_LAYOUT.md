@@ -87,6 +87,22 @@ All links in `INDEX.md` must use relative paths and resolve to existing files.
 - No `docs/old/` directory — same rule
 - Inbound links to deleted files must be removed or updated in the same commit
 
+**Files removed in the omnibase_core format migration (commit bcfc816)** — verify no remaining links point to these paths:
+
+| Deleted File | Reason |
+|--------------|--------|
+| `docs/RUNTIME_HOST_REFACTORING_PLAN.md` | Completed work; point-in-time planning doc |
+| `docs/VALIDATION_INTEGRATION_PLAN.md` | Completed work; point-in-time planning doc |
+| `docs/TODO_TRACKING.md` | Completed work; stale tracking doc |
+| `docs/migrations/CONTRACT_CORRECTIONS.md` | Completed migration; stale |
+| `docs/migrations/MIGRATION_SUMMARY.md` | Completed migration; stale |
+| `docs/migrations/NODE_MAPPING_REFERENCE.md` | Completed migration; stale |
+| `docs/migrations/OMNIARCHON_MIGRATION_INVENTORY.md` | Completed migration; stale |
+| `docs/migrations/ONEX_MIGRATION_PLAN.md` | Completed migration; stale |
+| `docs/migrations/omniarchon_to_omniintelligence.md` | Completed migration; stale |
+| `docs/plans/OMN-1757-declarative-node-refactor.md` | Completed work; stale plan |
+| `docs/specs/DECLARATIVE_EFFECT_NODES_SPEC.md` | Superseded; no current value |
+
 ---
 
 ## Document Quality Standards

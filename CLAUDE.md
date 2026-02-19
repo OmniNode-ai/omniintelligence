@@ -72,7 +72,7 @@ This system explicitly does NOT optimize for:
 
 ```bash
 # Setup
-uv sync --all-extras && pre-commit install
+uv sync --group all && pre-commit install
 
 # Testing
 uv run pytest tests/                          # All tests
@@ -80,7 +80,7 @@ uv run pytest tests/unit                      # Unit tests only
 uv run pytest tests/integration               # Integration tests (requires infrastructure)
 uv run pytest -m audit                        # I/O purity audit enforcement
 uv run pytest -m unit -xvs                    # Debug mode
-uv run pytest --cov=src/omniintelligence      # With coverage
+uv run pytest tests/ --cov=src/omniintelligence # With coverage
 
 # Code Quality
 uv run mypy src/                              # Type checking (strict, 0 errors required)
