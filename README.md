@@ -43,6 +43,9 @@ uv sync --group dev
 
 # Everything (core + dev)
 uv sync --group all
+
+# Install pre-commit hooks
+pre-commit install
 ```
 
 **ONEX ecosystem dependencies** (published on PyPI — installed automatically by `uv sync`):
