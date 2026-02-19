@@ -172,7 +172,7 @@ node = NodePatternPromotionEffect(container, registry)
 
 **Comment markers** (required when suppressing or accepting errors):
 
-- `# fallback-ok:` — Graceful degradation (e.g., Kafka unavailable)
+- `# fallback-ok:` — Graceful degradation (e.g., optional telemetry service down)
 - `# boundary-ok:` — API boundary exception handling
 - `# cleanup-resilience-ok:` — Cleanup must complete even on error
 
