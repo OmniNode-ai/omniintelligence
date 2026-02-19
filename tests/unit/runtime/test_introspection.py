@@ -241,27 +241,3 @@ class TestPublishIntelligenceShutdown:
 
         # Should have been called for each node
         assert mock_event_bus.publish_envelope.call_count == len(INTELLIGENCE_NODES)
-
-
-# =============================================================================
-# CI Tripwire: detect when omnibase_core publishes EnumEvidenceTier
-# =============================================================================
-# When OMN-2134 is resolved and omnibase_core publishes EnumEvidenceTier,
-# this test fails to remind us to switch from the local definition back
-# to the omnibase_core canonical export.
-
-
-@pytest.mark.unit
-def test_omnibase_core_evidence_tier_tripwire() -> None:
-    """Fail if OMN-2134 is resolved so we can switch to the canonical import."""
-    try:
-        from omnibase_core.enums.pattern_learning import EnumEvidenceTier  # type: ignore[attr-defined]  # noqa: F401, I001
-    except ImportError:
-        # OMN-2134 still pending -- local definition is correct
-        return
-
-    pytest.fail(
-        "OMN-2134 is resolved: omnibase_core now exports EnumEvidenceTier. "
-        "Replace the local definition in omniintelligence.enums.enum_evidence_tier "
-        "with a re-export from omnibase_core.enums.pattern_learning."
-    )

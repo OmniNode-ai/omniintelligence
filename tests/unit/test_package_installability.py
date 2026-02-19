@@ -32,6 +32,7 @@ NODES_DIR = Path("src/omniintelligence/nodes")
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
+    "node_compliance_evaluate_effect",
     "node_enforcement_feedback_effect",
     "node_execution_trace_parser_compute",
     "node_intelligence_orchestrator",
@@ -94,6 +95,10 @@ HANDLER_ENTRY_POINTS = [
     (
         "omniintelligence.nodes.node_claude_hook_event_effect.handlers",
         "HandlerClaudeHookEvent",
+    ),
+    (
+        "omniintelligence.nodes.node_compliance_evaluate_effect.handlers",
+        "handle_compliance_evaluate_command",
     ),
     (
         "omniintelligence.nodes.node_pattern_compliance_effect.handlers",

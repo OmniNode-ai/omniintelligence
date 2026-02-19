@@ -84,7 +84,7 @@ _SYSTEM_PROMPT: Final[str] = (
 async def handle_evaluate_compliance(
     input_data: ModelComplianceRequest,
     *,
-    llm_client: ProtocolLlmClient,
+    llm_client: ProtocolLlmClient | None,
     model: str = DEFAULT_MODEL,
     correlation_id: UUID | None = None,
     kafka_producer: ProtocolKafkaPublisher | None = None,
@@ -113,7 +113,8 @@ async def handle_evaluate_compliance(
 
     Args:
         input_data: Typed input model with code and patterns.
-        llm_client: LLM client for inference calls.
+        llm_client: LLM client for inference calls. When None, returns a
+            structured llm_error result immediately without attempting inference.
         model: Model identifier for LLM (default: Coder-14B).
         correlation_id: Explicit correlation ID for tracing. If provided,
             overrides input_data.correlation_id. Falls back to
@@ -210,7 +211,7 @@ async def handle_evaluate_compliance(
 async def _execute_compliance(
     input_data: ModelComplianceRequest,
     *,
-    llm_client: ProtocolLlmClient,
+    llm_client: ProtocolLlmClient | None,
     model: str,
     start_time: float,
     correlation_id: UUID,
@@ -224,7 +225,8 @@ async def _execute_compliance(
 
     Args:
         input_data: Typed input model with code and patterns.
-        llm_client: LLM client for inference calls.
+        llm_client: LLM client for inference calls. When None, returns a
+            structured llm_error result immediately without attempting inference.
         model: Model identifier for LLM.
         start_time: Performance counter start time for timing.
         correlation_id: Resolved correlation ID for tracing. Already resolved
@@ -239,6 +241,39 @@ async def _execute_compliance(
     """
     cid = correlation_id
     patterns_count = len(input_data.applicable_patterns)
+
+    # 0. Guard: no LLM client configured -- return structured error immediately.
+    # This is the PRIMARY protection against None llm_client on the normal call
+    # path. handle_evaluate_compliance() does NOT short-circuit before calling
+    # this function; it always delegates to _execute_compliance() unconditionally.
+    # The guard here is live code for every call where llm_client=None.
+    if llm_client is None:
+        processing_time = _safe_elapsed_ms(start_time)
+        error_msg = "LLM client is not configured (llm_client=None)"
+        logger.warning(
+            "%s. source_path=%s",
+            error_msg,
+            input_data.source_path,
+            extra={"correlation_id": str(cid)},
+        )
+
+        if kafka_producer is not None:
+            await _route_to_dlq(
+                producer=kafka_producer,
+                correlation_id=cid,
+                source_path=input_data.source_path,
+                language=input_data.language,
+                error_status=STATUS_LLM_ERROR,
+                error_message=error_msg,
+            )
+
+        return _create_error_output(
+            correlation_id=cid,
+            status=STATUS_LLM_ERROR,
+            message=error_msg,
+            processing_time_ms=processing_time,
+            patterns_checked=patterns_count,
+        )
 
     # 1. Build prompt
     prompt = build_compliance_prompt(
