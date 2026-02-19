@@ -23,6 +23,7 @@ Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
     - OMN-2032: Register intelligence dispatchers (now 6 handlers, 8 routes)
     - OMN-934: MessageDispatchEngine implementation
+    - OMN-2339: Add node_compliance_evaluate_effect and its dispatcher
 """
 
 from __future__ import annotations

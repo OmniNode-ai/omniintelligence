@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2025 OmniNode Team
 """Output event model for node_compliance_evaluate_effect.
 
 Defines the Kafka event payload published to

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2025 OmniNode Team
 """Input model for node_compliance_evaluate_effect.
 
 Defines the Kafka command payload emitted by omniclaude (PR #161) on topic

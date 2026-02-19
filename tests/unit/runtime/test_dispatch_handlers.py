@@ -29,7 +29,10 @@ from uuid import UUID, uuid4
 import pytest
 
 from omniintelligence.protocols import ProtocolPatternRepository
-from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
+from omniintelligence.runtime.contract_topics import (
+    canonical_topic_to_dispatch_alias,
+    collect_subscribe_topics_from_contracts,
+)
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
     DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
@@ -38,6 +41,7 @@ from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
     DISPATCH_ALIAS_PATTERN_LIFECYCLE,
     DISPATCH_ALIAS_SESSION_OUTCOME,
+    DISPATCH_ALIAS_TOOL_CONTENT,
     create_claude_hook_dispatch_handler,
     create_compliance_evaluate_dispatch_handler,
     create_dispatch_callback,
@@ -324,24 +328,71 @@ class TestTopicAlias:
 
 
 class TestCanonicalToDispatchAlias:
-    """Validate canonical_topic_to_dispatch_alias for all intelligence topics."""
+    """Validate canonical_topic_to_dispatch_alias for all 8 intelligence topics."""
 
+    @pytest.mark.unit
     @pytest.mark.parametrize(
         "canonical,expected_alias",
         [
+            (
+                "onex.cmd.omniintelligence.claude-hook-event.v1",
+                DISPATCH_ALIAS_CLAUDE_HOOK,
+            ),
+            (
+                "onex.cmd.omniintelligence.session-outcome.v1",
+                DISPATCH_ALIAS_SESSION_OUTCOME,
+            ),
+            (
+                "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1",
+                DISPATCH_ALIAS_PATTERN_LIFECYCLE,
+            ),
+            (
+                "onex.evt.omniintelligence.pattern-learned.v1",
+                DISPATCH_ALIAS_PATTERN_LEARNED,
+            ),
+            (
+                "onex.evt.pattern.discovered.v1",
+                DISPATCH_ALIAS_PATTERN_DISCOVERED,
+            ),
+            (
+                "onex.cmd.omniintelligence.tool-content.v1",
+                DISPATCH_ALIAS_TOOL_CONTENT,
+            ),
+            (
+                "onex.cmd.omniintelligence.pattern-learning.v1",
+                DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
+            ),
             (
                 "onex.cmd.omniintelligence.compliance-evaluate.v1",
                 DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
             ),
         ],
     )
-    def test_compliance_evaluate_canonical_converts_to_alias(
+    def test_canonical_topic_converts_to_dispatch_alias(
         self,
         canonical: str,
         expected_alias: str,
     ) -> None:
-        """compliance-evaluate canonical topic must convert to DISPATCH_ALIAS_COMPLIANCE_EVALUATE."""
+        """Every canonical .cmd./.evt. topic must convert to its dispatch alias."""
         assert canonical_topic_to_dispatch_alias(canonical) == expected_alias
+
+
+# =============================================================================
+# Tests: Intelligence subscribe topics
+# =============================================================================
+
+
+class TestIntelligenceSubscribeTopics:
+    """Validate that intelligence subscribe topics are correctly declared."""
+
+    @pytest.mark.unit
+    def test_compliance_evaluate_topic_in_subscribe_topics(self) -> None:
+        """compliance-evaluate subscribe topic must be declared in effect node contracts."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert "onex.cmd.omniintelligence.compliance-evaluate.v1" in topics, (
+            "Expected 'onex.cmd.omniintelligence.compliance-evaluate.v1' in subscribe topics "
+            f"(collected: {topics})"
+        )
 
 
 # =============================================================================

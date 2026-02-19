@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2025 OmniNode Team
 """Handlers for node_compliance_evaluate_effect.
 
 Provides the main handler function that bridges Kafka command payloads
