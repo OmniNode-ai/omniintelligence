@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register intelligence dispatchers (now 5 handlers, 7 routes)
+    - OMN-2032: Register intelligence dispatchers (now 6 handlers, 8 routes)
     - OMN-934: MessageDispatchEngine implementation
 """
 
@@ -109,8 +109,9 @@ DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
 
-# Uses canonical topic form (not alias) — compliance-evaluate follows ONEX .cmd. naming convention
-DISPATCH_ALIAS_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
+DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
+    "onex.commands.omniintelligence.compliance-evaluate.v1"
+)
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
 
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
@@ -1362,7 +1363,7 @@ def create_compliance_evaluate_dispatch_handler(
                 safe_source_path,
                 ctx_correlation_id,
             )
-            result = ModelComplianceEvaluatedEvent(
+            result = ModelComplianceEvaluatedEvent(  # result flows through to shared post-dispatch logging below
                 event_type="ComplianceEvaluated",
                 correlation_id=command.correlation_id,
                 source_path=safe_source_path,

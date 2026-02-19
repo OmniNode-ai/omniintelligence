@@ -12,7 +12,7 @@ Validates:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 5 intelligence handlers (7 routes)
+    - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
     - OMN-2339: Add node_compliance_evaluate_effect (6 handlers, 8 routes)
 """
@@ -29,8 +29,10 @@ from uuid import UUID, uuid4
 import pytest
 
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
+    DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
     DISPATCH_ALIAS_PATTERN_DISCOVERED,
     DISPATCH_ALIAS_PATTERN_LEARNED,
     DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
@@ -300,6 +302,46 @@ class TestTopicAlias:
     def test_pattern_learning_cmd_alias_preserves_event_name(self) -> None:
         """Pattern learning cmd alias must preserve the pattern-learning name."""
         assert "pattern-learning" in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
+
+    # --- Compliance Evaluate alias ---
+
+    def test_compliance_evaluate_alias_contains_commands_segment(self) -> None:
+        """Compliance evaluate alias must contain .commands. for from_topic()."""
+        assert ".commands." in DISPATCH_ALIAS_COMPLIANCE_EVALUATE
+
+    def test_compliance_evaluate_alias_matches_intelligence_domain(self) -> None:
+        """Compliance evaluate alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_COMPLIANCE_EVALUATE
+
+    def test_compliance_evaluate_alias_preserves_event_name(self) -> None:
+        """Compliance evaluate alias must preserve the compliance-evaluate name."""
+        assert "compliance-evaluate" in DISPATCH_ALIAS_COMPLIANCE_EVALUATE
+
+
+# =============================================================================
+# Tests: Canonical-to-dispatch alias conversion
+# =============================================================================
+
+
+class TestCanonicalToDispatchAlias:
+    """Validate canonical_topic_to_dispatch_alias for all intelligence topics."""
+
+    @pytest.mark.parametrize(
+        "canonical,expected_alias",
+        [
+            (
+                "onex.cmd.omniintelligence.compliance-evaluate.v1",
+                DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
+            ),
+        ],
+    )
+    def test_compliance_evaluate_canonical_converts_to_alias(
+        self,
+        canonical: str,
+        expected_alias: str,
+    ) -> None:
+        """compliance-evaluate canonical topic must convert to DISPATCH_ALIAS_COMPLIANCE_EVALUATE."""
+        assert canonical_topic_to_dispatch_alias(canonical) == expected_alias
 
 
 # =============================================================================

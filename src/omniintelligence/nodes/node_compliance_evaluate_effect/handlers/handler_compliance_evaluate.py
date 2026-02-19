@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2025 OmniNode Team
 """Handler for compliance-evaluate command processing.
 
 Bridges the Kafka command payload (ModelComplianceEvaluateCommand) to the
