@@ -6,11 +6,11 @@ This module exports the registry classes for the pattern lifecycle effect node.
 """
 
 from omniintelligence.nodes.node_pattern_lifecycle_effect.registry.registry import (
+    RegistryLifecycleHandlers,
     RegistryPatternLifecycleEffect,
-    ServiceHandlerRegistry,
 )
 
 __all__ = [
     "RegistryPatternLifecycleEffect",
-    "ServiceHandlerRegistry",
+    "RegistryLifecycleHandlers",
 ]
