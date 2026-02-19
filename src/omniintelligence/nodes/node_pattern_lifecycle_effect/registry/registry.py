@@ -79,7 +79,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RegistryPatternLifecycleEffect", "ServiceHandlerRegistry"]
+__all__ = ["RegistryPatternLifecycleEffect", "RegistryLifecycleHandlers"]
 
 
 # Type alias for handler function signature
@@ -90,7 +90,7 @@ HandlerFunction = Callable[
 
 
 @dataclass(frozen=True)
-class ServiceHandlerRegistry:
+class RegistryLifecycleHandlers:
     """Frozen registry of handler functions for pattern lifecycle transitions.
 
     This class holds the wired handler functions with their dependencies
@@ -128,13 +128,13 @@ class ServiceHandlerRegistry:
 
 
 # Module-level storage for registry (similar to omnibase_infra pattern)
-_REGISTRY_STORAGE: dict[str, ServiceHandlerRegistry] = {}
+_REGISTRY_STORAGE: dict[str, RegistryLifecycleHandlers] = {}
 
 
 class RegistryPatternLifecycleEffect:
     """Registry for pattern lifecycle effect node dependencies.
 
-    Provides a static factory method to create a ServiceHandlerRegistry
+    Provides a static factory method to create a RegistryLifecycleHandlers
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
@@ -163,13 +163,13 @@ class RegistryPatternLifecycleEffect:
         producer: ProtocolKafkaPublisher | None = None,
         *,
         publish_topic: str | None = None,
-    ) -> ServiceHandlerRegistry:
+    ) -> RegistryLifecycleHandlers:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
         1. Validates that repository and idempotency_store are not None
         2. Creates handler functions with dependencies bound
-        3. Returns a frozen ServiceHandlerRegistry
+        3. Returns a frozen RegistryLifecycleHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
@@ -183,7 +183,7 @@ class RegistryPatternLifecycleEffect:
                 Source of truth is the contract's event_bus.publish_topics.
 
         Returns:
-            A frozen ServiceHandlerRegistry with handlers wired.
+            A frozen RegistryLifecycleHandlers with handlers wired.
 
         Raises:
             ValueError: If repository or idempotency_store is None.
@@ -229,7 +229,7 @@ class RegistryPatternLifecycleEffect:
             )
 
         # Create frozen registry
-        registry = ServiceHandlerRegistry(
+        registry = RegistryLifecycleHandlers(
             apply_transition=bound_apply_transition,
             publish_topic=publish_topic,
         )
@@ -240,11 +240,11 @@ class RegistryPatternLifecycleEffect:
         return registry
 
     @staticmethod
-    def get_registry() -> ServiceHandlerRegistry | None:
+    def get_registry() -> RegistryLifecycleHandlers | None:
         """Retrieve the current registry from module-level storage.
 
         Returns:
-            The stored ServiceHandlerRegistry, or None if not created.
+            The stored RegistryLifecycleHandlers, or None if not created.
         """
         return _REGISTRY_STORAGE.get(RegistryPatternLifecycleEffect.REGISTRY_KEY)
 
