@@ -414,7 +414,7 @@ For large nodes like `intelligence_adapter`:
 
 - [I/O Audit Test](../tests/audit/test_io_violations.py) - Purity enforcement
 - [Contract Validation Guide](./CONTRACT_VALIDATION_GUIDE.md) - Contract requirements
-- [Declarative Effect Nodes Spec](./specs/DECLARATIVE_EFFECT_NODES_SPEC.md) - Architecture
+- [ONEX Four-Node Architecture](./architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) - Architecture
 - [Naming Conventions](./conventions/NAMING_CONVENTIONS.md) - File/class naming
 
 ---
