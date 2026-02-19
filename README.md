@@ -199,7 +199,7 @@ uv run pytest -k "test_name"      # Single test by name
 | `audit` | AST-based I/O purity enforcement (node line count, no logging in nodes, no try/except in nodes) |
 | `performance` | Performance benchmarks |
 
-For infrastructure configuration (Kafka, PostgreSQL, remote server topology), see [`~/.claude/CLAUDE.md`](~/.claude/CLAUDE.md).
+For infrastructure configuration (Kafka, PostgreSQL, remote server topology), see `~/.claude/CLAUDE.md`.
 
 ---
 

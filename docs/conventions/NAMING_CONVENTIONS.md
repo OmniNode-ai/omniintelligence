@@ -257,8 +257,6 @@ These files exist and deviate from strict prefix rules — document them rather 
 
 ## Related Documentation
 
-- **Architecture**: `docs/architecture/NODE_ARCHITECTURE.md`
-- **Pydantic Patterns**: `docs/conventions/PYDANTIC_BEST_PRACTICES.md`
 - **omnibase_core Conventions**: `omnibase_core/docs/conventions/NAMING_CONVENTIONS.md`
 
 ---
