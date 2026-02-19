@@ -45,19 +45,13 @@ uv sync --group dev
 uv sync --group all
 ```
 
-**ONEX ecosystem dependencies** (private, not on PyPI — install via editable checkout or private registry):
+**ONEX ecosystem dependencies** (published on PyPI — installed automatically by `uv sync`):
 
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `omnibase-core` | `>=0.17.0,<0.18.0` | Node base classes, protocols, validation |
 | `omnibase-spi` | `>=0.8.0,<0.9.0` | Service Provider Interface protocols |
 | `omnibase-infra` | `>=0.7.0,<0.8.0` | Kafka, PostgreSQL, runtime infrastructure |
-
-```bash
-# Install local checkouts for development
-uv pip install -e /path/to/omnibase_core
-uv pip install -e /path/to/omnibase_infra
-```
 
 ## Architecture
 

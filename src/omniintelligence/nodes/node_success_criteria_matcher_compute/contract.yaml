@@ -39,7 +39,6 @@ operations:
 # ==============================
 # Status: Backlog - Phase 3 (v0.4.0)
 # When implementing full functionality, a criteria matcher protocol will be needed.
-# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 # Handler Routing (Declarative Pattern)
 # =====================================
 # Compute nodes use a single handler for all operations.

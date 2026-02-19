@@ -200,7 +200,7 @@ Source contracts scanned:
 | Route | Handler | Source Topic |
 |-------|---------|--------------|
 | `claude-hook-event` | `route_hook_event()` | `claude-hook-event.v1` |
-| `session-outcome` | `record_session_outcome()` | `session-feedback.v1` |
+| `session-outcome` | `record_session_outcome()` | `session-outcome.v1` |
 | `pattern-lifecycle-transition` | `apply_transition()` | `pattern-lifecycle-transition.v1` |
 | `pattern-storage` | `store_pattern()` | `pattern-learned.v1`, `pattern.discovered` |
 | `pattern-learning-cmd` | `create_pattern_learning_dispatch_handler()` | `pattern-learning.v1` |

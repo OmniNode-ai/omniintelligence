@@ -3,7 +3,6 @@
 # =============================================================================
 # IMPLEMENTATION STATUS: STUB (Interface defined, implementation pending)
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/13
-# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - v0.4.0)
 # =============================================================================
 contract_version:
   major: 1
@@ -55,7 +54,6 @@ operations:
 # =============================================================================
 # Status: Backlog - Phase 3 (v0.4.0)
 # Issue: https://github.com/OmniNode-ai/omniintelligence/issues/13
-# See also: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 #
 # Priority: Low (current stub implementation functional for interface validation)
 # Description: Create omniintelligence.protocols module with QualityAnalyzerProtocol
