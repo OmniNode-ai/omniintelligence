@@ -51,8 +51,10 @@ from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_comp
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ProtocolLlmClient,
 )
-from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_applicable_pattern import (
     ModelApplicablePattern,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelComplianceRequest,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher
