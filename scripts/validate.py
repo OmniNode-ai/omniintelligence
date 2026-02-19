@@ -501,7 +501,7 @@ def main() -> int:
         "--quick",
         "-q",
         action="store_true",
-        help="Run only fast validators (skip architecture)",
+        help="Run only fast validators",
     )
 
     args = parser.parse_args()
@@ -554,7 +554,7 @@ def main() -> int:
     results.append(run_mypy(verbose=args.verbose))
 
     # omnibase validators that pass
-    for validator in ["union-usage", "patterns"]:
+    for validator in ["union-usage", "patterns", "architecture"]:
         print(f"  Running omnibase:{validator}...")
         results.append(
             run_omnibase_validator(validator, strict=True, verbose=args.verbose)
@@ -576,7 +576,7 @@ def main() -> int:
         results.append(result)
 
         # CLI-registered omnibase validators (non-blocking)
-        for validator in ["architecture", "contracts"]:
+        for validator in ["contracts"]:
             print(f"  Running omnibase:{validator}...")
             result = run_omnibase_validator(
                 validator, strict=args.strict, verbose=args.verbose

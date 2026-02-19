@@ -6,92 +6,18 @@ from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
 
-
-class ModelParsedEvent(BaseModel):
-    """Typed model for parsed trace events.
-
-    Provides strong typing for trace events extracted during parsing.
-    """
-
-    event_id: str | None = Field(default=None, description="Unique event identifier")
-    event_type: str | None = Field(default=None, description="Type of event")
-    timestamp: str | None = Field(default=None, description="Event timestamp")
-    span_id: str | None = Field(default=None, description="Associated span ID")
-    trace_id: str | None = Field(default=None, description="Associated trace ID")
-    operation_name: str | None = Field(default=None, description="Operation name")
-    service_name: str | None = Field(default=None, description="Service name")
-    attributes: dict[str, str] = Field(
-        default_factory=dict, description="Event attributes"
-    )
-
-    model_config = {"frozen": True, "extra": "forbid"}
-
-
-class ModelErrorEvent(BaseModel):
-    """Typed model for error events extracted from traces.
-
-    Provides strong typing for error information found during trace parsing.
-    """
-
-    error_id: str | None = Field(default=None, description="Unique error identifier")
-    error_type: str | None = Field(default=None, description="Type of error")
-    error_message: str | None = Field(default=None, description="Error message")
-    timestamp: str | None = Field(default=None, description="Error timestamp")
-    span_id: str | None = Field(default=None, description="Associated span ID")
-    stack_trace: str | None = Field(
-        default=None, description="Stack trace if available"
-    )
-    attributes: dict[str, str] = Field(
-        default_factory=dict, description="Error attributes"
-    )
-
-    model_config = {"frozen": True, "extra": "forbid"}
-
-
-class ModelTimingData(BaseModel):
-    """Typed model for timing information.
-
-    Provides strong typing for timing metrics extracted from traces.
-    """
-
-    total_duration_ms: float | None = Field(
-        default=None, description="Total duration in milliseconds"
-    )
-    start_time: str | None = Field(default=None, description="Start timestamp")
-    end_time: str | None = Field(default=None, description="End timestamp")
-    span_count: int | None = Field(default=None, ge=0, description="Number of spans")
-    critical_path_ms: float | None = Field(
-        default=None, description="Critical path duration in ms"
-    )
-    latency_breakdown: dict[str, float] = Field(
-        default_factory=dict, description="Latency breakdown by operation"
-    )
-
-    model_config = {"frozen": True, "extra": "forbid"}
-
-
-class ModelTraceMetadata(BaseModel):
-    """Typed model for trace parsing metadata.
-
-    Provides strong typing for metadata about the parsing process.
-    """
-
-    parser_version: str | None = Field(default=None, description="Parser version used")
-    parse_time_ms: float | None = Field(
-        default=None, description="Time taken to parse in ms"
-    )
-    source_format: str | None = Field(
-        default=None, description="Source format of the trace"
-    )
-    event_count: int | None = Field(
-        default=None, ge=0, description="Number of events parsed"
-    )
-    error_count: int | None = Field(
-        default=None, ge=0, description="Number of errors extracted"
-    )
-    warnings: list[str] = Field(default_factory=list, description="Parsing warnings")
-
-    model_config = {"frozen": True, "extra": "forbid"}
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_error_event import (
+    ModelErrorEvent,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_parsed_event import (
+    ModelParsedEvent,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_timing_data import (
+    ModelTimingData,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_trace_metadata import (
+    ModelTraceMetadata,
+)
 
 
 class ModelTraceParsingOutput(BaseModel):
@@ -168,10 +94,4 @@ class ModelTraceParsingOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = [
-    "ModelErrorEvent",
-    "ModelParsedEvent",
-    "ModelTimingData",
-    "ModelTraceMetadata",
-    "ModelTraceParsingOutput",
-]
+__all__ = ["ModelTraceParsingOutput"]

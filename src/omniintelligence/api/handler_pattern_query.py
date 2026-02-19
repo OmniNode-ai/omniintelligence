@@ -16,10 +16,8 @@ import asyncpg
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from omniintelligence.api.models_pattern_query import (
-    ModelPatternQueryPage,
-    ModelPatternQueryResponse,
-)
+from omniintelligence.api.model_pattern_query_page import ModelPatternQueryPage
+from omniintelligence.api.model_pattern_query_response import ModelPatternQueryResponse
 
 if TYPE_CHECKING:
     from omniintelligence.repositories.adapter_pattern_store import (

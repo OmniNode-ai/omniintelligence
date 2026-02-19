@@ -30,7 +30,15 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (5)
+    # Effects (7)
+    "NodeEnforcementFeedbackEffect": (
+        "omniintelligence.nodes.node_enforcement_feedback_effect.node",
+        "NodeEnforcementFeedbackEffect",
+    ),
+    "NodePatternComplianceEffect": (
+        "omniintelligence.nodes.node_pattern_compliance_effect.node",
+        "NodePatternComplianceEffect",
+    ),
     "NodePatternDemotionEffect": (
         "omniintelligence.nodes.node_pattern_demotion_effect.node",
         "NodePatternDemotionEffect",
@@ -144,6 +152,9 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
+        NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
+    )
     from omniintelligence.nodes.node_execution_trace_parser_compute.node import (
         NodeExecutionTraceParserCompute as NodeExecutionTraceParserCompute,
     )
@@ -158,6 +169,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
+    )
+    from omniintelligence.nodes.node_pattern_compliance_effect.node import (
+        NodePatternComplianceEffect as NodePatternComplianceEffect,
     )
     from omniintelligence.nodes.node_pattern_demotion_effect.node import (
         NodePatternDemotionEffect as NodePatternDemotionEffect,
@@ -244,7 +258,9 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (5)
+    # Nodes — Effects (7)
+    "NodeEnforcementFeedbackEffect",
+    "NodePatternComplianceEffect",
     "NodePatternDemotionEffect",
     "NodePatternFeedbackEffect",
     "NodePatternLifecycleEffect",

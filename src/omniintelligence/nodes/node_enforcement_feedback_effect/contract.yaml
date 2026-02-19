@@ -1,0 +1,214 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeEnforcementFeedbackEffect
+#
+# This contract defines the interface for the enforcement feedback effect node.
+# The node consumes pattern enforcement events from omniclaude's PostToolUse hook
+# and applies conservative confidence adjustments to violated patterns.
+#
+# Adjustment Policy:
+#   - Only confirmed violations are adjusted (was_advised AND was_corrected)
+#   - Conservative adjustment: -0.01 per confirmed violation
+#   - quality_score is clamped to [0.0, 1.0]
+#
+# Reference:
+#   - OMN-2270: Enforcement feedback loop for pattern confidence adjustment
+#   - OMN-2263: PostToolUse pattern enforcement hook (producer)
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_enforcement_feedback_effect"
+contract_name: "node_enforcement_feedback_effect"
+node_name: "node_enforcement_feedback_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node for processing pattern enforcement feedback from omniclaude. Consumes onex.evt.omniclaude.pattern-enforcement.v1
+  events containing patterns_checked, violations_found, and per-violation details (was_advised, was_corrected).
+  Applies conservative confidence adjustments (-0.01 per confirmed violation) to quality_score in learned_patterns.
+  A violation is only confirmed when was_advised=true AND was_corrected=true, ensuring false positives
+  do not erode pattern confidence.
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelEnforcementEvent"
+  module: "omniintelligence.nodes.node_enforcement_feedback_effect.models"
+  description: "Pattern enforcement event from omniclaude PostToolUse hook"
+
+output_model:
+  name: "ModelEnforcementFeedbackResult"
+  module: "omniintelligence.nodes.node_enforcement_feedback_effect.models"
+  description: "Result of enforcement feedback processing with adjustment details"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "process_enforcement_feedback"
+      handler:
+        function: "process_enforcement_feedback"
+        module: "omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback"
+        type: "async"
+      description: "Process enforcement event and apply conservative confidence adjustments"
+      output_fields:
+        - status
+        - correlation_id
+        - session_id
+        - patterns_checked
+        - violations_found
+        - eligible_violations
+        - adjustments
+        - processing_errors
+        - processed_at
+        - error_message
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "process_enforcement_feedback"
+    description: "Process enforcement feedback event and adjust pattern confidence scores"
+    input_fields:
+      - event_type
+      - correlation_id
+      - session_id
+      - patterns_checked
+      - violations_found
+      - violations
+    output_fields:
+      - status
+      - correlation_id
+      - session_id
+      - patterns_checked
+      - violations_found
+      - confirmed_violations
+      - adjustments
+      - processing_errors
+      - processed_at
+      - error_message
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "pattern_repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.protocols"
+    description: "Pattern repository protocol for reading and updating quality_score in learned_patterns"
+    required: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "PatternNotFoundError"
+      description: "Referenced pattern_id does not exist in learned_patterns"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DatabaseWriteError"
+      description: "Failed to update quality_score in PostgreSQL"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ValidationError"
+      description: "Invalid enforcement event data"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.evt.omniclaude.pattern-enforcement.v1"
+
+  publish_topics: []
+
+  subscribe_topic_metadata:
+    "onex.evt.omniclaude.pattern-enforcement.v1":
+      schema_ref: "omniintelligence.nodes.node_enforcement_feedback_effect.models.ModelEnforcementEvent"
+      description: "Pattern enforcement events from omniclaude PostToolUse hook"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "best_effort_bounded"
+  hash_fields: ["correlation_id", "session_id"]
+  description: >
+    Each enforcement event is uniquely identified by (correlation_id, session_id). The quality_score adjustment
+    is additive (not strictly idempotent): duplicate delivery would apply the delta twice. The effect
+    is small and bounded (-0.01 per violation, floor-clamped at 0.0), so occasional duplicates cause negligible
+    drift. Full event_id_tracking deduplication is deferred to a future iteration if duplicate delivery
+    causes measurable quality score drift.
+  # Known limitation: duplicate Kafka delivery applies the quality_score adjustment twice.
+  # Mitigation: Full deduplication requires event_id tracking against a seen-events table.
+  # Tracked in: OMN-2270 follow-up.
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "database_write"
+    description: "Update quality_score in learned_patterns with conservative adjustments"
+  - name: "enforcement_feedback"
+    description: "Process enforcement events and track confirmed violations"
+  - name: "conservative_adjustment"
+    description: "Apply -0.01 per confirmed violation with floor clamping at 0.0"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-17"
+  updated: "2026-02-17"
+  tags:
+    - effect
+    - enforcement
+    - pattern-confidence
+    - feedback-loop
+    - postgresql
+  references:
+    - ticket: "OMN-2270"
+      url: "https://linear.app/omninode/issue/OMN-2270"
+      description: "Enforcement feedback loop for pattern confidence adjustment"
+    - ticket: "OMN-2263"
+      url: "https://linear.app/omninode/issue/OMN-2263"
+      description: "PostToolUse pattern enforcement hook (producer)"

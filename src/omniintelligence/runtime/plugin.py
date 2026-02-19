@@ -31,6 +31,17 @@ Configuration:
     The plugin activates based on environment variables:
     - OMNIINTELLIGENCE_DB_URL: Required for plugin activation (pattern storage needs DB)
       Format: postgresql://user:password@host:port/database
+    - OMNIINTELLIGENCE_PUBLISH_INTROSPECTION: Controls whether this container publishes
+      node introspection events and starts heartbeat loops. Defaults to false/off.
+      Only the single designated container (omninode-runtime) should set this to true.
+      Worker and effects containers leave this unset so they process intelligence events
+      without emitting duplicate heartbeats for the same deterministic node IDs.
+      Valid truthy values: "true", "1", "yes" (case-insensitive).
+
+      Rationale (OMN-2342): All runtime containers share x-runtime-env and thus all
+      activate PluginIntelligence. Without this gate, every container independently
+      calls publish_intelligence_introspection() and starts heartbeat loops for the
+      same UUID5-derived node IDs, producing 3x the expected heartbeat traffic.
 
 Example Usage:
     ```python
@@ -85,6 +96,7 @@ from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginResult,
     ProtocolDomainPlugin,
 )
+from pydantic import BaseModel
 
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
@@ -94,6 +106,61 @@ from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_di
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
+
+_PUBLISH_INTROSPECTION_ENV_VAR = "OMNIINTELLIGENCE_PUBLISH_INTROSPECTION"
+_TRUTHY_VALUES = frozenset({"true", "1", "yes"})
+
+
+class SettingsPluginIntrospection(BaseModel):
+    """Settings for the introspection-publishing gate (OMN-2342).
+
+    Wraps the OMNIINTELLIGENCE_PUBLISH_INTROSPECTION environment variable
+    in a Pydantic model so that the truthy-value logic and the env-var name
+    live in one place.  Instantiate fresh (``SettingsPluginIntrospection.from_env()``)
+    at each call site to re-evaluate the variable without memoisation.
+
+    Attributes:
+        publish_introspection: True when the env var is set to a truthy value
+            ("true", "1", "yes", case-insensitive).  Defaults to False.
+    """
+
+    publish_introspection: bool = False
+
+    @classmethod
+    def from_env(cls) -> SettingsPluginIntrospection:
+        """Build settings by reading OMNIINTELLIGENCE_PUBLISH_INTROSPECTION.
+
+        Returns:
+            Settings instance with ``publish_introspection`` set according to
+            the current environment.
+        """
+        raw = os.getenv(_PUBLISH_INTROSPECTION_ENV_VAR, "").strip().lower()
+        return cls(publish_introspection=raw in _TRUTHY_VALUES)
+
+
+def _introspection_publishing_enabled() -> bool:
+    """Return True if this container is designated to publish introspection events.
+
+    Delegates to SettingsPluginIntrospection.from_env() so that the
+    environment-variable name and truthy-value logic are centralised in the
+    settings class rather than spread across module-level constants.
+
+    Called at each wire_dispatchers() invocation so that the result is not
+    memoised; a retry re-evaluates the env var fresh.
+
+    This gate ensures that only the single designated container (omninode-runtime)
+    publishes node introspection events and starts heartbeat loops. Worker and
+    effects containers set this to false (or leave it unset) so that they
+    continue processing intelligence events without emitting duplicate heartbeats
+    for the same deterministic node IDs (OMN-2342).
+
+    Returns:
+        True if the env var is set to a truthy value ("true", "1", "yes").
+        False otherwise (absent, empty, or any other value).
+
+    Intentionally importable by unit tests for behavioral verification.
+    """
+    return SettingsPluginIntrospection.from_env().publish_introspection
 
 
 # =============================================================================
@@ -559,26 +626,44 @@ class PluginIntelligence:
                 pattern_upsert_store=pattern_upsert_store,
             )
 
-            # Store event_bus reference for introspection publishing.
-            # NOTE: This reference is captured at wire time and used during
-            # shutdown. The caller is responsible for keeping the event bus
-            # alive until shutdown completes.
-            # Best-effort: if event_bus is closed before shutdown,
-            # publish_intelligence_shutdown silently handles errors.
-            self._event_bus = config.event_bus
-
             # Publish introspection events for all intelligence nodes
             # (OMN-2210: Wire intelligence nodes into registration)
+            #
+            # Gate on OMNIINTELLIGENCE_PUBLISH_INTROSPECTION (OMN-2342):
+            # Only the designated container (omninode-runtime) publishes
+            # introspection. Worker/effects containers leave this var unset
+            # so they process events without starting duplicate heartbeat loops
+            # for the same deterministic node IDs.
+            #
+            # _event_bus is captured only when publishing is enabled so that
+            # the shutdown path (which gates on _event_bus is not None) does
+            # not emit spurious shutdown events from worker containers.
             from omniintelligence.runtime.introspection import (
                 publish_intelligence_introspection,
             )
 
-            introspection_result = await publish_intelligence_introspection(
-                event_bus=config.event_bus,
-                correlation_id=correlation_id,
-            )
-            self._introspection_nodes = introspection_result.registered_nodes
-            self._introspection_proxies = introspection_result.proxies
+            # Read env var at call time — function result is not memoized, so a
+            # retry of wire_dispatchers re-evaluates the env var fresh.
+            if _introspection_publishing_enabled():
+                # Capture event_bus for shutdown path only when this container
+                # is the designated introspection publisher.
+                self._event_bus = config.event_bus
+                introspection_result = await publish_intelligence_introspection(
+                    event_bus=config.event_bus,
+                    correlation_id=correlation_id,
+                )
+                self._introspection_nodes = introspection_result.registered_nodes
+                self._introspection_proxies = introspection_result.proxies
+            else:
+                logger.info(
+                    "Intelligence introspection publishing skipped: "
+                    "%s is not set to a truthy value "
+                    "(correlation_id=%s)",
+                    _PUBLISH_INTROSPECTION_ENV_VAR,
+                    correlation_id,
+                )
+                self._introspection_nodes = []
+                self._introspection_proxies = []
 
             duration = time.time() - start_time
             logger.info(
@@ -841,8 +926,8 @@ class PluginIntelligence:
         errors: list[str] = []
 
         # Publish shutdown introspection for all intelligence nodes.
-        # Gate on _event_bus (set in wire_dispatchers before introspection
-        # is attempted), NOT on _introspection_nodes. If all individual
+        # Gate on _event_bus (set in wire_dispatchers only when introspection
+        # publishing is enabled), NOT on _introspection_nodes. If all individual
         # publish calls failed, _introspection_nodes is empty but the
         # single-call guard (_introspection_published) is still set.
         # publish_intelligence_shutdown resets that guard, so we must call

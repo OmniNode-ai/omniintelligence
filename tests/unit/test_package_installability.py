@@ -28,15 +28,18 @@ import pytest
 # Relative to project root; resolved via project_root fixture in tests.
 NODES_DIR = Path("src/omniintelligence/nodes")
 
-# All 17 node directories that MUST be importable for HandlerPluginLoader.
+# All 18 node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
+    "node_compliance_evaluate_effect",
+    "node_enforcement_feedback_effect",
     "node_execution_trace_parser_compute",
     "node_intelligence_orchestrator",
     "node_intelligence_reducer",
     "node_intent_classifier_compute",
     "node_pattern_assembler_orchestrator",
+    "node_pattern_compliance_effect",
     "node_pattern_demotion_effect",
     "node_pattern_extraction_compute",
     "node_pattern_feedback_effect",
@@ -94,6 +97,14 @@ HANDLER_ENTRY_POINTS = [
         "HandlerClaudeHookEvent",
     ),
     (
+        "omniintelligence.nodes.node_compliance_evaluate_effect.handlers",
+        "handle_compliance_evaluate_command",
+    ),
+    (
+        "omniintelligence.nodes.node_pattern_compliance_effect.handlers",
+        "handle_evaluate_compliance",
+    ),
+    (
         "omniintelligence.nodes.node_pattern_storage_effect.handlers",
         "route_storage_operation",
     ),
@@ -112,6 +123,10 @@ HANDLER_ENTRY_POINTS = [
     (
         "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers",
         "apply_transition",
+    ),
+    (
+        "omniintelligence.nodes.node_enforcement_feedback_effect.handlers",
+        "process_enforcement_feedback",
     ),
     # --- Reducer ---
     (

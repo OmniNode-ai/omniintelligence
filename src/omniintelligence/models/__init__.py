@@ -30,7 +30,7 @@ from omniintelligence.models.events import (
     ModelCodeAnalysisFailedPayload,
     ModelCodeAnalysisRequestPayload,
 )
-from omniintelligence.models.model_entity import ModelEntity, ModelRelationship
+from omniintelligence.models.model_entity import ModelEntity
 from omniintelligence.models.model_intelligence_input import (
     IntelligenceMetadataDict,
     IntelligenceOptionsDict,
@@ -42,10 +42,13 @@ from omniintelligence.models.model_intelligence_output import (
     ModelIntelligenceOutput,
     OutputMetadataDict,
 )
-from omniintelligence.models.model_search_result import (
+from omniintelligence.models.model_pattern_match import (
     ModelPatternMatch,
-    ModelSearchResult,
     PatternMatchMetadataDict,
+)
+from omniintelligence.models.model_relationship import ModelRelationship
+from omniintelligence.models.model_search_result import (
+    ModelSearchResult,
     SearchResultMetadataDict,
 )
 from omniintelligence.models.repository import (

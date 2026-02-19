@@ -46,87 +46,19 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
 
-
-class HandlerConfig(BaseModel):
-    """Handler configuration from contract.
-
-    Attributes:
-        function: Function name to import and call.
-        module: Module path containing the function.
-        type: Handler type (async or sync). Defaults to async.
-        description: Optional human-readable description.
-    """
-
-    function: str
-    module: str
-    type: str = "async"
-    description: str | None = None
-
-
-class OperationHandler(BaseModel):
-    """Operation-to-handler mapping from contract.
-
-    Attributes:
-        operation: Operation name that triggers this handler.
-        handler: Handler configuration for this operation.
-        description: Human-readable description of the operation.
-        actions: List of actions performed by this handler.
-    """
-
-    operation: str
-    handler: HandlerConfig
-    description: str | None = None
-    actions: list[str] = Field(default_factory=list)
-
-
-class HandlerRouting(BaseModel):
-    """Handler routing configuration from contract.
-
-    Attributes:
-        routing_strategy: Strategy for routing operations (e.g., operation_match).
-        entry_point: Main entry point handler configuration.
-        handlers: List of operation-to-handler mappings.
-        default_handler: Fallback handler for unrecognized operations.
-    """
-
-    routing_strategy: str = "operation_match"
-    entry_point: HandlerConfig | None = None
-    handlers: list[OperationHandler] = Field(default_factory=list)
-    default_handler: HandlerConfig | None = None
-
-
-class EventBusConfig(BaseModel):
-    """Event bus configuration from contract.
-
-    Attributes:
-        version: Event bus configuration version.
-        event_bus_enabled: Whether event bus is enabled.
-        subscribe_topics: Topics this node subscribes to.
-        publish_topics: Topics this node publishes to.
-        subscribe_topic_metadata: Metadata for subscribed topics.
-        publish_topic_metadata: Metadata for published topics.
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    version: dict[str, int] = Field(
-        default_factory=lambda: {"major": 1, "minor": 0, "patch": 0}
-    )
-    event_bus_enabled: bool = True
-    subscribe_topics: list[str] = Field(default_factory=list)
-    publish_topics: list[str] = Field(default_factory=list)
-    subscribe_topic_metadata: dict[str, dict[str, Any]] = (
-        Field(  # any-ok: YAML-loaded contract data is dynamically typed
-            default_factory=dict
-        )
-    )
-    publish_topic_metadata: dict[str, dict[str, Any]] = (
-        Field(  # any-ok: YAML-loaded contract data is dynamically typed
-            default_factory=dict
-        )
-    )
+from omniintelligence.nodes.node_pattern_storage_effect.model_event_bus_config import (
+    EventBusConfig,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.model_handler_config import (
+    HandlerConfig,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.model_handler_routing import (
+    HandlerRouting,
+)
+from omniintelligence.nodes.node_pattern_storage_effect.model_operation_handler import (
+    OperationHandler,
+)
 
 
 class ContractLoader:

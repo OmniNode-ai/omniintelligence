@@ -940,7 +940,6 @@ async def promotion_handler_with_kafka(
         *,
         dry_run: bool = False,
         correlation_id: UUID | None = None,
-        topic_env_prefix: str = "",
     ) -> Any:
         """Wrapper that provides dependencies to check_and_promote_patterns."""
         return await check_and_promote_patterns(
@@ -948,7 +947,6 @@ async def promotion_handler_with_kafka(
             producer=e2e_kafka_publisher,
             dry_run=dry_run,
             correlation_id=correlation_id,
-            topic_env_prefix=topic_env_prefix,
         )
 
     yield _handle
@@ -979,7 +977,6 @@ async def demotion_handler_with_kafka(
         *,
         dry_run: bool = False,
         correlation_id: UUID | None = None,
-        topic_env_prefix: str = "",
     ) -> Any:
         """Wrapper that provides dependencies to check_and_demote_patterns."""
         return await check_and_demote_patterns(
@@ -987,7 +984,6 @@ async def demotion_handler_with_kafka(
             producer=e2e_kafka_publisher,
             dry_run=dry_run,
             correlation_id=correlation_id,
-            topic_env_prefix=topic_env_prefix,
         )
 
     yield _handle

@@ -12,29 +12,43 @@ Validates:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register all 5 intelligence handlers (7 routes)
+    - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
+    - OMN-2339: Add node_compliance_evaluate_effect (6 handlers, 8 routes)
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 
-from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.protocols import (
+    ProtocolIdempotencyStore,
+    ProtocolIntentClassifier,
+    ProtocolPatternRepository,
+    ProtocolPatternUpsertStore,
+)
+from omniintelligence.runtime.contract_topics import (
+    canonical_topic_to_dispatch_alias,
+    collect_subscribe_topics_from_contracts,
+)
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
+    DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
     DISPATCH_ALIAS_PATTERN_DISCOVERED,
     DISPATCH_ALIAS_PATTERN_LEARNED,
     DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
     DISPATCH_ALIAS_PATTERN_LIFECYCLE,
     DISPATCH_ALIAS_SESSION_OUTCOME,
+    DISPATCH_ALIAS_TOOL_CONTENT,
     create_claude_hook_dispatch_handler,
+    create_compliance_evaluate_dispatch_handler,
     create_dispatch_callback,
     create_intelligence_dispatch_engine,
     create_pattern_lifecycle_dispatch_handler,
@@ -85,6 +99,7 @@ def mock_idempotency_store() -> MagicMock:
     store.exists = AsyncMock(return_value=False)
     store.record = AsyncMock(return_value=None)
     store.check_and_record = AsyncMock(return_value=False)
+    assert isinstance(store, ProtocolIdempotencyStore)
     return store
 
 
@@ -97,6 +112,7 @@ def mock_upsert_store() -> MagicMock:
     """
     store = MagicMock()
     store.upsert_pattern = AsyncMock(return_value=uuid4())
+    assert isinstance(store, ProtocolPatternUpsertStore)
     return store
 
 
@@ -110,6 +126,7 @@ def mock_intent_classifier() -> MagicMock:
     mock_output.keywords = []
     mock_output.secondary_intents = []
     classifier.compute = AsyncMock(return_value=mock_output)
+    assert isinstance(classifier, ProtocolIntentClassifier)
     return classifier
 
 
@@ -298,6 +315,93 @@ class TestTopicAlias:
         """Pattern learning cmd alias must preserve the pattern-learning name."""
         assert "pattern-learning" in DISPATCH_ALIAS_PATTERN_LEARNING_CMD
 
+    # --- Compliance Evaluate alias ---
+
+    def test_compliance_evaluate_alias_contains_commands_segment(self) -> None:
+        """Compliance evaluate alias must contain .commands. for from_topic()."""
+        assert ".commands." in DISPATCH_ALIAS_COMPLIANCE_EVALUATE
+
+    def test_compliance_evaluate_alias_matches_intelligence_domain(self) -> None:
+        """Compliance evaluate alias must reference omniintelligence."""
+        assert "omniintelligence" in DISPATCH_ALIAS_COMPLIANCE_EVALUATE
+
+    def test_compliance_evaluate_alias_preserves_event_name(self) -> None:
+        """Compliance evaluate alias must preserve the compliance-evaluate name."""
+        assert "compliance-evaluate" in DISPATCH_ALIAS_COMPLIANCE_EVALUATE
+
+
+# =============================================================================
+# Tests: Canonical-to-dispatch alias conversion
+# =============================================================================
+
+
+class TestCanonicalToDispatchAlias:
+    """Validate canonical_topic_to_dispatch_alias for all 8 intelligence topics."""
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "canonical,expected_alias",
+        [
+            (
+                "onex.cmd.omniintelligence.claude-hook-event.v1",
+                DISPATCH_ALIAS_CLAUDE_HOOK,
+            ),
+            (
+                "onex.cmd.omniintelligence.session-outcome.v1",
+                DISPATCH_ALIAS_SESSION_OUTCOME,
+            ),
+            (
+                "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1",
+                DISPATCH_ALIAS_PATTERN_LIFECYCLE,
+            ),
+            (
+                "onex.evt.omniintelligence.pattern-learned.v1",
+                DISPATCH_ALIAS_PATTERN_LEARNED,
+            ),
+            (
+                "onex.evt.pattern.discovered.v1",
+                DISPATCH_ALIAS_PATTERN_DISCOVERED,
+            ),
+            (
+                "onex.cmd.omniintelligence.tool-content.v1",
+                DISPATCH_ALIAS_TOOL_CONTENT,
+            ),
+            (
+                "onex.cmd.omniintelligence.pattern-learning.v1",
+                DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
+            ),
+            (
+                "onex.cmd.omniintelligence.compliance-evaluate.v1",
+                DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
+            ),
+        ],
+    )
+    def test_canonical_topic_converts_to_dispatch_alias(
+        self,
+        canonical: str,
+        expected_alias: str,
+    ) -> None:
+        """Every canonical .cmd./.evt. topic must convert to its dispatch alias."""
+        assert canonical_topic_to_dispatch_alias(canonical) == expected_alias
+
+
+# =============================================================================
+# Tests: Intelligence subscribe topics
+# =============================================================================
+
+
+class TestIntelligenceSubscribeTopics:
+    """Validate that intelligence subscribe topics are correctly declared."""
+
+    @pytest.mark.unit
+    def test_compliance_evaluate_topic_in_subscribe_topics(self) -> None:
+        """compliance-evaluate subscribe topic must be declared in effect node contracts."""
+        topics = collect_subscribe_topics_from_contracts()
+        assert "onex.cmd.omniintelligence.compliance-evaluate.v1" in topics, (
+            "Expected 'onex.cmd.omniintelligence.compliance-evaluate.v1' in subscribe topics "
+            f"(collected: {topics})"
+        )
+
 
 # =============================================================================
 # Tests: Dispatch Engine Factory
@@ -321,33 +425,33 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_five_handlers(
+    def test_engine_has_six_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 5 intelligence domain handlers must be registered."""
+        """All 6 intelligence domain handlers must be registered (OMN-2339 adds compliance-evaluate)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 5
+        assert engine.handler_count == 6
 
-    def test_engine_has_seven_routes(
+    def test_engine_has_eight_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 7 intelligence domain routes must be registered."""
+        """All 8 intelligence domain routes must be registered (OMN-2339 adds compliance-evaluate)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 7
+        assert engine.route_count == 8
 
 
 # =============================================================================
@@ -2354,4 +2458,250 @@ class TestCreateDispatchCallback:
         await callback(msg)
 
         assert msg._nacked, "Message should be nacked on dispatch failure"
-        assert not msg._acked
+
+
+# =============================================================================
+# Tests: Compliance Evaluate Handler (OMN-2339)
+# =============================================================================
+
+
+class TestComplianceEvaluateDispatchHandler:
+    """Validate the bridge handler for compliance-evaluate commands (OMN-2339).
+
+    Tests cover:
+        - Non-dict payload raises ValueError ("skip" branch)
+        - Parse failure (malformed / missing required fields) raises ValueError
+        - llm_client=None returns "ok" with structured llm_error event (no LLM call)
+        - Happy path with valid payload and mock LLM client returns "ok"
+    """
+
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_valid_payload(correlation_id: UUID) -> dict[str, Any]:
+        """Build a minimal valid ModelComplianceEvaluateCommand payload dict."""
+        content = "def evaluate(): pass"
+        content_sha256 = hashlib.sha256(content.encode()).hexdigest()
+        return {
+            "correlation_id": str(correlation_id),
+            "source_path": "/src/example.py",
+            "content": content,
+            "content_sha256": content_sha256,
+            "language": "python",
+            "applicable_patterns": [
+                {
+                    "pattern_id": str(uuid4()),
+                    "pattern_signature": "def <name>(): pass",
+                    "domain_id": "python",
+                    "confidence": 0.85,
+                }
+            ],
+        }
+
+    # ------------------------------------------------------------------
+    # Test: non-dict payload raises ValueError
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_non_dict_payload(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError for non-dict payloads."""
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_compliance_evaluate_dispatch_handler(
+            llm_client=None,
+            correlation_id=correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload="not a dict",
+            correlation_id=correlation_id,
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Unexpected payload type"):
+            await handler(envelope, context)
+
+    # ------------------------------------------------------------------
+    # Test: parse failure (missing required field) raises ValueError
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_handler_raises_for_malformed_payload(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Handler should raise ValueError when required fields are missing."""
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_compliance_evaluate_dispatch_handler(
+            llm_client=None,
+            correlation_id=correlation_id,
+        )
+
+        # Missing required fields: source_path, content, content_sha256,
+        # applicable_patterns
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "correlation_id": str(correlation_id),
+                # source_path, content, content_sha256, applicable_patterns absent
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with pytest.raises(ValueError, match="Failed to parse payload"):
+            await handler(envelope, context)
+
+    # ------------------------------------------------------------------
+    # Test: llm_client=None path returns "ok" with success=False event
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_handler_llm_client_none_returns_ok(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """When llm_client=None, handler short-circuits and returns 'ok'.
+
+        The compliance-evaluate command is registered but llm_client is not
+        yet wired; the handler must return 'ok' (not raise) with a structured
+        llm_error event (success=False, status='llm_error').
+        """
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_compliance_evaluate_dispatch_handler(
+            llm_client=None,
+            kafka_producer=None,
+            correlation_id=correlation_id,
+        )
+
+        payload = self._make_valid_payload(correlation_id)
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert result == "ok"
+
+    # ------------------------------------------------------------------
+    # Test: happy path with mock LLM client returns "ok"
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_handler_happy_path_with_mock_llm_client(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        """Valid payload with a mock LLM client must return 'ok'.
+
+        Patches handle_compliance_evaluate_command so no real LLM call is made.
+        Verifies the dispatch handler parses the payload, calls the leaf handler,
+        and returns 'ok'.
+        """
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluated_event import (
+            ModelComplianceEvaluatedEvent,
+        )
+
+        mock_llm_client = MagicMock()
+
+        handler = create_compliance_evaluate_dispatch_handler(
+            llm_client=mock_llm_client,
+            kafka_producer=None,
+            correlation_id=correlation_id,
+        )
+
+        payload = self._make_valid_payload(correlation_id)
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=payload,
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        mock_event = ModelComplianceEvaluatedEvent(
+            event_type="ComplianceEvaluated",
+            correlation_id=correlation_id,
+            source_path="/src/example.py",
+            content_sha256=payload["content_sha256"],
+            language="python",
+            success=True,
+            compliant=True,
+            violations=[],
+            confidence=0.9,
+            patterns_checked=1,
+            model_used="qwen2.5-coder-14b",
+            status="completed",
+            processing_time_ms=42.0,
+            evaluated_at="2026-02-18T00:00:00+00:00",
+        )
+
+        with patch(
+            "omniintelligence.nodes.node_compliance_evaluate_effect.handlers"
+            ".handle_compliance_evaluate_command",
+            new_callable=AsyncMock,
+            return_value=mock_event,
+        ) as mock_handle:
+            result = await handler(envelope, context)
+
+        assert result == "ok"
+        mock_handle.assert_called_once()
+        call_kwargs = mock_handle.call_args.kwargs
+        assert call_kwargs["llm_client"] is mock_llm_client

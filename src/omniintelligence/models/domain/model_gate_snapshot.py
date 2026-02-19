@@ -13,21 +13,14 @@ Evidence Tier Fields (OMN-2133):
     (denormalized column, attribution binder is sole writer).
 """
 
-from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.models.domain.enum_run_result import EnumRunResult
+
 # Valid evidence tier values matching EnumEvidenceTier
 EvidenceTierLiteral = Literal["unmeasured", "observed", "measured", "verified"]
-
-
-class EnumRunResult(StrEnum):
-    """Valid pipeline run result values."""
-
-    SUCCESS = "success"
-    PARTIAL = "partial"
-    FAILURE = "failure"
 
 
 class ModelGateSnapshot(BaseModel):
@@ -77,4 +70,4 @@ class ModelGateSnapshot(BaseModel):
     )
 
 
-__all__ = ["EnumRunResult", "ModelGateSnapshot"]
+__all__ = ["EvidenceTierLiteral", "ModelGateSnapshot"]

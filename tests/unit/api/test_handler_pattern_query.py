@@ -17,10 +17,8 @@ import pytest
 from fastapi import HTTPException
 
 from omniintelligence.api.handler_pattern_query import handle_query_patterns
-from omniintelligence.api.models_pattern_query import (
-    ModelPatternQueryPage,
-    ModelPatternQueryResponse,
-)
+from omniintelligence.api.model_pattern_query_page import ModelPatternQueryPage
+from omniintelligence.api.model_pattern_query_response import ModelPatternQueryResponse
 
 
 @pytest.fixture

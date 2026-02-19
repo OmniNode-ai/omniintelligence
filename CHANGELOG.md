@@ -5,6 +5,43 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-02-19
+
+### Added
+
+- **Compliance evaluation effect** (`NodeComplianceEvaluateEffect`) — consumes
+  `compliance-evaluate` events and processes ONEX compliance evaluation
+  results. (OMN-2339, #124)
+- **Gated intelligence introspection publishing** — intelligence introspection
+  events are now published only to the designated container, preventing
+  unintended broadcast to other consumers. (OMN-2342, #123)
+
+### Changed
+
+- **Bump omnibase_core** ^0.17.0 → ^0.18.0
+- **Bump omnibase_infra** ^0.7.0 → ^0.8.0
+- **Bump omnibase_spi** ^0.8.0 → ^0.10.0
+
+## [0.3.0] - 2026-02-18
+
+### Added
+
+- **Enforcement feedback loop** (`NodeEnforcementFeedbackEffect`) — consumes
+  `onex.evt.omniclaude.pattern-enforcement.v1` events and applies conservative
+  `-0.01` quality score adjustments per confirmed violation (requires both
+  `was_advised=True` and `was_corrected=True`). 50 confirmed violations to drop
+  from 1.0 to 0.5. Per-violation error isolation prevents one DB failure from
+  blocking others. (OMN-2270, #120)
+
+### Fixed
+
+- **Remove hardcoded `topic_env_prefix`** from promotion and demotion effect
+  nodes — all Kafka topics now use canonical constants directly
+  (`TOPIC_PATTERN_LIFECYCLE_CMD_V1`) instead of runtime f-string concatenation
+  with a hardcoded `"dev"` prefix. Fixes broken constant reference where
+  `TOPIC_SUFFIX_PATTERN_LIFECYCLE_CMD_V1` was renamed but usages were not
+  updated. (#121)
+
 ## [0.2.1] - 2026-02-16
 
 ### Changed
@@ -191,6 +228,8 @@ hook processing as a kernel domain plugin.
 - `omnibase_spi` ^0.9.0
 - Python >=3.12
 
+[0.4.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.1.0...v0.1.1

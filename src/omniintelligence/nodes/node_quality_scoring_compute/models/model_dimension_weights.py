@@ -1,0 +1,87 @@
+"""Dimension weights model for quality scoring configuration."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, Field, model_validator
+
+
+class ModelDimensionWeights(BaseModel):
+    """Configurable weights for quality scoring dimensions.
+
+    Weights control the relative importance of each quality dimension
+    in the overall score calculation. All weights must sum to 1.0
+    (within tolerance of 0.99-1.01).
+
+    Default weights follow the six-dimension standard:
+        - complexity (0.20): Cyclomatic complexity scoring
+        - maintainability (0.20): Code structure and naming
+        - documentation (0.15): Docstring and comment coverage
+        - temporal_relevance (0.15): Code freshness indicators
+        - patterns (0.15): ONEX pattern adherence
+        - architectural (0.15): Module organization and structure
+    """
+
+    complexity: float = Field(
+        default=0.20,
+        ge=0.0,
+        le=1.0,
+        description="Weight for complexity scoring (inverted - lower complexity is better)",
+    )
+    maintainability: float = Field(
+        default=0.20,
+        ge=0.0,
+        le=1.0,
+        description="Weight for code maintainability scoring",
+    )
+    documentation: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for documentation coverage scoring",
+    )
+    temporal_relevance: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for temporal relevance scoring - code freshness and staleness",
+    )
+    patterns: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for ONEX pattern adherence scoring",
+    )
+    architectural: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for architectural compliance scoring",
+    )
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+    @model_validator(mode="after")
+    def validate_weights_sum_to_one(self) -> ModelDimensionWeights:
+        """Ensure all dimension weights sum to 1.0 within tolerance."""
+        total = (
+            self.complexity
+            + self.maintainability
+            + self.documentation
+            + self.temporal_relevance
+            + self.patterns
+            + self.architectural
+        )
+        if not (0.99 <= total <= 1.01):
+            raise ValueError(
+                f"Dimension weights must sum to 1.0 (got {total:.4f}). "
+                f"Current weights: complexity={self.complexity}, "
+                f"maintainability={self.maintainability}, "
+                f"documentation={self.documentation}, "
+                f"temporal_relevance={self.temporal_relevance}, "
+                f"patterns={self.patterns}, "
+                f"architectural={self.architectural}"
+            )
+        return self
+
+
+__all__ = ["ModelDimensionWeights"]

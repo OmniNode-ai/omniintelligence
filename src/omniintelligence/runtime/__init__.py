@@ -37,17 +37,17 @@ Note:
     - Protocol definitions (belong in omnibase_spi)
 """
 
-from omniintelligence.runtime.model_runtime_config import (
-    # Enums (ONEX compliant - Enum prefix)
-    EnumHandlerType,
-    EnumLogLevel,
-    # ONEX-compliant Model* prefixed classes
-    ModelEventBusConfig,
-    ModelHandlerConfig,
+from omniintelligence.runtime.enum_handler_type import EnumHandlerType
+from omniintelligence.runtime.enum_log_level import EnumLogLevel
+from omniintelligence.runtime.model_event_bus_config import ModelEventBusConfig
+from omniintelligence.runtime.model_handler_config import ModelHandlerConfig
+from omniintelligence.runtime.model_intelligence_runtime_config import (
     ModelIntelligenceRuntimeConfig,
-    ModelRuntimeProfileConfig,
-    ModelTopicConfig,
 )
+from omniintelligence.runtime.model_runtime_profile_config import (
+    ModelRuntimeProfileConfig,
+)
+from omniintelligence.runtime.model_topic_config import ModelTopicConfig
 from omniintelligence.runtime.plugin import PluginIntelligence
 
 __all__ = [

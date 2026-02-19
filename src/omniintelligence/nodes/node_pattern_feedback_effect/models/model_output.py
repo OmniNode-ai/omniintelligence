@@ -5,26 +5,13 @@ representing the results of recording session outcomes.
 """
 
 from datetime import datetime
-from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class EnumOutcomeRecordingStatus(str, Enum):
-    """Status of the outcome recording operation.
-
-    Attributes:
-        SUCCESS: Outcome was successfully recorded and patterns updated.
-        NO_INJECTIONS_FOUND: No pattern injections found for the session.
-        ALREADY_RECORDED: Outcome was already recorded for this session.
-        ERROR: An error occurred during recording.
-    """
-
-    SUCCESS = "success"
-    NO_INJECTIONS_FOUND = "no_injections_found"
-    ALREADY_RECORDED = "already_recorded"
-    ERROR = "error"
+from omniintelligence.nodes.node_pattern_feedback_effect.models.enum_outcome_recording_status import (
+    EnumOutcomeRecordingStatus,
+)
 
 
 class ModelSessionOutcomeResult(BaseModel):
@@ -78,3 +65,6 @@ class ModelSessionOutcomeResult(BaseModel):
         default=None,
         description="Error message if status=ERROR",
     )
+
+
+__all__ = ["ModelSessionOutcomeResult"]
