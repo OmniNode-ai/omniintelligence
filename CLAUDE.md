@@ -34,7 +34,7 @@ These are non-negotiable architectural truths. Violations cause production issue
 |-----------|-----------|
 | **No backwards compatibility** — schemas, APIs, and interfaces may change without deprecation periods | This repo has no external consumers |
 | Node classes must be **thin shells** (<100 lines) | Declarative pattern; logic belongs in handlers |
-| Effect nodes must **never block** on Kafka | Kafka is required infrastructure; use async/non-blocking patterns only |
+| Effect nodes must **never block** on Kafka | Async-only — never await synchronously in the calling thread; nodes must remain non-blocking |
 | All event schemas are **frozen** (`frozen=True`) | Events are immutable after emission |
 | Handlers must **return structured errors**, not raise | Domain errors are data, not exceptions |
 | `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
