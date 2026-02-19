@@ -158,6 +158,8 @@ async def handle_compliance_evaluate_command(
                     f"computed={computed_sha256}"
                 ),
                 original_topic=publish_topic,
+                original_envelope=command.model_dump(mode="json"),
+                retry_count=0,
             )
         return error_event
 
@@ -341,6 +343,8 @@ async def _publish_event(
             source_path=event.source_path,
             error_message=sanitized_error,
             original_topic=publish_topic,
+            original_envelope=payload,
+            retry_count=0,
         )
 
 
@@ -351,6 +355,8 @@ async def _route_to_dlq(
     source_path: str,
     error_message: str,
     original_topic: str,
+    original_envelope: dict[str, object] | None = None,
+    retry_count: int = 0,
 ) -> None:
     """Route a failed event publish to the Dead Letter Queue.
 
@@ -362,6 +368,10 @@ async def _route_to_dlq(
         source_path: Source file path (sanitized externally).
         error_message: Error from the failed publish (already sanitized).
         original_topic: The topic that failed.
+        original_envelope: Original Kafka message payload for replay by DLQ consumers.
+            Defaults to an empty dict when not provided.
+        retry_count: Number of delivery attempts already made (for exponential
+            backoff by DLQ consumers). Defaults to 0.
     """
     try:
         sanitizer = get_log_sanitizer()
@@ -373,6 +383,8 @@ async def _route_to_dlq(
             "error_timestamp": datetime.now(UTC).isoformat(),
             "service": "omniintelligence",
             "node": "node_compliance_evaluate_effect",
+            "original_envelope": original_envelope or {},
+            "retry_count": retry_count,
         }
         await producer.publish(
             topic=DLQ_TOPIC,

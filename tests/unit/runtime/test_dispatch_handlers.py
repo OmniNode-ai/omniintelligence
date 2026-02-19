@@ -28,7 +28,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.protocols import (
+    ProtocolIdempotencyStore,
+    ProtocolIntentClassifier,
+    ProtocolPatternRepository,
+    ProtocolPatternUpsertStore,
+)
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
     collect_subscribe_topics_from_contracts,
@@ -94,6 +99,7 @@ def mock_idempotency_store() -> MagicMock:
     store.exists = AsyncMock(return_value=False)
     store.record = AsyncMock(return_value=None)
     store.check_and_record = AsyncMock(return_value=False)
+    assert isinstance(store, ProtocolIdempotencyStore)
     return store
 
 
@@ -106,6 +112,7 @@ def mock_upsert_store() -> MagicMock:
     """
     store = MagicMock()
     store.upsert_pattern = AsyncMock(return_value=uuid4())
+    assert isinstance(store, ProtocolPatternUpsertStore)
     return store
 
 
@@ -119,6 +126,7 @@ def mock_intent_classifier() -> MagicMock:
     mock_output.keywords = []
     mock_output.secondary_intents = []
     classifier.compute = AsyncMock(return_value=mock_output)
+    assert isinstance(classifier, ProtocolIntentClassifier)
     return classifier
 
 
