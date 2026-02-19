@@ -303,48 +303,45 @@ workflow_coordination:
 
 ## Current Node Inventory
 
-**Total Nodes**: 21
+**Total Nodes**: 18
 
-### Pure Shell Nodes (3)
+### Orchestrators (2)
 
-| Node | Type | Status | Notes |
-|------|------|--------|-------|
-| `vectorization_compute` | Compute | Shell | Ready for handler extraction |
-| `intelligence_orchestrator` | Orchestrator | Shell | Workflow routing via contract |
-| `intelligence_reducer` | Reducer | Shell | FSM via contract |
+| Node | Directory | Purpose |
+|------|-----------|---------|
+| `NodeIntelligenceOrchestrator` | `node_intelligence_orchestrator` | Main workflow coordination (contract-driven) |
+| `NodePatternAssemblerOrchestrator` | `node_pattern_assembler_orchestrator` | Pattern assembly from execution traces |
 
-### Stub Nodes (16)
+### Reducer (1)
 
-| Node | Type | Tracking Issue | Notes |
-|------|------|----------------|-------|
-| `entity_extraction_compute` | Compute | [#4](https://github.com/OmniNode-ai/omniintelligence/issues/4) | Entity extraction from code |
-| `context_keyword_extractor_compute` | Compute | - | Keyword extraction |
-| `execution_trace_parser_compute` | Compute | - | Parse execution traces |
-| `intent_classifier_compute` | Compute | - | Classify user intents |
-| `pattern_learning_compute` | Compute | - | Pattern learning pipeline |
-| `pattern_matching_compute` | Compute | - | Pattern matching |
-| `quality_scoring_compute` | Compute | - | Code quality scoring |
-| `relationship_detection_compute` | Compute | - | Relationship detection |
-| `semantic_analysis_compute` | Compute | - | Semantic analysis |
-| `success_criteria_matcher_compute` | Compute | - | Match success criteria |
-| `ingestion_effect` | Effect | [#1](https://github.com/OmniNode-ai/omniintelligence/issues/1) | Document ingestion |
-| `intelligence_api_effect` | Effect | - | Intelligence API calls |
-| `memgraph_graph_effect` | Effect | - | Memgraph operations |
-| `postgres_pattern_effect` | Effect | - | PostgreSQL pattern storage |
-| `qdrant_vector_effect` | Effect | [#12](https://github.com/OmniNode-ai/omniintelligence/issues/12) | Qdrant vector operations |
-| `pattern_assembler_orchestrator` | Orchestrator | - | Pattern assembly workflow |
+| Node | Directory | Purpose |
+|------|-----------|---------|
+| `NodeIntelligenceReducer` | `node_intelligence_reducer` | Unified FSM handler (ingestion, pattern_learning, quality_assessment) |
 
-### Needs Handler Extraction (1)
+### Compute Nodes (8)
 
-| Node | Type | Lines | Notes |
-|------|------|-------|-------|
-| `intelligence_adapter` | Effect | 2,205 | Large monolithic node, partial handler extraction started |
+| Node | Directory | Purpose |
+|------|-----------|---------|
+| `NodeQualityScoringCompute` | `node_quality_scoring_compute` | Code quality scoring with ONEX compliance |
+| `NodeSemanticAnalysisCompute` | `node_semantic_analysis_compute` | Semantic code analysis |
+| `NodePatternExtractionCompute` | `node_pattern_extraction_compute` | Extract patterns from code |
+| `NodePatternLearningCompute` | `node_pattern_learning_compute` | ML pattern learning pipeline |
+| `NodePatternMatchingCompute` | `node_pattern_matching_compute` | Match patterns against code |
+| `NodeIntentClassifierCompute` | `node_intent_classifier_compute` | User prompt intent classification |
+| `NodeExecutionTraceParserCompute` | `node_execution_trace_parser_compute` | Parse execution traces |
+| `NodeSuccessCriteriaMatcherCompute` | `node_success_criteria_matcher_compute` | Match success criteria |
 
-### Contract-Only (No node.py) (1)
+### Effect Nodes (7)
 
-| Node | Type | Notes |
-|------|------|-------|
-| `pattern_assembler_compute` | Compute | Has contract.yaml and models.py, no node implementation |
+| Node | Directory | Purpose | Has `node.py` |
+|------|-----------|---------|---------------|
+| `NodeClaudeHookEventEffect` | `node_claude_hook_event_effect` | Process Claude Code hook events | Yes |
+| `NodePatternStorageEffect` | `node_pattern_storage_effect` | Persist patterns to PostgreSQL | Yes |
+| `NodePatternPromotionEffect` | `node_pattern_promotion_effect` | Promote patterns (provisional → validated) | Yes |
+| `NodePatternDemotionEffect` | `node_pattern_demotion_effect` | Demote patterns (validated → deprecated) | Yes |
+| `NodePatternFeedbackEffect` | `node_pattern_feedback_effect` | Record session outcomes and metrics | Yes |
+| `NodePatternLifecycleEffect` | `node_pattern_lifecycle_effect` | Atomic lifecycle transitions with audit trail | Yes |
+| `NodePatternLearningEffect` | `node_pattern_learning_effect` | Pattern extraction pipeline (contract-only node) | No |
 
 ---
 
