@@ -13,10 +13,8 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from omniintelligence.api.models_pattern_query import (
-    ModelPatternQueryPage,
-    ModelPatternQueryResponse,
-)
+from omniintelligence.api.model_pattern_query_page import ModelPatternQueryPage
+from omniintelligence.api.model_pattern_query_response import ModelPatternQueryResponse
 
 
 @pytest.mark.unit

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from omniintelligence.nodes.node_semantic_analysis_compute.models.enums import (
+from omniintelligence.nodes.node_semantic_analysis_compute.models.enum_semantic_entity_type import (
     EnumSemanticEntityType,
 )
 

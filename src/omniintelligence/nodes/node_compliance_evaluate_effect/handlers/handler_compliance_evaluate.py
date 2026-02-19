@@ -35,11 +35,13 @@ from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID
 
-from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_command import (
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluate_command import (
     ModelComplianceEvaluateCommand,
 )
-from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluated_event import (
     ModelComplianceEvaluatedEvent,
+)
+from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_violation_payload import (
     ModelComplianceViolationPayload,
 )
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute import (
@@ -49,8 +51,10 @@ from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_comp
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ProtocolLlmClient,
 )
-from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_applicable_pattern import (
     ModelApplicablePattern,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelComplianceRequest,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher

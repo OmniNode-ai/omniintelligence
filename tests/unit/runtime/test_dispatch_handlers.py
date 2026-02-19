@@ -2651,7 +2651,7 @@ class TestComplianceEvaluateDispatchHandler:
             ModelEventEnvelope,
         )
 
-        from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (
+        from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluated_event import (
             ModelComplianceEvaluatedEvent,
         )
 

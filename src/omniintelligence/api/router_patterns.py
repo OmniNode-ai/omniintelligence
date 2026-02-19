@@ -20,7 +20,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from omniintelligence.api.handler_pattern_query import handle_query_patterns
-from omniintelligence.api.models_pattern_query import ModelPatternQueryPage
+from omniintelligence.api.model_pattern_query_page import ModelPatternQueryPage
 from omniintelligence.repositories.adapter_pattern_store import AdapterPatternStore
 
 

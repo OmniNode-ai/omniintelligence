@@ -1,7 +1,9 @@
 """Models for Semantic Analysis Compute Node."""
 
-from omniintelligence.nodes.node_semantic_analysis_compute.models.enums import (
+from omniintelligence.nodes.node_semantic_analysis_compute.models.enum_semantic_entity_type import (
     EnumSemanticEntityType,
+)
+from omniintelligence.nodes.node_semantic_analysis_compute.models.enum_semantic_relation_type import (
     EnumSemanticRelationType,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_analysis_input import (

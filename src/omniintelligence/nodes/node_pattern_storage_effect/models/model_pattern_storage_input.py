@@ -22,47 +22,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_state import (
     PatternStorageGovernance,
 )
-
-
-class ModelPatternStorageMetadata(BaseModel):
-    """Metadata for pattern storage operations.
-
-    Captures contextual information about the pattern including its
-    source, learning context, and any additional attributes.
-
-    Attributes:
-        source_run_id: ID of the run that produced this pattern.
-        actor: Identifier of the entity that created/learned the pattern.
-        learning_context: Context in which the pattern was learned.
-        tags: Optional tags for categorization.
-        additional_attributes: Extra metadata as key-value pairs.
-    """
-
-    model_config = ConfigDict(
-        frozen=True,
-        extra="forbid",
-    )
-
-    source_run_id: str | None = Field(
-        default=None,
-        description="ID of the run that produced this pattern",
-    )
-    actor: str | None = Field(
-        default=None,
-        description="Identifier of the entity that created/learned the pattern",
-    )
-    learning_context: str | None = Field(
-        default=None,
-        description="Context in which the pattern was learned",
-    )
-    tags: list[str] = Field(
-        default_factory=list,
-        description="Optional tags for categorization",
-    )
-    additional_attributes: dict[str, str] = Field(
-        default_factory=dict,
-        description="Extra metadata as key-value pairs (string values only)",
-    )
+from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_storage_metadata import (
+    ModelPatternStorageMetadata,
+)
 
 
 class ModelPatternStorageInput(BaseModel):
@@ -85,16 +47,6 @@ class ModelPatternStorageInput(BaseModel):
         version: Version number for pattern lineage (defaults to 1).
         metadata: Additional metadata about the pattern.
         learned_at: Timestamp when the pattern was learned.
-
-    Example:
-        >>> input_model = ModelPatternStorageInput(
-        ...     pattern_id=uuid4(),
-        ...     signature="def.*return.*None",
-        ...     signature_hash="abc123def456",
-        ...     domain="code_patterns",
-        ...     confidence=0.85,
-        ...     correlation_id=uuid4(),
-        ... )
     """
 
     model_config = ConfigDict(
@@ -148,20 +100,7 @@ class ModelPatternStorageInput(BaseModel):
     @field_validator("confidence")
     @classmethod
     def validate_confidence_threshold(cls, v: float) -> float:
-        """Validate confidence meets minimum governance threshold.
-
-        NOTE: This validator intentionally duplicates the Pydantic `ge` constraint
-        on the confidence field. The duplication serves governance purposes:
-        1. Provides explicit, governance-specific error messages for audit trails
-        2. Makes the governance rule visible at validation layer (not just schema)
-        3. Ensures consistent error messaging across all validation contexts
-
-        The MIN_CONFIDENCE threshold is a governance constant that cannot
-        be overridden. This ensures all stored patterns meet quality standards.
-
-        Raises:
-            ValueError: If confidence is below MIN_CONFIDENCE threshold.
-        """
+        """Validate confidence meets minimum governance threshold."""
         if v < PatternStorageGovernance.MIN_CONFIDENCE:
             msg = (
                 f"Confidence {v} is below minimum threshold "
@@ -172,14 +111,7 @@ class ModelPatternStorageInput(BaseModel):
 
     @property
     def lineage_key(self) -> tuple[str, str]:
-        """Return the lineage key for this pattern.
-
-        The lineage key (domain, signature_hash) uniquely identifies
-        a pattern lineage for deduplication and version tracking.
-
-        Returns:
-            Tuple of (domain, signature_hash) as the lineage key.
-        """
+        """Return the lineage key for this pattern."""
         return (self.domain, self.signature_hash)
 
 

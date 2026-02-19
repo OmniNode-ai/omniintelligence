@@ -1353,7 +1353,7 @@ def create_compliance_evaluate_dispatch_handler(
         # the LLM call overhead. Update both sites if the error response schema changes.
         safe_source_path = get_log_sanitizer().sanitize(command.source_path)
         if llm_client is None:
-            from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_event import (
+            from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluated_event import (
                 ModelComplianceEvaluatedEvent,
             )
 

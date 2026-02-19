@@ -1,13 +1,4 @@
-"""Output model for Quality Scoring Compute.
-
-This module provides type-safe output models for quality scoring operations.
-All models use strong typing to eliminate dict[str, Any].
-
-ONEX Compliance:
-    - Strong typing for all fields
-    - Frozen immutable models
-    - No dict[str, Any] usage
-"""
+"""Output model for Quality Scoring Compute."""
 
 from __future__ import annotations
 
@@ -16,50 +7,9 @@ from pydantic import BaseModel, Field, field_validator
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.protocols import (
     DimensionScores,
 )
-
-
-class ModelQualityScoringMetadata(BaseModel):
-    """Typed metadata for quality scoring output.
-
-    This model provides structured metadata about the scoring operation,
-    eliminating the need for dict[str, Any].
-
-    Attributes:
-        status: Current status of the scoring operation (e.g., 'completed', 'stub', 'error').
-        message: Human-readable message about the scoring result.
-        tracking_url: URL for tracking stub implementation progress (for stub nodes).
-        source_language: Programming language of the scored content.
-        analysis_version: Version of the analysis algorithm used.
-        processing_time_ms: Time taken to process the scoring in milliseconds.
-    """
-
-    status: str = Field(
-        default="completed",
-        description="Status of the scoring operation (e.g., 'completed', 'stub', 'error')",
-    )
-    message: str | None = Field(
-        default=None,
-        description="Human-readable message about the scoring result",
-    )
-    tracking_url: str | None = Field(
-        default=None,
-        description="URL for tracking stub implementation progress (for stub nodes)",
-    )
-    source_language: str | None = Field(
-        default=None,
-        description="Programming language of the scored content",
-    )
-    analysis_version: str | None = Field(
-        default=None,
-        description="Version of the analysis algorithm used",
-    )
-    processing_time_ms: float | None = Field(
-        default=None,
-        ge=0.0,
-        description="Time taken to process the scoring in milliseconds",
-    )
-
-    model_config = {"frozen": True, "extra": "forbid"}
+from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_metadata import (
+    ModelQualityScoringMetadata,
+)
 
 
 class ModelQualityScoringOutput(BaseModel):
@@ -90,18 +40,7 @@ class ModelQualityScoringOutput(BaseModel):
     def validate_dimension_scores(
         cls, v: DimensionScores | dict[str, float]
     ) -> DimensionScores | dict[str, float]:
-        """Validate dimension scores are within range and contain expected keys.
-
-        The six-dimension standard requires:
-            - complexity: Cyclomatic complexity score
-            - maintainability: Code structure and naming score
-            - documentation: Docstring and comment coverage score
-            - temporal_relevance: Code freshness score
-            - patterns: ONEX pattern adherence score
-            - architectural: Module organization score
-
-        All scores must be between 0.0 and 1.0.
-        """
+        """Validate dimension scores are within range and contain expected keys."""
         expected_dimensions = {
             "complexity",
             "maintainability",
@@ -111,7 +50,6 @@ class ModelQualityScoringOutput(BaseModel):
             "architectural",
         }
 
-        # Check for missing or extra dimensions (only if dimensions are provided)
         if v:
             actual_dimensions = set(v.keys())
             missing = expected_dimensions - actual_dimensions
@@ -124,7 +62,6 @@ class ModelQualityScoringOutput(BaseModel):
                     f"Expected six-dimension standard: {sorted(expected_dimensions)}"
                 )
 
-        # Validate score ranges
         for dimension_name, score in v.items():
             score_val = float(score)  # type: ignore[arg-type]
             if not 0.0 <= score_val <= 1.0:
@@ -150,4 +87,4 @@ class ModelQualityScoringOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelQualityScoringMetadata", "ModelQualityScoringOutput"]
+__all__ = ["ModelQualityScoringOutput"]

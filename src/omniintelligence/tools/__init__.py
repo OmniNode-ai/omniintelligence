@@ -14,16 +14,22 @@ __all__: list[str] = []
 try:
     from omniintelligence.tools.contract_linter import (
         ContractLinter,
-        ModelContractValidationError,
-        ModelContractValidationResult,
         main,
         validate_contract,
         validate_contracts_batch,
+    )
+    from omniintelligence.tools.enum_contract_error_type import EnumContractErrorType
+    from omniintelligence.tools.model_contract_validation_error import (
+        ModelContractValidationError,
+    )
+    from omniintelligence.tools.model_contract_validation_result import (
+        ModelContractValidationResult,
     )
 
     __all__.extend(
         [
             "ContractLinter",
+            "EnumContractErrorType",
             "ModelContractValidationError",
             "ModelContractValidationResult",
             "main",
