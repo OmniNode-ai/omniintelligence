@@ -458,10 +458,11 @@ async def check_and_promote_patterns(
                 )
                 promotion_results.append(failed_result)
                 continue
-            # Invariant check AFTER try/except — AssertionError will propagate, not be caught
-            assert result.promoted_at is not None, (
-                "promote_pattern contract violated: promoted_at must be set on success"
-            )
+            # Invariant check AFTER try/except — cannot be compiled away by -O flag
+            if result.promoted_at is None:
+                raise RuntimeError(
+                    "promote_pattern contract violated: promoted_at must be set on success path"
+                )
             promotion_results.append(result)
 
     # Count results where promoted_at is set (i.e. the Kafka emit succeeded).

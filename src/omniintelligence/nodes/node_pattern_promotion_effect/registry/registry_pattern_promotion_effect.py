@@ -9,9 +9,8 @@ Architecture:
     The registry follows ONEX container-based dependency injection:
     - Creates handlers with explicit dependencies (no setters)
     - Uses static factory pattern for registry creation
-    - Dependencies are validated by the type system; no runtime None check is performed
-    - A None dependency passed at construction time (e.g., via cast()) will not raise
-      immediately; the failure manifests when the handler first accesses the dependency
+    - Dependencies are validated at construction time via isinstance checks against
+      the runtime-checkable protocols
     - Returns a frozen registry that cannot be modified
 
 Kafka Requirement:
@@ -68,14 +67,15 @@ from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type al
     Any,
 )
 
+from omniintelligence.protocols import (
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
+
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_promotion_effect.models import (
         ModelPromotionCheckRequest,
         ModelPromotionCheckResult,
-    )
-    from omniintelligence.protocols import (
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
     )
 
 logger = logging.getLogger(__name__)
@@ -137,7 +137,8 @@ class RegistryPatternPromotionEffect:
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
-    - Dependencies are validated by the type system; no runtime None check is performed
+    - Dependencies are validated at construction time via isinstance checks against
+      the runtime-checkable protocols
     - No setter methods - dependencies are injected via factory
     - Registry is frozen after creation
 
@@ -173,6 +174,18 @@ class RegistryPatternPromotionEffect:
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.
         """
+        # Validate dependencies at construction time — type annotations are
+        # insufficient because a None (or wrong type) passed via cast() would
+        # only fail deep inside promote_pattern, far from the callsite.
+        if not isinstance(repository, ProtocolPatternRepository):
+            raise TypeError(
+                f"repository must implement ProtocolPatternRepository, got {type(repository).__name__}"
+            )
+        if not isinstance(producer, ProtocolKafkaPublisher):
+            raise TypeError(
+                f"producer must implement ProtocolKafkaPublisher, got {type(producer).__name__}"
+            )
+
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
             check_and_promote_patterns,
