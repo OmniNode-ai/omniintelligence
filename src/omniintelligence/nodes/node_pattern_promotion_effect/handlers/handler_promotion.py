@@ -320,33 +320,9 @@ async def check_and_promote_patterns(
     )
 
     # Step 1: Fetch all provisional patterns
-    # Wrap the fetch in a try/except so a broken repository dependency (e.g.
-    # None passed at construction) returns a structured error result rather
-    # than propagating an AttributeError to the caller.
-    try:
-        patterns = await repository.fetch(SQL_FETCH_PROVISIONAL_PATTERNS)
-    except (
-        AttributeError,
-        TypeError,
-    ) as exc:  # AttributeError/TypeError only — catches None repository (isinstance-bypassed). Other exceptions propagate to caller.
-        sanitized_err = get_log_sanitizer().sanitize(str(exc))
-        logger.error(
-            "Failed to fetch provisional patterns — returning empty result",
-            extra={
-                "correlation_id": str(correlation_id) if correlation_id else None,
-                "error": sanitized_err,
-                "error_type": type(exc).__name__,
-            },
-            exc_info=True,
-        )
-        return ModelPromotionCheckResult(
-            dry_run=dry_run,
-            patterns_checked=0,
-            patterns_eligible=0,
-            patterns_promoted=[],
-            correlation_id=correlation_id,
-            error_message=f"{type(exc).__name__}: {sanitized_err}",
-        )
+    # Repository validity is guaranteed by the isinstance guards in create_registry;
+    # any errors here are real infrastructure failures and must propagate to the caller.
+    patterns = await repository.fetch(SQL_FETCH_PROVISIONAL_PATTERNS)
 
     logger.debug(
         "Fetched provisional patterns",

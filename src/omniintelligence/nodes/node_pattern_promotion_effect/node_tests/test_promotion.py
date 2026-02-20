@@ -1498,6 +1498,21 @@ class TestRegistryPatternPromotionEffectSmoke:
                 producer=mock_producer,
             )
 
+    def test_create_registry_with_wrong_type_producer_raises_at_construction(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Passing a concrete wrong type (not None) for producer raises TypeError via isinstance guard.
+
+        This verifies the guard rejects any object that does not implement
+        ProtocolKafkaPublisher — not just None — at construction time.
+        """
+        with pytest.raises(TypeError, match="must implement"):
+            RegistryPatternPromotionEffect.create_registry(
+                repository=mock_repository,
+                producer="not-a-publisher",  # type: ignore[arg-type]
+            )
+
 
 # =============================================================================
 # Test Class: Result Model Validation
