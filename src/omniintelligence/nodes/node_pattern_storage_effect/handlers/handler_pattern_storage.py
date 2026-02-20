@@ -82,6 +82,10 @@ ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
 ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
 ERROR_CODE_STORAGE_ERROR: Final[str] = "STORAGE_ERROR"
+# PATSTOR_001 is declared in contract.yaml (PatternStorageError) but has no active
+# emission path — the only previous emitter (pattern_store is None guard) was removed
+# when pattern_store became a required constructor parameter.
+ERROR_CODE_PATSTOR_001: Final[str] = "PATSTOR_001"
 ERROR_CODE_PATSTOR_002: Final[str] = "PATSTOR_002"
 ERROR_CODE_PATSTOR_003: Final[str] = "PATSTOR_003"
 
@@ -244,7 +248,6 @@ class PatternStorageRouter:
             "Routing storage operation",
             extra={
                 "operation": operation,
-                "has_pattern_store": self._pattern_store is not None,
                 "has_state_manager": self._state_manager is not None,
             },
         )
@@ -520,16 +523,14 @@ class PatternStorageRouter:
             )
 
         except ValueError as e:
+            _corr_id = input_data.get("correlation_id")
+            _pat_id = input_data.get("pattern_id")
             logger.warning(
                 "Promote pattern validation failed",
                 extra={
                     "error": str(e),
-                    "correlation_id": str(input_data.get("correlation_id"))
-                    if input_data.get("correlation_id") is not None
-                    else None,
-                    "pattern_id": str(input_data.get("pattern_id"))
-                    if input_data.get("pattern_id") is not None
-                    else None,
+                    "correlation_id": str(_corr_id) if _corr_id is not None else None,
+                    "pattern_id": str(_pat_id) if _pat_id is not None else None,
                 },
             )
             return StorageOperationResult(
@@ -650,6 +651,7 @@ __all__ = [
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
     "ERROR_CODE_STORAGE_ERROR",
+    "ERROR_CODE_PATSTOR_001",
     "ERROR_CODE_PATSTOR_002",
     "ERROR_CODE_PATSTOR_003",
     "ERROR_CODE_VALIDATION_ERROR",
