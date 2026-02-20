@@ -10,8 +10,16 @@ correlation_id, emitted_at) mixed alongside domain-specific payload keys.
 ModelClaudeCodeHookEvent expects a nested ``payload`` sub-dict, so the reshape
 function splits envelope keys from payload keys and returns the canonical shape.
 
+As of OMN-2423, only ``event_type`` is a hard required key (raises ValueError).
+All other envelope fields (``session_id``, ``correlation_id``, ``emitted_at``)
+use structured fallbacks to prevent NACK loops:
+    - session_id missing/null  → "unknown"
+    - correlation_id missing/null → generated uuid4()
+    - emitted_at missing/null  → datetime.now(UTC) as ISO string
+
 Related:
     - Bus audit project: daemon emits flat dicts, reshape bridges the gap
+    - OMN-2423: Fix dispatch_handlers reshape crash — NACK loop on omniclaude hook events
 """
 
 from __future__ import annotations
@@ -29,6 +37,7 @@ if TYPE_CHECKING:
 from omniintelligence.runtime.dispatch_handlers import (
     _MAX_DIAGNOSTIC_KEYS,
     _diagnostic_key_summary,
+    _is_permanent_dispatch_failure,
     _is_tool_content_payload,
     _needs_daemon_reshape,
     _reshape_daemon_hook_payload_v1,
@@ -166,25 +175,39 @@ class TestReshapeThenValidateIntoModel:
 
 @pytest.mark.unit
 class TestReshapeMissingRequiredKeys:
-    """Validate that missing required keys produce clear ValueError messages."""
+    """Validate fallback behaviour when optional envelope keys are absent.
 
-    def test_reshape_missing_emitted_at(
+    As of OMN-2423, only ``event_type`` is hard-required (raises ValueError).
+    All other envelope fields use structured fallbacks to prevent NACK loops.
+    V1 (OMN-2423): reshape handles missing correlation_id.
+    V2 (OMN-2423): reshape handles missing emitted_at with UTC fallback.
+    """
+
+    def test_reshape_missing_emitted_at_uses_utc_fallback(
         self, daemon_wire_payload: dict[str, Any]
     ) -> None:
-        """Payload missing emitted_at raises ValueError with key name and sorted keys."""
+        """Payload missing emitted_at produces a valid reshape with UTC now fallback.
+
+        V2 (OMN-2423): reshape handles missing emitted_at with UTC fallback.
+        """
         del daemon_wire_payload["emitted_at"]
 
-        with pytest.raises(ValueError, match="emitted_at") as exc_info:
-            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+        # Must NOT raise; should fall back to datetime.now(UTC)
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
 
-        # Error message must include sorted keys for diagnostics
-        error_msg = str(exc_info.value)
-        assert "keys=" in error_msg
+        # timestamp_utc must be present and non-null
+        assert "timestamp_utc" in reshaped
+        assert reshaped["timestamp_utc"] is not None
+
+        # Other fields must be preserved
+        assert reshaped["event_type"] == "UserPromptSubmit"
+        assert reshaped["session_id"] == "test-session-001"
+        assert reshaped["correlation_id"] == "12345678-1234-1234-1234-123456789abc"
 
     def test_reshape_missing_event_type(
         self, daemon_wire_payload: dict[str, Any]
     ) -> None:
-        """Payload missing event_type raises ValueError with key name and sorted keys."""
+        """Payload missing event_type raises ValueError (only hard-required field)."""
         del daemon_wire_payload["event_type"]
 
         with pytest.raises(ValueError, match="event_type") as exc_info:
@@ -193,33 +216,44 @@ class TestReshapeMissingRequiredKeys:
         error_msg = str(exc_info.value)
         assert "keys=" in error_msg
 
-    def test_reshape_missing_session_id(
+    def test_reshape_missing_session_id_uses_unknown_fallback(
         self, daemon_wire_payload: dict[str, Any]
     ) -> None:
-        """Payload missing session_id raises ValueError with key name and sorted keys."""
+        """Payload missing session_id produces a valid reshape with 'unknown' fallback.
+
+        V1 (OMN-2423): reshape handles missing session_id.
+        """
         del daemon_wire_payload["session_id"]
 
-        with pytest.raises(ValueError, match="session_id") as exc_info:
-            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+        # Must NOT raise; should fall back to "unknown"
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
 
-        error_msg = str(exc_info.value)
-        assert "keys=" in error_msg
+        assert reshaped["session_id"] == "unknown"
+        assert reshaped["event_type"] == "UserPromptSubmit"
 
-    def test_reshape_missing_correlation_id(
+    def test_reshape_missing_correlation_id_generates_uuid(
         self, daemon_wire_payload: dict[str, Any]
     ) -> None:
-        """Payload missing correlation_id raises ValueError with key name and sorted keys."""
+        """Payload missing correlation_id produces a valid reshape with generated UUID.
+
+        V1 (OMN-2423): reshape handles missing correlation_id.
+        """
         del daemon_wire_payload["correlation_id"]
 
-        with pytest.raises(ValueError, match="correlation_id") as exc_info:
-            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+        # Must NOT raise; should generate a new UUID
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
 
-        error_msg = str(exc_info.value)
-        assert "keys=" in error_msg
+        assert "correlation_id" in reshaped
+        # Generated value must be a non-empty string (UUID format)
+        assert isinstance(reshaped["correlation_id"], str)
+        assert len(reshaped["correlation_id"]) == 36  # UUID string length
+        assert reshaped["event_type"] == "UserPromptSubmit"
 
-    def test_reshape_empty_payload(self) -> None:
-        """An empty dict raises ValueError for the first missing required key."""
-        with pytest.raises(ValueError, match="missing required key") as exc_info:
+    def test_reshape_empty_payload_raises_for_event_type(self) -> None:
+        """An empty dict raises ValueError because event_type is the hard-required field."""
+        with pytest.raises(
+            ValueError, match="missing required key 'event_type'"
+        ) as exc_info:
             _reshape_daemon_hook_payload_v1({})
 
         # Error message should include the empty keys list for diagnostics
@@ -234,58 +268,70 @@ class TestReshapeMissingRequiredKeys:
 
 @pytest.mark.unit
 class TestReshapeNullRequiredKeys:
-    """Validate that null values for required keys produce clear ValueError messages.
+    """Validate fallback behaviour when optional envelope keys have null values.
 
-    This exercises the second validation branch in _reshape_daemon_hook_payload_v1:
-    the key IS present in the dict but its value is None.  This is distinct from
-    the 'missing key' branch tested by TestReshapeMissingRequiredKeys.
+    As of OMN-2423, only ``event_type=None`` raises ValueError.  All other
+    null values use structured fallbacks to prevent NACK loops:
+    - session_id=None  → "unknown"
+    - correlation_id=None → generated uuid4()
+    - emitted_at=None  → datetime.now(UTC) as ISO string
     """
 
-    def test_reshape_null_event_type(self, daemon_wire_payload: dict[str, Any]) -> None:
-        """Payload with event_type=None raises ValueError with 'null value' message."""
+    def test_reshape_null_event_type_raises(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload with event_type=None raises ValueError (only hard-required field)."""
         daemon_wire_payload["event_type"] = None
 
-        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+        with pytest.raises(
+            ValueError, match="missing required key 'event_type'"
+        ) as exc_info:
             _reshape_daemon_hook_payload_v1(daemon_wire_payload)
 
         error_msg = str(exc_info.value)
         assert "event_type" in error_msg
         assert "keys=" in error_msg
 
-    def test_reshape_null_session_id(self, daemon_wire_payload: dict[str, Any]) -> None:
-        """Payload with session_id=None raises ValueError with 'null value' message."""
-        daemon_wire_payload["session_id"] = None
-
-        with pytest.raises(ValueError, match="null value for required key") as exc_info:
-            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
-
-        error_msg = str(exc_info.value)
-        assert "session_id" in error_msg
-        assert "keys=" in error_msg
-
-    def test_reshape_null_correlation_id(
+    def test_reshape_null_session_id_uses_unknown_fallback(
         self, daemon_wire_payload: dict[str, Any]
     ) -> None:
-        """Payload with correlation_id=None raises ValueError with 'null value' message."""
+        """Payload with session_id=None uses 'unknown' fallback instead of raising."""
+        daemon_wire_payload["session_id"] = None
+
+        # Must NOT raise
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+
+        assert reshaped["session_id"] == "unknown"
+        assert reshaped["event_type"] == "UserPromptSubmit"
+
+    def test_reshape_null_correlation_id_generates_uuid(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload with correlation_id=None generates a UUID fallback instead of raising."""
         daemon_wire_payload["correlation_id"] = None
 
-        with pytest.raises(ValueError, match="null value for required key") as exc_info:
-            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+        # Must NOT raise
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
 
-        error_msg = str(exc_info.value)
-        assert "correlation_id" in error_msg
-        assert "keys=" in error_msg
+        assert "correlation_id" in reshaped
+        assert isinstance(reshaped["correlation_id"], str)
+        assert len(reshaped["correlation_id"]) == 36  # UUID string length
 
-    def test_reshape_null_emitted_at(self, daemon_wire_payload: dict[str, Any]) -> None:
-        """Payload with emitted_at=None raises ValueError with 'null value' message."""
+    def test_reshape_null_emitted_at_uses_utc_fallback(
+        self, daemon_wire_payload: dict[str, Any]
+    ) -> None:
+        """Payload with emitted_at=None uses UTC now fallback instead of raising.
+
+        V2 (OMN-2423): reshape handles null emitted_at with UTC fallback.
+        """
         daemon_wire_payload["emitted_at"] = None
 
-        with pytest.raises(ValueError, match="null value for required key") as exc_info:
-            _reshape_daemon_hook_payload_v1(daemon_wire_payload)
+        # Must NOT raise
+        reshaped = _reshape_daemon_hook_payload_v1(daemon_wire_payload)
 
-        error_msg = str(exc_info.value)
-        assert "emitted_at" in error_msg
-        assert "keys=" in error_msg
+        assert "timestamp_utc" in reshaped
+        assert reshaped["timestamp_utc"] is not None
+        assert reshaped["event_type"] == "UserPromptSubmit"
 
 
 # =============================================================================
@@ -502,19 +548,21 @@ class TestDiagnosticKeyTruncation:
                 f"Key {key!r} beyond truncation limit should not appear in error message"
             )
 
-    def test_truncation_indicator_in_null_value_error_message(self) -> None:
-        """Payload with >_MAX_DIAGNOSTIC_KEYS keys and a null required key.
+    def test_truncation_indicator_in_null_event_type_error_message(self) -> None:
+        """Payload with >_MAX_DIAGNOSTIC_KEYS keys and event_type=None.
 
-        Builds a flat daemon payload with all four required keys present,
-        but sets ``event_type`` to None to trigger the null-value error
-        path.  Adds enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS so
-        the diagnostic key summary is truncated.  The error message must
-        contain the ``'...'`` truncation indicator and the 'null value'
-        phrasing (distinct from 'missing required key').
+        Builds a flat daemon payload with all other required keys present,
+        but sets ``event_type`` to None to trigger the error path.  Adds
+        enough extra keys to exceed _MAX_DIAGNOSTIC_KEYS so the diagnostic
+        key summary is truncated.  The error message must contain the
+        ``'...'`` truncation indicator and mention 'event_type'.
+
+        As of OMN-2423, the error message says 'missing required key' for
+        both absent and null event_type (unified check).
         """
         total_keys = _MAX_DIAGNOSTIC_KEYS + 5  # 15 keys total
         payload: dict[str, Any] = {
-            # All four required keys present, but event_type is null
+            # All keys present, but event_type is null
             "emitted_at": "2026-02-15T10:30:00+00:00",
             "session_id": "test-session-001",
             "correlation_id": "12345678-1234-1234-1234-123456789abc",
@@ -528,7 +576,7 @@ class TestDiagnosticKeyTruncation:
             f"Test setup error: need >{_MAX_DIAGNOSTIC_KEYS} keys, got {len(payload)}"
         )
 
-        with pytest.raises(ValueError, match="null value for required key") as exc_info:
+        with pytest.raises(ValueError, match="event_type") as exc_info:
             _reshape_daemon_hook_payload_v1(payload)
 
         error_msg = str(exc_info.value)
@@ -1094,3 +1142,207 @@ class TestDispatchHandlerToolContentWiring:
             assert isinstance(event, ModelClaudeCodeHookEvent)
             assert event.event_type.value == "UserPromptSubmit"
             assert event.session_id == "test-session-canonical"
+
+
+# =============================================================================
+# Tests: OMN-2423 — Permanent Failure Classification (V4 verification)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestIsPermanentDispatchFailure:
+    """Validate _is_permanent_dispatch_failure correctly classifies error messages.
+
+    V4 (OMN-2423): No infinite NACK loop on malformed payload (dead-letter or
+    discard).  Permanent failures are ACK'd; transient failures are NACK'd.
+    """
+
+    def test_reshape_failure_marker_is_permanent(self) -> None:
+        """'Permanent reshape failure' in error message is classified as permanent."""
+        assert _is_permanent_dispatch_failure(
+            "Handler 'x' failed: ValueError: Permanent reshape failure for claude-hook-event"
+        )
+
+    def test_parse_failure_marker_is_permanent(self) -> None:
+        """'Failed to parse payload' marker is classified as permanent."""
+        assert _is_permanent_dispatch_failure(
+            "Failed to parse payload as ModelClaudeCodeHookEvent: validation error"
+        )
+
+    def test_unexpected_payload_type_marker_is_permanent(self) -> None:
+        """'Unexpected payload type' marker is classified as permanent."""
+        assert _is_permanent_dispatch_failure(
+            "Unexpected payload type NoneType for claude-hook-event"
+        )
+
+    def test_missing_event_type_marker_is_permanent(self) -> None:
+        """'Daemon payload missing required key event_type' is permanent."""
+        assert _is_permanent_dispatch_failure(
+            "Daemon payload missing required key 'event_type' (keys=['session_id'])"
+        )
+
+    def test_db_error_is_not_permanent(self) -> None:
+        """A database connection error is NOT a permanent failure."""
+        assert not _is_permanent_dispatch_failure(
+            "Handler 'x' failed: asyncpg.exceptions.TooManyConnectionsError: too many clients"
+        )
+
+    def test_generic_error_is_not_permanent(self) -> None:
+        """A generic runtime error is NOT a permanent failure."""
+        assert not _is_permanent_dispatch_failure("RuntimeError: something went wrong")
+
+    def test_empty_error_message_is_not_permanent(self) -> None:
+        """An empty error message is NOT classified as permanent."""
+        assert not _is_permanent_dispatch_failure("")
+
+    def test_network_error_is_not_permanent(self) -> None:
+        """A Kafka network error is NOT a permanent failure."""
+        assert not _is_permanent_dispatch_failure(
+            "KafkaConnectionError: Broker not available"
+        )
+
+
+# =============================================================================
+# Tests: OMN-2423 — NACK loop prevention (V1 + V2 end-to-end verification)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestNACKLoopPrevention:
+    """End-to-end verification that missing envelope fields don't cause NACK loops.
+
+    V1 (OMN-2423): reshape handles missing correlation_id.
+    V2 (OMN-2423): reshape handles missing emitted_at with UTC fallback.
+
+    These tests prove that when omniclaude sends a hook event where the Kafka
+    consumer strips session_id and/or correlation_id from the envelope payload,
+    the reshape pipeline still produces a valid ModelClaudeCodeHookEvent rather
+    than raising ValueError (which caused infinite NACK loops).
+    """
+
+    @pytest.mark.asyncio
+    async def test_missing_correlation_id_does_not_raise(self) -> None:
+        """V1: Daemon payload with missing correlation_id reshapes without ValueError.
+
+        Simulates the scenario where _reconstruct_payload_from_envelope cannot
+        recover correlation_id from the envelope (because ModelEventEnvelope
+        absorbed it but did not set it on the payload dict).
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import ModelEffectContext
+        from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+        # Daemon payload that reaches _handle WITHOUT correlation_id
+        # (stripped by envelope deserialization and not recoverable from metadata)
+        daemon_payload_no_corr_id: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "session_id": "test-session-nack-v1",
+            "emitted_at": "2026-02-20T12:00:00+00:00",
+            "prompt_preview": "Fix the NACK loop",
+        }
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+        test_correlation_id = UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=test_correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=daemon_payload_no_corr_id,
+            correlation_id=test_correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+        context = ModelEffectContext(
+            correlation_id=test_correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000010"),
+        )
+
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "UserPromptSubmit"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers.route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            # Must NOT raise ValueError — that was the bug causing NACK loops
+            result = await handler(envelope, context)
+
+            assert result == "ok"
+            mock_route.assert_called_once()
+
+            event = mock_route.call_args.kwargs["event"]
+            assert event.event_type.value == "UserPromptSubmit"
+            assert event.session_id == "test-session-nack-v1"
+
+    @pytest.mark.asyncio
+    async def test_missing_emitted_at_and_session_id_does_not_raise(self) -> None:
+        """V2: Daemon payload with missing emitted_at and session_id reshapes without ValueError.
+
+        Simulates the worst-case envelope stripping scenario where both
+        session_id (not an envelope field) and emitted_at are unavailable.
+        The reshape must fall back to UTC now and 'unknown' respectively.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import ModelEffectContext
+        from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+        # Minimal daemon payload with only event_type surviving stripping
+        minimal_daemon_payload: dict[str, Any] = {
+            "event_type": "Stop",
+            "emitted_at": "2026-02-20T12:00:00+00:00",
+            # session_id and correlation_id absent (stripped by envelope deserializer)
+        }
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+        test_correlation_id = UUID("bbbbbbbb-cccc-dddd-eeee-ffffffffffff")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=test_correlation_id,
+        )
+
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=minimal_daemon_payload,
+            correlation_id=test_correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+        context = ModelEffectContext(
+            correlation_id=test_correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000011"),
+        )
+
+        mock_result = MagicMock()
+        mock_result.status = "success"
+        mock_result.event_type = "Stop"
+
+        with patch(
+            "omniintelligence.nodes.node_claude_hook_event_effect.handlers.route_hook_event",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_route:
+            # Must NOT raise ValueError — that was the bug causing NACK loops
+            result = await handler(envelope, context)
+
+            assert result == "ok"
+            mock_route.assert_called_once()
+
+            event = mock_route.call_args.kwargs["event"]
+            assert event.event_type.value == "Stop"
+            # session_id falls back to "unknown"
+            assert event.session_id == "unknown"
