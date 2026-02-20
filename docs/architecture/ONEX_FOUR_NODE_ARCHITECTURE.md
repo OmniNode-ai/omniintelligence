@@ -109,24 +109,26 @@ PostgreSQL (via AdapterPatternStore / PostgresRepositoryRuntime)
 ### Pattern Lifecycle Pipeline
 
 ```
-{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
-    |
-    v
-NodePatternLifecycleEffect
-    |
-    +-- CANDIDATE -> PROVISIONAL
-    +-- PROVISIONAL -> VALIDATED  (NodePatternPromotionEffect)
-    +-- VALIDATED -> DEPRECATED   (NodePatternDemotionEffect)
-    |
-    v
-PostgreSQL (atomic transition with audit trail)
-Kafka (conditionally emits: {env}.onex.evt.omniintelligence.pattern-promoted/deprecated.v1)
+NodePatternPromotionEffect --publishes--> {env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1
+NodePatternDemotionEffect  --publishes-->                       |
+                                                                |
+                                                                v
+                                                NodePatternLifecycleEffect
+                                                (subscribes; applies all transitions atomically)
+                                                    |
+                                                    +-- CANDIDATE -> PROVISIONAL
+                                                    +-- PROVISIONAL -> VALIDATED
+                                                    +-- VALIDATED -> DEPRECATED
+                                                    |
+                                                    v
+                                                PostgreSQL (atomic transition with audit trail)
+                                                Kafka (conditionally emits: pattern-promoted/deprecated.v1)
 ```
 
 ### Intelligence Orchestration Pipeline
 
 ```
-Kafka (code-analysis / document-ingestion / quality-assessment commands)
+Kafka (code-analysis / document-ingestion / pattern-learning / quality-assessment commands)
     |
     v
 NodeIntelligenceOrchestrator

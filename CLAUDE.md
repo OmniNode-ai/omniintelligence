@@ -321,7 +321,7 @@ src/omniintelligence/
 | `SessionEnd` | `handle_no_op()` | DEFERRED |
 | `PreToolUse` | `handle_no_op()` | DEFERRED |
 | `PostToolUse` | `handle_no_op()` | DEFERRED |
-| `Stop` | `handle_no_op()` | DEFERRED |
+| `Stop` | `handle_stop()` | **ACTIVE** — triggers pattern extraction, emits to `pattern-learning.v1` |
 | `Notification` | `handle_no_op()` | IGNORED |
 
 ---
