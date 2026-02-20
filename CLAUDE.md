@@ -416,13 +416,21 @@ omnimemory (Graph Storage)
 - `kind=cmd` for commands/inputs
 - `kind=evt` for events/outputs
 
-| Topic | Direction | Purpose |
-|-------|-----------|---------|
-| `onex.cmd.omniintelligence.claude-hook-event.v1` | Input | Claude Code hooks |
-| `onex.evt.omniintelligence.intent-classified.v1` | Output | Classified intents |
-| `onex.evt.omniintelligence.pattern-stored.v1` | Output | Pattern storage confirmations |
-| `onex.evt.omniintelligence.pattern-promoted.v1` | Output | Pattern promotions |
-| `onex.evt.omniintelligence.pattern-deprecated.v1` | Output | Pattern demotions |
+**Subscribed Topics** (consumed by this system):
+
+| Topic | Subscriber Node | Purpose |
+|-------|----------------|---------|
+| `onex.cmd.omniintelligence.claude-hook-event.v1` | `NodeClaudeHookEventEffect` | Claude Code hooks |
+| `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` | Pattern lifecycle transition intents from reducer |
+
+**Published Topics** (produced by this system):
+
+| Topic | Publisher Node | Purpose |
+|-------|---------------|---------|
+| `onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` | Classified intents |
+| `onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` | Pattern storage confirmations |
+| `onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternPromotionEffect` | Pattern promotions |
+| `onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` | Pattern demotions |
 
 ### DLQ (Dead Letter Queue) Pattern
 
