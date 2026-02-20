@@ -1476,22 +1476,23 @@ class TestRegistryPatternPromotionEffectSmoke:
         )
 
         with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
-            registry.check_and_promote = lambda _: None  # type: ignore[method-assign]
+            registry.check_and_promote = lambda _: None  # type: ignore[misc]
 
     @pytest.mark.asyncio
     async def test_create_registry_with_none_producer_fails_at_use_time(
         self,
         mock_repository: MockPatternRepository,
     ) -> None:
-        """Passing None as producer binds silently but fails on first use.
+        """Passing None as producer binds silently but fails at use time with a structured error result, not a raised exception.
 
         This documents the runtime behavior honestly: create_registry accepts
         None (bypassing mypy with cast) without raising. The AttributeError
-        only surfaces when the handler actually calls producer.publish().
+        from ``producer.publish()`` is swallowed by the per-pattern exception
+        handler in ``check_and_promote_patterns``, which returns a structured
+        result with the failure recorded rather than re-raising.
 
         Note: None-argument rejection is enforced at the type level (mypy
-        strict); no runtime guard exists. Runtime misuse manifests on first
-        call, not at registry creation.
+        strict); no runtime guard exists.
         """
         registry = RegistryPatternPromotionEffect.create_registry(
             repository=mock_repository,
@@ -1519,25 +1520,28 @@ class TestRegistryPatternPromotionEffectSmoke:
 
         request = ModelPromotionCheckRequest(dry_run=False)
 
-        # Failure manifests at call time, not at registry creation
-        with pytest.raises((AttributeError, TypeError)):
-            await registry.check_and_promote(request)
+        # Failure is recorded as a structured result — no exception raised
+        result = await registry.check_and_promote(request)
+        assert result.patterns_failed > 0
+        assert (
+            sum(1 for r in result.patterns_promoted if r.promoted_at is not None) == 0
+        )
 
     @pytest.mark.asyncio
     async def test_create_registry_with_none_repository_fails_at_use_time(
         self,
         mock_producer: MockKafkaPublisher,
     ) -> None:
-        """Passing None as repository binds silently but fails on first use.
+        """Passing None as repository binds silently but fails at use time with a structured error result, not a raised exception.
 
         This documents the runtime behavior symmetrically with the None-producer
         test: create_registry accepts None (bypassing mypy with cast) without
-        raising. The AttributeError only surfaces when the handler actually calls
-        repository.fetch().
+        raising. The AttributeError from ``repository.fetch()`` is caught by
+        the top-level fetch guard in ``check_and_promote_patterns``, which
+        returns a structured result with an error_message rather than re-raising.
 
         Note: None-argument rejection is enforced at the type level (mypy
-        strict); no runtime guard exists. Runtime misuse manifests on first
-        call, not at registry creation.
+        strict); no runtime guard exists.
         """
         registry = RegistryPatternPromotionEffect.create_registry(
             repository=cast(ProtocolPatternRepository, None),
@@ -1554,9 +1558,11 @@ class TestRegistryPatternPromotionEffectSmoke:
 
         request = ModelPromotionCheckRequest(dry_run=False)
 
-        # Failure manifests at call time, not at registry creation
-        with pytest.raises((AttributeError, TypeError)):
-            await registry.check_and_promote(request)
+        # Failure is recorded as a structured result — no exception raised
+        result = await registry.check_and_promote(request)
+        assert result.patterns_failed == 0  # fetch failed before any pattern loop
+        assert result.patterns_promoted == []
+        assert result.error_message is not None
 
 
 # =============================================================================

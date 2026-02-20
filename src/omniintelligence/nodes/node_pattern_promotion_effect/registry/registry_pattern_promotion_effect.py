@@ -165,15 +165,8 @@ class RegistryPatternPromotionEffect:
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
-                Passing None bypasses mypy (via cast) without raising at
-                construction time; the AttributeError surfaces on the first
-                call that invokes repository.fetch() — identical late-failure
-                behaviour to passing None as producer.
             producer: Kafka producer implementing ProtocolKafkaPublisher. Required
                 infrastructure — Kafka is the only promotion path.
-                Passing None bypasses mypy (via cast) without raising at
-                construction time; the AttributeError surfaces on the first
-                call that invokes producer.publish().
 
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.

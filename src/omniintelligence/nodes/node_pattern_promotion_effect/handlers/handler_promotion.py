@@ -320,7 +320,30 @@ async def check_and_promote_patterns(
     )
 
     # Step 1: Fetch all provisional patterns
-    patterns = await repository.fetch(SQL_FETCH_PROVISIONAL_PATTERNS)
+    # Wrap the fetch in a try/except so a broken repository dependency (e.g.
+    # None passed at construction) returns a structured error result rather
+    # than propagating an AttributeError to the caller.
+    try:
+        patterns = await repository.fetch(SQL_FETCH_PROVISIONAL_PATTERNS)
+    except Exception as exc:
+        sanitized_err = get_log_sanitizer().sanitize(str(exc))
+        logger.error(
+            "Failed to fetch provisional patterns — returning empty result",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "error": sanitized_err,
+                "error_type": type(exc).__name__,
+            },
+            exc_info=True,
+        )
+        return ModelPromotionCheckResult(
+            dry_run=dry_run,
+            patterns_checked=0,
+            patterns_eligible=0,
+            patterns_promoted=[],
+            correlation_id=correlation_id,
+            error_message=f"{type(exc).__name__}: {sanitized_err}",
+        )
 
     logger.debug(
         "Fetched provisional patterns",
@@ -370,7 +393,12 @@ async def check_and_promote_patterns(
     )
 
     # Step 3: Promote eligible patterns (if not dry_run)
-    # Each pattern is processed independently - one failure does not block others
+    # Each pattern is processed independently - one failure does not block others.
+    #
+    # Note: The no-op path (skipped_noop_count) was removed. Pattern status is
+    # checked asynchronously downstream by the reducer; this handler emits
+    # lifecycle events optimistically. There is no synchronous "already promoted"
+    # detection in the Kafka-only path.
     promotion_results: list[ModelPromotionResult] = []
     failed_count: int = 0
 
