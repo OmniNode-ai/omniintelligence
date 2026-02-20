@@ -428,6 +428,11 @@ async def check_and_promote_patterns(
                     pattern_data=pattern,
                     correlation_id=correlation_id,
                 )
+                # Invariant: promote_pattern must set promoted_at on success (raises on
+                # failure, so a None here means a silent no-return code path was added).
+                assert result.promoted_at is not None, (
+                    "promote_pattern contract violated: promoted_at must be set on success"
+                )
                 promotion_results.append(result)
 
             except Exception as exc:

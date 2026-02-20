@@ -1496,7 +1496,9 @@ class TestRegistryPatternPromotionEffectSmoke:
         """
         registry = RegistryPatternPromotionEffect.create_registry(
             repository=mock_repository,
-            producer=cast(ProtocolKafkaPublisher, None),
+            producer=cast(
+                ProtocolKafkaPublisher, None
+            ),  # cast used intentionally to bypass mypy for runtime behavior documentation — do not use cast(Protocol, None) in production code
         )
 
         # Registry creation succeeds silently — no error yet

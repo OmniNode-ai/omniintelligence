@@ -51,8 +51,8 @@ class ModelPromotionCheckResult(BaseModel):
         """Count of promotion attempts that failed (promoted_at is None, not dry_run).
 
         A failed entry is one where the promotion event could not be emitted
-        (e.g. Kafka producer unavailable) and was caught by the per-pattern
-        error handler in ``check_and_promote_patterns``.
+        (e.g. Kafka emit raised, caught by per-pattern exception handler) and
+        was caught by the per-pattern error handler in ``check_and_promote_patterns``.
         """
         return sum(
             1 for r in self.patterns_promoted if r.promoted_at is None and not r.dry_run
