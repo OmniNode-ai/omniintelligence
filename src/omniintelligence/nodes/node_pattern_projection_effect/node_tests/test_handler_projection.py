@@ -84,7 +84,7 @@ class TestSnapshotConstruction:
 
         # Pydantic frozen models raise ValidationError on direct attribute assignment
         with pytest.raises(ValidationError):
-            result.total_count = 999  # type: ignore[misc]
+            result.total_count = 999
 
     @pytest.mark.asyncio
     async def test_correlation_id_threaded_to_snapshot(

@@ -1912,7 +1912,7 @@ def create_intelligence_dispatch_engine(
         # via its query_patterns() method. Cast is safe — protocol is @runtime_checkable.
         _candidate = pattern_upsert_store if pattern_upsert_store is not None else None
         if _candidate is not None and isinstance(_candidate, ProtocolPatternQueryStore):
-            _projection_store = _candidate  # type: ignore[assignment]
+            _projection_store = _candidate
 
     if _projection_store is not None:
         pattern_projection_handler = create_pattern_projection_dispatch_handler(

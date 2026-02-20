@@ -627,7 +627,7 @@ class PluginIntelligence:
                 pattern_upsert_store=pattern_upsert_store,
                 # pattern_query_store: AdapterPatternStore implements ProtocolPatternQueryStore
                 # via query_patterns(). Pass it explicitly so the projection handler is wired.
-                pattern_query_store=pattern_upsert_store,  # type: ignore[arg-type]
+                pattern_query_store=pattern_upsert_store,
             )
 
             # Publish introspection events for all intelligence nodes
