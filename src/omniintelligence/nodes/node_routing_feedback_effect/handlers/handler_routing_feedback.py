@@ -275,6 +275,5 @@ async def _publish_processed_event(
 
 
 __all__ = [
-    "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "process_routing_feedback",
 ]

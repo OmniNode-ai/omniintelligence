@@ -145,6 +145,9 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
+    # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
+    # The topic name is dictated by the producer; this is an intentional cross-system
+    # exception to the convention that subscribe topics use 'cmd' kind.
     - "{env}.onex.evt.omniclaude.routing-feedback.v1"
 
   publish_topics:
