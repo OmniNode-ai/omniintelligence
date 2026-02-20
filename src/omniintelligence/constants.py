@@ -198,6 +198,12 @@ NodeRoutingFeedbackEffect publishes after a successful upsert to
 routing_feedback_scores. Consumers can use this to confirm that a routing
 feedback event was fully processed.
 
+NOTE: The contract.yaml ``publish_topics`` entry is prefixed with ``{env}.``
+(e.g. ``{env}.onex.evt.omniintelligence.routing-feedback-processed.v1``).
+This constant is intentionally bare — RuntimeHostProcess handles env
+substitution for subscriptions. Direct publishes (handler code) use this
+bare constant and RuntimeHostProcess injects the prefix at runtime.
+
 Reference: OMN-2366
 Deletion ticket: OMN-1546
 """

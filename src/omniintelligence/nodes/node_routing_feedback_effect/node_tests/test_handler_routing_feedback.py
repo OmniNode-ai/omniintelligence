@@ -589,6 +589,35 @@ class TestModelValidation:
         )
         assert event.stage == "session_end"
 
+    def test_extra_fields_are_silently_dropped(
+        self,
+        sample_correlation_id: UUID,
+    ) -> None:
+        """Unknown fields from omniclaude are silently ignored (extra='ignore').
+
+        omniclaude may add new fields to the routing.feedback event payload
+        before omniintelligence is updated. extra='ignore' prevents validation
+        errors and ensures forward-compatible deserialization.
+        """
+        event = ModelRoutingFeedbackEvent.model_validate(
+            {
+                "session_id": "test-session",
+                "correlation_id": str(sample_correlation_id),
+                "outcome": "success",
+                "emitted_at": "2026-02-20T12:00:00+00:00",
+                "unknown_future_field": "some_value",
+                "another_unknown_field": 42,
+            }
+        )
+
+        # Valid fields are present
+        assert event.session_id == "test-session"
+        assert event.outcome == "success"
+
+        # Unknown fields are not accessible on the model
+        assert not hasattr(event, "unknown_future_field")
+        assert not hasattr(event, "another_unknown_field")
+
 
 # =============================================================================
 # Test Class: Topic Names

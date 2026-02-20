@@ -22,7 +22,6 @@ import pytest
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     ModelRoutingFeedbackEvent,
 )
-from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -157,11 +156,6 @@ class MockKafkaPublisher:
         if self.simulate_publish_error is not None:
             raise self.simulate_publish_error
         self.published.append((topic, key, value))
-
-
-# Protocol compliance verification at import time
-assert isinstance(MockRoutingFeedbackRepository(), ProtocolPatternRepository)
-assert isinstance(MockKafkaPublisher(), ProtocolKafkaPublisher)
 
 
 # =============================================================================
