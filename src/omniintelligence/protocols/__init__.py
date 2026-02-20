@@ -11,8 +11,16 @@ Reference:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
+        ModelIntentClassificationInput,
+    )
+    from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_output import (
+        ModelIntentClassificationOutput,
+    )
 
 
 @runtime_checkable
@@ -177,8 +185,8 @@ class ProtocolIntentClassifier(Protocol):
     """
 
     async def compute(
-        self, input_data: Any
-    ) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
+        self, input_data: ModelIntentClassificationInput
+    ) -> ModelIntentClassificationOutput: ...
 
 
 __all__ = [

@@ -31,6 +31,7 @@ Reference:
 from __future__ import annotations
 
 import logging
+import threading
 from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,11 @@ if TYPE_CHECKING:
 
 __all__ = ["RegistryClaudeHookEventEffect"]
 
-# Module-level storage for handlers
+# Module-level storage for handlers, protected by a lock for thread safety.
+# Safe under CPython GIL but using an explicit lock ensures correctness under
+# uvloop and other alternative event loops where concurrent access is possible.
 _HANDLER_STORAGE: dict[str, object] = {}
+_HANDLER_STORAGE_LOCK: threading.Lock = threading.Lock()
 
 
 class RegistryClaudeHookEventEffect:
@@ -149,15 +153,16 @@ class RegistryClaudeHookEventEffect:
                 f"Got {type(handler).__name__}"
             )
 
-        # Warn if re-registering
-        if RegistryClaudeHookEventEffect._is_registered():
-            logger.warning(
-                "Re-registering handler '%s'. This may indicate container lifecycle "
-                "issues or missing clear() calls in tests.",
-                RegistryClaudeHookEventEffect.HANDLER_KEY,
-            )
+        with _HANDLER_STORAGE_LOCK:
+            # Warn if re-registering
+            if RegistryClaudeHookEventEffect.HANDLER_KEY in _HANDLER_STORAGE:
+                logger.warning(
+                    "Re-registering handler '%s'. This may indicate container lifecycle "
+                    "issues or missing clear() calls in tests.",
+                    RegistryClaudeHookEventEffect.HANDLER_KEY,
+                )
 
-        _HANDLER_STORAGE[RegistryClaudeHookEventEffect.HANDLER_KEY] = handler
+            _HANDLER_STORAGE[RegistryClaudeHookEventEffect.HANDLER_KEY] = handler
 
     @staticmethod
     def get_handler(
@@ -175,7 +180,8 @@ class RegistryClaudeHookEventEffect:
             HandlerClaudeHookEvent,
         )
 
-        result = _HANDLER_STORAGE.get(RegistryClaudeHookEventEffect.HANDLER_KEY)
+        with _HANDLER_STORAGE_LOCK:
+            result = _HANDLER_STORAGE.get(RegistryClaudeHookEventEffect.HANDLER_KEY)
         if result is not None and not isinstance(result, HandlerClaudeHookEvent):
             # Type safety: ensure we return the correct type
             logger.warning(
@@ -188,7 +194,8 @@ class RegistryClaudeHookEventEffect:
     @staticmethod
     def _is_registered() -> bool:
         """Check if a handler is already registered."""
-        return RegistryClaudeHookEventEffect.HANDLER_KEY in _HANDLER_STORAGE
+        with _HANDLER_STORAGE_LOCK:
+            return RegistryClaudeHookEventEffect.HANDLER_KEY in _HANDLER_STORAGE
 
     @staticmethod
     def clear() -> None:
@@ -205,4 +212,5 @@ class RegistryClaudeHookEventEffect:
                     yield
                     RegistryClaudeHookEventEffect.clear()
         """
-        _HANDLER_STORAGE.clear()
+        with _HANDLER_STORAGE_LOCK:
+            _HANDLER_STORAGE.clear()

@@ -22,9 +22,10 @@ Usage:
     )
 
     # Class-based usage (for dependency injection)
-    router = PatternStorageRouter()
-    router.set_pattern_store(store_impl)
-    router.set_state_manager(manager_impl)
+    router = PatternStorageRouter(
+        pattern_store=store_impl,
+        state_manager=manager_impl,
+    )
     result = await router.route(operation="store_pattern", input_data={...})
 
 Reference:
@@ -175,9 +176,10 @@ class PatternStorageRouter:
     and routes operations to the appropriate handlers.
 
     Usage:
-        router = PatternStorageRouter()
-        router.set_pattern_store(store_impl)
-        router.set_state_manager(manager_impl)
+        router = PatternStorageRouter(
+            pattern_store=store_impl,
+            state_manager=manager_impl,
+        )
 
         result = await router.route(
             operation="store_pattern",
@@ -189,26 +191,22 @@ class PatternStorageRouter:
         _state_manager: The state manager for promotion operations.
     """
 
-    def __init__(self) -> None:
-        """Initialize the router with no dependencies."""
-        self._pattern_store: ProtocolPatternStore | None = None
-        self._state_manager: ProtocolPatternStateManager | None = None
-
-    def set_pattern_store(self, store: ProtocolPatternStore) -> None:
-        """Set the pattern store for storage operations.
-
-        Args:
-            store: Pattern store implementing ProtocolPatternStore.
-        """
-        self._pattern_store = store
-
-    def set_state_manager(self, manager: ProtocolPatternStateManager) -> None:
-        """Set the state manager for promotion operations.
+    def __init__(
+        self,
+        *,
+        pattern_store: ProtocolPatternStore | None = None,
+        state_manager: ProtocolPatternStateManager | None = None,
+    ) -> None:
+        """Initialize the router with dependencies.
 
         Args:
-            manager: State manager implementing ProtocolPatternStateManager.
+            pattern_store: Pattern store implementing ProtocolPatternStore.
+                Required for store_pattern operations.
+            state_manager: State manager implementing ProtocolPatternStateManager.
+                Required for promote_pattern operations.
         """
-        self._state_manager = manager
+        self._pattern_store: ProtocolPatternStore | None = pattern_store
+        self._state_manager: ProtocolPatternStateManager | None = state_manager
 
     async def route(
         self,
@@ -639,9 +637,10 @@ async def route_storage_operation(
     )
 
     # Create router with provided dependencies (all required)
-    router = PatternStorageRouter()
-    router.set_pattern_store(pattern_store)
-    router.set_state_manager(state_manager)
+    router = PatternStorageRouter(
+        pattern_store=pattern_store,
+        state_manager=state_manager,
+    )
 
     # Route operation and return serialized result
     result = await router.route(operation=operation, input_data=input_data, conn=conn)
