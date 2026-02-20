@@ -160,8 +160,9 @@ class RegistryPatternPromotionEffect:
 
         This factory method:
         1. Validates that repository is not None
-        2. Creates handler functions with dependencies bound
-        3. Returns a frozen RegistryPromotionHandlers
+        2. Validates that producer is not None
+        3. Creates handler functions with dependencies bound
+        4. Returns a frozen RegistryPromotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
