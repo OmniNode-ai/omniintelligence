@@ -494,6 +494,7 @@ class TestKafkaPublishedEvent:
         _, _, value = mock_publisher.published[0]
         assert value["outcome"] == "success"
         assert value["session_id"] == sample_routing_feedback_event_success.session_id
+        assert "correlation_id" in value
 
     @pytest.mark.asyncio
     async def test_no_event_published_without_kafka(

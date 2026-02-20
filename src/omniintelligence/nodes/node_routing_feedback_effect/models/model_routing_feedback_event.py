@@ -7,11 +7,10 @@ Reference: OMN-2366, OMN-2356
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class ModelRoutingFeedbackEvent(BaseModel):
@@ -68,13 +67,14 @@ class ModelRoutingFeedbackEvent(BaseModel):
     )
     stage: str = Field(
         default="session_end",
+        min_length=1,
         description="Hook stage that emitted this event",
     )
     outcome: Literal["success", "failed"] = Field(
         ...,
         description="Session outcome that triggered feedback",
     )
-    emitted_at: datetime = Field(
+    emitted_at: AwareDatetime = Field(
         ...,
         description="Timestamp when the event was emitted (UTC)",
     )
