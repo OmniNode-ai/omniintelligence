@@ -43,7 +43,7 @@ These are non-negotiable architectural truths. Violations cause production issue
 | `PluginIntelligence.wire_dispatchers()` must run before `start_consumers()` | No dispatch engine = no consumers (hard gate) |
 | `AdapterPatternStore` ignores the `conn` parameter — each method is an independent transaction | External transaction control is not supported by this adapter |
 
-**Mechanically enforced** (run `uv run pytest -m audit`):
+**Mechanically enforced** (run `uv run pytest -m unit` for purity, `uv run pytest -m audit` for I/O violations):
 
 | Rule | Enforcement |
 |------|-------------|
@@ -526,4 +526,4 @@ value = some_call()  # type: ignore
 
 ---
 
-**Python**: 3.12+ | **Ready?** → `uv run pytest -m audit` to verify node purity
+**Python**: 3.12+ | **Ready?** → `uv run pytest -m unit` (node purity) + `uv run pytest -m audit` (I/O violations)
