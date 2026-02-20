@@ -301,9 +301,9 @@ dependencies:
 
   - name: "kafka_producer"
     type: "protocol"
-    class_name: "ProtocolKafkaProducer"
-    module: "omnibase_infra.protocols.protocol_kafka_producer"
-    description: "Kafka producer for emitting pattern storage events. Required infrastructure per ONEX
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting pattern storage events. Required infrastructure per ONEX
       invariant."
     required: true
 

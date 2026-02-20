@@ -1523,6 +1523,41 @@ class TestRegistryPatternPromotionEffectSmoke:
         with pytest.raises((AttributeError, TypeError)):
             await registry.check_and_promote(request)
 
+    @pytest.mark.asyncio
+    async def test_create_registry_with_none_repository_fails_at_use_time(
+        self,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """Passing None as repository binds silently but fails on first use.
+
+        This documents the runtime behavior symmetrically with the None-producer
+        test: create_registry accepts None (bypassing mypy with cast) without
+        raising. The AttributeError only surfaces when the handler actually calls
+        repository.fetch().
+
+        Note: None-argument rejection is enforced at the type level (mypy
+        strict); no runtime guard exists. Runtime misuse manifests on first
+        call, not at registry creation.
+        """
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=cast(ProtocolPatternRepository, None),
+            producer=mock_producer,
+        )
+
+        # Registry creation succeeds silently — no error yet
+        assert registry is not None
+        assert callable(registry.check_and_promote)
+
+        from omniintelligence.nodes.node_pattern_promotion_effect.models import (
+            ModelPromotionCheckRequest,
+        )
+
+        request = ModelPromotionCheckRequest(dry_run=False)
+
+        # Failure manifests at call time, not at registry creation
+        with pytest.raises((AttributeError, TypeError)):
+            await registry.check_and_promote(request)
+
 
 # =============================================================================
 # Test Class: Result Model Validation

@@ -432,7 +432,10 @@ async def check_and_promote_patterns(
                 )
                 promotion_results.append(failed_result)
 
-    # Calculate actual promotions (excluding no-ops and failures)
+    # Count results where promoted_at is set (i.e. the Kafka emit succeeded).
+    # promote_pattern sets promoted_at=request_time on success and raises on
+    # failure, so promoted_at is None only for dry-run entries and for failed
+    # results that were caught above and constructed manually with promoted_at=None.
     actual_promotions = sum(
         1 for r in promotion_results if r.promoted_at is not None and not r.dry_run
     )

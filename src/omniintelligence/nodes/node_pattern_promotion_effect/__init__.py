@@ -23,9 +23,12 @@ Promotion Gates (all must pass):
     4. Disabled Gate: Pattern not in disabled_patterns_current
 
 ONEX Invariant:
-    Kafka is REQUIRED infrastructure. Events are emitted asynchronously
-    — the primary database write completes before the Kafka ack. There
-    is no direct database UPDATE fallback path.
+    Kafka is REQUIRED infrastructure. ``promote_pattern`` emits a
+    ``ModelPatternLifecycleEvent`` to Kafka and returns immediately — it
+    does NOT perform any database write. The database UPDATE happens
+    asynchronously downstream: the reducer validates the FSM transition
+    and the effect node applies the status change. There is no direct
+    database UPDATE fallback path.
 
 Usage (Declarative Pattern):
     from omniintelligence.nodes.node_pattern_promotion_effect import (
