@@ -212,7 +212,7 @@ class PatternStorageRouter:
                 "state_manager is optional and only required for promote_pattern."
             )
             raise ValueError(msg)
-        self._pattern_store: ProtocolPatternStore | None = pattern_store
+        self._pattern_store: ProtocolPatternStore = pattern_store
         self._state_manager: ProtocolPatternStateManager | None = state_manager
 
     async def route(
@@ -313,19 +313,6 @@ class PatternStorageRouter:
                 success=False,
                 error_code=ERROR_CODE_STORAGE_ERROR,
                 error_message=error_msg,
-            )
-
-        # Guard: Ensure pattern store is initialized
-        if self._pattern_store is None:
-            logger.error(
-                "Pattern store not initialized",
-                extra={"error_code": "PATSTOR_001"},
-            )
-            return StorageOperationResult(
-                operation=OPERATION_STORE_PATTERN,
-                success=False,
-                error_code="PATSTOR_001",
-                error_message="Pattern store not initialized",
             )
 
         # Call the existing handler (returns structured result, not exceptions)

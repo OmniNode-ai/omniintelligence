@@ -182,6 +182,11 @@ class ProtocolIntentClassifier(Protocol):
     Defines a simplified interface for classifying user prompt intent.
     The implementation delegates to a compute node that performs
     pattern-matching-based classification.
+
+    NOTE: ModelIntentClassificationInput/Output are TYPE_CHECKING-only to avoid
+    circular imports at runtime. isinstance() checks against this protocol verify
+    method name presence only, as documented for @runtime_checkable protocols.
+    Full type fidelity is enforced by static analysis only.
     """
 
     async def compute(

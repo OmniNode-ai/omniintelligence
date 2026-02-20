@@ -182,13 +182,13 @@ class RegistryClaudeHookEventEffect:
 
         with _HANDLER_STORAGE_LOCK:
             result = _HANDLER_STORAGE.get(RegistryClaudeHookEventEffect.HANDLER_KEY)
-        if result is not None and not isinstance(result, HandlerClaudeHookEvent):
-            # Type safety: ensure we return the correct type
-            logger.warning(
-                "Handler type mismatch: expected HandlerClaudeHookEvent, got %s",
-                type(result).__name__,
-            )
-            return None
+            if result is not None and not isinstance(result, HandlerClaudeHookEvent):
+                # Type safety: ensure we return the correct type
+                logger.warning(
+                    "Handler type mismatch: expected HandlerClaudeHookEvent, got %s",
+                    type(result).__name__,
+                )
+                return None
         return result
 
     @staticmethod
