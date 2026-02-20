@@ -162,8 +162,9 @@ class RegistryPatternPromotionEffect:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
-        1. Creates handler functions with dependencies bound
-        2. Returns a frozen RegistryPromotionHandlers
+        1. Validates dependencies via isinstance checks
+        2. Creates handler functions with dependencies bound
+        3. Returns a frozen RegistryPromotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.

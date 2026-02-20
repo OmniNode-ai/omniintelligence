@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 from uuid import UUID, uuid4
 
 import pydantic
@@ -1379,12 +1379,9 @@ class TestRegistryPatternPromotionEffectSmoke:
 
     Verifies that create_registry succeeds with valid mock dependencies and
     returns a properly wired RegistryPromotionHandlers. These tests cover the
-    happy path through the registry factory — the constructor-enforced producer
-    requirement is validated by mypy at the type level, not at runtime.
-
-    Note: None-argument rejection is enforced at the type level (mypy strict);
-    no runtime guard exists. Runtime misuse manifests on first call, not at
-    registry creation.
+    happy path through the registry factory — dependencies are validated at
+    construction time via isinstance guards, so invalid arguments raise
+    immediately rather than deferring failure to first use.
     """
 
     @pytest.fixture(autouse=True)
@@ -1478,93 +1475,27 @@ class TestRegistryPatternPromotionEffectSmoke:
         with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
             registry.check_and_promote = lambda _: None  # type: ignore[misc]
 
-    @pytest.mark.asyncio
-    async def test_create_registry_with_none_producer_fails_at_use_time(
+    def test_create_registry_with_none_producer_raises_at_construction(
         self,
         mock_repository: MockPatternRepository,
     ) -> None:
-        """Passing None as producer binds silently but fails at use time with a structured error result, not a raised exception.
-
-        This documents the runtime behavior honestly: create_registry accepts
-        None (bypassing mypy with cast) without raising. None producer causes
-        AttributeError inside promote_pattern which is caught by the per-pattern
-        exception handler and recorded as a structured failure
-        (patterns_failed > 0), not a raised exception.
-
-        Note: None-argument rejection is enforced at the type level (mypy
-        strict); no runtime guard exists.
-        """
-        registry = RegistryPatternPromotionEffect.create_registry(
-            repository=mock_repository,
-            producer=cast(
-                ProtocolKafkaPublisher, None
-            ),  # cast used intentionally to bypass mypy for runtime behavior documentation — do not use cast(Protocol, None) in production code
-        )
-
-        # Registry creation succeeds silently — no error yet
-        assert registry is not None
-        assert callable(registry.check_and_promote)
-
-        # Add a promotable pattern so the handler reaches the publish() call
-        from omniintelligence.nodes.node_pattern_promotion_effect.models import (
-            ModelPromotionCheckRequest,
-        )
-
-        mock_repository.add_pattern(
-            PromotablePattern(
-                id=uuid4(),
-                injection_count_rolling_20=10,
-                success_count_rolling_20=8,
-                failure_count_rolling_20=2,
-                failure_streak=0,
+        """Passing None for producer raises TypeError immediately at registry construction via isinstance guard — fail-fast behavior."""
+        with pytest.raises(TypeError, match="must implement"):
+            RegistryPatternPromotionEffect.create_registry(
+                repository=mock_repository,
+                producer=None,  # type: ignore[arg-type]
             )
-        )
 
-        request = ModelPromotionCheckRequest(dry_run=False)
-
-        # Failure is recorded as a structured result — no exception raised
-        result = await registry.check_and_promote(request)
-        assert result.patterns_failed > 0
-        assert (
-            sum(1 for r in result.patterns_promoted if r.promoted_at is not None) == 0
-        )
-
-    @pytest.mark.asyncio
-    async def test_create_registry_with_none_repository_fails_at_use_time(
+    def test_create_registry_with_none_repository_raises_at_construction(
         self,
         mock_producer: MockKafkaPublisher,
     ) -> None:
-        """Passing None as repository binds silently but fails at use time with a structured error result, not a raised exception.
-
-        This documents the runtime behavior symmetrically with the None-producer
-        test: create_registry accepts None (bypassing mypy with cast) without
-        raising. The AttributeError from ``repository.fetch()`` is caught by
-        the top-level fetch guard in ``check_and_promote_patterns``, which
-        returns a structured result with an error_message rather than re-raising.
-
-        Note: None-argument rejection is enforced at the type level (mypy
-        strict); no runtime guard exists.
-        """
-        registry = RegistryPatternPromotionEffect.create_registry(
-            repository=cast(ProtocolPatternRepository, None),
-            producer=mock_producer,
-        )
-
-        # Registry creation succeeds silently — no error yet
-        assert registry is not None
-        assert callable(registry.check_and_promote)
-
-        from omniintelligence.nodes.node_pattern_promotion_effect.models import (
-            ModelPromotionCheckRequest,
-        )
-
-        request = ModelPromotionCheckRequest(dry_run=False)
-
-        # Failure is recorded as a structured result — no exception raised
-        result = await registry.check_and_promote(request)
-        assert result.patterns_failed == 0  # fetch failed before any pattern loop
-        assert result.patterns_promoted == []
-        assert result.error_message is not None
+        """Passing None for repository raises TypeError immediately at registry construction via isinstance guard — fail-fast behavior."""
+        with pytest.raises(TypeError, match="must implement"):
+            RegistryPatternPromotionEffect.create_registry(
+                repository=None,  # type: ignore[arg-type]
+                producer=mock_producer,
+            )
 
 
 # =============================================================================
