@@ -12,19 +12,12 @@ Architecture:
     - Validates dependencies at registry creation time (fail-fast)
     - Returns a frozen registry that cannot be modified
 
-Kafka Optionality:
-    The node contract marks ``kafka_producer`` as ``required: false``, meaning
-    the node can operate without Kafka. The registry factory accepts None for
-    the producer parameter.
-
-    **When Kafka is unavailable**, promotions still succeed in the database,
-    but ``PatternPromoted`` events are NOT emitted.
-
-    **Implications of running without Kafka:**
-    - Database promotions succeed normally
-    - No ``PatternPromoted`` events are emitted to Kafka
-    - Downstream caches relying on Kafka for invalidation become stale
-    - See ``handler_promotion.py`` module docstring for reconciliation strategy
+Kafka Requirement:
+    The ``kafka_producer`` dependency is REQUIRED infrastructure per the ONEX
+    invariant: "Kafka is required infrastructure — there is NO fallback path".
+    The registry factory requires a live ``ProtocolKafkaPublisher`` instance.
+    Passing ``None`` is a programming error and will cause a ``TypeError`` at
+    the call site.
 
 Usage:
     >>> from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
@@ -34,7 +27,7 @@ Usage:
     >>> # Create registry with dependencies
     >>> registry = RegistryPatternPromotionEffect.create_registry(
     ...     repository=db_connection,
-    ...     producer=kafka_producer,  # Optional, can be None
+    ...     producer=kafka_producer,  # Required — must be a live publisher
     ... )
     >>>
     >>> # Get handler from registry
@@ -149,7 +142,7 @@ class RegistryPatternPromotionEffect:
     Example:
         >>> registry = RegistryPatternPromotionEffect.create_registry(
         ...     repository=db_connection,
-        ...     producer=kafka_producer,  # Optional, can be None
+        ...     producer=kafka_producer,  # Required — must be a live publisher
         ... )
         >>> handler = registry.get_handler("check_and_promote_patterns")
         >>> result = await handler(request)
@@ -161,7 +154,7 @@ class RegistryPatternPromotionEffect:
     @staticmethod
     def create_registry(
         repository: ProtocolPatternRepository,
-        producer: ProtocolKafkaPublisher | None = None,
+        producer: ProtocolKafkaPublisher,
     ) -> RegistryPromotionHandlers:
         """Create a frozen registry with all handlers wired.
 
@@ -173,9 +166,9 @@ class RegistryPatternPromotionEffect:
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
-            producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
-                Optional - when None, promotions succeed but Kafka events are
-                not emitted.
+            producer: Kafka producer implementing ProtocolKafkaPublisher. Required
+                infrastructure — Kafka is the only promotion path. Passing None
+                is a programming error.
 
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.
