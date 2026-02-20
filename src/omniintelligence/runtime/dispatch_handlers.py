@@ -71,6 +71,7 @@ from omniintelligence.protocols import (
     ProtocolIdempotencyStore,
     ProtocolIntentClassifier,
     ProtocolKafkaPublisher,
+    ProtocolPatternQueryStore,
     ProtocolPatternRepository,
     ProtocolPatternUpsertStore,
 )
@@ -114,6 +115,17 @@ DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
     "onex.commands.omniintelligence.compliance-evaluate.v1"
 )
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
+
+DISPATCH_ALIAS_PATTERN_PROMOTED = "onex.events.omniintelligence.pattern-promoted.v1"
+"""Dispatch-compatible alias for pattern-promoted canonical topic (OMN-2424)."""
+
+DISPATCH_ALIAS_PATTERN_DEPRECATED = "onex.events.omniintelligence.pattern-deprecated.v1"
+"""Dispatch-compatible alias for pattern-deprecated canonical topic (OMN-2424)."""
+
+DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = (
+    "onex.events.omniintelligence.pattern-lifecycle-transitioned.v1"
+)
+"""Dispatch-compatible alias for pattern-lifecycle-transitioned canonical topic (OMN-2424)."""
 
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
@@ -432,10 +444,9 @@ def _reconstruct_payload_from_envelope(
     )
     reconstructed = dict(payload)
 
-    # event_type: ModelEventEnvelope has no event_type field; check metadata tags.
-    meta_event_type = envelope.get_metadata_value("event_type")
-    if meta_event_type is not None:
-        reconstructed["event_type"] = str(meta_event_type)
+    # event_type: ModelEventEnvelope stores event_type as a direct top-level field.
+    if envelope.event_type is not None:
+        reconstructed["event_type"] = str(envelope.event_type)
 
     # correlation_id: envelope.correlation_id is UUID | None
     if envelope.correlation_id is not None:
@@ -1552,6 +1563,105 @@ def create_compliance_evaluate_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Pattern Projection (OMN-2424)
+# =============================================================================
+
+
+def create_pattern_projection_dispatch_handler(
+    *,
+    pattern_query_store: ProtocolPatternQueryStore,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for pattern projection snapshot events.
+
+    Triggered by pattern-promoted, pattern-deprecated, and
+    pattern-lifecycle-transitioned events. On each trigger, queries the full
+    validated pattern set and publishes a materialized snapshot to the
+    pattern-projection topic.
+
+    Args:
+        pattern_query_store: REQUIRED store for querying all validated patterns.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for projection events (from contract).
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+
+    Related:
+        OMN-2424: Pattern projection snapshot publisher
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: lifecycle event → publish_projection()."""
+        from omniintelligence.nodes.node_pattern_projection_effect.handlers import (
+            publish_projection,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        # Extract optional fields for logging context — payload is any lifecycle event.
+        # We don't parse the full model; we just need the routing fields for tracing.
+        trigger_event_type = "unknown"
+        triggering_pattern_id: UUID | None = None
+
+        if isinstance(payload, dict):
+            raw_event_type = payload.get("event_type")
+            if raw_event_type is not None:
+                trigger_event_type = str(raw_event_type)
+
+            raw_pattern_id = payload.get("pattern_id")
+            if raw_pattern_id is not None:
+                with contextlib.suppress(ValueError, AttributeError):
+                    triggering_pattern_id = UUID(str(raw_pattern_id))
+
+            # Extract correlation_id from payload if available (override ctx fallback)
+            raw_corr = payload.get("correlation_id")
+            if raw_corr is not None:
+                with contextlib.suppress(ValueError, AttributeError):
+                    ctx_correlation_id = UUID(str(raw_corr))
+
+        logger.info(
+            "Dispatching pattern-projection via MessageDispatchEngine "
+            "(trigger=%s, pattern_id=%s, correlation_id=%s)",
+            trigger_event_type,
+            triggering_pattern_id,
+            ctx_correlation_id,
+        )
+
+        await publish_projection(
+            pattern_query_store=pattern_query_store,
+            producer=kafka_producer,
+            correlation_id=ctx_correlation_id,
+            publish_topic=publish_topic,
+            trigger_event_type=trigger_event_type,
+            triggering_pattern_id=triggering_pattern_id,
+        )
+
+        logger.info(
+            "Pattern projection dispatch complete (trigger=%s, correlation_id=%s)",
+            trigger_event_type,
+            ctx_correlation_id,
+        )
+
+        return "ok"
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -1564,11 +1674,12 @@ def create_intelligence_dispatch_engine(
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topics: dict[str, str] | None = None,
     pattern_upsert_store: ProtocolPatternUpsertStore | None = None,
+    pattern_query_store: ProtocolPatternQueryStore | None = None,
     llm_client: ProtocolLlmClient | None = None,
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 6 intelligence domain handlers (8 routes)
+    Creates the engine, registers all 7 intelligence domain handlers (11 routes)
     and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
@@ -1581,10 +1692,14 @@ def create_intelligence_dispatch_engine(
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
             Keys: "claude_hook", "lifecycle", "pattern_storage",
-            "pattern_learning", "compliance_evaluate". Values: full topic
-            strings from contract event_bus.publish_topics.
+            "pattern_learning", "compliance_evaluate", "pattern_projection".
+            Values: full topic strings from contract event_bus.publish_topics.
         pattern_upsert_store: Optional contract-driven upsert store. If None,
             falls back to repository for backwards compatibility.
+        pattern_query_store: Optional store for querying validated patterns
+            (ProtocolPatternQueryStore). Required by the pattern-projection
+            handler (OMN-2424). When None, projection handler uses repository
+            fallback if it satisfies the protocol.
         llm_client: Optional LLM client (ProtocolLlmClient) for compliance
             evaluation (OMN-2339). When None, compliance-evaluate commands
             are still registered but will return LLM-error results.
@@ -1782,6 +1897,77 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 7: pattern-projection (OMN-2424) ---
+    # Uses pattern_query_store for querying validated patterns.
+    # When pattern_query_store is None, fall back to pattern_upsert_store if it satisfies
+    # ProtocolPatternQueryStore (checked at runtime via isinstance), otherwise None.
+    # NOTE: mypy cannot narrow Protocol isinstance checks at compile time; the runtime
+    # check is sufficient because AdapterPatternStore declares query_patterns() matching
+    # the protocol.
+    _projection_store: ProtocolPatternQueryStore | None = pattern_query_store
+    if _projection_store is None:
+        # Runtime check: AdapterPatternStore implements ProtocolPatternQueryStore
+        # via its query_patterns() method. Cast is safe — protocol is @runtime_checkable.
+        _candidate = pattern_upsert_store if pattern_upsert_store is not None else None
+        if _candidate is not None and isinstance(_candidate, ProtocolPatternQueryStore):
+            _projection_store = _candidate
+
+    if _projection_store is not None:
+        pattern_projection_handler = create_pattern_projection_dispatch_handler(
+            pattern_query_store=_projection_store,
+            kafka_producer=kafka_producer,
+            publish_topic=topics.get("pattern_projection"),
+        )
+        engine.register_handler(
+            handler_id="intelligence-pattern-projection-handler",
+            handler=pattern_projection_handler,
+            category=EnumMessageCategory.EVENT,
+            node_kind=EnumNodeKind.EFFECT,
+            message_types=None,
+        )
+        engine.register_route(
+            ModelDispatchRoute(
+                route_id="intelligence-pattern-promoted-projection-route",
+                topic_pattern=DISPATCH_ALIAS_PATTERN_PROMOTED,
+                message_category=EnumMessageCategory.EVENT,
+                handler_id="intelligence-pattern-projection-handler",
+                description=(
+                    "Routes pattern-promoted events to projection handler (OMN-2424). "
+                    "Triggers a full validated-pattern snapshot publish."
+                ),
+            )
+        )
+        engine.register_route(
+            ModelDispatchRoute(
+                route_id="intelligence-pattern-deprecated-projection-route",
+                topic_pattern=DISPATCH_ALIAS_PATTERN_DEPRECATED,
+                message_category=EnumMessageCategory.EVENT,
+                handler_id="intelligence-pattern-projection-handler",
+                description=(
+                    "Routes pattern-deprecated events to projection handler (OMN-2424). "
+                    "Triggers a full validated-pattern snapshot publish."
+                ),
+            )
+        )
+        engine.register_route(
+            ModelDispatchRoute(
+                route_id="intelligence-pattern-lifecycle-transitioned-projection-route",
+                topic_pattern=DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED,
+                message_category=EnumMessageCategory.EVENT,
+                handler_id="intelligence-pattern-projection-handler",
+                description=(
+                    "Routes pattern-lifecycle-transitioned events to projection handler "
+                    "(OMN-2424). Triggers a full validated-pattern snapshot publish."
+                ),
+            )
+        )
+    else:
+        logger.warning(
+            "Intelligence dispatch engine: no pattern_query_store available, "
+            "pattern-projection handler not registered (OMN-2424). "
+            "Provide pattern_query_store to enable projection snapshots."
+        )
+
     engine.freeze()
 
     if llm_client is None:
@@ -1793,10 +1979,11 @@ def create_intelligence_dispatch_engine(
 
     logger.info(
         "Intelligence dispatch engine created and frozen "
-        "(routes=%d, handlers=%d, compliance_evaluate=%s)",
+        "(routes=%d, handlers=%d, compliance_evaluate=%s, pattern_projection=%s)",
         engine.route_count,
         engine.handler_count,
         llm_client is not None,
+        _projection_store is not None,
     )
 
     return engine
@@ -1991,10 +2178,13 @@ def create_dispatch_callback(
 __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
+    "DISPATCH_ALIAS_PATTERN_DEPRECATED",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
+    "DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED",
+    "DISPATCH_ALIAS_PATTERN_PROMOTED",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
     "create_claude_hook_dispatch_handler",
@@ -2002,6 +2192,7 @@ __all__ = [
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
     "create_pattern_lifecycle_dispatch_handler",
+    "create_pattern_projection_dispatch_handler",
     "create_pattern_storage_dispatch_handler",
     "create_session_outcome_dispatch_handler",
 ]
