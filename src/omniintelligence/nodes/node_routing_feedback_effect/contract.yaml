@@ -36,7 +36,7 @@ description: >
   Effect node for processing routing feedback events from omniclaude's session-end hook. Consumes onex.evt.omniclaude.routing-feedback.v1
   events containing session_id and outcome (success/failed). Upserts idempotent records to routing_feedback_scores
   table using (session_id, correlation_id, stage) as the composite idempotency key. Publishes onex.evt.omniintelligence.routing-feedback-processed.v1
-  after successful processing. #magic___^_^___line
+  after successful processing.
 # =============================================================================
 # I/O MODELS
 # =============================================================================
@@ -148,7 +148,7 @@ event_bus:
     - "{env}.onex.evt.omniclaude.routing-feedback.v1"
 
   publish_topics:
-    - "onex.evt.omniintelligence.routing-feedback-processed.v1"
+    - "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1"
 
   subscribe_topic_metadata:
     "{env}.onex.evt.omniclaude.routing-feedback.v1":
@@ -156,7 +156,7 @@ event_bus:
       description: "Routing feedback events from omniclaude session-end hook"
 
   publish_topic_metadata:
-    "onex.evt.omniintelligence.routing-feedback-processed.v1":
+    "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1":
       schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackResult"
       description: "Routing feedback processed confirmation events"
 
