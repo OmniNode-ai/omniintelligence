@@ -87,4 +87,4 @@ class ModelQualityScoringOutput(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelQualityScoringOutput"]
+__all__ = ["ModelQualityScoringOutput", "ModelQualityScoringMetadata"]

@@ -3,11 +3,11 @@
 """Integration test: kernel boots with intelligence plugin.
 
 Validates the complete wiring path from contract discovery to handler
-resolution for all 17 omniintelligence nodes. Uses EventBusInmemory
+resolution for all 21 omniintelligence nodes. Uses EventBusInmemory
 for topic subscription verification — no Docker or external services.
 
 Test Phases:
-    1. Contract Discovery — find all 17 node contracts
+    1. Contract Discovery — find all 21 node contracts
     2. Handler Import Resolution — verify all handler modules/functions import
     3. I/O Model Import Resolution — verify input/output models import
     4. EventBusInmemory Topic Wiring — subscribe to all intelligence topics
@@ -36,24 +36,26 @@ from omnibase_infra.models import ModelNodeIdentity
 # Constants
 # =============================================================================
 
-# Path to the nodes directory containing all 17 ONEX node contracts.
+# Path to the nodes directory containing all 21 ONEX node contracts.
 # Resolved relative to this test file to work in both local and CI environments.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 NODES_DIR = _PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
 
 # Total number of node contracts expected in this repository.
-# Inventory (17 nodes):
+# Inventory (21 nodes):
 #   Orchestrators (2): node_intelligence_orchestrator, node_pattern_assembler_orchestrator
 #   Reducers (1):      node_intelligence_reducer
 #   Compute (8):       node_quality_scoring_compute, node_semantic_analysis_compute,
 #                      node_pattern_extraction_compute, node_pattern_learning_compute,
 #                      node_pattern_matching_compute, node_intent_classifier_compute,
 #                      node_execution_trace_parser_compute, node_success_criteria_matcher_compute
-#   Effect (6):        node_claude_hook_event_effect, node_pattern_storage_effect,
+#   Effect (10):       node_claude_hook_event_effect, node_pattern_storage_effect,
 #                      node_pattern_promotion_effect, node_pattern_demotion_effect,
-#                      node_pattern_feedback_effect, node_pattern_lifecycle_effect
+#                      node_pattern_feedback_effect, node_pattern_lifecycle_effect,
+#                      node_pattern_learning_effect, node_compliance_evaluate_effect,
+#                      node_enforcement_feedback_effect, node_pattern_compliance_effect
 # Update this constant and inventory when adding or removing nodes.
-EXPECTED_CONTRACT_COUNT = 17
+EXPECTED_CONTRACT_COUNT = 21
 
 # Node types exempt from handler_routing (use workflow_coordination / inline FSM).
 HANDLER_ROUTING_EXEMPT_TYPES = frozenset({"ORCHESTRATOR_GENERIC", "REDUCER_GENERIC"})
@@ -61,6 +63,14 @@ HANDLER_ROUTING_EXEMPT_TYPES = frozenset({"ORCHESTRATOR_GENERIC", "REDUCER_GENER
 # node_pattern_assembler_orchestrator IS an orchestrator but declares handler_routing,
 # so it is NOT exempt. Only the two generic types above are exempt.
 NODES_WITH_HANDLER_ROUTING_OVERRIDE = frozenset({"node_pattern_assembler_orchestrator"})
+
+# EFFECT_GENERIC nodes that are direct-call leaf handlers (not Kafka consumers).
+# These legitimately have event_bus_enabled=false because they have no subscribe_topics
+# and are invoked directly rather than via RuntimeHostProcess consumer loop.
+# See: node_pattern_compliance_effect/contract.yaml lines 75-77 (OMN-2256 architecture notes).
+EVENT_BUS_EXEMPT_EFFECT_NODES: frozenset[str] = frozenset(
+    {"node_pattern_compliance_effect"}
+)
 
 
 # =============================================================================
@@ -249,7 +259,7 @@ class TestKernelBootsWithIntelligencePlugin:
 
     @pytest.fixture(scope="class")
     def contracts(self) -> list[tuple[Path, dict[str, Any]]]:
-        """Discover all 17 node contracts."""
+        """Discover all 21 node contracts."""
         return _discover_contracts()
 
     # -----------------------------------------------------------------
@@ -359,9 +369,9 @@ class TestKernelBootsWithIntelligencePlugin:
     def test_handler_count_matches_expected(
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
-        """At least 15 nodes must resolve at least one handler entry point.
+        """At least 19 nodes must resolve at least one handler entry point.
 
-        17 total - 2 exempt (orchestrator, reducer) = 15 minimum with handlers.
+        21 total - 2 exempt (orchestrator, reducer) = 19 minimum with handlers.
         """
         nodes_with_handlers = 0
         for _path, data in contracts:
@@ -369,11 +379,11 @@ class TestKernelBootsWithIntelligencePlugin:
             if entry_points:
                 nodes_with_handlers += 1
 
-        # 15 = 17 total - 1 exempt orchestrator (intelligence_orchestrator)
+        # 19 = 21 total - 1 exempt orchestrator (intelligence_orchestrator)
         #                 - 1 exempt reducer (intelligence_reducer)
         # Note: node_pattern_assembler_orchestrator has handler_routing so is NOT exempt.
-        assert nodes_with_handlers >= 15, (
-            f"Expected at least 15 nodes with handler entry points, "
+        assert nodes_with_handlers >= 19, (
+            f"Expected at least 19 nodes with handler entry points, "
             f"found {nodes_with_handlers}"
         )
 
@@ -516,7 +526,11 @@ class TestKernelBootsWithIntelligencePlugin:
     def test_effect_nodes_have_event_bus_enabled(
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
-        """All EFFECT_GENERIC nodes must have event_bus.event_bus_enabled: true."""
+        """All EFFECT_GENERIC nodes must have event_bus.event_bus_enabled: true.
+
+        Nodes listed in EVENT_BUS_EXEMPT_EFFECT_NODES are direct-call leaf handlers
+        that are intentionally invoked without a Kafka consumer loop and are exempt.
+        """
         errors: list[str] = []
         effect_count = 0
 
@@ -528,6 +542,10 @@ class TestKernelBootsWithIntelligencePlugin:
                 continue
 
             effect_count += 1
+
+            if node_name in EVENT_BUS_EXEMPT_EFFECT_NODES:
+                continue
+
             event_bus = data.get("event_bus") or {}
             if not event_bus.get("event_bus_enabled"):
                 errors.append(f"{node_name}: EFFECT_GENERIC without event_bus_enabled")

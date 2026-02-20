@@ -58,4 +58,8 @@ class ModelComplianceResult(BaseModel):
     )
 
 
-__all__ = ["ModelComplianceResult"]
+__all__ = [
+    "ModelComplianceMetadata",
+    "ModelComplianceResult",
+    "ModelComplianceViolation",
+]
