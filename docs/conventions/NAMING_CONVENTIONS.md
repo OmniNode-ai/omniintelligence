@@ -29,7 +29,7 @@ All directories use a mandatory prefix matching their role:
 | `handlers/` | `handler_` | File name | `handler_pattern_learning.py` |
 | `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | File name | `dispatch_handler_pattern_learning.py` |
 | `repositories/` | `adapter_` | File name | `adapter_pattern_store.py` |
-| `api/` | `router_`, `handler_`, `models_`, `app` | File name | `router_patterns.py` |
+| `api/` | `router_`, `handler_`, `model_`, `app` | File name | `router_patterns.py` |
 | `testing/` | `mock_` | File name | `mock_pattern_store.py` |
 | `utils/` | `util_` or descriptive | File name | `util_token_counter.py` |
 
@@ -73,7 +73,7 @@ All directories use a mandatory prefix matching their role:
 | `models/repository/` | `model_{name}.py` | `model_learned_pattern_row.py`, `model_pattern_for_injection.py` |
 | `repositories/` | `adapter_{name}.py` | `adapter_pattern_store.py` |
 | `runtime/` | `dispatch_handler_{domain}.py`, `dispatch_handlers.py`, `plugin.py`, `wiring.py`, `contract_topics.py`, `introspection.py`, `message_type_registration.py`, `model_runtime_config.py`, `adapters.py` | `dispatch_handler_pattern_learning.py` |
-| `api/` | `router_{domain}.py`, `handler_{domain}.py`, `models_{domain}.py`, `app.py` | `router_patterns.py`, `handler_pattern_query.py` |
+| `api/` | `router_{domain}.py`, `handler_{domain}.py`, `model_{domain}.py`, `app.py` | `router_patterns.py`, `handler_pattern_query.py` |
 | `handlers/` | `handler_{domain}.py` | `handler_compile_pattern.py` |
 | `testing/` | `mock_{name}.py` | `mock_pattern_store.py`, `mock_record.py` |
 | `utils/` | `util_{name}.py` or descriptive | `util_token_counter.py`, `log_sanitizer.py`, `db_url.py` |

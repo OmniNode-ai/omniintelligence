@@ -209,7 +209,7 @@ src/omniintelligence/
 | `handlers/` | `handler_` | `handler_pattern_learning.py` |
 | `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | `dispatch_handler_pattern_learning.py` |
 | `repositories/` | `adapter_` | `adapter_pattern_store.py` |
-| `api/` | `router_`, `handler_`, `models_`, `app` | `router_patterns.py` |
+| `api/` | `router_`, `handler_`, `model_`, `app` | `router_patterns.py` |
 
 **Node directory naming is MANDATORY**: All node directories MUST start with `node_` prefix.
 
@@ -243,7 +243,7 @@ src/omniintelligence/
 | `NodeExecutionTraceParserCompute` | `node_execution_trace_parser_compute` | Parse execution traces |
 | `NodeSuccessCriteriaMatcherCompute` | `node_success_criteria_matcher_compute` | Match success criteria |
 
-**Effect Nodes** (7):
+**Effect Nodes** (10):
 
 | Class | Directory | Purpose | Has `node.py` |
 |-------|-----------|---------|---------------|
@@ -254,6 +254,9 @@ src/omniintelligence/
 | `NodePatternFeedbackEffect` | `node_pattern_feedback_effect` | Record session outcomes and metrics | Yes |
 | `NodePatternLifecycleEffect` | `node_pattern_lifecycle_effect` | Atomic lifecycle transitions with audit trail | Yes |
 | `NodePatternLearningEffect` | `node_pattern_learning_effect` | Pattern extraction pipeline (contract-only node) | **No** |
+| `NodeComplianceEvaluateEffect` | `node_compliance_evaluate_effect` | Evaluate compliance rules against patterns | Yes |
+| `NodeEnforcementFeedbackEffect` | `node_enforcement_feedback_effect` | Record enforcement feedback and confidence adjustments | Yes |
+| `NodePatternComplianceEffect` | `node_pattern_compliance_effect` | Pattern compliance assessment pipeline | Yes |
 
 **Note on `NodePatternLearningEffect`**: This is a **contract-only node** — it has a `contract.yaml` but no `node.py`. It is runtime-wired by `PluginIntelligence` via `MessageDispatchEngine`. The dispatch handler lives at `runtime/dispatch_handler_pattern_learning.py`.
 
@@ -363,7 +366,8 @@ src/omniintelligence/
 | `app.py` | `create_app()` — FastAPI application factory with lifespan pool management |
 | `router_patterns.py` | `GET /api/v1/patterns` — query validated/provisional patterns |
 | `handler_pattern_query.py` | Business logic for pattern query handler |
-| `models_pattern_query.py` | `ModelPatternQueryPage` — paginated response model |
+| `model_pattern_query_page.py` | `ModelPatternQueryPage` — paginated response model |
+| `model_pattern_query_response.py` | Individual pattern response model |
 
 **Purpose** (OMN-2253): REST API for enforcement nodes to query the pattern store. Replaces direct DB access disabled in OMN-2058.
 

@@ -5,7 +5,7 @@
 [![Linting: ruff](https://img.shields.io/badge/linting-ruff-261230.svg)](https://github.com/astral-sh/ruff)
 [![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy.readthedocs.io/)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Nodes: 18](https://img.shields.io/badge/nodes-18-blue.svg)](#architecture)
+[![Nodes: 21](https://img.shields.io/badge/nodes-21-blue.svg)](#architecture)
 
 **Intelligence, pattern learning, and code quality analysis as first-class ONEX nodes.**
 
@@ -48,17 +48,17 @@ uv sync --group all
 pre-commit install
 ```
 
-**ONEX ecosystem dependencies** (published on PyPI — installed automatically by `uv sync`):
+**ONEX ecosystem dependencies** (NOT on public PyPI — installed via editable installs from sibling repos or private registry):
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `omnibase-core` | `>=0.17.0,<0.18.0` | Node base classes, protocols, validation |
-| `omnibase-spi` | `>=0.8.0,<0.9.0` | Service Provider Interface protocols |
-| `omnibase-infra` | `>=0.7.0,<0.8.0` | Kafka, PostgreSQL, runtime infrastructure |
+| `omnibase-core` | `>=0.18.0,<0.19.0` | Node base classes, protocols, validation |
+| `omnibase-spi` | `>=0.10.0,<0.11.0` | Service Provider Interface protocols |
+| `omnibase-infra` | `>=0.8.0,<0.9.0` | Kafka, PostgreSQL, runtime infrastructure |
 
 ## Architecture
 
-The system decomposes intelligence operations into 18 specialized ONEX nodes across four types.
+The system decomposes intelligence operations into 21 specialized ONEX nodes across four types.
 
 ### Node Inventory
 
@@ -99,6 +99,9 @@ The system decomposes intelligence operations into 18 specialized ONEX nodes acr
 | `NodePatternFeedbackEffect` | Record session outcomes and metrics |
 | `NodePatternLifecycleEffect` | Atomic lifecycle transitions with audit trail |
 | `NodePatternLearningEffect` | Pattern learning effect (contract-only) |
+| `NodeComplianceEvaluateEffect` | Evaluate compliance rules against patterns |
+| `NodeEnforcementFeedbackEffect` | Record enforcement feedback and confidence adjustments |
+| `NodePatternComplianceEffect` | Pattern compliance assessment pipeline |
 
 ### Runtime Plugin
 
@@ -112,13 +115,16 @@ The system decomposes intelligence operations into 18 specialized ONEX nodes acr
 
 ```text
 src/omniintelligence/
-├── nodes/                              # 18 ONEX nodes
+├── nodes/                              # 21 ONEX nodes
 │   ├── node_claude_hook_event_effect/
+│   ├── node_compliance_evaluate_effect/
+│   ├── node_enforcement_feedback_effect/
 │   ├── node_execution_trace_parser_compute/
 │   ├── node_intelligence_orchestrator/
 │   ├── node_intelligence_reducer/
 │   ├── node_intent_classifier_compute/
 │   ├── node_pattern_assembler_orchestrator/
+│   ├── node_pattern_compliance_effect/
 │   ├── node_pattern_demotion_effect/
 │   ├── node_pattern_extraction_compute/
 │   ├── node_pattern_feedback_effect/

@@ -327,7 +327,7 @@ def run_mypy(verbose: bool = False) -> ValidationResult:
         message = "MyPy timed out after 300 seconds"
     except FileNotFoundError:
         passed = False
-        message = "MyPy not found - check installation (pip install mypy)"
+        message = "MyPy not found - check installation (uv sync --group dev)"
     except subprocess.SubprocessError as e:
         passed = False
         message = f"Subprocess error: {e}"
@@ -370,7 +370,7 @@ def run_ruff(verbose: bool = False) -> ValidationResult:
         message = "Ruff linter timed out after 300 seconds"
     except FileNotFoundError:
         passed = False
-        message = "Ruff not found - check installation (pip install ruff)"
+        message = "Ruff not found - check installation (uv sync --group dev)"
     except subprocess.SubprocessError as e:
         passed = False
         message = f"Subprocess error: {e}"
