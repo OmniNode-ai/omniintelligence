@@ -1486,10 +1486,10 @@ class TestRegistryPatternPromotionEffectSmoke:
         """Passing None as producer binds silently but fails at use time with a structured error result, not a raised exception.
 
         This documents the runtime behavior honestly: create_registry accepts
-        None (bypassing mypy with cast) without raising. The AttributeError
-        from ``producer.publish()`` is swallowed by the per-pattern exception
-        handler in ``check_and_promote_patterns``, which returns a structured
-        result with the failure recorded rather than re-raising.
+        None (bypassing mypy with cast) without raising. None producer causes
+        AttributeError inside promote_pattern which is caught by the per-pattern
+        exception handler and recorded as a structured failure
+        (patterns_failed > 0), not a raised exception.
 
         Note: None-argument rejection is enforced at the type level (mypy
         strict); no runtime guard exists.

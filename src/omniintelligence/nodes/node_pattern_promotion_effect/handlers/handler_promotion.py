@@ -428,13 +428,6 @@ async def check_and_promote_patterns(
                     pattern_data=pattern,
                     correlation_id=correlation_id,
                 )
-                # Invariant: promote_pattern must set promoted_at on success (raises on
-                # failure, so a None here means a silent no-return code path was added).
-                assert result.promoted_at is not None, (
-                    "promote_pattern contract violated: promoted_at must be set on success"
-                )
-                promotion_results.append(result)
-
             except Exception as exc:
                 # Isolate per-pattern failures - continue processing other patterns
                 failed_count += 1
@@ -464,6 +457,12 @@ async def check_and_promote_patterns(
                     dry_run=False,
                 )
                 promotion_results.append(failed_result)
+                continue
+            # Invariant check AFTER try/except — AssertionError will propagate, not be caught
+            assert result.promoted_at is not None, (
+                "promote_pattern contract violated: promoted_at must be set on success"
+            )
+            promotion_results.append(result)
 
     # Count results where promoted_at is set (i.e. the Kafka emit succeeded).
     # promote_pattern sets promoted_at=request_time on success and raises on

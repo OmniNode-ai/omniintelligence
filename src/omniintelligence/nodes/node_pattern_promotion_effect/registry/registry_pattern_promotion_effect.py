@@ -10,6 +10,8 @@ Architecture:
     - Creates handlers with explicit dependencies (no setters)
     - Uses static factory pattern for registry creation
     - Dependencies are validated by the type system; no runtime None check is performed
+    - A None dependency passed at construction time (e.g., via cast()) will not raise
+      immediately; the failure manifests when the handler first accesses the dependency
     - Returns a frozen registry that cannot be modified
 
 Kafka Requirement:
