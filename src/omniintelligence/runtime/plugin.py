@@ -62,6 +62,7 @@ Example Usage:
     if plugin and plugin.should_activate(config):
         await plugin.initialize(config)
         await plugin.wire_handlers(config)
+        await plugin.wire_dispatchers(config)
         await plugin.start_consumers(config)
     ```
 

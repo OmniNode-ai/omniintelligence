@@ -51,7 +51,6 @@ handler_routing:
 # ==============================
 # Status: Backlog - Phase 3 (v0.4.0)
 # When implementing full functionality, a trace parser protocol will be needed.
-# Tracked: docs/migrations/omniarchon_to_omniintelligence.md (Phase 3 - Protocols)
 dependencies: []
 # Future protocol dependency (uncomment when protocols module exists):
 # - name: "trace_parser"
