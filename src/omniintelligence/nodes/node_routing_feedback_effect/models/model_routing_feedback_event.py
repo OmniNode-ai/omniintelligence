@@ -12,6 +12,10 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
+from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_outcome import (
+    EnumRoutingFeedbackOutcome,
+)
+
 
 class ModelRoutingFeedbackEvent(BaseModel):
     """Routing feedback event consumed from omniclaude's session-end hook.
@@ -70,7 +74,7 @@ class ModelRoutingFeedbackEvent(BaseModel):
         min_length=1,
         description="Hook stage that emitted this event",
     )
-    outcome: Literal["success", "failed"] = Field(
+    outcome: EnumRoutingFeedbackOutcome = Field(
         ...,
         description="Session outcome that triggered feedback",
     )

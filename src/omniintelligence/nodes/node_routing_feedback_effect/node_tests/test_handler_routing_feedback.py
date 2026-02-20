@@ -11,9 +11,11 @@ Test organization:
 3. Kafka Graceful Degradation - DB succeeds even without Kafka
 4. Kafka Publish Failure - DB upsert succeeds when Kafka publish fails
 5. Database Error - Structured ERROR result on DB failure
-6. Model Validation - Event model validation and frozen invariants
-7. Protocol Compliance - Mock conformance verification
-8. Topic Names - Correct Kafka topic constants
+6. Kafka Published Event Contents - Payload shape including event_name and datetimes
+7. DLQ Routing - Dead-letter queue publish on Kafka failure, failure swallowing
+8. Model Validation - Event model validation and frozen invariants
+9. Protocol Compliance - Mock conformance verification
+10. Topic Names - Correct Kafka topic constants
 
 Reference:
     - OMN-2366: Add routing.feedback consumer in omniintelligence
@@ -28,9 +30,11 @@ import pytest
 
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback import (
+    DLQ_TOPIC,
     process_routing_feedback,
 )
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
+    EnumRoutingFeedbackOutcome,
     EnumRoutingFeedbackStatus,
     ModelRoutingFeedbackEvent,
     ModelRoutingFeedbackResult,
@@ -203,14 +207,14 @@ class TestIdempotency:
             session_id="session-a",
             correlation_id=sample_correlation_id,
             stage="session_end",
-            outcome="success",
+            outcome=EnumRoutingFeedbackOutcome.SUCCESS,
             emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
         )
         event_b = ModelRoutingFeedbackEvent(
             session_id="session-b",
             correlation_id=sample_correlation_id,
             stage="session_end",
-            outcome="failed",
+            outcome=EnumRoutingFeedbackOutcome.FAILED,
             emitted_at=datetime(2026, 2, 20, 12, 0, 1, tzinfo=UTC),
         )
 
@@ -497,6 +501,55 @@ class TestKafkaPublishedEvent:
         assert "correlation_id" in value
 
     @pytest.mark.asyncio
+    async def test_published_event_has_event_name(
+        self,
+        mock_repository: MockRoutingFeedbackRepository,
+        mock_publisher: MockKafkaPublisher,
+        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+    ) -> None:
+        """Confirmation event payload includes the fixed event_name discriminator."""
+        await process_routing_feedback(
+            event=sample_routing_feedback_event_success,
+            repository=mock_repository,
+            kafka_publisher=mock_publisher,
+        )
+
+        _, _, value = mock_publisher.published[0]
+        assert value["event_name"] == "routing.feedback.processed"
+
+    @pytest.mark.asyncio
+    async def test_published_event_has_datetime_fields(
+        self,
+        mock_repository: MockRoutingFeedbackRepository,
+        mock_publisher: MockKafkaPublisher,
+        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+    ) -> None:
+        """Confirmation event payload includes emitted_at and processed_at fields.
+
+        Both timestamps are serialised as ISO-8601 strings by model_dump(mode='json').
+        """
+        before = datetime.now(UTC)
+        await process_routing_feedback(
+            event=sample_routing_feedback_event_success,
+            repository=mock_repository,
+            kafka_publisher=mock_publisher,
+        )
+        after = datetime.now(UTC)
+
+        _, _, value = mock_publisher.published[0]
+        assert "emitted_at" in value, "emitted_at must be present in published payload"
+        assert "processed_at" in value, (
+            "processed_at must be present in published payload"
+        )
+
+        # emitted_at is the producer-side timestamp from the original event fixture.
+        assert value["emitted_at"] == "2026-02-20T12:00:00Z"
+
+        # processed_at is generated at handler invocation time; verify it is recent.
+        processed_at_dt = datetime.fromisoformat(value["processed_at"])
+        assert before <= processed_at_dt <= after
+
+    @pytest.mark.asyncio
     async def test_no_event_published_without_kafka(
         self,
         mock_repository: MockRoutingFeedbackRepository,
@@ -510,6 +563,98 @@ class TestKafkaPublishedEvent:
             kafka_publisher=None,
         )
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
+
+
+# =============================================================================
+# Test Class: DLQ Routing
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDlqRouting:
+    """Tests verifying dead-letter queue routing on Kafka publish failures.
+
+    When the primary Kafka publish (routing-feedback-processed) fails, the
+    handler must:
+    1. Attempt a second publish to DLQ_TOPIC with error metadata.
+    2. Never propagate exceptions - the handler result must remain SUCCESS.
+    """
+
+    @pytest.mark.asyncio
+    async def test_dlq_publish_attempted_on_kafka_failure(
+        self,
+        mock_repository: MockRoutingFeedbackRepository,
+        mock_publisher: MockKafkaPublisher,
+        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+    ) -> None:
+        """DLQ publish is attempted when the primary Kafka publish fails.
+
+        Simulates a failed first publish (processed-event topic) followed by
+        a successful second publish (DLQ topic).  Asserts that:
+        - The DLQ publish uses DLQ_TOPIC as the topic.
+        - The DLQ payload contains ``original_topic``, ``error_message``,
+          and ``retry_count == 0``.
+        """
+        # First call (processed-event) raises; second call (DLQ) succeeds.
+        mock_publisher.publish_side_effects = [
+            ConnectionError("Kafka broker unreachable"),
+            None,  # DLQ publish succeeds
+        ]
+
+        result = await process_routing_feedback(
+            event=sample_routing_feedback_event_success,
+            repository=mock_repository,
+            kafka_publisher=mock_publisher,
+        )
+
+        # DB upsert succeeded and handler result is SUCCESS.
+        assert result.status == EnumRoutingFeedbackStatus.SUCCESS
+        assert result.was_upserted is True
+
+        # Exactly one event was successfully published (to the DLQ).
+        assert len(mock_publisher.published) == 1
+        dlq_topic, dlq_key, dlq_value = mock_publisher.published[0]
+
+        # DLQ topic must be the processed-event topic with ".dlq" suffix.
+        assert dlq_topic == DLQ_TOPIC
+
+        # DLQ key must be the session_id (mirrors primary publish key).
+        assert dlq_key == sample_routing_feedback_event_success.session_id
+
+        # DLQ payload must carry error metadata per effect-node guidelines.
+        assert dlq_value["original_topic"] == TOPIC_ROUTING_FEEDBACK_PROCESSED
+        assert "error_message" in dlq_value
+        assert dlq_value["retry_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_dlq_failure_does_not_propagate(
+        self,
+        mock_repository: MockRoutingFeedbackRepository,
+        mock_publisher: MockKafkaPublisher,
+        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+    ) -> None:
+        """Handler returns SUCCESS even when both primary and DLQ publishes fail.
+
+        Both the processed-event publish and the DLQ publish raise.  The
+        handler must swallow both errors and return a successful result
+        (the DB upsert already succeeded before Kafka was contacted).
+        """
+        # Both calls raise - simulate persistent Kafka outage.
+        mock_publisher.simulate_publish_error = RuntimeError("Kafka cluster down")
+
+        result = await process_routing_feedback(
+            event=sample_routing_feedback_event_success,
+            repository=mock_repository,
+            kafka_publisher=mock_publisher,
+        )
+
+        # No exception must propagate out of the handler.
+        assert result.status == EnumRoutingFeedbackStatus.SUCCESS
+        assert result.was_upserted is True
+        assert result.error_message is None
+
+        # No messages were successfully published (all raised).
+        assert len(mock_publisher.published) == 0
 
 
 # =============================================================================
@@ -529,7 +674,9 @@ class TestModelValidation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            sample_routing_feedback_event_success.outcome = "failed"
+            sample_routing_feedback_event_success.outcome = (
+                EnumRoutingFeedbackOutcome.FAILED
+            )
 
     def test_result_is_frozen(self) -> None:
         """ModelRoutingFeedbackResult is immutable (frozen)."""
@@ -540,12 +687,12 @@ class TestModelValidation:
             session_id="test",
             correlation_id=uuid4(),
             stage="session_end",
-            outcome="success",
+            outcome=EnumRoutingFeedbackOutcome.SUCCESS,
             processed_at=datetime.now(UTC),
         )
 
         with pytest.raises(pydantic.ValidationError):
-            result.outcome = "failed"
+            result.outcome = EnumRoutingFeedbackOutcome.FAILED
 
     def test_event_rejects_invalid_outcome(
         self,
@@ -573,7 +720,7 @@ class TestModelValidation:
             ModelRoutingFeedbackEvent(
                 session_id="",
                 correlation_id=sample_correlation_id,
-                outcome="success",
+                outcome=EnumRoutingFeedbackOutcome.SUCCESS,
                 emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
             )
 
@@ -585,7 +732,7 @@ class TestModelValidation:
         event = ModelRoutingFeedbackEvent(
             session_id="test-session",
             correlation_id=sample_correlation_id,
-            outcome="success",
+            outcome=EnumRoutingFeedbackOutcome.SUCCESS,
             emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
         )
         assert event.stage == "session_end"

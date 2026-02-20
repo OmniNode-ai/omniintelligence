@@ -161,7 +161,7 @@ event_bus:
 
   publish_topic_metadata:
     "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1":
-      schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackResult"
+      schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackProcessedEvent"
       description: "Routing feedback processed confirmation events"
 
 # =============================================================================

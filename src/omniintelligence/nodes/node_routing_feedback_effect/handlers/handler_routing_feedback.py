@@ -51,11 +51,14 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Final
+from uuid import UUID
 
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
     ModelRoutingFeedbackEvent,
+    ModelRoutingFeedbackProcessedEvent,
     ModelRoutingFeedbackResult,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
@@ -63,6 +66,9 @@ from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
+
+# Dead-letter queue topic for failed routing-feedback-processed publishes.
+DLQ_TOPIC: Final[str] = f"{TOPIC_ROUTING_FEEDBACK_PROCESSED}.dlq"
 
 
 # =============================================================================
@@ -90,7 +96,7 @@ VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (session_id, correlation_id, stage)
 DO UPDATE SET
     processed_at = EXCLUDED.processed_at
-"""
+;"""
 
 # =============================================================================
 # Handler Functions
@@ -193,7 +199,7 @@ async def _process_routing_feedback_inner(
         event.session_id,
         event.correlation_id,
         event.stage,
-        event.outcome,
+        event.outcome.value,
         now,
     )
 
@@ -232,6 +238,78 @@ async def _process_routing_feedback_inner(
     )
 
 
+async def _route_to_dlq(
+    *,
+    producer: ProtocolKafkaPublisher,
+    original_topic: str,
+    original_envelope: dict[str, object],
+    error_message: str,
+    error_timestamp: str,
+    session_id: str,
+    correlation_id: UUID,
+) -> None:
+    """Route a failed message to the dead-letter queue.
+
+    Follows the effect-node DLQ guideline: on Kafka publish failure, attempt
+    to publish the original envelope plus error metadata to ``{topic}.dlq``.
+    Secrets are sanitized via ``LogSanitizer``. Any errors from the DLQ
+    publish attempt are swallowed to preserve graceful degradation.
+
+    Known limitation: DLQ publish uses the same producer that failed.
+    If the failure is producer-level (connection lost), the DLQ write will
+    also fail and be swallowed. Topic-level errors will succeed.
+
+    Args:
+        producer: Kafka producer for DLQ publish.
+        original_topic: Original topic that failed.
+        original_envelope: Original message payload that failed to publish.
+        error_message: Error description from the failed publish (pre-sanitized).
+        error_timestamp: ISO-formatted timestamp of the failure.
+        session_id: Session ID used as the Kafka message key.
+        correlation_id: Correlation ID for tracing.
+    """
+    try:
+        sanitizer = get_log_sanitizer()
+        # NOTE: Sanitization covers top-level string values. The current
+        # envelope (routing-feedback-processed payload) produces only
+        # top-level string/primitive fields, so this is sufficient.
+        # INVARIANT: DLQ payloads from this handler are flat dicts; nested
+        # sanitization is not required. If the envelope gains nested objects,
+        # add recursive sanitization here.
+        sanitized_envelope = {
+            k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
+            for k, v in original_envelope.items()
+        }
+
+        dlq_payload: dict[str, object] = {
+            "original_topic": original_topic,
+            "original_envelope": sanitized_envelope,
+            "error_message": sanitizer.sanitize(error_message),
+            "error_timestamp": error_timestamp,
+            "retry_count": 0,
+            "service": "omniintelligence",
+            "node": "node_routing_feedback_effect",
+        }
+
+        await producer.publish(
+            topic=DLQ_TOPIC,
+            key=session_id,
+            value=dlq_payload,
+        )
+    except Exception:
+        # DLQ publish failed -- swallow to preserve graceful degradation,
+        # but log at WARNING so operators can detect persistent Kafka issues.
+        logger.warning(
+            "DLQ publish failed for topic %s -- message lost",
+            DLQ_TOPIC,
+            exc_info=True,
+            extra={
+                "correlation_id": str(correlation_id),
+                "session_id": session_id,
+            },
+        )
+
+
 async def _publish_processed_event(
     event: ModelRoutingFeedbackEvent,
     kafka_publisher: ProtocolKafkaPublisher,
@@ -240,27 +318,28 @@ async def _publish_processed_event(
     """Publish a routing-feedback-processed confirmation event.
 
     Failures are logged but NOT propagated - the DB upsert already succeeded.
-    This function is always called after a successful upsert, so callers should
-    treat a Kafka failure as non-fatal.
+    On publish failure, the original envelope is routed to the DLQ topic
+    (``TOPIC_ROUTING_FEEDBACK_PROCESSED + ".dlq"``) per effect-node guidelines.
 
     Args:
         event: The original routing feedback event.
         kafka_publisher: Kafka publisher for the confirmation event.
         processed_at: Timestamp of when the upsert was processed.
     """
+    event_model = ModelRoutingFeedbackProcessedEvent(
+        session_id=event.session_id,
+        correlation_id=event.correlation_id,
+        stage=event.stage,
+        outcome=event.outcome,
+        emitted_at=event.emitted_at,
+        processed_at=processed_at,
+    )
+    payload = event_model.model_dump(mode="json")
     try:
         await kafka_publisher.publish(
             topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
             key=event.session_id,
-            value={
-                "event_name": "routing.feedback.processed",
-                "session_id": event.session_id,
-                "correlation_id": str(event.correlation_id),
-                "stage": event.stage,
-                "outcome": event.outcome,
-                "emitted_at": event.emitted_at.isoformat(),
-                "processed_at": processed_at.isoformat(),
-            },
+            value=payload,
         )
         logger.debug(
             "Published routing feedback processed event",
@@ -270,10 +349,11 @@ async def _publish_processed_event(
                 "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
             },
         )
-    except Exception:
+    except Exception as exc:
         # DB upsert already succeeded; Kafka failure is non-fatal.
         # Log as warning so operators can detect persistent Kafka issues
         # without blocking the routing feedback pipeline.
+        sanitized_error = get_log_sanitizer().sanitize(str(exc))
         logger.warning(
             "Failed to publish routing feedback processed event — "
             "DB upsert succeeded, Kafka publish failed (non-fatal)",
@@ -285,7 +365,22 @@ async def _publish_processed_event(
             },
         )
 
+        # Route to DLQ per effect-node guidelines.
+        # Sanitize error before passing to _route_to_dlq for defense-in-depth
+        # (_route_to_dlq also sanitizes internally, but we sanitize at the call
+        # site to avoid passing raw exception strings across function boundaries).
+        await _route_to_dlq(
+            producer=kafka_publisher,
+            original_topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
+            original_envelope=payload,
+            error_message=sanitized_error,
+            error_timestamp=datetime.now(UTC).isoformat(),
+            session_id=event.session_id,
+            correlation_id=event.correlation_id,
+        )
+
 
 __all__ = [
+    "DLQ_TOPIC",
     "process_routing_feedback",
 ]

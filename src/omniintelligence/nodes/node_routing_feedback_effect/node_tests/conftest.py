@@ -20,6 +20,7 @@ from uuid import UUID
 import pytest
 
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
+    EnumRoutingFeedbackOutcome,
     ModelRoutingFeedbackEvent,
 )
 
@@ -141,14 +142,24 @@ class MockKafkaPublisher:
 
     Captures published events for assertion in tests.
 
+    Supports two failure modes:
+    - ``simulate_publish_error``: Raises on every ``publish()`` call.
+    - ``publish_side_effects``: List of ``Exception | None`` consumed in order.
+      ``None`` means succeed (append to ``published``); an ``Exception`` means
+      raise for that specific call.  Once the list is exhausted, subsequent
+      calls succeed normally.  Use this for "fail first call, succeed second"
+      scenarios (e.g. main topic fails → DLQ succeeds).
+
     Attributes:
         published: List of (topic, key, value) tuples for published events.
-        simulate_publish_error: If set, raises this exception on publish.
+        simulate_publish_error: If set, raises this exception on every publish.
+        publish_side_effects: Per-call side effects (consumed left-to-right).
     """
 
     def __init__(self) -> None:
         self.published: list[tuple[str, str, dict[str, Any]]] = []
         self.simulate_publish_error: Exception | None = None
+        self.publish_side_effects: list[Exception | None] = []
 
     async def publish(
         self,
@@ -156,6 +167,14 @@ class MockKafkaPublisher:
         key: str,
         value: dict[str, Any],
     ) -> None:
+        # Per-call side effects take priority over the blanket error flag.
+        if self.publish_side_effects:
+            effect = self.publish_side_effects.pop(0)
+            if effect is not None:
+                raise effect
+            self.published.append((topic, key, value))
+            return
+
         if self.simulate_publish_error is not None:
             raise self.simulate_publish_error
         self.published.append((topic, key, value))
@@ -207,7 +226,7 @@ def sample_routing_feedback_event_success(
         session_id=sample_session_id,
         correlation_id=sample_correlation_id,
         stage=sample_stage,
-        outcome="success",
+        outcome=EnumRoutingFeedbackOutcome.SUCCESS,
         emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
     )
 
@@ -223,6 +242,6 @@ def sample_routing_feedback_event_failed(
         session_id=sample_session_id,
         correlation_id=sample_correlation_id,
         stage=sample_stage,
-        outcome="failed",
+        outcome=EnumRoutingFeedbackOutcome.FAILED,
         emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
     )

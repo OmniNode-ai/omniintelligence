@@ -7,11 +7,13 @@ Reference: OMN-2366
 
 from __future__ import annotations
 
-from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
+from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_outcome import (
+    EnumRoutingFeedbackOutcome,
+)
 from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_status import (
     EnumRoutingFeedbackStatus,
 )
@@ -53,7 +55,7 @@ class ModelRoutingFeedbackResult(BaseModel):
         ...,
         description="Hook stage from the input event",
     )
-    outcome: Literal["success", "failed"] = Field(
+    outcome: EnumRoutingFeedbackOutcome = Field(
         ...,
         description="Session outcome from the input event",
     )
