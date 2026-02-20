@@ -476,7 +476,7 @@ Kafka is **required infrastructure** — but event emission must never block the
 ```python
 # Emit asynchronously — do not await a Kafka ack before returning
 await _emit_promotion_event(producer=producer, ...)
-# Primary operation already complete; Kafka delivery is best-effort async
+# Kafka emit is the transition path; caller returns immediately after (reducer detects duplicates)
 ```
 
 ### External Transaction Control

@@ -1041,6 +1041,67 @@ class TestActualPromotion:
         assert result.patterns_eligible == 0
         assert len(result.patterns_promoted) == 0
 
+    @pytest.mark.asyncio
+    async def test_kafka_failure_isolated_per_pattern(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Kafka publish failure for one pattern is isolated; other patterns still succeed.
+
+        Exercises the per-pattern except block in check_and_promote_patterns:
+        - Failed result has promoted_at=None and reason starting with 'promotion_failed:'
+        - patterns_failed == 1, patterns_succeeded == 1
+        - Both results appear in patterns_promoted list
+        """
+
+        class FailFirstPublisher:
+            """Publisher that raises on the first call, succeeds on subsequent calls."""
+
+            def __init__(self) -> None:
+                self.call_count = 0
+                self.published_events: list[tuple[str, str, dict[str, Any]]] = []
+
+            async def publish(
+                self, topic: str, key: str, value: dict[str, Any]
+            ) -> None:
+                self.call_count += 1
+                if self.call_count == 1:
+                    raise OSError("Kafka broker unavailable")
+                self.published_events.append((topic, key, value))
+
+        failing_producer = FailFirstPublisher()
+        id1, id2 = uuid4(), uuid4()
+        for pid in (id1, id2):
+            mock_repository.add_pattern(
+                PromotablePattern(
+                    id=pid,
+                    injection_count_rolling_20=10,
+                    success_count_rolling_20=8,
+                    failure_count_rolling_20=2,
+                    failure_streak=0,
+                )
+            )
+
+        result = await check_and_promote_patterns(
+            repository=mock_repository,
+            producer=failing_producer,  # type: ignore[arg-type]
+            dry_run=False,
+        )
+
+        assert result.patterns_eligible == 2
+        assert len(result.patterns_promoted) == 2
+        assert result.patterns_failed == 1
+        assert result.patterns_succeeded == 1
+        # Failed result: promoted_at is None, reason records the exception
+        failed = next(r for r in result.patterns_promoted if r.promoted_at is None)
+        assert failed.reason is not None
+        assert "promotion_failed:" in failed.reason
+        # Succeeded result: promoted_at is set
+        succeeded = next(
+            r for r in result.patterns_promoted if r.promoted_at is not None
+        )
+        assert succeeded.promoted_at is not None
+
 
 # =============================================================================
 # Test Class: Lifecycle Event Payload Verification (OMN-1805)
