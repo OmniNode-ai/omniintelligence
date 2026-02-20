@@ -1265,11 +1265,21 @@ class TestPromotePatternDirect:
     @pytest.mark.asyncio
     async def test_promote_pattern_emits_lifecycle_event(
         self,
+        mock_repository: MockPatternRepository,
         mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
     ) -> None:
         """promote_pattern emits lifecycle event to Kafka (not direct DB update)."""
         # Arrange
+        mock_repository.add_pattern(
+            PromotablePattern(
+                id=sample_pattern_id,
+                injection_count_rolling_20=10,
+                success_count_rolling_20=8,
+                failure_count_rolling_20=2,
+                failure_streak=0,
+            )
+        )
         pattern_data = MockRecord(
             {
                 "id": sample_pattern_id,
@@ -1294,6 +1304,8 @@ class TestPromotePatternDirect:
         assert result.dry_run is False
         # Event emitted to Kafka
         assert len(mock_producer.published_events) == 1
+        # NOTE: Database status unchanged - actual update happens via reducer/effect
+        assert mock_repository.patterns[sample_pattern_id].status == "provisional"
 
     @pytest.mark.asyncio
     async def test_promote_pattern_returns_gate_snapshot(

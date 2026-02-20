@@ -175,6 +175,7 @@ class RegistryPatternPromotionEffect:
 
         Raises:
             ValueError: If repository is None.
+            ValueError: If producer is None (Kafka is required infrastructure).
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
@@ -186,6 +187,11 @@ class RegistryPatternPromotionEffect:
             raise ValueError(
                 "repository is required for RegistryPatternPromotionEffect. "
                 "Provide a ProtocolPatternRepository implementation."
+            )
+        if producer is None:
+            raise ValueError(
+                "producer is required (Kafka is required infrastructure). "
+                "Provide a ProtocolKafkaPublisher implementation."
             )
 
         # Create handler with bound dependencies
