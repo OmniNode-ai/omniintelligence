@@ -1,0 +1,210 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeRoutingFeedbackEffect
+#
+# This contract defines the interface for the routing feedback effect node.
+# The node consumes routing.feedback events from omniclaude's session-end hook
+# and persists idempotent upsert records to routing_feedback_scores table.
+#
+# Reference:
+#   - OMN-2366: Add routing.feedback consumer in omniintelligence (orphan topic)
+#   - OMN-2356: Session-end hook routing feedback producer (omniclaude)
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_routing_feedback_effect"
+contract_name: "node_routing_feedback_effect"
+node_name: "node_routing_feedback_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node for processing routing feedback events from omniclaude's session-end hook. Consumes onex.evt.omniclaude.routing-feedback.v1
+  events containing session_id and outcome (success/failed). Upserts idempotent records to routing_feedback_scores
+  table using (session_id, correlation_id, stage) as the composite idempotency key. Publishes onex.evt.omniintelligence.routing-feedback-processed.v1
+  after successful processing.
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelRoutingFeedbackEvent"
+  module: "omniintelligence.nodes.node_routing_feedback_effect.models"
+  description: "Routing feedback event from omniclaude session-end hook"
+
+output_model:
+  name: "ModelRoutingFeedbackResult"
+  module: "omniintelligence.nodes.node_routing_feedback_effect.models"
+  description: "Result of routing feedback processing with upsert status"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "process_routing_feedback"
+      handler:
+        function: "process_routing_feedback"
+        module: "omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback"
+        type: "async"
+      description: "Consume routing feedback event, upsert to routing_feedback_scores, publish processed
+        event"
+      output_fields:
+        - status
+        - session_id
+        - correlation_id
+        - stage
+        - outcome
+        - was_upserted
+        - processed_at
+        - error_message
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "process_routing_feedback"
+    description: "Process routing feedback event and upsert idempotent record to routing_feedback_scores"
+    input_fields:
+      - session_id
+      - correlation_id
+      - stage
+      - outcome
+      - emitted_at
+    output_fields:
+      - status
+      - session_id
+      - correlation_id
+      - stage
+      - outcome
+      - was_upserted
+      - processed_at
+      - error_message
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.protocols"
+    description: "Repository protocol for upsert operations on routing_feedback_scores"
+    required: true
+  - name: "kafka_publisher"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Optional Kafka publisher for routing-feedback-processed events. Absent = graceful degradation"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "DatabaseWriteError"
+      description: "Failed to upsert routing feedback record to PostgreSQL"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ValidationError"
+      description: "Invalid routing feedback event data"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
+    # The topic name is dictated by the producer; this is an intentional cross-system
+    # exception to the convention that subscribe topics use 'cmd' kind.
+    - "{env}.onex.evt.omniclaude.routing-feedback.v1"
+
+  publish_topics:
+    - "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1"
+
+  subscribe_topic_metadata:
+    "{env}.onex.evt.omniclaude.routing-feedback.v1":
+      schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackEvent"
+      description: "Routing feedback events from omniclaude session-end hook"
+
+  publish_topic_metadata:
+    "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1":
+      schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackProcessedEvent"
+      description: "Routing feedback processed confirmation events"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "correlation_id", "stage"]
+  description: >
+    Each routing feedback event is uniquely identified by (session_id, correlation_id, stage). Re-processing
+    the same event is idempotent via ON CONFLICT (session_id, correlation_id, stage) DO UPDATE SET processed_at
+    = EXCLUDED.processed_at. This handles at-least-once Kafka delivery without creating duplicate rows.
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "database_write"
+    description: "Upsert routing feedback records to routing_feedback_scores in PostgreSQL"
+  - name: "idempotent_upsert"
+    description: "ON CONFLICT upsert prevents duplicate records from at-least-once Kafka delivery"
+  - name: "event_publish"
+    description: "Publish routing-feedback-processed events to Kafka (optional, graceful degradation)"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-20"
+  updated: "2026-02-20"
+  tags:
+    - effect
+    - routing-feedback
+    - idempotent
+    - postgresql
+    - kafka
+  references:
+    - ticket: "OMN-2366"
+      url: "https://linear.app/omninode/issue/OMN-2366"
+      description: "Add routing.feedback consumer in omniintelligence (orphan topic)"
+    - ticket: "OMN-2356"
+      url: "https://linear.app/omninode/issue/OMN-2356"
+      description: "Session-end hook routing feedback producer (omniclaude)"

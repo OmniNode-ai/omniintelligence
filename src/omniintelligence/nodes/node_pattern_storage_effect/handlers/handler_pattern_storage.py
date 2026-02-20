@@ -22,9 +22,10 @@ Usage:
     )
 
     # Class-based usage (for dependency injection)
-    router = PatternStorageRouter()
-    router.set_pattern_store(store_impl)
-    router.set_state_manager(manager_impl)
+    router = PatternStorageRouter(
+        pattern_store=store_impl,
+        state_manager=manager_impl,
+    )
     result = await router.route(operation="store_pattern", input_data={...})
 
 Reference:
@@ -81,6 +82,12 @@ ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
 ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
 ERROR_CODE_STORAGE_ERROR: Final[str] = "STORAGE_ERROR"
+# PATSTOR_001 is declared in contract.yaml (PatternStorageError) but has no active
+# emission path — the only previous emitter (pattern_store is None guard) was removed
+# when pattern_store became a required constructor parameter.
+ERROR_CODE_PATSTOR_001: Final[str] = "PATSTOR_001"
+ERROR_CODE_PATSTOR_002: Final[str] = "PATSTOR_002"
+ERROR_CODE_PATSTOR_003: Final[str] = "PATSTOR_003"
 
 
 # =============================================================================
@@ -175,9 +182,10 @@ class PatternStorageRouter:
     and routes operations to the appropriate handlers.
 
     Usage:
-        router = PatternStorageRouter()
-        router.set_pattern_store(store_impl)
-        router.set_state_manager(manager_impl)
+        router = PatternStorageRouter(
+            pattern_store=store_impl,
+            state_manager=manager_impl,
+        )
 
         result = await router.route(
             operation="store_pattern",
@@ -189,26 +197,23 @@ class PatternStorageRouter:
         _state_manager: The state manager for promotion operations.
     """
 
-    def __init__(self) -> None:
-        """Initialize the router with no dependencies."""
-        self._pattern_store: ProtocolPatternStore | None = None
-        self._state_manager: ProtocolPatternStateManager | None = None
-
-    def set_pattern_store(self, store: ProtocolPatternStore) -> None:
-        """Set the pattern store for storage operations.
-
-        Args:
-            store: Pattern store implementing ProtocolPatternStore.
-        """
-        self._pattern_store = store
-
-    def set_state_manager(self, manager: ProtocolPatternStateManager) -> None:
-        """Set the state manager for promotion operations.
+    def __init__(
+        self,
+        *,
+        pattern_store: ProtocolPatternStore,
+        state_manager: ProtocolPatternStateManager | None = None,
+    ) -> None:
+        """Initialize the router with dependencies.
 
         Args:
-            manager: State manager implementing ProtocolPatternStateManager.
+            pattern_store: Pattern store implementing ProtocolPatternStore.
+                Required for store_pattern operations.
+            state_manager: State manager implementing ProtocolPatternStateManager.
+                Optional at construction time; required at the call-site level
+                only for promote_pattern operations (returns structured error if absent).
         """
-        self._state_manager = manager
+        self._pattern_store: ProtocolPatternStore = pattern_store
+        self._state_manager: ProtocolPatternStateManager | None = state_manager
 
     async def route(
         self,
@@ -243,7 +248,6 @@ class PatternStorageRouter:
             "Routing storage operation",
             extra={
                 "operation": operation,
-                "has_pattern_store": self._pattern_store is not None,
                 "has_state_manager": self._state_manager is not None,
             },
         )
@@ -310,19 +314,6 @@ class PatternStorageRouter:
                 error_message=error_msg,
             )
 
-        # Guard: Ensure pattern store is initialized
-        if self._pattern_store is None:
-            logger.error(
-                "Pattern store not initialized",
-                extra={"error_code": "PATSTOR_001"},
-            )
-            return StorageOperationResult(
-                operation=OPERATION_STORE_PATTERN,
-                success=False,
-                error_code="PATSTOR_001",
-                error_message="Pattern store not initialized",
-            )
-
         # Call the existing handler (returns structured result, not exceptions)
         store_result: StorePatternResult = await handle_store_pattern(
             input_data=storage_input,
@@ -338,7 +329,7 @@ class PatternStorageRouter:
                 default_message = "Governance validation failed"
                 log_message = "Store pattern governance validation failed"
             else:
-                error_code = "PATSTOR_003"
+                error_code = ERROR_CODE_PATSTOR_003
                 default_message = "Pattern storage failed"
                 log_message = "Store pattern operation failed"
 
@@ -461,12 +452,12 @@ class PatternStorageRouter:
             if self._state_manager is None:
                 logger.error(
                     "State manager not initialized",
-                    extra={"error_code": "PATSTOR_002"},
+                    extra={"error_code": ERROR_CODE_PATSTOR_002},
                 )
                 return StorageOperationResult(
                     operation=OPERATION_PROMOTE_PATTERN,
                     success=False,
-                    error_code="PATSTOR_002",
+                    error_code=ERROR_CODE_PATSTOR_002,
                     error_message="State manager not initialized",
                 )
 
@@ -532,9 +523,15 @@ class PatternStorageRouter:
             )
 
         except ValueError as e:
+            _corr_id = input_data.get("correlation_id")
+            _pat_id = input_data.get("pattern_id")
             logger.warning(
                 "Promote pattern validation failed",
-                extra={"error": str(e)},
+                extra={
+                    "error": str(e),
+                    "correlation_id": str(_corr_id) if _corr_id is not None else None,
+                    "pattern_id": str(_pat_id) if _pat_id is not None else None,
+                },
             )
             return StorageOperationResult(
                 operation=OPERATION_PROMOTE_PATTERN,
@@ -601,6 +598,8 @@ async def route_storage_operation(
         ...         "confidence": 0.85,
         ...     },
         ...     pattern_store=store_impl,
+        ...     state_manager=manager_impl,
+        ...     conn=conn,
         ... )
         >>> result["success"]
         True
@@ -615,7 +614,9 @@ async def route_storage_operation(
         ...         "to_state": "provisional",
         ...         "reason": "Pattern met verification criteria",
         ...     },
+        ...     pattern_store=store_impl,
         ...     state_manager=manager_impl,
+        ...     conn=conn,
         ... )
         >>> result["success"]
         True
@@ -628,6 +629,7 @@ async def route_storage_operation(
         ...         operation="store_pattern",
         ...         input_data={...},
         ...         pattern_store=store_impl,
+        ...         state_manager=manager_impl,
         ...         conn=conn,
         ...     )
     """
@@ -639,20 +641,25 @@ async def route_storage_operation(
     )
 
     # Create router with provided dependencies (all required)
-    router = PatternStorageRouter()
-    router.set_pattern_store(pattern_store)
-    router.set_state_manager(state_manager)
+    router = PatternStorageRouter(
+        pattern_store=pattern_store,
+        state_manager=state_manager,
+    )
 
     # Route operation and return serialized result
     result = await router.route(operation=operation, input_data=input_data, conn=conn)
     return result.to_dict()
 
 
+# ERROR_CODE_PATSTOR_001 is intentionally excluded: it has no active emission path.
+# See the comment above its definition for context. Add it here when an emitter is wired.
 __all__ = [
     "ERROR_CODE_GOVERNANCE_VIOLATION",
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
     "ERROR_CODE_STORAGE_ERROR",
+    "ERROR_CODE_PATSTOR_002",
+    "ERROR_CODE_PATSTOR_003",
     "ERROR_CODE_VALIDATION_ERROR",
     "OPERATION_PROMOTE_PATTERN",
     "OPERATION_STORE_PATTERN",

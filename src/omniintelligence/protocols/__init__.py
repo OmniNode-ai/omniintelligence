@@ -11,8 +11,16 @@ Reference:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
+        ModelIntentClassificationInput,
+    )
+    from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_output import (
+        ModelIntentClassificationOutput,
+    )
 
 
 @runtime_checkable
@@ -197,11 +205,21 @@ class ProtocolIntentClassifier(Protocol):
     Defines a simplified interface for classifying user prompt intent.
     The implementation delegates to a compute node that performs
     pattern-matching-based classification.
+
+    NOTE: ModelIntentClassificationInput/Output are TYPE_CHECKING-only to avoid
+    circular imports at runtime. Because `from __future__ import annotations` is
+    active in this module, all annotations are already lazy strings at runtime —
+    the TYPE_CHECKING guard is defence-in-depth and documents the intent clearly.
+    isinstance() checks against this protocol verify method name presence only,
+    as documented for @runtime_checkable protocols. Full type fidelity is enforced
+    by static analysis only. If runtime signature validation is ever required,
+    file a ticket to restructure the import to remove the circular dependency;
+    a runtime conformance test can be added once the TYPE_CHECKING guard is lifted.
     """
 
     async def compute(
-        self, input_data: Any
-    ) -> Any: ...  # any-ok: protocol bridge for dynamically-typed classifier interface
+        self, input_data: ModelIntentClassificationInput
+    ) -> ModelIntentClassificationOutput: ...
 
 
 __all__ = [
