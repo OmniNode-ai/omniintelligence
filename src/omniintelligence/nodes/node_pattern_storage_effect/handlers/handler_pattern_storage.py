@@ -598,6 +598,8 @@ async def route_storage_operation(
         ...         "confidence": 0.85,
         ...     },
         ...     pattern_store=store_impl,
+        ...     state_manager=manager_impl,
+        ...     conn=conn,
         ... )
         >>> result["success"]
         True
@@ -614,6 +616,7 @@ async def route_storage_operation(
         ...     },
         ...     pattern_store=store_impl,
         ...     state_manager=manager_impl,
+        ...     conn=conn,
         ... )
         >>> result["success"]
         True
@@ -626,6 +629,7 @@ async def route_storage_operation(
         ...         operation="store_pattern",
         ...         input_data={...},
         ...         pattern_store=store_impl,
+        ...         state_manager=manager_impl,
         ...         conn=conn,
         ...     )
     """
