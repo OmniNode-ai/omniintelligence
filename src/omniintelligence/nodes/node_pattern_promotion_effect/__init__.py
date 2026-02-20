@@ -23,9 +23,9 @@ Promotion Gates (all must pass):
     4. Disabled Gate: Pattern not in disabled_patterns_current
 
 ONEX Invariant:
-    Kafka is OPTIONAL per "Effect nodes must never block on Kafka".
-    When producer is unavailable, promotions proceed via direct
-    database UPDATE (fallback mode).
+    Kafka is REQUIRED infrastructure. Events are emitted asynchronously
+    — the primary database write completes before the Kafka ack. There
+    is no direct database UPDATE fallback path.
 
 Usage (Declarative Pattern):
     from omniintelligence.nodes.node_pattern_promotion_effect import (
