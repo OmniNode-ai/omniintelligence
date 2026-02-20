@@ -131,7 +131,7 @@ src/omniintelligence/
 │   ├── node_quality_scoring_compute/
 │   ├── node_semantic_analysis_compute/
 │   └── node_success_criteria_matcher_compute/
-├── runtime/                            # PluginIntelligence, RuntimeHostProcess wiring
+├── runtime/                            # PluginIntelligence, MessageDispatchEngine wiring
 ├── api/                                # FastAPI HTTP endpoints
 ├── repositories/                       # Database access layer
 ├── handlers/                           # Shared handler functions
