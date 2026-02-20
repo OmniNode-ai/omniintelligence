@@ -59,3 +59,15 @@ class ModelPromotionCheckResult(BaseModel):
         return sum(
             1 for r in self.patterns_promoted if r.promoted_at is None and not r.dry_run
         )
+
+    @property
+    def patterns_succeeded(self) -> int:
+        """Count of promotion attempts that succeeded (promoted_at is set, not dry_run).
+
+        Note: O(n) on patterns_promoted — do not call in tight loops.
+        """
+        return sum(
+            1
+            for r in self.patterns_promoted
+            if r.promoted_at is not None and not r.dry_run
+        )

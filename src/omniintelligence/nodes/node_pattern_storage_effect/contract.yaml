@@ -303,9 +303,9 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
     module: "omniintelligence.protocols"
-    description: "Kafka publisher for emitting pattern storage events. Required infrastructure per ONEX
-      invariant."
-    required: true
+    description: "Kafka publisher for emitting pattern storage events. Not injected into handlers — RuntimeHostProcess
+      publishes returned events to declared publish_topics automatically."
+    required: false
 
 # =============================================================================
 # ERROR HANDLING

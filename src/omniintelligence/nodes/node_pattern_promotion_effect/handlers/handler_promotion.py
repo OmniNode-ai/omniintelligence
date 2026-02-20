@@ -437,15 +437,6 @@ async def check_and_promote_patterns(
                 continue
             promotion_results.append(result)
 
-    # Count results where promoted_at is set (i.e. the Kafka emit succeeded).
-    # promote_pattern returns result with promoted_at=request_time on success;
-    # if _emit_lifecycle_event raises, the exception propagates here and is
-    # caught by the per-pattern handler above, so promoted_at is None only for
-    # dry-run entries and for failed results constructed manually above.
-    actual_promotions = sum(
-        1 for r in promotion_results if r.promoted_at is not None and not r.dry_run
-    )
-
     check_result = ModelPromotionCheckResult(
         dry_run=dry_run,
         patterns_checked=len(patterns),
@@ -460,7 +451,7 @@ async def check_and_promote_patterns(
             "correlation_id": str(correlation_id) if correlation_id else None,
             "patterns_checked": len(patterns),
             "patterns_eligible": len(eligible_patterns),
-            "patterns_promoted": actual_promotions,
+            "patterns_promoted": check_result.patterns_succeeded,
             "patterns_failed": check_result.patterns_failed,
             "dry_run": dry_run,
         },
