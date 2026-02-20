@@ -22,7 +22,7 @@ Reference:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -1385,7 +1385,7 @@ class TestRegistryPatternPromotionEffectSmoke:
     """
 
     @pytest.fixture(autouse=True)
-    def clear_registry(self) -> object:
+    def clear_registry(self) -> Generator[None, None, None]:
         """Clear module-level registry state before and after each test."""
         RegistryPatternPromotionEffect.clear()
         yield

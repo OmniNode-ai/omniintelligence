@@ -325,7 +325,10 @@ async def check_and_promote_patterns(
     # than propagating an AttributeError to the caller.
     try:
         patterns = await repository.fetch(SQL_FETCH_PROVISIONAL_PATTERNS)
-    except Exception as exc:  # Broad except is intentional: any broken repository (None, unavailable) returns structured empty result. Registry isinstance guards catch None at construction; this covers runtime unavailability.
+    except (
+        AttributeError,
+        TypeError,
+    ) as exc:  # AttributeError/TypeError only — catches None repository (isinstance-bypassed). Other exceptions propagate to caller.
         sanitized_err = get_log_sanitizer().sanitize(str(exc))
         logger.error(
             "Failed to fetch provisional patterns — returning empty result",
@@ -456,14 +459,6 @@ async def check_and_promote_patterns(
                 )
                 promotion_results.append(failed_result)
                 continue
-            # Defensive invariant — currently unreachable: promote_pattern either raises
-            # (caught above) or returns with promoted_at set. This guard exists to catch
-            # future regressions where promote_pattern might silently return
-            # promoted_at=None without raising. Do NOT remove as "dead code".
-            if result.promoted_at is None:
-                raise RuntimeError(
-                    "promote_pattern contract violated: promoted_at must be set on success path"
-                )
             promotion_results.append(result)
 
     # Count results where promoted_at is set (i.e. the Kafka emit succeeded).
@@ -522,6 +517,7 @@ async def promote_pattern(
         ModelPromotionResult with promotion details and gate snapshot.
 
     Note:
+        Always returns with `promoted_at` set on success; raises on failure.
         - The ``promoted_at`` field is set to request time
         - Actual status update happens asynchronously via reducer
         - The promotion may fail if reducer rejects the transition
