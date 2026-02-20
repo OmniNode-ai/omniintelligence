@@ -582,7 +582,7 @@ state_machine:
 dependencies:
   - name: "kafka_producer"
     type: "protocol"
-    class_name: "ProtocolKafkaProducer"
+    class_name: "ProtocolKafkaPublisher"
     required: true  # Kafka is required infrastructure
 
 # =============================================================================

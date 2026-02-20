@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pydantic
@@ -1381,6 +1381,10 @@ class TestRegistryPatternPromotionEffectSmoke:
     returns a properly wired RegistryPromotionHandlers. These tests cover the
     happy path through the registry factory — the constructor-enforced producer
     requirement is validated by mypy at the type level, not at runtime.
+
+    Note: None-argument rejection is enforced at the type level (mypy strict);
+    no runtime guard exists. Runtime misuse manifests on first call, not at
+    registry creation.
     """
 
     @pytest.fixture(autouse=True)
@@ -1473,6 +1477,51 @@ class TestRegistryPatternPromotionEffectSmoke:
 
         with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
             registry.check_and_promote = lambda _: None  # type: ignore[method-assign]
+
+    @pytest.mark.asyncio
+    async def test_create_registry_with_none_producer_fails_at_use_time(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Passing None as producer binds silently but fails on first use.
+
+        This documents the runtime behavior honestly: create_registry accepts
+        None (bypassing mypy with cast) without raising. The AttributeError
+        only surfaces when the handler actually calls producer.publish().
+
+        Note: None-argument rejection is enforced at the type level (mypy
+        strict); no runtime guard exists. Runtime misuse manifests on first
+        call, not at registry creation.
+        """
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=cast(ProtocolKafkaPublisher, None),
+        )
+
+        # Registry creation succeeds silently — no error yet
+        assert registry is not None
+        assert callable(registry.check_and_promote)
+
+        # Add a promotable pattern so the handler reaches the publish() call
+        from omniintelligence.nodes.node_pattern_promotion_effect.models import (
+            ModelPromotionCheckRequest,
+        )
+
+        mock_repository.add_pattern(
+            PromotablePattern(
+                id=uuid4(),
+                injection_count_rolling_20=10,
+                success_count_rolling_20=8,
+                failure_count_rolling_20=2,
+                failure_streak=0,
+            )
+        )
+
+        request = ModelPromotionCheckRequest(dry_run=False)
+
+        # Failure manifests at call time, not at registry creation
+        with pytest.raises((AttributeError, TypeError)):
+            await registry.check_and_promote(request)
 
 
 # =============================================================================

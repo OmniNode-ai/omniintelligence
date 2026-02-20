@@ -9,7 +9,7 @@ Architecture:
     The registry follows ONEX container-based dependency injection:
     - Creates handlers with explicit dependencies (no setters)
     - Uses static factory pattern for registry creation
-    - Validates dependencies at registry creation time (fail-fast)
+    - Dependencies are validated by the type system; no runtime None check is performed
     - Returns a frozen registry that cannot be modified
 
 Kafka Requirement:
@@ -135,7 +135,7 @@ class RegistryPatternPromotionEffect:
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
-    - Dependencies are validated at registry creation time (fail-fast)
+    - Dependencies are validated by the type system; no runtime None check is performed
     - No setter methods - dependencies are injected via factory
     - Registry is frozen after creation
 
