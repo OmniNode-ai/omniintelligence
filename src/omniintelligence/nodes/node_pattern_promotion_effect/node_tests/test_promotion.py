@@ -1474,7 +1474,7 @@ class TestRegistryPatternPromotionEffectSmoke:
         )
 
         with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
-            registry.check_and_promote = lambda _: None  # type: ignore[misc]
+            registry.check_and_promote = lambda _: None  # type: ignore[misc, assignment, return-value]
 
     def test_create_registry_with_none_producer_raises_at_construction(
         self,

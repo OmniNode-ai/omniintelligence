@@ -325,7 +325,7 @@ async def check_and_promote_patterns(
     # than propagating an AttributeError to the caller.
     try:
         patterns = await repository.fetch(SQL_FETCH_PROVISIONAL_PATTERNS)
-    except Exception as exc:
+    except Exception as exc:  # Broad except is intentional: any broken repository (None, unavailable) returns structured empty result. Registry isinstance guards catch None at construction; this covers runtime unavailability.
         sanitized_err = get_log_sanitizer().sanitize(str(exc))
         logger.error(
             "Failed to fetch provisional patterns — returning empty result",
@@ -475,7 +475,7 @@ async def check_and_promote_patterns(
         1 for r in promotion_results if r.promoted_at is not None and not r.dry_run
     )
 
-    result = ModelPromotionCheckResult(
+    check_result = ModelPromotionCheckResult(
         dry_run=dry_run,
         patterns_checked=len(patterns),
         patterns_eligible=len(eligible_patterns),
@@ -490,12 +490,12 @@ async def check_and_promote_patterns(
             "patterns_checked": len(patterns),
             "patterns_eligible": len(eligible_patterns),
             "patterns_promoted": actual_promotions,
-            "patterns_failed": result.patterns_failed,
+            "patterns_failed": check_result.patterns_failed,
             "dry_run": dry_run,
         },
     )
 
-    return result
+    return check_result
 
 
 async def promote_pattern(

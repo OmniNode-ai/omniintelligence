@@ -456,7 +456,7 @@ async def handle_auto_promote_check(
             Callers that need idempotency should pass a concrete store.
         producer: Kafka producer for transition events. Required infrastructure
             — Kafka is the only transition path. Passing None is a programming
-            error.
+            error. Must be passed as a keyword argument.
         correlation_id: Optional correlation ID for tracing. When None a
             single fallback UUID is generated and reused for every
             transition in this invocation to ensure consistent tracing.
