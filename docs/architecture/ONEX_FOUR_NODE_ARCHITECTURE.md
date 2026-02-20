@@ -201,11 +201,13 @@ Source contracts scanned:
 
 | Route | Handler | Source Topic |
 |-------|---------|--------------|
-| `claude-hook-event` | `route_hook_event()` | `claude-hook-event.v1` |
-| `session-outcome` | `record_session_outcome()` | `session-outcome.v1` |
-| `pattern-lifecycle-transition` | `apply_transition()` | `pattern-lifecycle-transition.v1` |
-| `pattern-storage` | `store_pattern()` | `pattern-learned.v1`, `pattern.discovered` |
-| `pattern-learning-cmd` | `create_pattern_learning_dispatch_handler()` | `pattern-learning.v1` |
+| `intelligence-claude-hook-route` | `route_hook_event()` | `claude-hook-event.v1` |
+| `intelligence-tool-content-route` | `route_hook_event()` | `tool-content.v1` |
+| `intelligence-session-outcome-route` | `record_session_outcome()` | `session-outcome.v1` |
+| `intelligence-pattern-lifecycle-route` | `apply_transition()` | `pattern-lifecycle-transition.v1` |
+| `intelligence-pattern-learned-route` | pattern storage handler | `pattern-learned.v1` |
+| `intelligence-pattern-discovered-route` | pattern storage handler | `pattern.discovered.v1` |
+| `intelligence-pattern-learning-route` | `create_pattern_learning_dispatch_handler()` | `pattern-learning.v1` |
 
 **Activation gate**: `PluginIntelligence.should_activate()` returns `True` only if
 `OMNIINTELLIGENCE_DB_URL` is set. Without a database URL, no consumers start and all
