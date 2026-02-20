@@ -5,6 +5,43 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-20
+
+### Added
+
+- **NodePatternProjectionEffect** — publishes a pattern snapshot event on
+  every lifecycle change, enabling downstream projection consumers to stay
+  in sync without polling the database. (OMN-2424, #135)
+- **Integration tests for `handle_intent_classification` langextract seam** —
+  covers the full path from raw hook payload through intent classification
+  to Kafka emission. (OMN-2377, #133)
+
+### Fixed
+
+- **Dispatch handlers reshape crash** — NACK loop on every omniclaude hook
+  event caused by missing payload reshaping before dispatch. (OMN-2423, #132)
+- **Routing feedback orphan topic** — add `routing.feedback` consumer to
+  prevent unrouted messages from building up on the orphan topic.
+  (OMN-2366, #130)
+- **session_id propagation** — thread `session_id` through the compliance
+  evaluate command and corresponding event. (OMN-2368, #131)
+- **Multi-class file split** — split files containing multiple classes to
+  satisfy the architecture validator. (OMN-2206, #126)
+- **Rename `ServiceHandlerRegistry` → `RegistryLifecycleHandlers`** — align
+  with ONEX naming conventions. (OMN-2200, #127)
+- **Tech debt from OMN-2221 review cycle** — address deferred architectural
+  items flagged during the OMN-2221 PR review. (OMN-2321, #134)
+
+### Changed
+
+- **Bump omnibase_core** ^0.18.0 → ^0.18.1
+- **Bump omnibase_infra** ^0.8.0 → ^0.9.0
+- **omnibase_spi** remains ^0.10.0
+
+### Documentation
+
+- Migrated documentation to `omnibase_core` format. (#128)
+
 ## [0.4.0] - 2026-02-19
 
 ### Added
@@ -228,6 +265,7 @@ hook processing as a kernel domain plugin.
 - `omnibase_spi` ^0.9.0
 - Python >=3.12
 
+[0.5.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.2.0...v0.2.1
