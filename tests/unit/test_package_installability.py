@@ -47,6 +47,7 @@ EXPECTED_NODE_DIRS = [
     "node_pattern_learning_effect",
     "node_pattern_lifecycle_effect",
     "node_pattern_matching_compute",
+    "node_pattern_projection_effect",
     "node_pattern_promotion_effect",
     "node_pattern_storage_effect",
     "node_quality_scoring_compute",
