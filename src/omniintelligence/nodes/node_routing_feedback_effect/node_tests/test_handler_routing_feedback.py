@@ -26,8 +26,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback import (
-    TOPIC_ROUTING_FEEDBACK_PROCESSED,
     process_routing_feedback,
 )
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
@@ -183,7 +183,9 @@ class TestIdempotency:
 
         # Both results should succeed
         assert result1.status == EnumRoutingFeedbackStatus.SUCCESS
+        assert result1.was_upserted is True
         assert result2.status == EnumRoutingFeedbackStatus.SUCCESS
+        assert result2.was_upserted is True
 
         # Exactly ONE row in the table
         assert mock_repository.row_count() == 1, (

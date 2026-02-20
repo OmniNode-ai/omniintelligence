@@ -47,6 +47,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
     ModelRoutingFeedbackEvent,
@@ -85,12 +86,6 @@ ON CONFLICT (session_id, correlation_id, stage)
 DO UPDATE SET
     processed_at = EXCLUDED.processed_at
 """
-
-# Topic for the processed confirmation event
-TOPIC_ROUTING_FEEDBACK_PROCESSED = (
-    "onex.evt.omniintelligence.routing-feedback-processed.v1"
-)
-
 
 # =============================================================================
 # Handler Functions
