@@ -82,6 +82,7 @@ ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
 ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
 ERROR_CODE_STORAGE_ERROR: Final[str] = "STORAGE_ERROR"
+ERROR_CODE_PATSTOR_002: Final[str] = "PATSTOR_002"
 ERROR_CODE_PATSTOR_003: Final[str] = "PATSTOR_003"
 
 
@@ -448,12 +449,12 @@ class PatternStorageRouter:
             if self._state_manager is None:
                 logger.error(
                     "State manager not initialized",
-                    extra={"error_code": "PATSTOR_002"},
+                    extra={"error_code": ERROR_CODE_PATSTOR_002},
                 )
                 return StorageOperationResult(
                     operation=OPERATION_PROMOTE_PATTERN,
                     success=False,
-                    error_code="PATSTOR_002",
+                    error_code=ERROR_CODE_PATSTOR_002,
                     error_message="State manager not initialized",
                 )
 
@@ -649,6 +650,7 @@ __all__ = [
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
     "ERROR_CODE_STORAGE_ERROR",
+    "ERROR_CODE_PATSTOR_002",
     "ERROR_CODE_PATSTOR_003",
     "ERROR_CODE_VALIDATION_ERROR",
     "OPERATION_PROMOTE_PATTERN",
