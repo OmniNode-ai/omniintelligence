@@ -1403,6 +1403,7 @@ class TestRegistryPatternPromotionEffectSmoke:
         )
 
         assert isinstance(registry, RegistryPromotionHandlers)
+        assert callable(registry.check_and_promote)
 
     def test_create_registry_wires_check_and_promote_handler(
         self,

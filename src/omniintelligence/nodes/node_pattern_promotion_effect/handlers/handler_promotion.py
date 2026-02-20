@@ -400,7 +400,6 @@ async def check_and_promote_patterns(
     # lifecycle events optimistically. There is no synchronous "already promoted"
     # detection in the Kafka-only path.
     promotion_results: list[ModelPromotionResult] = []
-    failed_count: int = 0
 
     for pattern in eligible_patterns:
         pattern_id = pattern["id"]
@@ -430,7 +429,6 @@ async def check_and_promote_patterns(
                 )
             except Exception as exc:
                 # Isolate per-pattern failures - continue processing other patterns
-                failed_count += 1
                 logger.error(
                     "Failed to promote pattern - continuing with remaining patterns",
                     extra={
@@ -458,7 +456,10 @@ async def check_and_promote_patterns(
                 )
                 promotion_results.append(failed_result)
                 continue
-            # Invariant check AFTER try/except — cannot be compiled away by -O flag
+            # Defensive invariant — currently unreachable: promote_pattern either raises
+            # (caught above) or returns with promoted_at set. This guard exists to catch
+            # future regressions where promote_pattern might silently return
+            # promoted_at=None without raising. Do NOT remove as "dead code".
             if result.promoted_at is None:
                 raise RuntimeError(
                     "promote_pattern contract violated: promoted_at must be set on success path"
@@ -474,6 +475,14 @@ async def check_and_promote_patterns(
         1 for r in promotion_results if r.promoted_at is not None and not r.dry_run
     )
 
+    result = ModelPromotionCheckResult(
+        dry_run=dry_run,
+        patterns_checked=len(patterns),
+        patterns_eligible=len(eligible_patterns),
+        patterns_promoted=promotion_results,
+        correlation_id=correlation_id,
+    )
+
     logger.info(
         "Promotion check complete",
         extra={
@@ -481,18 +490,12 @@ async def check_and_promote_patterns(
             "patterns_checked": len(patterns),
             "patterns_eligible": len(eligible_patterns),
             "patterns_promoted": actual_promotions,
-            "patterns_failed": failed_count,
+            "patterns_failed": result.patterns_failed,
             "dry_run": dry_run,
         },
     )
 
-    return ModelPromotionCheckResult(
-        dry_run=dry_run,
-        patterns_checked=len(patterns),
-        patterns_eligible=len(eligible_patterns),
-        patterns_promoted=promotion_results,
-        correlation_id=correlation_id,
-    )
+    return result
 
 
 async def promote_pattern(
