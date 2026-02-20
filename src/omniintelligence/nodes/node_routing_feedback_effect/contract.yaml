@@ -84,6 +84,7 @@ io_operations:
       - correlation_id
       - stage
       - outcome
+      - emitted_at
     output_fields:
       - status
       - session_id

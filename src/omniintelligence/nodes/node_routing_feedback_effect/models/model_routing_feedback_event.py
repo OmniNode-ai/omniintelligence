@@ -30,8 +30,8 @@ class ModelRoutingFeedbackEvent(BaseModel):
     Attributes:
         event_name: Literal discriminator for polymorphic deserialization.
         session_id: Session identifier from omniclaude.
-        correlation_id: Distributed tracing correlation ID. Defaults to
-            a deterministic value derived from session_id when not provided.
+        correlation_id: Distributed tracing correlation ID. Required field;
+            must be provided by the producer (no default).
         stage: Hook stage that emitted this event (always ``"session_end"``
             from omniclaude's current implementation).
         outcome: Session outcome (``"success"`` or ``"failed"``).

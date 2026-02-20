@@ -177,6 +177,12 @@ async def _process_routing_feedback_inner(
     # Step 1: Upsert to routing_feedback_scores with idempotency key.
     # ON CONFLICT (session_id, correlation_id, stage) DO UPDATE SET processed_at
     # ensures at-least-once Kafka delivery is safe.
+    #
+    # Note: event.emitted_at is intentionally not persisted here. It is
+    # producer-side metadata for the event envelope (when omniclaude emitted
+    # the event) and has no corresponding column in routing_feedback_scores.
+    # processed_at (generated at handler invocation time) is the storage
+    # timestamp of record.
     status = await repository.execute(
         SQL_UPSERT_ROUTING_FEEDBACK,
         event.session_id,
