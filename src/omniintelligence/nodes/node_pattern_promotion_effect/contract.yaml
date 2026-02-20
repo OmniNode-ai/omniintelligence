@@ -36,8 +36,8 @@ description: >
   Effect node for promoting provisional patterns to validated status based on rolling window success metrics.
   Evaluates patterns against configurable promotion gates (injection count, success rate, failure streak,
   disabled status) and emits lifecycle events for eligible patterns. Supports dry_run mode for previewing
-  promotions without committing changes. When Kafka is unavailable, falls back to direct database updates
-  per ONEX invariant. #magic___^_^___line
+  promotions without committing changes. Kafka is required infrastructure; lifecycle events are always
+  emitted asynchronously. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelPromotionCheckRequest"
@@ -72,9 +72,7 @@ output_models:
 #   1. Receive promotion check request
 #   2. Fetch provisional patterns from database
 #   3. Evaluate each pattern against promotion gates
-#   4. For eligible patterns:
-#      - If producer available: emit lifecycle event to Kafka
-#      - If producer unavailable: direct database UPDATE (fallback)
+#   4. For eligible patterns: emit lifecycle event to Kafka (required infrastructure)
 #   5. Return aggregated result with counts and snapshots
 # =============================================================================
 handler_routing:
@@ -107,8 +105,7 @@ handler_routing:
       description: "Promote a single pattern from provisional to validated status"
       actions:
         - "build gate snapshot from pattern data"
-        - "emit lifecycle event to Kafka (preferred)"
-        - "or direct database UPDATE (fallback when Kafka unavailable)"
+        - "emit lifecycle event to Kafka"
 
     # Pure criteria check - no I/O
     - operation: "check_criteria"
@@ -203,8 +200,8 @@ published_events:
 #   - Kafka topic subscription/publication
 #   - Schema validation via topic metadata
 #
-# NOTE: Kafka is OPTIONAL per ONEX invariant "Effect nodes must never block on Kafka".
-# When Kafka is unavailable, promotions proceed via direct database UPDATE (fallback mode).
+# NOTE: Kafka is REQUIRED infrastructure. Effect nodes emit events asynchronously and must
+# never block the calling thread waiting for Kafka acks.
 # =============================================================================
 event_bus:
   version:
@@ -313,9 +310,6 @@ capabilities:
     version: "1.0.0"
   - name: "pattern_promotion.kafka_emission"
     description: "Emit lifecycle events to Kafka for downstream processing"
-    version: "1.0.0"
-  - name: "pattern_promotion.fallback_mode"
-    description: "Direct database UPDATE when Kafka unavailable (ONEX invariant)"
     version: "1.0.0"
 
 # =============================================================================
