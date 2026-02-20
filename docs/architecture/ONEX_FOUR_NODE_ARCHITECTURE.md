@@ -120,7 +120,7 @@ NodePatternLifecycleEffect
     |
     v
 PostgreSQL (atomic transition with audit trail)
-Kafka (optional: {env}.onex.evt.omniintelligence.pattern-promoted/deprecated.v1)
+Kafka (conditionally emits: {env}.onex.evt.omniintelligence.pattern-promoted/deprecated.v1)
 ```
 
 ### Intelligence Orchestration Pipeline

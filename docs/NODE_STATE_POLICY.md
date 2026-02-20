@@ -293,7 +293,7 @@ Orchestrators should declare node dependencies in their contracts:
 workflow_coordination:
   document_ingestion:
     nodes:
-      - node: vectorization_compute
+      - node: node_quality_scoring_compute
         required: true
         stub_allowed: false
       - node: entity_extraction_compute
@@ -367,7 +367,7 @@ workflow_coordination:
 
 ### Monolith -> Implemented
 
-For large nodes like `intelligence_adapter`:
+For large nodes like `node_claude_hook_event_effect`:
 
 1. Identify discrete operations in monolithic code
 2. Create handler module per operation

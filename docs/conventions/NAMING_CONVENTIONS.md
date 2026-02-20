@@ -77,7 +77,7 @@ All directories use a mandatory prefix matching their role:
 | `handlers/` | `handler_{domain}.py` | `handler_compile_pattern.py` |
 | `testing/` | `mock_{name}.py` | `mock_pattern_store.py`, `mock_record.py` |
 | `utils/` | `util_{name}.py` or descriptive | `util_token_counter.py`, `log_sanitizer.py`, `db_url.py` |
-| `protocols/` | `protocol_{name}.py` (currently empty — `__init__.py` only) | `protocol_pattern_store.py` |
+| `protocols/` | `protocol_{name}.py` | `protocol_pattern_store.py` |
 
 **Repository contract files**: `{name}.repository.yaml` (e.g., `learned_patterns.repository.yaml`)
 
