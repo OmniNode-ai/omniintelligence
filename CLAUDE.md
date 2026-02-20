@@ -207,7 +207,7 @@ src/omniintelligence/
 | `enums/` | `enum_` | `enum_intelligence_operation_type.py` |
 | `protocols/` | `protocol_` | `protocol_pattern_store.py` |
 | `handlers/` | `handler_` | `handler_pattern_learning.py` |
-| `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_` | `dispatch_handler_pattern_learning.py` |
+| `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | `dispatch_handler_pattern_learning.py` |
 | `repositories/` | `adapter_` | `adapter_pattern_store.py` |
 | `api/` | `router_`, `handler_`, `models_` | `router_patterns.py` |
 
@@ -506,7 +506,7 @@ value = some_call()  # type: ignore
 
 1. Node `execute()` / `compute()` is a single delegation line
 2. Use constructor injection with protocols: `handler: HandlerClaudeHookEvent`
-3. Kafka is required — use `await producer.publish(...)` with async/non-blocking patterns
+3. Kafka publish is async/non-blocking — use `await producer.publish(...)` with non-blocking patterns
 4. Use `store_with_version_transition()` for atomic version upgrades
 5. Declare topics in `contract.yaml` under `event_bus.subscribe_topics`
 6. Use `uv run` for all Python commands
