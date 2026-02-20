@@ -260,6 +260,13 @@ error_handling:
       - "ConnectionError"
       - "TimeoutError"
 
+  debounce_on_error_behavior: >
+    When kafka_publisher is None (unavailable), the handler returns status=ERROR but still records the
+    debounce entry for the (source_ref, crawler_type) key BEFORE attempting the publish.  This is intentional:
+    callers who retry after receiving ERROR within the active debounce window will receive status=DEBOUNCED
+    rather than a burst of additional ERROR results.  The debounce entry is NOT cleared on error — it
+    will expire naturally via the configured window, or be reset by a document-indexed.v1 event via handle_document_indexed().
+
   error_types:
     - name: "KafkaPublishError"
       description: "Failed to publish crawl-tick.v1 to Kafka"

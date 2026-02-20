@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 _INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
     "omniintelligence.nodes.node_claude_hook_event_effect",
     "omniintelligence.nodes.node_compliance_evaluate_effect",
+    "omniintelligence.nodes.node_crawl_scheduler_effect",
     "omniintelligence.nodes.node_pattern_feedback_effect",
     "omniintelligence.nodes.node_pattern_learning_effect",
     "omniintelligence.nodes.node_pattern_lifecycle_effect",

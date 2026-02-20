@@ -89,7 +89,18 @@ class DebounceStateManager:
         Returns:
             True if the trigger should be processed; False if it should be
             dropped silently.
+
+        Raises:
+            ValueError: If ``now`` is a naive datetime (no tzinfo).  Naive
+                datetimes cannot be safely subtracted from UTC-aware stored
+                timestamps and would raise a ``TypeError`` at runtime.
         """
+        if now.tzinfo is None:
+            raise ValueError(
+                "now must be UTC-aware (tzinfo required). "
+                "Pass datetime.now(UTC) or equivalent — naive datetimes "
+                "cannot be compared with UTC-aware stored timestamps."
+            )
         key = _DebounceKey(source_ref=source_ref, crawler_type=crawler_type)
         last = self._state.get(key)
         if last is None:

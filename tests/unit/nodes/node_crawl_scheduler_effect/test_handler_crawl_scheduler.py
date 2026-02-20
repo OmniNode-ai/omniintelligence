@@ -230,6 +230,15 @@ class TestScheduleCrawlTick:
         )
         assert result.status == EnumCrawlSchedulerStatus.ERROR
         assert result.error_message is not None
+        # The debounce entry MUST be recorded even when kafka_publisher is None.
+        # This prevents a retry burst when Kafka recovers: all triggers within
+        # the window are dropped until the window expires.
+        assert not fresh_state.is_allowed(
+            source_ref=_SOURCE,
+            crawler_type=CrawlerType.FILESYSTEM,
+            window_seconds=_TEST_CONFIG.get_window_seconds(CrawlerType.FILESYSTEM),
+            now=_T0,
+        ), "Debounce entry must be recorded even when kafka_publisher is None"
 
     async def test_emitted_command_has_correct_fields(
         self,
