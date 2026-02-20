@@ -51,7 +51,7 @@ These are non-negotiable architectural truths. Violations cause production issue
 | No `logging` import in `node.py` | `tests/audit/test_io_violations.py` — import audit |
 | No `container.get(` in node methods | `tests/audit/test_io_violations.py` — AST pattern match |
 | No `try/except` in `node.py` | `tests/audit/test_io_violations.py` — AST analysis |
-| Protocol conformance | `node_tests/conftest.py` — `isinstance()` checks |
+| Protocol conformance | `nodes/*/node_tests/conftest.py` — `isinstance()` checks |
 
 ---
 

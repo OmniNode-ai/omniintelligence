@@ -139,13 +139,18 @@ src/omniintelligence/
 ├── enums/                              # Domain enumerations
 ├── protocols/                          # Protocol interfaces
 ├── utils/                              # Utilities
-└── _legacy/                            # Legacy code (do not import)
+├── testing/                            # Shared test helpers and fixtures
+├── tools/                              # Internal tooling and scripts
+├── audit/                              # Audit and compliance utilities
+├── _legacy/                            # Legacy code (do not import)
+└── constants.py                        # Module-level constants
 
 tests/
 ├── audit/                              # I/O purity enforcement (AST analysis)
 ├── unit/                               # Unit tests (no infrastructure)
+│   └── nodes/                          # Primary location for node-specific unit tests (10+ node subdirectories)
 ├── integration/                        # Integration tests
-├── nodes/                              # Node-specific tests
+├── nodes/                              # Legacy/transitional node tests (limited coverage, single entry)
 └── fixtures/                           # Shared test data
 ```
 
