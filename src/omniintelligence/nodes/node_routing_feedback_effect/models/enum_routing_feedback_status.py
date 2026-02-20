@@ -14,9 +14,6 @@ class EnumRoutingFeedbackStatus(str, Enum):
     SUCCESS = "success"
     """Event was processed and upserted to routing_feedback_scores."""
 
-    ALREADY_PROCESSED = "already_processed"
-    """Event was already processed (idempotency key matched, no update occurred)."""
-
     ERROR = "error"
     """Unhandled exception prevented processing."""
 

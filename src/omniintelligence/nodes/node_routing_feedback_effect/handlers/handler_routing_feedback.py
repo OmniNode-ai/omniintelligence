@@ -19,9 +19,11 @@ to handle at-least-once Kafka delivery. Re-processing the same event is safe:
 the conflict clause updates ``processed_at`` to the current timestamp and
 returns the existing row count.
 
-The ``was_upserted`` flag in the result is ``True`` for the first delivery and
-``True`` for idempotent re-deliveries (UPDATE still counts as a change). Use
-the ``status`` field to distinguish between SUCCESS and ERROR.
+The ``was_upserted`` flag in the result is ``True`` on the success path for
+both the first delivery and idempotent re-deliveries, because ``ON CONFLICT DO
+UPDATE`` always updates ``processed_at`` and counts as a row change. It is
+``False`` only when ``status`` is ``ERROR`` and the upsert did not execute.
+Use the ``status`` field to distinguish between SUCCESS and ERROR.
 
 Kafka Graceful Degradation (Repository Invariant):
 ----------------------------------------------------

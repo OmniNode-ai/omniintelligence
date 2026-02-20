@@ -8,6 +8,7 @@ Reference: OMN-2366
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -29,8 +30,8 @@ class ModelRoutingFeedbackResult(BaseModel):
         correlation_id: Correlation ID from the input event.
         stage: Hook stage from the input event.
         outcome: Session outcome from the input event.
-        was_upserted: True if a new row was inserted or updated; False
-            if the idempotency key already existed and no change occurred.
+        was_upserted: True if a row was inserted or updated (ON CONFLICT DO
+            UPDATE always counts as a change on the success path).
         processed_at: Timestamp of when processing completed.
         error_message: Error details if status is ERROR.
     """
@@ -53,13 +54,17 @@ class ModelRoutingFeedbackResult(BaseModel):
         ...,
         description="Hook stage from the input event",
     )
-    outcome: str = Field(
+    outcome: Literal["success", "failed"] = Field(
         ...,
         description="Session outcome from the input event",
     )
     was_upserted: bool = Field(
         default=False,
-        description="True if a row was inserted or updated in routing_feedback_scores",
+        description=(
+            "True if a row was inserted or updated in routing_feedback_scores. "
+            "ON CONFLICT DO UPDATE always returns True on the success path; "
+            "False only when status is ERROR and the upsert did not execute."
+        ),
     )
     processed_at: datetime = Field(
         ...,

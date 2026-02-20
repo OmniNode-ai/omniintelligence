@@ -145,13 +145,13 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "onex.evt.omniclaude.routing-feedback.v1"
+    - "{env}.onex.evt.omniclaude.routing-feedback.v1"
 
   publish_topics:
     - "onex.evt.omniintelligence.routing-feedback-processed.v1"
 
   subscribe_topic_metadata:
-    "onex.evt.omniclaude.routing-feedback.v1":
+    "{env}.onex.evt.omniclaude.routing-feedback.v1":
       schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackEvent"
       description: "Routing feedback events from omniclaude session-end hook"
 
