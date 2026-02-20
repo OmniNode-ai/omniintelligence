@@ -299,6 +299,11 @@ dependencies:
     description: "Pattern storage protocol for persisting and retrieving patterns"
     required: true
 
+  # required: false is INTENTIONAL — this node uses the runtime-published pattern:
+  # handlers return typed event models (ModelPatternStoredEvent / ModelPatternPromotedEvent)
+  # and RuntimeHostProcess publishes them to publish_topics automatically.
+  # Kafka is still required infrastructure at runtime; the producer is just not injected
+  # into handler function signatures. See CLAUDE.md invariant notes for details.
   - name: "kafka_producer"
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"

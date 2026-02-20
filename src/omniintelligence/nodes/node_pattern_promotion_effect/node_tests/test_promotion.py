@@ -1062,7 +1062,7 @@ class TestActualPromotion:
                 self.published_events: list[tuple[str, str, dict[str, Any]]] = []
 
             async def publish(
-                self, topic: str, key: str, value: dict[str, Any]
+                self, topic: str, key: str, value: dict[str, object]
             ) -> None:
                 self.call_count += 1
                 if self.call_count == 1:
@@ -1084,7 +1084,7 @@ class TestActualPromotion:
 
         result = await check_and_promote_patterns(
             repository=mock_repository,
-            producer=failing_producer,  # type: ignore[arg-type]
+            producer=failing_producer,
             dry_run=False,
         )
 
