@@ -484,8 +484,9 @@ async def promote_pattern(
         ModelPromotionResult with promotion details and gate snapshot.
 
     Note:
-        Always returns with `promoted_at` set on success; raises on failure.
-        - The ``promoted_at`` field is set to request time
+        Returns with ``promoted_at`` set on success; **raises** on Kafka emit failure.
+        Callers (``check_and_promote_patterns``) catch the exception per-pattern.
+        - The ``promoted_at`` field is set to request time (optimistic)
         - Actual status update happens asynchronously via reducer
         - The promotion may fail if reducer rejects the transition
         - Callers should not assume status has changed immediately
