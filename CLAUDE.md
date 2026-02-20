@@ -286,7 +286,7 @@ src/omniintelligence/
 | `{env}.onex.cmd.omniintelligence.session-outcome.v1` | `NodePatternFeedbackEffect` |
 | `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternStorageEffect` |
-| `{env}.onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` |
+| `{env}.onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` (producer segment intentionally omitted — multi-producer domain event from external systems, e.g. omniclaude) |
 
 ### Published Topics (outputs)
 
@@ -306,7 +306,7 @@ src/omniintelligence/
 | `{env}.onex.evt.omniintelligence.pattern-learning-failed.v1` | `NodeIntelligenceOrchestrator` |
 | `{env}.onex.evt.omniintelligence.quality-assessment-completed.v1` | `NodeIntelligenceOrchestrator` |
 | `{env}.onex.evt.omniintelligence.quality-assessment-failed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternPromotionEffect`, `NodePatternDemotionEffect` |
+| `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternPromotionEffect`, `NodePatternDemotionEffect` (command forwarded to trigger `NodePatternLifecycleEffect`) |
 
 **DLQ pattern**: All effect nodes route failed messages to `{topic}.dlq` with original envelope, error message, timestamp, retry count, and secrets sanitized via `LogSanitizer`.
 

@@ -209,7 +209,7 @@ Source contracts scanned:
 | `intelligence-session-outcome-route` | `record_session_outcome()` | `session-outcome.v1` |
 | `intelligence-pattern-lifecycle-route` | `apply_transition()` | `pattern-lifecycle-transition.v1` |
 | `intelligence-pattern-learned-route` | pattern storage handler | `pattern-learned.v1` |
-| `intelligence-pattern-discovered-route` | pattern storage handler | `pattern.discovered.v1` |
+| `intelligence-pattern-discovered-route` | pattern storage handler | `evt.pattern.discovered.v1` |
 | `intelligence-pattern-learning-route` | `create_pattern_learning_dispatch_handler()` | `pattern-learning.v1` |
 
 **Activation gate**: `PluginIntelligence.should_activate()` returns `True` only if

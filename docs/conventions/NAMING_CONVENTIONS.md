@@ -20,20 +20,20 @@ This document defines naming conventions for OmniIntelligence code artifacts, in
 
 All directories use a mandatory prefix matching their role:
 
-| Directory | Required Prefix | Example |
-|-----------|----------------|---------|
-| `nodes/` | `node_` | `node_quality_scoring_compute/` |
-| `models/` | `model_` | `model_pattern_lifecycle.py` |
-| `enums/` | `enum_` | `enum_intelligence_operation_type.py` |
-| `protocols/` | `protocol_` | `protocol_pattern_store.py` |
-| `handlers/` | `handler_` | `handler_pattern_learning.py` |
-| `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | `dispatch_handler_pattern_learning.py` |
-| `repositories/` | `adapter_` | `adapter_pattern_store.py` |
-| `api/` | `router_`, `handler_`, `models_`, `app` | `router_patterns.py` |
-| `testing/` | `mock_` | `mock_pattern_store.py` |
-| `utils/` | `util_` or descriptive | `util_token_counter.py` |
+| Parent Directory | Required Prefix | Applies To | Example |
+|-----------------|----------------|------------|---------|
+| `nodes/` | `node_` | Subdirectory name | `node_quality_scoring_compute/` |
+| `models/` | `model_` | File name | `model_pattern_lifecycle.py` |
+| `enums/` | `enum_` | File name | `enum_intelligence_operation_type.py` |
+| `protocols/` | `protocol_` | File name | `protocol_pattern_store.py` |
+| `handlers/` | `handler_` | File name | `handler_pattern_learning.py` |
+| `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | File name | `dispatch_handler_pattern_learning.py` |
+| `repositories/` | `adapter_` | File name | `adapter_pattern_store.py` |
+| `api/` | `router_`, `handler_`, `models_`, `app` | File name | `router_patterns.py` |
+| `testing/` | `mock_` | File name | `mock_pattern_store.py` |
+| `utils/` | `util_` or descriptive | File name | `util_token_counter.py` |
 
-**Node directories are MANDATORY `node_` prefixed** — the audit enforces this.
+**Node subdirectory naming is MANDATORY**: Every subdirectory directly under `nodes/` MUST start with the `node_` prefix (e.g. `nodes/node_quality_scoring_compute/`). This applies to the directory name itself, not to files within it. All other prefix rules in this table are naming conventions for file names and are not mechanically enforced by the audit suite.
 
 ---
 
@@ -257,7 +257,7 @@ These files exist and deviate from strict prefix rules — document them rather 
 
 ## Related Documentation
 
-- **omnibase_core Conventions**: `omnibase_core/docs/conventions/NAMING_CONVENTIONS.md`
+- **omnibase_core Conventions**: See the `omnibase_core` repository at `docs/conventions/NAMING_CONVENTIONS.md`
 
 ---
 

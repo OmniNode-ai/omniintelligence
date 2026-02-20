@@ -2,7 +2,7 @@
 
 # Standard Documentation Layout
 
-Prescriptive structure for the `docs/` directory in omniintelligence3.
+Prescriptive structure for the `docs/` directory in omniintelligence.
 
 ---
 
@@ -52,13 +52,13 @@ Add these only when content exists that warrants them.
 
 ## File Naming
 
-| Pattern | Use |
-|---------|-----|
-| `UPPER_SNAKE_CASE.md` | All documentation files |
-| `README.md` | Directory index files only |
-| `ADR-NNN-<slug>.md` | Architecture Decision Records in `decisions/` |
+| Pattern | Use | Example |
+|---------|-----|---------|
+| `UPPER_SNAKE_CASE.md` | All documentation files except ADRs and index files | `NAMING_CONVENTIONS.md` |
+| `README.md` | Directory index files only | `README.md` |
+| `ADR-NNN-<lowercase-hyphenated-slug>.md` | Architecture Decision Records in `decisions/` | `ADR-001-pattern-storage-strategy.md` |
 
-No lowercase filenames except `README.md`.
+No lowercase filenames except `README.md` and ADR slugs in `decisions/`.
 
 ---
 
