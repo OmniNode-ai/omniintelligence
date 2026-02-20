@@ -99,11 +99,11 @@ io_operations:
 # DEPENDENCIES
 # =============================================================================
 dependencies:
-  - name: "pattern_repository"
+  - name: "repository"
     type: "protocol"
     class_name: "ProtocolPatternRepository"
     module: "omniintelligence.protocols"
-    description: "Pattern repository protocol for upsert operations on routing_feedback_scores"
+    description: "Repository protocol for upsert operations on routing_feedback_scores"
     required: true
   - name: "kafka_publisher"
     type: "protocol"

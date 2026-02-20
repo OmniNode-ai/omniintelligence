@@ -253,6 +253,7 @@ async def _publish_processed_event(
                 "correlation_id": str(event.correlation_id),
                 "stage": event.stage,
                 "outcome": event.outcome,
+                "emitted_at": event.emitted_at.isoformat(),
                 "processed_at": processed_at.isoformat(),
             },
         )

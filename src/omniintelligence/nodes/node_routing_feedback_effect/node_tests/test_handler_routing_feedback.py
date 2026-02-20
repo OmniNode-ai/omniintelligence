@@ -457,7 +457,7 @@ class TestKafkaPublishedEvent:
 
         assert len(mock_publisher.published) == 1
         topic, _, _ = mock_publisher.published[0]
-        assert topic == "onex.evt.omniintelligence.routing-feedback-processed.v1"
+        assert topic == TOPIC_ROUTING_FEEDBACK_PROCESSED
 
     @pytest.mark.asyncio
     async def test_published_event_key_is_session_id(
