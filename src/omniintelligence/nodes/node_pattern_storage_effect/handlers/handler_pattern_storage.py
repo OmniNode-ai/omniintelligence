@@ -204,7 +204,8 @@ class PatternStorageRouter:
             pattern_store: Pattern store implementing ProtocolPatternStore.
                 Required for store_pattern operations.
             state_manager: State manager implementing ProtocolPatternStateManager.
-                Required for promote_pattern operations.
+                Optional at construction time; required at the call-site level
+                only for promote_pattern operations (returns structured error if absent).
         """
         self._pattern_store: ProtocolPatternStore = pattern_store
         self._state_manager: ProtocolPatternStateManager | None = state_manager
@@ -648,6 +649,7 @@ __all__ = [
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
     "ERROR_CODE_STORAGE_ERROR",
+    "ERROR_CODE_STORE_FAILED",
     "ERROR_CODE_VALIDATION_ERROR",
     "OPERATION_PROMOTE_PATTERN",
     "OPERATION_STORE_PATTERN",

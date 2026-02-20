@@ -191,6 +191,8 @@ class ProtocolIntentClassifier(Protocol):
     as documented for @runtime_checkable protocols. Full type fidelity is enforced
     by static analysis only. If runtime signature validation is ever required,
     file a ticket to restructure the import to remove the circular dependency.
+    A conformance test (verifying that implementors carry the correct concrete
+    types) should be added at that point.
     """
 
     async def compute(
