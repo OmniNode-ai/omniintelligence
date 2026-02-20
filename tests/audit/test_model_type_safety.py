@@ -250,7 +250,7 @@ class TestScoreFieldValidation:
         """Verify match_score fields validate 0.0-1.0 range."""
         from pydantic import ValidationError
 
-        from omniintelligence.models.model_search_result import ModelPatternMatch
+        from omniintelligence.models.model_pattern_match import ModelPatternMatch
 
         # Valid score
         match = ModelPatternMatch(
