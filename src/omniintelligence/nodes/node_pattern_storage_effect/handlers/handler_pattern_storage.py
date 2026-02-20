@@ -82,6 +82,7 @@ ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 ERROR_CODE_GOVERNANCE_VIOLATION: Final[str] = "GOVERNANCE_VIOLATION"
 ERROR_CODE_VALIDATION_ERROR: Final[str] = "VALIDATION_ERROR"
 ERROR_CODE_STORAGE_ERROR: Final[str] = "STORAGE_ERROR"
+ERROR_CODE_STORE_FAILED: Final[str] = "PATSTOR_003"
 
 
 # =============================================================================
@@ -323,7 +324,7 @@ class PatternStorageRouter:
                 default_message = "Governance validation failed"
                 log_message = "Store pattern governance validation failed"
             else:
-                error_code = "PATSTOR_003"
+                error_code = ERROR_CODE_STORE_FAILED
                 default_message = "Pattern storage failed"
                 log_message = "Store pattern operation failed"
 

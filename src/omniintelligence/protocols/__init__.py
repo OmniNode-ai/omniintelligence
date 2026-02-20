@@ -184,11 +184,13 @@ class ProtocolIntentClassifier(Protocol):
     pattern-matching-based classification.
 
     NOTE: ModelIntentClassificationInput/Output are TYPE_CHECKING-only to avoid
-    circular imports at runtime. isinstance() checks against this protocol verify
-    method name presence only, as documented for @runtime_checkable protocols.
-    Full type fidelity is enforced by static analysis only. If runtime signature
-    validation is ever required, file a ticket to restructure the import to avoid
-    the circular dependency and remove the TYPE_CHECKING guard.
+    circular imports at runtime. Because `from __future__ import annotations` is
+    active in this module, all annotations are already lazy strings at runtime —
+    the TYPE_CHECKING guard is defence-in-depth and documents the intent clearly.
+    isinstance() checks against this protocol verify method name presence only,
+    as documented for @runtime_checkable protocols. Full type fidelity is enforced
+    by static analysis only. If runtime signature validation is ever required,
+    file a ticket to restructure the import to remove the circular dependency.
     """
 
     async def compute(
