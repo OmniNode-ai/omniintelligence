@@ -43,14 +43,14 @@ These are non-negotiable architectural truths. Violations cause production issue
 | `PluginIntelligence.wire_dispatchers()` must run before `start_consumers()` | No dispatch engine = no consumers (hard gate) |
 | `AdapterPatternStore` ignores the `conn` parameter — each method is an independent transaction | External transaction control is not supported by this adapter |
 
-**Mechanically enforced** (run `uv run pytest -m unit` for purity, `uv run pytest -m audit` for I/O violations):
+**Mechanically enforced** (run `uv run pytest -m audit`):
 
 | Rule | Enforcement |
 |------|-------------|
-| Node line count < 100 | `tests/unit/test_node_purity.py` — AST analysis |
-| No `logging` import in `node.py` | `tests/unit/test_node_purity.py` — import audit |
-| No `container.get(` in node methods | `tests/unit/test_node_purity.py` — AST pattern match |
-| No `try/except` in `node.py` | `tests/unit/test_node_purity.py` — AST analysis |
+| Node line count < 100 | `tests/audit/test_io_violations.py` — AST analysis |
+| No `logging` import in `node.py` | `tests/audit/test_io_violations.py` — import audit |
+| No `container.get(` in node methods | `tests/audit/test_io_violations.py` — AST pattern match |
+| No `try/except` in `node.py` | `tests/audit/test_io_violations.py` — AST analysis |
 | Protocol conformance | `nodes/*/node_tests/conftest.py` — `isinstance()` checks |
 
 ---
@@ -526,4 +526,4 @@ value = some_call()  # type: ignore
 
 ---
 
-**Python**: 3.12+ | **Ready?** → `uv run pytest -m unit` (node purity) + `uv run pytest -m audit` (I/O violations)
+**Python**: 3.12+ | **Ready?** → `uv run pytest -m audit` to verify node purity
