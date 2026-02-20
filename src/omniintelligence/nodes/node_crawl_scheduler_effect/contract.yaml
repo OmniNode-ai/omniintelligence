@@ -1,0 +1,317 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeCrawlSchedulerEffect
+#
+# Trigger coordinator for the OmniMemory document ingestion pipeline (Stream A).
+# Emits crawl-tick.v1 commands and enforces per-source debounce windows to
+# prevent phantom duplication when git hook + watchdog + scheduled tick fire
+# within the same window for the same source.
+#
+# Design: omni_save/design/DESIGN_OMNIMEMORY_DOCUMENT_INGESTION_PIPELINE.md §4
+# Reference: OMN-2384
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_crawl_scheduler_effect"
+contract_name: "node_crawl_scheduler_effect"
+node_name: "node_crawl_scheduler_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node that coordinates periodic crawl triggers for the OmniMemory document ingestion pipeline
+  (Stream A). Emits crawl-tick.v1 commands on RuntimeScheduler ticks and accepts manual triggers via crawl-requested.v1.
+  Enforces per-source debounce windows (FilesystemCrawler: 30s, GitRepoCrawler: 5min, LinearCrawler: 60min)
+  to prevent phantom duplication when multiple trigger sources fire for the same source_ref within the
+  same window. Debounce windows are configurable (not hardcoded). Resets the debounce window when a document-indexed.v1
+  event confirms successful crawl completion. #magic___^_^___line
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelCrawlRequestedEvent"
+  module: "omniintelligence.nodes.node_crawl_scheduler_effect.models"
+  description: "Manual crawl trigger event from crawl-requested.v1"
+
+output_model:
+  name: "ModelCrawlSchedulerResult"
+  module: "omniintelligence.nodes.node_crawl_scheduler_effect.models"
+  description: "Result of crawl scheduling with status EMITTED, DEBOUNCED, or ERROR"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    # Periodic scheduler tick — emits crawl-tick.v1 for configured sources
+    - operation: "schedule_crawl_tick"
+      handler:
+        function: "schedule_crawl_tick"
+        module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
+        type: "async"
+      description: >
+        Called by RuntimeScheduler on periodic tick. Checks the debounce guard for the (source_ref, crawler_type)
+        key and emits crawl-tick.v1 if the window has expired.
+      output_fields:
+        - status
+        - crawl_type
+        - source_ref
+        - crawl_scope
+        - trigger_source
+        - correlation_id
+        - processed_at
+        - debounce_window_seconds
+        - error_message
+
+    # Manual / external trigger from crawl-requested.v1
+    - operation: "handle_crawl_requested"
+      handler:
+        function: "handle_crawl_requested"
+        module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
+        type: "async"
+      description: >
+        Called when a crawl-requested.v1 event is consumed from Kafka. Applies the same per-source debounce
+        guard before emitting crawl-tick.v1. Trigger sources include manual CLI/MCP, git post-commit hooks,
+        and filesystem watchdog events.
+      output_fields:
+        - status
+        - crawl_type
+        - source_ref
+        - crawl_scope
+        - trigger_source
+        - correlation_id
+        - processed_at
+        - debounce_window_seconds
+        - error_message
+
+    # Debounce reset on crawl completion
+    - operation: "handle_document_indexed"
+      handler:
+        function: "handle_document_indexed"
+        module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
+        type: "sync"
+      description: >
+        Called when a document-indexed.v1 event confirms successful crawl completion. Clears the debounce
+        window for the (source_ref, crawler_type) key so the next trigger is not throttled. #magic___^_^___line
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "schedule_crawl_tick"
+    description: "Emit crawl-tick.v1 on scheduler tick with debounce guard"
+    input_fields:
+      - crawl_type
+      - crawl_scope
+      - source_ref
+      - debounce_state
+      - config
+    output_fields:
+      - status
+      - crawl_type
+      - source_ref
+      - crawl_scope
+      - trigger_source
+      - correlation_id
+      - processed_at
+      - debounce_window_seconds
+      - error_message
+
+  - operation: "handle_crawl_requested"
+    description: "Process manual crawl trigger from crawl-requested.v1"
+    input_fields:
+      - crawl_type
+      - crawl_scope
+      - source_ref
+      - correlation_id
+      - requested_at_utc
+      - trigger_source
+    output_fields:
+      - status
+      - crawl_type
+      - source_ref
+      - crawl_scope
+      - trigger_source
+      - correlation_id
+      - processed_at
+      - debounce_window_seconds
+      - error_message
+
+  - operation: "handle_document_indexed"
+    description: "Reset debounce window after successful crawl completion"
+    input_fields:
+      - source_ref
+      - crawler_type
+    output_fields:
+      - cleared  # bool: True if a debounce entry was cleared, False if no entry existed
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.cmd.omnimemory.crawl-tick.v1"
+    full_topic_pattern: "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+    event_type: "CrawlTickRequested"
+    trigger: "Scheduled tick or manual trigger that passes the debounce guard"
+    description: >
+      Command emitted to downstream crawler effect nodes (FilesystemCrawlerEffect, GitRepoCrawlerEffect,
+      LinearCrawlerEffect). Published only when the per-source debounce window has expired.
+    payload_fields:
+      - name: "event_type"
+        type: "string"
+        description: "Always 'CrawlTickRequested'"
+      - name: "crawl_type"
+        type: "CrawlerType"
+        description: "Crawler type (filesystem, git_repo, linear, watchdog)"
+      - name: "crawl_scope"
+        type: "string"
+        description: "Logical scope for the crawl"
+      - name: "source_ref"
+        type: "string"
+        description: "Canonical source identifier (path, repo root, or team slug)"
+      - name: "correlation_id"
+        type: "uuid"
+        description: "Correlation ID for distributed tracing"
+      - name: "triggered_at_utc"
+        type: "string"
+        description: "ISO-8601 UTC timestamp of when the trigger arrived"
+      - name: "trigger_source"
+        type: "EnumTriggerSource"
+        description: "Origin: scheduled, manual, git_hook, filesystem_watch"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  subscribe_topics:
+    - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
+    - "{env}.onex.evt.omnimemory.document-indexed.v1"
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+
+  # Metadata for subscribed topics
+  subscribe_topic_metadata:
+    "{env}.onex.cmd.omnimemory.crawl-requested.v1":
+      schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlRequestedEvent"
+      description: "Manual crawl trigger events from CLI, MCP, git hooks, and watchdog"
+    "{env}.onex.evt.omnimemory.document-indexed.v1":
+      schema_ref: "object"
+      description: >
+        Confirmation that a crawl completed and the document was indexed. Used to reset the debounce window
+        for the (source_ref, crawler_type) key. Only source_ref and crawler_type fields are consumed.
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "{env}.onex.cmd.omnimemory.crawl-tick.v1":
+      schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlTickCommand"
+      description: "Crawl tick commands consumed by FilesystemCrawlerEffect, GitRepoCrawlerEffect, LinearCrawlerEffect"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "kafka_publisher"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting crawl-tick.v1 commands"
+    required: false  # Graceful degradation when unavailable
+
+  - name: "crawl_scheduler_config"
+    type: "model"
+    class_name: "ModelCrawlSchedulerConfig"
+    module: "omniintelligence.nodes.node_crawl_scheduler_effect.models"
+    description: "Configurable debounce windows per crawler type"
+    required: false  # Defaults to design-doc values
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 2
+    initial_delay_ms: 100
+    max_delay_ms: 1000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "KafkaPublishError"
+      description: "Failed to publish crawl-tick.v1 to Kafka"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "DebounceStateError"
+      description: "Unexpected error in in-memory debounce state"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "debounce_window"
+  hash_fields: ["source_ref", "crawl_type"]
+  description: >
+    Idempotency is enforced via the in-memory debounce guard. Duplicate triggers for the same (source_ref,
+    crawler_type) key within the active window are dropped silently. The window is reset after document-indexed.v1
+    confirms successful completion.
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "periodic_scheduling"
+    description: "Emit crawl-tick.v1 on RuntimeScheduler tick intervals"
+  - name: "manual_trigger"
+    description: "Accept external crawl-requested.v1 events from CLI, MCP, git hooks, watchdog"
+  - name: "debounce_guard"
+    description: "Per-source debounce windows to prevent phantom duplication"
+  - name: "window_reset"
+    description: "Reset debounce window after document-indexed.v1 confirmation"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-20"
+  updated: "2026-02-20"
+  tags:
+    - effect
+    - crawl
+    - omnimemory
+    - stream-a
+    - document-ingestion
+    - debounce
+    - scheduler
+  references:
+    - ticket: "OMN-2384"
+      url: "https://linear.app/omninode/issue/OMN-2384"
+      description: "CrawlSchedulerEffect implementation"
