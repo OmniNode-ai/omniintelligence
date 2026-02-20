@@ -280,7 +280,6 @@ async def _publish_processed_event(
 
 
 __all__ = [
-    "SQL_UPSERT_ROUTING_FEEDBACK",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "process_routing_feedback",
 ]
