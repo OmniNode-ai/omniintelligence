@@ -204,7 +204,7 @@ uv run pytest -k "test_name"      # Single test by name
 | `unit` | Fast, isolated unit tests |
 | `integration` | Tests requiring live infrastructure |
 | `slow` | Long-running tests |
-| `audit` | AST-based I/O purity enforcement (node line count, no logging in nodes, no try/except in nodes) |
+| `audit` | AST-based I/O purity enforcement (network client imports, env var access, file I/O in nodes) |
 | `performance` | Performance benchmarks |
 
 For infrastructure configuration (Kafka, PostgreSQL, remote server topology), see `~/.claude/CLAUDE.md`.

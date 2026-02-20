@@ -47,10 +47,10 @@ These are non-negotiable architectural truths. Violations cause production issue
 
 | Rule | Enforcement |
 |------|-------------|
-| Node line count < 100 | `tests/audit/test_io_violations.py` — AST analysis |
-| No `logging` import in `node.py` | `tests/audit/test_io_violations.py` — import audit |
-| No `container.get(` in node methods | `tests/audit/test_io_violations.py` — AST pattern match |
-| No `try/except` in `node.py` | `tests/audit/test_io_violations.py` — AST analysis |
+| Node line count < 100 | `tests/unit/test_node_purity.py` — AST analysis |
+| No `logging` import in `node.py` | `tests/unit/test_node_purity.py` — import audit |
+| No `container.get(` in node methods | `tests/unit/test_node_purity.py` — AST pattern match |
+| No `try/except` in `node.py` | `tests/unit/test_node_purity.py` — AST analysis |
 | Protocol conformance | `nodes/*/node_tests/conftest.py` — `isinstance()` checks |
 
 ---
