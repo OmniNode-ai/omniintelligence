@@ -243,9 +243,9 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
     module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
-    description: "Kafka producer for emitting lifecycle events. OPTIONAL - when unavailable, falls back
-      to direct database UPDATE per ONEX invariant."
-    required: false
+    description: "Kafka producer for emitting pattern lifecycle events. Required infrastructure per ONEX
+      invariant."
+    required: true
 
 # =============================================================================
 # PROMOTION GATES CONFIGURATION
