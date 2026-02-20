@@ -58,4 +58,4 @@ class ModelComplianceRequest(BaseModel):
     )
 
 
-__all__ = ["ModelComplianceRequest"]
+__all__ = ["ModelApplicablePattern", "ModelComplianceRequest"]

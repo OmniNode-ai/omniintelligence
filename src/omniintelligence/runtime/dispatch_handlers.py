@@ -147,11 +147,17 @@ _REQUIRED_ENVELOPE_KEYS: tuple[str, ...] = (
     "session_id",
     "correlation_id",
 )
-"""Envelope keys that must be present and non-null in every daemon payload.
+"""Daemon envelope keys used for reshape detection and envelope reconstruction.
 
-Used by ``_reshape_daemon_hook_payload_v1`` to validate required fields
-before reshaping.  Defined as a module-level tuple to avoid
-reconstructing on every call.
+Used by:
+- ``_needs_daemon_reshape`` to detect whether a payload is a flat daemon dict
+- ``_reconstruct_payload_from_envelope`` to recover keys absorbed by the envelope layer
+
+As of OMN-2423, only ``event_type`` is hard-required in
+``_reshape_daemon_hook_payload_v1``.  The other three keys
+(``emitted_at``, ``session_id``, ``correlation_id``) use structured
+fallbacks when absent or null.  Defined as a module-level tuple to
+avoid reconstructing on every call.
 """
 
 _MAX_DIAGNOSTIC_KEYS: int = 10
@@ -175,6 +181,51 @@ def _diagnostic_key_summary(raw: dict[str, Any]) -> str:
     if len(all_keys) > _MAX_DIAGNOSTIC_KEYS:
         diagnostic_keys.append("...")
     return f"(keys={diagnostic_keys})"
+
+
+# Sentinel strings raised by reshape/parse failure paths in
+# create_claude_hook_dispatch_handler.  Used by _is_permanent_dispatch_failure
+# to classify a dispatch result error as a permanent (structural) failure that
+# should be ACK'd rather than NACK'd.  Must match substrings of the
+# raise ValueError(msg) message string, which propagates through the dispatch
+# engine into result.error_message.
+#
+# "for claude-hook-event" is intentionally specific to the claude-hook handler.
+# Other handlers (session-outcome, pattern-lifecycle-transition, pattern-storage,
+# compliance-evaluate) also raise ValueError("Unexpected payload type ... for
+# <handler-name> ...") but those are NOT permanent failures -- the dispatch
+# engine should NACK them so they can be retried.
+_PERMANENT_FAILURE_MARKERS: tuple[str, ...] = (
+    "Permanent reshape failure",
+    "Failed to parse payload as ModelClaudeCodeHookEvent",
+    "for claude-hook-event",
+    "Daemon payload missing required key 'event_type'",
+)
+"""Substrings in dispatch result error messages that indicate a permanent failure.
+
+A permanent failure is one that will not be resolved by retrying the message.
+Structural reshape errors (missing required routing fields, wrong payload type)
+fall into this category.  Transient failures (DB errors, network issues) do not.
+
+Used by ``create_dispatch_callback`` to decide whether to ACK or NACK a failed
+message (GAP-9, OMN-2423).
+"""
+
+
+def _is_permanent_dispatch_failure(error_msg: str) -> bool:
+    """Return True if the dispatch error message indicates a permanent failure.
+
+    Permanent failures are structural parse/reshape errors that cannot be
+    resolved by retrying.  They should be ACK'd with an ERROR log instead of
+    NACK'd, to prevent infinite NACK loops.
+
+    Args:
+        error_msg: The ``error_message`` from a failed ``ModelDispatchResult``.
+
+    Returns:
+        True if any ``_PERMANENT_FAILURE_MARKERS`` substring is present.
+    """
+    return any(marker in error_msg for marker in _PERMANENT_FAILURE_MARKERS)
 
 
 # =============================================================================
@@ -294,8 +345,14 @@ def _reshape_tool_content_to_hook_event(
     corr_id: UUID | None = None
     raw_corr = payload.get("correlation_id")
     if raw_corr:
-        with contextlib.suppress(ValueError):
+        try:
             corr_id = UUID(str(raw_corr))
+        except ValueError:
+            logger.warning(
+                "tool-content payload has invalid 'correlation_id' %r; "
+                "falling back to envelope correlation_id",
+                raw_corr,
+            )
     if corr_id is None and envelope.correlation_id is not None:
         corr_id = (
             envelope.correlation_id
@@ -375,9 +432,10 @@ def _reconstruct_payload_from_envelope(
     )
     reconstructed = dict(payload)
 
-    # event_type: envelope.event_type is str | None
-    if envelope.event_type is not None:
-        reconstructed["event_type"] = envelope.event_type
+    # event_type: ModelEventEnvelope has no event_type field; check metadata tags.
+    meta_event_type = envelope.get_metadata_value("event_type")
+    if meta_event_type is not None:
+        reconstructed["event_type"] = str(meta_event_type)
 
     # correlation_id: envelope.correlation_id is UUID | None
     if envelope.correlation_id is not None:
@@ -440,6 +498,16 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
     nested ``payload`` sub-dict, so this function splits envelope keys from
     payload keys and returns the canonical shape.
 
+    This function applies structured fallbacks for optional envelope fields
+    rather than raising ``ValueError`` for missing or null values.  Only
+    ``event_type`` is truly required — its absence means the message cannot
+    be routed and is a permanent failure.  All other envelope fields have
+    safe fallbacks to prevent NACK loops:
+
+    - ``emitted_at`` missing or null: falls back to ``datetime.now(UTC)``
+    - ``session_id`` missing or null: falls back to ``"unknown"``
+    - ``correlation_id`` missing or null: generates a new ``uuid4()``
+
     Args:
         raw: Flat dict as emitted by the daemon.
 
@@ -455,34 +523,54 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
             }
 
     Raises:
-        ValueError: If any of the four required envelope keys
-            (``emitted_at``, ``event_type``, ``session_id``,
-            ``correlation_id``) is missing or has a null value.  The
-            error message distinguishes between the two cases and
-            includes a bounded subset of ``sorted(raw.keys())`` for
-            diagnostics (capped at ``_MAX_DIAGNOSTIC_KEYS``).
+        ValueError: Only if ``event_type`` is absent or null.  All other
+            missing fields are filled with safe fallback values.
     """
-    # --- require four mandatory envelope keys ---
-    # Distinguish between missing keys and keys present with null values
-    # so that error messages accurately describe the problem.
-    # Key list is bounded to _MAX_DIAGNOSTIC_KEYS to avoid exposing
-    # sensitive domain key names in future payloads.
-    for key in _REQUIRED_ENVELOPE_KEYS:
-        if key not in raw:
-            raise ValueError(
-                f"Daemon payload missing required key '{key}' "
-                f"{_diagnostic_key_summary(raw)}"
-            )
-        if raw[key] is None:
-            raise ValueError(
-                f"Daemon payload has null value for required key '{key}' "
-                f"{_diagnostic_key_summary(raw)}"
-            )
-
-    emitted_at = raw["emitted_at"]
+    # --- event_type is the only truly required key ---
+    # Without event_type, the message cannot be routed.  This is a
+    # permanent failure: raise ValueError so the dispatch layer can
+    # discard-and-log (ACK) rather than NACK into an infinite loop.
+    if "event_type" not in raw or raw.get("event_type") is None:
+        raise ValueError(
+            f"Daemon payload missing required key 'event_type' "
+            f"{_diagnostic_key_summary(raw)}"
+        )
     event_type = raw["event_type"]
-    session_id = raw["session_id"]
-    correlation_id_value = raw["correlation_id"]
+
+    # --- emitted_at: fall back to UTC now if missing or null ---
+    raw_emitted_at = raw.get("emitted_at")
+    if raw_emitted_at is None:
+        logger.warning(
+            "Daemon payload missing 'emitted_at'; using UTC now as fallback %s",
+            _diagnostic_key_summary(raw),
+        )
+        emitted_at: str = datetime.now(UTC).isoformat()
+    else:
+        emitted_at = raw_emitted_at
+
+    # --- session_id: fall back to "unknown" if missing or null ---
+    raw_session_id = raw.get("session_id")
+    if raw_session_id is None:
+        logger.warning(
+            "Daemon payload missing 'session_id'; using 'unknown' as fallback %s",
+            _diagnostic_key_summary(raw),
+        )
+        session_id = "unknown"
+    else:
+        session_id = raw_session_id
+
+    # --- correlation_id: generate uuid4() if missing or null ---
+    raw_correlation_id = raw.get("correlation_id")
+    if raw_correlation_id is None:
+        generated_id = str(uuid4())
+        logger.warning(
+            "Daemon payload missing 'correlation_id'; generated fallback '%s' %s",
+            generated_id,
+            _diagnostic_key_summary(raw),
+        )
+        correlation_id_value: str = generated_id
+    else:
+        correlation_id_value = raw_correlation_id
 
     # --- collect remaining keys into payload sub-dict ---
     # Note: causation_id and schema_version are intentionally discarded here.
@@ -578,11 +666,29 @@ def create_claude_hook_dispatch_handler(
                 # daemon-specific keys (session_id, hook_type) so they
                 # won't false-match the daemon reshape path.
                 if _needs_daemon_reshape(payload):
+                    logger.debug(
+                        "Applying daemon reshape strategy for claude-hook-event "
+                        "(correlation_id=%s) %s",
+                        ctx_correlation_id,
+                        _diagnostic_key_summary(payload),
+                    )
                     parsed = _reshape_daemon_hook_payload_v1(payload)
                     event = ModelClaudeCodeHookEvent(**parsed)
                 elif _is_tool_content_payload(payload):
+                    logger.debug(
+                        "Applying tool-content reshape strategy for claude-hook-event "
+                        "(correlation_id=%s) %s",
+                        ctx_correlation_id,
+                        _diagnostic_key_summary(payload),
+                    )
                     event = _reshape_tool_content_to_hook_event(payload, envelope)
                 else:
+                    logger.debug(
+                        "Applying canonical parse strategy for claude-hook-event "
+                        "(correlation_id=%s) %s",
+                        ctx_correlation_id,
+                        _diagnostic_key_summary(payload),
+                    )
                     event = ModelClaudeCodeHookEvent(**payload)
             except ValueError as e:
                 if isinstance(e, ValidationError):
@@ -595,24 +701,55 @@ def create_claude_hook_dispatch_handler(
                         f"Failed to parse payload as ModelClaudeCodeHookEvent: {sanitized} "
                         f"(correlation_id={ctx_correlation_id})"
                     )
-                    logger.warning(msg)
+                    logger.error(
+                        "Permanent reshape failure (validation error), message will be "
+                        "discarded to prevent NACK loop: %s %s",
+                        msg,
+                        _diagnostic_key_summary(payload)
+                        if isinstance(payload, dict)
+                        else f"(payload_type={type(payload).__name__})",
+                    )
                     raise ValueError(msg) from e
                 # Reshape validation errors (from _reshape_daemon_hook_payload_v1)
-                # already carry structured diagnostic context -- propagate as-is.
+                # already carry structured diagnostic context.  Log full raw
+                # payload at ERROR level (sanitized) before re-raising so the
+                # dispatch layer can discard-and-log (ACK) instead of NACKing.
+                sanitized_err = get_log_sanitizer().sanitize(str(e))
+                logger.error(
+                    "Permanent reshape failure for claude-hook-event, message will be "
+                    "discarded to prevent NACK loop (error=%s, correlation_id=%s) %s",
+                    sanitized_err,
+                    ctx_correlation_id,
+                    _diagnostic_key_summary(payload)
+                    if isinstance(payload, dict)
+                    else f"(payload_type={type(payload).__name__})",
+                )
                 raise
             except Exception as e:
+                sanitized_exc = get_log_sanitizer().sanitize(str(e))
                 msg = (
-                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {sanitized_exc} "
                     f"(correlation_id={ctx_correlation_id})"
                 )
-                logger.warning(msg)
+                logger.error(
+                    "Permanent reshape failure (unexpected error), message will be "
+                    "discarded to prevent NACK loop: %s %s",
+                    msg,
+                    _diagnostic_key_summary(payload)
+                    if isinstance(payload, dict)
+                    else f"(payload_type={type(payload).__name__})",
+                )
                 raise ValueError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
                 f"for claude-hook-event (correlation_id={ctx_correlation_id})"
             )
-            logger.warning(msg)
+            logger.error(
+                "Permanent dispatch failure (unexpected payload type), message will be "
+                "discarded to prevent NACK loop: %s",
+                msg,
+            )
             raise ValueError(msg)
 
         logger.info(
@@ -1379,6 +1516,7 @@ def create_compliance_evaluate_dispatch_handler(
                 status="llm_error",
                 processing_time_ms=0.0,
                 evaluated_at=datetime.now(UTC).isoformat(),
+                session_id=command.session_id,
             )
         else:
             logger.info(
@@ -1783,20 +1921,38 @@ def create_dispatch_callback(
                 msg_correlation_id,
             )
 
-            # Gate ack/nack on dispatch status
+            # Gate ack/nack on dispatch status.
+            # Distinguish permanent failures (structural reshape errors that
+            # will never succeed on retry) from transient failures (DB errors,
+            # network issues).  Permanent failures are ACK'd with an ERROR log
+            # to prevent infinite NACK loops (GAP-9, OMN-2423).
             if result.is_successful():
                 if hasattr(msg, "ack"):
                     await msg.ack()
             else:
-                logger.warning(
-                    "Dispatch failed (status=%s, error=%s), nacking message "
-                    "(correlation_id=%s)",
-                    result.status,
-                    result.error_message,
-                    msg_correlation_id,
-                )
-                if hasattr(msg, "nack"):
-                    await msg.nack()
+                error_msg = result.error_message or ""
+                is_permanent = _is_permanent_dispatch_failure(error_msg)
+                if is_permanent:
+                    logger.error(
+                        "Permanent dispatch failure, ACKing to prevent NACK loop "
+                        "(status=%s, error=%s, correlation_id=%s). "
+                        "Message discarded (permanent parse/reshape failure).",
+                        result.status,
+                        error_msg,
+                        msg_correlation_id,
+                    )
+                    if hasattr(msg, "ack"):
+                        await msg.ack()
+                else:
+                    logger.warning(
+                        "Transient dispatch failure, nacking message for retry "
+                        "(status=%s, error=%s, correlation_id=%s)",
+                        result.status,
+                        error_msg,
+                        msg_correlation_id,
+                    )
+                    if hasattr(msg, "nack"):
+                        await msg.nack()
 
         except json.JSONDecodeError as e:
             # Malformed JSON will never succeed on retry -- ACK to prevent

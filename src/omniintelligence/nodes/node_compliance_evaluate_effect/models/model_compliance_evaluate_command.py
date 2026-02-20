@@ -69,6 +69,10 @@ class ModelComplianceEvaluateCommand(BaseModel):
         min_length=1,
         description="Patterns to check compliance against (from pattern store API)",
     )
+    session_id: str | None = Field(
+        default=None,
+        description="Session identifier for tracing; provided when invoked from a hook context.",
+    )
 
 
 __all__ = ["ModelComplianceEvaluateCommand"]

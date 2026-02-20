@@ -157,6 +157,7 @@ def _make_command(
     correlation_id: UUID = FIXED_CORRELATION_ID,
     content_sha256: str = FIXED_CONTENT_SHA256,
     source_path: str = "src/foo.py",
+    session_id: str | None = None,
 ) -> ModelComplianceEvaluateCommand:
     if patterns is None:
         patterns = [_make_pattern()]
@@ -167,6 +168,7 @@ def _make_command(
         content_sha256=content_sha256,
         language=language,
         applicable_patterns=patterns,
+        session_id=session_id,
     )
 
 

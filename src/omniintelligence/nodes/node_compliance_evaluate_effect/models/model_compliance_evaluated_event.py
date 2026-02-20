@@ -104,6 +104,13 @@ class ModelComplianceEvaluatedEvent(BaseModel):
         ...,
         description="ISO-8601 timestamp of evaluation completion",
     )
+    session_id: str | None = Field(
+        default=None,
+        description=(
+            "Session ID from the originating omniclaude session. "
+            "REQUIRED when origin=hook. Optional for batch workflows."
+        ),
+    )
 
 
 __all__ = ["ModelComplianceEvaluatedEvent"]
