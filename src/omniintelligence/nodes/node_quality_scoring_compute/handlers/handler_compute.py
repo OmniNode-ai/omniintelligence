@@ -50,8 +50,10 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.protocols impo
 from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_input import (
     ModelQualityScoringInput,
 )
-from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_output import (
+from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_metadata import (
     ModelQualityScoringMetadata,
+)
+from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_output import (
     ModelQualityScoringOutput,
 )
 
