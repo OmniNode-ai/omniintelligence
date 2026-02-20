@@ -647,6 +647,8 @@ async def route_storage_operation(
     return result.to_dict()
 
 
+# ERROR_CODE_PATSTOR_001 is intentionally excluded: it has no active emission path.
+# See the comment above its definition for context. Add it here when an emitter is wired.
 __all__ = [
     "ERROR_CODE_GOVERNANCE_VIOLATION",
     "ERROR_CODE_INVALID_TRANSITION",
