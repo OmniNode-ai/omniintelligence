@@ -82,4 +82,6 @@ COMMENT ON COLUMN routing_feedback_scores.processed_at IS
     'Updated on idempotent re-delivery (ON CONFLICT DO UPDATE).';
 
 COMMENT ON COLUMN routing_feedback_scores.created_at IS
-    'When the row was first inserted. Immutable after creation.';
+    'When the row was first inserted. Immutable after creation. '
+    'Immutability is enforced at the application layer (ON CONFLICT DO UPDATE '
+    'does not include created_at in the SET clause), not by a database constraint.';

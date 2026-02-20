@@ -25,6 +25,11 @@ UPDATE`` always updates ``processed_at`` and counts as a row change. It is
 ``False`` only when ``status`` is ``ERROR`` and the upsert did not execute.
 Use the ``status`` field to distinguish between SUCCESS and ERROR.
 
+Note: this relies on PostgreSQL behaviour where ON CONFLICT DO UPDATE always
+counts the affected row (returning ``"UPDATE 1"``), regardless of whether the
+SET clause actually changes any column values. This is guaranteed by the
+PostgreSQL specification and is not specific to any particular version.
+
 Kafka Graceful Degradation (Repository Invariant):
 ----------------------------------------------------
 The Kafka publisher is optional. DB upsert always runs first. If the publisher

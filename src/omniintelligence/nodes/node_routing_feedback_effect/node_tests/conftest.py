@@ -101,8 +101,11 @@ class MockRoutingFeedbackRepository:
                 processed_at = args[4]
                 key = (session_id, correlation_id, stage)
                 if key in self.rows:
-                    # ON CONFLICT DO UPDATE: update processed_at only
+                    # ON CONFLICT DO UPDATE: update processed_at only.
+                    # Real PostgreSQL returns "UPDATE 1" on the conflict path
+                    # (even when SET values don't change), not "INSERT 0 1".
                     self.rows[key]["processed_at"] = processed_at
+                    return "UPDATE 1"
                 else:
                     self.rows[key] = {
                         "session_id": session_id,
@@ -112,7 +115,7 @@ class MockRoutingFeedbackRepository:
                         "processed_at": processed_at,
                         "created_at": processed_at,
                     }
-                return "INSERT 0 1"
+                    return "INSERT 0 1"
 
         return "EXECUTE 0"
 
