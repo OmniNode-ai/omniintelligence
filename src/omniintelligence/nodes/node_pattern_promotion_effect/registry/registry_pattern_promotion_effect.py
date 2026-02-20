@@ -16,8 +16,8 @@ Kafka Requirement:
     The ``kafka_producer`` dependency is REQUIRED infrastructure per the ONEX
     invariant: "Kafka is required infrastructure — there is NO fallback path".
     The registry factory requires a live ``ProtocolKafkaPublisher`` instance.
-    Passing ``None`` is a programming error and will cause a ``TypeError`` at
-    the call site.
+    Both ``repository`` and ``producer`` are non-optional parameters enforced
+    by the type system.
 
 Usage:
     >>> from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
@@ -159,41 +159,22 @@ class RegistryPatternPromotionEffect:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
-        1. Validates that repository is not None
-        2. Validates that producer is not None
-        3. Creates handler functions with dependencies bound
-        4. Returns a frozen RegistryPromotionHandlers
+        1. Creates handler functions with dependencies bound
+        2. Returns a frozen RegistryPromotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
             producer: Kafka producer implementing ProtocolKafkaPublisher. Required
-                infrastructure — Kafka is the only promotion path. Passing None
-                is a programming error.
+                infrastructure — Kafka is the only promotion path.
 
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.
-
-        Raises:
-            ValueError: If repository is None.
-            ValueError: If producer is None (Kafka is required infrastructure).
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
             check_and_promote_patterns,
         )
-
-        # Validate dependencies (fail-fast)
-        if repository is None:
-            raise ValueError(
-                "repository is required for RegistryPatternPromotionEffect. "
-                "Provide a ProtocolPatternRepository implementation."
-            )
-        if producer is None:
-            raise ValueError(
-                "producer is required (Kafka is required infrastructure). "
-                "Provide a ProtocolKafkaPublisher implementation."
-            )
 
         # Create handler with bound dependencies
         async def bound_check_and_promote(

@@ -460,7 +460,11 @@ async def handle_auto_promote_check(
         correlation_id: Optional correlation ID for tracing. When None a
             single fallback UUID is generated and reused for every
             transition in this invocation to ensure consistent tracing.
-        publish_topic: Kafka topic for transition events.
+        publish_topic: Kafka topic for transition events. When ``None``, the
+            ``apply_transition`` machinery uses its own default topic (typically
+            the contract-declared publish topic). Callers that need to override
+            the topic should pass an explicit string. ``None`` is a valid
+            "use the default" signal, not a programming error.
 
     Returns:
         AutoPromoteCheckResult with per-pattern promotion details.

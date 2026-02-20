@@ -47,6 +47,10 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelPromotionCheckResult,
     ModelPromotionResult,
 )
+from omniintelligence.nodes.node_pattern_promotion_effect.registry.registry_pattern_promotion_effect import (
+    RegistryPatternPromotionEffect,
+    RegistryPromotionHandlers,
+)
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 # =============================================================================
@@ -1362,6 +1366,113 @@ class TestProtocolCompliance:
     ) -> None:
         """MockKafkaPublisher satisfies ProtocolKafkaPublisher protocol."""
         assert isinstance(mock_producer, ProtocolKafkaPublisher)
+
+
+# =============================================================================
+# Test Class: RegistryPatternPromotionEffect Smoke Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestRegistryPatternPromotionEffectSmoke:
+    """Smoke tests for RegistryPatternPromotionEffect.create_registry.
+
+    Verifies that create_registry succeeds with valid mock dependencies and
+    returns a properly wired RegistryPromotionHandlers. These tests cover the
+    happy path through the registry factory — the constructor-enforced producer
+    requirement is validated by mypy at the type level, not at runtime.
+    """
+
+    @pytest.fixture(autouse=True)
+    def clear_registry(self) -> object:
+        """Clear module-level registry state before and after each test."""
+        RegistryPatternPromotionEffect.clear()
+        yield
+        RegistryPatternPromotionEffect.clear()
+
+    def test_create_registry_succeeds_with_valid_dependencies(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """create_registry returns a RegistryPromotionHandlers with valid deps."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert isinstance(registry, RegistryPromotionHandlers)
+
+    def test_create_registry_wires_check_and_promote_handler(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """check_and_promote attribute is a callable after create_registry."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert callable(registry.check_and_promote)
+
+    def test_create_registry_handler_accessible_by_operation_name(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """get_handler('check_and_promote_patterns') returns a callable."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        handler = registry.get_handler("check_and_promote_patterns")
+        assert handler is not None
+        assert callable(handler)
+
+    def test_create_registry_unknown_operation_returns_none(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """get_handler returns None for unknown operation names."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert registry.get_handler("nonexistent_operation") is None
+
+    def test_create_registry_stored_in_module_level_state(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """create_registry stores the registry so get_registry() returns it."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        stored = RegistryPatternPromotionEffect.get_registry()
+        assert stored is registry
+
+    def test_registry_is_frozen_after_creation(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """RegistryPromotionHandlers is a frozen dataclass — mutation raises."""
+        import dataclasses
+
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
+            registry.check_and_promote = lambda _: None  # type: ignore[method-assign]
 
 
 # =============================================================================
