@@ -93,7 +93,7 @@ handler_routing:
       actions:
         - "fetch provisional patterns from database"
         - "evaluate promotion gates (injection count, success rate, failure streak)"
-        - "emit lifecycle events or direct update for eligible patterns"
+        - "emit lifecycle events to Kafka for eligible patterns"
         - "return aggregated promotion results"
 
     # Promote single pattern - used internally by check_and_promote

@@ -43,24 +43,14 @@ All four gates must pass for a pattern to be promoted:
 4. Disabled Gate: Pattern must not be in disabled_patterns_current table
    - Already filtered in SQL query (LEFT JOIN ... IS NULL)
 
-Kafka Publisher Optionality:
+Kafka Publisher Requirement:
 ----------------------------
-The ``kafka_producer`` dependency is OPTIONAL per ONEX invariant: "Effect nodes
-must never block on Kafka". When the Kafka publisher is unavailable (None):
+The ``kafka_producer`` dependency is REQUIRED infrastructure per the ONEX
+invariant: "Kafka is required infrastructure — there is NO fallback path".
 
-1. Promotions STILL PROCEED via direct database update (fallback mode)
-2. Only the Kafka event emission is skipped
-3. A warning is logged indicating event-driven flow was bypassed
-
-**When producer is None:**
-- Dry-run mode still works (evaluates gates, returns what WOULD be promoted)
-- Actual promotions proceed via direct SQL UPDATE (fallback)
-- Downstream services relying on Kafka events will NOT be notified
-- Their pattern caches may become stale until manually refreshed
-
-**When producer is available:**
-- Promotions go through the event-driven flow (Kafka -> reducer -> effect)
-- This is the preferred path for consistency and auditability
+All promotions go through the event-driven flow (Kafka -> reducer -> effect).
+There is no direct database update fallback. Callers must supply a live
+``ProtocolKafkaPublisher`` instance; passing None is a programming error.
 
 Design Principles:
     - Pure functions for criteria evaluation (no I/O)
@@ -93,7 +83,6 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
-from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
 
@@ -162,16 +151,6 @@ WHERE lp.status = 'provisional'
   AND dpc.pattern_id IS NULL
 ORDER BY lp.created_at ASC
 LIMIT 500
-"""
-
-# Direct promotion SQL - used as FALLBACK when Kafka is unavailable (OMN-1805)
-# Preferred path: Kafka event -> reducer -> effect node
-# Fallback path: Direct SQL UPDATE (when producer is None)
-SQL_PROMOTE_PATTERN = """
-UPDATE learned_patterns
-SET status = 'validated', updated_at = NOW()
-WHERE id = $1 AND status = 'provisional'
-RETURNING id
 """
 
 
@@ -295,7 +274,7 @@ def build_gate_snapshot(pattern: Mapping[str, Any]) -> ModelGateSnapshot:
 
 async def check_and_promote_patterns(
     repository: ProtocolPatternRepository,
-    producer: ProtocolKafkaPublisher | None = None,
+    producer: ProtocolKafkaPublisher,
     *,
     dry_run: bool = False,
     min_injection_count: int = MIN_INJECTION_COUNT,
@@ -308,15 +287,13 @@ async def check_and_promote_patterns(
     This is the main entry point for the promotion workflow. It:
     1. Fetches all provisional patterns (not disabled, is_current)
     2. Evaluates each against promotion gates
-    3. If not dry_run: promotes eligible patterns and emits events
+    3. If not dry_run: promotes eligible patterns and emits lifecycle events to Kafka
     4. Returns aggregated result with all promotion details
 
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
-        producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
-            If None, promotions proceed via direct database UPDATE (fallback mode)
-            and Kafka events are not emitted. See "Kafka Publisher Optionality"
-            section in module docstring for implications on downstream caches.
+        producer: Kafka producer implementing ProtocolKafkaPublisher. Required
+            infrastructure — Kafka is the only promotion path.
         dry_run: If True, return what WOULD be promoted without mutating.
         min_injection_count: Minimum number of injections required for promotion.
             Defaults to MIN_INJECTION_COUNT (5).
@@ -333,11 +310,6 @@ async def check_and_promote_patterns(
     Note:
         Each pattern is promoted in its own transaction (not batch).
         If one promotion fails, others can still succeed.
-
-    Warning:
-        When ``producer`` is None, downstream services relying on Kafka events
-        for cache invalidation will not be notified. Their pattern caches may
-        become stale until manually refreshed or until the next scheduled sync.
     """
     logger.info(
         "Starting promotion check",
@@ -424,7 +396,6 @@ async def check_and_promote_patterns(
             # Actual promotion - isolated per-pattern error handling
             try:
                 result = await promote_pattern(
-                    repository=repository,
                     producer=producer,
                     pattern_id=pattern_id,
                     pattern_data=pattern,
@@ -509,37 +480,21 @@ async def check_and_promote_patterns(
 
 
 async def promote_pattern(
-    repository: ProtocolPatternRepository,
-    producer: ProtocolKafkaPublisher | None,
+    producer: ProtocolKafkaPublisher,
     pattern_id: UUID,
     pattern_data: Mapping[str, Any],
     correlation_id: UUID | None = None,
 ) -> ModelPromotionResult:
     """Promote a single pattern from provisional to validated status.
 
-    **Dual-Mode Operation (ONEX Kafka Optionality):**
-    Per ONEX invariant "Effect nodes must never block on Kafka", this function
-    supports two modes:
-
-    **Preferred Mode (producer is not None):**
-        1. Build gate snapshot capturing current metrics
-        2. Emit ``ModelPatternLifecycleEvent`` to Kafka command topic
-        3. Return immediately (eventual consistency)
-        4. Reducer validates transition and emits intent
-        5. Effect node applies database UPDATE
-
-    **Fallback Mode (producer is None):**
-        1. Build gate snapshot capturing current metrics
-        2. Execute direct SQL UPDATE to promote pattern
-        3. Log warning that event-driven flow was bypassed
-        4. Return with promotion complete
+    Emits a ``ModelPatternLifecycleEvent`` to Kafka for the reducer to process.
+    The reducer validates the FSM transition and the effect node applies the
+    database UPDATE. This function returns immediately after emitting the event
+    (eventual consistency).
 
     Args:
-        repository: Database repository implementing ProtocolPatternRepository.
-            Used for direct SQL UPDATE when producer is None (fallback mode).
-        producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
-            When available, uses event-driven flow through reducer (preferred).
-            When None, falls back to direct database UPDATE per ONEX invariant.
+        producer: Kafka producer implementing ProtocolKafkaPublisher. Required
+            infrastructure — there is no fallback path.
         pattern_id: The pattern ID to promote.
         pattern_data: Pattern record from SQL query (for gate snapshot).
         correlation_id: Optional correlation ID for tracing.
@@ -548,16 +503,10 @@ async def promote_pattern(
         ModelPromotionResult with promotion details and gate snapshot.
 
     Note:
-        When using event-driven mode (producer not None):
         - The ``promoted_at`` field is set to request time
-        - Actual status update happens asynchronously
+        - Actual status update happens asynchronously via reducer
         - The promotion may fail if reducer rejects the transition
         - Callers should not assume status has changed immediately
-
-        When using fallback mode (producer is None):
-        - The promotion is applied synchronously
-        - ``promoted_at`` reflects actual promotion time
-        - Downstream Kafka consumers will NOT be notified
     """
     pattern_signature = pattern_data.get("pattern_signature", "")
     request_time = datetime.now(UTC)
@@ -576,69 +525,7 @@ async def promote_pattern(
         },
     )
 
-    # ONEX Invariant: "Effect nodes must never block on Kafka"
-    # Kafka is OPTIONAL - use direct DB update as fallback when unavailable
-    if producer is None:
-        # Fallback mode: Direct database update (bypasses reducer)
-        logger.warning(
-            "Kafka producer unavailable - using direct database promotion (fallback mode). "
-            "Downstream Kafka consumers will NOT be notified of this status change.",
-            extra={
-                "correlation_id": str(correlation_id) if correlation_id else None,
-                "pattern_id": str(pattern_id),
-                "pattern_signature": pattern_signature,
-                "mode": "fallback_direct_sql",
-            },
-        )
-
-        # Execute direct SQL UPDATE
-        result = await repository.execute(SQL_PROMOTE_PATTERN, pattern_id)
-
-        # Check if promotion actually happened (pattern was still provisional)
-        if parse_pg_status_count(result) == 0:
-            logger.debug(
-                "Pattern was not in provisional status - no promotion performed",
-                extra={
-                    "correlation_id": str(correlation_id) if correlation_id else None,
-                    "pattern_id": str(pattern_id),
-                    "pattern_signature": pattern_signature,
-                },
-            )
-            return ModelPromotionResult(
-                pattern_id=pattern_id,
-                pattern_signature=pattern_signature,
-                from_status="provisional",
-                to_status="validated",
-                promoted_at=None,
-                reason="pattern_not_provisional",
-                gate_snapshot=gate_snapshot,
-                dry_run=False,
-            )
-
-        logger.info(
-            "Pattern promoted via direct database update (fallback mode)",
-            extra={
-                "correlation_id": str(correlation_id) if correlation_id else None,
-                "pattern_id": str(pattern_id),
-                "pattern_signature": pattern_signature,
-                "success_rate": gate_snapshot.success_rate_rolling_20,
-                "mode": "fallback_direct_sql",
-            },
-        )
-
-        return ModelPromotionResult(
-            pattern_id=pattern_id,
-            pattern_signature=pattern_signature,
-            from_status="provisional",
-            to_status="validated",
-            promoted_at=request_time,
-            reason="auto_promote_rolling_window_fallback",
-            gate_snapshot=gate_snapshot,
-            dry_run=False,
-        )
-
-    # Preferred mode: Event-driven promotion via Kafka -> reducer -> effect
-    # Emit lifecycle event to Kafka for reducer to process
+    # Emit lifecycle event to Kafka for reducer to process (required infrastructure)
     await _emit_lifecycle_event(
         producer=producer,
         pattern_id=pattern_id,
@@ -654,7 +541,6 @@ async def promote_pattern(
             "pattern_id": str(pattern_id),
             "pattern_signature": pattern_signature,
             "success_rate": gate_snapshot.success_rate_rolling_20,
-            "mode": "event_driven",
         },
     )
 
@@ -743,7 +629,6 @@ __all__ = [
     "MAX_FAILURE_STREAK",
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",
-    "SQL_PROMOTE_PATTERN",
     "build_gate_snapshot",
     "calculate_success_rate",
     "check_and_promote_patterns",
