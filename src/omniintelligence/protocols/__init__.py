@@ -186,7 +186,9 @@ class ProtocolIntentClassifier(Protocol):
     NOTE: ModelIntentClassificationInput/Output are TYPE_CHECKING-only to avoid
     circular imports at runtime. isinstance() checks against this protocol verify
     method name presence only, as documented for @runtime_checkable protocols.
-    Full type fidelity is enforced by static analysis only.
+    Full type fidelity is enforced by static analysis only. If runtime signature
+    validation is ever required, file a ticket to restructure the import to avoid
+    the circular dependency and remove the TYPE_CHECKING guard.
     """
 
     async def compute(

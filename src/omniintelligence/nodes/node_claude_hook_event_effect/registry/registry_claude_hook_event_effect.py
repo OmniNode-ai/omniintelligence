@@ -189,7 +189,7 @@ class RegistryClaudeHookEventEffect:
                     type(result).__name__,
                 )
                 return None
-        return result
+            return result
 
     @staticmethod
     def _is_registered() -> bool:

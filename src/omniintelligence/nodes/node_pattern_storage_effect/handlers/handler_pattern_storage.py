@@ -194,7 +194,7 @@ class PatternStorageRouter:
     def __init__(
         self,
         *,
-        pattern_store: ProtocolPatternStore | None = None,
+        pattern_store: ProtocolPatternStore,
         state_manager: ProtocolPatternStateManager | None = None,
     ) -> None:
         """Initialize the router with dependencies.
@@ -205,13 +205,6 @@ class PatternStorageRouter:
             state_manager: State manager implementing ProtocolPatternStateManager.
                 Required for promote_pattern operations.
         """
-        if pattern_store is None:
-            msg = (
-                "PatternStorageRouter requires pattern_store; "
-                "it is needed for store_pattern (the default operation). "
-                "state_manager is optional and only required for promote_pattern."
-            )
-            raise ValueError(msg)
         self._pattern_store: ProtocolPatternStore = pattern_store
         self._state_manager: ProtocolPatternStateManager | None = state_manager
 
