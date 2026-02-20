@@ -209,7 +209,7 @@ src/omniintelligence/
 | `handlers/` | `handler_` | `handler_pattern_learning.py` |
 | `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | `dispatch_handler_pattern_learning.py` |
 | `repositories/` | `adapter_` | `adapter_pattern_store.py` |
-| `api/` | `router_`, `handler_`, `models_` | `router_patterns.py` |
+| `api/` | `router_`, `handler_`, `models_`, `app` | `router_patterns.py` |
 
 **Node directory naming is MANDATORY**: All node directories MUST start with `node_` prefix.
 
