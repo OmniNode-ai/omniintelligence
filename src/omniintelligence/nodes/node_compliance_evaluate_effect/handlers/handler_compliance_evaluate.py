@@ -149,6 +149,7 @@ async def handle_compliance_evaluate_command(
             status="validation_error",
             processing_time_ms=elapsed_ms,
             evaluated_at=datetime.now(UTC).isoformat(),
+            session_id=command.session_id,
         )
         # Route to DLQ so operators can inspect and replay tampered/stale messages.
         # Mirrors the DLQ routing in _publish_event() for Kafka publish failures.
@@ -251,6 +252,7 @@ async def handle_compliance_evaluate_command(
         else ("completed" if result.success else STATUS_EVALUATION_FAILED),
         processing_time_ms=processing_time_ms,
         evaluated_at=evaluated_at,
+        session_id=command.session_id,
     )
 
     # 6. Publish event to Kafka (if producer available).
@@ -319,6 +321,7 @@ async def _publish_event(
         "status": event.status,
         "processing_time_ms": event.processing_time_ms,
         "evaluated_at": event.evaluated_at,
+        "session_id": event.session_id,
     }
 
     try:
