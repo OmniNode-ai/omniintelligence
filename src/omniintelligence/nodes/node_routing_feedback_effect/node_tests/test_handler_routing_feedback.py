@@ -526,7 +526,7 @@ class TestModelValidation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            sample_routing_feedback_event_success.outcome = "failed"  # type: ignore[misc]
+            sample_routing_feedback_event_success.outcome = "failed"
 
     def test_result_is_frozen(self) -> None:
         """ModelRoutingFeedbackResult is immutable (frozen)."""
@@ -542,7 +542,7 @@ class TestModelValidation:
         )
 
         with pytest.raises(pydantic.ValidationError):
-            result.outcome = "failed"  # type: ignore[misc]
+            result.outcome = "failed"
 
     def test_event_rejects_invalid_outcome(
         self,
