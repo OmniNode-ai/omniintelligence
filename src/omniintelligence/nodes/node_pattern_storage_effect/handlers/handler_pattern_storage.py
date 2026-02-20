@@ -612,6 +612,7 @@ async def route_storage_operation(
         ...         "to_state": "provisional",
         ...         "reason": "Pattern met verification criteria",
         ...     },
+        ...     pattern_store=store_impl,
         ...     state_manager=manager_impl,
         ... )
         >>> result["success"]
@@ -651,7 +652,6 @@ __all__ = [
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
     "ERROR_CODE_STORAGE_ERROR",
-    "ERROR_CODE_PATSTOR_001",
     "ERROR_CODE_PATSTOR_002",
     "ERROR_CODE_PATSTOR_003",
     "ERROR_CODE_VALIDATION_ERROR",
