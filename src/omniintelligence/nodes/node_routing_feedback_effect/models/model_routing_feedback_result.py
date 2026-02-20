@@ -7,11 +7,10 @@ Reference: OMN-2366
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_status import (
     EnumRoutingFeedbackStatus,
@@ -66,7 +65,7 @@ class ModelRoutingFeedbackResult(BaseModel):
             "False only when status is ERROR and the upsert did not execute."
         ),
     )
-    processed_at: datetime = Field(
+    processed_at: AwareDatetime = Field(
         ...,
         description="Timestamp of when processing completed",
     )
