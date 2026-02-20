@@ -48,7 +48,7 @@ uv sync --group all
 pre-commit install
 ```
 
-**ONEX ecosystem dependencies** (published on PyPI — installed automatically by `uv sync`):
+**ONEX ecosystem dependencies** (private ecosystem packages — NOT on public PyPI; installed via editable installs from sibling repos, available automatically via `uv sync` once sibling repos are cloned alongside this one):
 
 | Package | Version | Purpose |
 |---------|---------|---------|

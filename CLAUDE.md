@@ -120,7 +120,7 @@ pre-commit run --all-files                    # All hooks
 - Command → Reducer (bypasses orchestration)
 - Reducer → I/O (violates purity)
 - Orchestrator → Typed Result (only COMPUTE returns results)
-- Effect node blocking on Kafka (Kafka is required but async-only — never await synchronously in the calling thread)
+- Effect node blocking on Kafka (async-only — never await synchronously in the calling thread; use non-blocking publish patterns)
 - `set_repository()` setters in nodes (use constructor/registry injection)
 - `try/except` in `node.py` (error handling belongs in handlers)
 - `logger.info()` in `node.py` (logging belongs in handlers)
@@ -190,7 +190,12 @@ src/omniintelligence/
 ├── models/             # Shared Pydantic models
 ├── enums/              # Enum definitions
 ├── protocols/          # Shared Protocol definitions
-└── utils/              # Utilities (log sanitizer, db_url, etc.)
+├── utils/              # Utilities (log sanitizer, db_url, etc.)
+├── testing/            # Shared test helpers and fixtures
+├── tools/              # Internal tooling and scripts
+├── audit/              # Audit and compliance utilities
+├── _legacy/            # Legacy code (do not import)
+└── constants.py        # Module-level constants
 ```
 
 **File naming conventions**:

@@ -175,13 +175,14 @@ without needing a node class as intermediary.
 ## PluginIntelligence: Node Discovery and Wiring
 
 `PluginIntelligence` (in `runtime/plugin.py`) is the entry point for the ONEX kernel. It
-implements `ProtocolDomainPlugin` and runs four sequential bootstrap phases:
+implements `ProtocolDomainPlugin` and runs five sequential bootstrap phases:
 
 ```
-1. initialize()        — creates PostgreSQL pool + RegistryMessageType
-2. wire_handlers()     — registers handlers with the container (legacy path)
-3. wire_dispatchers()  — builds MessageDispatchEngine with 5 handlers / 7 routes
-4. start_consumers()   — subscribes to all intelligence Kafka topics
+1. should_activate()   — activation gate; returns True if OMNIINTELLIGENCE_DB_URL is set
+2. initialize()        — creates PostgreSQL pool + RegistryMessageType
+3. wire_handlers()     — registers handlers with the container (legacy path)
+4. wire_dispatchers()  — builds MessageDispatchEngine with 5 handlers / 7 routes
+5. start_consumers()   — subscribes to all intelligence Kafka topics
 ```
 
 **Topic Discovery (contract-driven)**:
