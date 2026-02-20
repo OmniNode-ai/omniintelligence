@@ -102,7 +102,7 @@ The system decomposes intelligence operations into 18 specialized ONEX nodes acr
 
 ### Runtime Plugin
 
-`PluginIntelligence` (`omniintelligence.runtime.plugin`) is the domain plugin entry point registered under `onex.domain_plugins`. It is discovered by `RuntimeHostProcess`, which scans `contract.yaml` files to wire Kafka subscriptions, handler routing, health checks, and graceful shutdown automatically.
+`PluginIntelligence` (`omniintelligence.runtime.plugin`) is the domain plugin entry point registered under `onex.domain_plugins`. It is discovered by `RuntimeHostProcess`, which manages the process lifecycle. `PluginIntelligence` itself scans `contract.yaml` files (via `collect_subscribe_topics_from_contracts()`) to wire Kafka subscriptions and handler routing.
 
 ### API Module
 

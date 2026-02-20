@@ -122,7 +122,7 @@ NodePatternDemotionEffect  --publishes-->                       |
                                                     |
                                                     v
                                                 PostgreSQL (atomic transition with audit trail)
-                                                Kafka (conditionally emits: pattern-promoted/deprecated.v1)
+                                                Kafka (emits: pattern-lifecycle-transitioned.v1)
 ```
 
 ### Intelligence Orchestration Pipeline
@@ -257,7 +257,7 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 | `{env}.onex.cmd.omniintelligence.claude-hook-event.v1` | In | omniclaude | `NodeClaudeHookEventEffect` |
 | `{env}.onex.cmd.omniintelligence.tool-content.v1` | In | omniclaude | `NodeClaudeHookEventEffect` |
 | `{env}.onex.evt.omniintelligence.intent-classified.v1` | Out | `NodeClaudeHookEventEffect` | omnimemory |
-| `{env}.onex.cmd.omniintelligence.pattern-learning.v1` | In/Out | `NodeClaudeHookEventEffect` (Stop) | `NodePatternLearningEffect` |
+| `{env}.onex.cmd.omniintelligence.pattern-learning.v1` | In/Out | `NodeClaudeHookEventEffect` (Stop) | `NodePatternLearningEffect`, `NodeIntelligenceOrchestrator` |
 | `{env}.onex.evt.omniintelligence.pattern-learned.v1` | Out | `NodePatternLearningEffect` | `NodePatternStorageEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-stored.v1` | Out | `NodePatternStorageEffect` | downstream |
 | `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | Out | `NodePatternStorageEffect`, `NodePatternPromotionEffect` | downstream |
