@@ -444,10 +444,9 @@ def _reconstruct_payload_from_envelope(
     )
     reconstructed = dict(payload)
 
-    # event_type: ModelEventEnvelope has no event_type field; check metadata tags.
-    meta_event_type = envelope.get_metadata_value("event_type")
-    if meta_event_type is not None:
-        reconstructed["event_type"] = str(meta_event_type)
+    # event_type: ModelEventEnvelope stores event_type as a direct top-level field.
+    if envelope.event_type is not None:
+        reconstructed["event_type"] = str(envelope.event_type)
 
     # correlation_id: envelope.correlation_id is UUID | None
     if envelope.correlation_id is not None:
@@ -1652,8 +1651,7 @@ def create_pattern_projection_dispatch_handler(
         )
 
         logger.info(
-            "Pattern projection dispatch complete "
-            "(trigger=%s, correlation_id=%s)",
+            "Pattern projection dispatch complete (trigger=%s, correlation_id=%s)",
             trigger_event_type,
             ctx_correlation_id,
         )

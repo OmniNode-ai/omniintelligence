@@ -39,7 +39,9 @@ EXPECTED_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1
 
 EXPECTED_PATTERN_PROMOTED = "onex.evt.omniintelligence.pattern-promoted.v1"
 EXPECTED_PATTERN_DEPRECATED = "onex.evt.omniintelligence.pattern-deprecated.v1"
-EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = (
+    "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+)
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,

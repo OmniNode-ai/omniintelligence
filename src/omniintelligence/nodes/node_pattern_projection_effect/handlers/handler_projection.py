@@ -141,7 +141,9 @@ async def publish_projection(
                 offset,
                 correlation_id,
                 sanitized,
-                extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None
+                },
             )
             # Return an empty snapshot rather than propagating the error.
             # The snapshot_at must still be set to maintain model validity.
@@ -170,7 +172,11 @@ async def publish_projection(
                     sorted(row.keys()) if isinstance(row, dict) else type(row).__name__,
                     correlation_id,
                     sanitized_parse,
-                    extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                    extra={
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None
+                    },
                 )
                 # Skip malformed rows — partial snapshot is better than no snapshot
 
@@ -207,7 +213,9 @@ async def publish_projection(
                 "(snapshot_id=%s, correlation_id=%s)",
                 snapshot_id,
                 correlation_id,
-                extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None
+                },
             )
         else:
             try:
@@ -223,7 +231,11 @@ async def publish_projection(
                     publish_topic,
                     snapshot.total_count,
                     correlation_id,
-                    extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                    extra={
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None
+                    },
                 )
             except Exception as kafka_exc:
                 # Fire-and-forget: Kafka failures do not propagate
@@ -235,7 +247,11 @@ async def publish_projection(
                     publish_topic,
                     correlation_id,
                     sanitized_kafka,
-                    extra={"correlation_id": str(correlation_id) if correlation_id else None},
+                    extra={
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None
+                    },
                 )
 
     return snapshot
