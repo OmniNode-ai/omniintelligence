@@ -2459,6 +2459,71 @@ class TestCreateDispatchCallback:
 
         assert msg._nacked, "Message should be nacked on dispatch failure"
 
+    @pytest.mark.asyncio
+    async def test_callback_acks_on_permanent_failure(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """Callback should ACK (not NACK) when dispatch result is a permanent failure.
+
+        Permanent failures are structural parse/reshape errors that cannot be
+        resolved by retrying (e.g. missing required 'event_type' field).
+        ACKing prevents infinite NACK loops (GAP-9, OMN-2423).
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from omniintelligence.runtime.dispatch_handlers import (
+            _PERMANENT_FAILURE_MARKERS,
+        )
+
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
+
+        callback = create_dispatch_callback(
+            engine=engine,
+            dispatch_topic=DISPATCH_ALIAS_CLAUDE_HOOK,
+        )
+
+        # Build a failed dispatch result whose error_message contains a
+        # permanent-failure marker so _is_permanent_dispatch_failure returns True.
+        permanent_error_msg = (
+            f"{_PERMANENT_FAILURE_MARKERS[0]}: missing required field 'event_type'"
+        )
+        mock_result = MagicMock()
+        mock_result.is_successful.return_value = False
+        mock_result.error_message = permanent_error_msg
+        mock_result.status = "failed"
+        mock_result.handler_id = "intelligence-claude-hook-handler"
+        mock_result.duration_ms = 1.0
+
+        msg = _MockEventMessage(
+            value=json.dumps(
+                {
+                    # Payload deliberately missing event_type to simulate a
+                    # permanent structural failure at the reshape layer.
+                    "session_id": "test-session-permanent",
+                    "emitted_at": "2026-02-20T12:00:00+00:00",
+                }
+            ).encode("utf-8"),
+        )
+
+        with patch.object(engine, "dispatch", new_callable=AsyncMock) as mock_dispatch:
+            mock_dispatch.return_value = mock_result
+
+            await callback(msg)
+
+        assert msg._acked, (
+            "Message should be ACKed on permanent failure to prevent NACK loop"
+        )
+        assert not msg._nacked, (
+            "Message must NOT be NACKed on permanent failure (prevents infinite retry)"
+        )
+
 
 # =============================================================================
 # Tests: Compliance Evaluate Handler (OMN-2339)

@@ -1163,6 +1163,19 @@ class TestIsPermanentDispatchFailure:
             "Handler 'x' failed: ValueError: Permanent reshape failure for claude-hook-event"
         )
 
+    def test_reshape_failure_marker_survives_dispatch_engine_wrapping(self) -> None:
+        """Substring match survives the dispatch-engine's handler wrapping prefix.
+
+        The dispatch engine wraps handler exceptions as:
+            "Handler '<name>' failed: <ExcType>: <original message>"
+        This test verifies that PERMANENT_FAILURE_MARKERS substrings are still
+        detected after that wrapping, proving the runtime NACK-prevention logic
+        works end-to-end with real dispatch-engine-formatted error strings.
+        """
+        assert _is_permanent_dispatch_failure(
+            "Handler 'claude-hook-event' failed: ValueError: Permanent reshape failure for claude-hook-event"
+        )
+
     def test_parse_failure_marker_is_permanent(self) -> None:
         """'Failed to parse payload' marker is classified as permanent."""
         assert _is_permanent_dispatch_failure(
@@ -1285,12 +1298,14 @@ class TestNACKLoopPrevention:
             assert event.session_id == "test-session-nack-v1"
 
     @pytest.mark.asyncio
-    async def test_missing_emitted_at_and_session_id_does_not_raise(self) -> None:
-        """V2: Daemon payload with missing emitted_at and session_id reshapes without ValueError.
+    async def test_missing_session_id_and_correlation_id_does_not_raise(self) -> None:
+        """V2: Daemon payload with missing session_id and correlation_id reshapes without ValueError.
 
-        Simulates the worst-case envelope stripping scenario where both
-        session_id (not an envelope field) and emitted_at are unavailable.
-        The reshape must fall back to UTC now and 'unknown' respectively.
+        Simulates the envelope stripping scenario where session_id and
+        correlation_id are absent (stripped by the envelope deserializer or never
+        present).  emitted_at is present so _needs_daemon_reshape() selects the
+        daemon reshape path.  The reshape must fall back to 'unknown' for
+        session_id and generate a new uuid4() for correlation_id.
         """
         from unittest.mock import AsyncMock, MagicMock, patch
         from uuid import UUID
@@ -1301,11 +1316,14 @@ class TestNACKLoopPrevention:
         from omnibase_core.models.effect.model_effect_context import ModelEffectContext
         from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 
-        # Minimal daemon payload with only event_type surviving stripping
+        # Daemon payload with emitted_at present but session_id and correlation_id absent.
+        # emitted_at is required for _needs_daemon_reshape() to select the daemon path.
+        # session_id and correlation_id are stripped by the envelope deserializer.
         minimal_daemon_payload: dict[str, Any] = {
             "event_type": "Stop",
             "emitted_at": "2026-02-20T12:00:00+00:00",
-            # session_id and correlation_id absent (stripped by envelope deserializer)
+            # session_id absent -- must fall back to "unknown"
+            # correlation_id absent -- must generate uuid4()
         }
 
         mock_classifier = MagicMock()

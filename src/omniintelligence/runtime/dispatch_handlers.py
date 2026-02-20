@@ -536,7 +536,7 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
             "Daemon payload missing 'emitted_at'; using UTC now as fallback %s",
             _diagnostic_key_summary(raw),
         )
-        emitted_at: object = datetime.now(UTC).isoformat()
+        emitted_at: str = datetime.now(UTC).isoformat()
     else:
         emitted_at = raw_emitted_at
 
@@ -560,7 +560,7 @@ def _reshape_daemon_hook_payload_v1(raw: dict[str, Any]) -> dict[str, Any]:
             generated_id,
             _diagnostic_key_summary(raw),
         )
-        correlation_id_value: object = generated_id
+        correlation_id_value: str = generated_id
     else:
         correlation_id_value = raw_correlation_id
 
