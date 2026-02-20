@@ -183,15 +183,22 @@ def _diagnostic_key_summary(raw: dict[str, Any]) -> str:
     return f"(keys={diagnostic_keys})"
 
 
-# Sentinel strings logged by reshape/parse failure paths in
+# Sentinel strings raised by reshape/parse failure paths in
 # create_claude_hook_dispatch_handler.  Used by _is_permanent_dispatch_failure
 # to classify a dispatch result error as a permanent (structural) failure that
-# should be ACK'd rather than NACK'd.  Must match the exact substrings logged
-# in the except blocks above.
+# should be ACK'd rather than NACK'd.  Must match substrings of the
+# raise ValueError(msg) message string, which propagates through the dispatch
+# engine into result.error_message.
+#
+# "for claude-hook-event" is intentionally specific to the claude-hook handler.
+# Other handlers (session-outcome, pattern-lifecycle-transition, pattern-storage,
+# compliance-evaluate) also raise ValueError("Unexpected payload type ... for
+# <handler-name> ...") but those are NOT permanent failures -- the dispatch
+# engine should NACK them so they can be retried.
 _PERMANENT_FAILURE_MARKERS: tuple[str, ...] = (
     "Permanent reshape failure",
     "Failed to parse payload as ModelClaudeCodeHookEvent",
-    "Unexpected payload type",
+    "for claude-hook-event",
     "Daemon payload missing required key 'event_type'",
 )
 """Substrings in dispatch result error messages that indicate a permanent failure.
