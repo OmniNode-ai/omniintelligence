@@ -33,6 +33,8 @@ These rules are non-negotiable. Violations will cause production issues or archi
 | `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
 | **No hardcoded environment variables** | All config via `.env` or Pydantic Settings; see `~/.claude/CLAUDE.md` |
 
+> **Note on `node_pattern_storage_effect`**: This node does not receive an injected Kafka producer. Instead, handlers return typed event models (`ModelPatternStoredEvent`, `ModelPatternPromotedEvent`) which `RuntimeHostProcess` publishes to the declared `publish_topics`. This is a valid alternative pattern for nodes where the runtime handles event emission transparently.
+
 ---
 
 ## Non-Goals

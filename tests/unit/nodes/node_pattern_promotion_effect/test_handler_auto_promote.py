@@ -67,7 +67,7 @@ class MockTransitionResult:
 class MockKafkaPublisher:
     """Mock Kafka publisher satisfying ProtocolKafkaPublisher."""
 
-    async def publish(self, topic: str, key: str, value: dict) -> None:  # type: ignore[type-arg]
+    async def publish(self, topic: str, key: str, value: dict[str, object]) -> None:
         pass
 
 
@@ -717,3 +717,10 @@ class TestProtocolConformance:
             latest_run_result="success",
         )
         assert isinstance(repo, ProtocolPatternRepository)
+
+    def test_mock_kafka_publisher_implements_protocol(self) -> None:
+        """MockKafkaPublisher satisfies ProtocolKafkaPublisher."""
+        from omniintelligence.protocols import ProtocolKafkaPublisher
+
+        publisher = MockKafkaPublisher()
+        assert isinstance(publisher, ProtocolKafkaPublisher)
