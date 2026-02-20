@@ -263,26 +263,26 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.is_frozen
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_eight_routes(self) -> None:
-        """Engine should have exactly 8 routes (6 command + 2 event topics, OMN-2339 adds compliance-evaluate)."""
+    async def test_wire_dispatchers_engine_has_eleven_routes(self) -> None:
+        """Engine should have exactly 11 routes (OMN-2424 adds 3 projection subscribe topics)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 8
+        assert plugin._dispatch_engine.route_count == 11
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_six_handlers(self) -> None:
-        """Engine should have exactly 6 handlers (OMN-2339 adds compliance-evaluate)."""
+    async def test_wire_dispatchers_engine_has_seven_handlers(self) -> None:
+        """Engine should have exactly 7 handlers (OMN-2424 adds pattern-projection handler)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 6
+        assert plugin._dispatch_engine.handler_count == 7
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:

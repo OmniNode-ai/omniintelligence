@@ -242,6 +242,5 @@ async def publish_projection(
 
 
 __all__ = [
-    "ProtocolPatternQueryStore",
     "publish_projection",
 ]

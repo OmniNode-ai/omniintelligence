@@ -90,7 +90,7 @@ dependencies:
   - name: "pattern_query_store"
     type: "protocol"
     class_name: "ProtocolPatternQueryStore"
-    module: "omniintelligence.nodes.node_pattern_projection_effect.handlers.handler_projection"
+    module: "omniintelligence.protocols"
     description: "Protocol for querying all validated/provisional patterns from the pattern store"
     required: true
 

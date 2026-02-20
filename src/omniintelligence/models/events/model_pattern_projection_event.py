@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from omniintelligence.models.repository.model_pattern_summary import ModelPatternSummary
 
@@ -30,15 +30,15 @@ class ModelPatternProjectionEvent(BaseModel):
           No ``datetime.now()`` default to preserve testability and
           determinism.
         - ``frozen=True`` — events are immutable after emission.
-        - ``extra="ignore"`` — tolerates additional fields added by future
-          envelope layers (e.g., event bus metadata).
+        - ``extra="forbid"`` — rejects unexpected fields per CLAUDE.md immutable
+          event model standard.
         - ``from_attributes=True`` — required for pytest-xdist compatibility
           on frozen models.
     """
 
     model_config = ConfigDict(
         frozen=True,
-        extra="ignore",
+        extra="forbid",
         from_attributes=True,
     )
 
@@ -73,6 +73,20 @@ class ModelPatternProjectionEvent(BaseModel):
         default=None,
         description="Correlation ID from the triggering lifecycle event for distributed tracing",
     )
+
+    @model_validator(mode="after")
+    def _validate_total_count_matches_patterns(self) -> ModelPatternProjectionEvent:
+        """Enforce that total_count equals len(patterns).
+
+        This invariant ensures that the declared count always matches the
+        actual number of patterns in the snapshot. Mismatches indicate a
+        construction bug (e.g., caller passed a stale count).
+        """
+        if self.total_count != len(self.patterns):
+            raise ValueError(
+                f"total_count ({self.total_count}) must equal len(patterns) ({len(self.patterns)})"
+            )
+        return self
 
 
 __all__ = ["ModelPatternProjectionEvent"]

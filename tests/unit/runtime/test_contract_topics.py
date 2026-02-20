@@ -3,13 +3,14 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 8 topics
+    - collect_subscribe_topics_from_contracts returns exactly 11 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
 
 Related:
     - OMN-2033: Move intelligence topics to contract.yaml declarations
+    - OMN-2424: NodePatternProjectionEffect adds 3 projection subscribe topics
 """
 
 from __future__ import annotations
@@ -36,6 +37,10 @@ EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 
 EXPECTED_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
 
+EXPECTED_PATTERN_PROMOTED = "onex.evt.omniintelligence.pattern-promoted.v1"
+EXPECTED_PATTERN_DEPRECATED = "onex.evt.omniintelligence.pattern-deprecated.v1"
+EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -45,6 +50,9 @@ EXPECTED_TOPICS = {
     EXPECTED_PATTERN_LEARNED,
     EXPECTED_PATTERN_DISCOVERED,
     EXPECTED_COMPLIANCE_EVALUATE,
+    EXPECTED_PATTERN_PROMOTED,
+    EXPECTED_PATTERN_DEPRECATED,
+    EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED,
 }
 
 
@@ -56,10 +64,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_eight_topics(self) -> None:
-        """All intelligence effect nodes declare 8 subscribe topics total (OMN-2339 adds compliance-evaluate)."""
+    def test_returns_exactly_eleven_topics(self) -> None:
+        """All intelligence effect nodes declare 11 subscribe topics total (OMN-2424 adds pattern-projection topics)."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 8
+        assert len(topics) == 11
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
