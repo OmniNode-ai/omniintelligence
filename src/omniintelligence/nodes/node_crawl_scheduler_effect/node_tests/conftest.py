@@ -82,12 +82,14 @@ class MockKafkaPublisher:
     """Minimal in-memory Kafka publisher mock.
 
     Records all published messages for assertion in tests.
-    The ``publish`` method is an AsyncMock so tests can ``await`` it.
+    The ``publish`` method is an AsyncMock with ``_record_and_publish``
+    wired as its ``side_effect`` so that ``published_messages`` is
+    populated on every ``await publisher.publish(...)`` call.
     """
 
     def __init__(self) -> None:
-        self.publish = AsyncMock()
         self.published_messages: list[dict[str, object]] = []
+        self.publish = AsyncMock(side_effect=self._record_and_publish)
 
     async def _record_and_publish(self, topic: str, key: str, value: object) -> None:
         self.published_messages.append({"topic": topic, "key": key, "value": value})
@@ -118,9 +120,7 @@ def clear_registry() -> object:
 @pytest.fixture
 def mock_kafka_publisher() -> MockKafkaPublisher:
     """Provide a fresh MockKafkaPublisher for each test."""
-    publisher = MockKafkaPublisher()
-    publisher.publish = AsyncMock()
-    return publisher
+    return MockKafkaPublisher()
 
 
 @pytest.fixture

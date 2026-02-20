@@ -264,9 +264,10 @@ async def _process_trigger(
     Steps:
     1. Check debounce guard.  Drop silently if within window.
     2. Record debounce entry (before Kafka publish to prevent race).
-    3. Build ModelCrawlTickCommand.
-    4. Publish to crawl-tick.v1 (if publisher available).
-    5. Return structured result.
+    3. Guard: return ERROR if kafka_publisher is None.
+    4. Build ModelCrawlTickCommand.
+    5. Publish to crawl-tick.v1.
+    6. Return structured result.
 
     Args:
         correlation_id_hint: Optional UUID to use as correlation_id.
@@ -316,17 +317,7 @@ async def _process_trigger(
         now=now,
     )
 
-    # Step 3: Build crawl-tick command
-    command = ModelCrawlTickCommand(
-        crawl_type=crawl_type,
-        crawl_scope=crawl_scope,
-        source_ref=source_ref,
-        correlation_id=correlation_id,
-        triggered_at_utc=now.isoformat(),
-        trigger_source=trigger_source,
-    )
-
-    # Step 4: Publish to Kafka (optional — graceful degradation)
+    # Step 3: Guard — publisher must be available before building the command
     if kafka_publisher is None:
         logger.warning(
             "Kafka publisher not available — crawl-tick emitted to debounce state only",
@@ -347,6 +338,17 @@ async def _process_trigger(
             error_message="kafka_publisher not configured",
         )
 
+    # Step 4: Build crawl-tick command
+    command = ModelCrawlTickCommand(
+        crawl_type=crawl_type,
+        crawl_scope=crawl_scope,
+        source_ref=source_ref,
+        correlation_id=correlation_id,
+        triggered_at_utc=now.isoformat(),
+        trigger_source=trigger_source,
+    )
+
+    # Step 5: Publish to Kafka
     await kafka_publisher.publish(
         topic=TOPIC_CRAWL_TICK_V1,
         key=source_ref,

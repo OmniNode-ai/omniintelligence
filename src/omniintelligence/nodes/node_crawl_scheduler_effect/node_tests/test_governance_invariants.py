@@ -26,6 +26,7 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.debounce_state 
 )
 from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler import (
     handle_crawl_requested,
+    handle_document_indexed,
     schedule_crawl_tick,
 )
 from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
@@ -275,6 +276,68 @@ class TestDebounceReset:
             now=now_utc + timedelta(seconds=1),
         )
         assert second.status == EnumCrawlSchedulerStatus.EMITTED
+
+    @pytest.mark.asyncio
+    async def test_handle_document_indexed_resets_debounce_via_handler(
+        self,
+        debounce_state: DebounceStateManager,
+        fresh_config: ModelCrawlSchedulerConfig,
+        mock_kafka_publisher: MockKafkaPublisher,
+        now_utc: datetime,
+        source_ref: str,
+    ) -> None:
+        """handle_document_indexed() must reset the debounce window so the next
+        trigger is emitted without waiting for the window to expire.
+
+        This test exercises the handler function itself rather than calling
+        clear_debounce() directly, verifying the full delegation path:
+        handle_document_indexed() → debounce_state.clear_debounce().
+        """
+        crawler = CrawlerType.FILESYSTEM
+
+        # Prime the debounce state: first trigger emits and sets the window.
+        first = await schedule_crawl_tick(
+            crawl_type=crawler,
+            crawl_scope="scope",
+            source_ref=source_ref,
+            debounce_state=debounce_state,
+            config=fresh_config,
+            kafka_publisher=mock_kafka_publisher,
+            now=now_utc,
+        )
+        assert first.status == EnumCrawlSchedulerStatus.EMITTED
+
+        # Confirm debounce is active: a second tick within the window is dropped.
+        blocked = await schedule_crawl_tick(
+            crawl_type=crawler,
+            crawl_scope="scope",
+            source_ref=source_ref,
+            debounce_state=debounce_state,
+            config=fresh_config,
+            kafka_publisher=mock_kafka_publisher,
+            now=now_utc + timedelta(seconds=1),
+        )
+        assert blocked.status == EnumCrawlSchedulerStatus.DEBOUNCED
+
+        # Reset via the handler function — NOT debounce_state.clear_debounce() directly.
+        cleared = handle_document_indexed(
+            source_ref=source_ref,
+            crawler_type=crawler,
+            debounce_state=debounce_state,
+        )
+        assert cleared is True
+
+        # After the reset, the next tick within the original window must emit.
+        after_reset = await schedule_crawl_tick(
+            crawl_type=crawler,
+            crawl_scope="scope",
+            source_ref=source_ref,
+            debounce_state=debounce_state,
+            config=fresh_config,
+            kafka_publisher=mock_kafka_publisher,
+            now=now_utc + timedelta(seconds=2),
+        )
+        assert after_reset.status == EnumCrawlSchedulerStatus.EMITTED
 
 
 # =============================================================================

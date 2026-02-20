@@ -125,7 +125,18 @@ class DebounceStateManager:
             source_ref: Canonical source identifier.
             crawler_type: Crawler type for the trigger.
             now: Current UTC datetime (injected for testability).
+
+        Raises:
+            ValueError: If ``now`` is a naive datetime (no tzinfo).  Naive
+                datetimes stored here would cause a ``TypeError`` when
+                ``is_allowed()`` later subtracts them from a UTC-aware ``now``.
         """
+        if now.tzinfo is None:
+            raise ValueError(
+                "now must be UTC-aware (tzinfo required). "
+                "Pass datetime.now(UTC) or equivalent — naive datetimes "
+                "cannot be compared with UTC-aware stored timestamps."
+            )
         key = _DebounceKey(source_ref=source_ref, crawler_type=crawler_type)
         self._state[key] = now
 

@@ -456,6 +456,33 @@ class TestHandleDocumentIndexed:
 
 
 # =============================================================================
+# Tests: record_trigger timezone guard
+# =============================================================================
+
+
+class TestRecordTriggerTimezoneGuard:
+    """record_trigger() must reject naive datetimes to prevent silent corruption."""
+
+    def test_record_trigger_naive_datetime_raises(self) -> None:
+        state = DebounceStateManager()
+        naive_now = datetime(2026, 2, 20, 12, 0, 0)  # no tzinfo
+        with pytest.raises(ValueError, match="UTC-aware"):
+            state.record_trigger(
+                source_ref=_SOURCE,
+                crawler_type=CrawlerType.FILESYSTEM,
+                now=naive_now,
+            )
+
+    def test_record_trigger_utc_aware_does_not_raise(self) -> None:
+        state = DebounceStateManager()
+        state.record_trigger(
+            source_ref=_SOURCE,
+            crawler_type=CrawlerType.FILESYSTEM,
+            now=_T0,  # _T0 has tzinfo=UTC
+        )
+
+
+# =============================================================================
 # Tests: Cross-handler integration (debounce shared state)
 # =============================================================================
 
