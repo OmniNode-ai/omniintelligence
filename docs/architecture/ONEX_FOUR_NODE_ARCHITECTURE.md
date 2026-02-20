@@ -258,7 +258,7 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 | `{env}.onex.cmd.omniintelligence.pattern-learning.v1` | In/Out | `NodeClaudeHookEventEffect` (Stop) | `NodePatternLearningEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-learned.v1` | Out | `NodePatternLearningEffect` | `NodePatternStorageEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-stored.v1` | Out | `NodePatternStorageEffect` | downstream |
-| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | Out | `NodePatternPromotionEffect` | downstream |
+| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | Out | `NodePatternStorageEffect`, `NodePatternPromotionEffect` | downstream |
 | `{env}.onex.evt.omniintelligence.pattern-deprecated.v1` | Out | `NodePatternDemotionEffect` | downstream |
 
 ---

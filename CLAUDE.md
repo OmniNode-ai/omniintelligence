@@ -295,7 +295,7 @@ src/omniintelligence/
 | `{env}.onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternLearningEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternStorageEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternStorageEffect`, `NodePatternPromotionEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` |
 | `{env}.onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1` | `NodePatternLifecycleEffect` |
 | `{env}.onex.evt.omniintelligence.code-analysis-completed.v1` | `NodeIntelligenceOrchestrator` |
