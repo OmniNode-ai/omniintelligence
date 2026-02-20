@@ -71,10 +71,7 @@ class ModelComplianceEvaluateCommand(BaseModel):
     )
     session_id: str | None = Field(
         default=None,
-        description=(
-            "Session ID from the originating omniclaude session. "
-            "REQUIRED when origin=hook. Optional for batch workflows."
-        ),
+        description="Session identifier for tracing; provided when invoked from a hook context.",
     )
 
 

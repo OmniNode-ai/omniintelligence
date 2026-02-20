@@ -1379,6 +1379,7 @@ def create_compliance_evaluate_dispatch_handler(
                 status="llm_error",
                 processing_time_ms=0.0,
                 evaluated_at=datetime.now(UTC).isoformat(),
+                session_id=command.session_id,
             )
         else:
             logger.info(
