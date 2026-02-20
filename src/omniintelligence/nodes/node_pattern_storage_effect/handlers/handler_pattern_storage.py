@@ -205,6 +205,13 @@ class PatternStorageRouter:
             state_manager: State manager implementing ProtocolPatternStateManager.
                 Required for promote_pattern operations.
         """
+        if pattern_store is None:
+            msg = (
+                "PatternStorageRouter requires pattern_store; "
+                "it is needed for store_pattern (the default operation). "
+                "state_manager is optional and only required for promote_pattern."
+            )
+            raise ValueError(msg)
         self._pattern_store: ProtocolPatternStore | None = pattern_store
         self._state_manager: ProtocolPatternStateManager | None = state_manager
 
@@ -532,7 +539,15 @@ class PatternStorageRouter:
         except ValueError as e:
             logger.warning(
                 "Promote pattern validation failed",
-                extra={"error": str(e)},
+                extra={
+                    "error": str(e),
+                    "correlation_id": str(input_data.get("correlation_id"))
+                    if input_data.get("correlation_id") is not None
+                    else None,
+                    "pattern_id": str(input_data.get("pattern_id"))
+                    if input_data.get("pattern_id") is not None
+                    else None,
+                },
             )
             return StorageOperationResult(
                 operation=OPERATION_PROMOTE_PATTERN,
