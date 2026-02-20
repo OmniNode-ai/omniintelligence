@@ -192,18 +192,6 @@ class RegistryClaudeHookEventEffect:
             return result
 
     @staticmethod
-    def _is_registered() -> bool:
-        """Check if a handler is already registered.
-
-        WARNING: Do not call while _HANDLER_STORAGE_LOCK is already held by the
-        same thread. threading.Lock is not reentrant — a nested acquisition will
-        deadlock. Call sites inside this class inline the key check directly to
-        avoid this.
-        """
-        with _HANDLER_STORAGE_LOCK:
-            return RegistryClaudeHookEventEffect.HANDLER_KEY in _HANDLER_STORAGE
-
-    @staticmethod
     def clear() -> None:
         """Clear all registered handlers.
 
