@@ -725,8 +725,9 @@ def create_claude_hook_dispatch_handler(
                 )
                 raise
             except Exception as e:
+                sanitized_exc = get_log_sanitizer().sanitize(str(e))
                 msg = (
-                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {e} "
+                    f"Failed to parse payload as ModelClaudeCodeHookEvent: {sanitized_exc} "
                     f"(correlation_id={ctx_correlation_id})"
                 )
                 logger.error(
