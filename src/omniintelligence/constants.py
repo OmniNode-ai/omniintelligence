@@ -186,6 +186,28 @@ contract.yaml FSM, and the effect node applies the actual database update.
 Reference: OMN-1805
 """
 
+TOPIC_ROUTING_FEEDBACK_PROCESSED: str = (
+    "onex.evt.omniintelligence.routing-feedback-processed.v1"
+)
+"""
+TEMP_BOOTSTRAP: Canonical topic for routing feedback processed events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.routing-feedback-processed.v1
+
+NodeRoutingFeedbackEffect publishes after a successful upsert to
+routing_feedback_scores. Consumers can use this to confirm that a routing
+feedback event was fully processed.
+
+NOTE: The contract.yaml ``publish_topics`` entry is prefixed with ``{env}.``
+(e.g. ``{env}.onex.evt.omniintelligence.routing-feedback-processed.v1``).
+This constant is intentionally bare — RuntimeHostProcess handles env
+substitution for subscriptions. Direct publishes (handler code) use this
+bare constant and RuntimeHostProcess injects the prefix at runtime.
+
+Reference: OMN-2366
+Deletion ticket: OMN-1546
+"""
+
 # NOTE: The pattern.discovered topic string lives exclusively in
 # node_pattern_storage_effect/contract.yaml (subscribe_topics).
 # No Python constant is needed because RuntimeHostProcess reads
@@ -199,6 +221,7 @@ __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
+    "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
