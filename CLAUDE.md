@@ -575,7 +575,7 @@ dependencies:
   - name: "kafka_producer"
     type: "protocol"
     class_name: "ProtocolKafkaProducer"
-    required: false  # Optional = graceful degradation
+    required: true  # Kafka is required infrastructure
 
 # =============================================================================
 # IDEMPOTENCY
