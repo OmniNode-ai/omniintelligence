@@ -168,6 +168,29 @@ class ProtocolPatternUpsertStore(Protocol):
 
 
 @runtime_checkable
+class ProtocolPatternQueryStore(Protocol):
+    """Protocol for querying validated/provisional patterns.
+
+    Used by NodePatternProjectionEffect to retrieve the full pattern set for
+    snapshot building. Implemented by AdapterPatternStore.query_patterns().
+
+    Reference: OMN-2424
+    """
+
+    async def query_patterns(
+        self,
+        *,
+        domain: str | None,
+        language: str | None,
+        min_confidence: float,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:  # any-ok: raw asyncpg row dicts from DB
+        """Query validated/provisional patterns with optional filters."""
+        ...
+
+
+@runtime_checkable
 class ProtocolIntentClassifier(Protocol):
     """Protocol for intent classification compute nodes.
 
@@ -185,6 +208,7 @@ __all__ = [
     "ProtocolIdempotencyStore",
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
+    "ProtocolPatternQueryStore",
     "ProtocolPatternRepository",
     "ProtocolPatternUpsertStore",
 ]

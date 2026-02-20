@@ -1,0 +1,194 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodePatternProjectionEffect
+#
+# This contract defines the interface for the pattern projection effect node.
+# The node publishes a full materialized snapshot of validated patterns to the
+# pattern-projection topic whenever a lifecycle change event is received.
+#
+# Reference: OMN-2424 - Pattern projection snapshot publisher
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_pattern_projection_effect"
+contract_name: "node_pattern_projection_effect"
+node_name: "node_pattern_projection_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node that publishes a materialized snapshot of all validated patterns whenever a
+  pattern lifecycle event is received (pattern-promoted, pattern-deprecated,
+  pattern-lifecycle-transitioned). Queries the full validated pattern set from the pattern
+  store, builds a ModelPatternProjectionEvent snapshot, and publishes it to
+  onex.evt.omniintelligence.pattern-projection.v1. Emission is fire-and-forget — Kafka
+  failures are logged but do not fail the handler return. correlation_id is threaded
+  from the triggering event through to the snapshot payload.
+
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "dict"
+  module: "builtins"
+  description: "Raw lifecycle event payload dict (pattern-promoted, pattern-deprecated, or pattern-lifecycle-transitioned)"
+
+output_model:
+  name: "ModelPatternProjectionEvent"
+  module: "omniintelligence.models.events.model_pattern_projection_event"
+  description: "Materialized snapshot of all validated patterns"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_type_match"
+  handlers:
+    - operation: "publish_projection"
+      handler:
+        function: "publish_projection"
+        module: "omniintelligence.nodes.node_pattern_projection_effect.handlers.handler_projection"
+        type: "async"
+        description: "Query validated patterns and publish full snapshot to pattern-projection topic"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "publish_projection"
+    description: "Query all validated/provisional patterns and publish a projection snapshot"
+    input_fields:
+      - correlation_id
+      - trigger_event_type
+      - triggering_pattern_id
+    output_fields:
+      - snapshot_id
+      - snapshot_at
+      - total_count
+      - patterns
+      - version
+      - correlation_id
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "pattern_query_store"
+    type: "protocol"
+    class_name: "ProtocolPatternQueryStore"
+    module: "omniintelligence.nodes.node_pattern_projection_effect.handlers.handler_projection"
+    description: "Protocol for querying all validated/provisional patterns from the pattern store"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka producer for emitting projection snapshot events (optional — graceful degradation)"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "PatternQueryError"
+      description: "Failed to query patterns from the pattern store"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "KafkaPublishError"
+      description: "Failed to publish projection snapshot to Kafka (fire-and-forget, not propagated)"
+      recoverable: true
+      retry_strategy: "none"
+
+# =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.evt.omniintelligence.pattern-promoted.v1"
+    - "onex.evt.omniintelligence.pattern-deprecated.v1"
+    - "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.pattern-projection.v1"
+
+  subscribe_topic_metadata:
+    "onex.evt.omniintelligence.pattern-promoted.v1":
+      schema_ref: "dict"
+      description: "Pattern promoted lifecycle event (trigger for projection rebuild)"
+    "onex.evt.omniintelligence.pattern-deprecated.v1":
+      schema_ref: "dict"
+      description: "Pattern deprecated lifecycle event (trigger for projection rebuild)"
+    "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1":
+      schema_ref: "omniintelligence.nodes.node_pattern_lifecycle_effect.models.ModelPatternLifecycleTransitionedEvent"
+      description: "Unified pattern lifecycle transition event (trigger for projection rebuild)"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.pattern-projection.v1":
+      schema_ref: "omniintelligence.models.events.model_pattern_projection_event.ModelPatternProjectionEvent"
+      description: "Materialized snapshot of all validated/provisional patterns for downstream consumers"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "pattern_query"
+    description: "Query all validated/provisional patterns from the pattern store"
+  - name: "projection_publish"
+    description: "Publish full materialized snapshot to Kafka pattern-projection topic"
+  - name: "fire_and_forget"
+    description: "Kafka publish failures are logged but do not propagate — handler always returns"
+  - name: "correlation_threading"
+    description: "correlation_id threaded from triggering event through to snapshot payload"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-20"
+  updated: "2026-02-20"
+  tags:
+    - effect
+    - pattern-projection
+    - snapshot
+    - kafka
+    - lifecycle
+  references:
+    - ticket: "OMN-2424"
+      url: "https://linear.app/omninode/issue/OMN-2424"
+      description: "Pattern projection snapshot publisher"
+    - ticket: "OMN-2355"
+      url: "https://linear.app/omninode/issue/OMN-2355"
+      description: "HTTP API escape hatch superseded by this node"

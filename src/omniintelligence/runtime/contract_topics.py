@@ -40,6 +40,7 @@ _INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
     "omniintelligence.nodes.node_pattern_feedback_effect",
     "omniintelligence.nodes.node_pattern_learning_effect",
     "omniintelligence.nodes.node_pattern_lifecycle_effect",
+    "omniintelligence.nodes.node_pattern_projection_effect",
     "omniintelligence.nodes.node_pattern_storage_effect",
 ]
 
@@ -122,6 +123,7 @@ def collect_publish_topics_for_dispatch(
         "compliance_evaluate": "omniintelligence.nodes.node_compliance_evaluate_effect",
         "lifecycle": "omniintelligence.nodes.node_pattern_lifecycle_effect",
         "pattern_learning": "omniintelligence.nodes.node_pattern_learning_effect",
+        "pattern_projection": "omniintelligence.nodes.node_pattern_projection_effect",
         "pattern_storage": "omniintelligence.nodes.node_pattern_storage_effect",
     }
 
