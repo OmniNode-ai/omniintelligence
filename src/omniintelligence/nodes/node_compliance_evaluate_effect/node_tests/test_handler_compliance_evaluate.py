@@ -44,9 +44,11 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_com
 )
 from omniintelligence.nodes.node_compliance_evaluate_effect.models import (
     ModelComplianceEvaluateCommand,
+    ModelComplianceEvaluatedEvent,
 )
 from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest import (
     FIXED_CONTENT_SHA256,
+    FIXED_CORRELATION_ID,
     MockKafkaProducer,
     MockLlmClient,
     MockLlmClientError,
@@ -422,6 +424,97 @@ async def test_evaluated_at_is_iso_string(
 
     assert isinstance(result.evaluated_at, str)
     assert "T" in result.evaluated_at  # basic ISO-8601 check
+
+
+# =============================================================================
+# sha256 mismatch validation
+# =============================================================================
+
+
+# =============================================================================
+# session_id propagation (OMN-2368)
+# =============================================================================
+
+
+def test_compliance_evaluate_command_accepts_session_id() -> None:
+    """ModelComplianceEvaluateCommand accepts and stores session_id."""
+    cmd = _make_command(session_id="test-session-123")
+    assert cmd.session_id == "test-session-123"
+
+
+def test_compliance_evaluate_command_session_id_defaults_to_none() -> None:
+    """session_id defaults to None when not provided."""
+    cmd = _make_command()
+    assert cmd.session_id is None
+
+
+def test_compliance_evaluated_event_carries_session_id() -> None:
+    """ModelComplianceEvaluatedEvent accepts and stores session_id."""
+    evt = ModelComplianceEvaluatedEvent(
+        correlation_id=FIXED_CORRELATION_ID,
+        source_path="foo.py",
+        content_sha256="a" * 64,
+        success=True,
+        evaluated_at="2026-02-19T00:00:00Z",
+        session_id="test-session-123",
+    )
+    assert evt.session_id == "test-session-123"
+
+
+def test_compliance_evaluated_event_session_id_defaults_to_none() -> None:
+    """ModelComplianceEvaluatedEvent session_id defaults to None."""
+    evt = ModelComplianceEvaluatedEvent(
+        correlation_id=FIXED_CORRELATION_ID,
+        source_path="foo.py",
+        content_sha256="a" * 64,
+        success=True,
+        evaluated_at="2026-02-19T00:00:00Z",
+    )
+    assert evt.session_id is None
+
+
+@pytest.mark.asyncio
+async def test_session_id_propagated_from_command_to_event(
+    compliant_llm_client: MockLlmClient,
+) -> None:
+    """Handler propagates session_id from command to the returned event."""
+    command = _make_command(session_id="session-abc-456")
+    result = await handle_compliance_evaluate_command(
+        command,
+        llm_client=compliant_llm_client,
+    )
+    assert result.session_id == "session-abc-456"
+
+
+@pytest.mark.asyncio
+async def test_session_id_none_propagated_from_command_to_event(
+    compliant_llm_client: MockLlmClient,
+) -> None:
+    """Handler propagates session_id=None from command when not set."""
+    command = _make_command()
+    result = await handle_compliance_evaluate_command(
+        command,
+        llm_client=compliant_llm_client,
+    )
+    assert result.session_id is None
+
+
+@pytest.mark.asyncio
+async def test_session_id_in_kafka_payload(
+    compliant_llm_client: MockLlmClient,
+    mock_kafka_producer: MockKafkaProducer,
+) -> None:
+    """session_id is included in the published Kafka payload."""
+    command = _make_command(session_id="kafka-session-789")
+    await handle_compliance_evaluate_command(
+        command,
+        llm_client=compliant_llm_client,
+        kafka_producer=mock_kafka_producer,
+    )
+    assert len(mock_kafka_producer.published) == 1
+    payload = mock_kafka_producer.published[0]["value"]
+    assert isinstance(payload, dict)
+    assert payload.get("session_id") == "kafka-session-789"
 
 
 # =============================================================================

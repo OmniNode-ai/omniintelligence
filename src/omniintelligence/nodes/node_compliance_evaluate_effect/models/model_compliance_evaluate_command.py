@@ -69,6 +69,13 @@ class ModelComplianceEvaluateCommand(BaseModel):
         min_length=1,
         description="Patterns to check compliance against (from pattern store API)",
     )
+    session_id: str | None = Field(
+        default=None,
+        description=(
+            "Session ID from the originating omniclaude session. "
+            "REQUIRED when origin=hook. Optional for batch workflows."
+        ),
+    )
 
 
 __all__ = ["ModelComplianceEvaluateCommand"]
