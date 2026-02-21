@@ -90,12 +90,16 @@ async def test_validate_handshake_b1_mismatch_raises_and_records_check() -> None
         correlation_id=config.correlation_id,
     )
 
+    mock_fingerprint = AsyncMock()
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(side_effect=error)),
-        patch(_FINGERPRINT_PATH, new=AsyncMock()),
+        patch(_FINGERPRINT_PATH, new=mock_fingerprint),
     ):
         with pytest.raises(DbOwnershipMismatchError):
             await plugin.validate_handshake(config)
+
+    # B2 must not be attempted when B1 fails (intentional short-circuit)
+    mock_fingerprint.assert_not_called()
 
 
 @pytest.mark.unit
@@ -111,12 +115,16 @@ async def test_validate_handshake_b1_missing_raises_and_records_check() -> None:
         correlation_id=config.correlation_id,
     )
 
+    mock_fingerprint = AsyncMock()
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(side_effect=error)),
-        patch(_FINGERPRINT_PATH, new=AsyncMock()),
+        patch(_FINGERPRINT_PATH, new=mock_fingerprint),
     ):
         with pytest.raises(DbOwnershipMissingError):
             await plugin.validate_handshake(config)
+
+    # B2 must not be attempted when B1 fails (intentional short-circuit)
+    mock_fingerprint.assert_not_called()
 
 
 @pytest.mark.unit

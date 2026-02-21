@@ -77,6 +77,7 @@ Example Usage:
 
     if plugin and plugin.should_activate(config):
         await plugin.initialize(config)
+        await plugin.validate_handshake(config)
         await plugin.wire_handlers(config)
         await plugin.wire_dispatchers(config)
         await plugin.start_consumers(config)
@@ -580,6 +581,11 @@ class PluginIntelligence:
                     message=str(e),
                 )
             )
+            # Intentional short-circuit: B2 (schema fingerprint) is not
+            # attempted when B1 (DB ownership) fails.  Operating on a
+            # database owned by another service would risk schema
+            # misinterpretation, so the kernel aborts immediately.
+            # B2 is only meaningful if we can be sure we own the database.
             raise
 
         # B2: Validate schema fingerprint
