@@ -33,6 +33,9 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_lang
     analyze_semantics,
     map_semantic_to_intent_boost,
 )
+from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
+    resolve_typed_intent,
+)
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     IntentMetadataDict,
     ModelClassificationConfig,
@@ -860,10 +863,6 @@ def handle_intent_classification(
         primary_keywords: list[str] = result.get("keywords", [])
 
         # Resolve typed intent from the 8-class system
-        from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
-            resolve_typed_intent,
-        )
-
         typed_intent = resolve_typed_intent(
             intent_category=result["intent_category"],
             confidence=result["confidence"],
