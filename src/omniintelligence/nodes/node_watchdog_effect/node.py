@@ -59,6 +59,7 @@ class NodeWatchdogEffect(NodeEffect):
             start_watching,
         )
         from omniintelligence.nodes.node_watchdog_effect.models import (
+            EnumWatchdogStatus,
             ModelWatchdogConfig,
         )
 
