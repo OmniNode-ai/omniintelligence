@@ -15,6 +15,7 @@ Related:
     - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
     - OMN-2339: Add node_compliance_evaluate_effect (6 handlers, 8 routes)
+    - OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect add 2 handlers, 2 routes (8 handlers, 10 routes)
 """
 
 from __future__ import annotations
@@ -425,33 +426,33 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_six_handlers(
+    def test_engine_has_eight_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 6 intelligence domain handlers must be registered (OMN-2339 adds compliance-evaluate)."""
+        """All 8 intelligence domain handlers must be registered (OMN-2430 adds crawl-requested and document-indexed handlers)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 6
+        assert engine.handler_count == 8
 
-    def test_engine_has_eight_routes(
+    def test_engine_has_ten_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 8 intelligence domain routes must be registered (OMN-2339 adds compliance-evaluate)."""
+        """All 10 intelligence domain routes must be registered (OMN-2430 adds crawl-requested and document-indexed routes)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 8
+        assert engine.route_count == 10
 
 
 # =============================================================================

@@ -9,7 +9,7 @@ Verifies:
     4. stop_watching() with registered observer returns STOPPED
     5. stop_watching() with no registered observer returns STOPPED (no-op)
     6. File change event triggers publish to crawl-requested.v1 topic
-    7. Ignored file suffixes are skipped (SKIPPED behavior via _AsyncKafkaEventHandler)
+    7. Ignored file suffixes are filtered silently (via _AsyncKafkaEventHandler)
     8. ModelWatchdogConfig rejects relative paths
     9. ModelWatchdogConfig.is_ignored() matches configured suffixes
 
@@ -122,6 +122,30 @@ class TestStartWatching:
         )
         assert mock_observer.started is True
 
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_start_watching_schedules_watches_for_all_paths(
+        self,
+        tmp_path: Any,
+        mock_kafka_publisher: MockKafkaPublisher,
+    ) -> None:
+        """start_watching() must call observer.schedule() for each configured path."""
+        mock_observer = MockObserver(observer_type=EnumWatchdogObserverType.POLLING)
+
+        def factory() -> tuple[MockObserver, EnumWatchdogObserverType]:
+            return mock_observer, EnumWatchdogObserverType.POLLING
+
+        config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
+        await start_watching(
+            config=config,
+            kafka_publisher=mock_kafka_publisher,
+            observer_factory=factory,
+        )
+        scheduled_paths = [w["path"] for w in mock_observer.scheduled_watches]
+        assert str(tmp_path) in scheduled_paths, (
+            f"Expected {tmp_path} in scheduled watches, got: {scheduled_paths}"
+        )
+
     @pytest.mark.asyncio
     async def test_start_watching_watched_paths_in_result(
         self,
@@ -131,7 +155,7 @@ class TestStartWatching:
     ) -> None:
         """start_watching() result must include the configured watched paths."""
         config = ModelWatchdogConfig(
-            watched_paths=[str(tmp_path)],
+            watched_paths=(str(tmp_path),),
             crawl_scope="omninode/test",
         )
         result = await start_watching(
@@ -141,6 +165,62 @@ class TestStartWatching:
         )
         assert result.status == EnumWatchdogStatus.STARTED
         assert str(tmp_path) in result.watched_paths
+
+    @pytest.mark.asyncio
+    async def test_start_watching_twice_returns_early_with_started(
+        self,
+        default_config: ModelWatchdogConfig,
+        mock_kafka_publisher: MockKafkaPublisher,
+        caplog: Any,
+    ) -> None:
+        """Calling start_watching() a second time must return STARTED early and log a warning.
+
+        The expected behavior after the double-start guard is in place:
+        - First call: starts observer, returns STARTED, registers in registry.
+        - Second call: detects existing observer in registry, returns STARTED
+          immediately (no new observer started), and logs a warning.
+        Only one observer must be started across both calls.
+        """
+        import logging
+
+        from omniintelligence.nodes.node_watchdog_effect.node_tests.conftest import (
+            make_mock_observer_factory,
+        )
+
+        factory, _ = make_mock_observer_factory(EnumWatchdogObserverType.POLLING)
+
+        # First call — must start the observer
+        first_result = await start_watching(
+            config=default_config,
+            kafka_publisher=mock_kafka_publisher,
+            observer_factory=factory,
+        )
+        assert first_result.status == EnumWatchdogStatus.STARTED
+        assert len(factory.created_observers) == 1
+        first_observer = factory.created_observers[0]
+        assert first_observer.started is True
+
+        # Second call — must return early without starting a new observer
+        with caplog.at_level(logging.WARNING, logger="omniintelligence"):
+            second_result = await start_watching(
+                config=default_config,
+                kafka_publisher=mock_kafka_publisher,
+                observer_factory=factory,
+            )
+
+        assert second_result.status == EnumWatchdogStatus.STARTED
+        # No second observer should have been created
+        assert len(factory.created_observers) == 1, (
+            "start_watching() called twice must not create a second observer"
+        )
+        # A warning must have been emitted to signal the double-start attempt
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert any(
+            "already" in msg.lower() or "running" in msg.lower()
+            for msg in warning_messages
+        ), f"Expected a warning about observer already running, got: {warning_messages}"
 
 
 # =============================================================================
@@ -381,45 +461,50 @@ class TestAsyncKafkaEventHandler:
 class TestModelWatchdogConfig:
     """ModelWatchdogConfig must validate paths and filter ignored files."""
 
+    def test_empty_watched_paths_raises_value_error(self) -> None:
+        """Empty watched_paths must raise ValueError."""
+        with pytest.raises(ValueError, match="empty"):
+            ModelWatchdogConfig(watched_paths=())
+
     def test_relative_path_raises_value_error(self) -> None:
         """Relative paths in watched_paths must raise ValueError."""
         with pytest.raises(ValueError, match="absolute"):
-            ModelWatchdogConfig(watched_paths=["relative/path"])
+            ModelWatchdogConfig(watched_paths=("relative/path",))
 
     def test_tilde_path_is_expanded(self) -> None:
         """Paths starting with ~ must be expanded to absolute paths."""
-        config = ModelWatchdogConfig(watched_paths=["~/.claude"])
+        config = ModelWatchdogConfig(watched_paths=("~/.claude",))
         assert all(p.startswith("/") for p in config.watched_paths)
 
     def test_is_ignored_swp_suffix(self, tmp_path: Any) -> None:
         """is_ignored() must return True for .swp files."""
-        config = ModelWatchdogConfig(watched_paths=[str(tmp_path)])
+        config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
         assert config.is_ignored(str(tmp_path / ".file.swp")) is True
 
     def test_is_ignored_tmp_suffix(self, tmp_path: Any) -> None:
         """is_ignored() must return True for .tmp files."""
-        config = ModelWatchdogConfig(watched_paths=[str(tmp_path)])
+        config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
         assert config.is_ignored(str(tmp_path / "work.tmp")) is True
 
     def test_is_ignored_tilde_suffix(self, tmp_path: Any) -> None:
         """is_ignored() must return True for files ending in ~."""
-        config = ModelWatchdogConfig(watched_paths=[str(tmp_path)])
+        config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
         assert config.is_ignored(str(tmp_path / "CLAUDE.md~")) is True
 
     def test_is_ignored_normal_file(self, tmp_path: Any) -> None:
         """is_ignored() must return False for normal .md files."""
-        config = ModelWatchdogConfig(watched_paths=[str(tmp_path)])
+        config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
         assert config.is_ignored(str(tmp_path / "CLAUDE.md")) is False
 
     def test_polling_interval_must_be_positive(self, tmp_path: Any) -> None:
         """polling_interval_seconds must be >= 1."""
         with pytest.raises(ValueError):
             ModelWatchdogConfig(
-                watched_paths=[str(tmp_path)],
+                watched_paths=(str(tmp_path),),
                 polling_interval_seconds=0,
             )
 
     def test_default_crawl_scope(self, tmp_path: Any) -> None:
         """Default crawl_scope must match the design doc value."""
-        config = ModelWatchdogConfig(watched_paths=[str(tmp_path)])
+        config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
         assert config.crawl_scope == "omninode/shared/global-standards"

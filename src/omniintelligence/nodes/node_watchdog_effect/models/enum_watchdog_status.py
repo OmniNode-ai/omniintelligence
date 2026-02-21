@@ -18,14 +18,6 @@ class EnumWatchdogStatus(str, Enum):
     STOPPED:
         The filesystem observer was successfully stopped.
 
-    EMITTED:
-        A crawl-requested.v1 command was successfully published to Kafka
-        in response to a filesystem change event.
-
-    SKIPPED:
-        The change event was filtered (e.g. temporary file, editor swap
-        file) and no Kafka message was published.
-
     ERROR:
         An unexpected error occurred.  The handler returned a structured
         result rather than raising.  The error_message field contains details.
@@ -33,8 +25,6 @@ class EnumWatchdogStatus(str, Enum):
 
     STARTED = "started"
     STOPPED = "stopped"
-    EMITTED = "emitted"
-    SKIPPED = "skipped"
     ERROR = "error"
 
 

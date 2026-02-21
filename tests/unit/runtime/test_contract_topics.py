@@ -3,7 +3,7 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 11 topics
+    - collect_subscribe_topics_from_contracts returns exactly 13 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
@@ -11,6 +11,7 @@ Validates:
 Related:
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2424: NodePatternProjectionEffect adds 3 projection subscribe topics
+    - OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect add 2 omnimemory topics
 """
 
 from __future__ import annotations
@@ -43,6 +44,10 @@ EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 
+# OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect omnimemory topics
+EXPECTED_CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
+EXPECTED_DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -55,6 +60,8 @@ EXPECTED_TOPICS = {
     EXPECTED_PATTERN_PROMOTED,
     EXPECTED_PATTERN_DEPRECATED,
     EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED,
+    EXPECTED_CRAWL_REQUESTED,
+    EXPECTED_DOCUMENT_INDEXED,
 }
 
 
@@ -66,10 +73,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_eleven_topics(self) -> None:
-        """All intelligence effect nodes declare 11 subscribe topics total (OMN-2424 adds pattern-projection topics)."""
+    def test_returns_exactly_thirteen_topics(self) -> None:
+        """All intelligence effect nodes declare 13 subscribe topics total (OMN-2430 adds 2 omnimemory topics)."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 11
+        assert len(topics) == 13
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -107,7 +114,7 @@ class TestCollectSubscribeTopics:
         assert EXPECTED_TOOL_CONTENT in topics
 
     def test_all_expected_topics_present(self) -> None:
-        """All 8 expected topics must be in the discovered set (OMN-2339 adds compliance-evaluate)."""
+        """All 13 expected topics must be in the discovered set (OMN-2430 adds 2 omnimemory topics)."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 

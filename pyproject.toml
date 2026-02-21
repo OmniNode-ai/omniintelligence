@@ -175,8 +175,6 @@ core = [
     "torch>=2.0.0",
     "transformers>=4.30.0",
     "tiktoken>=0.5.0",
-    # Filesystem watching
-    "watchdog>=6.0.0",
     # Utilities
     "tenacity>=8.2.0",
     "cachetools>=5.3.0",

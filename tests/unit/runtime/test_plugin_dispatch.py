@@ -3,7 +3,7 @@
 """Unit tests for PluginIntelligence dispatch engine wiring.
 
 Validates:
-    - wire_dispatchers() creates and stores dispatch engine with 6 handlers (8 routes)
+    - wire_dispatchers() creates and stores dispatch engine with 9 handlers (13 routes)
     - start_consumers() uses dispatch callback for all intelligence topics (contract-driven)
     - start_consumers() returns skipped when engine is not wired (no noop fallback)
     - Dispatch engine is cleared on shutdown
@@ -14,6 +14,7 @@ Related:
     - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
+    - OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect add 2 handlers, 2 routes (9 handlers, 13 routes)
 """
 
 from __future__ import annotations
@@ -263,26 +264,26 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine.is_frozen
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_eleven_routes(self) -> None:
-        """Engine should have exactly 11 routes (OMN-2424 adds 3 projection subscribe topics)."""
+    async def test_wire_dispatchers_engine_has_thirteen_routes(self) -> None:
+        """Engine should have exactly 13 routes (OMN-2430 adds crawl-requested and document-indexed routes)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 11
+        assert plugin._dispatch_engine.route_count == 13
 
     @pytest.mark.asyncio
-    async def test_wire_dispatchers_engine_has_seven_handlers(self) -> None:
-        """Engine should have exactly 7 handlers (OMN-2424 adds pattern-projection handler)."""
+    async def test_wire_dispatchers_engine_has_nine_handlers(self) -> None:
+        """Engine should have exactly 9 handlers (OMN-2430 adds crawl-requested and document-indexed handlers)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 7
+        assert plugin._dispatch_engine.handler_count == 9
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:

@@ -31,17 +31,14 @@ _DEFAULT_IGNORED_SUFFIXES: frozenset[str] = frozenset(
 )
 
 
-def _default_watched_paths() -> list[str]:
+def _default_watched_paths() -> tuple[str, ...]:
     """Build default watched paths from the design doc §4.
 
     Returns absolute paths after expanding ``~``.  The home directory is
     expanded at call time so tests can override HOME if needed.
     """
     home = Path.home()
-    paths = [
-        str(home / ".claude"),
-    ]
-    return paths
+    return (str(home / ".claude"),)
 
 
 class ModelWatchdogConfig(BaseModel):
@@ -59,7 +56,7 @@ class ModelWatchdogConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
-    watched_paths: list[str] = Field(
+    watched_paths: tuple[str, ...] = Field(
         default_factory=_default_watched_paths,
         description=(
             "Absolute directory paths to watch recursively for file changes.  "
@@ -92,12 +89,16 @@ class ModelWatchdogConfig(BaseModel):
 
     @field_validator("watched_paths", mode="before")
     @classmethod
-    def expand_and_validate_paths(cls, v: list[str]) -> list[str]:
+    def expand_and_validate_paths(
+        cls, v: list[str] | tuple[str, ...]
+    ) -> tuple[str, ...]:
         """Expand ``~`` and validate that all paths are absolute.
 
         Raises:
             ValueError: If any path is not absolute after ``~`` expansion.
         """
+        if not v:
+            raise ValueError("watched_paths must not be empty")
         expanded = []
         for raw in v:
             path = os.path.expanduser(raw)
@@ -106,7 +107,7 @@ class ModelWatchdogConfig(BaseModel):
                     f"watched_paths must be absolute after ~ expansion. Got: {raw!r}"
                 )
             expanded.append(path)
-        return expanded
+        return tuple(expanded)
 
     def is_ignored(self, file_path: str) -> bool:
         """Return True if the file should be silently skipped.

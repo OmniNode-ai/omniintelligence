@@ -98,8 +98,14 @@ class MockObserver:
         """Record that the observer was stopped."""
         self.stopped = True
 
-    def join(self) -> None:
-        """Record that the observer was joined."""
+    def join(self, timeout: float | None = None) -> None:
+        """Record that the observer was joined.
+
+        Args:
+            timeout: Optional join timeout in seconds (mirrors
+                ``threading.Thread.join`` signature).  Accepted but not
+                used by the mock — the mock always returns immediately.
+        """
         self.joined = True
 
     def schedule(self, handler: Any, path: str, recursive: bool = True) -> MagicMock:
@@ -169,7 +175,7 @@ def default_config(tmp_path: Any) -> ModelWatchdogConfig:
     and prevents interference with the developer's ~/.claude/ directory.
     """
     return ModelWatchdogConfig(
-        watched_paths=[str(tmp_path)],
+        watched_paths=(str(tmp_path),),
         crawl_scope="omninode/test",
     )
 

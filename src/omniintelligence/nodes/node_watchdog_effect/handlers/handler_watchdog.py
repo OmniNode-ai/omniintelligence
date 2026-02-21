@@ -124,9 +124,23 @@ class _AsyncKafkaEventHandler:
             )
             return
 
-        # Schedule async publish on the event loop (non-blocking)
+        # Schedule async publish on the event loop (non-blocking).
+        # Guard against RuntimeError("Event loop is closed") — the OS observer
+        # thread may fire one final event after loop shutdown begins.  This is
+        # expected at teardown and safe to discard.
+        # coro.close() is required to avoid RuntimeWarning about unawaited coroutine.
         coro = self._publish_crawl_requested(src_path)
-        self._loop.call_soon_threadsafe(self._loop.create_task, coro)
+        try:
+            self._loop.call_soon_threadsafe(self._loop.create_task, coro)
+        except RuntimeError as exc:
+            if "event loop is closed" not in str(exc).lower():
+                # Re-raise unexpected RuntimeErrors (not the known shutdown race).
+                raise
+            coro.close()
+            logger.debug(
+                "Watchdog event dropped: event loop closed during shutdown",
+                extra={"file_path": src_path},
+            )
 
     async def _publish_crawl_requested(self, file_path: str) -> None:
         """Publish crawl-requested.v1 for a changed file path.
@@ -138,18 +152,19 @@ class _AsyncKafkaEventHandler:
             file_path: Absolute path of the changed file.
         """
         correlation_id = uuid4()
-        now_utc = datetime.now(UTC)
-
-        payload: dict[str, object] = {
-            "crawl_type": CRAWLER_TYPE_WATCHDOG,
-            "crawl_scope": self._config.crawl_scope,
-            "source_ref": file_path,
-            "correlation_id": str(correlation_id),
-            "requested_at_utc": now_utc.isoformat(),
-            "trigger_source": TRIGGER_SOURCE_FILESYSTEM_WATCH,
-        }
 
         try:
+            now_utc = datetime.now(UTC)
+
+            payload: dict[str, object] = {
+                "crawl_type": CRAWLER_TYPE_WATCHDOG,
+                "crawl_scope": self._config.crawl_scope,
+                "source_ref": file_path,
+                "correlation_id": str(correlation_id),
+                "requested_at_utc": now_utc.isoformat(),
+                "trigger_source": TRIGGER_SOURCE_FILESYSTEM_WATCH,
+            }
+
             await self._kafka_publisher.publish(
                 topic=TOPIC_CRAWL_REQUESTED_V1,
                 key=file_path,
@@ -209,17 +224,53 @@ async def start_watching(
     )
 
     try:
+        # Guard: prevent double-start.
+        # If an observer is already registered the previous call to
+        # start_watching() already owns it.  Overwriting the registry entry
+        # would make the first observer untrackable — it keeps running forever,
+        # leaking OS file-descriptor handles.  Return early with STARTED so
+        # callers get a well-defined result without silently corrupting state.
+        existing_observer = RegistryWatchdogEffect.get_observer()
+        if existing_observer is not None:
+            logger.warning(
+                "WatchdogEffect: start_watching() called but an observer is already "
+                "running — ignoring duplicate start request",
+                extra={"watched_paths": config.watched_paths},
+            )
+            return ModelWatchdogResult(
+                status=EnumWatchdogStatus.STARTED,
+                observer_type=RegistryWatchdogEffect.get_observer_type(),
+                watched_paths=tuple(config.watched_paths),
+            )
+
         # Resolve observer factory
         factory = observer_factory if observer_factory is not None else create_observer
 
-        # Create observer (platform-appropriate)
-        observer, observer_type = factory()
+        # Create observer (platform-appropriate).
+        # Pass config to the default factory so polling_interval_seconds is
+        # honoured; injected test factories take no arguments.
+        # Caller contract: injected observer_factory must be a zero-argument
+        # callable — factory() — returning (observer, EnumWatchdogObserverType).
+        if observer_factory is not None:
+            observer, observer_type = factory()
+        else:
+            observer, observer_type = factory(config=config)
 
-        # Guard: kafka_publisher must be provided
+        # kafka_publisher is None — event delivery is permanently disabled.
+        #
+        # When kafka_publisher is None the observer starts with no event
+        # handlers attached and runs idle.  crawl-requested.v1 events will
+        # NEVER be emitted.  Runtime re-wiring is NOT supported: watchdog
+        # handler lists are fixed at observer.schedule() time and cannot be
+        # updated while the observer thread is alive.  To enable event
+        # delivery, call stop_watching() then start_watching() again with a
+        # valid kafka_publisher.
         if kafka_publisher is None:
             logger.warning(
                 "WatchdogEffect: kafka_publisher is None — observer will run "
-                "but no crawl-requested.v1 events will be emitted",
+                "idle with no event handlers; crawl-requested.v1 events will "
+                "never be emitted (runtime re-wiring not supported; restart "
+                "observer with a valid kafka_publisher to enable delivery)",
                 extra={"watched_paths": config.watched_paths},
             )
 
@@ -234,7 +285,19 @@ async def start_watching(
                 loop=loop,
             )
 
-            # Schedule recursive watches for all configured paths
+            # Schedule recursive watches for all configured paths.
+            # WHY this import-guard pattern: we import BaseObserver solely to
+            # detect whether the real watchdog package is installed at runtime.
+            # When watchdog IS installed the observer is a real BaseObserver
+            # subclass and _schedule_watches() wraps the handler in the
+            # FileSystemEventHandler subclass that watchdog's schedule() API
+            # requires.  When watchdog is NOT installed (unit tests inject a
+            # MockObserver) the ImportError branch falls through to
+            # _schedule_watches_compat(), which calls observer.schedule()
+            # directly without the FileSystemEventHandler wrapper — the mock
+            # accepts any handler object.  This lets us distinguish injected
+            # mock observers from real watchdog observers at scheduling time
+            # without adding an isinstance() check on the observer itself.
             try:
                 from watchdog.observers.api import (
                     BaseObserver as _BaseObserver,  # noqa: F401
@@ -263,7 +326,7 @@ async def start_watching(
         return ModelWatchdogResult(
             status=EnumWatchdogStatus.STARTED,
             observer_type=observer_type,
-            watched_paths=list(config.watched_paths),
+            watched_paths=tuple(config.watched_paths),
         )
 
     except Exception as exc:
@@ -282,8 +345,9 @@ async def stop_watching() -> ModelWatchdogResult:
     """Gracefully stop the active filesystem observer.
 
     Retrieves the running observer from the module-level registry,
-    calls ``observer.stop()`` and ``observer.join()``, then clears
-    registry state.
+    calls ``observer.stop()`` and then ``observer.join(timeout=5.0)``
+    offloaded to a thread via ``asyncio.to_thread`` so the event loop
+    is not blocked if the OS observer thread takes time to exit cleanly.
 
     Returns:
         ModelWatchdogResult with status STOPPED or ERROR.
@@ -306,9 +370,12 @@ async def stop_watching() -> ModelWatchdogResult:
             )
 
         observer.stop()
-        observer.join()
-
-        RegistryWatchdogEffect.clear()
+        try:
+            await asyncio.to_thread(observer.join, 5.0)
+        finally:
+            # Always clear the registry so the double-start guard doesn't
+            # permanently block re-starts if join() raises or times out.
+            RegistryWatchdogEffect.clear()
 
         logger.info(
             "WatchdogEffect: observer stopped",
@@ -392,7 +459,6 @@ def _schedule_watches_compat(
 
 __all__ = [
     "TOPIC_CRAWL_REQUESTED_V1",
-    "_AsyncKafkaEventHandler",
     "start_watching",
     "stop_watching",
 ]

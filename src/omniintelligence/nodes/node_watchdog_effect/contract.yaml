@@ -50,7 +50,7 @@ input_model:
 output_model:
   name: "ModelWatchdogResult"
   module: "omniintelligence.nodes.node_watchdog_effect.models"
-  description: "Result of a watchdog operation with status STARTED, STOPPED, EMITTED, SKIPPED, or ERROR"
+  description: "Result of a watchdog operation with status STARTED, STOPPED, or ERROR"
 
 # =============================================================================
 # HANDLER ROUTING
@@ -214,9 +214,9 @@ error_handling:
 
   kafka_absent_behavior: >
     When kafka_publisher is None, the observer starts and detects filesystem changes but does NOT publish
-    crawl-requested.v1 events.  This is logged at WARNING level. No events are lost — the observer continues
-    running and will emit once a publisher is registered via the registry (runtime re-wiring not currently
-    supported).
+    crawl-requested.v1 events.  This is logged at WARNING level.  Runtime re-wiring is NOT supported —
+    events will never be emitted until the observer is restarted via stop_watching() + start_watching()
+    with a valid kafka_publisher.
 
   error_types:
     - name: "ObserverStartError"
