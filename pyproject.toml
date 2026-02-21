@@ -282,4 +282,6 @@ markers = [
     "unit: marks tests as unit tests",
     "audit: marks tests as I/O audit enforcement tests",
     "drift: marks tests for intent drift detection logic",
+    "forecast: marks tests for intent cost and latency forecasting logic",
+    "baseline: marks tests for historical cost/latency baseline management",
 ]
