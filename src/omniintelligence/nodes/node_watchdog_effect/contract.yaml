@@ -100,6 +100,7 @@ io_operations:
     description: "Start OS-level filesystem observer for configured watched paths"
     input_fields:
       - config
+      - correlation_id
       - kafka_publisher
       - observer_factory
     output_fields:
@@ -112,7 +113,8 @@ io_operations:
 
   - operation: "stop_watching"
     description: "Gracefully stop the active filesystem observer"
-    input_fields: []
+    input_fields:
+      - correlation_id
     output_fields:
       - status
       - observer_type

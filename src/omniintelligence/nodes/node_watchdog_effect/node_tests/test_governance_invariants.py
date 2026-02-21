@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -77,6 +78,7 @@ class TestStartWatching:
         """start_watching() with a mock observer must return STARTED."""
         result = await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=polling_observer_factory,
         )
@@ -94,6 +96,7 @@ class TestStartWatching:
         """start_watching() must register the observer in RegistryWatchdogEffect."""
         await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=polling_observer_factory,
         )
@@ -117,6 +120,7 @@ class TestStartWatching:
 
         await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=factory,
         )
@@ -138,6 +142,7 @@ class TestStartWatching:
         config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
         await start_watching(
             config=config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=factory,
         )
@@ -160,6 +165,7 @@ class TestStartWatching:
         )
         result = await start_watching(
             config=config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=polling_observer_factory,
         )
@@ -192,6 +198,7 @@ class TestStartWatching:
         # First call — must start the observer
         first_result = await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=factory,
         )
@@ -204,6 +211,7 @@ class TestStartWatching:
         with caplog.at_level(logging.WARNING, logger="omniintelligence"):
             second_result = await start_watching(
                 config=default_config,
+                correlation_id=uuid4(),
                 kafka_publisher=mock_kafka_publisher,
                 observer_factory=factory,
             )
@@ -241,6 +249,7 @@ class TestStartWatchingNoPublisher:
         """start_watching() with kafka_publisher=None must return STARTED (not ERROR)."""
         result = await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=None,
             observer_factory=polling_observer_factory,
         )
@@ -259,6 +268,7 @@ class TestStartWatchingNoPublisher:
 
         await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=None,
             observer_factory=factory,
         )
@@ -284,10 +294,11 @@ class TestStopWatching:
         """stop_watching() after start must return STOPPED."""
         await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=polling_observer_factory,
         )
-        result = await stop_watching()
+        result = await stop_watching(correlation_id=uuid4())
         assert result.status == EnumWatchdogStatus.STOPPED
 
     @pytest.mark.asyncio
@@ -304,10 +315,11 @@ class TestStopWatching:
 
         await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=factory,
         )
-        await stop_watching()
+        await stop_watching(correlation_id=uuid4())
 
         assert mock_observer.stopped is True
         assert mock_observer.joined is True
@@ -322,16 +334,17 @@ class TestStopWatching:
         """stop_watching() must clear the registry after stopping."""
         await start_watching(
             config=default_config,
+            correlation_id=uuid4(),
             kafka_publisher=mock_kafka_publisher,
             observer_factory=polling_observer_factory,
         )
-        await stop_watching()
+        await stop_watching(correlation_id=uuid4())
         assert RegistryWatchdogEffect.get_observer() is None
 
     @pytest.mark.asyncio
     async def test_stop_watching_no_observer_returns_stopped(self) -> None:
         """stop_watching() with no registered observer must return STOPPED (no-op)."""
-        result = await stop_watching()
+        result = await stop_watching(correlation_id=uuid4())
         assert result.status == EnumWatchdogStatus.STOPPED
 
 
@@ -357,6 +370,7 @@ class TestAsyncKafkaEventHandler:
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
             loop=loop,
+            correlation_id=uuid4(),
         )
 
         # Simulate a file event
@@ -393,6 +407,7 @@ class TestAsyncKafkaEventHandler:
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
             loop=loop,
+            correlation_id=uuid4(),
         )
 
         class FakeDirEvent:
@@ -417,6 +432,7 @@ class TestAsyncKafkaEventHandler:
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
             loop=loop,
+            correlation_id=uuid4(),
         )
 
         class FakeSwapEvent:
@@ -440,6 +456,7 @@ class TestAsyncKafkaEventHandler:
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
             loop=loop,
+            correlation_id=uuid4(),
         )
 
         class FakeEmptyEvent:

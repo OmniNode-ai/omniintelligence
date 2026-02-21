@@ -45,7 +45,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
+from uuid import UUID
 
 from omniintelligence.nodes.node_watchdog_effect.models.enum_watchdog_status import (
     EnumWatchdogStatus,
@@ -93,10 +93,12 @@ class _AsyncKafkaEventHandler:
         kafka_publisher: ProtocolKafkaPublisher,
         config: ModelWatchdogConfig,
         loop: asyncio.AbstractEventLoop,
+        correlation_id: UUID,
     ) -> None:
         self._kafka_publisher = kafka_publisher
         self._config = config
         self._loop = loop
+        self._correlation_id = correlation_id
 
     def dispatch(self, event: Any) -> None:
         """Dispatch a watchdog filesystem event.
@@ -134,8 +136,17 @@ class _AsyncKafkaEventHandler:
             self._loop.call_soon_threadsafe(self._loop.create_task, coro)
         except RuntimeError as exc:
             if "event loop is closed" not in str(exc).lower():
-                # Re-raise unexpected RuntimeErrors (not the known shutdown race).
-                raise
+                # Do NOT re-raise — the observer thread has no recovery path for
+                # unexpected RuntimeErrors and re-raising would silently terminate
+                # the observer thread without any structured error result or alerting.
+                # Log at error level so the failure is visible.
+                logger.error(
+                    "Observer thread error (non-shutdown): %s",
+                    exc,
+                    exc_info=True,
+                )
+                coro.close()
+                return
             coro.close()
             logger.debug(
                 "Watchdog event dropped: event loop closed during shutdown",
@@ -151,7 +162,7 @@ class _AsyncKafkaEventHandler:
         Args:
             file_path: Absolute path of the changed file.
         """
-        correlation_id = uuid4()
+        correlation_id = self._correlation_id
 
         try:
             now_utc = datetime.now(UTC)
@@ -195,6 +206,7 @@ class _AsyncKafkaEventHandler:
 async def start_watching(
     *,
     config: ModelWatchdogConfig,
+    correlation_id: UUID,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
     observer_factory: Any = None,
 ) -> ModelWatchdogResult:
@@ -206,6 +218,8 @@ async def start_watching(
 
     Args:
         config: Watchdog configuration (paths, polling interval, scope).
+        correlation_id: Correlation ID threaded through all operations and
+            emitted events for end-to-end distributed tracing.
         kafka_publisher: Kafka publisher for crawl-requested.v1.  When None,
             the observer is started but no Kafka events are published.
         observer_factory: Optional callable that returns
@@ -241,6 +255,7 @@ async def start_watching(
                 status=EnumWatchdogStatus.STARTED,
                 observer_type=RegistryWatchdogEffect.get_observer_type(),
                 watched_paths=tuple(config.watched_paths),
+                correlation_id=correlation_id,
             )
 
         # Resolve observer factory
@@ -283,6 +298,7 @@ async def start_watching(
                 kafka_publisher=kafka_publisher,
                 config=config,
                 loop=loop,
+                correlation_id=correlation_id,
             )
 
             # Schedule recursive watches for all configured paths.
@@ -327,6 +343,7 @@ async def start_watching(
             status=EnumWatchdogStatus.STARTED,
             observer_type=observer_type,
             watched_paths=tuple(config.watched_paths),
+            correlation_id=correlation_id,
         )
 
     except Exception as exc:
@@ -338,16 +355,21 @@ async def start_watching(
         return ModelWatchdogResult(
             status=EnumWatchdogStatus.ERROR,
             error_message=sanitized,
+            correlation_id=correlation_id,
         )
 
 
-async def stop_watching() -> ModelWatchdogResult:
+async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
     """Gracefully stop the active filesystem observer.
 
     Retrieves the running observer from the module-level registry,
     calls ``observer.stop()`` and then ``observer.join(timeout=5.0)``
     offloaded to a thread via ``asyncio.to_thread`` so the event loop
     is not blocked if the OS observer thread takes time to exit cleanly.
+
+    Args:
+        correlation_id: Correlation ID threaded through all operations for
+            end-to-end distributed tracing.
 
     Returns:
         ModelWatchdogResult with status STOPPED or ERROR.
@@ -367,6 +389,7 @@ async def stop_watching() -> ModelWatchdogResult:
             return ModelWatchdogResult(
                 status=EnumWatchdogStatus.STOPPED,
                 observer_type=None,
+                correlation_id=correlation_id,
             )
 
         observer.stop()
@@ -387,6 +410,7 @@ async def stop_watching() -> ModelWatchdogResult:
         return ModelWatchdogResult(
             status=EnumWatchdogStatus.STOPPED,
             observer_type=observer_type,
+            correlation_id=correlation_id,
         )
 
     except Exception as exc:
@@ -398,6 +422,7 @@ async def stop_watching() -> ModelWatchdogResult:
         return ModelWatchdogResult(
             status=EnumWatchdogStatus.ERROR,
             error_message=sanitized,
+            correlation_id=correlation_id,
         )
 
 
@@ -435,7 +460,23 @@ def _schedule_watches(
             observer.schedule(compat_handler, path=path, recursive=True)
 
     except ImportError:
-        # watchdog not available — only reachable with mocked observer in tests
+        # fallback-ok: ImportError here means we're in a test with mocked watchdog
+        # — the compat path handles it by calling observer.schedule() directly.
+        # If this branch is reached at runtime with a real BaseObserver (not a mock),
+        # watchdog's events module is broken and schedule() may silently misbehave.
+        if not isinstance(observer, type) and hasattr(observer, "schedule"):
+            # Check for signs of a real observer (not a mock) — log a warning
+            # so runtime misconfiguration is visible rather than silent.
+            import inspect
+
+            if not getattr(
+                inspect.getmodule(type(observer)), "__name__", ""
+            ).startswith("unittest"):
+                logger.warning(
+                    "WatchdogEffect: watchdog.events import failed but a real observer "
+                    "is in use — _schedule_watches_compat() may not satisfy the "
+                    "FileSystemEventHandler type contract expected by watchdog"
+                )
         _schedule_watches_compat(observer, event_handler, config)
 
 

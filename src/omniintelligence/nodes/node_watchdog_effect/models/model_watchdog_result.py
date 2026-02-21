@@ -8,7 +8,7 @@ Reference: OMN-2386
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -52,7 +52,7 @@ class ModelWatchdogResult(BaseModel):
     )
 
     correlation_id: UUID = Field(
-        default_factory=uuid4,
+        ...,
         description="Correlation ID for distributed tracing.",
     )
 
