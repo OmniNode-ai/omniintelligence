@@ -4,7 +4,7 @@
 """Kafka topic constants for omniintelligence.
 
 Defines canonical ONEX topic names for events produced and consumed by
-the omniintelligence service.
+the omniintelligence service as a typed StrEnum surface.
 
 Topic naming convention:
     onex.{kind}.{producer}.{event-name}.v{n}
@@ -19,40 +19,40 @@ Privacy rule:
 Ticket: OMN-2472
 """
 
+from __future__ import annotations
 
-class OmniIntelligenceTopics:
-    """Canonical topic name constants for omniintelligence.
+try:
+    from enum import StrEnum  # Python 3.11+
+except ImportError:
+    from enum import Enum
 
-    All topics use the ONEX naming convention:
+    class StrEnum(str, Enum):  # type: ignore[no-redef]
+        """Backport of StrEnum for Python 3.10."""
+
+        @staticmethod
+        def _generate_next_value_(name: str, *_args: object) -> str:
+            return name.lower()
+
+
+class OmniIntelligenceTopics(StrEnum):
+    """Canonical Kafka topic constants for omniintelligence.
+
+    All topics follow the ONEX naming convention:
         onex.{kind}.{producer}.{event-name}.v{n}
 
-    Usage:
-        >>> from omniintelligence.hooks.topics import OmniIntelligenceTopics
-        >>> topic = OmniIntelligenceTopics.DECISION_RECORDED_EVT
+    Members:
+        DECISION_RECORDED_EVT: Summary payload (decision_id, type, selected,
+            count, has_rationale). Broad access — no sensitive data.
+        DECISION_RECORDED_CMD: Full DecisionRecord payload including
+            agent_rationale and snapshot. Restricted access.
+        RATIONALE_MISMATCH_EVT: Mismatch event payload (decision_id,
+            mismatch_type, severity, timestamp). Broad access — no rationale
+            text in this topic.
     """
 
-    # -----------------------------------------------------------------------
-    # DecisionRecord topics (OMN-2465)
-    # -----------------------------------------------------------------------
-
-    DECISION_RECORDED_EVT: str = "onex.evt.omniintelligence.decision-recorded.v1"
-    """Summary payload (decision_id, type, selected, count, has_rationale).
-    Broad access — no sensitive data.
-    """
-
-    DECISION_RECORDED_CMD: str = "onex.cmd.omniintelligence.decision-recorded.v1"
-    """Full DecisionRecord payload including agent_rationale and snapshot.
-    Restricted access — omniintelligence service only.
-    """
-
-    # -----------------------------------------------------------------------
-    # Rationale mismatch topics (OMN-2472)
-    # -----------------------------------------------------------------------
-
-    RATIONALE_MISMATCH_EVT: str = "onex.evt.omniintelligence.rationale-mismatch.v1"
-    """Mismatch event payload: decision_id, mismatch_type, severity, timestamp.
-    Broad access — no sensitive rationale text in this topic.
-    """
+    DECISION_RECORDED_EVT = "onex.evt.omniintelligence.decision-recorded.v1"
+    DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
+    RATIONALE_MISMATCH_EVT = "onex.evt.omniintelligence.rationale-mismatch.v1"
 
 
 __all__ = [

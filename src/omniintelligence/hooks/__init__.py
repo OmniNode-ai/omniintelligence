@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""OmniIntelligence hooks module.
-
-Provides topic constants for Kafka event topics used by omniintelligence.
+"""Hooks module — Kafka topic constants for omniintelligence.
 
 Ticket: OMN-2472
 """

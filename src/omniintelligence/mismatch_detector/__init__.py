@@ -1,20 +1,19 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Rationale mismatch detection module.
+"""Rationale mismatch detector module.
 
-Detects conflicts between agent_rationale (Layer 2) and the structured
-provenance fields (Layer 1: constraints_applied, scoring_breakdown) in
-DecisionRecords.
-
-This module implements the enforcement mechanism for the trust invariant:
-"If agent rationale conflicts with recorded constraints, structured
-provenance wins."
+Detects conflicts between Layer 2 agent_rationale and Layer 1 provenance
+in DecisionRecords, and emits evaluation signals via Kafka.
 
 Ticket: OMN-2472
 """
 
-from omniintelligence.mismatch_detector.detector import detect_mismatches
+from omniintelligence.mismatch_detector.consumer import MismatchDetectionConsumer
+from omniintelligence.mismatch_detector.detector import (
+    DecisionRecordDict,
+    detect_mismatches,
+)
 from omniintelligence.mismatch_detector.models import (
     MismatchReport,
     MismatchSeverity,
@@ -22,6 +21,8 @@ from omniintelligence.mismatch_detector.models import (
 )
 
 __all__ = [
+    "DecisionRecordDict",
+    "MismatchDetectionConsumer",
     "MismatchReport",
     "MismatchSeverity",
     "MismatchType",
