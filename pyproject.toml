@@ -23,11 +23,11 @@ packages = [{include = "omniintelligence", from = "src"}]
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 # Versions aligned with [project.dependencies] for consistency
-pydantic = ">=2.9.0"
-pydantic-settings = ">=2.6.0"
+pydantic = ">=2.12.5,<3.0.0"
+pydantic-settings = ">=2.7.0,<3.0.0"
 httpx = ">=0.28.1"
 tenacity = ">=8.2.0"
-confluent-kafka = ">=2.6.0"
+confluent-kafka = ">=2.12.0,<3.0.0"
 pyyaml = ">=6.0"
 python-dotenv = ">=1.0.0"
 
@@ -55,19 +55,19 @@ omnibase-spi = "^0.10.0"
 omnibase-infra = "^0.9.0"
 # Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
 # Included here for self-contained --only core installs
-pydantic = ">=2.9.0"
-pydantic-settings = ">=2.6.0"
+pydantic = ">=2.12.5,<3.0.0"
+pydantic-settings = ">=2.7.0,<3.0.0"
 httpx = ">=0.28.1"
 pyyaml = ">=6.0"
 python-dotenv = ">=1.0.0"
 tenacity = ">=8.2.0"
-confluent-kafka = ">=2.6.0"
+confluent-kafka = ">=2.12.0,<3.0.0"
 # Web framework for API endpoints
 fastapi = ">=0.104.0"
 uvicorn = ">=0.24.0"
 python-multipart = ">=0.0.20"
 # Event bus (Kafka/Redpanda)
-aiokafka = ">=0.10.0"
+aiokafka = ">=0.11.0,<0.12.0"
 # Vector database
 qdrant-client = ">=1.15.1"
 # Graph database
@@ -110,10 +110,10 @@ requires-python = ">=3.12,<4.0"
 dependencies = [
     "httpx>=0.28.1",
     "pyyaml>=6.0",
-    "pydantic>=2.9.0",
-    "pydantic-settings>=2.6.0",
+    "pydantic>=2.12.5,<3.0.0",
+    "pydantic-settings>=2.7.0,<3.0.0",
     "python-dotenv>=1.0.0",
-    "confluent-kafka>=2.6.0",
+    "confluent-kafka>=2.12.0,<3.0.0",
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
 ]
@@ -151,13 +151,15 @@ core = [
     "omnibase-core>=0.18.1,<0.19.0",
     "omnibase-spi>=0.10.0,<0.11.0",
     "omnibase-infra>=0.9.0,<0.10.0",
+    "pydantic>=2.12.5,<3.0.0",
+    "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.20",
     # Event bus (Kafka/Redpanda)
-    "aiokafka>=0.10.0",
-    "confluent-kafka>=2.6.0",
+    "aiokafka>=0.11.0,<0.12.0",
+    "confluent-kafka>=2.12.0,<3.0.0",
     # Vector database
     "qdrant-client>=1.15.1",
     # Graph database
