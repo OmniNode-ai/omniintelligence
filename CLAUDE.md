@@ -851,7 +851,7 @@ tests/
 |--------|-------------|-----------------|
 | `should_activate(config)` | Returns `True` if `OMNIINTELLIGENCE_DB_URL` is set | Always called |
 | `initialize(config)` | Creates `StoreIdempotencyPostgres` (owns pool), `PostgresRepositoryRuntime`, `RegistryMessageType` | Requires `OMNIINTELLIGENCE_DB_URL` |
-| `validate_handshake(config)` | B1: verifies DB ownership (`db_metadata.owner_service`); B2: verifies schema fingerprint matches manifest | Requires pool from `initialize()`; raises `RuntimeHostError` on failure |
+| `validate_handshake(config)` | B1: verifies DB ownership (`db_metadata.owner_service`); B2: verifies schema fingerprint matches manifest (auto-stamps on first boot if NULL) | Requires pool from `initialize()`; raises `RuntimeHostError` (pool absent), `DbOwnershipMismatchError`/`DbOwnershipMissingError` (B1), or `SchemaFingerprintMismatchError` (B2 drift) |
 | `wire_handlers(config)` | Delegates to `wire_intelligence_handlers()` | Requires pool from `initialize()` |
 | `wire_dispatchers(config)` | Builds `MessageDispatchEngine` with real adapters; publishes introspection events | Requires pool + pattern runtime |
 | `start_consumers(config)` | Subscribes to all contract-declared topics via dispatch engine | Requires dispatch engine from `wire_dispatchers()` |

@@ -94,11 +94,18 @@ async def test_validate_handshake_b1_mismatch_raises_and_records_check() -> None
         patch(_OWNERSHIP_PATH, new=AsyncMock(side_effect=error)),
         patch(_FINGERPRINT_PATH, new=mock_fingerprint),
     ):
-        with pytest.raises(DbOwnershipMismatchError):
+        with pytest.raises(DbOwnershipMismatchError) as exc_info:
             await plugin.validate_handshake(config)
 
     # B2 must not be attempted when B1 fails (intentional short-circuit)
     mock_fingerprint.assert_not_called()
+
+    # db_ownership check must be recorded with passed=False before the raise
+    raised = exc_info.value
+    assert hasattr(raised, "handshake_checks"), "exception must carry handshake_checks"
+    assert len(raised.handshake_checks) == 1
+    assert raised.handshake_checks[0].check_name == "db_ownership"
+    assert raised.handshake_checks[0].passed is False
 
 
 @pytest.mark.unit
@@ -119,11 +126,18 @@ async def test_validate_handshake_b1_missing_raises_and_records_check() -> None:
         patch(_OWNERSHIP_PATH, new=AsyncMock(side_effect=error)),
         patch(_FINGERPRINT_PATH, new=mock_fingerprint),
     ):
-        with pytest.raises(DbOwnershipMissingError):
+        with pytest.raises(DbOwnershipMissingError) as exc_info:
             await plugin.validate_handshake(config)
 
     # B2 must not be attempted when B1 fails (intentional short-circuit)
     mock_fingerprint.assert_not_called()
+
+    # db_ownership check must be recorded with passed=False before the raise
+    raised = exc_info.value
+    assert hasattr(raised, "handshake_checks"), "exception must carry handshake_checks"
+    assert len(raised.handshake_checks) == 1
+    assert raised.handshake_checks[0].check_name == "db_ownership"
+    assert raised.handshake_checks[0].passed is False
 
 
 @pytest.mark.unit
@@ -151,8 +165,17 @@ async def test_validate_handshake_b2_mismatch_raises_and_records_check() -> None
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_validate_handshake_b2_missing_raises_and_records_check() -> None:
-    """B2 SchemaFingerprintMissingError propagates (fingerprint not stamped)."""
+async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None:
+    """B2 SchemaFingerprintMissingError (NULL fingerprint) triggers auto-stamp on first boot.
+
+    validate_handshake intercepts SchemaFingerprintMissingError, computes the live
+    fingerprint, stamps it to db_metadata, and returns a passed result.
+    No exception is raised — first boot proceeds normally.
+    """
+    from omnibase_infra.runtime.model_schema_fingerprint_result import (
+        ModelSchemaFingerprintResult,
+    )
+
     plugin = _make_plugin_with_pool()
     config = _make_config()
 
@@ -162,12 +185,41 @@ async def test_validate_handshake_b2_missing_raises_and_records_check() -> None:
         correlation_id=config.correlation_id,
     )
 
+    fake_fingerprint_result = ModelSchemaFingerprintResult(
+        fingerprint="a" * 64,
+        table_count=12,
+        column_count=80,
+        constraint_count=20,
+        per_table_hashes=(),
+    )
+
+    # Mock pool.acquire() context manager for the stamp UPDATE
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value=None)
+    mock_acquire = MagicMock()
+    mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_acquire.__aexit__ = AsyncMock(return_value=None)
+    plugin._pool.acquire = MagicMock(return_value=mock_acquire)
+
+    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
+
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
         patch(_FINGERPRINT_PATH, new=AsyncMock(side_effect=error)),
+        patch(_COMPUTE_PATCH, new=AsyncMock(return_value=fake_fingerprint_result)),
     ):
-        with pytest.raises(SchemaFingerprintMissingError):
-            await plugin.validate_handshake(config)
+        result = await plugin.validate_handshake(config)
+
+    # Auto-stamp path: no exception, result is passed
+    assert isinstance(result, ModelHandshakeResult)
+    assert result.passed
+    # schema_fingerprint check is present and passed
+    fp_checks = [c for c in result.checks if c.check_name == "schema_fingerprint"]
+    assert len(fp_checks) == 1
+    assert fp_checks[0].passed is True
+    assert "first boot" in fp_checks[0].message.lower()
+    # The stamp UPDATE was executed on the connection
+    mock_conn.execute.assert_called_once()
 
 
 @pytest.mark.unit

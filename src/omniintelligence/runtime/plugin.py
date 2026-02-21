@@ -79,7 +79,7 @@ Example Usage:
         result = await plugin.initialize(config)
         if not result.success:
             return  # or handle failure
-        await plugin.validate_handshake(config)
+        await plugin.validate_handshake(config)  # caller/kernel handles raised errors
         await plugin.wire_handlers(config)
         await plugin.wire_dispatchers(config)
         await plugin.start_consumers(config)
@@ -130,7 +130,10 @@ from omnibase_infra.runtime.protocol_domain_plugin import (
     ProtocolDomainPlugin,
 )
 from omnibase_infra.runtime.util_db_ownership import validate_db_ownership
-from omnibase_infra.runtime.util_schema_fingerprint import validate_schema_fingerprint
+from omnibase_infra.runtime.util_schema_fingerprint import (
+    compute_schema_fingerprint,
+    validate_schema_fingerprint,
+)
 from pydantic import BaseModel
 
 from omniintelligence.runtime.contract_topics import (
@@ -547,8 +550,12 @@ class PluginIntelligence:
             RuntimeHostError: Pool is None -- initialize() did not run or failed.
             DbOwnershipMismatchError: B1 failure -- wrong database owner.
             DbOwnershipMissingError: B1 failure -- no ownership record.
-            SchemaFingerprintMismatchError: B2 failure -- schema drift.
-            SchemaFingerprintMissingError: B2 failure -- no fingerprint.
+            SchemaFingerprintMismatchError: B2 failure -- schema drift detected.
+
+        Note:
+            SchemaFingerprintMissingError (NULL fingerprint in db_metadata) is
+            handled internally as a first-boot condition: the live fingerprint is
+            auto-stamped and validation proceeds without raising.
         """
         correlation_id = config.correlation_id
         checks: list[ModelHandshakeCheckResult] = []
@@ -597,9 +604,25 @@ class PluginIntelligence:
             # database owned by another service would risk schema
             # misinterpretation, so the kernel aborts immediately.
             # B2 is only meaningful if we can be sure we own the database.
+            #
+            # Attach checks so callers / tests can inspect the partial result.
+            e.handshake_checks = checks  # type: ignore[attr-defined]
             raise
 
         # B2: Validate schema fingerprint
+        #
+        # First-boot handling: if expected_schema_fingerprint is NULL in db_metadata
+        # (inserted by migration 015 without a fingerprint), we auto-stamp the live
+        # schema fingerprint rather than raising.  This is safe because B1 already
+        # confirmed db_metadata exists and is owned by this service — SchemaFingerprintMissingError
+        # at this point can only mean the column is NULL (not yet stamped), not that
+        # the table is missing.
+        _STAMP_FINGERPRINT_QUERY = (
+            "UPDATE public.db_metadata "
+            "SET expected_schema_fingerprint = $1, "
+            "    expected_schema_fingerprint_generated_at = NOW() "
+            "WHERE id = TRUE"
+        )
         try:
             await validate_schema_fingerprint(
                 pool=pool,
@@ -613,7 +636,40 @@ class PluginIntelligence:
                     message="Schema fingerprint matches manifest",
                 )
             )
-        except (SchemaFingerprintMismatchError, SchemaFingerprintMissingError) as e:
+        except SchemaFingerprintMissingError:
+            # First boot: fingerprint is NULL in db_metadata.  Compute the live
+            # fingerprint and stamp it so subsequent boots validate normally.
+            logger.info(
+                "Schema fingerprint not yet stamped (first boot) — "
+                "auto-stamping live fingerprint (correlation_id=%s)",
+                correlation_id,
+            )
+            fingerprint_result = await compute_schema_fingerprint(
+                pool=pool,
+                manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
+                correlation_id=correlation_id,
+            )
+            async with pool.acquire() as _conn:  # type: ignore[attr-defined]
+                await _conn.execute(
+                    _STAMP_FINGERPRINT_QUERY, fingerprint_result.fingerprint
+                )
+            logger.info(
+                "Schema fingerprint auto-stamped: %s (tables=%d, correlation_id=%s)",
+                fingerprint_result.fingerprint[:16],
+                fingerprint_result.table_count,
+                correlation_id,
+            )
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="schema_fingerprint",
+                    passed=True,
+                    message=(
+                        f"First boot: schema fingerprint auto-stamped "
+                        f"({fingerprint_result.fingerprint[:16]}...)"
+                    ),
+                )
+            )
+        except SchemaFingerprintMismatchError as e:
             checks.append(
                 ModelHandshakeCheckResult(
                     check_name="schema_fingerprint",
@@ -625,7 +681,7 @@ class PluginIntelligence:
 
         logger.info(
             "Handshake validation passed: %d/%d checks (correlation_id=%s)",
-            len([c for c in checks if c.passed]),
+            len(checks),
             len(checks),
             correlation_id,
             extra={
