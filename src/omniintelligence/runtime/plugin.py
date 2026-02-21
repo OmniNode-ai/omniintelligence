@@ -1101,7 +1101,4 @@ _: ProtocolDomainPlugin = PluginIntelligence()
 __all__: list[str] = [
     "INTELLIGENCE_SUBSCRIBE_TOPICS",
     "PluginIntelligence",
-    "_INTELLIGENCE_CONSUMER_GROUP_DEFAULT",
-    "_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR",
-    "_intelligence_consumer_group",
 ]
