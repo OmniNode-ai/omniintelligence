@@ -779,10 +779,171 @@ tests/
 └── integration/             # Integration tests
     └── nodes/               # Node integration tests
 
-src/omniintelligence/nodes/
-└── {node}/node_tests/       # Co-located node tests
-    ├── conftest.py          # Mock protocol implementations
-    └── test_*.py            # Behavior tests
+| Topic | Consumed By |
+|-------|-------------|
+| `{env}.onex.cmd.omniintelligence.claude-hook-event.v1` | `NodeClaudeHookEventEffect` |
+| `{env}.onex.cmd.omniintelligence.tool-content.v1` | `NodeClaudeHookEventEffect` |
+| `{env}.onex.cmd.omniintelligence.code-analysis.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.cmd.omniintelligence.document-ingestion.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.cmd.omniintelligence.pattern-learning.v1` | `NodeIntelligenceOrchestrator`, `NodePatternLearningEffect` |
+| `{env}.onex.cmd.omniintelligence.quality-assessment.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.cmd.omniintelligence.session-outcome.v1` | `NodePatternFeedbackEffect` |
+| `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternStorageEffect` |
+| `{env}.onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` (producer segment intentionally omitted — multi-producer domain event from external systems, e.g. omniclaude) |
+
+### Published Topics (outputs)
+
+| Topic | Published By |
+|-------|-------------|
+| `{env}.onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternLearningEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternStorageEffect`, `NodePatternPromotionEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` |
+| `{env}.onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1` | `NodePatternLifecycleEffect` |
+| `{env}.onex.evt.omniintelligence.code-analysis-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.code-analysis-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.document-ingestion-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.document-ingestion-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.pattern-learning-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.pattern-learning-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.quality-assessment-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.evt.omniintelligence.quality-assessment-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternPromotionEffect`, `NodePatternDemotionEffect` (command forwarded to trigger `NodePatternLifecycleEffect`) |
+
+**DLQ pattern**: All effect nodes route failed messages to `{topic}.dlq` with original envelope, error message, timestamp, retry count, and secrets sanitized via `LogSanitizer`.
+
+**Correlation ID**: Thread `correlation_id: UUID` through all input models, handler logging (`extra={"correlation_id": ...}`), Kafka payloads, and output models.
+
+### Claude Code Hook Event Types
+
+| Hook Type | Handler | Status |
+|-----------|---------|--------|
+| `UserPromptSubmit` | `handle_user_prompt_submit()` | **ACTIVE** — classifies intent, emits to Kafka |
+| `SessionStart` | `handle_no_op()` | DEFERRED |
+| `SessionEnd` | `handle_no_op()` | DEFERRED |
+| `PreToolUse` | `handle_no_op()` | DEFERRED |
+| `PostToolUse` | `handle_no_op()` | DEFERRED |
+| `Stop` | `handle_stop()` | **ACTIVE** — triggers pattern extraction, emits to `pattern-learning.v1` |
+| `Notification` | `handle_no_op()` | IGNORED |
+
+---
+
+## Runtime Module
+
+**Location**: `src/omniintelligence/runtime/`
+
+| File | Purpose |
+|------|---------|
+| `plugin.py` | `PluginIntelligence` — implements `ProtocolDomainPlugin` for kernel bootstrap |
+| `wiring.py` | `wire_intelligence_handlers()` — registers handlers with container |
+| `dispatch_handlers.py` | `create_intelligence_dispatch_engine()` — builds `MessageDispatchEngine` with 5 handlers / 7 routes |
+| `dispatch_handler_pattern_learning.py` | Dispatch handler for `node_pattern_learning_effect` (contract-only node) |
+| `adapters.py` | Protocol adapters: `AdapterPatternRepositoryRuntime`, `AdapterKafkaPublisher`, `AdapterIntentClassifier`, `AdapterIdempotencyStoreInfra` |
+| `contract_topics.py` | `collect_subscribe_topics_from_contracts()`, `collect_publish_topics_for_dispatch()` |
+| `introspection.py` | Node introspection proxy publishing for observability |
+| `message_type_registration.py` | `register_intelligence_message_types()` for `RegistryMessageType` |
+
+**`PluginIntelligence` kernel lifecycle** (called sequentially by kernel bootstrap):
+
+| Method | What It Does | Activation Gate |
+|--------|-------------|-----------------|
+| `should_activate(config)` | Returns `True` if `OMNIINTELLIGENCE_DB_URL` is set | Always called |
+| `initialize(config)` | Creates `StoreIdempotencyPostgres` (owns pool), `PostgresRepositoryRuntime`, `RegistryMessageType` | Requires `OMNIINTELLIGENCE_DB_URL` |
+| `validate_handshake(config)` | B1: verifies DB ownership (`db_metadata.owner_service`); B2: verifies schema fingerprint matches manifest | Requires pool from `initialize()`; raises `RuntimeHostError` on failure |
+| `wire_handlers(config)` | Delegates to `wire_intelligence_handlers()` | Requires pool from `initialize()` |
+| `wire_dispatchers(config)` | Builds `MessageDispatchEngine` with real adapters; publishes introspection events | Requires pool + pattern runtime |
+| `start_consumers(config)` | Subscribes to all contract-declared topics via dispatch engine | Requires dispatch engine from `wire_dispatchers()` |
+| `shutdown(config)` | Unsubscribes topics, closes idempotency store (releases shared pool), clears state | Guard against concurrent calls |
+
+---
+
+## API Module
+
+**Location**: `src/omniintelligence/api/`
+
+| File | Purpose |
+|------|---------|
+| `app.py` | `create_app()` — FastAPI application factory with lifespan pool management |
+| `router_patterns.py` | `GET /api/v1/patterns` — query validated/provisional patterns |
+| `handler_pattern_query.py` | Business logic for pattern query handler |
+| `model_pattern_query_page.py` | `ModelPatternQueryPage` — paginated response model |
+| `model_pattern_query_response.py` | Individual pattern response model |
+
+**Purpose** (OMN-2253): REST API for enforcement nodes to query the pattern store. Replaces direct DB access disabled in OMN-2058.
+
+**Endpoint**: `GET /api/v1/patterns` — filters by `domain`, `language`, `min_confidence`, `limit`, `offset`.
+
+**Key constraints**:
+- Internal service-to-service only — no authentication, access restricted by network topology
+- Connection pool lifecycle managed by FastAPI lifespan (startup before requests, teardown after drain)
+- Health probe at `GET /health` (not versioned) — returns 503 if pool not initialized or DB unreachable
+- `DatabaseSettings` reads from `POSTGRES_*` environment variables
+
+---
+
+## Repositories Module
+
+**Location**: `src/omniintelligence/repositories/`
+
+| File | Purpose |
+|------|---------|
+| `adapter_pattern_store.py` | `AdapterPatternStore` — implements `ProtocolPatternStore` via `PostgresRepositoryRuntime` |
+| `learned_patterns.repository.yaml` | Contract YAML declaring all SQL operations for the pattern store |
+
+**`AdapterPatternStore`** bridges `ProtocolPatternStore` (used by handlers) to `PostgresRepositoryRuntime` (contract-driven execution via `omnibase_infra`).
+
+**Transaction semantics**: Each method call is an **independent transaction**. The `conn` parameter is accepted for interface compatibility only and is not used. External transaction control is not supported. Use `store_with_version_transition()` for atomic version transitions instead of calling `set_previous_not_current()` + `store_pattern()` separately.
+
+**Key operations** declared in `learned_patterns.repository.yaml`:
+
+| Operation | Purpose |
+|-----------|---------|
+| `store_pattern` | Insert new pattern (first version) |
+| `store_with_version_transition` | Atomic UPDATE previous + INSERT new (preferred for version > 1) |
+| `upsert_pattern` | `ON CONFLICT DO NOTHING` — idempotent insert for dispatch bridge |
+| `check_exists` | Check by domain + signature_hash + version |
+| `check_exists_by_id` | Check by pattern_id + signature_hash (idempotency key) |
+| `set_not_current` | Mark previous versions non-current |
+| `get_latest_version` | Get max version for a lineage |
+| `query_patterns` | Filter validated/provisional patterns (API layer only) |
+
+---
+
+## Pydantic Model Standards
+
+| Model Type | Required ConfigDict |
+|------------|---------------------|
+| **Immutable / event** | `ConfigDict(frozen=True, extra="forbid", from_attributes=True)` |
+| **Mutable internal** | `ConfigDict(extra="forbid", from_attributes=True)` |
+| **Contract / external** | `ConfigDict(extra="ignore", ...)` |
+
+**`from_attributes=True`** is required on frozen models for pytest-xdist compatibility.
+
+**Mutable defaults**: Always use `default_factory` — e.g. `items: list[str] = Field(default_factory=list)`
+
+**Naming conventions**:
+
+| Kind | Pattern | Example |
+|------|---------|---------|
+| Input | `Model{NodeName}Input` | `ModelPatternStorageInput` |
+| Output | `Model{NodeName}Output` | `ModelPatternStoredEvent` |
+| Event | `Model{Event}Event` | `ModelPatternStoredEvent` |
+| FSM Payload | `Model{FSM}Payload` | `ModelIngestionPayload` |
+
+---
+
+## Code Quality
+
+### TODO Policy
+
+```python
+# Correct — with Linear ticket
+# TODO(OMN-1234): Add validation for edge case
+
+# Wrong — missing ticket
+# TODO: Fix this later
 ```
 
 ### Key Fixtures
