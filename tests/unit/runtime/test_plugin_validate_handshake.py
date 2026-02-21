@@ -193,7 +193,7 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
 
     # Mock pool.acquire() context manager for the stamp UPDATE
     mock_conn = AsyncMock()
-    mock_conn.execute = AsyncMock(return_value=None)
+    mock_conn.execute = AsyncMock(return_value="UPDATE 1")
     mock_acquire = MagicMock()
     mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
     mock_acquire.__aexit__ = AsyncMock(return_value=None)
@@ -220,6 +220,49 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     mock_conn.execute.assert_called_once_with(
         _STAMP_SCHEMA_FINGERPRINT_QUERY, fake_fingerprint_result.fingerprint
     )
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_auto_stamp_update_zero_rows_raises() -> None:
+    """UPDATE 0 during auto-stamp raises RuntimeHostError and cleans up pool."""
+    plugin = _make_plugin_with_pool()
+    config = _make_config()
+    from omnibase_infra.runtime.model_schema_fingerprint_result import (
+        ModelSchemaFingerprintResult,
+    )
+
+    error = SchemaFingerprintMissingError(
+        "expected_schema_fingerprint is NULL in db_metadata",
+        expected_owner="omniintelligence",
+        correlation_id=config.correlation_id,
+    )
+    fake_fingerprint_result = ModelSchemaFingerprintResult(
+        fingerprint="b" * 64,
+        table_count=12,
+        column_count=80,
+        constraint_count=20,
+        per_table_hashes=(),
+    )
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value="UPDATE 0")
+    mock_acquire = MagicMock()
+    mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_acquire.__aexit__ = AsyncMock(return_value=None)
+    plugin._pool.acquire = MagicMock(return_value=mock_acquire)
+
+    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
+
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=AsyncMock(side_effect=error)),
+        patch(_COMPUTE_PATCH, new=AsyncMock(return_value=fake_fingerprint_result)),
+        pytest.raises(RuntimeHostError, match="db_metadata row not found"),
+    ):
+        await plugin.validate_handshake(config)
+
+    # Pool should be cleaned up
+    assert plugin._pool is None
 
 
 @pytest.mark.unit
