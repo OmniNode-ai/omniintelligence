@@ -76,7 +76,9 @@ Example Usage:
     plugin = registry.get("intelligence")
 
     if plugin and plugin.should_activate(config):
-        await plugin.initialize(config)
+        result = await plugin.initialize(config)
+        if not result.success:
+            return  # or handle failure
         await plugin.validate_handshake(config)
         await plugin.wire_handlers(config)
         await plugin.wire_dispatchers(config)
@@ -96,7 +98,7 @@ import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
@@ -562,16 +564,10 @@ class PluginIntelligence:
                 "(initialize() did not run or failed)"
             )
 
-        # Deferred import: asyncpg is only needed below (for the cast) and only
-        # reaches this point when the pool is confirmed non-None, so we import
-        # after the None-check guard rather than at the top of the method.
-        import asyncpg
-
-        # The cast is a mypy annotation only — it carries no runtime guarantee.
-        # It is safe because self._pool was set in initialize() from
-        # StoreIdempotencyPostgres._pool, which is always an asyncpg.Pool
-        # (StoreIdempotencyPostgres creates it via asyncpg.create_pool()).
-        pool = cast(asyncpg.Pool, self._pool)
+        # self._pool was set in initialize() from StoreIdempotencyPostgres._pool,
+        # which is always an asyncpg.Pool (created via asyncpg.create_pool()).
+        # No cast needed — the pool object is the correct type at runtime.
+        pool = self._pool
 
         # B1: Validate DB ownership
         expected_owner = OMNIINTELLIGENCE_SCHEMA_MANIFEST.owner_service
