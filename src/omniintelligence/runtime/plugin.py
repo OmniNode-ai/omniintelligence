@@ -625,6 +625,7 @@ class PluginIntelligence:
                 str(e),
                 extra={"correlation_id": str(correlation_id)},
             )
+            await self._cleanup_on_failure(config)
             raise
 
         # B2: Validate schema fingerprint
@@ -667,8 +668,13 @@ class PluginIntelligence:
             # schema, so the final stored value is identical regardless of ordering.
             # The UPDATE is effectively idempotent (same value, same WHERE clause).
             async with pool.acquire() as _conn:  # type: ignore[attr-defined]
-                await _conn.execute(
+                status = await _conn.execute(
                     _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
+                )
+            if status == "UPDATE 0":
+                raise RuntimeHostError(
+                    "Failed to stamp schema fingerprint: db_metadata row not found — "
+                    "migration 015 may not have run or row was deleted"
                 )
             logger.info(
                 "Schema fingerprint auto-stamped: %s (tables=%d, correlation_id=%s)",
@@ -701,6 +707,7 @@ class PluginIntelligence:
                 str(e),
                 extra={"correlation_id": str(correlation_id)},
             )
+            await self._cleanup_on_failure(config)
             raise
 
         check_names = ", ".join(c.check_name for c in checks)

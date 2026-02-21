@@ -308,14 +308,13 @@ async def test_wire_dispatchers_raises_when_handshake_not_validated() -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_validate_handshake_b1_failure_is_stateless_across_repeated_calls() -> (
-    None
-):
-    """validate_handshake has no internal failure state: a second call after a B1
-    failure behaves identically to the first call.
+async def test_validate_handshake_b1_failure_cleans_up_pool() -> None:
+    """validate_handshake B1 failure calls _cleanup_on_failure(), clearing _pool.
 
-    Verifies that the method does not accumulate state (e.g. a flag set on first
-    failure) that would alter behavior on retry.
+    After a B1 failure, _cleanup_on_failure() resets _pool to None so that a
+    retry of the bootstrap sequence starts clean (re-initialize() required).
+    A second call to validate_handshake() therefore raises RuntimeHostError
+    (pool not initialized) rather than the original ownership error.
     """
     plugin = _make_plugin_with_pool()
     config = _make_config()
@@ -331,6 +330,39 @@ async def test_validate_handshake_b1_failure_is_stateless_across_repeated_calls(
         with pytest.raises(DbOwnershipMismatchError):
             await plugin.validate_handshake(config)
 
-        # Second call: same plugin instance, same B1 setup — must raise again.
-        with pytest.raises(DbOwnershipMismatchError):
-            await plugin.validate_handshake(config)
+    # After B1 failure, _cleanup_on_failure() clears _pool.
+    assert plugin._pool is None
+
+    # Second call without re-initializing raises RuntimeHostError (pool is None).
+    with pytest.raises(RuntimeHostError, match="pool not initialized"):
+        await plugin.validate_handshake(config)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_start_consumers_raises_when_handshake_not_validated() -> None:
+    """start_consumers() raises RuntimeError when validate_handshake() has not been called."""
+    plugin = PluginIntelligence()
+    # Default initial state: _handshake_validated is False
+    assert not plugin._handshake_validated
+    config = _make_config()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await plugin.start_consumers(config)
+
+    assert "validate_handshake" in str(exc_info.value)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_shutdown_resets_handshake_validated() -> None:
+    """shutdown() resets _handshake_validated to False."""
+    plugin = PluginIntelligence()
+    plugin._handshake_validated = True
+    config = _make_config()
+
+    # Shutdown with no pool/idempotency_store initialised: runs _do_shutdown()
+    # which unconditionally sets _handshake_validated = False at the end.
+    await plugin.shutdown(config)
+
+    assert plugin._handshake_validated is False

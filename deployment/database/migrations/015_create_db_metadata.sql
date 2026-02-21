@@ -1,6 +1,8 @@
 -- Creates the db_metadata singleton table for boot-time handshake (B1 + B2 checks).
 -- OMN-2435: omniintelligence missing boot-time handshake
 --
+-- Requires: PostgreSQL 14+ (CREATE OR REPLACE TRIGGER syntax)
+--
 -- First-boot note: expected_schema_fingerprint is intentionally NULL here.
 -- PluginIntelligence.validate_handshake() detects NULL on first boot and
 -- auto-stamps the live schema fingerprint via compute_schema_fingerprint().
