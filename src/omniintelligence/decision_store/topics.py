@@ -11,8 +11,6 @@ Ticket: OMN-2467
 
 from __future__ import annotations
 
-from typing import cast
-
 try:
     from enum import StrEnum  # Python 3.11+
 except ImportError:
@@ -35,7 +33,7 @@ class DecisionTopics(StrEnum):
             consumer.
     """
 
-    DECISION_RECORDED = cast(str, "onex.cmd.omniintelligence.decision-recorded.v1")
+    DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
 
 
 __all__ = [
