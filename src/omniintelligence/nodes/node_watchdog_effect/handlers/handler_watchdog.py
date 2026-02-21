@@ -123,7 +123,10 @@ class _AsyncKafkaEventHandler:
         if self._config.is_ignored(src_path):
             logger.debug(
                 "Watchdog event skipped (ignored suffix)",
-                extra={"file_path": src_path},
+                extra={
+                    "file_path": src_path,
+                    "correlation_id": str(self._correlation_id),
+                },
             )
             return
 
@@ -145,13 +148,17 @@ class _AsyncKafkaEventHandler:
                     "Observer thread error (non-shutdown): %s",
                     exc,
                     exc_info=True,
+                    extra={"correlation_id": str(self._correlation_id)},
                 )
                 coro.close()
                 return
             coro.close()
             logger.debug(
                 "Watchdog event dropped: event loop closed during shutdown",
-                extra={"file_path": src_path},
+                extra={
+                    "file_path": src_path,
+                    "correlation_id": str(self._correlation_id),
+                },
             )
 
     async def _publish_crawl_requested(self, file_path: str) -> None:
