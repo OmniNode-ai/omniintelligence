@@ -29,8 +29,11 @@ import pytest
 from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
 
 from omniintelligence.runtime.plugin import (
+    _INTELLIGENCE_CONSUMER_GROUP_DEFAULT,
+    _INTELLIGENCE_CONSUMER_GROUP_ENV_VAR,
     INTELLIGENCE_SUBSCRIBE_TOPICS,
     PluginIntelligence,
+    _intelligence_consumer_group,
     _introspection_publishing_enabled,
 )
 
@@ -695,3 +698,150 @@ class TestIntrospectionPublishingGate:
             "shutdown must call publish_intelligence_shutdown which publishes "
             "via event_bus.publish_envelope"
         )
+
+
+# =============================================================================
+# Tests: shared consumer group (OMN-2439)
+# =============================================================================
+
+
+class TestSharedConsumerGroup:
+    """Validate that all containers use the same Kafka consumer group (OMN-2439).
+
+    All runtime containers (omninode-runtime, omninode-runtime-effects,
+    runtime-worker-*) must subscribe to intelligence topics with the SAME
+    consumer group ID so Kafka load-balances across them rather than
+    delivering each message to every container independently.
+
+    Without a shared group, 3 containers -> 3 independent consumer groups ->
+    every hook event processed 3x -> 3x duplicate intent-classified events.
+    """
+
+    # -------------------------------------------------------------------------
+    # _intelligence_consumer_group() unit tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.unit
+    def test_default_group_is_omniintelligence_hooks(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Default consumer group is 'omniintelligence-hooks' when env var absent."""
+        monkeypatch.delenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, raising=False)
+        assert _intelligence_consumer_group() == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
+        assert _intelligence_consumer_group() == "omniintelligence-hooks"
+
+    @pytest.mark.unit
+    def test_env_var_overrides_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """OMNIINTELLIGENCE_CONSUMER_GROUP overrides the built-in default."""
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "my-custom-group")
+        assert _intelligence_consumer_group() == "my-custom-group"
+
+    @pytest.mark.unit
+    def test_empty_env_var_falls_back_to_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Empty env var string is treated as absent; default is used."""
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "")
+        assert _intelligence_consumer_group() == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
+
+    @pytest.mark.unit
+    def test_whitespace_env_var_falls_back_to_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Whitespace-only env var is stripped and treated as absent; default is used."""
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "   ")
+        assert _intelligence_consumer_group() == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
+
+    # -------------------------------------------------------------------------
+    # start_consumers() group_id integration tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_subscriptions_use_shared_group_not_container_group(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """All subscriptions use the shared group ID, not config.consumer_group.
+
+        Simulates three different containers by calling start_consumers() with
+        three different config.consumer_group values (as each container would
+        supply).  All must produce the same group_id on their subscriptions
+        so Kafka treats them as members of the same consumer group.
+        """
+        monkeypatch.delenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, raising=False)
+
+        container_groups = [
+            "onex-runtime-main",
+            "onex-runtime-effects",
+            "onex-runtime-workers",
+        ]
+
+        for container_group in container_groups:
+            event_bus = _StubEventBus()
+            plugin = PluginIntelligence()
+            # Build a config that mimics the per-container ONEX_GROUP_ID
+            from omnibase_infra.runtime.models import ModelDomainPluginConfig
+
+            config = ModelDomainPluginConfig(
+                container=_StubContainer(),  # type: ignore[arg-type]
+                event_bus=event_bus,
+                correlation_id=uuid4(),
+                input_topic="test.input",
+                output_topic="test.output",
+                consumer_group=container_group,
+            )
+
+            await _wire_plugin(plugin, config)
+            await plugin.start_consumers(config)
+
+            for sub in event_bus.subscriptions:
+                assert sub.group_id == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT, (
+                    f"Container with consumer_group={container_group!r} used "
+                    f"group_id={sub.group_id!r} for topic {sub.topic!r}; "
+                    f"expected shared group {_INTELLIGENCE_CONSUMER_GROUP_DEFAULT!r}"
+                )
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_subscriptions_use_env_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When OMNIINTELLIGENCE_CONSUMER_GROUP is set, that value is used for all topics."""
+        custom_group = "intelligence-staging-hooks"
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, custom_group)
+
+        event_bus = _StubEventBus()
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await _wire_plugin(plugin, config)
+        await plugin.start_consumers(config)
+
+        for sub in event_bus.subscriptions:
+            assert sub.group_id == custom_group, (
+                f"Topic {sub.topic!r} used group_id={sub.group_id!r}; "
+                f"expected env override {custom_group!r}"
+            )
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_all_topics_use_same_group_id(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """All subscribed topics must share a single consumer group ID."""
+        monkeypatch.delenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, raising=False)
+
+        event_bus = _StubEventBus()
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await _wire_plugin(plugin, config)
+        await plugin.start_consumers(config)
+
+        group_ids = {sub.group_id for sub in event_bus.subscriptions}
+        assert len(group_ids) == 1, (
+            f"Expected all topics to use the same consumer group; "
+            f"found {len(group_ids)} distinct group IDs: {group_ids}"
+        )
+        (actual_group,) = group_ids
+        assert actual_group == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
