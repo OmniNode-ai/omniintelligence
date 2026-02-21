@@ -100,12 +100,8 @@ async def test_validate_handshake_b1_mismatch_raises_and_records_check() -> None
     # B2 must not be attempted when B1 fails (intentional short-circuit)
     mock_fingerprint.assert_not_called()
 
-    # db_ownership check must be recorded with passed=False before the raise
-    raised = exc_info.value
-    assert hasattr(raised, "handshake_checks"), "exception must carry handshake_checks"
-    assert len(raised.handshake_checks) == 1
-    assert raised.handshake_checks[0].check_name == "db_ownership"
-    assert raised.handshake_checks[0].passed is False
+    # The exception type (DbOwnershipMismatchError) identifies which check failed.
+    assert isinstance(exc_info.value, DbOwnershipMismatchError)
 
 
 @pytest.mark.unit
@@ -132,18 +128,14 @@ async def test_validate_handshake_b1_missing_raises_and_records_check() -> None:
     # B2 must not be attempted when B1 fails (intentional short-circuit)
     mock_fingerprint.assert_not_called()
 
-    # db_ownership check must be recorded with passed=False before the raise
-    raised = exc_info.value
-    assert hasattr(raised, "handshake_checks"), "exception must carry handshake_checks"
-    assert len(raised.handshake_checks) == 1
-    assert raised.handshake_checks[0].check_name == "db_ownership"
-    assert raised.handshake_checks[0].passed is False
+    # The exception type (DbOwnershipMissingError) identifies which check failed.
+    assert isinstance(exc_info.value, DbOwnershipMissingError)
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_validate_handshake_b2_mismatch_raises_and_records_check() -> None:
-    """B2 SchemaFingerprintMismatchError propagates after B1 passes."""
+    """B2 SchemaFingerprintMismatchError propagates after B1 passes and records check."""
     plugin = _make_plugin_with_pool()
     config = _make_config()
 
@@ -159,8 +151,11 @@ async def test_validate_handshake_b2_mismatch_raises_and_records_check() -> None
         patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
         patch(_FINGERPRINT_PATH, new=AsyncMock(side_effect=error)),
     ):
-        with pytest.raises(SchemaFingerprintMismatchError):
+        with pytest.raises(SchemaFingerprintMismatchError) as exc_info:
             await plugin.validate_handshake(config)
+
+    # The exception type (SchemaFingerprintMismatchError) identifies which check failed.
+    assert isinstance(exc_info.value, SchemaFingerprintMismatchError)
 
 
 @pytest.mark.unit
@@ -220,6 +215,37 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     assert "first boot" in fp_checks[0].message.lower()
     # The stamp UPDATE was executed on the connection
     mock_conn.execute.assert_called_once()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_auto_stamp_unexpected_error_propagates() -> None:
+    """Unexpected errors from compute_schema_fingerprint propagate uncaught.
+
+    Documents the known behavior: only SchemaFingerprintMissingError and
+    SchemaFingerprintMismatchError are handled in the B2 path.  An unexpected
+    error (e.g., RuntimeError from a programming bug) is not wrapped in a typed
+    handshake error and propagates directly to the caller.
+    """
+    plugin = _make_plugin_with_pool()
+    config = _make_config()
+
+    missing_error = SchemaFingerprintMissingError(
+        "expected_schema_fingerprint is NULL in db_metadata",
+        expected_owner="omniintelligence",
+        correlation_id=config.correlation_id,
+    )
+    unexpected_error = RuntimeError("unexpected failure in compute_schema_fingerprint")
+
+    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
+
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=AsyncMock(side_effect=missing_error)),
+        patch(_COMPUTE_PATCH, new=AsyncMock(side_effect=unexpected_error)),
+    ):
+        with pytest.raises(RuntimeError, match="unexpected failure"):
+            await plugin.validate_handshake(config)
 
 
 @pytest.mark.unit

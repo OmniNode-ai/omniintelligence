@@ -31,7 +31,11 @@ These rules are non-negotiable. Violations will cause production issues or archi
 | All event schemas are **frozen** (`frozen=True`) | Events are immutable after emission |
 | Handlers must **return structured errors**, not raise | Domain errors are data, not exceptions |
 | `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
-| **No hardcoded environment variables** | All config via `.env` or Pydantic Settings; see `~/.claude/CLAUDE.md` |
+| **No hardcoded environment variables** | All config via `.env` or Pydantic Settings |
+| Subscribe topics declared in `contract.yaml`, not in `plugin.py` | `collect_subscribe_topics_from_contracts()` is the single source |
+| `PluginIntelligence.wire_dispatchers()` must run before `start_consumers()` | No dispatch engine = no consumers (hard gate) |
+| `AdapterPatternStore` ignores the `conn` parameter — each method is an independent transaction | External transaction control is not supported by this adapter |
+| **`omnibase_infra` migrations must run before this service starts** | `idempotency_records` is owned and migrated by `omnibase_infra` (not this repo's migrations) and is listed in `OMNIINTELLIGENCE_SCHEMA_MANIFEST`; if it does not exist, the B2 schema fingerprint will not match the manifest and startup will hard-fail |
 
 > **Note on `node_pattern_storage_effect`**: This node does not receive an injected Kafka producer. Instead, handlers return typed event models (`ModelPatternStoredEvent`, `ModelPatternPromotedEvent`) which `RuntimeHostProcess` publishes to the declared `publish_topics`. This is a valid alternative pattern for nodes where the runtime handles event emission transparently.
 

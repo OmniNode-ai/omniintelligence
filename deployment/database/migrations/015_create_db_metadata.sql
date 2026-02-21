@@ -5,13 +5,16 @@
 -- PluginIntelligence.validate_handshake() detects NULL on first boot and
 -- auto-stamps the live schema fingerprint via compute_schema_fingerprint().
 -- No manual operator step is required after applying this migration.
+--
+-- Rollback: DROP TABLE IF EXISTS db_metadata;
 
 CREATE TABLE IF NOT EXISTS db_metadata (
     id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
     owner_service TEXT NOT NULL,
     expected_schema_fingerprint TEXT,
     expected_schema_fingerprint_generated_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 INSERT INTO db_metadata (owner_service) VALUES ('omniintelligence')

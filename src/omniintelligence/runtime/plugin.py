@@ -198,6 +198,19 @@ def _intelligence_consumer_group() -> str:
     return group
 
 
+# SQL to stamp (or re-stamp) the schema fingerprint on first boot.
+# Extracted to module level to avoid repeated string allocation on each call.
+# Also sets updated_at so the row modification time is tracked alongside the
+# generated_at timestamp.
+_STAMP_SCHEMA_FINGERPRINT_QUERY = (
+    "UPDATE public.db_metadata "
+    "SET expected_schema_fingerprint = $1, "
+    "    expected_schema_fingerprint_generated_at = NOW(), "
+    "    updated_at = NOW() "
+    "WHERE id = TRUE"
+)
+
+
 class SettingsPluginIntrospection(BaseModel):
     """Settings for the introspection-publishing gate (OMN-2342).
 
@@ -604,9 +617,13 @@ class PluginIntelligence:
             # database owned by another service would risk schema
             # misinterpretation, so the kernel aborts immediately.
             # B2 is only meaningful if we can be sure we own the database.
-            #
-            # Attach checks so callers / tests can inspect the partial result.
-            e.handshake_checks = checks  # type: ignore[attr-defined]
+            logger.warning(
+                "validate_handshake failed: check_name=%s passed=%s error=%s",
+                checks[-1].check_name if checks else "unknown",
+                checks[-1].passed if checks else None,
+                str(e),
+                extra={"correlation_id": str(correlation_id)},
+            )
             raise
 
         # B2: Validate schema fingerprint
@@ -617,12 +634,6 @@ class PluginIntelligence:
         # confirmed db_metadata exists and is owned by this service — SchemaFingerprintMissingError
         # at this point can only mean the column is NULL (not yet stamped), not that
         # the table is missing.
-        _STAMP_FINGERPRINT_QUERY = (
-            "UPDATE public.db_metadata "
-            "SET expected_schema_fingerprint = $1, "
-            "    expected_schema_fingerprint_generated_at = NOW() "
-            "WHERE id = TRUE"
-        )
         try:
             await validate_schema_fingerprint(
                 pool=pool,
@@ -649,9 +660,14 @@ class PluginIntelligence:
                 manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
                 correlation_id=correlation_id,
             )
+            # Race condition note: two simultaneous first-boot instances could both
+            # detect NULL fingerprint and both execute this UPDATE.  The race is
+            # benign: both instances compute the same fingerprint from the same live
+            # schema, so the final stored value is identical regardless of ordering.
+            # The UPDATE is effectively idempotent (same value, same WHERE clause).
             async with pool.acquire() as _conn:  # type: ignore[attr-defined]
                 await _conn.execute(
-                    _STAMP_FINGERPRINT_QUERY, fingerprint_result.fingerprint
+                    _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
                 )
             logger.info(
                 "Schema fingerprint auto-stamped: %s (tables=%d, correlation_id=%s)",
@@ -677,12 +693,20 @@ class PluginIntelligence:
                     message=str(e),
                 )
             )
+            logger.warning(
+                "validate_handshake failed: check_name=%s passed=%s error=%s",
+                checks[-1].check_name if checks else "unknown",
+                checks[-1].passed if checks else None,
+                str(e),
+                extra={"correlation_id": str(correlation_id)},
+            )
             raise
 
+        check_names = ", ".join(c.check_name for c in checks)
         logger.info(
-            "Handshake validation passed: %d/%d checks (correlation_id=%s)",
+            "validate_handshake passed: %d checks (%s) (correlation_id=%s)",
             len(checks),
-            len(checks),
+            check_names,
             correlation_id,
             extra={
                 "check_names": [c.check_name for c in checks],
