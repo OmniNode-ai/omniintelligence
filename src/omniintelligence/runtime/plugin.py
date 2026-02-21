@@ -676,17 +676,15 @@ class PluginIntelligence:
                         _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
                     )
                 if status == "UPDATE 0":
-                    await self._cleanup_on_failure(config)
                     raise RuntimeHostError(
                         "Failed to stamp schema fingerprint: db_metadata row not found — "
                         "migration 015 may not have run or row was deleted"
                     )
-            except RuntimeHostError:
-                raise
             except Exception:
-                # Unexpected error (e.g. compute_schema_fingerprint fails, pool error).
-                # Clean up resources so the service does not hold an open pool on a
-                # fatal startup path. The exception propagates uncaught to the kernel.
+                # Any exception in the auto-stamp path (compute failure, pool error,
+                # UPDATE 0 / RuntimeHostError, or unexpected error) — clean up resources
+                # so the service does not hold an open pool on a fatal startup path.
+                # The exception propagates uncaught to the kernel.
                 await self._cleanup_on_failure(config)
                 raise
             logger.info(
