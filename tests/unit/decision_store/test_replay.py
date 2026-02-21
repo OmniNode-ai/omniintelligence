@@ -4,7 +4,8 @@
 """Unit tests for replay verification logic.
 
 Tests all replay scenarios including match, mismatch, empty snapshot,
-tie-breaker resolution, and malformed snapshot handling.
+tie-breaker resolution, malformed snapshot handling, and correlation_id
+threading.
 
 Ticket: OMN-2467 - V2: Replay verification test
 """
@@ -116,6 +117,12 @@ class TestReplayMatch:
         assert result.match is True
         assert result.replayed_candidate == "gpt-4o"
 
+    def test_replay_with_correlation_id(self) -> None:
+        record = _make_record(selected_candidate="claude-3-opus")
+        result = replay_decision(record, correlation_id="test-trace-id")
+
+        assert result.match is True
+
     def test_replay_str_representation(self) -> None:
         record = _make_record(selected_candidate="claude-3-opus")
         result = replay_decision(record)
@@ -154,6 +161,18 @@ class TestReplayMismatch:
         assert result.replayed_candidate == "gpt-4o"
         assert result.original_candidate == "claude-3-opus"
         assert "Provenance integrity check FAILED" in result.reason
+
+    def test_replay_mismatch_with_correlation_id(self) -> None:
+        snapshot_scoring = [{"candidate": "gpt-4o", "score": 0.99}]
+        record = _make_record(
+            selected_candidate="claude-3-opus",
+            reproducibility_snapshot={
+                "scoring_breakdown": json.dumps(snapshot_scoring),
+            },
+        )
+        result = replay_decision(record, correlation_id="mismatch-trace-001")
+
+        assert result.match is False
 
     def test_replay_mismatch_str_representation(self) -> None:
         snapshot_scoring = [{"candidate": "gpt-4o", "score": 0.99}]
@@ -282,7 +301,6 @@ class TestReplayErrorCases:
 
         # Falls back: tries to parse JSON, fails, then uses record scoring
         # Since record has scoring, it should still resolve
-        # (depends on whether record.scoring_breakdown has entries)
         assert isinstance(result, ReplayResult)
 
     def test_replay_snapshot_empty_scoring_array(self) -> None:
@@ -302,6 +320,18 @@ class TestReplayErrorCases:
 
         with pytest.raises((AttributeError, TypeError)):
             result.match = False  # type: ignore[misc]
+
+    def test_replay_error_with_correlation_id(self) -> None:
+        scoring: list[DecisionScoreRow] = []
+        record = _make_record(
+            selected_candidate="claude-3-opus",
+            scoring_breakdown=scoring,
+            reproducibility_snapshot={},
+        )
+        result = replay_decision(record, correlation_id="error-trace-001")
+
+        assert result.match is False
+        assert result.replayed_candidate is None
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +370,33 @@ class TestDecisionRecordConsumer:
         result = consumer.handle_message(raw)
         assert result is True
         assert repo.count() == 1
+
+    def test_consumer_with_correlation_id(self) -> None:
+        import json
+        from datetime import UTC, datetime
+
+        from omniintelligence.decision_store.consumer import DecisionRecordConsumer
+        from omniintelligence.decision_store.repository import DecisionRecordRepository
+
+        repo = DecisionRecordRepository()
+        consumer = DecisionRecordConsumer(repository=repo)
+
+        payload = {
+            "decision_id": "msg-corr-001",
+            "decision_type": "model_select",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "selected_candidate": "claude-3-opus",
+            "candidates_considered": [],
+            "constraints_applied": {},
+            "scoring_breakdown": [],
+            "tie_breaker": None,
+            "agent_rationale": None,
+            "reproducibility_snapshot": {},
+        }
+        raw = json.dumps(payload).encode("utf-8")
+
+        result = consumer.handle_message(raw, correlation_id="trace-001")
+        assert result is True
 
     def test_consumer_idempotent_on_duplicate(self) -> None:
         import json
@@ -399,13 +456,11 @@ class TestDecisionRecordConsumer:
         assert result is False
         assert repo.count() == 0
 
-    def test_consumer_topic_property(self) -> None:
-        from omniintelligence.decision_store.consumer import (
-            DECISION_RECORDED_TOPIC,
-            DecisionRecordConsumer,
-        )
+    def test_consumer_topic_uses_decision_topics_enum(self) -> None:
+        from omniintelligence.decision_store.consumer import DecisionRecordConsumer
         from omniintelligence.decision_store.repository import DecisionRecordRepository
+        from omniintelligence.decision_store.topics import DecisionTopics
 
         consumer = DecisionRecordConsumer(repository=DecisionRecordRepository())
-        assert consumer.topic == DECISION_RECORDED_TOPIC
+        assert consumer.topic == DecisionTopics.DECISION_RECORDED
         assert "decision-recorded" in consumer.topic
