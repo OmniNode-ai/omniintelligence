@@ -129,26 +129,24 @@ def replay_decision(record: DecisionRecordRow) -> ReplayResult:
                 reason=reason,
             )
     else:
-        # Parse scoring from snapshot (may be JSON string)
-        if isinstance(scoring_raw, str):
-            try:
-                scoring_entries = json.loads(scoring_raw)
-            except json.JSONDecodeError as exc:
-                reason = f"Cannot replay: failed to parse scoring_breakdown JSON: {exc}"
-                logger.warning(
-                    "Replay failed for decision_id=%s: %s",
-                    decision_id,
-                    reason,
-                )
-                return ReplayResult(
-                    decision_id=decision_id,
-                    original_candidate=original,
-                    replayed_candidate=None,
-                    match=False,
-                    reason=reason,
-                )
-        else:
-            scoring_entries = list(scoring_raw)
+        # Parse scoring from snapshot — reproducibility_snapshot is dict[str, str],
+        # so scoring_raw is always a string here.
+        try:
+            scoring_entries = json.loads(scoring_raw)
+        except json.JSONDecodeError as exc:
+            reason = f"Cannot replay: failed to parse scoring_breakdown JSON: {exc}"
+            logger.warning(
+                "Replay failed for decision_id=%s: %s",
+                decision_id,
+                reason,
+            )
+            return ReplayResult(
+                decision_id=decision_id,
+                original_candidate=original,
+                replayed_candidate=None,
+                match=False,
+                reason=reason,
+            )
 
     if not scoring_entries:
         reason = "Cannot replay: scoring_breakdown is empty."
@@ -164,8 +162,10 @@ def replay_decision(record: DecisionRecordRow) -> ReplayResult:
     # ------------------------------------------------------------------
     # Step 2: Find the highest-scoring candidate
     # ------------------------------------------------------------------
+    # scoring_entries is a list of dicts from JSON; annotate elements explicitly
+    scoring_list: list[dict[str, object]] = scoring_entries  # any-ok: JSON-deserialized
     try:
-        max_score = max(float(e["score"]) for e in scoring_entries)
+        max_score = max(float(e["score"]) for e in scoring_list)  # type: ignore[arg-type]
     except (KeyError, TypeError, ValueError) as exc:
         reason = f"Cannot replay: malformed scoring entry: {exc}"
         logger.warning("Replay failed for decision_id=%s: %s", decision_id, reason)
@@ -179,8 +179,8 @@ def replay_decision(record: DecisionRecordRow) -> ReplayResult:
 
     top_candidates = [
         str(e["candidate"])
-        for e in scoring_entries
-        if abs(float(e["score"]) - max_score) < 1e-9
+        for e in scoring_list
+        if abs(float(e["score"]) - max_score) < 1e-9  # type: ignore[arg-type]
     ]
 
     # ------------------------------------------------------------------
