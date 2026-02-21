@@ -109,6 +109,7 @@ class ModelSelector:
         - ``model_registry_version``: current registry version string
         - ``scoring_weights``: JSON-serialized weights used for scoring
         - ``active_constraints``: JSON-serialized constraint map
+        - ``scoring_breakdown``: JSON-serialized per-candidate scores
         - ``selected_candidate``: recorded winner (for cross-check)
 
     Args:
