@@ -243,6 +243,9 @@ async def _wire_plugin(
     plugin._pool = _make_mock_pool()
     plugin._pattern_runtime = _make_mock_runtime()
     plugin._idempotency_store = _make_mock_idempotency_store()
+    plugin._handshake_validated = (
+        True  # bypass guard — these tests don't exercise handshake
+    )
     return await plugin.wire_dispatchers(config)
 
 
