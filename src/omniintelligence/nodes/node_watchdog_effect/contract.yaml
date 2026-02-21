@@ -170,6 +170,10 @@ event_bus:
   subscribe_topics: []
 
   # Topics this node publishes to (sends events to)
+  # DEGRADED MODE: when kafka_publisher dependency is absent (required=false),
+  # the filesystem observer starts and detects changes but NO events are emitted
+  # to these topics.  Files are watched but crawl-requested.v1 is silently
+  # suppressed.  See dependencies.kafka_publisher and error_handling.kafka_absent_behavior.
   publish_topics:
     - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
 

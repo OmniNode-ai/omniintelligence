@@ -46,7 +46,7 @@ import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from omniintelligence.nodes.node_watchdog_effect.models.enum_watchdog_status import (
     EnumWatchdogStatus,
@@ -167,10 +167,16 @@ class _AsyncKafkaEventHandler:
         Builds the payload and calls the async Kafka publisher.
         All exceptions are caught and logged to prevent crashing the task.
 
+        Each emitted event carries a fresh correlation_id so that downstream
+        consumers can trace individual ingestion flows independently.  The
+        construction-time ``self._correlation_id`` is used only for
+        handler-level logging (e.g., in ``dispatch()``), not for events.
+
         Args:
             file_path: Absolute path of the changed file.
         """
-        correlation_id = self._correlation_id
+        # Fresh UUID per event — each file change starts its own trace span.
+        correlation_id = uuid4()
 
         try:
             now_utc = datetime.now(UTC)
