@@ -159,6 +159,8 @@ async def test_validate_handshake_b2_mismatch_raises_and_records_check() -> None
 
     # The exception type (SchemaFingerprintMismatchError) identifies which check failed.
     assert isinstance(exc_info.value, SchemaFingerprintMismatchError)
+    # _cleanup_on_failure must have been called — pool is released on B2 failure.
+    assert plugin._pool is None
 
 
 @pytest.mark.unit

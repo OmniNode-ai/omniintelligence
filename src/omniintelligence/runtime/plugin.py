@@ -200,13 +200,12 @@ def _intelligence_consumer_group() -> str:
 
 # SQL to stamp (or re-stamp) the schema fingerprint on first boot.
 # Extracted to module level to avoid repeated string allocation on each call.
-# Also sets updated_at so the row modification time is tracked alongside the
-# generated_at timestamp.
+# updated_at is intentionally omitted — the BEFORE UPDATE trigger
+# trigger_db_metadata_updated_at (migration 015) sets it automatically.
 _STAMP_SCHEMA_FINGERPRINT_QUERY = (
     "UPDATE public.db_metadata "
     "SET expected_schema_fingerprint = $1, "
-    "    expected_schema_fingerprint_generated_at = NOW(), "
-    "    updated_at = NOW() "
+    "    expected_schema_fingerprint_generated_at = NOW() "
     "WHERE id = TRUE"
 )
 
