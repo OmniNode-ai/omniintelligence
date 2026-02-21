@@ -109,7 +109,7 @@ db_repository:
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
           quality_score DESC,
           id ASC
-        LIMIT :limit
+        LIMIT $1
       params:
         limit:
           name: limit
@@ -136,7 +136,7 @@ db_repository:
       sql: |
         SELECT *
         FROM learned_patterns
-        WHERE id = :pattern_id
+        WHERE id = $1
           AND status IN ('validated', 'provisional')
       params:
         pattern_id:
@@ -162,7 +162,7 @@ db_repository:
       sql: |
         SELECT *
         FROM learned_patterns
-        WHERE id = :pattern_id
+        WHERE id = $1
       params:
         pattern_id:
           name: pattern_id
@@ -190,8 +190,8 @@ db_repository:
       sql: |
         SELECT *
         FROM learned_patterns
-        WHERE signature_hash = :signature_hash
-          AND domain_id = :domain_id
+        WHERE signature_hash = $1
+          AND domain_id = $2
           AND is_current = TRUE
       params:
         signature_hash:
@@ -233,15 +233,15 @@ db_repository:
           version,
           created_at
         FROM learned_patterns
-        WHERE domain_id = :domain_id
+        WHERE domain_id = $1
           AND is_current = TRUE
           AND status IN ('validated', 'provisional')
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
           quality_score DESC,
           id ASC
-        LIMIT :limit
-        OFFSET :offset
+        LIMIT $2
+        OFFSET $3
       params:
         domain_id:
           name: domain_id
@@ -298,15 +298,15 @@ db_repository:
         FROM learned_patterns
         WHERE status IN ('validated', 'provisional')
           AND is_current = TRUE
-          AND confidence >= :min_confidence
-          AND (:domain_id IS NULL OR domain_id = :domain_id)
-          AND (:language IS NULL OR :language = ANY(keywords))
+          AND confidence >= $3
+          AND ($1::text IS NULL OR domain_id = $1::text)
+          AND ($2::text IS NULL OR $2::text = ANY(keywords))
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
           confidence DESC,
           id ASC
-        LIMIT :limit
-        OFFSET :offset
+        LIMIT $4
+        OFFSET $5
       params:
         domain_id:
           name: domain_id
@@ -360,11 +360,11 @@ db_repository:
         FROM learned_patterns
         WHERE status IN ('candidate', 'provisional')
           AND is_current = TRUE
-          AND quality_score >= :min_quality
-          AND distinct_days_seen >= :min_days
-          AND recurrence_count >= :min_recurrence
+          AND quality_score >= $1
+          AND distinct_days_seen >= $2
+          AND recurrence_count >= $3
         ORDER BY quality_score DESC, distinct_days_seen DESC, id ASC
-        LIMIT :limit
+        LIMIT $4
       params:
         min_quality:
           name: min_quality
@@ -414,14 +414,14 @@ db_repository:
         WHERE status = 'validated'
           AND is_current = TRUE
           AND (
-            failure_streak >= :max_failure_streak
+            failure_streak >= $1
             OR (
-              injection_count_rolling_20 >= :min_injections
-              AND failure_count_rolling_20::float / NULLIF(injection_count_rolling_20, 0) >= :max_failure_rate
+              injection_count_rolling_20 >= $2
+              AND failure_count_rolling_20::float / NULLIF(injection_count_rolling_20, 0) >= $3
             )
           )
         ORDER BY failure_streak DESC, quality_score ASC, id ASC
-        LIMIT :limit
+        LIMIT $4
       params:
         max_failure_streak:
           name: max_failure_streak
@@ -490,21 +490,21 @@ db_repository:
           is_current,
           supersedes
         ) VALUES (
-          :id,
-          :signature,
-          :signature_hash,
-          :domain_id,
-          :domain_version,
-          :domain_candidates,
-          :keywords,
-          :confidence,
-          :quality_score,
-          :status,
-          :source_session_ids,
-          :recurrence_count,
-          :version,
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
           TRUE,
-          :supersedes
+          $14
         )
         RETURNING id
       params:
@@ -613,9 +613,9 @@ db_repository:
       sql: |
         UPDATE learned_patterns
         SET is_current = FALSE,
-            superseded_by = :superseded_by
-        WHERE signature_hash = :signature_hash
-          AND domain_id = :domain_id
+            superseded_by = $3
+        WHERE signature_hash = $1
+          AND domain_id = $2
           AND is_current = TRUE
         RETURNING id
       params:
@@ -646,11 +646,11 @@ db_repository:
       description: Update pattern status and related timestamps
       sql: |
         UPDATE learned_patterns
-        SET status = :new_status,
-            promoted_at = CASE WHEN :new_status = 'validated' THEN NOW() ELSE promoted_at END,
-            deprecated_at = CASE WHEN :new_status = 'deprecated' THEN NOW() ELSE deprecated_at END,
-            deprecation_reason = :deprecation_reason
-        WHERE id = :pattern_id
+        SET status = $2,
+            promoted_at = CASE WHEN $2 = 'validated' THEN NOW() ELSE promoted_at END,
+            deprecated_at = CASE WHEN $2 = 'deprecated' THEN NOW() ELSE deprecated_at END,
+            deprecation_reason = $3
+        WHERE id = $1
         RETURNING id
       params:
         pattern_id:
@@ -684,19 +684,19 @@ db_repository:
         UPDATE learned_patterns
         SET injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, 20),
             success_count_rolling_20 = CASE
-              WHEN :success THEN LEAST(success_count_rolling_20 + 1, 20)
+              WHEN $2 THEN LEAST(success_count_rolling_20 + 1, 20)
               ELSE success_count_rolling_20
             END,
             failure_count_rolling_20 = CASE
-              WHEN NOT :success THEN LEAST(failure_count_rolling_20 + 1, 20)
+              WHEN NOT $2 THEN LEAST(failure_count_rolling_20 + 1, 20)
               ELSE failure_count_rolling_20
             END,
             failure_streak = CASE
-              WHEN :success THEN 0
+              WHEN $2 THEN 0
               ELSE failure_streak + 1
             END,
             last_seen_at = NOW()
-        WHERE id = :pattern_id
+        WHERE id = $1
         RETURNING id
       params:
         pattern_id:
@@ -721,10 +721,10 @@ db_repository:
       description: Store the compiled snippet after pattern compilation
       sql: |
         UPDATE learned_patterns
-        SET compiled_snippet = :snippet,
-            compiled_token_count = :token_count,
+        SET compiled_snippet = $2,
+            compiled_token_count = $3,
             compiled_at = NOW()
-        WHERE id = :pattern_id
+        WHERE id = $1
         RETURNING id
       params:
         pattern_id:
@@ -766,9 +766,9 @@ db_repository:
       sql: |
         SELECT EXISTS(
           SELECT 1 FROM learned_patterns
-          WHERE domain_id = :domain_id
-            AND signature_hash = :signature_hash
-            AND version = :version
+          WHERE domain_id = $1
+            AND signature_hash = $2
+            AND version = $3
         ) AS exists
       params:
         domain_id:
@@ -802,8 +802,8 @@ db_repository:
       sql: |
         SELECT id
         FROM learned_patterns
-        WHERE id = :pattern_id
-          AND signature_hash = :signature_hash
+        WHERE id = $1
+          AND signature_hash = $2
       params:
         pattern_id:
           name: pattern_id
@@ -831,8 +831,8 @@ db_repository:
       sql: |
         SELECT MAX(version) AS version
         FROM learned_patterns
-        WHERE domain_id = :domain_id
-          AND signature_hash = :signature_hash
+        WHERE domain_id = $1
+          AND signature_hash = $2
       params:
         domain_id:
           name: domain_id
@@ -859,7 +859,7 @@ db_repository:
       sql: |
         SELECT created_at
         FROM learned_patterns
-        WHERE id = :pattern_id
+        WHERE id = $1
       params:
         pattern_id:
           name: pattern_id
@@ -887,9 +887,9 @@ db_repository:
         WITH deactivated AS (
           UPDATE learned_patterns
           SET is_current = FALSE,
-              superseded_by = :id
-          WHERE signature_hash = :signature_hash
-            AND domain_id = :domain_id
+              superseded_by = $1
+          WHERE signature_hash = $3
+            AND domain_id = $4
             AND is_current = TRUE
           RETURNING id
         )
@@ -910,19 +910,19 @@ db_repository:
           is_current,
           supersedes
         ) VALUES (
-          :id,
-          :signature,
-          :signature_hash,
-          :domain_id,
-          :domain_version,
-          :domain_candidates,
-          :keywords,
-          :confidence,
-          :quality_score,
-          :status,
-          :source_session_ids,
-          :recurrence_count,
-          :version,
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
           TRUE,
           (SELECT id FROM deactivated LIMIT 1)
         )
@@ -1037,9 +1037,9 @@ db_repository:
           status, is_current
         )
         VALUES (
-          :id, :signature, :signature_hash, :domain_id,
-          :domain_version, :confidence, :version,
-          :source_session_ids,
+          $1, $2, $3, $4,
+          $5, $6, $7,
+          $8,
           'candidate', FALSE
         )
         ON CONFLICT (pattern_signature, domain_id, version)
