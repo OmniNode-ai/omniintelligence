@@ -515,24 +515,6 @@ def _schedule_watches(
         observer.schedule(compat_handler, path=path, recursive=True)
 
 
-def _schedule_watches_compat(
-    observer: Any, event_handler: Any, config: ModelWatchdogConfig
-) -> None:
-    """Compatibility schedule helper for mocked observers.
-
-    Calls ``observer.schedule(handler, path, recursive=True)`` for each
-    watched path.  This signature matches both real watchdog observers and
-    the mock observer used in unit tests.
-
-    Args:
-        observer: Observer instance (real or mock).
-        event_handler: Event handler instance.
-        config: Configuration containing watched paths.
-    """
-    for path in config.watched_paths:
-        observer.schedule(event_handler, path=path, recursive=True)
-
-
 __all__ = [
     "TOPIC_CRAWL_REQUESTED_V1",
     "start_watching",
