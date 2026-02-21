@@ -1,0 +1,83 @@
+---
+# ONEX Node Contract - Intent Drift Detect Compute Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_intent_drift_detect_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Pure compute node that detects when tool calls or file changes diverge from the declared intent class.
+  Returns a ModelIntentDriftSignal when drift is detected, or None when clean. Detection is observational
+  only and never blocks execution. Signals are emitted to onex.evt.intent.drift.detected.v1 by the orchestrator.
+input_model:
+  name: "ModelIntentDriftInput"
+  module: "omniintelligence.nodes.node_intent_drift_detect_compute.models"
+  description: "Tool-call event correlated with active session intent class."
+output_model:
+  name: "ModelIntentDriftSignal"
+  module: "omniintelligence.nodes.node_intent_drift_detect_compute.models"
+  description: "Detected drift signal (or None when clean)."
+operations:
+  - name: "detect_drift"
+    description: "Classify a tool-call event for drift against the active session intent"
+    input_fields:
+      - session_id
+      - correlation_id
+      - intent_class
+      - tool_name
+      - files_modified
+      - detected_at
+    output_fields:
+      - event_type
+      - session_id
+      - correlation_id
+      - intent_class
+      - drift_type
+      - severity
+      - tool_name
+      - files_modified
+      - reason
+      - detected_at
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "detect_drift"
+      handler:
+        function: "detect_drift"
+        module: "omniintelligence.nodes.node_intent_drift_detect_compute.handlers"
+        type: "sync"
+# No event_bus section — this is a pure compute node (no Kafka I/O).
+# The orchestrator emits the returned signal to onex.evt.intent.drift.detected.v1.
+dependencies: []
+error_handling:
+  error_types:
+    - name: "DriftDetectionValidationError"
+      error_code: "DRIFT_001"
+      description: "Input validation failed (missing intent class or tool name)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DriftDetectionComputeError"
+      error_code: "DRIFT_002"
+      description: "Error during drift detection computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-21"
+  updated: "2026-02-21"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "intent"
+    - "drift"
+    - "detection"
+    - "observability"

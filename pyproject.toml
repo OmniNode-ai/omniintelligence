@@ -276,4 +276,5 @@ markers = [
     "performance: marks tests as performance benchmarks",
     "unit: marks tests as unit tests",
     "audit: marks tests as I/O audit enforcement tests",
+    "drift: marks tests for intent drift detection logic",
 ]
