@@ -126,7 +126,6 @@ class TestStartWatching:
         )
         assert mock_observer.started is True
 
-    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_start_watching_schedules_watches_for_all_paths(
         self,

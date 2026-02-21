@@ -56,9 +56,11 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
     """Create asyncpg connection pool without keeping credentials in scope.
 
     When *database_url* is supplied it is used directly.  Otherwise the
-    pool is created from discrete ``DatabaseSettings`` fields so that no
-    assembled DSN string lingers in a local variable that could leak
-    through exception tracebacks.
+    pool is created by reading ``OMNIINTELLIGENCE_DB_URL`` first (consistent
+    with how ``PluginIntelligence`` connects), and falling back to discrete
+    ``DatabaseSettings`` fields only when that var is absent.  This prevents
+    the shared ``POSTGRES_DATABASE`` env var from routing the API to the
+    wrong database when the service-specific URL is not set.
 
     Args:
         database_url: Optional pre-built PostgreSQL DSN.
@@ -70,9 +72,18 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
         Exception: Re-raises any pool creation error after logging an
             actionable diagnostic message.
     """
+    import os
+
     try:
         if database_url is not None:
             return await asyncpg.create_pool(dsn=database_url, min_size=2, max_size=10)
+
+        # Prefer the service-specific URL (same var used by PluginIntelligence)
+        # so that POSTGRES_DATABASE from the shared bridge env does not override
+        # the omniintelligence database target.
+        omni_db_url = os.getenv("OMNIINTELLIGENCE_DB_URL")
+        if omni_db_url:
+            return await asyncpg.create_pool(dsn=omni_db_url, min_size=2, max_size=10)
 
         settings = DatabaseSettings()  # type: ignore[call-arg]  # fields populated from env vars at runtime
         return await asyncpg.create_pool(
@@ -87,15 +98,15 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
     except ValidationError:
         logger.exception(
             "Missing required database configuration. "
-            "Check POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, "
-            "POSTGRES_PASSWORD, POSTGRES_DATABASE environment variables."
+            "Set OMNIINTELLIGENCE_DB_URL, or set POSTGRES_HOST, POSTGRES_PORT, "
+            "POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE environment variables."
         )
         raise
     except Exception:
         logger.exception(
             "Failed to create database connection pool. "
-            "Verify POSTGRES_HOST, POSTGRES_PORT, and POSTGRES_PASSWORD "
-            "are correct and that the database is reachable."
+            "Verify OMNIINTELLIGENCE_DB_URL (or POSTGRES_HOST, POSTGRES_PORT, "
+            "and POSTGRES_PASSWORD) are correct and that the database is reachable."
         )
         raise
 

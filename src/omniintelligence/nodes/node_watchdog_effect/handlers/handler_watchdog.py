@@ -259,20 +259,31 @@ async def start_watching(
         # would make the first observer untrackable — it keeps running forever,
         # leaking OS file-descriptor handles.  Return early with STARTED so
         # callers get a well-defined result without silently corrupting state.
+        #
+        # Use the stored config's watched_paths (the paths the running observer
+        # is actually watching), not config.watched_paths from the new (rejected)
+        # call — the caller should see the state of the running observer, not
+        # the state they tried to start.
         existing_observer = RegistryWatchdogEffect.get_observer()
         if existing_observer is not None:
+            active_config = RegistryWatchdogEffect.get_config()
+            active_watched_paths = (
+                tuple(active_config.watched_paths)
+                if active_config is not None
+                else tuple(config.watched_paths)
+            )
             logger.warning(
                 "WatchdogEffect: start_watching() called but an observer is already "
                 "running — ignoring duplicate start request",
                 extra={
-                    "watched_paths": config.watched_paths,
+                    "watched_paths": active_watched_paths,
                     "correlation_id": str(correlation_id),
                 },
             )
             return ModelWatchdogResult(
                 status=EnumWatchdogStatus.STARTED,
                 observer_type=RegistryWatchdogEffect.get_observer_type(),
-                watched_paths=tuple(config.watched_paths),
+                watched_paths=active_watched_paths,
                 correlation_id=correlation_id,
             )
 
@@ -344,34 +355,19 @@ async def start_watching(
             )
 
             # Schedule recursive watches for all configured paths.
-            # WHY this import-guard pattern: we import BaseObserver solely to
-            # detect whether the real watchdog package is installed at runtime.
-            # When watchdog IS installed the observer is a real BaseObserver
-            # subclass and _schedule_watches() wraps the handler in the
-            # FileSystemEventHandler subclass that watchdog's schedule() API
-            # requires.  When watchdog is NOT installed (unit tests inject a
-            # MockObserver) the ImportError branch falls through to
-            # _schedule_watches_compat(), which calls observer.schedule()
-            # directly without the FileSystemEventHandler wrapper — the mock
-            # accepts any handler object.  This lets us distinguish injected
-            # mock observers from real watchdog observers at scheduling time
-            # without adding an isinstance() check on the observer itself.
-            try:
-                from watchdog.observers.api import (
-                    BaseObserver as _BaseObserver,  # noqa: F401
-                )
-
-                _schedule_watches(observer, event_handler, config)
-            except ImportError:
-                # watchdog not installed — schedule_watches won't work
-                # This branch is only hit when a mock observer is injected
-                _schedule_watches_compat(observer, event_handler, config)
+            # _schedule_watches() wraps the handler in a FileSystemEventHandler
+            # subclass as required by watchdog's schedule() API.  Mock observers
+            # injected in tests accept any handler type, so this works for both
+            # real and test contexts.
+            _schedule_watches(observer, event_handler, config)
 
         # Start the observer thread (non-blocking — runs in background)
         observer.start()
 
         # Register in module-level registry for stop_watching()
-        RegistryWatchdogEffect.register_observer(observer, observer_type)
+        # Pass config so the double-start guard can report the running
+        # observer's watched_paths rather than those of a rejected new call.
+        RegistryWatchdogEffect.register_observer(observer, observer_type, config)
 
         logger.info(
             "WatchdogEffect: observer started",
@@ -491,35 +487,32 @@ def _schedule_watches(
 ) -> None:
     """Schedule recursive watches via watchdog's native schedule() API.
 
+    Wraps the event handler in a ``FileSystemEventHandler`` subclass so
+    watchdog's ``observer.schedule()`` API accepts it.  Mock observers
+    injected in tests accept ``Any`` handler, so the wrapped handler
+    passes through without issue.
+
     Args:
-        observer: The watchdog BaseObserver instance.
+        observer: The watchdog BaseObserver instance (real or mock).
         event_handler: The event handler to attach to each path.
         config: Configuration containing watched paths.
     """
-    try:
-        from watchdog.events import FileSystemEventHandler
+    from watchdog.events import FileSystemEventHandler
 
-        # Wrap _AsyncKafkaEventHandler in a FileSystemEventHandler subclass
-        # so watchdog's observer accepts it
-        class _WatchdogCompatHandler(FileSystemEventHandler):
-            def __init__(self, inner: _AsyncKafkaEventHandler) -> None:
-                super().__init__()
-                self._inner = inner
+    # Wrap _AsyncKafkaEventHandler in a FileSystemEventHandler subclass
+    # so watchdog's observer accepts it
+    class _WatchdogCompatHandler(FileSystemEventHandler):
+        def __init__(self, inner: _AsyncKafkaEventHandler) -> None:
+            super().__init__()
+            self._inner = inner
 
-            def dispatch(self, event: Any) -> None:
-                self._inner.dispatch(event)
+        def dispatch(self, event: Any) -> None:
+            self._inner.dispatch(event)
 
-        compat_handler = _WatchdogCompatHandler(event_handler)
+    compat_handler = _WatchdogCompatHandler(event_handler)
 
-        for path in config.watched_paths:
-            observer.schedule(compat_handler, path=path, recursive=True)
-
-    except ImportError:
-        # fallback-ok: watchdog.events not importable — test context with mocked watchdog; use compat path
-        logger.debug(
-            "watchdog.events not importable, falling back to compat scheduling path"
-        )
-        _schedule_watches_compat(observer, event_handler, config)
+    for path in config.watched_paths:
+        observer.schedule(compat_handler, path=path, recursive=True)
 
 
 def _schedule_watches_compat(
