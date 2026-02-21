@@ -134,7 +134,6 @@ event_bus:
 
   subscribe_topics:
     - "onex.evt.omniintelligence.pattern-promoted.v1"
-    - "onex.evt.omniintelligence.pattern-deprecated.v1"
     - "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 
   publish_topics:
@@ -144,9 +143,6 @@ event_bus:
     "onex.evt.omniintelligence.pattern-promoted.v1":
       schema_ref: "dict"
       description: "Pattern promoted lifecycle event (trigger for projection rebuild)"
-    "onex.evt.omniintelligence.pattern-deprecated.v1":
-      schema_ref: "dict"
-      description: "Pattern deprecated lifecycle event (trigger for projection rebuild)"
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_lifecycle_effect.models.ModelPatternLifecycleTransitionedEvent"
       description: "Unified pattern lifecycle transition event (trigger for projection rebuild)"

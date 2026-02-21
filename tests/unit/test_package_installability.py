@@ -55,6 +55,7 @@ EXPECTED_NODE_DIRS = [
     "node_semantic_analysis_compute",
     "node_success_criteria_matcher_compute",
     "node_crawl_scheduler_effect",
+    "node_watchdog_effect",
 ]
 
 # Handler functions/classes that HandlerPluginLoader resolves dynamically.

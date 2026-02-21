@@ -120,9 +120,6 @@ DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
 DISPATCH_ALIAS_PATTERN_PROMOTED = "onex.events.omniintelligence.pattern-promoted.v1"
 """Dispatch-compatible alias for pattern-promoted canonical topic (OMN-2424)."""
 
-DISPATCH_ALIAS_PATTERN_DEPRECATED = "onex.events.omniintelligence.pattern-deprecated.v1"
-"""Dispatch-compatible alias for pattern-deprecated canonical topic (OMN-2424)."""
-
 DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.events.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
@@ -1943,18 +1940,6 @@ def create_intelligence_dispatch_engine(
         )
         engine.register_route(
             ModelDispatchRoute(
-                route_id="intelligence-pattern-deprecated-projection-route",
-                topic_pattern=DISPATCH_ALIAS_PATTERN_DEPRECATED,
-                message_category=EnumMessageCategory.EVENT,
-                handler_id="intelligence-pattern-projection-handler",
-                description=(
-                    "Routes pattern-deprecated events to projection handler (OMN-2424). "
-                    "Triggers a full validated-pattern snapshot publish."
-                ),
-            )
-        )
-        engine.register_route(
-            ModelDispatchRoute(
                 route_id="intelligence-pattern-lifecycle-transitioned-projection-route",
                 topic_pattern=DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED,
                 message_category=EnumMessageCategory.EVENT,
@@ -2235,7 +2220,6 @@ def create_dispatch_callback(
 __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
-    "DISPATCH_ALIAS_PATTERN_DEPRECATED",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
