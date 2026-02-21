@@ -215,4 +215,6 @@ markers = [
     "drift: marks tests for intent drift detection logic",
     "forecast: marks tests for intent cost and latency forecasting logic",
     "baseline: marks tests for historical cost/latency baseline management",
+    "intent_graph: marks tests for intent graph accumulation logic",
+    "transition: marks tests for intent transition edge accumulation",
 ]
