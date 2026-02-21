@@ -46,7 +46,7 @@ class DatabaseSettings(BaseSettings):
     host: str = Field(..., description="PostgreSQL host address")
     port: int = Field(default=5436, description="PostgreSQL port")
     database: str = Field(
-        default="omninode_bridge", description="PostgreSQL database name"
+        default="omniintelligence", description="PostgreSQL database name"
     )
     user: str = Field(default="postgres", description="PostgreSQL user")
     password: str = Field(..., description="PostgreSQL password")

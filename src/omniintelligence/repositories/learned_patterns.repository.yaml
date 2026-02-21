@@ -46,7 +46,7 @@ node_type: "SERVICE"
 db_repository:
   name: learned_patterns
   engine: postgres
-  database_ref: omninode_bridge
+  database_ref: omniintelligence
   description: |
     Repository for accessing learned patterns from the pattern store.
     Used by the pattern learning pipeline and manifest injection system.
