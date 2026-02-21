@@ -59,6 +59,39 @@ class RegistryWatchdogEffect:
     _OBSERVER_KEY = "observer"
     _OBSERVER_TYPE_KEY = "observer_type"
     _CONFIG_KEY = "config"
+    # Sentinel key set atomically before factory()/schedule_watches() to
+    # prevent a second concurrent start_watching() call from racing past the
+    # get_observer() check.  Cleared on rollback (start failure) or replaced
+    # by register_observer() on success.
+    _STARTING_KEY = "_starting"
+
+    @staticmethod
+    def claim_start_slot() -> bool:
+        """Atomically claim the start slot if no observer is active or starting.
+
+        Returns True if the caller is now the designated starter; False if
+        another call already holds the slot (either a running observer or a
+        concurrent start in progress).  When True is returned the registry
+        contains a ``_starting`` sentinel that prevents racing callers from
+        also claiming the slot.
+        """
+        with _REGISTRY_LOCK:
+            if _HANDLER_STORAGE.get(RegistryWatchdogEffect._OBSERVER_KEY) is not None:
+                return False
+            if _HANDLER_STORAGE.get(RegistryWatchdogEffect._STARTING_KEY):
+                return False
+            _HANDLER_STORAGE[RegistryWatchdogEffect._STARTING_KEY] = True
+            return True
+
+    @staticmethod
+    def release_start_slot() -> None:
+        """Release the start sentinel without registering an observer.
+
+        Called on rollback (e.g. factory() or observer.start() raised) so
+        subsequent start_watching() calls are not permanently blocked.
+        """
+        with _REGISTRY_LOCK:
+            _HANDLER_STORAGE.pop(RegistryWatchdogEffect._STARTING_KEY, None)
 
     @staticmethod
     def register_observer(
@@ -67,6 +100,9 @@ class RegistryWatchdogEffect:
         config: Any = None,
     ) -> None:
         """Register the active watchdog observer instance.
+
+        Replaces the ``_starting`` sentinel with the real observer so the
+        double-start guard reflects the running state.
 
         Args:
             observer: The running watchdog observer (FSEventsObserver,
@@ -77,6 +113,7 @@ class RegistryWatchdogEffect:
                 watched_paths from the running observer's config.
         """
         with _REGISTRY_LOCK:
+            _HANDLER_STORAGE.pop(RegistryWatchdogEffect._STARTING_KEY, None)
             _HANDLER_STORAGE[RegistryWatchdogEffect._OBSERVER_KEY] = observer
             _HANDLER_STORAGE[RegistryWatchdogEffect._OBSERVER_TYPE_KEY] = observer_type
             if config is not None:

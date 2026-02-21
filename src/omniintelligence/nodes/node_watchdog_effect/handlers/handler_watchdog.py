@@ -42,7 +42,6 @@ Reference: OMN-2386
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -261,19 +260,21 @@ async def start_watching(
     )
 
     try:
-        # Guard: prevent double-start.
-        # If an observer is already registered the previous call to
-        # start_watching() already owns it.  Overwriting the registry entry
-        # would make the first observer untrackable — it keeps running forever,
-        # leaking OS file-descriptor handles.  Return early with STARTED so
-        # callers get a well-defined result without silently corrupting state.
+        # Guard: prevent double-start — atomic check-then-act.
         #
-        # Use the stored config's watched_paths (the paths the running observer
-        # is actually watching), not config.watched_paths from the new (rejected)
-        # call — the caller should see the state of the running observer, not
-        # the state they tried to start.
-        existing_observer = RegistryWatchdogEffect.get_observer()
-        if existing_observer is not None:
+        # claim_start_slot() atomically checks for a running observer *and* a
+        # concurrent start-in-progress sentinel, then sets the sentinel under
+        # a single lock acquisition.  This closes the race window that existed
+        # when get_observer() and register_observer() were two separate lock
+        # acquisitions: two concurrent asyncio tasks could both observe None
+        # from get_observer() and then both proceed through factory() and
+        # _schedule_watches() before either called register_observer().
+        #
+        # If claim_start_slot() returns False, either an observer is already
+        # running or another concurrent start_watching() call holds the slot.
+        # Return STARTED with the active observer's state so callers get a
+        # well-defined result without silently corrupting state.
+        if not RegistryWatchdogEffect.claim_start_slot():
             active_config = RegistryWatchdogEffect.get_config()
             active_watched_paths = (
                 tuple(active_config.watched_paths)
@@ -282,7 +283,7 @@ async def start_watching(
             )
             logger.warning(
                 "WatchdogEffect: start_watching() called but an observer is already "
-                "running — ignoring duplicate start request",
+                "running or starting — ignoring duplicate start request",
                 extra={
                     "watched_paths": active_watched_paths,
                     "correlation_id": str(correlation_id),
@@ -299,6 +300,9 @@ async def start_watching(
         # watchdog raises OSError at observer.schedule() time for missing paths, which
         # is caught by the outer except and returned as ERROR.  An earlier explicit check
         # gives operators a clearer error message pointing to the specific missing path.
+        #
+        # Release the start slot before returning ERROR so subsequent calls are
+        # not permanently blocked by the sentinel set in claim_start_slot().
         for watched_path in config.watched_paths:
             if not Path(watched_path).exists():
                 missing_msg = f"watched path does not exist: {watched_path}"
@@ -310,6 +314,7 @@ async def start_watching(
                         "correlation_id": str(correlation_id),
                     },
                 )
+                RegistryWatchdogEffect.release_start_slot()
                 return ModelWatchdogResult(
                     status=EnumWatchdogStatus.ERROR,
                     error_message=missing_msg,
@@ -406,6 +411,13 @@ async def start_watching(
         )
 
     except Exception as exc:
+        # Release the start sentinel so subsequent start_watching() calls are
+        # not permanently blocked.  If register_observer() already replaced the
+        # sentinel with the real observer entry (i.e. observer.start() raised),
+        # release_start_slot() is a no-op because the sentinel key is gone;
+        # RegistryWatchdogEffect.clear() was already called by the inner
+        # observer.start() failure handler in that case.
+        RegistryWatchdogEffect.release_start_slot()
         sanitized = get_log_sanitizer().sanitize(str(exc))
         logger.exception(
             "WatchdogEffect: failed to start observer",
@@ -467,8 +479,19 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
 
         # Join with timeout offloaded to a thread so the event loop is not blocked.
         # Failures here are non-fatal — the registry has already been cleared above.
-        with contextlib.suppress(Exception):
+        # Log a warning if join times out or raises so operators are aware that
+        # the OS observer thread may still be alive (resource leak risk).
+        try:
             await asyncio.to_thread(observer.join, 5.0)
+        except Exception as join_exc:
+            logger.warning(
+                "WatchdogEffect: observer.join() did not complete cleanly — "
+                "OS observer thread may still be alive",
+                extra={
+                    "error": get_log_sanitizer().sanitize(str(join_exc)),
+                    "correlation_id": str(correlation_id),
+                },
+            )
 
         logger.info(
             "WatchdogEffect: observer stopped",
@@ -529,6 +552,10 @@ def _schedule_watches(
         def dispatch(self, event: Any) -> None:
             self._inner.dispatch(event)
 
+    # One shared compat_handler wraps the single _AsyncKafkaEventHandler instance
+    # and is reused for all watched paths. This is intentional: all paths share
+    # the same async dispatch logic and Kafka publisher, so a single handler
+    # instance is correct and avoids redundant object creation per path.
     compat_handler = _WatchdogCompatHandler(event_handler)
 
     for path in config.watched_paths:

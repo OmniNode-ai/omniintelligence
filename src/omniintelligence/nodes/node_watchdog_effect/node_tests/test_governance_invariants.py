@@ -20,6 +20,7 @@ Reference:
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -187,8 +188,6 @@ class TestStartWatching:
           immediately (no new observer started), and logs a warning.
         Only one observer must be started across both calls.
         """
-        import logging
-
         factory, _ = mock_observer_factory_fn(EnumWatchdogObserverType.POLLING)
 
         # First call — must start the observer

@@ -73,6 +73,10 @@ class ModelWatchdogConfig(BaseModel):
         ),
     )
 
+    # NOTE: Pydantic 2 serializes frozenset fields as plain sets in JSON output
+    # (the frozenset type is not preserved on round-trip). This is intentional:
+    # ignored_suffixes is used for in-memory filtering only and is never
+    # serialized to an event schema or stored externally.
     ignored_suffixes: frozenset[str] = Field(
         default=_DEFAULT_IGNORED_SUFFIXES,
         description=(

@@ -21,7 +21,7 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register intelligence dispatchers (now 8 handlers, 10 routes)
+    - OMN-2032: Register intelligence dispatchers (now 8 unconditional handlers, 10 routes + 1 conditional)
     - OMN-934: MessageDispatchEngine implementation
     - OMN-2339: Add node_compliance_evaluate_effect and its dispatcher
     - OMN-2384: Add node_crawl_scheduler_effect dispatchers
@@ -1680,8 +1680,10 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers 8 required intelligence domain handlers (10 routes)
-    and freezes it. The engine is ready for dispatch after this call.
+    Creates the engine, registers 8 unconditional intelligence domain handlers
+    (10 routes) plus 1 conditional pattern-projection handler (3 routes) when
+    pattern_query_store satisfies ProtocolPatternQueryStore, then freezes the
+    engine. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
     should not start consumers.
