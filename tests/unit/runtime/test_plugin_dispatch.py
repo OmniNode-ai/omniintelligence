@@ -305,6 +305,7 @@ class TestPluginWireDispatchers:
     async def test_wire_dispatchers_returns_failed_without_pool(self) -> None:
         """wire_dispatchers should return failed result when pool is None."""
         plugin = PluginIntelligence()
+        plugin._handshake_validated = True  # bypass guard — not testing handshake here
         config = _make_config()
 
         # Do not set plugin._pool -- leave it None
@@ -321,6 +322,7 @@ class TestPluginWireDispatchers:
         plugin._pool = _make_mock_pool()
         plugin._pattern_runtime = _make_mock_runtime()
         plugin._idempotency_store = _make_mock_idempotency_store()
+        plugin._handshake_validated = True  # bypass guard — not testing handshake here
         config = _make_config()
 
         with patch(
@@ -484,6 +486,7 @@ class TestPluginStartConsumersSkipped:
     async def test_returns_skipped_without_engine(self) -> None:
         """Without wire_dispatchers, start_consumers should return skipped."""
         plugin = PluginIntelligence()
+        plugin._handshake_validated = True  # bypass guard — not testing handshake here
         config = _make_config()
 
         # Skip wire_dispatchers -- go straight to start_consumers
@@ -498,6 +501,7 @@ class TestPluginStartConsumersSkipped:
         """Without wire_dispatchers, no topics should be subscribed."""
         event_bus = _StubEventBus()
         plugin = PluginIntelligence()
+        plugin._handshake_validated = True  # bypass guard — not testing handshake here
         config = _make_config(event_bus=event_bus)
 
         # Skip wire_dispatchers -- go straight to start_consumers
