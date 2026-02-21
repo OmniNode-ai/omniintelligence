@@ -58,39 +58,6 @@ def score_severity(
     return "info"
 
 
-def _check_tool_mismatch(
-    intent_class: EnumIntentClass,
-    tool_name: str,
-    sensitivity: ModelDriftSensitivity,
-) -> ModelIntentDriftSignal | None:
-    """Return a tool_mismatch drift signal if the tool is suspicious.
-
-    Args:
-        intent_class: The active intent class.
-        tool_name: The tool that was called.
-        sensitivity: Sensitivity thresholds.
-
-    Returns:
-        ModelIntentDriftSignal if drift detected, else None.
-    """
-    # FEATURE has an empty suspicious set — never triggers tool_mismatch
-    suspicious = get_suspicious_tools(intent_class)
-    if not suspicious:
-        return None
-
-    if tool_name not in suspicious:
-        return None
-
-    threshold = sensitivity.tool_mismatch_threshold
-    if threshold == 0.0:
-        return None
-
-    # Score = threshold (direct mapping; suspicious match raises to sensitivity level)
-    severity = score_severity(threshold)
-
-    return None  # sentinel — returned below with proper data
-
-
 def _detect_tool_mismatch(
     input_data: ModelIntentDriftInput,
     sensitivity: ModelDriftSensitivity,
