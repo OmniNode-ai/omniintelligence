@@ -224,7 +224,7 @@ async def start_watching(
             )
 
         # Get current event loop for thread-safe scheduling
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         if kafka_publisher is not None:
             # Build async event handler that bridges OS events to Kafka

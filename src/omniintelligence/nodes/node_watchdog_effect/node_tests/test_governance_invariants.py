@@ -272,7 +272,7 @@ class TestAsyncKafkaEventHandler:
         tmp_path: Any,
     ) -> None:
         """A file change event must publish to crawl-requested.v1."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         handler = _AsyncKafkaEventHandler(
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
@@ -308,7 +308,7 @@ class TestAsyncKafkaEventHandler:
         tmp_path: Any,
     ) -> None:
         """Directory change events must NOT publish to Kafka."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         handler = _AsyncKafkaEventHandler(
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
@@ -332,7 +332,7 @@ class TestAsyncKafkaEventHandler:
         tmp_path: Any,
     ) -> None:
         """Files with ignored suffixes must NOT publish to Kafka."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         handler = _AsyncKafkaEventHandler(
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
@@ -355,7 +355,7 @@ class TestAsyncKafkaEventHandler:
         mock_kafka_publisher: MockKafkaPublisher,
     ) -> None:
         """Events with empty src_path must be silently skipped."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         handler = _AsyncKafkaEventHandler(
             kafka_publisher=mock_kafka_publisher,
             config=default_config,
