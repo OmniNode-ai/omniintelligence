@@ -9,6 +9,7 @@ Intelligence-specific initialization code for kernel bootstrap.
 The plugin handles:
     - PostgreSQL pool creation for pattern storage
     - Message type registration with RegistryMessageType (OMN-2039)
+    - Boot-time handshake validation: DB ownership (B1) and schema fingerprint (B2) (OMN-2435)
     - Pattern lifecycle management handler wiring
     - Session feedback processing handler wiring
     - Claude hook event processing handler wiring
@@ -94,7 +95,7 @@ import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
@@ -107,16 +108,33 @@ if TYPE_CHECKING:
         IntelligenceNodeIntrospectionProxy,
     )
 
+from omnibase_infra.errors import (
+    DbOwnershipMismatchError,
+    DbOwnershipMissingError,
+    SchemaFingerprintMismatchError,
+    SchemaFingerprintMissingError,
+)
+from omnibase_infra.runtime.models.model_handshake_check_result import (
+    ModelHandshakeCheckResult,
+)
+from omnibase_infra.runtime.models.model_handshake_result import (
+    ModelHandshakeResult,
+)
 from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginConfig,
     ModelDomainPluginResult,
     ProtocolDomainPlugin,
 )
+from omnibase_infra.runtime.util_db_ownership import validate_db_ownership
+from omnibase_infra.runtime.util_schema_fingerprint import validate_schema_fingerprint
 from pydantic import BaseModel
 
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
     collect_subscribe_topics_from_contracts,
+)
+from omniintelligence.runtime.model_schema_manifest import (
+    OMNIINTELLIGENCE_SCHEMA_MANIFEST,
 )
 from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -501,6 +519,108 @@ class PluginIntelligence:
                 error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
+
+    async def validate_handshake(
+        self,
+        config: ModelDomainPluginConfig,
+    ) -> ModelHandshakeResult:
+        """Run B1-B2 prerequisite checks before handler wiring.
+
+        Validates:
+            B1: Database ownership (OMN-2085) -- prevents operating on a
+                database owned by another service.
+            B2: Schema fingerprint (OMN-2087) -- prevents operating on a
+                database whose schema has drifted from what code expects.
+
+        Args:
+            config: Plugin configuration with container and correlation_id.
+
+        Returns:
+            ModelHandshakeResult indicating whether all checks passed.
+            On failure, the kernel aborts before wiring handlers.
+
+        Raises:
+            DbOwnershipMismatchError: B1 failure -- wrong database owner.
+            DbOwnershipMissingError: B1 failure -- no ownership record.
+            SchemaFingerprintMismatchError: B2 failure -- schema drift.
+            SchemaFingerprintMissingError: B2 failure -- no fingerprint.
+        """
+        import asyncpg
+
+        correlation_id = config.correlation_id
+        checks: list[ModelHandshakeCheckResult] = []
+
+        if self._pool is None:
+            return ModelHandshakeResult.failed(
+                plugin_id=self.plugin_id,
+                error_message="Cannot validate handshake: PostgreSQL pool not initialized",
+            )
+
+        pool = cast(asyncpg.Pool, self._pool)
+
+        # B1: Validate DB ownership
+        try:
+            await validate_db_ownership(
+                pool=pool,
+                expected_owner="omniintelligence",
+                correlation_id=correlation_id,
+            )
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="db_ownership",
+                    passed=True,
+                    message="Database owned by omniintelligence",
+                )
+            )
+        except (DbOwnershipMismatchError, DbOwnershipMissingError) as e:
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="db_ownership",
+                    passed=False,
+                    message=str(e),
+                )
+            )
+            raise
+
+        # B2: Validate schema fingerprint
+        try:
+            await validate_schema_fingerprint(
+                pool=pool,
+                manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
+                correlation_id=correlation_id,
+            )
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="schema_fingerprint",
+                    passed=True,
+                    message="Schema fingerprint matches manifest",
+                )
+            )
+        except (SchemaFingerprintMismatchError, SchemaFingerprintMissingError) as e:
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="schema_fingerprint",
+                    passed=False,
+                    message=str(e),
+                )
+            )
+            raise
+
+        logger.info(
+            "Handshake validation passed: %d/%d checks (correlation_id=%s)",
+            len([c for c in checks if c.passed]),
+            len(checks),
+            correlation_id,
+            extra={
+                "check_names": [c.check_name for c in checks],
+                "all_passed": all(c.passed for c in checks),
+            },
+        )
+
+        return ModelHandshakeResult.all_passed(
+            plugin_id=self.plugin_id,
+            checks=checks,
+        )
 
     async def _cleanup_on_failure(self, config: ModelDomainPluginConfig) -> None:
         """Clean up resources if initialization fails."""
