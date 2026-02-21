@@ -293,6 +293,21 @@ async def test_wire_handlers_raises_when_handshake_not_validated() -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_wire_dispatchers_raises_when_handshake_not_validated() -> None:
+    """wire_dispatchers() raises RuntimeError when validate_handshake() has not been called."""
+    plugin = PluginIntelligence()
+    # Default initial state: _handshake_validated is False
+    assert not plugin._handshake_validated
+    config = _make_config()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await plugin.wire_dispatchers(config)
+
+    assert "validate_handshake" in str(exc_info.value)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_validate_handshake_b1_failure_is_stateless_across_repeated_calls() -> (
     None
 ):

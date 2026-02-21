@@ -32,7 +32,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_db_metadata_updated_at
+CREATE OR REPLACE TRIGGER trigger_db_metadata_updated_at
     BEFORE UPDATE ON db_metadata
     FOR EACH ROW
     EXECUTE FUNCTION update_db_metadata_updated_at();

@@ -1056,6 +1056,12 @@ class PluginIntelligence:
         start_time = time.time()
         correlation_id = config.correlation_id
 
+        if not self._handshake_validated:
+            raise RuntimeError(
+                "start_consumers() called before validate_handshake() — "
+                "kernel bootstrap sequence violated"
+            )
+
         # Strict gating: no dispatch engine = no consumers
         if self._dispatch_engine is None:
             return ModelDomainPluginResult.skipped(
