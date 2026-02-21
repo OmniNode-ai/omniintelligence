@@ -78,7 +78,7 @@ Example Usage:
     if plugin and plugin.should_activate(config):
         result = await plugin.initialize(config)
         if not result.success:
-            return  # or handle failure
+            return  # or raise/abort — do not silently continue
         await plugin.validate_handshake(config)  # caller/kernel handles raised errors
         await plugin.wire_handlers(config)
         await plugin.wire_dispatchers(config)
@@ -582,6 +582,7 @@ class PluginIntelligence:
                 "initialize() did not run or failed (correlation_id=%s)",
                 correlation_id,
             )
+            await self._cleanup_on_failure(config)
             raise RuntimeHostError(
                 "Cannot validate handshake: PostgreSQL pool not initialized "
                 "(initialize() did not run or failed)"
@@ -665,6 +666,15 @@ class PluginIntelligence:
                     manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
                     correlation_id=correlation_id,
                 )
+                manifest_table_count = len(OMNIINTELLIGENCE_SCHEMA_MANIFEST.tables)
+                if fingerprint_result.table_count != manifest_table_count:
+                    raise RuntimeHostError(
+                        f"Schema fingerprint auto-stamp aborted: live schema has "
+                        f"{fingerprint_result.table_count} tables but manifest expects "
+                        f"{manifest_table_count}. "
+                        f"Ensure all service migrations (including omnibase_infra) have run "
+                        f"before starting this service."
+                    )
                 # Race condition note: two simultaneous first-boot instances could both
                 # detect NULL fingerprint and both execute this UPDATE.  The race is
                 # benign: both instances compute the same fingerprint from the same live
@@ -681,9 +691,8 @@ class PluginIntelligence:
                     )
             except Exception:
                 # Any exception in the auto-stamp path (compute failure, pool error,
-                # UPDATE 0 / RuntimeHostError, or unexpected error) — clean up resources
-                # so the service does not hold an open pool on a fatal startup path.
-                # The exception propagates uncaught to the kernel.
+                # table count mismatch, UPDATE 0, or unexpected error) — clean up
+                # resources, then re-raise. The exception propagates to the kernel.
                 await self._cleanup_on_failure(config)
                 raise
             logger.info(

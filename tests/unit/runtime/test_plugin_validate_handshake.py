@@ -25,6 +25,9 @@ from omnibase_infra.errors import (
     SchemaFingerprintMismatchError,
     SchemaFingerprintMissingError,
 )
+from omnibase_infra.runtime.model_schema_fingerprint_result import (
+    ModelSchemaFingerprintResult,
+)
 from omnibase_infra.runtime.models.model_handshake_result import ModelHandshakeResult
 from omnibase_infra.runtime.protocol_domain_plugin import ModelDomainPluginConfig
 
@@ -172,10 +175,6 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     fingerprint, stamps it to db_metadata, and returns a passed result.
     No exception is raised — first boot proceeds normally.
     """
-    from omnibase_infra.runtime.model_schema_fingerprint_result import (
-        ModelSchemaFingerprintResult,
-    )
-
     plugin = _make_plugin_with_pool()
     config = _make_config()
 
@@ -230,9 +229,6 @@ async def test_validate_handshake_auto_stamp_update_zero_rows_raises() -> None:
     """UPDATE 0 during auto-stamp raises RuntimeHostError and cleans up pool."""
     plugin = _make_plugin_with_pool()
     config = _make_config()
-    from omnibase_infra.runtime.model_schema_fingerprint_result import (
-        ModelSchemaFingerprintResult,
-    )
 
     error = SchemaFingerprintMissingError(
         "expected_schema_fingerprint is NULL in db_metadata",
@@ -453,3 +449,47 @@ async def test_validate_handshake_second_call_reruns_checks() -> None:
     assert second_result.passed
     assert len(second_result.checks) == 2
     assert all(c.passed for c in second_result.checks)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_auto_stamp_aborts_on_table_count_mismatch() -> None:
+    """Auto-stamp is aborted when the live schema table count does not match the manifest.
+
+    If compute_schema_fingerprint returns a table_count less than the manifest's
+    expected count (e.g. because omnibase_infra migrations have not yet run and
+    idempotency_records is missing), stamping the partial fingerprint would
+    permanently corrupt boot state.  validate_handshake must raise RuntimeHostError
+    with "auto-stamp aborted" in the message and call _cleanup_on_failure() so the
+    pool is released.
+    """
+    plugin = _make_plugin_with_pool()
+    config = _make_config()
+
+    missing_error = SchemaFingerprintMissingError(
+        "expected_schema_fingerprint is NULL in db_metadata",
+        expected_owner="omniintelligence",
+        correlation_id=config.correlation_id,
+    )
+
+    # Return a fingerprint result with fewer tables than the manifest expects (12).
+    fake_fingerprint_result = ModelSchemaFingerprintResult(
+        fingerprint="c" * 64,
+        table_count=10,  # < 12 manifest tables — partial schema
+        column_count=70,
+        constraint_count=15,
+        per_table_hashes=(),
+    )
+
+    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
+
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=AsyncMock(side_effect=missing_error)),
+        patch(_COMPUTE_PATCH, new=AsyncMock(return_value=fake_fingerprint_result)),
+        pytest.raises(RuntimeHostError, match="auto-stamp aborted"),
+    ):
+        await plugin.validate_handshake(config)
+
+    # _cleanup_on_failure must have been called — pool is released to prevent leak.
+    assert plugin._pool is None

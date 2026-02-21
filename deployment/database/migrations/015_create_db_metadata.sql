@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS db_metadata (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ON CONFLICT (id) DO NOTHING: idempotency — if the singleton row already exists
+-- (e.g. migration re-run or applied to a pre-existing database), the INSERT is a
+-- no-op.  The existing row already has the correct owner_service value, so no
+-- UPDATE is needed.  This makes the migration safe to apply multiple times.
 INSERT INTO db_metadata (owner_service) VALUES ('omniintelligence')
 ON CONFLICT (id) DO NOTHING;
 
