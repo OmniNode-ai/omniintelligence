@@ -108,6 +108,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_pattern_demotion_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_feedback_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_lifecycle_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_pattern_projection_effect", EnumNodeKind.EFFECT),
 )
 
 
