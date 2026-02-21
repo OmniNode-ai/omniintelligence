@@ -112,6 +112,7 @@ if TYPE_CHECKING:
 from omnibase_infra.errors import (
     DbOwnershipMismatchError,
     DbOwnershipMissingError,
+    RuntimeHostError,
     SchemaFingerprintMismatchError,
     SchemaFingerprintMissingError,
 )
@@ -541,24 +542,30 @@ class PluginIntelligence:
             On failure, the kernel aborts before wiring handlers.
 
         Raises:
+            RuntimeHostError: Pool is None -- initialize() did not run or failed.
             DbOwnershipMismatchError: B1 failure -- wrong database owner.
             DbOwnershipMissingError: B1 failure -- no ownership record.
             SchemaFingerprintMismatchError: B2 failure -- schema drift.
             SchemaFingerprintMissingError: B2 failure -- no fingerprint.
         """
-        # Deferred import mirrors the pattern used in initialize() for infra imports:
-        # asyncpg is only needed here to satisfy the cast type, so importing it at
-        # the top of the module would pull in the dependency unconditionally.
-        import asyncpg
-
         correlation_id = config.correlation_id
         checks: list[ModelHandshakeCheckResult] = []
 
         if self._pool is None:
-            return ModelHandshakeResult.failed(
-                plugin_id=self.plugin_id,
-                error_message="Cannot validate handshake: PostgreSQL pool not initialized",
+            logger.error(
+                "Cannot validate handshake: _pool is None -- "
+                "initialize() did not run or failed (correlation_id=%s)",
+                correlation_id,
             )
+            raise RuntimeHostError(
+                "Cannot validate handshake: PostgreSQL pool not initialized "
+                "(initialize() did not run or failed)"
+            )
+
+        # Deferred import: asyncpg is only needed below (for the cast) and only
+        # reaches this point when the pool is confirmed non-None, so we import
+        # after the None-check guard rather than at the top of the method.
+        import asyncpg
 
         # The cast is a mypy annotation only — it carries no runtime guarantee.
         # It is safe because self._pool was set in initialize() from
@@ -567,17 +574,18 @@ class PluginIntelligence:
         pool = cast(asyncpg.Pool, self._pool)
 
         # B1: Validate DB ownership
+        expected_owner = OMNIINTELLIGENCE_SCHEMA_MANIFEST.owner_service
         try:
             await validate_db_ownership(
                 pool=pool,
-                expected_owner="omniintelligence",
+                expected_owner=expected_owner,
                 correlation_id=correlation_id,
             )
             checks.append(
                 ModelHandshakeCheckResult(
                     check_name="db_ownership",
                     passed=True,
-                    message="Database owned by omniintelligence",
+                    message=f"Database owned by {expected_owner}",
                 )
             )
         except (DbOwnershipMismatchError, DbOwnershipMissingError) as e:

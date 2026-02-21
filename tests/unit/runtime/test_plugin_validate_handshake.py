@@ -3,7 +3,7 @@
 """Unit tests for PluginIntelligence.validate_handshake().
 
 Validates:
-    - Returns failed result when pool is None (no gate to run)
+    - Raises RuntimeHostError when pool is None (initialize() did not run)
     - B1 failure path: DbOwnershipMismatchError propagates and appends check
     - B2 failure path: SchemaFingerprintMismatchError propagates and appends check
     - Happy path: both checks pass, returns ModelHandshakeResult.all_passed()
@@ -21,6 +21,7 @@ import pytest
 from omnibase_infra.errors import (
     DbOwnershipMismatchError,
     DbOwnershipMissingError,
+    RuntimeHostError,
     SchemaFingerprintMismatchError,
     SchemaFingerprintMissingError,
 )
@@ -63,17 +64,15 @@ def _make_plugin_with_pool() -> PluginIntelligence:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_validate_handshake_pool_none_returns_failed() -> None:
-    """validate_handshake returns a failed result when _pool is None."""
+async def test_validate_handshake_pool_none_raises() -> None:
+    """validate_handshake raises RuntimeHostError when _pool is None."""
     plugin = PluginIntelligence()
     config = _make_config()
 
-    result = await plugin.validate_handshake(config)
+    with pytest.raises(RuntimeHostError) as exc_info:
+        await plugin.validate_handshake(config)
 
-    assert isinstance(result, ModelHandshakeResult)
-    assert not result.passed
-    assert result.error_message is not None
-    assert "pool not initialized" in result.error_message
+    assert "pool not initialized" in str(exc_info.value)
 
 
 @pytest.mark.unit
