@@ -355,10 +355,12 @@ async def start_watching(
                 },
             )
 
-        # Get current event loop for thread-safe scheduling
-        loop = asyncio.get_running_loop()
-
         if kafka_publisher is not None:
+            # Get current event loop for thread-safe scheduling.
+            # Only needed when kafka_publisher is present — _AsyncKafkaEventHandler
+            # uses the loop to schedule coroutines from the observer thread.
+            loop = asyncio.get_running_loop()
+
             # Build async event handler that bridges OS events to Kafka
             event_handler = _AsyncKafkaEventHandler(
                 kafka_publisher=kafka_publisher,
@@ -481,6 +483,11 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
         # Failures here are non-fatal — the registry has already been cleared above.
         # Log a warning if join times out or raises so operators are aware that
         # the OS observer thread may still be alive (resource leak risk).
+        #
+        # NOTE: threading.Thread.join(timeout) returns normally even when the
+        # timeout expires with the thread still alive — it does NOT raise.
+        # We must explicitly check observer.is_alive() after the join to detect
+        # a timeout expiry and log the appropriate warning.
         try:
             await asyncio.to_thread(observer.join, 5.0)
         except Exception as join_exc:
@@ -492,6 +499,13 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
                     "correlation_id": str(correlation_id),
                 },
             )
+        else:
+            if observer.is_alive():
+                logger.warning(
+                    "WatchdogEffect: observer thread is still alive after join "
+                    "timeout — OS file-descriptor handles may be leaked",
+                    extra={"correlation_id": str(correlation_id)},
+                )
 
         logger.info(
             "WatchdogEffect: observer stopped",
