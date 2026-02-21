@@ -295,6 +295,9 @@ async def test_validate_handshake_auto_stamp_unexpected_error_propagates() -> No
         with pytest.raises(RuntimeError, match="unexpected failure"):
             await plugin.validate_handshake(config)
 
+    # Pool must be cleaned up — resource leak would leave an open connection pool
+    assert plugin._pool is None
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio

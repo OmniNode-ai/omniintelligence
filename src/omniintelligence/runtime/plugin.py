@@ -657,26 +657,35 @@ class PluginIntelligence:
                 "auto-stamping live fingerprint (correlation_id=%s)",
                 correlation_id,
             )
-            fingerprint_result = await compute_schema_fingerprint(
-                pool=pool,
-                manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
-                correlation_id=correlation_id,
-            )
-            # Race condition note: two simultaneous first-boot instances could both
-            # detect NULL fingerprint and both execute this UPDATE.  The race is
-            # benign: both instances compute the same fingerprint from the same live
-            # schema, so the final stored value is identical regardless of ordering.
-            # The UPDATE is effectively idempotent (same value, same WHERE clause).
-            async with pool.acquire() as _conn:  # type: ignore[attr-defined]
-                status = await _conn.execute(
-                    _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
+            try:
+                fingerprint_result = await compute_schema_fingerprint(
+                    pool=pool,
+                    manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
+                    correlation_id=correlation_id,
                 )
-            if status == "UPDATE 0":
+                # Race condition note: two simultaneous first-boot instances could both
+                # detect NULL fingerprint and both execute this UPDATE.  The race is
+                # benign: both instances compute the same fingerprint from the same live
+                # schema, so the final stored value is identical regardless of ordering.
+                # The UPDATE is effectively idempotent (same value, same WHERE clause).
+                async with pool.acquire() as _conn:  # type: ignore[attr-defined]
+                    status = await _conn.execute(
+                        _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
+                    )
+                if status == "UPDATE 0":
+                    await self._cleanup_on_failure(config)
+                    raise RuntimeHostError(
+                        "Failed to stamp schema fingerprint: db_metadata row not found — "
+                        "migration 015 may not have run or row was deleted"
+                    )
+            except RuntimeHostError:
+                raise
+            except Exception:
+                # Unexpected error (e.g. compute_schema_fingerprint fails, pool error).
+                # Clean up resources so the service does not hold an open pool on a
+                # fatal startup path. The exception propagates uncaught to the kernel.
                 await self._cleanup_on_failure(config)
-                raise RuntimeHostError(
-                    "Failed to stamp schema fingerprint: db_metadata row not found — "
-                    "migration 015 may not have run or row was deleted"
-                )
+                raise
             logger.info(
                 "Schema fingerprint auto-stamped: %s (tables=%d, correlation_id=%s)",
                 fingerprint_result.fingerprint[:16],
