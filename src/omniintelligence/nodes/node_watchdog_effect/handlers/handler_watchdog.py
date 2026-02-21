@@ -45,6 +45,7 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -274,6 +275,27 @@ async def start_watching(
                 watched_paths=tuple(config.watched_paths),
                 correlation_id=correlation_id,
             )
+
+        # Validate that all watched paths exist on disk before starting the observer.
+        # watchdog raises OSError at observer.schedule() time for missing paths, which
+        # is caught by the outer except and returned as ERROR.  An earlier explicit check
+        # gives operators a clearer error message pointing to the specific missing path.
+        for watched_path in config.watched_paths:
+            if not Path(watched_path).exists():
+                missing_msg = f"watched path does not exist: {watched_path}"
+                logger.error(
+                    "WatchdogEffect: cannot start observer — %s",
+                    missing_msg,
+                    extra={
+                        "watched_path": watched_path,
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+                return ModelWatchdogResult(
+                    status=EnumWatchdogStatus.ERROR,
+                    error_message=missing_msg,
+                    correlation_id=correlation_id,
+                )
 
         # Resolve observer factory
         factory = observer_factory if observer_factory is not None else create_observer

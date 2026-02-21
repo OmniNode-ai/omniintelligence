@@ -142,6 +142,15 @@ HANDLER_ENTRY_POINTS = [
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers",
         "handle_pattern_assembly_orchestrate",
     ),
+    # --- Effect nodes (continued) ---
+    (
+        "omniintelligence.nodes.node_watchdog_effect.handlers",
+        "start_watching",
+    ),
+    (
+        "omniintelligence.nodes.node_watchdog_effect.handlers",
+        "stop_watching",
+    ),
 ]
 
 
