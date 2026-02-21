@@ -32,18 +32,17 @@ node_type: "EFFECT_GENERIC"
 # Description
 description: >
   Effect node that publishes a materialized snapshot of all validated patterns whenever a pattern lifecycle
-  event is received (pattern-promoted, pattern-deprecated, pattern-lifecycle-transitioned). Queries the
-  full validated pattern set from the pattern store, builds a ModelPatternProjectionEvent snapshot, and
-  publishes it to onex.evt.omniintelligence.pattern-projection.v1. Emission is fire-and-forget — Kafka
-  failures are logged but do not fail the handler return. correlation_id is threaded from the triggering
-  event through to the snapshot payload. #magic___^_^___line
+  event is received (pattern-promoted, pattern-lifecycle-transitioned). Queries the full validated pattern
+  set from the pattern store, builds a ModelPatternProjectionEvent snapshot, and publishes it to onex.evt.omniintelligence.pattern-projection.v1.
+  Emission is fire-and-forget — Kafka failures are logged but do not fail the handler return. correlation_id
+  is threaded from the triggering event through to the snapshot payload. #magic___^_^___line
 # =============================================================================
 # I/O MODELS
 # =============================================================================
 input_model:
   name: "dict"
   module: "builtins"
-  description: "Raw lifecycle event payload dict (pattern-promoted, pattern-deprecated, or pattern-lifecycle-transitioned)"
+  description: "Raw lifecycle event payload dict (pattern-promoted or pattern-lifecycle-transitioned)"
 
 output_model:
   name: "ModelPatternProjectionEvent"
@@ -134,7 +133,6 @@ event_bus:
 
   subscribe_topics:
     - "onex.evt.omniintelligence.pattern-promoted.v1"
-    - "onex.evt.omniintelligence.pattern-deprecated.v1"
     - "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 
   publish_topics:
@@ -144,9 +142,6 @@ event_bus:
     "onex.evt.omniintelligence.pattern-promoted.v1":
       schema_ref: "dict"
       description: "Pattern promoted lifecycle event (trigger for projection rebuild)"
-    "onex.evt.omniintelligence.pattern-deprecated.v1":
-      schema_ref: "dict"
-      description: "Pattern deprecated lifecycle event (trigger for projection rebuild)"
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_lifecycle_effect.models.ModelPatternLifecycleTransitionedEvent"
       description: "Unified pattern lifecycle transition event (trigger for projection rebuild)"

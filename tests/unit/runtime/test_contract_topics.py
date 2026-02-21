@@ -3,15 +3,15 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 13 topics
+    - collect_subscribe_topics_from_contracts returns exactly 12 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
 
 Related:
     - OMN-2033: Move intelligence topics to contract.yaml declarations
-    - OMN-2424: NodePatternProjectionEffect adds 3 projection subscribe topics
-    - OMN-2430: NodeCrawlSchedulerEffect adds 2 omnimemory subscribe topics (NodeWatchdogEffect has subscribe_topics: [] — it is OS-event driven and emits but never subscribes)
+    - OMN-2424: NodePatternProjectionEffect adds 2 projection subscribe topics
+    - OMN-2430: NodeWatchdogEffect has subscribe_topics: [] — it is OS-event driven and emits but never subscribes
 """
 
 from __future__ import annotations
@@ -39,12 +39,11 @@ EXPECTED_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
 EXPECTED_COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
 
 EXPECTED_PATTERN_PROMOTED = "onex.evt.omniintelligence.pattern-promoted.v1"
-EXPECTED_PATTERN_DEPRECATED = "onex.evt.omniintelligence.pattern-deprecated.v1"
 EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 
-# OMN-2430: NodeCrawlSchedulerEffect omnimemory topics (NodeWatchdogEffect has subscribe_topics: [])
+# OMN-2430: NodeWatchdogEffect has subscribe_topics: [] — OS-event driven, emits but never subscribes
 EXPECTED_CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
 EXPECTED_DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
 
@@ -58,7 +57,6 @@ EXPECTED_TOPICS = {
     EXPECTED_PATTERN_DISCOVERED,
     EXPECTED_COMPLIANCE_EVALUATE,
     EXPECTED_PATTERN_PROMOTED,
-    EXPECTED_PATTERN_DEPRECATED,
     EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED,
     EXPECTED_CRAWL_REQUESTED,
     EXPECTED_DOCUMENT_INDEXED,
@@ -73,10 +71,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_thirteen_topics(self) -> None:
-        """All intelligence effect nodes declare 13 subscribe topics total (OMN-2430 adds 2 omnimemory topics)."""
+    def test_returns_exactly_twelve_topics(self) -> None:
+        """All intelligence effect nodes declare 12 subscribe topics total (OMN-2430: NodeWatchdogEffect adds 0 — subscribe_topics: [])."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 13
+        assert len(topics) == 12
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -114,7 +112,7 @@ class TestCollectSubscribeTopics:
         assert EXPECTED_TOOL_CONTENT in topics
 
     def test_all_expected_topics_present(self) -> None:
-        """All 13 expected topics must be in the discovered set (OMN-2430 adds 2 omnimemory topics)."""
+        """All 12 expected topics must be in the discovered set (OMN-2430: NodeWatchdogEffect adds 0 subscribe topics)."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 

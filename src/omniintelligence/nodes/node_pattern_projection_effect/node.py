@@ -10,7 +10,7 @@ This node follows the ONEX declarative pattern:
     - Pattern: "Contract-driven, handlers wired externally"
 
 Triggered by pattern lifecycle change events (pattern-promoted,
-pattern-deprecated, pattern-lifecycle-transitioned), this node queries the
+pattern-lifecycle-transitioned), this node queries the
 full validated pattern set and publishes a materialized snapshot to the
 pattern-projection topic. This is the produce side of the Kafka-based
 projection that replaces the HTTP API escape hatch introduced in OMN-2355.

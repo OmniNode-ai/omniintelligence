@@ -2096,6 +2096,8 @@ all = [
     { name = "pre-commit" },
     { name = "prometheus-client" },
     { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pypdf2" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -2134,6 +2136,8 @@ core = [
     { name = "pdfplumber" },
     { name = "prometheus-client" },
     { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pypdf2" },
     { name = "python-docx" },
     { name = "python-multipart" },
@@ -2164,10 +2168,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "confluent-kafka", specifier = ">=2.6.0" },
+    { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "pydantic", specifier = ">=2.9.0" },
-    { name = "pydantic-settings", specifier = ">=2.6.0" },
+    { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
+    { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
@@ -2176,10 +2180,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 all = [
-    { name = "aiokafka", specifier = ">=0.10.0" },
+    { name = "aiokafka", specifier = ">=0.11.0,<0.12.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "cachetools", specifier = ">=5.3.0" },
-    { name = "confluent-kafka", specifier = ">=2.6.0" },
+    { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "factory-boy", specifier = ">=3.3.0" },
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "logfire", specifier = ">=0.30.0" },
@@ -2194,6 +2198,8 @@ all = [
     { name = "pre-commit", specifier = ">=4.5.0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
+    { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
     { name = "pypdf2", specifier = ">=3.0.1" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
@@ -2217,10 +2223,10 @@ all = [
     { name = "uvicorn", specifier = ">=0.24.0" },
 ]
 core = [
-    { name = "aiokafka", specifier = ">=0.10.0" },
+    { name = "aiokafka", specifier = ">=0.11.0,<0.12.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "cachetools", specifier = ">=5.3.0" },
-    { name = "confluent-kafka", specifier = ">=2.6.0" },
+    { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
@@ -2232,6 +2238,8 @@ core = [
     { name = "pdfplumber", specifier = ">=0.11.6" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
+    { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
     { name = "pypdf2", specifier = ">=3.0.1" },
     { name = "python-docx", specifier = ">=1.1.2" },
     { name = "python-multipart", specifier = ">=0.0.20" },

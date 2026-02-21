@@ -91,6 +91,7 @@ class TestIntelligenceNodes:
             "node_pattern_demotion_effect",
             "node_pattern_feedback_effect",
             "node_pattern_lifecycle_effect",
+            "node_pattern_projection_effect",
         }
         assert node_names == expected_nodes
 

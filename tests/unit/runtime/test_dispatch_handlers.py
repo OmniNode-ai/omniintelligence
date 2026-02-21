@@ -432,7 +432,7 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 8 intelligence domain handlers must be registered (OMN-2430 adds crawl-requested and document-indexed handlers)."""
+        """All 8 intelligence domain handlers must be registered (OMN-2384 adds crawl-scheduler handlers; OMN-2430 adds WatchdogEffect — no new dispatch handlers; pattern-projection excluded without pattern_query_store)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
@@ -446,7 +446,7 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 10 intelligence domain routes must be registered (OMN-2430 adds crawl-requested and document-indexed routes)."""
+        """All 10 intelligence domain routes must be registered (OMN-2384 adds crawl-scheduler routes; OMN-2440 removes stale pattern-deprecated route; OMN-2430 adds WatchdogEffect — no new dispatch routes; pattern-projection excluded without pattern_query_store)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
