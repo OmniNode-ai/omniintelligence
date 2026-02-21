@@ -64,7 +64,7 @@ def _upsert_node(
         graph.nodes[intent_class] = IntentGraphNodeState(
             intent_class=intent_class,
         )
-    _ = session_id  # session_id stored in node only on first creation (provenance)
+    _ = session_id  # session_id is accepted for API consistency; not stored on the node
     return graph.nodes[intent_class]
 
 
@@ -164,9 +164,9 @@ def update_graph_on_outcome(
     if success:
         node.total_successes += 1
     if cost_usd > 0.0:
+        # Outcome cost supplements the running total; occurrence_count was already
+        # incremented at classification time and is not changed here.
         node.total_cost_usd += cost_usd
-        # Recompute occurrence_count only if not already counted
-        # (outcome cost is additive, occurrence was already counted at classification)
 
     # Update transition edge success rates for the transition that led to this
     # intent class. The penultimate intent (session_previous_intent) is the
