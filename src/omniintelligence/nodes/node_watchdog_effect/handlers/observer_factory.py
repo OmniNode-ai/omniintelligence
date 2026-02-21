@@ -27,17 +27,26 @@ from omniintelligence.nodes.node_watchdog_effect.models.enum_watchdog_observer_t
 )
 
 if TYPE_CHECKING:
-    # Only for type annotations — not a runtime import guard
-    pass
+    from omniintelligence.nodes.node_watchdog_effect.models.model_watchdog_config import (
+        ModelWatchdogConfig,
+    )
 
 
-def create_observer() -> tuple[Any, EnumWatchdogObserverType]:
+def create_observer(
+    config: ModelWatchdogConfig | None = None,
+) -> tuple[Any, EnumWatchdogObserverType]:
     """Create and return the best available watchdog observer for the platform.
 
     Selection priority:
     1. macOS → FSEventsObserver (via ``watchdog.observers.fsevents``)
     2. Linux → InotifyObserver (via ``watchdog.observers.inotify``)
     3. Fallback → PollingObserver (via ``watchdog.observers.polling``)
+
+    Args:
+        config: Optional watchdog configuration.  When provided,
+            ``config.polling_interval_seconds`` is passed to
+            ``PollingObserver`` as the polling interval.  Ignored when a
+            native FSEvents or inotify observer is selected.
 
     Returns:
         A tuple of ``(observer_instance, EnumWatchdogObserverType)``.
@@ -54,7 +63,7 @@ def create_observer() -> tuple[Any, EnumWatchdogObserverType]:
             from watchdog.observers.fsevents import FSEventsObserver
 
             return FSEventsObserver(), EnumWatchdogObserverType.FSEVENTS
-        except Exception:
+        except (ImportError, OSError):
             pass  # fallback-ok: FSEvents unavailable (VM, CI, non-native env)
 
     if system == "Linux":
@@ -62,14 +71,21 @@ def create_observer() -> tuple[Any, EnumWatchdogObserverType]:
             from watchdog.observers.inotify import InotifyObserver
 
             return InotifyObserver(), EnumWatchdogObserverType.INOTIFY
-        except Exception:
+        except (ImportError, OSError):
             pass  # fallback-ok: inotify unavailable (container, BSD-compat kernel)
 
-    # Fallback — always available when watchdog is installed
+    # Fallback — always available when watchdog is installed.
+    # Pass polling_interval_seconds from config so the operator-configured
+    # value is actually honoured (PollingObserver default is 1 second).
     try:
         from watchdog.observers.polling import PollingObserver
 
-        return PollingObserver(), EnumWatchdogObserverType.POLLING
+        polling_interval = (
+            float(config.polling_interval_seconds) if config is not None else 5.0
+        )
+        return PollingObserver(
+            timeout=polling_interval
+        ), EnumWatchdogObserverType.POLLING
     except ImportError as exc:
         raise ImportError(
             "watchdog library is not installed.  Install it with: uv add watchdog"

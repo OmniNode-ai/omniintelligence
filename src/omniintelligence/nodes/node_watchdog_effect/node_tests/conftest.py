@@ -98,8 +98,14 @@ class MockObserver:
         """Record that the observer was stopped."""
         self.stopped = True
 
-    def join(self) -> None:
-        """Record that the observer was joined."""
+    def join(self, timeout: float | None = None) -> None:
+        """Record that the observer was joined.
+
+        Args:
+            timeout: Optional join timeout in seconds (mirrors
+                ``threading.Thread.join`` signature).  Accepted but not
+                used by the mock — the mock always returns immediately.
+        """
         self.joined = True
 
     def schedule(self, handler: Any, path: str, recursive: bool = True) -> MagicMock:
@@ -169,7 +175,7 @@ def default_config(tmp_path: Any) -> ModelWatchdogConfig:
     and prevents interference with the developer's ~/.claude/ directory.
     """
     return ModelWatchdogConfig(
-        watched_paths=[str(tmp_path)],
+        watched_paths=(str(tmp_path),),
         crawl_scope="omninode/test",
     )
 
@@ -188,6 +194,33 @@ def fsevents_observer_factory() -> Any:
     return factory
 
 
+@pytest.fixture
+def node_protocol_conformance() -> None:
+    """Assert NodeWatchdogEffect protocol conformance via pytest fixture injection.
+
+    Inject this fixture into a test to run the canonical isinstance() check
+    without importing directly from conftest.
+    """
+    assert_node_protocol_conformance()
+
+
+@pytest.fixture
+def mock_observer_class() -> type[MockObserver]:
+    """Provide the MockObserver class for inline instantiation in tests."""
+    return MockObserver
+
+
+@pytest.fixture
+def mock_observer_factory_fn() -> Any:
+    """Provide the make_mock_observer_factory helper via pytest fixture injection.
+
+    Returns the bare function so tests can call
+    ``factory, _ = mock_observer_factory_fn(EnumWatchdogObserverType.POLLING)``
+    without importing directly from conftest.
+    """
+    return make_mock_observer_factory
+
+
 # =============================================================================
 # __all__
 # =============================================================================
@@ -201,5 +234,8 @@ __all__ = [
     "fsevents_observer_factory",
     "make_mock_observer_factory",
     "mock_kafka_publisher",
+    "mock_observer_class",
+    "mock_observer_factory_fn",
+    "node_protocol_conformance",
     "polling_observer_factory",
 ]

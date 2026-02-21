@@ -15,6 +15,7 @@ Related:
     - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
     - OMN-2339: Add node_compliance_evaluate_effect (6 handlers, 8 routes)
+    - OMN-2430: NodeCrawlSchedulerEffect adds 2 handlers, 2 routes (8 handlers, 10 routes); NodeWatchdogEffect has no Kafka subscribe topics and adds no dispatch routes
 """
 
 from __future__ import annotations
@@ -431,7 +432,7 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 8 intelligence domain handlers must be registered (OMN-2384 adds crawl-scheduler handlers; pattern-projection excluded without pattern_query_store)."""
+        """All 8 intelligence domain handlers must be registered (OMN-2384 adds crawl-scheduler handlers; OMN-2430 adds WatchdogEffect — no new dispatch handlers; pattern-projection excluded without pattern_query_store)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
@@ -445,7 +446,7 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 10 intelligence domain routes must be registered (OMN-2384 adds crawl-scheduler routes; OMN-2440 removes stale pattern-deprecated route; pattern-projection excluded without pattern_query_store)."""
+        """All 10 intelligence domain routes must be registered (OMN-2384 adds crawl-scheduler routes; OMN-2440 removes stale pattern-deprecated route; OMN-2430 adds WatchdogEffect — no new dispatch routes; pattern-projection excluded without pattern_query_store)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,

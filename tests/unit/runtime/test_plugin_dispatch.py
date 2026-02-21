@@ -3,7 +3,7 @@
 """Unit tests for PluginIntelligence dispatch engine wiring.
 
 Validates:
-    - wire_dispatchers() creates and stores dispatch engine with 6 handlers (8 routes)
+    - wire_dispatchers() creates and stores dispatch engine with 9 handlers (13 routes)
     - start_consumers() uses dispatch callback for all intelligence topics (contract-driven)
     - start_consumers() returns skipped when engine is not wired (no noop fallback)
     - Dispatch engine is cleared on shutdown
@@ -14,6 +14,7 @@ Related:
     - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
+    - OMN-2430: NodeCrawlSchedulerEffect adds 2 handlers, 2 routes (9 handlers, 13 routes); NodeWatchdogEffect has no Kafka subscribe topics and adds no dispatch routes
 """
 
 from __future__ import annotations
@@ -264,7 +265,7 @@ class TestPluginWireDispatchers:
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_twelve_routes(self) -> None:
-        """Engine should have exactly 12 routes (OMN-2384 adds crawl-scheduler routes; OMN-2440 removes stale pattern-deprecated route; OMN-2424 adds 2 projection routes)."""
+        """Engine should have exactly 12 routes (OMN-2384 adds crawl-scheduler routes; OMN-2424 adds 2 projection routes; OMN-2430 adds WatchdogEffect — no new dispatch routes)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
@@ -275,7 +276,7 @@ class TestPluginWireDispatchers:
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_nine_handlers(self) -> None:
-        """Engine should have exactly 9 handlers (OMN-2384 adds crawl-scheduler handlers; OMN-2424 adds pattern-projection handler)."""
+        """Engine should have exactly 9 handlers (OMN-2384 adds crawl-scheduler handlers; OMN-2424 adds pattern-projection handler; OMN-2430 adds WatchdogEffect — no new dispatch handlers)."""
         plugin = PluginIntelligence()
         config = _make_config()
 

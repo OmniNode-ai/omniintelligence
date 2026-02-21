@@ -50,7 +50,7 @@ input_model:
 output_model:
   name: "ModelWatchdogResult"
   module: "omniintelligence.nodes.node_watchdog_effect.models"
-  description: "Result of a watchdog operation with status STARTED, STOPPED, EMITTED, SKIPPED, or ERROR"
+  description: "Result of a watchdog operation with status STARTED, STOPPED, or ERROR"
 
 # =============================================================================
 # HANDLER ROUTING
@@ -100,6 +100,7 @@ io_operations:
     description: "Start OS-level filesystem observer for configured watched paths"
     input_fields:
       - config
+      - correlation_id
       - kafka_publisher
       - observer_factory
     output_fields:
@@ -112,7 +113,8 @@ io_operations:
 
   - operation: "stop_watching"
     description: "Gracefully stop the active filesystem observer"
-    input_fields: []
+    input_fields:
+      - correlation_id
     output_fields:
       - status
       - observer_type
@@ -168,6 +170,10 @@ event_bus:
   subscribe_topics: []
 
   # Topics this node publishes to (sends events to)
+  # DEGRADED MODE: when kafka_publisher dependency is absent (required=false),
+  # the filesystem observer starts and detects changes but NO events are emitted
+  # to these topics.  Files are watched but crawl-requested.v1 is silently
+  # suppressed.  See dependencies.kafka_publisher and error_handling.kafka_absent_behavior.
   publish_topics:
     - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
 
@@ -214,9 +220,9 @@ error_handling:
 
   kafka_absent_behavior: >
     When kafka_publisher is None, the observer starts and detects filesystem changes but does NOT publish
-    crawl-requested.v1 events.  This is logged at WARNING level. No events are lost — the observer continues
-    running and will emit once a publisher is registered via the registry (runtime re-wiring not currently
-    supported).
+    crawl-requested.v1 events.  This is logged at WARNING level.  Runtime re-wiring is NOT supported —
+    events will never be emitted until the observer is restarted via stop_watching() + start_watching()
+    with a valid kafka_publisher.
 
   error_types:
     - name: "ObserverStartError"

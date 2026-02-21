@@ -11,6 +11,7 @@ Validates:
 Related:
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2424: NodePatternProjectionEffect adds 2 projection subscribe topics
+    - OMN-2430: NodeWatchdogEffect has subscribe_topics: [] — it is OS-event driven and emits but never subscribes
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 
+# OMN-2430: NodeWatchdogEffect has subscribe_topics: [] — OS-event driven, emits but never subscribes
 EXPECTED_CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
 EXPECTED_DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
 
@@ -70,7 +72,7 @@ class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
     def test_returns_exactly_twelve_topics(self) -> None:
-        """All intelligence effect nodes declare 12 subscribe topics total (OMN-2440 removes stale pattern-deprecated.v1; OMN-2384 adds crawl-scheduler topics)."""
+        """All intelligence effect nodes declare 12 subscribe topics total (OMN-2430: NodeWatchdogEffect adds 0 — subscribe_topics: [])."""
         topics = collect_subscribe_topics_from_contracts()
         assert len(topics) == 12
 
@@ -110,7 +112,7 @@ class TestCollectSubscribeTopics:
         assert EXPECTED_TOOL_CONTENT in topics
 
     def test_all_expected_topics_present(self) -> None:
-        """All 12 expected topics must be in the discovered set (OMN-2339 adds compliance-evaluate)."""
+        """All 12 expected topics must be in the discovered set (OMN-2430: NodeWatchdogEffect adds 0 subscribe topics)."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 

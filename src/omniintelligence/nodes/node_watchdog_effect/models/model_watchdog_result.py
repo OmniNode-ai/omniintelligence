@@ -8,7 +8,7 @@ Reference: OMN-2386
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,7 +29,6 @@ class ModelWatchdogResult(BaseModel):
         status: Operation outcome.
         observer_type: Observer backend that was used or attempted.
         watched_paths: Paths being monitored (populated on STARTED).
-        file_path: Changed file path (populated on EMITTED/SKIPPED).
         correlation_id: Correlation ID for distributed tracing.
         processed_at: UTC timestamp of when the result was produced.
         error_message: Human-readable error description (set on ERROR only).
@@ -47,18 +46,13 @@ class ModelWatchdogResult(BaseModel):
         description="Observer backend used or attempted.",
     )
 
-    watched_paths: list[str] = Field(
-        default_factory=list,
+    watched_paths: tuple[str, ...] = Field(
+        default=(),
         description="Paths being monitored.  Populated when status=STARTED.",
     )
 
-    file_path: str | None = Field(
-        default=None,
-        description="Changed file path.  Populated when status=EMITTED or SKIPPED.",
-    )
-
     correlation_id: UUID = Field(
-        default_factory=uuid4,
+        ...,
         description="Correlation ID for distributed tracing.",
     )
 

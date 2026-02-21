@@ -28,7 +28,7 @@ import pytest
 # Relative to project root; resolved via project_root fixture in tests.
 NODES_DIR = Path("src/omniintelligence/nodes")
 
-# All 18 node directories that MUST be importable for HandlerPluginLoader.
+# All 25 node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
@@ -141,6 +141,15 @@ HANDLER_ENTRY_POINTS = [
     (
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers",
         "handle_pattern_assembly_orchestrate",
+    ),
+    # --- Effect nodes (continued) ---
+    (
+        "omniintelligence.nodes.node_watchdog_effect.handlers",
+        "start_watching",
+    ),
+    (
+        "omniintelligence.nodes.node_watchdog_effect.handlers",
+        "stop_watching",
     ),
 ]
 

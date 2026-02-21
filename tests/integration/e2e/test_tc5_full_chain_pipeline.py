@@ -27,7 +27,7 @@ Design Decision - Single Test Function:
     are not independently meaningful.
 
 Infrastructure Requirements:
-    - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
+    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
     - Kafka/Redpanda: 192.168.86.200:29092
 
 Reference:

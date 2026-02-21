@@ -7,7 +7,7 @@ the project's .env file. All integration tests can use these fixtures without
 needing to manually set up environment variables.
 
 Infrastructure Configuration (from .env):
-    - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
+    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
     - Kafka/Redpanda: 192.168.86.200:29092 (for host scripts)
 
 Usage:
