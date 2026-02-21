@@ -63,8 +63,16 @@ from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
-# Topic published by this handler (bare, without {env} prefix).
-# RuntimeHostProcess injects the environment prefix at runtime.
+# Topic published by this handler.
+#
+# This is the BARE canonical topic string without the ``{env}.`` prefix.
+# RuntimeHostProcess injects the environment prefix (e.g. ``dev.``, ``prod.``)
+# at runtime for subscriptions declared in contract.yaml.  Direct publishes in
+# handler code use this bare constant; the Kafka publisher wrapper resolves the
+# full topic name (including env prefix) from its own configuration, consistent
+# with the pattern used by TOPIC_ROUTING_FEEDBACK_PROCESSED in constants.py.
+#
+# Full runtime topic: ``{env}.onex.cmd.omnimemory.crawl-requested.v1``
 TOPIC_CRAWL_REQUESTED_V1: str = "onex.cmd.omnimemory.crawl-requested.v1"
 
 # CrawlerType value used in the emitted event payload.
@@ -361,13 +369,25 @@ async def start_watching(
             # real and test contexts.
             _schedule_watches(observer, event_handler, config)
 
-        # Start the observer thread (non-blocking — runs in background)
-        observer.start()
-
-        # Register in module-level registry for stop_watching()
-        # Pass config so the double-start guard can report the running
-        # observer's watched_paths rather than those of a rejected new call.
+        # Register BEFORE starting the observer thread.
+        # If observer.start() raises after the OS thread has begun, the observer
+        # could be alive with no registry entry, making it untrackable (leaked
+        # OS file-descriptor handles with no way to call stop/join).  By
+        # registering first we ensure the observer is always reachable via
+        # stop_watching() regardless of start() outcome.  If start() fails,
+        # clean up the registry entry so the double-start guard is not
+        # permanently tripped and callers can retry.
         RegistryWatchdogEffect.register_observer(observer, observer_type, config)
+
+        try:
+            # Start the observer thread (non-blocking — runs in background)
+            observer.start()
+        except Exception:
+            # start() failed — undo the registry entry so the double-start
+            # guard is not permanently tripped.  The observer thread did not
+            # start successfully so there is nothing to stop/join.
+            RegistryWatchdogEffect.clear()
+            raise
 
         logger.info(
             "WatchdogEffect: observer started",

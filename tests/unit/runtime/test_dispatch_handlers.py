@@ -15,7 +15,7 @@ Related:
     - OMN-2032: Register all 6 intelligence handlers (8 routes)
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
     - OMN-2339: Add node_compliance_evaluate_effect (6 handlers, 8 routes)
-    - OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect add 2 handlers, 2 routes (8 handlers, 10 routes)
+    - OMN-2430: NodeCrawlSchedulerEffect adds 2 handlers, 2 routes (8 handlers, 10 routes); NodeWatchdogEffect has no Kafka subscribe topics and adds no dispatch routes
 """
 
 from __future__ import annotations

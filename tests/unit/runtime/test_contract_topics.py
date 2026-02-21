@@ -11,7 +11,7 @@ Validates:
 Related:
     - OMN-2033: Move intelligence topics to contract.yaml declarations
     - OMN-2424: NodePatternProjectionEffect adds 3 projection subscribe topics
-    - OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect add 2 omnimemory topics
+    - OMN-2430: NodeCrawlSchedulerEffect adds 2 omnimemory subscribe topics (NodeWatchdogEffect has subscribe_topics: [] — it is OS-event driven and emits but never subscribes)
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 
-# OMN-2430: NodeWatchdogEffect and NodeCrawlSchedulerEffect omnimemory topics
+# OMN-2430: NodeCrawlSchedulerEffect omnimemory topics (NodeWatchdogEffect has subscribe_topics: [])
 EXPECTED_CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
 EXPECTED_DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
 
