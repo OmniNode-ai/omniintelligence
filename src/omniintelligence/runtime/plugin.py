@@ -321,6 +321,7 @@ class PluginIntelligence:
         self._idempotency_store: StoreIdempotencyPostgres | None = None
         self._unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._shutdown_in_progress: bool = False
+        self._handshake_validated: bool = False
         self._services_registered: list[str] = []
         self._dispatch_engine: MessageDispatchEngine | None = None
         self._message_type_registry: RegistryMessageType | None = None
@@ -619,8 +620,8 @@ class PluginIntelligence:
             # B2 is only meaningful if we can be sure we own the database.
             logger.warning(
                 "validate_handshake failed: check_name=%s passed=%s error=%s",
-                checks[-1].check_name if checks else "unknown",
-                checks[-1].passed if checks else None,
+                checks[-1].check_name,
+                checks[-1].passed,
                 str(e),
                 extra={"correlation_id": str(correlation_id)},
             )
@@ -695,8 +696,8 @@ class PluginIntelligence:
             )
             logger.warning(
                 "validate_handshake failed: check_name=%s passed=%s error=%s",
-                checks[-1].check_name if checks else "unknown",
-                checks[-1].passed if checks else None,
+                checks[-1].check_name,
+                checks[-1].passed,
                 str(e),
                 extra={"correlation_id": str(correlation_id)},
             )
@@ -714,6 +715,7 @@ class PluginIntelligence:
             },
         )
 
+        self._handshake_validated = True
         return ModelHandshakeResult.all_passed(
             plugin_id=self.plugin_id,
             checks=checks,
@@ -759,6 +761,12 @@ class PluginIntelligence:
 
         start_time = time.time()
         correlation_id = config.correlation_id
+
+        if not self._handshake_validated:
+            raise RuntimeError(
+                "wire_handlers() called before validate_handshake() — "
+                "kernel bootstrap sequence violated"
+            )
 
         if self._pool is None:
             return ModelDomainPluginResult.failed(

@@ -28,7 +28,10 @@ from omnibase_infra.errors import (
 from omnibase_infra.runtime.models.model_handshake_result import ModelHandshakeResult
 from omnibase_infra.runtime.protocol_domain_plugin import ModelDomainPluginConfig
 
-from omniintelligence.runtime.plugin import PluginIntelligence
+from omniintelligence.runtime.plugin import (
+    _STAMP_SCHEMA_FINGERPRINT_QUERY,
+    PluginIntelligence,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -213,8 +216,10 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     assert len(fp_checks) == 1
     assert fp_checks[0].passed is True
     assert "first boot" in fp_checks[0].message.lower()
-    # The stamp UPDATE was executed on the connection
-    mock_conn.execute.assert_called_once()
+    # The stamp UPDATE was executed on the connection with the correct query and fingerprint
+    mock_conn.execute.assert_called_once_with(
+        _STAMP_SCHEMA_FINGERPRINT_QUERY, fake_fingerprint_result.fingerprint
+    )
 
 
 @pytest.mark.unit

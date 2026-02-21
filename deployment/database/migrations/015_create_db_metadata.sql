@@ -18,4 +18,21 @@ CREATE TABLE IF NOT EXISTS db_metadata (
 );
 
 INSERT INTO db_metadata (owner_service) VALUES ('omniintelligence')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- Trigger for updated_at
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION update_db_metadata_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_db_metadata_updated_at
+    BEFORE UPDATE ON db_metadata
+    FOR EACH ROW
+    EXECUTE FUNCTION update_db_metadata_updated_at();
