@@ -3,14 +3,14 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 11 topics
+    - collect_subscribe_topics_from_contracts returns exactly 12 topics
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
 
 Related:
     - OMN-2033: Move intelligence topics to contract.yaml declarations
-    - OMN-2424: NodePatternProjectionEffect adds 3 projection subscribe topics
+    - OMN-2424: NodePatternProjectionEffect adds 2 projection subscribe topics
 """
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ class TestCollectSubscribeTopics:
         assert EXPECTED_TOOL_CONTENT in topics
 
     def test_all_expected_topics_present(self) -> None:
-        """All 8 expected topics must be in the discovered set (OMN-2339 adds compliance-evaluate)."""
+        """All 12 expected topics must be in the discovered set (OMN-2339 adds compliance-evaluate)."""
         topics = set(collect_subscribe_topics_from_contracts())
         assert topics == EXPECTED_TOPICS
 

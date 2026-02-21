@@ -1577,8 +1577,8 @@ def create_pattern_projection_dispatch_handler(
 ]:
     """Create a dispatch engine handler for pattern projection snapshot events.
 
-    Triggered by pattern-promoted, pattern-deprecated, and
-    pattern-lifecycle-transitioned events. On each trigger, queries the full
+    Triggered by pattern-promoted and pattern-lifecycle-transitioned events.
+    On each trigger, queries the full
     validated pattern set and publishes a materialized snapshot to the
     pattern-projection topic.
 
