@@ -859,6 +859,16 @@ def handle_intent_classification(
         # Extract primary intent keywords from handler result
         primary_keywords: list[str] = result.get("keywords", [])
 
+        # Resolve typed intent from the 8-class system
+        from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
+            resolve_typed_intent,
+        )
+
+        typed_intent = resolve_typed_intent(
+            intent_category=result["intent_category"],
+            confidence=result["confidence"],
+        )
+
         return ModelIntentClassificationOutput(
             success=True,
             intent_category=result["intent_category"],
@@ -867,6 +877,7 @@ def handle_intent_classification(
             keywords=primary_keywords,
             processing_time_ms=processing_time,
             metadata=metadata,
+            typed_intent=typed_intent,
         )
 
     except IntentClassificationValidationError as e:

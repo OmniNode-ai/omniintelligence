@@ -9,6 +9,10 @@ from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_typed_intent import (
+    ModelTypedIntent,
+)
+
 
 class SecondaryIntentDict(TypedDict, total=False):
     """Typed structure for secondary intent entries.
@@ -87,6 +91,15 @@ class ModelIntentClassificationOutput(BaseModel):
         default=None,
         description="Additional metadata about the classification. Uses IntentMetadataDict "
         "with total=False, allowing any subset of typed fields.",
+    )
+    typed_intent: ModelTypedIntent | None = Field(
+        default=None,
+        description=(
+            "Typed intent result from the 8-class classification system. "
+            "Includes resolved intent class, confidence, per-class config "
+            "(model hint, temperature, validators, sandbox), and fallback flag. "
+            "None when typed classification is not available."
+        ),
     )
 
 
