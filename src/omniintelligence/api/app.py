@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -72,8 +73,6 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
         Exception: Re-raises any pool creation error after logging an
             actionable diagnostic message.
     """
-    import os
-
     try:
         if database_url is not None:
             return await asyncpg.create_pool(dsn=database_url, min_size=2, max_size=10)
