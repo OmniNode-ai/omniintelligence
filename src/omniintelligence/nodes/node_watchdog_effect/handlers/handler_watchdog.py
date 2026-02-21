@@ -42,6 +42,7 @@ Reference: OMN-2386
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -249,7 +250,10 @@ async def start_watching(
             logger.warning(
                 "WatchdogEffect: start_watching() called but an observer is already "
                 "running — ignoring duplicate start request",
-                extra={"watched_paths": config.watched_paths},
+                extra={
+                    "watched_paths": config.watched_paths,
+                    "correlation_id": str(correlation_id),
+                },
             )
             return ModelWatchdogResult(
                 status=EnumWatchdogStatus.STARTED,
@@ -286,7 +290,10 @@ async def start_watching(
                 "idle with no event handlers; crawl-requested.v1 events will "
                 "never be emitted (runtime re-wiring not supported; restart "
                 "observer with a valid kafka_publisher to enable delivery)",
-                extra={"watched_paths": config.watched_paths},
+                extra={
+                    "watched_paths": config.watched_paths,
+                    "correlation_id": str(correlation_id),
+                },
             )
 
         # Get current event loop for thread-safe scheduling
@@ -336,6 +343,7 @@ async def start_watching(
             extra={
                 "observer_type": observer_type.value,
                 "watched_paths": config.watched_paths,
+                "correlation_id": str(correlation_id),
             },
         )
 
@@ -350,7 +358,11 @@ async def start_watching(
         sanitized = get_log_sanitizer().sanitize(str(exc))
         logger.exception(
             "WatchdogEffect: failed to start observer",
-            extra={"error": sanitized, "watched_paths": config.watched_paths},
+            extra={
+                "error": sanitized,
+                "watched_paths": config.watched_paths,
+                "correlation_id": str(correlation_id),
+            },
         )
         return ModelWatchdogResult(
             status=EnumWatchdogStatus.ERROR,
@@ -384,7 +396,8 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
 
         if observer is None:
             logger.warning(
-                "WatchdogEffect: stop_watching() called but no observer is registered"
+                "WatchdogEffect: stop_watching() called but no observer is registered",
+                extra={"correlation_id": str(correlation_id)},
             )
             return ModelWatchdogResult(
                 status=EnumWatchdogStatus.STOPPED,
@@ -392,18 +405,25 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
                 correlation_id=correlation_id,
             )
 
-        observer.stop()
+        # Ensure the registry is always cleared even if observer.stop() raises.
+        # Without this, a dead observer reference remains in the registry and
+        # every subsequent start_watching() call is permanently blocked by the
+        # double-start guard.
         try:
-            await asyncio.to_thread(observer.join, 5.0)
+            observer.stop()
         finally:
-            # Always clear the registry so the double-start guard doesn't
-            # permanently block re-starts if join() raises or times out.
             RegistryWatchdogEffect.clear()
+
+        # Join with timeout offloaded to a thread so the event loop is not blocked.
+        # Failures here are non-fatal — the registry has already been cleared above.
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(observer.join, 5.0)
 
         logger.info(
             "WatchdogEffect: observer stopped",
             extra={
-                "observer_type": observer_type.value if observer_type else "unknown"
+                "observer_type": observer_type.value if observer_type else "unknown",
+                "correlation_id": str(correlation_id),
             },
         )
 
@@ -417,7 +437,7 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
         sanitized = get_log_sanitizer().sanitize(str(exc))
         logger.exception(
             "WatchdogEffect: failed to stop observer",
-            extra={"error": sanitized},
+            extra={"error": sanitized, "correlation_id": str(correlation_id)},
         )
         return ModelWatchdogResult(
             status=EnumWatchdogStatus.ERROR,
@@ -460,23 +480,10 @@ def _schedule_watches(
             observer.schedule(compat_handler, path=path, recursive=True)
 
     except ImportError:
-        # fallback-ok: ImportError here means we're in a test with mocked watchdog
-        # — the compat path handles it by calling observer.schedule() directly.
-        # If this branch is reached at runtime with a real BaseObserver (not a mock),
-        # watchdog's events module is broken and schedule() may silently misbehave.
-        if not isinstance(observer, type) and hasattr(observer, "schedule"):
-            # Check for signs of a real observer (not a mock) — log a warning
-            # so runtime misconfiguration is visible rather than silent.
-            import inspect
-
-            if not getattr(
-                inspect.getmodule(type(observer)), "__name__", ""
-            ).startswith("unittest"):
-                logger.warning(
-                    "WatchdogEffect: watchdog.events import failed but a real observer "
-                    "is in use — _schedule_watches_compat() may not satisfy the "
-                    "FileSystemEventHandler type contract expected by watchdog"
-                )
+        # fallback-ok: watchdog.events not importable — test context with mocked watchdog; use compat path
+        logger.debug(
+            "watchdog.events not importable, falling back to compat scheduling path"
+        )
         _schedule_watches_compat(observer, event_handler, config)
 
 

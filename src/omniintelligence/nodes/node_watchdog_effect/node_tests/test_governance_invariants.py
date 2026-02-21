@@ -230,6 +230,45 @@ class TestStartWatching:
             for msg in warning_messages
         ), f"Expected a warning about observer already running, got: {warning_messages}"
 
+    @pytest.mark.asyncio
+    async def test_start_watching_no_publisher_then_with_publisher_hits_guard(
+        self,
+        default_config: ModelWatchdogConfig,
+        mock_kafka_publisher: MockKafkaPublisher,
+    ) -> None:
+        """start_watching(kafka_publisher=None) starts the observer; a subsequent
+        call with a valid publisher hits the double-start guard and returns STARTED
+        without creating a second observer."""
+        from omniintelligence.nodes.node_watchdog_effect.node_tests.conftest import (
+            make_mock_observer_factory,
+        )
+
+        factory, _ = make_mock_observer_factory(EnumWatchdogObserverType.POLLING)
+
+        # First call with no publisher — observer starts idle
+        first_result = await start_watching(
+            config=default_config,
+            correlation_id=uuid4(),
+            kafka_publisher=None,
+            observer_factory=factory,
+        )
+        assert first_result.status == EnumWatchdogStatus.STARTED
+        assert len(factory.created_observers) == 1
+        assert factory.created_observers[0].started is True
+
+        # Second call with a valid publisher — hits double-start guard
+        second_result = await start_watching(
+            config=default_config,
+            correlation_id=uuid4(),
+            kafka_publisher=mock_kafka_publisher,
+            observer_factory=factory,
+        )
+        assert second_result.status == EnumWatchdogStatus.STARTED
+        # No second observer must have been created
+        assert len(factory.created_observers) == 1, (
+            "double-start guard must prevent a second observer from being created"
+        )
+
 
 # =============================================================================
 # start_watching() — no kafka_publisher
