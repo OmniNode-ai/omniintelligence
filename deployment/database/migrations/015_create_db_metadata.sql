@@ -21,8 +21,11 @@ CREATE TABLE IF NOT EXISTS db_metadata (
 
 -- ON CONFLICT (id) DO NOTHING: idempotency — if the singleton row already exists
 -- (e.g. migration re-run or applied to a pre-existing database), the INSERT is a
--- no-op.  The existing row already has the correct owner_service value, so no
--- UPDATE is needed.  This makes the migration safe to apply multiple times.
+-- no-op.  This makes the migration safe to apply multiple times.
+-- OPERATOR NOTE: if the row exists with the wrong owner_service (e.g. from a
+-- misconfigured earlier deployment), this INSERT will NOT correct it — the service
+-- will hard-fail at boot with DbOwnershipMismatchError. Fix manually:
+--   UPDATE db_metadata SET owner_service = 'omniintelligence' WHERE id = TRUE;
 INSERT INTO db_metadata (owner_service) VALUES ('omniintelligence')
 ON CONFLICT (id) DO NOTHING;
 

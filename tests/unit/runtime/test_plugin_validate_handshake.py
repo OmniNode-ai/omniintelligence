@@ -14,7 +14,7 @@ Related:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -31,10 +31,7 @@ from omnibase_infra.runtime.model_schema_fingerprint_result import (
 from omnibase_infra.runtime.models.model_handshake_result import ModelHandshakeResult
 from omnibase_infra.runtime.protocol_domain_plugin import ModelDomainPluginConfig
 
-from omniintelligence.runtime.plugin import (
-    _STAMP_SCHEMA_FINGERPRINT_QUERY,
-    PluginIntelligence,
-)
+from omniintelligence.runtime.plugin import PluginIntelligence
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -217,10 +214,10 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     assert len(fp_checks) == 1
     assert fp_checks[0].passed is True
     assert "first boot" in fp_checks[0].message.lower()
-    # The stamp UPDATE was executed on the connection with the correct query and fingerprint
-    mock_conn.execute.assert_called_once_with(
-        _STAMP_SCHEMA_FINGERPRINT_QUERY, fake_fingerprint_result.fingerprint
-    )
+    # The stamp UPDATE was executed with the correct fingerprint argument.
+    # ANY matches the SQL query string — we assert the fingerprint (the variable arg),
+    # not the internal SQL constant, to avoid coupling the test to query formatting.
+    mock_conn.execute.assert_called_once_with(ANY, fake_fingerprint_result.fingerprint)
 
 
 @pytest.mark.unit
