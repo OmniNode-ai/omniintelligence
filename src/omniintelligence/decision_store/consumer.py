@@ -147,5 +147,4 @@ class DecisionRecordConsumer:
 
 __all__ = [
     "DecisionRecordConsumer",
-    "DecisionTopics",
 ]
