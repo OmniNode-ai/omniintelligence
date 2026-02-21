@@ -541,6 +541,9 @@ class PluginIntelligence:
                 duration_seconds=duration,
             )
 
+    # NOTE: validate_handshake() is intentionally NOT part of ProtocolDomainPlugin.
+    # The kernel detects and calls it via hasattr() — callers holding a protocol
+    # reference must cast to PluginIntelligence or use hasattr() before calling.
     async def validate_handshake(
         self,
         config: ModelDomainPluginConfig,

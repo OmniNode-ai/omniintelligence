@@ -412,3 +412,42 @@ async def test_shutdown_resets_handshake_validated() -> None:
     await plugin.shutdown(config)
 
     assert plugin._handshake_validated is False
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_second_call_reruns_checks() -> None:
+    """Double-invocation of validate_handshake is allowed and reruns all checks.
+
+    Documents that validate_handshake() does not short-circuit on a previously
+    set _handshake_validated flag — it always reruns B1 and B2 from scratch.
+    This means calling validate_handshake() twice on the same plugin instance
+    (with both B1 and B2 mocked to pass each time) returns a passed result on
+    both calls.  Re-running is idempotent when the checks continue to pass.
+    """
+    plugin = _make_plugin_with_pool()
+    config = _make_config()
+
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=AsyncMock(return_value=None)),
+    ):
+        first_result = await plugin.validate_handshake(config)
+
+    assert isinstance(first_result, ModelHandshakeResult)
+    assert first_result.passed
+    assert plugin._handshake_validated is True
+
+    # Second call: re-run with the same mocks — pool is still set, checks still pass.
+    # A fresh plugin._pool is needed because the first call did not clear it
+    # (only failure paths call _cleanup_on_failure).
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=AsyncMock(return_value=None)),
+    ):
+        second_result = await plugin.validate_handshake(config)
+
+    assert isinstance(second_result, ModelHandshakeResult)
+    assert second_result.passed
+    assert len(second_result.checks) == 2
+    assert all(c.passed for c in second_result.checks)

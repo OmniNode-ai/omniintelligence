@@ -8,7 +8,7 @@
 -- auto-stamps the live schema fingerprint via compute_schema_fingerprint().
 -- No manual operator step is required after applying this migration.
 --
--- Rollback: DROP TABLE IF EXISTS db_metadata;
+-- Rollback: see rollback/015_rollback.sql (drops trigger, function, and table)
 
 CREATE TABLE IF NOT EXISTS db_metadata (
     id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
