@@ -26,7 +26,7 @@ OMNIINTELLIGENCE_SCHEMA_MANIFEST = ModelSchemaManifest(
         "domain_taxonomy",
         "fsm_state",
         "fsm_state_history",
-        "idempotency_records",
+        "idempotency_records",  # owned and migrated by omnibase_infra, not this repo's migrations; expected to exist at service start
         "learned_patterns",
         "pattern_disable_events",
         "pattern_injections",

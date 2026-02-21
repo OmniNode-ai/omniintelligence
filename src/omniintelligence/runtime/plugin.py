@@ -546,6 +546,9 @@ class PluginIntelligence:
             SchemaFingerprintMismatchError: B2 failure -- schema drift.
             SchemaFingerprintMissingError: B2 failure -- no fingerprint.
         """
+        # Deferred import mirrors the pattern used in initialize() for infra imports:
+        # asyncpg is only needed here to satisfy the cast type, so importing it at
+        # the top of the module would pull in the dependency unconditionally.
         import asyncpg
 
         correlation_id = config.correlation_id
@@ -557,6 +560,10 @@ class PluginIntelligence:
                 error_message="Cannot validate handshake: PostgreSQL pool not initialized",
             )
 
+        # The cast is a mypy annotation only — it carries no runtime guarantee.
+        # It is safe because self._pool was set in initialize() from
+        # StoreIdempotencyPostgres._pool, which is always an asyncpg.Pool
+        # (StoreIdempotencyPostgres creates it via asyncpg.create_pool()).
         pool = cast(asyncpg.Pool, self._pool)
 
         # B1: Validate DB ownership

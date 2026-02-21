@@ -192,3 +192,33 @@ async def test_validate_handshake_happy_path_returns_all_passed() -> None:
     check_names = [c.check_name for c in result.checks]
     assert "db_ownership" in check_names
     assert "schema_fingerprint" in check_names
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_b1_failure_is_stateless_across_repeated_calls() -> (
+    None
+):
+    """validate_handshake has no internal failure state: a second call after a B1
+    failure behaves identically to the first call.
+
+    Verifies that the method does not accumulate state (e.g. a flag set on first
+    failure) that would alter behavior on retry.
+    """
+    plugin = _make_plugin_with_pool()
+    config = _make_config()
+
+    error = DbOwnershipMismatchError(
+        "DB owned by other-service, expected omniintelligence",
+        actual_owner="other-service",
+        expected_owner="omniintelligence",
+        correlation_id=config.correlation_id,
+    )
+
+    with patch(_OWNERSHIP_PATH, new=AsyncMock(side_effect=error)):
+        with pytest.raises(DbOwnershipMismatchError):
+            await plugin.validate_handshake(config)
+
+        # Second call: same plugin instance, same B1 setup — must raise again.
+        with pytest.raises(DbOwnershipMismatchError):
+            await plugin.validate_handshake(config)
