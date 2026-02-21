@@ -36,11 +36,6 @@ from omniintelligence.nodes.node_watchdog_effect.models import (
     EnumWatchdogStatus,
     ModelWatchdogConfig,
 )
-from omniintelligence.nodes.node_watchdog_effect.node_tests.conftest import (
-    MockKafkaPublisher,
-    MockObserver,
-    assert_node_protocol_conformance,
-)
 from omniintelligence.nodes.node_watchdog_effect.registry.registry_watchdog_effect import (
     RegistryWatchdogEffect,
 )
@@ -54,9 +49,8 @@ from omniintelligence.nodes.node_watchdog_effect.registry.registry_watchdog_effe
 class TestProtocolConformance:
     """NodeWatchdogEffect must conform to the NodeEffect protocol."""
 
-    def test_node_is_node_effect(self) -> None:
+    def test_node_is_node_effect(self, node_protocol_conformance: None) -> None:
         """NodeWatchdogEffect must be an instance of NodeEffect."""
-        assert_node_protocol_conformance()
 
 
 # =============================================================================
@@ -72,7 +66,7 @@ class TestStartWatching:
     async def test_start_watching_returns_started(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         polling_observer_factory: Any,
     ) -> None:
         """start_watching() with a mock observer must return STARTED."""
@@ -90,7 +84,7 @@ class TestStartWatching:
     async def test_start_watching_registers_observer_in_registry(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         polling_observer_factory: Any,
     ) -> None:
         """start_watching() must register the observer in RegistryWatchdogEffect."""
@@ -110,12 +104,15 @@ class TestStartWatching:
     async def test_start_watching_calls_observer_start(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
+        mock_observer_class: Any,
     ) -> None:
         """start_watching() must call observer.start()."""
-        mock_observer = MockObserver(observer_type=EnumWatchdogObserverType.POLLING)
+        mock_observer = mock_observer_class(
+            observer_type=EnumWatchdogObserverType.POLLING
+        )
 
-        def factory() -> tuple[MockObserver, EnumWatchdogObserverType]:
+        def factory() -> tuple[Any, EnumWatchdogObserverType]:
             return mock_observer, EnumWatchdogObserverType.POLLING
 
         await start_watching(
@@ -130,12 +127,15 @@ class TestStartWatching:
     async def test_start_watching_schedules_watches_for_all_paths(
         self,
         tmp_path: Any,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
+        mock_observer_class: Any,
     ) -> None:
         """start_watching() must call observer.schedule() for each configured path."""
-        mock_observer = MockObserver(observer_type=EnumWatchdogObserverType.POLLING)
+        mock_observer = mock_observer_class(
+            observer_type=EnumWatchdogObserverType.POLLING
+        )
 
-        def factory() -> tuple[MockObserver, EnumWatchdogObserverType]:
+        def factory() -> tuple[Any, EnumWatchdogObserverType]:
             return mock_observer, EnumWatchdogObserverType.POLLING
 
         config = ModelWatchdogConfig(watched_paths=(str(tmp_path),))
@@ -154,7 +154,7 @@ class TestStartWatching:
     async def test_start_watching_watched_paths_in_result(
         self,
         tmp_path: Any,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         polling_observer_factory: Any,
     ) -> None:
         """start_watching() result must include the configured watched paths."""
@@ -175,7 +175,8 @@ class TestStartWatching:
     async def test_start_watching_twice_returns_early_with_started(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
+        mock_observer_factory_fn: Any,
         caplog: Any,
     ) -> None:
         """Calling start_watching() a second time must return STARTED early and log a warning.
@@ -188,11 +189,7 @@ class TestStartWatching:
         """
         import logging
 
-        from omniintelligence.nodes.node_watchdog_effect.node_tests.conftest import (
-            make_mock_observer_factory,
-        )
-
-        factory, _ = make_mock_observer_factory(EnumWatchdogObserverType.POLLING)
+        factory, _ = mock_observer_factory_fn(EnumWatchdogObserverType.POLLING)
 
         # First call — must start the observer
         first_result = await start_watching(
@@ -233,16 +230,13 @@ class TestStartWatching:
     async def test_start_watching_no_publisher_then_with_publisher_hits_guard(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
+        mock_observer_factory_fn: Any,
     ) -> None:
         """start_watching(kafka_publisher=None) starts the observer; a subsequent
         call with a valid publisher hits the double-start guard and returns STARTED
         without creating a second observer."""
-        from omniintelligence.nodes.node_watchdog_effect.node_tests.conftest import (
-            make_mock_observer_factory,
-        )
-
-        factory, _ = make_mock_observer_factory(EnumWatchdogObserverType.POLLING)
+        factory, _ = mock_observer_factory_fn(EnumWatchdogObserverType.POLLING)
 
         # First call with no publisher — observer starts idle
         first_result = await start_watching(
@@ -297,11 +291,12 @@ class TestStartWatchingNoPublisher:
     async def test_start_watching_no_publisher_observer_started(
         self,
         default_config: ModelWatchdogConfig,
+        mock_observer_class: Any,
     ) -> None:
         """Observer must start even when kafka_publisher=None."""
-        mock_observer = MockObserver()
+        mock_observer = mock_observer_class()
 
-        def factory() -> tuple[MockObserver, EnumWatchdogObserverType]:
+        def factory() -> tuple[Any, EnumWatchdogObserverType]:
             return mock_observer, EnumWatchdogObserverType.POLLING
 
         await start_watching(
@@ -326,7 +321,7 @@ class TestStopWatching:
     async def test_stop_watching_after_start_returns_stopped(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         polling_observer_factory: Any,
     ) -> None:
         """stop_watching() after start must return STOPPED."""
@@ -343,12 +338,13 @@ class TestStopWatching:
     async def test_stop_watching_calls_stop_and_join(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
+        mock_observer_class: Any,
     ) -> None:
         """stop_watching() must call observer.stop() and observer.join()."""
-        mock_observer = MockObserver()
+        mock_observer = mock_observer_class()
 
-        def factory() -> tuple[MockObserver, EnumWatchdogObserverType]:
+        def factory() -> tuple[Any, EnumWatchdogObserverType]:
             return mock_observer, EnumWatchdogObserverType.POLLING
 
         await start_watching(
@@ -366,7 +362,7 @@ class TestStopWatching:
     async def test_stop_watching_clears_registry(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         polling_observer_factory: Any,
     ) -> None:
         """stop_watching() must clear the registry after stopping."""
@@ -399,7 +395,7 @@ class TestAsyncKafkaEventHandler:
     async def test_dispatch_file_event_publishes_crawl_requested(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         tmp_path: Any,
     ) -> None:
         """A file change event must publish to crawl-requested.v1."""
@@ -436,7 +432,7 @@ class TestAsyncKafkaEventHandler:
     async def test_dispatch_directory_event_is_skipped(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         tmp_path: Any,
     ) -> None:
         """Directory change events must NOT publish to Kafka."""
@@ -461,7 +457,7 @@ class TestAsyncKafkaEventHandler:
     async def test_dispatch_ignored_suffix_is_skipped(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
         tmp_path: Any,
     ) -> None:
         """Files with ignored suffixes must NOT publish to Kafka."""
@@ -486,7 +482,7 @@ class TestAsyncKafkaEventHandler:
     async def test_dispatch_empty_src_path_is_skipped(
         self,
         default_config: ModelWatchdogConfig,
-        mock_kafka_publisher: MockKafkaPublisher,
+        mock_kafka_publisher: Any,
     ) -> None:
         """Events with empty src_path must be silently skipped."""
         loop = asyncio.get_running_loop()

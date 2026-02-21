@@ -194,6 +194,33 @@ def fsevents_observer_factory() -> Any:
     return factory
 
 
+@pytest.fixture
+def node_protocol_conformance() -> None:
+    """Assert NodeWatchdogEffect protocol conformance via pytest fixture injection.
+
+    Inject this fixture into a test to run the canonical isinstance() check
+    without importing directly from conftest.
+    """
+    assert_node_protocol_conformance()
+
+
+@pytest.fixture
+def mock_observer_class() -> type[MockObserver]:
+    """Provide the MockObserver class for inline instantiation in tests."""
+    return MockObserver
+
+
+@pytest.fixture
+def mock_observer_factory_fn() -> Any:
+    """Provide the make_mock_observer_factory helper via pytest fixture injection.
+
+    Returns the bare function so tests can call
+    ``factory, _ = mock_observer_factory_fn(EnumWatchdogObserverType.POLLING)``
+    without importing directly from conftest.
+    """
+    return make_mock_observer_factory
+
+
 # =============================================================================
 # __all__
 # =============================================================================
@@ -207,5 +234,8 @@ __all__ = [
     "fsevents_observer_factory",
     "make_mock_observer_factory",
     "mock_kafka_publisher",
+    "mock_observer_class",
+    "mock_observer_factory_fn",
+    "node_protocol_conformance",
     "polling_observer_factory",
 ]

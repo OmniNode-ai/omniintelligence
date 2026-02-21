@@ -53,6 +53,8 @@ class NodeWatchdogEffect(NodeEffect):
 
     Example:
         ```python
+        from uuid import uuid4
+
         from omniintelligence.nodes.node_watchdog_effect.handlers import (
             start_watching,
         )
@@ -62,6 +64,7 @@ class NodeWatchdogEffect(NodeEffect):
 
         result = await start_watching(
             config=ModelWatchdogConfig(),
+            correlation_id=uuid4(),
             kafka_publisher=producer,
         )
 
