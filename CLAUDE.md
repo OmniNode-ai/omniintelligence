@@ -243,7 +243,7 @@ src/omniintelligence/
 | `NodeExecutionTraceParserCompute` | `node_execution_trace_parser_compute` | Parse execution traces |
 | `NodeSuccessCriteriaMatcherCompute` | `node_success_criteria_matcher_compute` | Match success criteria |
 
-**Effect Nodes** (10):
+**Effect Nodes** (14):
 
 | Class | Directory | Purpose | Has `node.py` |
 |-------|-----------|---------|---------------|
@@ -257,6 +257,10 @@ src/omniintelligence/
 | `NodeComplianceEvaluateEffect` | `node_compliance_evaluate_effect` | Evaluate compliance rules against patterns | Yes |
 | `NodeEnforcementFeedbackEffect` | `node_enforcement_feedback_effect` | Record enforcement feedback and confidence adjustments | Yes |
 | `NodePatternComplianceEffect` | `node_pattern_compliance_effect` | Pattern compliance assessment pipeline | Yes |
+| `NodeCrawlSchedulerEffect` | `node_crawl_scheduler_effect` | Schedule and coordinate file crawl operations | Yes |
+| `NodePatternProjectionEffect` | `node_pattern_projection_effect` | Project pattern data for downstream consumers | Yes |
+| `NodeRoutingFeedbackEffect` | `node_routing_feedback_effect` | Record routing decisions and feedback | Yes |
+| `NodeWatchdogEffect` | `node_watchdog_effect` | File system watching; emits crawl-requested events | Yes |
 
 **Note on `NodePatternLearningEffect`**: This is a **contract-only node** — it has a `contract.yaml` but no `node.py`. It is runtime-wired by `PluginIntelligence` via `MessageDispatchEngine`. The dispatch handler lives at `runtime/dispatch_handler_pattern_learning.py`.
 
