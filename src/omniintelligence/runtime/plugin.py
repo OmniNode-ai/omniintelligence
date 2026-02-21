@@ -727,6 +727,7 @@ class PluginIntelligence:
 
         self._message_type_registry = None
         self._pattern_runtime = None
+        self._handshake_validated = False
 
         # Pool is owned by idempotency store -- just clear the reference
         self._pool = None
@@ -853,6 +854,12 @@ class PluginIntelligence:
 
         start_time = time.time()
         correlation_id = config.correlation_id
+
+        if not self._handshake_validated:
+            raise RuntimeError(
+                "wire_dispatchers() called before validate_handshake() — "
+                "kernel bootstrap sequence violated"
+            )
 
         if self._pool is None or self._pattern_runtime is None:
             return ModelDomainPluginResult.failed(
@@ -1301,6 +1308,7 @@ class PluginIntelligence:
         self._services_registered = []
         self._dispatch_engine = None
         self._message_type_registry = None
+        self._handshake_validated = False
         self._event_bus = None
         self._introspection_nodes = []
         self._introspection_proxies = []
