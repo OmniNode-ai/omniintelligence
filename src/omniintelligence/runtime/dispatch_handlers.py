@@ -21,9 +21,10 @@ Design Decisions:
 
 Related:
     - OMN-2031: Replace _noop_handler with MessageDispatchEngine routing
-    - OMN-2032: Register intelligence dispatchers (now 6 handlers, 8 routes)
+    - OMN-2032: Register intelligence dispatchers (now 8 handlers, 10 routes)
     - OMN-934: MessageDispatchEngine implementation
     - OMN-2339: Add node_compliance_evaluate_effect and its dispatcher
+    - OMN-2384: Add node_crawl_scheduler_effect dispatchers
 """
 
 from __future__ import annotations
@@ -1679,7 +1680,7 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers all 7 intelligence domain handlers (11 routes)
+    Creates the engine, registers 8 required intelligence domain handlers (10 routes)
     and freezes it. The engine is ready for dispatch after this call.
 
     All required dependencies must be provided. If any are missing, the caller
@@ -1694,6 +1695,9 @@ def create_intelligence_dispatch_engine(
             Keys: "claude_hook", "lifecycle", "pattern_storage",
             "pattern_learning", "compliance_evaluate", "pattern_projection".
             Values: full topic strings from contract event_bus.publish_topics.
+            Note: crawl scheduler handlers (crawl-requested, document-indexed)
+            do not use publish_topics — the crawl-tick topic is embedded in
+            the handler module constant (TOPIC_CRAWL_TICK_V1).
         pattern_upsert_store: Optional contract-driven upsert store. If None,
             falls back to repository for backwards compatibility.
         pattern_query_store: Optional store for querying validated patterns
@@ -1967,6 +1971,59 @@ def create_intelligence_dispatch_engine(
             "pattern-projection handler not registered (OMN-2424). "
             "Provide pattern_query_store to enable projection snapshots."
         )
+
+    # --- Handler 8: crawl-requested (OMN-2384) ---
+    from omniintelligence.runtime.dispatch_handler_crawl_scheduler import (
+        DISPATCH_ALIAS_CRAWL_REQUESTED,
+        DISPATCH_ALIAS_DOCUMENT_INDEXED,
+        create_crawl_requested_dispatch_handler,
+        create_document_indexed_dispatch_handler,
+    )
+
+    crawl_requested_handler = create_crawl_requested_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-crawl-requested-handler",
+        handler=crawl_requested_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-crawl-requested-route",
+            topic_pattern=DISPATCH_ALIAS_CRAWL_REQUESTED,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-crawl-requested-handler",
+            description=(
+                "Routes crawl-requested commands to handle_crawl_requested() "
+                "(OMN-2384). Applies per-source debounce guard before emitting "
+                "crawl-tick.v1."
+            ),
+        )
+    )
+
+    # --- Handler 9: document-indexed (OMN-2384) ---
+    document_indexed_handler = create_document_indexed_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-document-indexed-handler",
+        handler=document_indexed_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-document-indexed-route",
+            topic_pattern=DISPATCH_ALIAS_DOCUMENT_INDEXED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-document-indexed-handler",
+            description=(
+                "Routes document-indexed events to handle_document_indexed() "
+                "(OMN-2384). Resets the per-source debounce window after a "
+                "successful crawl completion."
+            ),
+        )
+    )
 
     engine.freeze()
 
