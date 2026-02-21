@@ -166,7 +166,7 @@ Canonical topic: onex.evt.omniintelligence.pattern-projection.v1
 
 NodePatternProjectionEffect publishes a full materialized snapshot of all
 validated patterns to this topic whenever a lifecycle change occurs
-(pattern-promoted, pattern-deprecated, pattern-lifecycle-transitioned).
+(pattern-promoted, pattern-lifecycle-transitioned).
 Consumers (e.g. omniclaude) subscribe to receive the latest projection without
 needing direct DB access.
 
