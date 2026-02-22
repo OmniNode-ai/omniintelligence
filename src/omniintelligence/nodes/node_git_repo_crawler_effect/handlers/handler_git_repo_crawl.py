@@ -121,6 +121,7 @@ def _get_file_commit_sha(repo_path: str, file_path: str) -> str:
 def _sha256_of_file(repo_path: str, file_path: str) -> str:
     """Return the SHA-256 hex digest of the current on-disk content."""
     full_path = Path(repo_path) / file_path
+    # io-audit: ignore-next-line file-io
     return hashlib.sha256(full_path.read_bytes()).hexdigest()
 
 
