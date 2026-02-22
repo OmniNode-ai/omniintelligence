@@ -12,7 +12,7 @@ Design:
     - Degraded mode: if emission fails, selection result is still returned.
     - Injected: MockDecisionEmitter is available for unit tests.
 
-Topics:
+Privacy-safe dual emission:
     - onex.evt.omniintelligence.decision-recorded.v1 (summary, broad access)
     - onex.cmd.omniintelligence.decision-recorded.v1 (full payload, restricted)
 
@@ -63,7 +63,7 @@ class DecisionEmitterBase(ABC):
 
 
 # ---------------------------------------------------------------------------
-# DecisionEmitter (real implementation — logs, no real Kafka in this revision)
+# DecisionEmitter (real implementation)
 # ---------------------------------------------------------------------------
 
 
@@ -74,13 +74,7 @@ class DecisionEmitter(DecisionEmitterBase):
     system. Emission is fire-and-forget — failures are logged but do not
     propagate to callers.
 
-    Note:
-        This implementation logs the emission intent. Full Kafka integration
-        is wired via the runtime plugin (PluginIntelligence) which provides
-        a KafkaPublisher. For dependency injection, provide a kafka_publisher
-        at construction time.
-
-    Topics:
+    Privacy-safe dual emission:
         - ``onex.evt.omniintelligence.decision-recorded.v1`` — summary payload
           (privacy-safe: no agent_rationale or reproducibility_snapshot)
         - ``onex.cmd.omniintelligence.decision-recorded.v1`` — full payload
@@ -130,6 +124,7 @@ class DecisionEmitter(DecisionEmitterBase):
 
         # -------------------------------------------------------------------
         # EVT payload (privacy-safe summary, broad access)
+        # Excludes agent_rationale and reproducibility_snapshot
         # -------------------------------------------------------------------
         evt_payload: dict[str, Any] = {
             "decision_id": decision_id,
@@ -209,6 +204,10 @@ class MockDecisionEmitter(DecisionEmitterBase):
         if not self.emitted:
             return None
         return self.emitted[-1][0]
+
+    def clear(self) -> None:
+        """Reset all captured emissions. For test use only."""
+        self.emitted.clear()
 
 
 __all__ = [

@@ -12,6 +12,7 @@ Ticket: OMN-2466 - V1: Unit tests with mocked emitter
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -95,8 +96,6 @@ class TestDecisionRecordEmission:
         assert record["decision_id"] == result.decision_id
 
     def test_decision_id_is_uuid4(self) -> None:
-        import re
-
         selector, mock = _make_selector()
         selector.select(
             SAMPLE_CANDIDATES, scores=SAMPLE_SCORES, timestamp=FIXED_TIMESTAMP
@@ -140,6 +139,17 @@ class TestDecisionRecordEmission:
         record = mock.last_record()
         assert record is not None
         assert record["selected_candidate"] == result.selected_candidate
+
+    def test_each_selection_has_unique_decision_id(self) -> None:
+        selector, _mock = _make_selector()
+        results = [
+            selector.select(
+                SAMPLE_CANDIDATES, scores=SAMPLE_SCORES, timestamp=FIXED_TIMESTAMP
+            )
+            for _ in range(3)
+        ]
+        ids = {r.decision_id for r in results}
+        assert len(ids) == 3, "Expected unique decision_id per selection"
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +237,17 @@ class TestScoringBreakdown:
         )
         assert result.tie_breaker is None
 
+    def test_scoring_breakdown_score_field_present(self) -> None:
+        selector, mock = _make_selector()
+        selector.select(
+            SAMPLE_CANDIDATES, scores=SAMPLE_SCORES, timestamp=FIXED_TIMESTAMP
+        )
+        record = mock.last_record()
+        assert record is not None
+        for entry in record["scoring_breakdown"]:
+            assert "score" in entry
+            assert isinstance(entry["score"], float)
+
 
 # ---------------------------------------------------------------------------
 # R3: Emission is non-blocking
@@ -264,6 +285,17 @@ class TestNonBlockingEmission:
         )
         # The highest-scoring candidate should still win
         assert result.selected_candidate == "claude-3-opus"
+
+    def test_failed_emission_does_not_increment_emit_count(self) -> None:
+        failing_emitter = MockDecisionEmitter(should_fail=True)
+        selector = ModelSelector(
+            scoring_weights=SAMPLE_WEIGHTS,
+            emitter=failing_emitter,
+        )
+        selector.select(
+            SAMPLE_CANDIDATES, scores=SAMPLE_SCORES, timestamp=FIXED_TIMESTAMP
+        )
+        assert failing_emitter.emit_count == 0
 
 
 # ---------------------------------------------------------------------------
@@ -425,3 +457,13 @@ class TestEdgeCases:
         score = CandidateScore(candidate="test", score=0.5, breakdown={})
         with pytest.raises((AttributeError, TypeError)):
             score.score = 0.9  # type: ignore[misc]
+
+    def test_mock_emitter_clear_resets_count(self) -> None:
+        selector, mock = _make_selector()
+        selector.select(
+            SAMPLE_CANDIDATES, scores=SAMPLE_SCORES, timestamp=FIXED_TIMESTAMP
+        )
+        assert mock.emit_count == 1
+        mock.clear()
+        assert mock.emit_count == 0
+        assert mock.last_record() is None
