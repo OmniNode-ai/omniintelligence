@@ -44,6 +44,19 @@ class ReviewSeverity(str, Enum):
     INFO = "INFO"
 
 
+class EnforcementMode(str, Enum):
+    """How policy findings are enforced in CI.
+
+    OBSERVE - silent; findings logged but CI always passes (default for new repos).
+    WARN - findings posted as PR comments; CI always passes.
+    BLOCK - BLOCKER findings cause CI to fail.
+    """
+
+    OBSERVE = "observe"
+    WARN = "warn"
+    BLOCK = "block"
+
+
 class ModelReviewRule(BaseModel):
     """A single review rule definition in a policy file.
 
@@ -154,8 +167,8 @@ class ModelReviewPolicy(BaseModel):
         description="Policy schema version (semver string, e.g., '1.0')",
         min_length=1,
     )
-    enforcement_mode: str = Field(
-        default="observe",
+    enforcement_mode: EnforcementMode = Field(
+        default=EnforcementMode.OBSERVE,
         description="Enforcement mode: observe | warn | block",
     )
     rules: list[ModelReviewRule] = Field(
@@ -175,17 +188,6 @@ class ModelReviewPolicy(BaseModel):
         if not re.match(r"^\d+\.\d+(\.\d+)?$", v):
             raise ValueError(
                 f"version must follow semver format (e.g., '1.0' or '1.0.0'), got: {v!r}"
-            )
-        return v
-
-    @field_validator("enforcement_mode")
-    @classmethod
-    def validate_enforcement_mode(cls, v: str) -> str:
-        """Validate enforcement_mode is one of the allowed values."""
-        allowed = {"observe", "warn", "block"}
-        if v not in allowed:
-            raise ValueError(
-                f"enforcement_mode must be one of {sorted(allowed)}, got: {v!r}"
             )
         return v
 
@@ -233,6 +235,7 @@ class ModelReviewPolicy(BaseModel):
 
 
 __all__ = [
+    "EnforcementMode",
     "ModelReviewExemption",
     "ModelReviewPolicy",
     "ModelReviewRule",

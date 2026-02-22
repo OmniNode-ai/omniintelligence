@@ -23,7 +23,7 @@ rules:
     pattern: "except:"
     message: >
       Bare except clause catches all exceptions including KeyboardInterrupt and SystemExit. Use specific
-      exception types (e.g., `except ValueError:`) or `except Exception:` at minimum. #magic___^_^___line
+      exception types (e.g., `except ValueError:`) or `except Exception:` at minimum.
   - id: no-hardcoded-secrets
     severity: BLOCKER
     pattern: "(?i)(password|secret|api_key|token)\\s*=\\s*.{8,}"
@@ -47,13 +47,13 @@ rules:
     pattern: '\bprint\s*\('
     message: >
       print() statements should not be used in production code. Use structured logging (e.g., `logger.info(...)`)
-      instead. #magic___^_^___line
+      instead.
   - id: no-fixme
     severity: WARNING
     pattern: '(?i)(FIXME|HACK|XXX):'
     message: >
       Found a FIXME/HACK/XXX comment. Create a Linear ticket to track this technical debt and replace
-      the comment with the ticket reference (e.g., `# TODO: OMN-1234`). #magic___^_^___line
+      the comment with the ticket reference (e.g., `# TODO: OMN-1234`).
   - id: missing-type-annotations
     severity: WARNING
     pattern: '^def \w+\([^)]*\)\s*:'
@@ -71,13 +71,13 @@ rules:
     pattern: '(?i)#\s*TODO(?!.*OMN-\d+)'
     message: >
       Found a TODO comment without a Linear ticket reference. Consider linking to a ticket (e.g., `# TODO:
-      OMN-1234 - description`). #magic___^_^___line
+      OMN-1234 - description`).
   - id: long-line
     severity: INFO
     pattern: '^.{121,}$'
     message: >
       Line exceeds 120 characters. Consider breaking it up for readability. This is advisory only and
-      not enforced by ruff. #magic___^_^___line
+      not enforced by ruff.
 exemptions:
   # Exemptions suppress a rule for specific paths with a required expiry date.
   # Expired exemptions produce a WARNING but are not errors.
@@ -86,7 +86,7 @@ exemptions:
     path: scripts/
     expires: "2026-12-01"
     reason: >
-      Utility scripts intentionally use print() for CLI output. Tracked for migration in OMN-2000. #magic___^_^___line
+      Utility scripts intentionally use print() for CLI output. Tracked for migration in OMN-2000.
   - rule: missing-type-annotations
     path: tests/
     expires: "2026-09-01"

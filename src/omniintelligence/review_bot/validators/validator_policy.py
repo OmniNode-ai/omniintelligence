@@ -27,11 +27,13 @@ class PolicyValidationError:
         field: The field name or path that caused the error (e.g., "rules[0].severity").
         message: Human-readable error description with remediation hint.
         line_hint: Optional line number hint if available from YAML parsing.
+        correlation_id: Optional correlation ID for end-to-end tracing.
     """
 
     field: str
     message: str
     line_hint: int | None = None
+    correlation_id: str | None = None
 
     def __str__(self) -> str:
         location = f"line {self.line_hint}: " if self.line_hint else ""
@@ -45,10 +47,12 @@ class PolicyValidationWarning:
     Attributes:
         field: The field name or path that triggered the warning.
         message: Human-readable warning description.
+        correlation_id: Optional correlation ID for end-to-end tracing.
     """
 
     field: str
     message: str
+    correlation_id: str | None = None
 
     def __str__(self) -> str:
         return f"{self.field}: {self.message}"
@@ -105,11 +109,14 @@ class ValidatorPolicy:
             print(f"WARNING: {warning}", file=sys.stderr)
     """
 
-    def validate_file(self, path: str) -> PolicyValidationResult:
+    def validate_file(
+        self, path: str, correlation_id: str | None = None
+    ) -> PolicyValidationResult:
         """Validate a policy YAML file at the given path.
 
         Args:
             path: Filesystem path to the policy YAML file.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             PolicyValidationResult with errors and warnings.
@@ -124,16 +131,20 @@ class ValidatorPolicy:
                     PolicyValidationError(
                         field="file",
                         message=f"Cannot read policy file {path!r}: {exc}",
+                        correlation_id=correlation_id,
                     )
                 ],
             )
-        return self.validate_yaml_string(content)
+        return self.validate_yaml_string(content, correlation_id=correlation_id)
 
-    def validate_yaml_string(self, yaml_content: str) -> PolicyValidationResult:
+    def validate_yaml_string(
+        self, yaml_content: str, correlation_id: str | None = None
+    ) -> PolicyValidationResult:
         """Validate a policy from a YAML string.
 
         Args:
             yaml_content: YAML string to parse and validate.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             PolicyValidationResult with errors and warnings.
@@ -151,6 +162,7 @@ class ValidatorPolicy:
                         field="yaml",
                         message=f"Invalid YAML syntax: {exc}",
                         line_hint=line_hint,
+                        correlation_id=correlation_id,
                     )
                 ],
             )
@@ -165,17 +177,21 @@ class ValidatorPolicy:
                             "Policy must be a YAML mapping (key: value pairs), "
                             f"got {type(data).__name__}"
                         ),
+                        correlation_id=correlation_id,
                     )
                 ],
             )
 
-        return self.validate_dict(data)
+        return self.validate_dict(data, correlation_id=correlation_id)
 
-    def validate_dict(self, data: dict[str, Any]) -> PolicyValidationResult:
+    def validate_dict(
+        self, data: dict[str, Any], correlation_id: str | None = None
+    ) -> PolicyValidationResult:
         """Validate a policy from an already-parsed dictionary.
 
         Args:
             data: Policy data as a Python dictionary.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             PolicyValidationResult with errors and warnings.
@@ -189,6 +205,7 @@ class ValidatorPolicy:
                 PolicyValidationError(
                     field="version",
                     message="Required field 'version' is missing. Add: version: \"1.0\"",
+                    correlation_id=correlation_id,
                 )
             )
 
@@ -200,6 +217,7 @@ class ValidatorPolicy:
                         "Required field 'rules' is missing. "
                         "Add a rules list with at least one rule."
                     ),
+                    correlation_id=correlation_id,
                 )
             )
 
@@ -234,7 +252,11 @@ class ValidatorPolicy:
                             f"Got: {error.get('input')!r}"
                         )
 
-                errors.append(PolicyValidationError(field=field_path, message=msg))
+                errors.append(
+                    PolicyValidationError(
+                        field=field_path, message=msg, correlation_id=correlation_id
+                    )
+                )
 
             return PolicyValidationResult(policy=None, errors=errors, warnings=warnings)
 
@@ -249,11 +271,13 @@ class ValidatorPolicy:
                             f"expired on {exemption.expires}. "
                             "Remove or update the exemption to suppress this warning."
                         ),
+                        correlation_id=correlation_id,
                     )
                 )
                 # Emit expired exemption warning to stderr
+                corr_prefix = f"[{correlation_id}] " if correlation_id else ""
                 print(
-                    f"WARNING: exemptions[{i}]: Exemption for rule {exemption.rule!r} "
+                    f"{corr_prefix}WARNING: exemptions[{i}]: Exemption for rule {exemption.rule!r} "
                     f"expired on {exemption.expires}",
                     file=sys.stderr,
                 )

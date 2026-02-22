@@ -15,6 +15,7 @@ import pytest
 from pydantic import ValidationError
 
 from omniintelligence.review_bot.schemas.model_review_policy import (
+    EnforcementMode,
     ModelReviewExemption,
     ModelReviewPolicy,
     ModelReviewRule,
@@ -233,7 +234,7 @@ class TestModelReviewPolicy:
             rules=[self._make_rule()],
         )
         assert policy.version == "1.0"
-        assert policy.enforcement_mode == "observe"
+        assert policy.enforcement_mode == EnforcementMode.OBSERVE
         assert len(policy.rules) == 1
         assert policy.exemptions == []
 
@@ -281,7 +282,7 @@ class TestModelReviewPolicy:
             assert policy.version == ver
 
     def test_valid_enforcement_modes(self) -> None:
-        for mode in ["observe", "warn", "block"]:
+        for mode in EnforcementMode:
             policy = ModelReviewPolicy(version="1.0", enforcement_mode=mode, rules=[])
             assert policy.enforcement_mode == mode
 
@@ -291,7 +292,7 @@ class TestModelReviewPolicy:
 
     def test_default_enforcement_mode_is_observe(self) -> None:
         policy = ModelReviewPolicy(version="1.0", rules=[])
-        assert policy.enforcement_mode == "observe"
+        assert policy.enforcement_mode == EnforcementMode.OBSERVE
 
     def test_duplicate_rule_ids_rejected(self) -> None:
         """R2: Duplicate rule IDs must raise an error."""
@@ -533,7 +534,7 @@ class TestValidatorPolicy:
         result = self.validator.validate_yaml_string(yaml_content)
         assert result.is_valid
         assert result.policy is not None
-        assert result.policy.enforcement_mode == "warn"
+        assert result.policy.enforcement_mode == EnforcementMode.WARN
         assert len(result.policy.rules) == 3
         assert len(result.policy.exemptions) == 1
         assert len(result.warnings) == 0
