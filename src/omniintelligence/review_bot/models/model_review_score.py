@@ -21,7 +21,6 @@ from omniintelligence.review_bot.models.model_review_severity import ReviewSever
 
 # Score thresholds
 _MAX_SCORE_WITH_BLOCKERS = 50
-_MIN_SCORE_FOR_CLEAN = 80
 
 # Per-finding deductions
 _BLOCKER_DEDUCTION = 25
