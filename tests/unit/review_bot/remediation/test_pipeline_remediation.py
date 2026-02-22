@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 
 from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
 from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
+
 from omniintelligence.review_bot.remediation.patch_applicator import (
     SAFE_REFACTOR_ALLOWLIST,
     PatchApplicator,
