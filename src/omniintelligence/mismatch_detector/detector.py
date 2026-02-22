@@ -9,19 +9,18 @@ fields (Layer 1: constraints_applied, scoring_breakdown, selected_candidate).
 
 Three Mismatch Types Detected:
     OMISSION: A Layer 1 constraint was not mentioned in the rationale text.
-    FABRICATION: The rationale references a factor absent from Layer 1.
+    FABRICATION: The rationale recommends a candidate absent from Layer 1.
     WRONG_WINNER: The rationale claims a different winner than selected_candidate.
 
 Detection Algorithm (v1 — keyword/concept matching):
     - OMISSION: For each constraint key in constraints_applied, check whether
       ANY form of the key appears in rationale text (case-insensitive,
       underscore/hyphen-normalized). Missing → OMISSION(WARNING).
-    - FABRICATION: For each candidate name mentioned in rationale that is NOT
-      in candidates_considered, report FABRICATION(CRITICAL). Also detect
-      mention of constraint names that are not in constraints_applied.
-    - WRONG_WINNER: If rationale contains phrases like "chose X" or "selected X"
-      or "X was selected" where X != selected_candidate, report
-      WRONG_WINNER(CRITICAL).
+    - FABRICATION: For each "recommend/suggest/pick/prefer X" phrase, if X is
+      not in candidates_considered, report FABRICATION(CRITICAL).
+    - WRONG_WINNER: If rationale contains phrases like "chose X", "selected X",
+      "X was selected", or "winner is X" where X is a known candidate but NOT
+      equal to selected_candidate, report WRONG_WINNER(CRITICAL).
 
 This is v1 — full NLU is v2. Initial version catches obvious conflicts.
 
@@ -123,7 +122,6 @@ def detect_mismatches(
             decision_id=decision_id,
             rationale_text=rationale_text,
             candidates_considered=candidates_considered,
-            constraints_applied=constraints_applied,
             scoring_breakdown=scoring_breakdown,
             detected_at=detected_at,
         )
@@ -216,26 +214,21 @@ def _detect_fabrications(
     decision_id: str,
     rationale_text: str,
     candidates_considered: list[str],
-    constraints_applied: dict[str, str],  # noqa: ARG001
     scoring_breakdown: list[dict[str, Any]],
     detected_at: datetime,
 ) -> list[MismatchReport]:
     """Detect factors mentioned in rationale that are absent from Layer 1.
 
-    Checks two fabrication patterns:
-    1. Candidate names mentioned in rationale that are NOT in
-       candidates_considered (fabricated candidate).
-    2. Constraint-like phrases in rationale referencing names that are
-       NOT in constraints_applied (fabricated constraint name).
+    Checks for fabricated candidates: "recommend/suggest/pick/prefer X" phrases
+    where X is not in candidates_considered or scoring_breakdown.
 
-    Only scores candidates that appear as whole words to avoid false positives
-    (e.g., "gpt" vs "gpt-4o").
+    Only checks explicit recommendation patterns to minimize false positives.
+    v1 keyword matching — full NLU is v2.
 
     Args:
         decision_id: Decision identifier.
         rationale_text: The agent_rationale string.
         candidates_considered: All candidates from Layer 1.
-        constraints_applied: Layer 1 constraints dict.
         scoring_breakdown: Scoring breakdown list (for candidate names).
         detected_at: Detection timestamp.
 
@@ -243,56 +236,17 @@ def _detect_fabrications(
         List of FABRICATION MismatchReports.
     """
     reports = []
-    rationale_lower = rationale_text.lower()
 
-    # All valid candidate names from scoring breakdown + candidates_considered
+    # Build set of all valid candidate names from both sources
     valid_candidates = set(candidates_considered)
     for entry in scoring_breakdown:
         if isinstance(entry, dict) and "candidate" in entry:
             valid_candidates.add(str(entry["candidate"]))
 
-    # Detect fabricated candidates: names in rationale not in Layer 1
-    # We use a word-boundary pattern to avoid partial matches
-    for candidate in valid_candidates:
-        # This is a valid candidate — skip
-        pass
+    valid_candidates_lower = {c.lower() for c in valid_candidates}
 
-    # Check if rationale mentions any candidate-like names not in Layer 1
-    # Extract potential model names (patterns like "model-name", "gpt-X", etc.)
-    # We look for patterns that resemble model identifiers
-    candidate_pattern = re.compile(r"\b([a-zA-Z0-9][-a-zA-Z0-9]*[a-zA-Z0-9])\b")
-    mentioned_tokens = {
-        m.group(1).lower() for m in candidate_pattern.finditer(rationale_text)
-    }
-
-    # Check if any valid candidate names appear verbatim in rationale
-    # against the scoring breakdown entries — this is a secondary check
-    # to catch cases like "I chose X but X wasn't in the list"
-    scored_candidates = {
-        str(e.get("candidate", "")).lower()
-        for e in scoring_breakdown
-        if isinstance(e, dict) and e.get("candidate")
-    }
-
-    # Detect mentions of candidate-like tokens that match no known candidate
-    # This is conservative: we only flag exact matches against known patterns
-    # (v1: keyword matching, v2 will use full NLU)
-
-    # For constraint fabrications: check if rationale mentions constraint
-    # keys that sound like constraints but aren't in constraints_applied
-    # This v1 implementation only checks for explicit "wrong" prefix patterns
-    # like "cost_limit not applied" when cost_limit IS in constraints
-    # (inverse: fabrication = claiming constraint NOT there when it IS)
-    # For now, focus on the core fabrication: claiming a candidate not in list
-
-    # Extract candidate-looking tokens from rationale that match none of
-    # the valid candidates (using scored_candidates as reference)
-    # (v1: only check recommend/suggest patterns below; v2 will extend this)
-    _ = scored_candidates  # referenced for future v2 expansion
-
-    # Check for WRONG_CANDIDATE_CLAIM: if rationale explicitly claims a
-    # model that is NOT in any of the candidates considered
-    # Pattern: "I recommend <X>" where X is not a valid candidate
+    # Check for explicit recommendation of a model not in candidates_considered
+    # Pattern: "I recommend/suggest/pick/prefer <model-name>"
     recommend_pattern = re.compile(
         r"\b(?:recommend|suggest|pick|prefer)\s+([a-zA-Z0-9][-a-zA-Z0-9]*)",
         re.IGNORECASE,
@@ -301,7 +255,7 @@ def _detect_fabrications(
         mentioned_model = match.group(1).lower()
         if (
             valid_candidates
-            and mentioned_model not in {c.lower() for c in valid_candidates}
+            and mentioned_model not in valid_candidates_lower
             and len(mentioned_model) > 2  # avoid false positives on short tokens
         ):
             reports.append(
@@ -376,7 +330,6 @@ def _detect_wrong_winner(
 
     for pattern in winner_patterns:
         for match in pattern.finditer(rationale_text):
-            # Extract the claimed candidate name from either group 1 or 0
             try:
                 claimed = match.group(1).lower()
             except IndexError:

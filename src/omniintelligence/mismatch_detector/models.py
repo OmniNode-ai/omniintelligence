@@ -87,8 +87,8 @@ class MismatchReport:
 
         Returns a privacy-safe dict suitable for the
         ``onex.evt.omniintelligence.rationale-mismatch.v1`` topic.
-        Excludes ``quoted_text`` to avoid leaking rationale content to
-        broad-access topics.
+        Excludes ``quoted_text`` and ``description`` to avoid leaking
+        rationale content to broad-access topics.
         """
         return {
             "decision_id": self.decision_id,

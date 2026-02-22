@@ -171,6 +171,17 @@ class TestOmissionDetection:
         assert report.detected_at == FIXED_TIMESTAMP
         assert isinstance(report, MismatchReport)
 
+    def test_omission_quoted_text_is_empty_string(self) -> None:
+        record = _make_record(
+            constraints_applied={"cost_limit": "budget"},
+            agent_rationale="I chose claude for quality reasons.",
+            selected_candidate="claude-3-opus",
+        )
+        result = detect_mismatches(record, detected_at=FIXED_TIMESTAMP)
+        omissions = [r for r in result if r.mismatch_type == MismatchType.OMISSION]
+        assert len(omissions) >= 1
+        assert omissions[0].quoted_text == ""
+
 
 # ---------------------------------------------------------------------------
 # Mismatch Type 2: FABRICATION
@@ -254,6 +265,23 @@ class TestFabricationDetection:
         ]
         if fabrications:
             assert fabrications[0].quoted_text != ""
+
+    def test_fabrication_layer1_reference_is_candidates_considered(self) -> None:
+        record = _make_record(
+            candidates_considered=["claude-3-opus"],
+            scoring_breakdown=[
+                {"candidate": "claude-3-opus", "score": 0.9, "breakdown": {}}
+            ],
+            selected_candidate="claude-3-opus",
+            agent_rationale="I prefer mixtral-8x7b for this workload.",
+            constraints_applied={},
+        )
+        result = detect_mismatches(record, detected_at=FIXED_TIMESTAMP)
+        fabrications = [
+            r for r in result if r.mismatch_type == MismatchType.FABRICATION
+        ]
+        if fabrications:
+            assert "candidates_considered" in fabrications[0].layer1_reference
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +383,38 @@ class TestWrongWinnerDetection:
         if wrong_winners:
             assert "claude-3-opus" in wrong_winners[0].layer1_reference
 
+    def test_wrong_winner_report_has_quoted_text(self) -> None:
+        record = _make_record(
+            candidates_considered=["claude-3-opus", "gpt-4o"],
+            scoring_breakdown=[
+                {"candidate": "claude-3-opus", "score": 0.9, "breakdown": {}},
+                {"candidate": "gpt-4o", "score": 0.8, "breakdown": {}},
+            ],
+            selected_candidate="claude-3-opus",
+            agent_rationale="I chose gpt-4o for this task.",
+            constraints_applied={},
+        )
+        result = detect_mismatches(record, detected_at=FIXED_TIMESTAMP)
+        wrong_winners = [
+            r for r in result if r.mismatch_type == MismatchType.WRONG_WINNER
+        ]
+        if wrong_winners:
+            assert wrong_winners[0].quoted_text != ""
+
+    def test_empty_candidates_considered_skips_wrong_winner(self) -> None:
+        record = _make_record(
+            candidates_considered=[],
+            scoring_breakdown=[],
+            selected_candidate="",
+            agent_rationale="I chose gpt-4o for this task.",
+            constraints_applied={},
+        )
+        result = detect_mismatches(record, detected_at=FIXED_TIMESTAMP)
+        wrong_winners = [
+            r for r in result if r.mismatch_type == MismatchType.WRONG_WINNER
+        ]
+        assert len(wrong_winners) == 0
+
 
 # ---------------------------------------------------------------------------
 # V2: False positive test — no mismatch = no event
@@ -399,6 +459,11 @@ class TestCleanDecision:
         ]
         assert len(wrong_winners) == 0
 
+    def test_detect_mismatches_returns_list(self) -> None:
+        record = _make_record(agent_rationale=None)
+        result = detect_mismatches(record, detected_at=FIXED_TIMESTAMP)
+        assert isinstance(result, list)
+
 
 # ---------------------------------------------------------------------------
 # MismatchReport model tests
@@ -439,6 +504,19 @@ class TestMismatchReport:
         assert event["mismatch_type"] == MismatchType.WRONG_WINNER.value
         assert event["severity"] == MismatchSeverity.CRITICAL.value
 
+    def test_to_event_dict_includes_detected_at(self) -> None:
+        report = MismatchReport(
+            decision_id="d-ts",
+            mismatch_type=MismatchType.OMISSION,
+            severity=MismatchSeverity.WARNING,
+            quoted_text="",
+            layer1_reference="constraints_applied['x']",
+            description="Omission.",
+            detected_at=FIXED_TIMESTAMP,
+        )
+        event = report.to_event_dict()
+        assert event["detected_at"] == FIXED_TIMESTAMP.isoformat()
+
     def test_to_full_dict_includes_all_fields(self) -> None:
         report = MismatchReport(
             decision_id="d-003",
@@ -453,6 +531,50 @@ class TestMismatchReport:
         assert "quoted_text" in full
         assert "description" in full
         assert full["quoted_text"] == "I recommend gemini"
+
+    def test_to_full_dict_is_superset_of_event_dict(self) -> None:
+        report = MismatchReport(
+            decision_id="d-004",
+            mismatch_type=MismatchType.OMISSION,
+            severity=MismatchSeverity.WARNING,
+            quoted_text="",
+            layer1_reference="constraints_applied['cost']",
+            description="Omission.",
+            detected_at=FIXED_TIMESTAMP,
+        )
+        event = report.to_event_dict()
+        full = report.to_full_dict()
+        for key in event:
+            assert key in full
+            assert full[key] == event[key]
+
+
+# ---------------------------------------------------------------------------
+# OmniIntelligenceTopics tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestOmniIntelligenceTopics:
+    """Tests for the StrEnum topic constants."""
+
+    def test_rationale_mismatch_topic_is_evt(self) -> None:
+        from omniintelligence.hooks.topics import OmniIntelligenceTopics
+
+        assert "evt" in OmniIntelligenceTopics.RATIONALE_MISMATCH_EVT
+        assert "rationale-mismatch" in OmniIntelligenceTopics.RATIONALE_MISMATCH_EVT
+
+    def test_decision_recorded_cmd_is_restricted(self) -> None:
+        from omniintelligence.hooks.topics import OmniIntelligenceTopics
+
+        assert "cmd" in OmniIntelligenceTopics.DECISION_RECORDED_CMD
+
+    def test_topics_are_str(self) -> None:
+        from omniintelligence.hooks.topics import OmniIntelligenceTopics
+
+        assert isinstance(OmniIntelligenceTopics.RATIONALE_MISMATCH_EVT, str)
+        assert isinstance(OmniIntelligenceTopics.DECISION_RECORDED_EVT, str)
+        assert isinstance(OmniIntelligenceTopics.DECISION_RECORDED_CMD, str)
 
 
 # ---------------------------------------------------------------------------
@@ -611,3 +733,36 @@ class TestMismatchDetectionConsumer:
 
         consumer = MismatchDetectionConsumer()
         assert consumer.subscribed_topic == OmniIntelligenceTopics.DECISION_RECORDED_CMD
+
+    def test_consumer_get_mismatches_returns_empty_for_unknown_id(self) -> None:
+        from omniintelligence.mismatch_detector.consumer import (
+            MismatchDetectionConsumer,
+        )
+
+        consumer = MismatchDetectionConsumer()
+        result = consumer.get_mismatches("nonexistent-decision-id")
+        assert result == []
+
+    def test_consumer_stored_reports_include_full_fields(self) -> None:
+        from omniintelligence.mismatch_detector.consumer import (
+            MismatchDetectionConsumer,
+        )
+
+        consumer = MismatchDetectionConsumer()
+        payload = {
+            "decision_id": "c-full-001",
+            "decision_type": "model_select",
+            "timestamp": FIXED_TIMESTAMP.isoformat(),
+            "selected_candidate": "claude-3-opus",
+            "candidates_considered": ["claude-3-opus"],
+            "constraints_applied": {"cost_limit": "budget"},
+            "scoring_breakdown": [],
+            "agent_rationale": "I chose claude for quality.",
+            "has_rationale": True,
+        }
+        consumer.handle_message(json.dumps(payload).encode("utf-8"))
+
+        mismatches = consumer.get_mismatches("c-full-001")
+        assert len(mismatches) >= 1
+        # Full dict should include description and quoted_text (for storage)
+        assert "description" in mismatches[0]
