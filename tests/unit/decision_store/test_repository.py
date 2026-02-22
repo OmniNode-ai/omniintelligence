@@ -3,7 +3,8 @@
 
 """Unit tests for DecisionRecordRepository.
 
-Tests storage, idempotency, querying, pagination, and layer separation.
+Tests storage, idempotency, querying, pagination, layer separation,
+and correlation_id threading.
 
 Ticket: OMN-2467 - V1: Storage unit tests
 """
@@ -18,6 +19,7 @@ from omniintelligence.decision_store.models import (
     DecisionRecordRow,
     DecisionScoreRow,
 )
+from omniintelligence.decision_store.protocols import ProtocolDecisionRecordRepository
 from omniintelligence.decision_store.repository import (
     DecisionRecordRepository,
 )
@@ -67,6 +69,20 @@ def _make_record(
 
 
 # ---------------------------------------------------------------------------
+# Protocol compliance test
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestProtocolCompliance:
+    """Verify DecisionRecordRepository satisfies ProtocolDecisionRecordRepository."""
+
+    def test_repository_satisfies_protocol(self) -> None:
+        repo = DecisionRecordRepository()
+        assert isinstance(repo, ProtocolDecisionRecordRepository)
+
+
+# ---------------------------------------------------------------------------
 # Store / Idempotency Tests
 # ---------------------------------------------------------------------------
 
@@ -102,6 +118,19 @@ class TestDecisionRecordRepositoryStore:
         retrieved = repo.get_record("dup-002")
         assert retrieved is not None
         assert retrieved["selected_candidate"] == "claude-3-opus"
+
+    def test_store_with_correlation_id(self) -> None:
+        repo = DecisionRecordRepository()
+        record = _make_record(decision_id="corr-001")
+        result = repo.store(record, correlation_id="test-corr-id")
+        assert result is True
+
+    def test_store_duplicate_with_correlation_id(self) -> None:
+        repo = DecisionRecordRepository()
+        record = _make_record(decision_id="corr-dup-001")
+        repo.store(record, correlation_id="corr-1")
+        result = repo.store(record, correlation_id="corr-2")
+        assert result is False
 
     def test_count_increments_on_new_records(self) -> None:
         repo = DecisionRecordRepository()
@@ -170,6 +199,14 @@ class TestDecisionRecordRepositoryGetRecord:
         assert result is not None
         assert result["agent_rationale"] is None
 
+    def test_get_record_with_correlation_id(self) -> None:
+        repo = DecisionRecordRepository()
+        record = _make_record(decision_id="corr-get-001")
+        repo.store(record)
+
+        result = repo.get_record("corr-get-001", correlation_id="trace-123")
+        assert result is not None
+
     def test_get_record_contains_expected_layer1_fields(self) -> None:
         repo = DecisionRecordRepository()
         record = _make_record(decision_id="fields-test")
@@ -177,7 +214,7 @@ class TestDecisionRecordRepositoryGetRecord:
 
         result = repo.get_record("fields-test")
         assert result is not None
-        for field in (
+        for field_name in (
             "decision_id",
             "decision_type",
             "timestamp",
@@ -189,7 +226,7 @@ class TestDecisionRecordRepositoryGetRecord:
             "reproducibility_snapshot",
             "stored_at",
         ):
-            assert field in result, f"Missing field: {field}"
+            assert field_name in result, f"Missing field: {field_name}"
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +320,12 @@ class TestDecisionRecordRepositoryQueryByType:
         assert len(results) == 1
         assert cursor is None
 
+    def test_query_by_type_with_correlation_id(self) -> None:
+        repo = DecisionRecordRepository()
+        repo.store(_make_record(decision_id="corr-q-001"))
+        results, _ = repo.query_by_type("model_select", correlation_id="trace-abc")
+        assert len(results) == 1
+
 
 # ---------------------------------------------------------------------------
 # query_by_candidate Tests
@@ -313,3 +356,11 @@ class TestDecisionRecordRepositoryQueryByCandidate:
 
         results, _ = repo.query_by_candidate("nonexistent-model")
         assert results == []
+
+    def test_query_by_candidate_with_correlation_id(self) -> None:
+        repo = DecisionRecordRepository()
+        repo.store(_make_record(decision_id="cand-corr-001"))
+        results, _ = repo.query_by_candidate(
+            "claude-3-opus", correlation_id="trace-xyz"
+        )
+        assert len(results) == 1

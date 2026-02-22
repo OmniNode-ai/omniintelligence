@@ -7,7 +7,7 @@ Provides the DecisionRecordRepository — an in-memory repository (backed by a
 dict) for storing, querying, and retrieving DecisionRecords.
 
 Design Decision:
-    Migration freeze is active (`.migration_freeze`). No new SQL migrations
+    Migration freeze is active (``.migration_freeze``). No new SQL migrations
     are created. The repository interface is defined here so it can be wired
     to a real database backend once the freeze is lifted. For now, an
     in-memory implementation is provided for testing and local operation.
@@ -90,24 +90,25 @@ class DecisionRecordRepository:
 
         Args:
             record: The DecisionRecordRow to persist.
-            correlation_id: Trace correlation ID for end-to-end tracing.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             True if stored successfully, False if duplicate (no-op).
         """
         if record.decision_id in self._records:
             logger.debug(
-                "DecisionRecord already exists, skipping (idempotent). decision_id=%s",
+                "DecisionRecord already exists, skipping (idempotent). "
+                "decision_id=%s correlation_id=%s",
                 record.decision_id,
-                extra={"correlation_id": correlation_id},
+                correlation_id,
             )
             return False
 
         self._records[record.decision_id] = record
         logger.debug(
-            "Stored DecisionRecord. decision_id=%s",
+            "Stored DecisionRecord. decision_id=%s correlation_id=%s",
             record.decision_id,
-            extra={"correlation_id": correlation_id},
+            correlation_id,
         )
         return True
 
@@ -134,13 +135,18 @@ class DecisionRecordRepository:
             decision_id: The unique decision identifier.
             include_rationale: If True, include ``agent_rationale`` in
                 the returned dict.
-            correlation_id: Trace correlation ID for end-to-end tracing.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             Dict of record fields, or None if not found.
         """
         record = self._records.get(decision_id)
         if record is None:
+            logger.debug(
+                "DecisionRecord not found. decision_id=%s correlation_id=%s",
+                decision_id,
+                correlation_id,
+            )
             return None
 
         if include_rationale:
@@ -167,7 +173,7 @@ class DecisionRecordRepository:
             until: Include only records stored before or at this timestamp.
             limit: Maximum number of records per page.
             cursor: Pagination cursor from a previous call.
-            correlation_id: Trace correlation ID for end-to-end tracing.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             Tuple of (records_list, next_cursor). ``next_cursor`` is None
@@ -202,7 +208,7 @@ class DecisionRecordRepository:
             until: Include only records stored before or at this timestamp.
             limit: Maximum number of records per page.
             cursor: Pagination cursor from a previous call.
-            correlation_id: Trace correlation ID for end-to-end tracing.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             Tuple of (records_list, next_cursor). ``next_cursor`` is None
@@ -251,7 +257,7 @@ class DecisionRecordRepository:
             until: Upper bound on stored_at.
             limit: Max results per page.
             cursor: Pagination cursor from a previous call.
-            correlation_id: Trace correlation ID for end-to-end tracing.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             (page_records, next_cursor) tuple. Layer 1 fields only.
@@ -292,6 +298,13 @@ class DecisionRecordRepository:
 
         records_out = [r.to_layer1_dict() for r in page]
 
+        logger.debug(
+            "_paginate: returned %d records. has_next=%s correlation_id=%s",
+            len(records_out),
+            has_next,
+            correlation_id,
+        )
+
         next_cursor: DecisionRecordCursor | None = None
         if has_next and page:
             last = page[-1]
@@ -299,13 +312,6 @@ class DecisionRecordRepository:
                 last_decision_id=last.decision_id,
                 last_stored_at=last.stored_at,
             )
-
-        logger.debug(
-            "Paginated DecisionRecord query. count=%d has_next=%s",
-            len(records_out),
-            has_next,
-            extra={"correlation_id": correlation_id},
-        )
 
         return records_out, next_cursor
 

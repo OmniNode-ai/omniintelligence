@@ -47,7 +47,6 @@ class ReplayResult:
         replayed_candidate: Candidate re-derived by the replay verifier.
         match: True if replayed == original.
         reason: Explanation of any mismatch (empty string if match=True).
-        correlation_id: Trace correlation ID for end-to-end tracing.
     """
 
     decision_id: str
@@ -55,7 +54,6 @@ class ReplayResult:
     replayed_candidate: str | None
     match: bool
     reason: str = ""
-    correlation_id: str | None = None
 
     def __str__(self) -> str:
         status = "MATCH" if self.match else "MISMATCH"
@@ -98,7 +96,8 @@ def replay_decision(
 
     Args:
         record: The DecisionRecordRow to replay.
-        correlation_id: Trace correlation ID for end-to-end tracing.
+        correlation_id: Optional correlation ID for end-to-end tracing.
+            Included in all log messages for observability.
 
     Returns:
         ReplayResult indicating whether the replay matches the original decision.
@@ -124,10 +123,10 @@ def replay_decision(
                 "and record has no scoring_breakdown entries."
             )
             logger.warning(
-                "Replay failed for decision_id=%s: %s",
+                "Replay failed for decision_id=%s: %s correlation_id=%s",
                 decision_id,
                 reason,
-                extra={"correlation_id": correlation_id},
+                correlation_id,
             )
             return ReplayResult(
                 decision_id=decision_id,
@@ -135,7 +134,6 @@ def replay_decision(
                 replayed_candidate=None,
                 match=False,
                 reason=reason,
-                correlation_id=correlation_id,
             )
     else:
         # Parse scoring from snapshot — reproducibility_snapshot is dict[str, str],
@@ -145,10 +143,10 @@ def replay_decision(
         except json.JSONDecodeError as exc:
             reason = f"Cannot replay: failed to parse scoring_breakdown JSON: {exc}"
             logger.warning(
-                "Replay failed for decision_id=%s: %s",
+                "Replay failed for decision_id=%s: %s correlation_id=%s",
                 decision_id,
                 reason,
-                extra={"correlation_id": correlation_id},
+                correlation_id,
             )
             return ReplayResult(
                 decision_id=decision_id,
@@ -156,16 +154,15 @@ def replay_decision(
                 replayed_candidate=None,
                 match=False,
                 reason=reason,
-                correlation_id=correlation_id,
             )
 
     if not scoring_entries:
         reason = "Cannot replay: scoring_breakdown is empty."
         logger.warning(
-            "Replay failed for decision_id=%s: %s",
+            "Replay failed for decision_id=%s: %s correlation_id=%s",
             decision_id,
             reason,
-            extra={"correlation_id": correlation_id},
+            correlation_id,
         )
         return ReplayResult(
             decision_id=decision_id,
@@ -173,23 +170,24 @@ def replay_decision(
             replayed_candidate=None,
             match=False,
             reason=reason,
-            correlation_id=correlation_id,
         )
 
     # ------------------------------------------------------------------
     # Step 2: Find the highest-scoring candidate
     # ------------------------------------------------------------------
-    # scoring_entries is a list of dicts from JSON; annotate elements explicitly
+    # scoring_entries is a list of dicts from JSON; annotate elements explicitly.
     scoring_list: list[dict[str, object]] = scoring_entries  # any-ok: JSON-deserialized
     try:
-        max_score = max(float(e["score"]) for e in scoring_list)  # type: ignore[arg-type]  # NOTE: JSON-deserialized data lacks static float typing; runtime checks/except guard ensure valid numeric 'score' values
+        # NOTE: JSON-deserialized data lacks static types; runtime checks/except
+        # guard ensure valid numeric 'score' values — type: ignore is intentional.
+        max_score = max(float(e["score"]) for e in scoring_list)  # type: ignore[arg-type]
     except (KeyError, TypeError, ValueError) as exc:
         reason = f"Cannot replay: malformed scoring entry: {exc}"
         logger.warning(
-            "Replay failed for decision_id=%s: %s",
+            "Replay failed for decision_id=%s: %s correlation_id=%s",
             decision_id,
             reason,
-            extra={"correlation_id": correlation_id},
+            correlation_id,
         )
         return ReplayResult(
             decision_id=decision_id,
@@ -197,13 +195,14 @@ def replay_decision(
             replayed_candidate=None,
             match=False,
             reason=reason,
-            correlation_id=correlation_id,
         )
 
+    # NOTE: JSON-deserialized data lacks static types; runtime checks/except
+    # guard ensure valid numeric 'score' values — type: ignore is intentional.
     top_candidates = [
         str(e["candidate"])
         for e in scoring_list
-        if abs(float(e["score"]) - max_score) < 1e-9  # type: ignore[arg-type]  # NOTE: JSON-deserialized scores are untyped; try/except on max_score above guards against invalid values
+        if abs(float(e["score"]) - max_score) < 1e-9  # type: ignore[arg-type]
     ]
 
     # ------------------------------------------------------------------
@@ -215,12 +214,13 @@ def replay_decision(
         tie_breaker = snapshot.get(_SNAP_KEY_TIE_BREAKER) or record.tie_breaker
         replayed = _apply_tie_breaker(top_candidates, tie_breaker)
         logger.debug(
-            "Replay applied tie-breaker=%r for decision_id=%s. candidates=%s replayed=%s",
+            "Replay applied tie-breaker=%r for decision_id=%s. "
+            "candidates=%s replayed=%s correlation_id=%s",
             tie_breaker,
             decision_id,
             top_candidates,
             replayed,
-            extra={"correlation_id": correlation_id},
+            correlation_id,
         )
 
     # ------------------------------------------------------------------
@@ -231,11 +231,11 @@ def replay_decision(
     if not match:
         logger.warning(
             "Provenance integrity: replay mismatch for decision_id=%s. "
-            "original=%r replayed=%r",
+            "original=%r replayed=%r correlation_id=%s",
             decision_id,
             original,
             replayed,
-            extra={"correlation_id": correlation_id},
+            correlation_id,
         )
         return ReplayResult(
             decision_id=decision_id,
@@ -246,21 +246,19 @@ def replay_decision(
                 f"Replay selected {replayed!r} but original decision was {original!r}. "
                 "Provenance integrity check FAILED."
             ),
-            correlation_id=correlation_id,
         )
 
     logger.debug(
-        "Replay verified successfully. decision_id=%s candidate=%r",
+        "Replay verified successfully. decision_id=%s candidate=%r correlation_id=%s",
         decision_id,
         replayed,
-        extra={"correlation_id": correlation_id},
+        correlation_id,
     )
     return ReplayResult(
         decision_id=decision_id,
         original_candidate=original,
         replayed_candidate=replayed,
         match=True,
-        correlation_id=correlation_id,
     )
 
 
