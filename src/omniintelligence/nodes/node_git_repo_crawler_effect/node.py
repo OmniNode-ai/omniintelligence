@@ -33,7 +33,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_effect import NodeEffect
 
 
-class NodeGitRepoCrawlerEffect(NodeEffect):
+class NodeGitRepoCrawlerEffect(NodeEffect):  # type: ignore[misc]
     """Declarative effect node for git-based document change detection.
 
     This node is a pure declarative shell. All handler dispatch is defined
