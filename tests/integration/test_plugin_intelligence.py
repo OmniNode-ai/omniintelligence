@@ -102,7 +102,7 @@ class TestPluginIntelligence:
         """Plugin should activate when OMNIINTELLIGENCE_DB_URL is set."""
         monkeypatch.setenv(
             "OMNIINTELLIGENCE_DB_URL",
-            "postgresql://postgres:pass@192.168.86.200:5436/omninode_bridge",
+            "postgresql://postgres:pass@192.168.86.200:5436/omniintelligence",
         )
         plugin = PluginIntelligence()
         config = _make_config()

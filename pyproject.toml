@@ -23,11 +23,11 @@ packages = [{include = "omniintelligence", from = "src"}]
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 # Versions aligned with [project.dependencies] for consistency
-pydantic = ">=2.9.0"
-pydantic-settings = ">=2.6.0"
+pydantic = ">=2.12.5,<3.0.0"
+pydantic-settings = ">=2.7.0,<3.0.0"
 httpx = ">=0.28.1"
 tenacity = ">=8.2.0"
-confluent-kafka = ">=2.6.0"
+confluent-kafka = ">=2.12.0,<3.0.0"
 pyyaml = ">=6.0"
 python-dotenv = ">=1.0.0"
 
@@ -50,24 +50,24 @@ pre-commit = ">=4.5.0"
 # ONEX private ecosystem dependencies (NOT on public PyPI)
 # Installed via editable installs from sibling repos or private registry.
 # Version constraints use caret syntax: ^0.9.10 = >=0.9.10,<0.10.0
-omnibase-core = "^0.18.0"
+omnibase-core = "^0.18.1"
 omnibase-spi = "^0.10.0"
-omnibase-infra = "^0.8.0"
+omnibase-infra = "^0.9.0"
 # Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
 # Included here for self-contained --only core installs
-pydantic = ">=2.9.0"
-pydantic-settings = ">=2.6.0"
+pydantic = ">=2.12.5,<3.0.0"
+pydantic-settings = ">=2.7.0,<3.0.0"
 httpx = ">=0.28.1"
 pyyaml = ">=6.0"
 python-dotenv = ">=1.0.0"
 tenacity = ">=8.2.0"
-confluent-kafka = ">=2.6.0"
+confluent-kafka = ">=2.12.0,<3.0.0"
 # Web framework for API endpoints
 fastapi = ">=0.104.0"
 uvicorn = ">=0.24.0"
 python-multipart = ">=0.0.20"
 # Event bus (Kafka/Redpanda)
-aiokafka = ">=0.10.0"
+aiokafka = ">=0.11.0,<0.12.0"
 # Vector database
 qdrant-client = ">=1.15.1"
 # Graph database
@@ -93,13 +93,15 @@ logfire = ">=0.30.0"
 structlog = ">=23.1.0"
 prometheus-client = ">=0.19.0"
 psutil = ">=5.9.0"
+# Filesystem watching
+watchdog = ">=6.0.0"
 
 [tool.poetry.plugins."onex.domain_plugins"]
 intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
 
 [project]
 name = "omniintelligence"
-version = "0.4.0"
+version = "0.5.0"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 authors = [{name = "OmniNode Team", email = "team@omninode.ai"}]
 readme = "README.md"
@@ -108,11 +110,12 @@ requires-python = ">=3.12,<4.0"
 dependencies = [
     "httpx>=0.28.1",
     "pyyaml>=6.0",
-    "pydantic>=2.9.0",
-    "pydantic-settings>=2.6.0",
+    "pydantic>=2.12.5,<3.0.0",
+    "pydantic-settings>=2.7.0,<3.0.0",
     "python-dotenv>=1.0.0",
-    "confluent-kafka>=2.6.0",
+    "confluent-kafka>=2.12.0,<3.0.0",
     "tenacity>=8.2.0",
+    "watchdog>=6.0.0",
 ]
 
 [project.entry-points."onex.domain_plugins"]
@@ -138,23 +141,25 @@ dev = [
 
 # Core node system dependencies
 # Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
-#   ^0.18.0 = >=0.18.0,<0.19.0  (compatible releases within 0.18.x)
+#   ^0.18.1 = >=0.18.1,<0.19.0  (compatible releases within 0.18.x)
 #   ^0.10.0 = >=0.10.0,<0.11.0  (compatible releases within 0.10.x)
-#   ^0.8.0 = >=0.8.0,<0.9.0  (compatible releases within 0.8.x)
+#   ^0.9.0 = >=0.9.0,<0.10.0  (compatible releases within 0.9.x)
 core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.18.0,<0.19.0",
+    "omnibase-core>=0.18.1,<0.19.0",
     "omnibase-spi>=0.10.0,<0.11.0",
-    "omnibase-infra>=0.8.0,<0.9.0",
+    "omnibase-infra>=0.9.0,<0.10.0",
+    "pydantic>=2.12.5,<3.0.0",
+    "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.20",
     # Event bus (Kafka/Redpanda)
-    "aiokafka>=0.10.0",
-    "confluent-kafka>=2.6.0",
+    "aiokafka>=0.11.0,<0.12.0",
+    "confluent-kafka>=2.12.0,<3.0.0",
     # Vector database
     "qdrant-client>=1.15.1",
     # Graph database
