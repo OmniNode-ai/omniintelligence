@@ -11,11 +11,10 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock
 
-from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
-from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
-
 from omniintelligence.review_bot.github.client_github import BOT_MARKER, GitHubClient
 from omniintelligence.review_bot.github.poster_review_comment import ReviewCommentPoster
+from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
+from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
 
 # ---------------------------------------------------------------------------
 # Test helpers
