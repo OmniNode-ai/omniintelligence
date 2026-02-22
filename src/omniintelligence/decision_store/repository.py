@@ -77,7 +77,12 @@ class DecisionRecordRepository:
     # Write Operations
     # ------------------------------------------------------------------
 
-    def store(self, record: DecisionRecordRow) -> bool:
+    def store(
+        self,
+        record: DecisionRecordRow,
+        *,
+        correlation_id: str | None = None,
+    ) -> bool:
         """Persist a DecisionRecord.
 
         Idempotent: if a record with the same ``decision_id`` already exists,
@@ -85,6 +90,7 @@ class DecisionRecordRepository:
 
         Args:
             record: The DecisionRecordRow to persist.
+            correlation_id: Trace correlation ID for end-to-end tracing.
 
         Returns:
             True if stored successfully, False if duplicate (no-op).
@@ -93,11 +99,16 @@ class DecisionRecordRepository:
             logger.debug(
                 "DecisionRecord already exists, skipping (idempotent). decision_id=%s",
                 record.decision_id,
+                extra={"correlation_id": correlation_id},
             )
             return False
 
         self._records[record.decision_id] = record
-        logger.debug("Stored DecisionRecord. decision_id=%s", record.decision_id)
+        logger.debug(
+            "Stored DecisionRecord. decision_id=%s",
+            record.decision_id,
+            extra={"correlation_id": correlation_id},
+        )
         return True
 
     # ------------------------------------------------------------------
@@ -109,6 +120,7 @@ class DecisionRecordRepository:
         decision_id: str,
         *,
         include_rationale: bool = False,
+        correlation_id: str | None = None,
     ) -> dict[str, Any] | None:
         """Retrieve a DecisionRecord by its unique ID.
 
@@ -122,6 +134,7 @@ class DecisionRecordRepository:
             decision_id: The unique decision identifier.
             include_rationale: If True, include ``agent_rationale`` in
                 the returned dict.
+            correlation_id: Trace correlation ID for end-to-end tracing.
 
         Returns:
             Dict of record fields, or None if not found.
@@ -142,6 +155,7 @@ class DecisionRecordRepository:
         until: datetime | None = None,
         limit: int = DEFAULT_PAGE_SIZE,
         cursor: DecisionRecordCursor | None = None,
+        correlation_id: str | None = None,
     ) -> tuple[list[dict[str, Any]], DecisionRecordCursor | None]:
         """Query records by decision_type with optional time range filter.
 
@@ -153,6 +167,7 @@ class DecisionRecordRepository:
             until: Include only records stored before or at this timestamp.
             limit: Maximum number of records per page.
             cursor: Pagination cursor from a previous call.
+            correlation_id: Trace correlation ID for end-to-end tracing.
 
         Returns:
             Tuple of (records_list, next_cursor). ``next_cursor`` is None
@@ -164,6 +179,7 @@ class DecisionRecordRepository:
             until=until,
             limit=limit,
             cursor=cursor,
+            correlation_id=correlation_id,
         )
 
     def query_by_candidate(
@@ -174,6 +190,7 @@ class DecisionRecordRepository:
         until: datetime | None = None,
         limit: int = DEFAULT_PAGE_SIZE,
         cursor: DecisionRecordCursor | None = None,
+        correlation_id: str | None = None,
     ) -> tuple[list[dict[str, Any]], DecisionRecordCursor | None]:
         """Query records by selected_candidate with optional time range filter.
 
@@ -185,6 +202,7 @@ class DecisionRecordRepository:
             until: Include only records stored before or at this timestamp.
             limit: Maximum number of records per page.
             cursor: Pagination cursor from a previous call.
+            correlation_id: Trace correlation ID for end-to-end tracing.
 
         Returns:
             Tuple of (records_list, next_cursor). ``next_cursor`` is None
@@ -196,6 +214,7 @@ class DecisionRecordRepository:
             until=until,
             limit=limit,
             cursor=cursor,
+            correlation_id=correlation_id,
         )
 
     # ------------------------------------------------------------------
@@ -222,6 +241,7 @@ class DecisionRecordRepository:
         until: datetime | None,
         limit: int,
         cursor: DecisionRecordCursor | None,
+        correlation_id: str | None = None,
     ) -> tuple[list[dict[str, Any]], DecisionRecordCursor | None]:
         """Apply filter and time range, then paginate.
 
@@ -231,6 +251,7 @@ class DecisionRecordRepository:
             until: Upper bound on stored_at.
             limit: Max results per page.
             cursor: Pagination cursor from a previous call.
+            correlation_id: Trace correlation ID for end-to-end tracing.
 
         Returns:
             (page_records, next_cursor) tuple. Layer 1 fields only.
@@ -278,6 +299,13 @@ class DecisionRecordRepository:
                 last_decision_id=last.decision_id,
                 last_stored_at=last.stored_at,
             )
+
+        logger.debug(
+            "Paginated DecisionRecord query. count=%d has_next=%s",
+            len(records_out),
+            has_next,
+            extra={"correlation_id": correlation_id},
+        )
 
         return records_out, next_cursor
 

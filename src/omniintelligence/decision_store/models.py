@@ -24,7 +24,8 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,65 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DECISION_RECORDS_TABLE = "decision_records"
+
+
+# ---------------------------------------------------------------------------
+# Enums for external contract surfaces (Kafka payloads / cross-process)
+# ---------------------------------------------------------------------------
+
+
+class DecisionType(str, Enum):
+    """Decision classification types used in cross-process Kafka payloads.
+
+    Per coding guidelines: "Use Enum for external contract surfaces and
+    cross-process boundaries."
+    """
+
+    MODEL_SELECT = "model_select"
+    """Selection of an AI model from a candidate set."""
+
+    ROUTING = "routing"
+    """Routing decision (e.g., agent selection)."""
+
+    UNKNOWN = "unknown"
+    """Unrecognised decision type — preserved for forward compatibility."""
+
+
+class TieBreaker(str, Enum):
+    """Tie-breaking rules applied when candidates score equally.
+
+    Per coding guidelines: "Use Enum for external contract surfaces and
+    cross-process boundaries."
+    """
+
+    ALPHABETICAL = "alphabetical"
+    """Lexicographically first candidate wins."""
+
+    FIRST = "first"
+    """First candidate in list order wins."""
+
+    UNKNOWN = "unknown"
+    """Unrecognised tie-breaker — preserved for forward compatibility."""
+
+
+def _parse_decision_type(value: str | None) -> str:
+    """Map incoming string to a DecisionType value (forward-compatible)."""
+    if value is None:
+        return DecisionType.UNKNOWN.value
+    try:
+        return DecisionType(value).value
+    except ValueError:
+        return value  # preserve unknown values as-is for forward compatibility
+
+
+def _parse_tie_breaker(value: str | None) -> str | None:
+    """Map incoming string to a TieBreaker value (forward-compatible)."""
+    if value is None:
+        return None
+    try:
+        return TieBreaker(value).value
+    except ValueError:
+        return value  # preserve unknown values as-is for forward compatibility
 
 
 # ---------------------------------------------------------------------------
@@ -155,20 +215,18 @@ class DecisionRecordRow:
         """
         return cls(
             decision_id=str(data["decision_id"]),
-            decision_type=str(data["decision_type"]),
+            decision_type=_parse_decision_type(str(data["decision_type"])),
             timestamp=_parse_datetime(data["timestamp"]),
             candidates_considered=list(data.get("candidates_considered", [])),
             constraints_applied=dict(data.get("constraints_applied", {})),
             scoring_breakdown=[
                 DecisionScoreRow.from_dict(s) for s in data.get("scoring_breakdown", [])
             ],
-            tie_breaker=data.get("tie_breaker"),
+            tie_breaker=_parse_tie_breaker(data.get("tie_breaker")),
             selected_candidate=str(data["selected_candidate"]),
             agent_rationale=data.get("agent_rationale"),
             reproducibility_snapshot=dict(data.get("reproducibility_snapshot", {})),
-            stored_at=_parse_datetime(
-                data.get("stored_at", datetime.utcnow().isoformat())
-            ),
+            stored_at=_parse_datetime(data.get("stored_at", datetime.now(UTC))),
         )
 
     @classmethod
@@ -176,35 +234,43 @@ class DecisionRecordRow:
         cls,
         payload: dict[str, Any],
         stored_at: datetime,
+        *,
+        correlation_id: str | None = None,
     ) -> DecisionRecordRow:
         """Create a row from a Kafka event payload.
 
         Args:
             payload: Deserialized DecisionRecord JSON from Kafka message.
             stored_at: Timestamp when this record was persisted (injected by caller).
+            correlation_id: Trace correlation ID for end-to-end tracing.
 
         Returns:
             DecisionRecordRow ready for storage.
+
+        Raises:
+            ValueError: If ``scoring_breakdown`` contains invalid JSON (schema
+                corruption — must not be silently swallowed).
         """
         scoring_raw = payload.get("scoring_breakdown", [])
         if isinstance(scoring_raw, str):
-            # fallback-ok: JSONB field may arrive as string in some serializers
             try:
                 scoring_raw = json.loads(scoring_raw)
-            except json.JSONDecodeError:
-                logger.warning(
-                    "Failed to parse scoring_breakdown JSON string, using empty list"
+            except json.JSONDecodeError as exc:
+                logger.error(
+                    "Invalid scoring_breakdown JSON in DecisionRecord payload",
+                    extra={"correlation_id": correlation_id},
                 )
-                scoring_raw = []
+                msg = f"Invalid scoring_breakdown JSON: {exc}"
+                raise ValueError(msg) from exc
 
         return cls(
             decision_id=str(payload["decision_id"]),
-            decision_type=str(payload["decision_type"]),
+            decision_type=_parse_decision_type(str(payload["decision_type"])),
             timestamp=_parse_datetime(payload["timestamp"]),
             candidates_considered=list(payload.get("candidates_considered", [])),
             constraints_applied=dict(payload.get("constraints_applied", {})),
             scoring_breakdown=[DecisionScoreRow.from_dict(s) for s in scoring_raw],
-            tie_breaker=payload.get("tie_breaker"),
+            tie_breaker=_parse_tie_breaker(payload.get("tie_breaker")),
             selected_candidate=str(payload["selected_candidate"]),
             agent_rationale=payload.get("agent_rationale"),
             reproducibility_snapshot=dict(payload.get("reproducibility_snapshot", {})),
@@ -260,4 +326,6 @@ __all__ = [
     "DecisionRecordCursor",
     "DecisionRecordRow",
     "DecisionScoreRow",
+    "DecisionType",
+    "TieBreaker",
 ]
