@@ -53,16 +53,19 @@ class NodeDocumentFetchEffect(NodeEffect):
 
     Example:
         ```python
-        from omniintelligence.nodes.node_document_fetch_effect import (
-            NodeDocumentFetchEffect,
+        from omniintelligence.nodes.node_document_fetch_effect.handlers import (
             handle_document_fetch,
+        )
+        from omniintelligence.nodes.node_document_fetch_effect.models import (
+            ModelDocumentFetchInput,
         )
 
         result = await handle_document_fetch(
             ModelDocumentFetchInput(
                 source_ref="/path/to/file.md",
-                crawler_type=CrawlerType.GIT_REPO,
+                crawler_type="git_repo",
                 repo_path="/path/to/repo",
+                crawl_scope="omninode/docs",
             ),
             blob_store=my_blob_store,
         )
