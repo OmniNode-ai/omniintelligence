@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass
 
 from omniintelligence.review_bot.github.client_github import GitHubClient
+
 from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
 
 

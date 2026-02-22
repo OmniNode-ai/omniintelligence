@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
-
 from omniintelligence.review_bot.remediation.patch_applicator import (
     PatchApplicator,
 )
