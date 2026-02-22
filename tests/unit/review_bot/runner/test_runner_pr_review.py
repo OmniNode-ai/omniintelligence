@@ -13,15 +13,16 @@ from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
+from omniintelligence.review_bot.schemas.model_review_policy import (
+    ModelReviewPolicy,
+    ModelReviewRule,
+)
+
 from omniintelligence.review_bot.runner.runner_pr_review import (
     PrReviewResult,
     RunnerPrReview,
 )
 from omniintelligence.review_bot.runner.runner_precommit import RunnerPrecommit
-from omniintelligence.review_bot.schemas.model_review_policy import (
-    ModelReviewPolicy,
-    ModelReviewRule,
-)
 
 # ---------------------------------------------------------------------------
 # Test helpers
