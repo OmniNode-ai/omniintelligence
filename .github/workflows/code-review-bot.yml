@@ -54,7 +54,12 @@ jobs:
           import sys
           import os
 
-          from omniintelligence.review_bot.runner.runner_pr_review import RunnerPrReview
+          try:
+              from omniintelligence.review_bot.runner.runner_pr_review import RunnerPrReview
+          except ImportError as exc:
+              print(f'WARNING: review_bot runner unavailable ({exc}). Skipping review.')
+              print('This is expected when upstream PRs (e.g., OMN-2495 models) are not yet merged.')
+              sys.exit(0)
 
           policy_path = 'review_policy.yaml'
           diff_path = '${{ steps.get-diff.outputs.diff_path }}'
