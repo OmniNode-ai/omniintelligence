@@ -49,6 +49,7 @@ class ModelReviewScore(BaseModel):
     Attributes:
         score: Overall score in range 0-100.
         policy_version: Version of the policy used to produce this score.
+        correlation_id: Optional trace correlation ID for end-to-end tracking.
         finding_count_by_severity: Mapping of severity name to finding count.
         category_breakdown: Mapping of rule_id to finding count for that rule.
 
@@ -79,6 +80,10 @@ class ModelReviewScore(BaseModel):
         description="Policy version used to produce this score",
         min_length=1,
     )
+    correlation_id: str | None = Field(
+        default=None,
+        description="Optional trace correlation ID for end-to-end tracking",
+    )
     finding_count_by_severity: dict[str, int] = Field(
         ...,
         description="Mapping of severity name to finding count",
@@ -93,6 +98,7 @@ class ModelReviewScore(BaseModel):
         cls,
         findings: list[ModelReviewFinding],
         policy_version: str,
+        correlation_id: str | None = None,
     ) -> ModelReviewScore:
         """Deterministically compute a ReviewScore from a list of findings.
 
@@ -106,6 +112,7 @@ class ModelReviewScore(BaseModel):
         Args:
             findings: List of review findings to score.
             policy_version: Policy version string to embed in score.
+            correlation_id: Optional correlation ID for end-to-end tracing.
 
         Returns:
             A frozen ModelReviewScore instance.
@@ -146,6 +153,7 @@ class ModelReviewScore(BaseModel):
         return cls(
             score=raw_score,
             policy_version=policy_version,
+            correlation_id=correlation_id,
             finding_count_by_severity=severity_counts,
             category_breakdown=category_counts,
         )
