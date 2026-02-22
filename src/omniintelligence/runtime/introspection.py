@@ -94,6 +94,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_doc_promotion_reducer", EnumNodeKind.REDUCER),
     _NodeDescriptor("node_intelligence_reducer", EnumNodeKind.REDUCER),
     # Compute nodes
+    _NodeDescriptor("node_document_parser_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_semantic_analysis_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_pattern_extraction_compute", EnumNodeKind.COMPUTE),
