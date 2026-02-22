@@ -32,9 +32,9 @@ from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_intent
 # ---------------------------------------------------------------------------
 # Severity thresholds (shared between tool_mismatch and file_surface)
 # A raw score in [0, 1] maps to:
-#   < 0.33  → info
-#   < 0.66  → warning
-#   >= 0.66 → alert
+#   [0.0, 0.33) → info
+#   [0.33, 0.66) → warning
+#   [0.66, 1.0] → alert
 # ---------------------------------------------------------------------------
 _SEV_WARN_CUTOFF: float = 0.33
 _SEV_ALERT_CUTOFF: float = 0.66
@@ -113,7 +113,6 @@ def _detect_file_surface(
     expected scope for the intent class. Detection heuristic:
     - BUGFIX: new file creation (files not previously known) is suspicious
     - DOCUMENTATION: modifying .py source files (code edits during doc intent)
-    - SECURITY: broad edits to files outside security-relevant paths
 
     For a pure compute node without file-system access, the heuristic uses
     path naming conventions and counts:
@@ -202,6 +201,8 @@ def _detect_scope_expansion(
     intent_class = input_data.intent_class
     tool_name = input_data.tool_name
 
+    # Note: tool_mismatch fires at Priority 1, so this path is only reachable for
+    # REFACTOR+Write when tool_mismatch detection is disabled (threshold=0.0).
     # REFACTOR + Write tool = likely adding new code, not just moving/renaming
     if intent_class == EnumIntentClass.REFACTOR and tool_name == "Write":
         severity = score_severity(threshold)

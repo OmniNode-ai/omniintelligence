@@ -21,6 +21,7 @@ from uuid import uuid4
 
 import pytest
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from pydantic import ValidationError
 
 from omniintelligence.nodes.node_intent_drift_detect_compute.handlers import (
@@ -34,6 +35,9 @@ from omniintelligence.nodes.node_intent_drift_detect_compute.models import (
     ModelIntentDriftSignal,
     get_suspicious_tools,
     get_tool_allowlist,
+)
+from omniintelligence.nodes.node_intent_drift_detect_compute.node import (
+    NodeIntentDriftDetectCompute,
 )
 
 # ---------------------------------------------------------------------------
@@ -53,7 +57,7 @@ def _make_input(
 ) -> ModelIntentDriftInput:
     return ModelIntentDriftInput(
         session_id="sess-001",
-        correlation_id=str(uuid4()),
+        correlation_id=uuid4(),
         intent_class=intent_class,
         tool_name=tool_name,
         files_modified=files_modified or [],
@@ -238,7 +242,7 @@ class TestToolMismatchDrift:
         """Session ID from input is preserved in the drift signal."""
         input_data = ModelIntentDriftInput(
             session_id="my-session-123",
-            correlation_id=str(uuid4()),
+            correlation_id=uuid4(),
             intent_class=EnumIntentClass.DOCUMENTATION,
             tool_name="Bash",
             files_modified=[],
@@ -508,7 +512,7 @@ class TestFrozenModels:
         ts = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
         input_data = ModelIntentDriftInput(
             session_id="s",
-            correlation_id=str(uuid4()),
+            correlation_id=uuid4(),
             intent_class=EnumIntentClass.DOCUMENTATION,
             tool_name="Bash",
             files_modified=[],
@@ -522,7 +526,7 @@ class TestFrozenModels:
         """ModelIntentDriftSignal can be constructed directly with all fields."""
         signal = ModelIntentDriftSignal(
             session_id="s",
-            correlation_id=str(uuid4()),
+            correlation_id=uuid4(),
             intent_class=EnumIntentClass.REFACTOR,
             drift_type="tool_mismatch",
             severity="warning",
@@ -533,3 +537,47 @@ class TestFrozenModels:
         )
         assert signal.drift_type == "tool_mismatch"
         assert signal.severity == "warning"
+
+
+# ---------------------------------------------------------------------------
+# Node sensitivity injection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.drift
+class TestNodeCompute:
+    """Tests for NodeIntentDriftDetectCompute.compute() via env-var configuration."""
+
+    @pytest.mark.asyncio
+    async def test_node_compute_returns_signal_with_high_sensitivity_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Node.compute() produces alert when env thresholds are set to 1.0."""
+        monkeypatch.setenv("DRIFT_TOOL_MISMATCH_THRESHOLD", "1.0")
+        monkeypatch.setenv("DRIFT_FILE_SURFACE_THRESHOLD", "1.0")
+        monkeypatch.setenv("DRIFT_SCOPE_EXPANSION_THRESHOLD", "1.0")
+        container = ModelONEXContainer()
+        node = NodeIntentDriftDetectCompute(container)
+        input_data = _make_input(
+            intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
+        )
+        signal = await node.compute(input_data)
+        assert signal is not None
+        assert signal.severity == "alert"
+
+    @pytest.mark.asyncio
+    async def test_node_compute_returns_none_with_zero_sensitivity_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Node.compute() returns None when env thresholds are set to 0.0."""
+        monkeypatch.setenv("DRIFT_TOOL_MISMATCH_THRESHOLD", "0.0")
+        monkeypatch.setenv("DRIFT_FILE_SURFACE_THRESHOLD", "0.0")
+        monkeypatch.setenv("DRIFT_SCOPE_EXPANSION_THRESHOLD", "0.0")
+        container = ModelONEXContainer()
+        node = NodeIntentDriftDetectCompute(container)
+        input_data = _make_input(
+            intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
+        )
+        signal = await node.compute(input_data)
+        assert signal is None

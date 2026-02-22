@@ -7,7 +7,7 @@ Output: ModelIntentDriftSignal — detected drift (or None when clean)
 
 Schema Rules:
     - frozen=True (events are immutable after emission)
-    - extra="ignore" (forward compatibility)
+    - extra="forbid" (reject unknown fields)
     - from_attributes=True (pytest-xdist worker compatibility)
     - No datetime.now() defaults
 
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,11 +41,11 @@ class ModelIntentDriftInput(BaseModel):
         detected_at: Timestamp of the tool-call event (injected by caller).
     """
 
-    model_config = ConfigDict(frozen=True, extra="ignore", from_attributes=True)
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     session_id: str = Field(..., description="Session ID being monitored")
-    correlation_id: str = Field(
-        ..., description="Correlation ID for distributed tracing (UUID string)"
+    correlation_id: UUID = Field(
+        ..., description="Correlation ID for distributed tracing"
     )
     intent_class: EnumIntentClass = Field(
         ..., description="The active (classified) intent class for this session"
@@ -89,12 +90,12 @@ class ModelIntentDriftSignal(BaseModel):
         detected_at: Timestamp of the triggering tool-call event.
     """
 
-    model_config = ConfigDict(frozen=True, extra="ignore", from_attributes=True)
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     event_type: Literal["IntentDriftSignal"] = "IntentDriftSignal"
     session_id: str = Field(..., description="Session ID where drift was detected")
-    correlation_id: str = Field(
-        ..., description="Correlation ID for distributed tracing (UUID string)"
+    correlation_id: UUID = Field(
+        ..., description="Correlation ID for distributed tracing"
     )
     intent_class: EnumIntentClass = Field(
         ..., description="The active intent class at time of detection"

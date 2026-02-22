@@ -60,9 +60,9 @@ class ModelDriftSensitivity(BaseModel):
     """Per-drift-type sensitivity thresholds.
 
     Thresholds map to severity:
-        0.0-0.33  -> info
-        0.33-0.66 -> warning
-        0.66-1.0  -> alert
+        [0.0, 0.33)  -> info
+        [0.33, 0.66) -> warning
+        [0.66, 1.0]  -> alert
 
     Attributes:
         tool_mismatch_threshold: Sensitivity for tool_mismatch drift (0.0=silent, 1.0=hair-trigger).
@@ -70,7 +70,7 @@ class ModelDriftSensitivity(BaseModel):
         scope_expansion_threshold: Sensitivity for scope_expansion drift.
     """
 
-    model_config = ConfigDict(frozen=True, extra="ignore", from_attributes=True)
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     tool_mismatch_threshold: float = Field(
         default=0.5,
