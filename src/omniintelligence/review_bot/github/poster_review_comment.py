@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import sys
 
-from omniintelligence.review_bot.github.client_github import BOT_MARKER, GitHubClient
 from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
 from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
+
+from omniintelligence.review_bot.github.client_github import BOT_MARKER, GitHubClient
 
 _SEVERITY_BADGES = {
     ReviewSeverity.BLOCKER: "🔴 **BLOCKER**",
