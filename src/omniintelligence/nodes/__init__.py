@@ -95,7 +95,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
-    # Computes (8)
+    # Computes (9)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.node_execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
@@ -103,6 +103,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodeIntentClassifierCompute": (
         "omniintelligence.nodes.node_intent_classifier_compute.node",
         "NodeIntentClassifierCompute",
+    ),
+    "NodeIntentDriftDetectCompute": (
+        "omniintelligence.nodes.node_intent_drift_detect_compute.node",
+        "NodeIntentDriftDetectCompute",
     ),
     "NodePatternExtractionCompute": (
         "omniintelligence.nodes.node_pattern_extraction_compute.node",
@@ -166,6 +170,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_intent_classifier_compute.node import (
         NodeIntentClassifierCompute as NodeIntentClassifierCompute,
+    )
+    from omniintelligence.nodes.node_intent_drift_detect_compute.node import (
+        NodeIntentDriftDetectCompute as NodeIntentDriftDetectCompute,
     )
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
@@ -249,9 +256,10 @@ __all__ = [
     "NodePatternAssemblerOrchestrator",
     # Nodes — Reducers (1)
     "NodeIntelligenceReducer",
-    # Nodes — Computes (8)
+    # Nodes — Computes (9)
     "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
+    "NodeIntentDriftDetectCompute",
     "NodePatternExtractionCompute",
     "NodePatternLearningCompute",
     "NodePatternMatchingCompute",

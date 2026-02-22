@@ -33,11 +33,13 @@ NODES_DIR = Path("src/omniintelligence/nodes")
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
     "node_compliance_evaluate_effect",
+    "node_crawl_scheduler_effect",
     "node_enforcement_feedback_effect",
     "node_execution_trace_parser_compute",
     "node_intelligence_orchestrator",
     "node_intelligence_reducer",
     "node_intent_classifier_compute",
+    "node_intent_drift_detect_compute",
     "node_pattern_assembler_orchestrator",
     "node_pattern_compliance_effect",
     "node_pattern_demotion_effect",

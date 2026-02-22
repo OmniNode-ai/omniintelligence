@@ -99,6 +99,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_pattern_learning_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_pattern_matching_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_intent_classifier_compute", EnumNodeKind.COMPUTE),
+    _NodeDescriptor("node_intent_drift_detect_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_execution_trace_parser_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
     # Effect nodes
