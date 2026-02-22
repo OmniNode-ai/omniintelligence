@@ -439,12 +439,12 @@ async def test_integration_discover_then_change(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
         crawl_state=crawl_state,
     )
-    assert second.changed == [] or len(second.changed) == 1
-    # changed XOR discovered (depending on whether diff lists it)
-    changed_paths = {e.file_path for e in second.changed}
-    discovered_paths = {e.file_path for e in second.discovered}
-    # doc.md should appear in changed (was already in crawl_state)
-    assert "doc.md" in changed_paths or "doc.md" in discovered_paths
+    # doc.md was in crawl_state after the first crawl, so it must appear as
+    # changed (not discovered) on the second crawl.
+    assert len(second.changed) == 1
+    assert second.changed[0].file_path == "doc.md"
+    assert second.changed[0].event_type == "document.changed.v1"
+    assert second.discovered == []
 
 
 # =============================================================================
