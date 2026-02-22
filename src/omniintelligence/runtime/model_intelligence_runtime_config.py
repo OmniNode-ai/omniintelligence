@@ -70,9 +70,9 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
     """
 
     runtime_name: str = Field(
-        default="intelligence-runtime",
+        default="omniintelligence",
         description="Unique identifier for this runtime instance",
-        examples=["intelligence-runtime", "intelligence-dev", "intelligence-prod"],
+        examples=["omniintelligence", "omniintelligence-dev", "omniintelligence-prod"],
         min_length=1,
         max_length=128,
     )
@@ -121,12 +121,12 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "runtime_name": "intelligence-runtime",
+                    "runtime_name": "omniintelligence",
                     "log_level": "INFO",
                     "event_bus": {
                         "enabled": True,
                         "bootstrap_servers": "kafka-broker:9092",
-                        "consumer_group": "intelligence-runtime",
+                        "consumer_group": "omniintelligence",
                         "topics": {
                             "commands": "onex.cmd.omniintelligence.claude-hook-event.v1",
                             "events": "onex.evt.omniintelligence.intent-classified.v1",
@@ -370,12 +370,15 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
     def default_development(cls) -> ModelIntelligenceRuntimeConfig:
         """Create default development configuration."""
         return cls(
-            runtime_name="intelligence-dev",
+            runtime_name="omniintelligence-dev",
             log_level=EnumLogLevel.DEBUG,
             event_bus=ModelEventBusConfig(
                 enabled=True,
                 bootstrap_servers="localhost:9092",
-                consumer_group="intelligence-dev",
+                # NOTE(OMN-2438): PluginIntelligence.start_consumers() reads
+                # OMNIINTELLIGENCE_CONSUMER_GROUP directly; this value is used only
+                # by consumers that configure their own event bus independently.
+                consumer_group="omniintelligence-dev",
                 topics=ModelTopicConfig(
                     commands="onex.cmd.omniintelligence.claude-hook-event.v1",
                     events="onex.evt.omniintelligence.intent-classified.v1",
@@ -410,12 +413,15 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
         bootstrap_servers = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
 
         return cls(
-            runtime_name="intelligence-prod",
+            runtime_name="omniintelligence-prod",
             log_level=EnumLogLevel.INFO,
             event_bus=ModelEventBusConfig(
                 enabled=True,
                 bootstrap_servers=bootstrap_servers,
-                consumer_group="intelligence-prod",
+                # NOTE(OMN-2438): PluginIntelligence.start_consumers() reads
+                # OMNIINTELLIGENCE_CONSUMER_GROUP directly; this value is used only
+                # by consumers that configure their own event bus independently.
+                consumer_group="omniintelligence-prod",
                 topics=ModelTopicConfig(
                     commands="onex.cmd.omniintelligence.claude-hook-event.v1",
                     events="onex.evt.omniintelligence.intent-classified.v1",
