@@ -119,6 +119,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
+    # Stream B — Document Ingestion Pipeline
+    "NodeChunkClassifierCompute": (
+        "omniintelligence.nodes.node_chunk_classifier_compute.node",
+        "NodeChunkClassifierCompute",
+    ),
     # Computes (10)
     "NodeDocumentParserCompute": (
         "omniintelligence.nodes.node_document_parser_compute.node",
@@ -184,6 +189,9 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_chunk_classifier_compute.node import (
+        NodeChunkClassifierCompute as NodeChunkClassifierCompute,
+    )
     from omniintelligence.nodes.node_context_item_writer_effect.node import (
         NodeContextItemWriterEffect as NodeContextItemWriterEffect,
     )
@@ -306,6 +314,8 @@ __all__ = [
     # Nodes — Reducers (2)
     "NodeDocPromotionReducer",
     "NodeIntelligenceReducer",
+    # Nodes — Stream B
+    "NodeChunkClassifierCompute",
     # Nodes — Computes (10)
     "NodeDocumentParserCompute",
     "NodeExecutionTraceParserCompute",

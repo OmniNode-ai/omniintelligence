@@ -1,0 +1,265 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeChunkClassifierCompute
+#
+# Stream B pure compute node. Classifies raw chunks from DocumentParserCompute
+# using the v1 frozen deterministic rule set. Extracts tags and computes
+# fingerprints for downstream deduplication and replay safety.
+#
+# Reference: OMN-2391 - ChunkClassifierCompute
+
+# Contract identifiers
+name: "node_chunk_classifier_compute"
+contract_name: "chunk_classifier_compute"
+node_name: "chunk_classifier_compute"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "COMPUTE_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Stream B pure compute node. Classifies raw chunks using the v1 frozen deterministic rule
+  set (7 priority-ordered rules, first match wins). Extracts 6 tag types per chunk and
+  computes SHA-256 content fingerprint and version hash for deduplication and replay safety.
+  Pure function, no I/O. Returns ordered ClassifiedChunk list for EmbeddingGenerationEffect.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelChunkClassifyInput"
+  module: "omniintelligence.nodes.node_chunk_classifier_compute.models"
+  description: "Classification request with source metadata and raw chunk sequence."
+
+output_model:
+  name: "ModelChunkClassifyOutput"
+  module: "omniintelligence.nodes.node_chunk_classifier_compute.models"
+  description: "Ordered list of classified chunks with types, tags, and fingerprints."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_chunk_classify"
+    module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
+    type: "sync"
+    description: "Main entry point: apply v1 rule set to each raw chunk"
+  handlers:
+    - operation: "classify_chunks"
+      handler:
+        function: "handle_chunk_classify"
+        module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
+        type: "sync"
+      description: "Apply v1 frozen classification rules to raw chunks"
+      actions:
+        - "iterate over raw_chunks in order"
+        - "classify each chunk using v1 frozen rule set (first match wins)"
+        - "extract 6 tag types: source, section, repo, lang, svc, doctype"
+        - "compute SHA-256 content fingerprint of normalized content"
+        - "compute SHA-256 version hash of content_fingerprint + source_ref + source_version"
+        - "return ordered list of ClassifiedChunk objects"
+
+  default_handler:
+    function: "handle_chunk_classify"
+    module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
+    type: "sync"
+    description: "Default to classify_chunks operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "classify_chunks"
+    description: "Apply v1 frozen rule set to classify raw chunks with tags and fingerprints"
+    input_model: "ModelChunkClassifyInput"
+    output_model: "ModelChunkClassifyOutput"
+    input_fields:
+      - source_ref
+      - crawl_scope
+      - source_version
+      - doc_type
+      - raw_chunks
+      - correlation_id
+    output_fields:
+      - classified_chunks
+      - source_ref
+      - total_chunks
+      - correlation_id
+
+# =============================================================================
+# CLASSIFICATION RULE SET (v1 — FROZEN)
+# =============================================================================
+classification_config:
+  rule_version: "v1"
+  frozen: true
+  description: >
+    Rule order is frozen per contract version. A change to rule order or trigger
+    strings requires a version bump. Without frozen rule order, promotion history
+    is non-replayable.
+  rules:
+    - priority: 1
+      type: "API_CONSTRAINT"
+      triggers:
+        - "https?://"
+        - "wss?://"
+        - ":<port> patterns (2-5 digits)"
+        - "HOST="
+        - "KAFKA_BOOTSTRAP_SERVERS"
+        - "port <number>"
+    - priority: 2
+      type: "CONFIG_NOTE"
+      triggers:
+        - "source .env"
+        - "POSTGRES_"
+        - "KAFKA_"
+        - "docker network"
+        - "env var"
+        - ".env file"
+        - "environment variable"
+        - "DATABASE_URL"
+        - "REDIS_URL"
+        - "AWS_"
+        - "GCP_"
+        - "<word>_HOST, <word>_PORT, <word>_PASSWORD, <word>_USER"
+        - "DOCKER_<word>"
+    - priority: 3
+      type: "RULE"
+      triggers:
+        - "must / Must / MUST"
+        - "never / Never / NEVER"
+        - "CRITICAL:"
+        - "NON-NEGOTIABLE"
+        - "PROHIBITED"
+        - "WRONG: / DO NOT"
+        - "Always ensure / always ensure"
+        - "Do NOT / Do not"
+        - "invariant / Invariant / INVARIANT"
+    - priority: 4
+      type: "FAILURE_PATTERN"
+      triggers:
+        - "pitfall / Pitfall / PITFALL"
+        - "avoid / Avoid"
+        - "common mistake / Common mistake"
+        - "anti-pattern / Anti-pattern"
+        - "do not use / Do not use"
+        - "broken"
+        - "gotcha / Gotcha"
+        - "heading contains gotcha|pitfall|anti-pattern|avoid|wrong"
+    - priority: 5
+      type: "EXAMPLE"
+      triggers:
+        - "code fence preceded by 'Example:'"
+        - "heading contains example|usage|how-to"
+    - priority: 6
+      type: "REPO_MAP"
+      triggers:
+        - "tree chars: ├──, └──, │   , │<tab>"
+        - "heading contains repository-map|project-layout|directory-structure|file-structure"
+    - priority: 7
+      type: "DOC_EXCERPT"
+      triggers:
+        - "default fallback (all unmatched chunks)"
+
+# =============================================================================
+# TAG EXTRACTION
+# =============================================================================
+tag_extraction:
+  tag_types:
+    - name: "source"
+      format: "source:{source_ref}"
+      description: "Always included — canonical document identifier"
+    - name: "section"
+      format: "section:{slugified_heading}"
+      description: "Slugified section heading if present"
+    - name: "repo"
+      format: "repo:{name}"
+      description: "Repository name extracted from crawl_scope or source_ref"
+    - name: "lang"
+      format: "lang:{language}"
+      description: "Code fence language tag if present"
+    - name: "svc"
+      format: "svc:{service}"
+      description: "OmniNode service names found in content"
+    - name: "doctype"
+      format: "doctype:{doc_type}"
+      description: "Document class from input doc_type field"
+
+# =============================================================================
+# FINGERPRINTING
+# =============================================================================
+fingerprinting:
+  content_fingerprint:
+    algorithm: "sha256"
+    input: "normalized content (whitespace collapsed via ' '.join(content.split()))"
+    description: "Stable content identity — same text always produces same hash"
+  version_hash:
+    algorithm: "sha256"
+    input: "json({content_fingerprint, source_ref, source_version}, sort_keys=True)"
+    description: "Change-detection hash — differs if content, source, or version changes"
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 0
+    description: "Pure compute node — no retries needed"
+
+  error_types:
+    - name: "EmptyChunkListError"
+      error_code: "CHUNKCLASSIFY_001"
+      description: "Input raw_chunks is empty — returns empty classified_chunks list"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  description: >
+    Pure function with frozen rule set — same input always produces same output.
+    Fully replay-safe. content_fingerprint and version_hash enable deduplication.
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: false
+  description: "Pure compute node — no health check needed"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - compute
+    - document
+    - classifier
+    - chunking
+    - omnimemory
+    - stream-b
+    - pure-function
+    - deterministic
+  references:
+    - ticket: "OMN-2391"
+      url: "https://linear.app/omninode/issue/OMN-2391"
+      description: "ChunkClassifierCompute: deterministic chunk classification"

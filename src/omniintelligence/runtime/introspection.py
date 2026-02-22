@@ -104,6 +104,8 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_intent_drift_detect_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_execution_trace_parser_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
+    # Stream B — Document Ingestion Pipeline
+    _NodeDescriptor("node_chunk_classifier_compute", EnumNodeKind.COMPUTE),
     # Effect nodes
     _NodeDescriptor("node_context_item_writer_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_doc_staleness_detector_effect", EnumNodeKind.EFFECT),
