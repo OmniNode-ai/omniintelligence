@@ -50,7 +50,7 @@ jobs:
       - name: Run Code Intelligence Review
         id: review
         run: |
-          python -c "
+          uv run python -c "
           import sys
           import os
 
