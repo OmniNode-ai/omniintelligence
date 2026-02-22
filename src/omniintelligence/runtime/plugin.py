@@ -43,6 +43,21 @@ Configuration:
       calls publish_intelligence_introspection() and starts heartbeat loops for the
       same UUID5-derived node IDs, producing 3x the expected heartbeat traffic.
 
+    - OMNIINTELLIGENCE_CONSUMER_GROUP: Shared Kafka consumer group ID for all
+      intelligence topic consumers. Defaults to "omniintelligence-hooks".
+      All runtime containers MUST use the same group ID so Kafka load-balances
+      topic partitions across the group rather than delivering each message to
+      every container independently.
+
+      Rationale (OMN-2439): All runtime containers (omninode-runtime,
+      omninode-runtime-effects, runtime-worker-*) previously derived their
+      consumer group from ONEX_GROUP_ID, producing three distinct groups
+      (onex-runtime-main-intelligence, onex-runtime-effects-intelligence,
+      onex-runtime-workers-intelligence). Kafka delivered every hook event to
+      all three groups independently, causing 3x intent-classified events per
+      correlation_id. This env var provides a single fixed group ID used by
+      all containers, ensuring exactly one delivery per message.
+
 Example Usage:
     ```python
     from omniintelligence.runtime.plugin import PluginIntelligence
@@ -110,6 +125,44 @@ logger = logging.getLogger(__name__)
 
 _PUBLISH_INTROSPECTION_ENV_VAR = "OMNIINTELLIGENCE_PUBLISH_INTROSPECTION"
 _TRUTHY_VALUES = frozenset({"true", "1", "yes"})
+
+# Shared consumer group for all intelligence topic consumers (OMN-2439).
+#
+# All runtime containers (omninode-runtime, omninode-runtime-effects,
+# runtime-worker-*) share the same x-runtime-env block and each start
+# an intelligence consumer via PluginIntelligence.  Without a fixed
+# shared group ID, each container derives its own group from the
+# container-specific ONEX_GROUP_ID, producing three independent
+# consumer groups.  Kafka then delivers every message to ALL three
+# groups independently, causing 3x processing of each hook event and
+# 3x duplicate intent-classified events per correlation_id.
+#
+# Using a fixed constant group ID ensures all containers join the same
+# Kafka consumer group.  Kafka will load-balance topic partitions across
+# the group members so each message is delivered to exactly ONE consumer.
+#
+# Override via OMNIINTELLIGENCE_CONSUMER_GROUP if the deployment needs
+# a custom group name (e.g., per-environment isolation in staging).
+_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR = "OMNIINTELLIGENCE_CONSUMER_GROUP"
+_INTELLIGENCE_CONSUMER_GROUP_DEFAULT = "omniintelligence-hooks"
+
+
+def _intelligence_consumer_group() -> str:
+    """Return the shared Kafka consumer group ID for all intelligence consumers.
+
+    Reads OMNIINTELLIGENCE_CONSUMER_GROUP from the environment.  Falls back
+    to the constant ``omniintelligence-hooks`` when the variable is absent or
+    empty.
+
+    All runtime containers must use the same consumer group so that Kafka
+    load-balances claude-hook-event messages across workers rather than
+    delivering each message to every container independently (OMN-2439).
+
+    Returns:
+        Consumer group ID string.  Never empty.
+    """
+    group = os.getenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "").strip()
+    return group if group else _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
 
 
 class SettingsPluginIntrospection(BaseModel):
@@ -799,9 +852,13 @@ class PluginIntelligence:
                     topic,
                     correlation_id,
                 )
+                # Use the shared consumer group ID so all runtime containers
+                # join the same Kafka consumer group.  This ensures Kafka
+                # load-balances partitions across the group rather than
+                # delivering each message to every container (OMN-2439).
                 unsub = await config.event_bus.subscribe(
                     topic=topic,
-                    group_id=f"{config.consumer_group}-intelligence",
+                    group_id=_intelligence_consumer_group(),
                     on_message=handler,
                 )
                 unsubscribe_callbacks.append(unsub)
