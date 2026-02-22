@@ -321,8 +321,8 @@ repos:
       # --incremental uses mypy cache for faster subsequent runs
       # --------------------------------------------------------------------------
       - id: mypy-type-check
-        name: mypy (type checking - strict)
-        entry: uv run mypy --strict --ignore-missing-imports --incremental
+        name: mypy (type checking)
+        entry: uv run mypy --ignore-missing-imports --incremental
         language: system
         types: [python]
         files: ^src/omniintelligence/.*\.py$

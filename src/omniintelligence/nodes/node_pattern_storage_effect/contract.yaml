@@ -299,11 +299,17 @@ dependencies:
     description: "Pattern storage protocol for persisting and retrieving patterns"
     required: true
 
+  # required: false is INTENTIONAL — this node uses the runtime-published pattern:
+  # handlers return typed event models (ModelPatternStoredEvent / ModelPatternPromotedEvent)
+  # and RuntimeHostProcess publishes them to publish_topics automatically.
+  # Kafka is still required infrastructure at runtime; the producer is just not injected
+  # into handler function signatures. See CLAUDE.md invariant notes for details.
   - name: "kafka_producer"
     type: "protocol"
-    class_name: "ProtocolKafkaProducer"
-    module: "omnibase_infra.protocols.protocol_kafka_producer"
-    description: "Kafka producer for emitting pattern storage events"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting pattern storage events. Not injected into handlers — RuntimeHostProcess
+      publishes returned events to declared publish_topics automatically."
     required: false
 
 # =============================================================================

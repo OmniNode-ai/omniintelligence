@@ -45,3 +45,29 @@ class ModelPromotionCheckResult(BaseModel):
         default=None,
         description="Error message if an error occurred during promotion check",
     )
+
+    @property
+    def patterns_failed(self) -> int:
+        """Count of promotion attempts that failed (promoted_at is None, not dry_run).
+
+        A failed entry is one where the promotion event could not be emitted
+        (e.g. Kafka emit raised, caught by per-pattern exception handler) and
+        was caught by the per-pattern error handler in ``check_and_promote_patterns``.
+
+        Note: O(n) on patterns_promoted — do not call in tight loops.
+        """
+        return sum(
+            1 for r in self.patterns_promoted if r.promoted_at is None and not r.dry_run
+        )
+
+    @property
+    def patterns_succeeded(self) -> int:
+        """Count of promotion attempts that succeeded (promoted_at is set, not dry_run).
+
+        Note: O(n) on patterns_promoted — do not call in tight loops.
+        """
+        return sum(
+            1
+            for r in self.patterns_promoted
+            if r.promoted_at is not None and not r.dry_run
+        )

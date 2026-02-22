@@ -505,6 +505,16 @@ def clear_loader_cache() -> None:
     _cached_loader = None
 
 
+__all__ = [
+    "ContractLoader",
+    "EventBusConfig",
+    "HandlerConfig",
+    "HandlerRouting",
+    "OperationHandler",
+    "clear_loader_cache",
+    "get_contract_loader",
+]
+
 # Rebuild models to resolve forward references from __future__ annotations
 # This is required for Pydantic 2.x when using PEP 563 deferred annotations
 HandlerConfig.model_rebuild()
