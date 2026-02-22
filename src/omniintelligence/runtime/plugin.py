@@ -667,7 +667,9 @@ class PluginIntelligence:
                     correlation_id=correlation_id,
                 )
                 manifest_table_count = len(OMNIINTELLIGENCE_SCHEMA_MANIFEST.tables)
-                if fingerprint_result.table_count != manifest_table_count:
+                # Only abort if fewer tables than expected — extra tables (from other
+                # services sharing the public schema) are acceptable and should not block boot.
+                if fingerprint_result.table_count < manifest_table_count:
                     logger.warning(
                         "Auto-stamp aborted: live schema has %d tables, manifest expects %d "
                         "— ensure omnibase_infra migrations have run (correlation_id=%s)",

@@ -14,7 +14,7 @@ Related:
 
 from __future__ import annotations
 
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -31,7 +31,13 @@ from omnibase_infra.runtime.model_schema_fingerprint_result import (
 from omnibase_infra.runtime.models.model_handshake_result import ModelHandshakeResult
 from omnibase_infra.runtime.protocol_domain_plugin import ModelDomainPluginConfig
 
-from omniintelligence.runtime.plugin import PluginIntelligence
+from omniintelligence.runtime.model_schema_manifest import (
+    OMNIINTELLIGENCE_SCHEMA_MANIFEST,
+)
+from omniintelligence.runtime.plugin import (
+    _STAMP_SCHEMA_FINGERPRINT_QUERY,
+    PluginIntelligence,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -39,6 +45,7 @@ from omniintelligence.runtime.plugin import PluginIntelligence
 
 _OWNERSHIP_PATH = "omniintelligence.runtime.plugin.validate_db_ownership"
 _FINGERPRINT_PATH = "omniintelligence.runtime.plugin.validate_schema_fingerprint"
+_COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
 
 
 def _make_config() -> ModelDomainPluginConfig:
@@ -183,7 +190,7 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
 
     fake_fingerprint_result = ModelSchemaFingerprintResult(
         fingerprint="a" * 64,
-        table_count=12,
+        table_count=len(OMNIINTELLIGENCE_SCHEMA_MANIFEST.tables),
         column_count=80,
         constraint_count=20,
         per_table_hashes=(),
@@ -196,8 +203,6 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
     mock_acquire.__aexit__ = AsyncMock(return_value=None)
     plugin._pool.acquire = MagicMock(return_value=mock_acquire)
-
-    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
 
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
@@ -214,10 +219,10 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     assert len(fp_checks) == 1
     assert fp_checks[0].passed is True
     assert "first boot" in fp_checks[0].message.lower()
-    # The stamp UPDATE was executed with the correct fingerprint argument.
-    # ANY matches the SQL query string — we assert the fingerprint (the variable arg),
-    # not the internal SQL constant, to avoid coupling the test to query formatting.
-    mock_conn.execute.assert_called_once_with(ANY, fake_fingerprint_result.fingerprint)
+    # The stamp UPDATE was executed with the correct SQL query and fingerprint argument.
+    mock_conn.execute.assert_called_once_with(
+        _STAMP_SCHEMA_FINGERPRINT_QUERY, fake_fingerprint_result.fingerprint
+    )
 
 
 @pytest.mark.unit
@@ -234,7 +239,7 @@ async def test_validate_handshake_auto_stamp_update_zero_rows_raises() -> None:
     )
     fake_fingerprint_result = ModelSchemaFingerprintResult(
         fingerprint="b" * 64,
-        table_count=12,
+        table_count=len(OMNIINTELLIGENCE_SCHEMA_MANIFEST.tables),
         column_count=80,
         constraint_count=20,
         per_table_hashes=(),
@@ -245,8 +250,6 @@ async def test_validate_handshake_auto_stamp_update_zero_rows_raises() -> None:
     mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
     mock_acquire.__aexit__ = AsyncMock(return_value=None)
     plugin._pool.acquire = MagicMock(return_value=mock_acquire)
-
-    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
 
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
@@ -279,8 +282,6 @@ async def test_validate_handshake_auto_stamp_unexpected_error_propagates() -> No
         correlation_id=config.correlation_id,
     )
     unexpected_error = RuntimeError("unexpected failure in compute_schema_fingerprint")
-
-    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
 
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
@@ -469,16 +470,14 @@ async def test_validate_handshake_auto_stamp_aborts_on_table_count_mismatch() ->
         correlation_id=config.correlation_id,
     )
 
-    # Return a fingerprint result with fewer tables than the manifest expects (12).
+    # Return a fingerprint result with fewer tables than the manifest expects.
     fake_fingerprint_result = ModelSchemaFingerprintResult(
         fingerprint="c" * 64,
-        table_count=10,  # < 12 manifest tables — partial schema
+        table_count=10,  # 2 fewer than manifest (len=12) — triggers < guard
         column_count=70,
         constraint_count=15,
         per_table_hashes=(),
     )
-
-    _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
 
     with (
         patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
@@ -490,3 +489,57 @@ async def test_validate_handshake_auto_stamp_aborts_on_table_count_mismatch() ->
 
     # _cleanup_on_failure must have been called — pool is released to prevent leak.
     assert plugin._pool is None
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_auto_stamp_extra_tables_ok() -> None:
+    """Extra tables in the live schema (table_count > manifest) do NOT abort the auto-stamp.
+
+    When multiple services share the public schema, the live table count may exceed
+    the manifest.  Only fewer tables (< manifest count) indicate an incomplete
+    schema.  This test verifies that the auto-stamp proceeds to UPDATE when
+    table_count exceeds the manifest expectation.
+    """
+    plugin = _make_plugin_with_pool()
+    config = _make_config()
+
+    missing_error = SchemaFingerprintMissingError(
+        "expected_schema_fingerprint is NULL in db_metadata",
+        expected_owner="omniintelligence",
+        correlation_id=config.correlation_id,
+    )
+
+    manifest_count = len(OMNIINTELLIGENCE_SCHEMA_MANIFEST.tables)
+    fake_fingerprint_result = ModelSchemaFingerprintResult(
+        fingerprint="d" * 64,
+        table_count=manifest_count
+        + 2,  # extra tables from another service — must not abort
+        column_count=90,
+        constraint_count=25,
+        per_table_hashes=(),
+    )
+
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value="UPDATE 1")
+    mock_acquire = MagicMock()
+    mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_acquire.__aexit__ = AsyncMock(return_value=None)
+    plugin._pool.acquire = MagicMock(return_value=mock_acquire)
+
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=AsyncMock(side_effect=missing_error)),
+        patch(_COMPUTE_PATCH, new=AsyncMock(return_value=fake_fingerprint_result)),
+    ):
+        result = await plugin.validate_handshake(config)
+
+    # Extra tables are acceptable — auto-stamp proceeds and result passes.
+    assert isinstance(result, ModelHandshakeResult)
+    assert result.passed
+    fp_checks = [c for c in result.checks if c.check_name == "schema_fingerprint"]
+    assert len(fp_checks) == 1
+    assert fp_checks[0].passed is True
+    mock_conn.execute.assert_called_once_with(
+        _STAMP_SCHEMA_FINGERPRINT_QUERY, fake_fingerprint_result.fingerprint
+    )
