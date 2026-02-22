@@ -15,7 +15,12 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Final, TypedDict
 
-from omnibase_core.types import PrimitiveValue
+try:
+    from omnibase_core.types import PrimitiveValue
+except ImportError:  # pragma: no cover
+    # omnibase_core is an optional runtime dependency; define a local fallback
+    # so that mypy (run without omnibase_core installed) can resolve the type.
+    PrimitiveValue = str | int | float | bool  # type: ignore[assignment,misc]
 
 # =============================================================================
 # Type Aliases
@@ -23,8 +28,8 @@ from omnibase_core.types import PrimitiveValue
 
 # JSON-compatible types for execution outcome values
 # Matches the expected_value type from SuccessCriterionDict
-JsonPrimitive = PrimitiveValue | None
-JsonValue = JsonPrimitive | list[object] | dict[str, object]
+type JsonPrimitive = PrimitiveValue | None  # type: ignore[valid-type]
+type JsonValue = JsonPrimitive | list[object] | dict[str, object]  # type: ignore[valid-type]
 
 
 # =============================================================================

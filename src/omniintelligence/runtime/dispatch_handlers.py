@@ -289,7 +289,7 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
 
     envelope["payload"] = nested_payload
 
-    return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
+    return ModelClaudeCodeHookEvent(**envelope)
 
 
 def _needs_daemon_reshape(payload: dict[str, Any]) -> bool:
@@ -390,7 +390,7 @@ def _reshape_tool_content_to_hook_event(
     nested = {k: v for k, v in payload.items() if k not in _TOOL_CONTENT_ENVELOPE_KEYS}
 
     return ModelClaudeCodeHookEvent(
-        event_type="PostToolUse",  # type: ignore[arg-type]
+        event_type="PostToolUse",
         session_id=session_id,
         correlation_id=corr_id,
         timestamp_utc=timestamp_utc,
