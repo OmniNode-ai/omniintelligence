@@ -160,9 +160,17 @@ def _intelligence_consumer_group() -> str:
 
     Returns:
         Consumer group ID string.  Never empty.
+
+    Raises:
+        ValueError: If the resolved group contains any whitespace character.
     """
     group = os.getenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "").strip()
-    return group if group else _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
+    group = group if group else _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
+    if any(c.isspace() for c in group):
+        raise ValueError(
+            f"OMNIINTELLIGENCE_CONSUMER_GROUP must not contain whitespace; got: {group!r}"
+        )
+    return group
 
 
 class SettingsPluginIntrospection(BaseModel):
@@ -830,6 +838,11 @@ class PluginIntelligence:
                 reason="Event bus does not support subscribe",
             )
 
+        # Resolve the shared consumer group before entering the topic loop so
+        # that a ValueError from a bad env var propagates as a hard startup
+        # error rather than a soft failed() result (OMN-2438).
+        intelligence_group = _intelligence_consumer_group()
+
         try:
             # Build per-topic handler map (dispatch engine guaranteed non-None)
             topic_handlers = self._build_topic_handlers(correlation_id)
@@ -858,7 +871,7 @@ class PluginIntelligence:
                 # delivering each message to every container (OMN-2439).
                 unsub = await config.event_bus.subscribe(
                     topic=topic,
-                    group_id=_intelligence_consumer_group(),
+                    group_id=intelligence_group,
                     on_message=handler,
                 )
                 unsubscribe_callbacks.append(unsub)
@@ -869,7 +882,7 @@ class PluginIntelligence:
             logger.info(
                 "Intelligence consumers started: %d topics "
                 "(all dispatched, correlation_id=%s)",
-                len(INTELLIGENCE_SUBSCRIBE_TOPICS),
+                len(unsubscribe_callbacks),
                 correlation_id,
             )
 
@@ -878,7 +891,7 @@ class PluginIntelligence:
                 success=True,
                 message=(
                     f"Intelligence consumers started "
-                    f"({len(INTELLIGENCE_SUBSCRIBE_TOPICS)} dispatched)"
+                    f"({len(unsubscribe_callbacks)} dispatched)"
                 ),
                 duration_seconds=duration,
                 unsubscribe_callbacks=unsubscribe_callbacks,

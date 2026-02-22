@@ -753,6 +753,37 @@ class TestSharedConsumerGroup:
         assert _intelligence_consumer_group() == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
 
     # -------------------------------------------------------------------------
+    # _intelligence_consumer_group() whitespace validation tests (OMN-2438)
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.unit
+    def test_raises_on_group_with_embedded_spaces(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Raises ValueError when resolved group contains embedded spaces."""
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "my group")
+        with pytest.raises(ValueError, match="whitespace"):
+            _intelligence_consumer_group()
+
+    @pytest.mark.unit
+    def test_raises_on_group_with_embedded_tab(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Raises ValueError when resolved group contains an embedded tab."""
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "my\tgroup")
+        with pytest.raises(ValueError):
+            _intelligence_consumer_group()
+
+    @pytest.mark.unit
+    def test_raises_on_group_with_embedded_newline(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Raises ValueError when resolved group contains an embedded newline."""
+        monkeypatch.setenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "my\ngroup")
+        with pytest.raises(ValueError):
+            _intelligence_consumer_group()
+
+    # -------------------------------------------------------------------------
     # start_consumers() group_id integration tests
     # -------------------------------------------------------------------------
 
@@ -768,6 +799,8 @@ class TestSharedConsumerGroup:
         supply).  All must produce the same group_id on their subscriptions
         so Kafka treats them as members of the same consumer group.
         """
+        from omniintelligence.runtime.introspection import reset_introspection_guard
+
         monkeypatch.delenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, raising=False)
 
         container_groups = [
@@ -777,6 +810,9 @@ class TestSharedConsumerGroup:
         ]
 
         for container_group in container_groups:
+            # autouse fixture only resets between test functions, not between loop iterations
+            reset_introspection_guard()
+
             event_bus = _StubEventBus()
             plugin = PluginIntelligence()
             # Build a config that mimics the per-container ONEX_GROUP_ID
@@ -792,7 +828,14 @@ class TestSharedConsumerGroup:
             )
 
             await _wire_plugin(plugin, config)
-            await plugin.start_consumers(config)
+            result = await plugin.start_consumers(config)
+            assert result.success, (
+                f"start_consumers failed for container_group={container_group!r}: "
+                f"{result.error_message}"
+            )
+            assert len(event_bus.subscriptions) > 0, (
+                f"No subscriptions for container_group={container_group!r}"
+            )
 
             for sub in event_bus.subscriptions:
                 assert sub.group_id == _INTELLIGENCE_CONSUMER_GROUP_DEFAULT, (
