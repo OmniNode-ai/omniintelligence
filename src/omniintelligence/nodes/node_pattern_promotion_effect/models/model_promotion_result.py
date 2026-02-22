@@ -36,7 +36,7 @@ class ModelPromotionResult(BaseModel):
     )
     promoted_at: datetime | None = Field(
         default=None,
-        description="Timestamp when promotion occurred; None if dry_run",
+        description="Timestamp when promotion occurred; None if dry_run or if Kafka emit failed (see patterns_failed).",
     )
     reason: str = Field(
         default="auto_promote_rolling_window",

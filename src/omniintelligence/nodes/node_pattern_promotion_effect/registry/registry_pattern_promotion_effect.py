@@ -9,22 +9,17 @@ Architecture:
     The registry follows ONEX container-based dependency injection:
     - Creates handlers with explicit dependencies (no setters)
     - Uses static factory pattern for registry creation
-    - Validates dependencies at registry creation time (fail-fast)
+    - Dependencies are validated at construction time via isinstance checks against
+      the runtime-checkable protocols
     - Returns a frozen registry that cannot be modified
 
-Kafka Optionality:
-    The node contract marks ``kafka_producer`` as ``required: false``, meaning
-    the node can operate without Kafka. The registry factory accepts None for
-    the producer parameter.
-
-    **When Kafka is unavailable**, promotions still succeed in the database,
-    but ``PatternPromoted`` events are NOT emitted.
-
-    **Implications of running without Kafka:**
-    - Database promotions succeed normally
-    - No ``PatternPromoted`` events are emitted to Kafka
-    - Downstream caches relying on Kafka for invalidation become stale
-    - See ``handler_promotion.py`` module docstring for reconciliation strategy
+Kafka Dependency:
+    The ``kafka_producer`` dependency is optional per the ONEX invariant:
+    "Effect nodes must never block on Kafka — Kafka is optional, operations
+    must succeed without it." The registry factory validates that when a
+    producer is wired, it implements ``ProtocolKafkaPublisher``. The handler
+    functions accept ``None`` for graceful degradation (skipping Kafka emission
+    when unavailable).
 
 Usage:
     >>> from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
@@ -34,7 +29,7 @@ Usage:
     >>> # Create registry with dependencies
     >>> registry = RegistryPatternPromotionEffect.create_registry(
     ...     repository=db_connection,
-    ...     producer=kafka_producer,  # Optional, can be None
+    ...     producer=kafka_producer,  # Required — must be a live publisher
     ... )
     >>>
     >>> # Get handler from registry
@@ -73,14 +68,15 @@ from typing import (  # any-ok: Coroutine[Any, Any, T] is standard async type al
     Any,
 )
 
+from omniintelligence.protocols import (
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
+
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_promotion_effect.models import (
         ModelPromotionCheckRequest,
         ModelPromotionCheckResult,
-    )
-    from omniintelligence.protocols import (
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
     )
 
 logger = logging.getLogger(__name__)
@@ -142,14 +138,15 @@ class RegistryPatternPromotionEffect:
     with all dependencies wired. The registry is immutable once created.
 
     This follows the ONEX declarative pattern:
-    - Dependencies are validated at registry creation time (fail-fast)
+    - Dependencies are validated at construction time via isinstance checks against
+      the runtime-checkable protocols
     - No setter methods - dependencies are injected via factory
     - Registry is frozen after creation
 
     Example:
         >>> registry = RegistryPatternPromotionEffect.create_registry(
         ...     repository=db_connection,
-        ...     producer=kafka_producer,  # Optional, can be None
+        ...     producer=kafka_producer,  # Required — must be a live publisher
         ... )
         >>> handler = registry.get_handler("check_and_promote_patterns")
         >>> result = await handler(request)
@@ -161,39 +158,41 @@ class RegistryPatternPromotionEffect:
     @staticmethod
     def create_registry(
         repository: ProtocolPatternRepository,
-        producer: ProtocolKafkaPublisher | None = None,
+        producer: ProtocolKafkaPublisher,
     ) -> RegistryPromotionHandlers:
         """Create a frozen registry with all handlers wired.
 
         This factory method:
-        1. Validates that repository is not None
+        1. Validates dependencies via isinstance checks
         2. Creates handler functions with dependencies bound
         3. Returns a frozen RegistryPromotionHandlers
 
         Args:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
-            producer: Kafka producer implementing ProtocolKafkaPublisher, or None.
-                Optional - when None, promotions succeed but Kafka events are
-                not emitted.
+            producer: Kafka producer implementing ProtocolKafkaPublisher. Required
+                for event-driven promotion. The handler degrades gracefully when
+                producer is None (skips Kafka emission).
 
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.
-
-        Raises:
-            ValueError: If repository is None.
         """
+        # Validate dependencies at construction time — type annotations are
+        # insufficient because a None (or wrong type) passed via cast() would
+        # only fail deep inside promote_pattern, far from the callsite.
+        if not isinstance(repository, ProtocolPatternRepository):
+            raise TypeError(
+                f"repository must implement ProtocolPatternRepository, got {type(repository).__name__}"
+            )
+        if not isinstance(producer, ProtocolKafkaPublisher):
+            raise TypeError(
+                f"producer must implement ProtocolKafkaPublisher, got {type(producer).__name__}"
+            )
+
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
             check_and_promote_patterns,
         )
-
-        # Validate dependencies (fail-fast)
-        if repository is None:
-            raise ValueError(
-                "repository is required for RegistryPatternPromotionEffect. "
-                "Provide a ProtocolPatternRepository implementation."
-            )
 
         # Create handler with bound dependencies
         async def bound_check_and_promote(

@@ -64,6 +64,13 @@ class MockTransitionResult:
     error_message: str | None = None
 
 
+class MockKafkaPublisher:
+    """Mock Kafka publisher satisfying ProtocolKafkaPublisher."""
+
+    async def publish(self, topic: str, key: str, value: dict[str, object]) -> None:
+        pass
+
+
 class MockPatternRepository:
     """Mock repository for auto-promote tests.
 
@@ -114,6 +121,11 @@ class MockPatternRepository:
 @pytest.fixture
 def correlation_id() -> UUID:
     return uuid4()
+
+
+@pytest.fixture
+def producer() -> MockKafkaPublisher:
+    return MockKafkaPublisher()
 
 
 def _make_pattern(
@@ -323,6 +335,7 @@ class TestCheckAndAutoPromote:
     async def test_no_candidates_no_provisionals(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Empty candidate and provisional sets -> zero promotions."""
         repo = MockPatternRepository()
@@ -336,6 +349,7 @@ class TestCheckAndAutoPromote:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -349,6 +363,7 @@ class TestCheckAndAutoPromote:
     async def test_candidate_promoted_to_provisional(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Eligible candidate with OBSERVED evidence -> promoted to PROVISIONAL."""
         repo = MockPatternRepository()
@@ -379,6 +394,7 @@ class TestCheckAndAutoPromote:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -398,6 +414,7 @@ class TestCheckAndAutoPromote:
     async def test_provisional_promoted_to_validated(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Eligible provisional with MEASURED evidence -> promoted to VALIDATED."""
         repo = MockPatternRepository()
@@ -428,6 +445,7 @@ class TestCheckAndAutoPromote:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -438,6 +456,7 @@ class TestCheckAndAutoPromote:
     async def test_candidate_insufficient_metrics_skipped(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Candidate with OBSERVED but low injection count -> not promoted."""
         repo = MockPatternRepository()
@@ -460,6 +479,7 @@ class TestCheckAndAutoPromote:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -470,6 +490,7 @@ class TestCheckAndAutoPromote:
     async def test_transition_failure_isolated(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Failed transition doesn't block other promotions."""
         repo = MockPatternRepository()
@@ -496,6 +517,7 @@ class TestCheckAndAutoPromote:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -508,6 +530,7 @@ class TestCheckAndAutoPromote:
     async def test_both_phases_run(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Both candidate and provisional phases run in single call."""
         repo = MockPatternRepository()
@@ -531,6 +554,7 @@ class TestCheckAndAutoPromote:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -551,6 +575,7 @@ class TestGateSnapshotEnrichment:
     async def test_gate_snapshot_reflects_attribution_count(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Verify gate snapshot captures actual attribution counts from DB.
 
@@ -589,6 +614,7 @@ class TestGateSnapshotEnrichment:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -610,6 +636,7 @@ class TestGateSnapshotEnrichment:
     async def test_gate_snapshot_with_zero_attribution_count(
         self,
         correlation_id: UUID,
+        producer: MockKafkaPublisher,
     ) -> None:
         """Verify gate snapshot shows zero when no attributions exist."""
         repo = MockPatternRepository(attribution_count=0, latest_run_result=None)
@@ -635,6 +662,7 @@ class TestGateSnapshotEnrichment:
             repository=repo,
             apply_transition_fn=mock_apply_transition,
             idempotency_store=None,
+            producer=producer,
             correlation_id=correlation_id,
         )
 
@@ -689,3 +717,10 @@ class TestProtocolConformance:
             latest_run_result="success",
         )
         assert isinstance(repo, ProtocolPatternRepository)
+
+    def test_mock_kafka_publisher_implements_protocol(self) -> None:
+        """MockKafkaPublisher satisfies ProtocolKafkaPublisher."""
+        from omniintelligence.protocols import ProtocolKafkaPublisher
+
+        publisher = MockKafkaPublisher()
+        assert isinstance(publisher, ProtocolKafkaPublisher)

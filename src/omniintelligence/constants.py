@@ -106,7 +106,7 @@ TEMP_BOOTSTRAP: Canonical topic for pattern promotion events (OUTPUT).
 
 Canonical topic: onex.evt.omniintelligence.pattern-promoted.v1
 
-NodePatternStorageEffect publishes when a pattern is promoted
+NodePatternPromotionEffect publishes when a pattern is promoted
 from candidate to active status based on confidence thresholds
 and validation criteria.
 
