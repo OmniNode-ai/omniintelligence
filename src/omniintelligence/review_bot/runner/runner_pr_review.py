@@ -12,14 +12,15 @@ import re
 import sys
 from dataclasses import dataclass
 
-from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
-from omniintelligence.review_bot.models.model_review_score import ModelReviewScore
-from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
 from omniintelligence.review_bot.schemas.model_review_policy import (
     ModelReviewPolicy,
     ModelReviewRule,
 )
 from omniintelligence.review_bot.validators.validator_policy import ValidatorPolicy
+
+from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding
+from omniintelligence.review_bot.models.model_review_score import ModelReviewScore
+from omniintelligence.review_bot.models.model_review_severity import ReviewSeverity
 
 
 @dataclass
