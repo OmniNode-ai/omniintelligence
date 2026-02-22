@@ -3,20 +3,20 @@
 Provides a minimal interface for PR review comment operations.
 All API failures are caught and logged — they never raise to callers.
 
+Uses stdlib urllib.request for HTTP to comply with ARCH-002 (no transport
+library imports in src/omniintelligence/).
+
 OMN-2497: Implement inline GitHub PR comment posting.
 """
 
 from __future__ import annotations
 
+import json
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import Any
-
-try:
-    import httpx
-
-    _HTTPX_AVAILABLE = True
-except ImportError:
-    _HTTPX_AVAILABLE = False
 
 _BOT_MARKER = "<!-- omni-review-bot -->"
 _DEFAULT_GITHUB_API = "https://api.github.com"
@@ -27,6 +27,8 @@ class GitHubClient:
 
     All methods are fail-open: API errors are logged to stderr and
     the method returns an empty result rather than raising.
+
+    Uses stdlib urllib.request for HTTP (ARCH-002 compliant — no httpx).
 
     Args:
         token: GitHub personal access token or GITHUB_TOKEN.
@@ -63,36 +65,36 @@ class GitHubClient:
         Returns:
             List of response items, empty list on error.
         """
-        if not _HTTPX_AVAILABLE:
-            print(
-                "WARNING: httpx not available; GitHub API calls skipped.",
-                file=sys.stderr,
-            )
-            return []
-
         results: list[dict[str, Any]] = []
-        url = f"{self._base_url}{path}"
-        page_params = dict(params or {})
-        page_params.setdefault("per_page", 100)
+        base_params: dict[str, Any] = dict(params or {})
+        base_params.setdefault("per_page", 100)
+
+        url: str | None = (
+            f"{self._base_url}{path}?{urllib.parse.urlencode(base_params)}"
+        )
 
         try:
-            with httpx.Client(timeout=10.0) as client:
-                while url:
-                    resp = client.get(url, headers=self._headers(), params=page_params)
-                    if resp.status_code != 200:
+            while url:
+                req = urllib.request.Request(url, headers=self._headers())
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status != 200:
                         print(
-                            f"WARNING: GitHub API GET {url} returned {resp.status_code}",
+                            f"WARNING: GitHub API GET {url} returned {resp.status}",
                             file=sys.stderr,
                         )
                         break
-                    data = resp.json()
+                    body = resp.read().decode("utf-8")
+                    data = json.loads(body)
                     if isinstance(data, list):
                         results.extend(data)
                     elif isinstance(data, dict):
                         results.append(data)
-                    # Handle pagination
-                    url = resp.links.get("next", {}).get("url", "")
-                    page_params = {}  # Next URL already has params
+
+                    # Handle Link header for pagination
+                    link_header = resp.headers.get("Link", "")
+                    url = _parse_next_link(link_header)
+        except urllib.error.HTTPError as exc:
+            print(f"WARNING: GitHub API HTTP error: {exc}", file=sys.stderr)
         except Exception as exc:
             print(f"WARNING: GitHub API error: {exc}", file=sys.stderr)
 
@@ -108,25 +110,28 @@ class GitHubClient:
         Returns:
             Response dict, or None on error.
         """
-        if not _HTTPX_AVAILABLE:
-            print(
-                "WARNING: httpx not available; GitHub API calls skipped.",
-                file=sys.stderr,
-            )
-            return None
-
         url = f"{self._base_url}{path}"
         try:
-            with httpx.Client(timeout=10.0) as client:
-                resp = client.post(url, headers=self._headers(), json=body)
-                if resp.status_code not in (200, 201):
+            data = json.dumps(body).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={**self._headers(), "Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status not in (200, 201):
+                    body_text = resp.read().decode("utf-8")[:200]
                     print(
-                        f"WARNING: GitHub API POST {url} returned {resp.status_code}: "
-                        f"{resp.text[:200]}",
+                        f"WARNING: GitHub API POST {url} returned {resp.status}: "
+                        f"{body_text}",
                         file=sys.stderr,
                     )
                     return None
-                return resp.json()  # type: ignore[no-any-return]
+                return json.loads(resp.read().decode("utf-8"))  # type: ignore[no-any-return]
+        except urllib.error.HTTPError as exc:
+            print(f"WARNING: GitHub API HTTP error: {exc}", file=sys.stderr)
+            return None
         except Exception as exc:
             print(f"WARNING: GitHub API error: {exc}", file=sys.stderr)
             return None
@@ -140,14 +145,18 @@ class GitHubClient:
         Returns:
             True if successful.
         """
-        if not _HTTPX_AVAILABLE:
-            return False
-
         url = f"{self._base_url}{path}"
         try:
-            with httpx.Client(timeout=10.0) as client:
-                resp = client.delete(url, headers=self._headers())
-                return resp.status_code in (200, 204)
+            req = urllib.request.Request(
+                url,
+                headers=self._headers(),
+                method="DELETE",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status in (200, 204)
+        except urllib.error.HTTPError as exc:
+            print(f"WARNING: GitHub API HTTP error: {exc}", file=sys.stderr)
+            return False
         except Exception as exc:
             print(f"WARNING: GitHub API error: {exc}", file=sys.stderr)
             return False
@@ -241,6 +250,25 @@ class GitHubClient:
             f"/repos/{self._repo}/issues/{pr_number}/comments",
             {"body": body},
         )
+
+
+def _parse_next_link(link_header: str) -> str | None:
+    """Parse the 'next' URL from a GitHub Link header.
+
+    Args:
+        link_header: Value of the Link response header.
+
+    Returns:
+        The next page URL, or None if not present.
+    """
+    if not link_header:
+        return None
+    for part in link_header.split(","):
+        part = part.strip()
+        if 'rel="next"' in part:
+            url_part = part.split(";")[0].strip()
+            return url_part.strip("<>")
+    return None
 
 
 __all__ = ["BOT_MARKER", "GitHubClient"]
