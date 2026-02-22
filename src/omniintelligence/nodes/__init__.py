@@ -30,7 +30,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (7)
+    # Effects (8)
+    "NodeGitRepoCrawlerEffect": (
+        "omniintelligence.nodes.node_git_repo_crawler_effect.node",
+        "NodeGitRepoCrawlerEffect",
+    ),
     "NodeEnforcementFeedbackEffect": (
         "omniintelligence.nodes.node_enforcement_feedback_effect.node",
         "NodeEnforcementFeedbackEffect",
@@ -162,6 +166,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_execution_trace_parser_compute.node import (
         NodeExecutionTraceParserCompute as NodeExecutionTraceParserCompute,
     )
+    from omniintelligence.nodes.node_git_repo_crawler_effect.node import (
+        NodeGitRepoCrawlerEffect as NodeGitRepoCrawlerEffect,
+    )
     from omniintelligence.nodes.node_intelligence_orchestrator.node import (
         NodeIntelligenceOrchestrator as NodeIntelligenceOrchestrator,
     )
@@ -266,7 +273,8 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (7)
+    # Nodes — Effects (8)
+    "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodePatternComplianceEffect",
     "NodePatternDemotionEffect",
