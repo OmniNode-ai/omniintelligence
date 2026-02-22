@@ -34,7 +34,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (10)
+    # Effects (11)
     "NodeContextItemWriterEffect": (
         "omniintelligence.nodes.node_context_item_writer_effect.node",
         "NodeContextItemWriterEffect",
@@ -46,6 +46,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodeGitRepoCrawlerEffect": (
         "omniintelligence.nodes.node_git_repo_crawler_effect.node",
         "NodeGitRepoCrawlerEffect",
+    ),
+    "NodeLinearCrawlerEffect": (
+        "omniintelligence.nodes.node_linear_crawler_effect.node",
+        "NodeLinearCrawlerEffect",
     ),
     "NodeEnforcementFeedbackEffect": (
         "omniintelligence.nodes.node_enforcement_feedback_effect.node",
@@ -202,6 +206,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_intent_drift_detect_compute.node import (
         NodeIntentDriftDetectCompute as NodeIntentDriftDetectCompute,
     )
+    from omniintelligence.nodes.node_linear_crawler_effect.node import (
+        NodeLinearCrawlerEffect as NodeLinearCrawlerEffect,
+    )
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
     )
@@ -295,11 +302,12 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (10)
+    # Nodes — Effects (11)
     "NodeContextItemWriterEffect",
     "NodeDocStalenessDetectorEffect",
     "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
+    "NodeLinearCrawlerEffect",
     "NodePatternComplianceEffect",
     "NodePatternDemotionEffect",
     "NodePatternFeedbackEffect",

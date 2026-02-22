@@ -1,0 +1,270 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeLinearCrawlerEffect
+#
+# Ingests Linear issues and documents as ContextItems using a two-phase
+# cheap-then-expensive fetch pattern. Uses updatedAt comparison as a fast-path
+# before fetching full content.
+#
+# Reference: OMN-2388 - LinearCrawlerEffect
+
+# Contract identifiers
+name: "node_linear_crawler_effect"
+contract_name: "linear_crawler_effect"
+node_name: "linear_crawler_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node that ingests Linear issues and documents via a two-phase fetch pattern. Phase 1 (cheap):
+  list all items with id+updatedAt only. Phase 2 (expensive): fetch full content only when updatedAt changed.
+  Emits document.discovered.v1, document.changed.v1, and document.removed.v1 events. A secondary SHA-256
+  content hash filter prevents events for metadata-only updates that don't change rendered content. #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "ModelLinearCrawlInput"
+  module: "omniintelligence.nodes.node_linear_crawler_effect.models"
+  description: "Crawl request with team_id, crawl_scope, and optional project filter."
+
+output_model:
+  name: "ModelLinearCrawlOutput"
+  module: "omniintelligence.nodes.node_linear_crawler_effect.models"
+  description: "Aggregate result with discovered/changed/removed lists and skip count."
+
+output_models:
+  - name: "ModelDocumentDiscoveredEvent"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.models"
+    operation: "crawl_linear"
+    topic: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    description: "Emitted when a Linear issue or document is found for the first time."
+  - name: "ModelDocumentChangedEvent"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.models"
+    operation: "crawl_linear"
+    topic: "{env}.onex.evt.omnimemory.document-changed.v1"
+    description: "Emitted when a Linear item's content fingerprint has changed."
+  - name: "ModelDocumentRemovedEvent"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.models"
+    operation: "crawl_linear"
+    topic: "{env}.onex.evt.omnimemory.document-removed.v1"
+    description: "Emitted when a tracked Linear item is no longer returned by the API."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_linear_crawl"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl"
+    type: "async"
+    description: "Main entry point: two-phase updatedAt + content-hash filtering"
+  handlers:
+    - operation: "crawl_linear"
+      handler:
+        function: "handle_linear_crawl"
+        module: "omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl"
+        type: "async"
+      description: "Fetch Linear issues/docs and emit document lifecycle events"
+      actions:
+        - "list issues with id+updatedAt only (cheap phase)"
+        - "compare updatedAt to stored source_version"
+        - "skip items whose updatedAt is unchanged"
+        - "fetch full content for changed items (expensive phase)"
+        - "compute SHA-256 content hash"
+        - "skip metadata-only updates (updatedAt changed, content unchanged)"
+        - "emit document.discovered.v1 for new items"
+        - "emit document.changed.v1 for changed items"
+        - "emit document.removed.v1 for items absent from list"
+        - "persist updated state to omnimemory_linear_state"
+
+  default_handler:
+    function: "handle_linear_crawl"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl"
+    type: "async"
+    description: "Default to crawl_linear operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "crawl_linear"
+    description: "Ingest Linear issues and documents for a team/project"
+    input_model: "ModelLinearCrawlInput"
+    output_model: "ModelLinearCrawlOutput"
+    input_fields:
+      - team_id
+      - crawl_scope
+      - project_id
+      - correlation_id
+    output_fields:
+      - team_id
+      - crawl_scope
+      - discovered
+      - changed
+      - removed
+      - skipped
+      - errors
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka)
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omnimemory.document-discovered.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    event_type: "DocumentDiscovered"
+    trigger: "New Linear issue or document not in omnimemory_linear_state"
+    description: "Emitted when a Linear item is encountered for the first time."
+
+  - topic_suffix: "onex.evt.omnimemory.document-changed.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-changed.v1"
+    event_type: "DocumentChanged"
+    trigger: "Linear item updatedAt changed and content SHA-256 differs"
+    description: "Emitted when a tracked item's rendered content has changed."
+
+  - topic_suffix: "onex.evt.omnimemory.document-removed.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-removed.v1"
+    event_type: "DocumentRemoved"
+    trigger: "Tracked Linear item absent from list_issues/list_documents response"
+    description: "Emitted when a tracked item disappears from the Linear API."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+
+  publish_topics:
+    - "{env}.onex.evt.omnimemory.document-discovered.v1"
+    - "{env}.onex.evt.omnimemory.document-changed.v1"
+    - "{env}.onex.evt.omnimemory.document-removed.v1"
+
+  subscribe_topic_metadata:
+    "{env}.onex.cmd.omnimemory.crawl-tick.v1":
+      schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelLinearCrawlInput"
+      description: "Crawl tick events from CrawlSchedulerEffect (crawl_type=LINEAR)."
+      content_type: "application/json"
+
+  publish_topic_metadata:
+    "{env}.onex.evt.omnimemory.document-discovered.v1":
+      schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelDocumentDiscoveredEvent"
+      description: "New Linear item discovery event"
+      content_type: "application/json"
+    "{env}.onex.evt.omnimemory.document-changed.v1":
+      schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelDocumentChangedEvent"
+      description: "Changed Linear item event with old and new version info"
+      content_type: "application/json"
+    "{env}.onex.evt.omnimemory.document-removed.v1":
+      schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelDocumentRemovedEvent"
+      description: "Removed Linear item event"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "linear_state"
+    type: "protocol"
+    class_name: "ProtocolLinearStateStore"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_state"
+    description: "Crawl state persistence for omnimemory_linear_state"
+    required: true
+
+  - name: "linear_client"
+    type: "protocol"
+    class_name: "ProtocolLinearClient"
+    module: "omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_state"
+    description: "Abstraction over the Linear MCP API (list + get operations)"
+    required: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 1000
+    max_delay_ms: 30000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "RuntimeError"
+
+  error_types:
+    - name: "LinearListError"
+      error_code: "LINEARCRAWL_001"
+      description: "Linear API list_issues or list_documents call failed"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "LinearFetchError"
+      error_code: "LINEARCRAWL_002"
+      description: "Linear API get_issue or get_document call failed (rate limit, not found)"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "LinearStateError"
+      error_code: "LINEARCRAWL_003"
+      description: "Failed to read or update omnimemory_linear_state"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "updated_at_tracking"
+  hash_fields: ["crawl_scope", "source_ref", "source_version"]
+  description: >
+    Items are identified by (crawl_scope, source_ref). Re-processing the same updatedAt for an item is
+    idempotent — the cheap comparison skips it. A secondary SHA-256 content hash prevents events for metadata-only
+    changes.
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - effect
+    - linear
+    - crawler
+    - omnimemory
+    - change-detection
+  references:
+    - ticket: "OMN-2388"
+      url: "https://linear.app/omninode/issue/OMN-2388"
+      description: "LinearCrawlerEffect: Linear ticket and document ingestion"
