@@ -13,12 +13,13 @@ Architecture:
       the runtime-checkable protocols
     - Returns a frozen registry that cannot be modified
 
-Kafka Requirement:
-    The ``kafka_producer`` dependency is REQUIRED infrastructure per the ONEX
-    invariant: "Kafka is required infrastructure — there is NO fallback path".
-    The registry factory requires a live ``ProtocolKafkaPublisher`` instance.
-    Both ``repository`` and ``producer`` are non-optional parameters enforced
-    by the type system.
+Kafka Dependency:
+    The ``kafka_producer`` dependency is optional per the ONEX invariant:
+    "Effect nodes must never block on Kafka — Kafka is optional, operations
+    must succeed without it." The registry factory validates that when a
+    producer is wired, it implements ``ProtocolKafkaPublisher``. The handler
+    functions accept ``None`` for graceful degradation (skipping Kafka emission
+    when unavailable).
 
 Usage:
     >>> from omniintelligence.nodes.node_pattern_promotion_effect.registry import (
@@ -170,7 +171,8 @@ class RegistryPatternPromotionEffect:
             repository: Pattern repository implementing ProtocolPatternRepository.
                 Required for database operations (fetch, execute).
             producer: Kafka producer implementing ProtocolKafkaPublisher. Required
-                infrastructure — Kafka is the only promotion path.
+                for event-driven promotion. The handler degrades gracefully when
+                producer is None (skips Kafka emission).
 
         Returns:
             A frozen RegistryPromotionHandlers with handlers wired.

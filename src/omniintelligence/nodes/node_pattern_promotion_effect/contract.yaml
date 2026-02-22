@@ -37,7 +37,7 @@ description: >
   Evaluates patterns against configurable promotion gates (injection count, success rate, failure streak,
   disabled status) and emits lifecycle events for eligible patterns. Supports dry_run mode for previewing
   promotions without committing changes. Kafka is required infrastructure; lifecycle events are always
-  emitted asynchronously. #magic___^_^___line
+  emitted asynchronously.
 # Strongly typed I/O models
 input_model:
   name: "ModelPromotionCheckRequest"

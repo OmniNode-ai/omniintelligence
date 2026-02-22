@@ -10,13 +10,14 @@ feedback loop.
 **Event-Driven Architecture (OMN-1805):**
 -----------------------------------------
 This handler does NOT directly update pattern status in the database. Instead,
-it evaluates promotion gates and emits a ``ModelPatternLifecycleEvent`` to Kafka.
-The reducer consumes this event, validates the transition against contract.yaml,
-and the effect node applies the actual database update.
+it evaluates promotion gates and emits a ``ModelPatternLifecycleEvent`` to Kafka
+when a producer is available. The reducer consumes this event, validates the
+transition against contract.yaml, and the effect node applies the actual database
+update.
 
 Flow:
     1. Handler evaluates promotion gates (pure computation)
-    2. If criteria met, emit ``ModelPatternLifecycleEvent`` to Kafka
+    2. If criteria met and producer is not None: emit ``ModelPatternLifecycleEvent`` to Kafka
     3. Reducer validates transition is allowed per contract FSM
     4. Effect node applies database UPDATE and emits transitioned event
 
@@ -43,20 +44,24 @@ All four gates must pass for a pattern to be promoted:
 4. Disabled Gate: Pattern must not be in disabled_patterns_current table
    - Already filtered in SQL query (LEFT JOIN ... IS NULL)
 
-Kafka Publisher Requirement:
-----------------------------
-The ``kafka_producer`` dependency is REQUIRED infrastructure per the ONEX
-invariant: "Kafka is required infrastructure — there is NO fallback path".
+Kafka Publisher (Optional):
+---------------------------
+The ``kafka_producer`` dependency is OPTIONAL per the ONEX invariant:
+"Effect nodes must never block on Kafka — Kafka is optional, operations must
+succeed without it."
 
-All promotions go through the event-driven flow (Kafka -> reducer -> effect).
-There is no direct database update fallback. Callers must supply a live
-``ProtocolKafkaPublisher`` instance; passing None is a programming error.
+Always check ``if producer is not None`` before publishing. When Kafka is
+unavailable (producer is None), promotion events are skipped with a warning
+log. The operation succeeds without blocking. Callers should supply a live
+``ProtocolKafkaPublisher`` instance when event-driven promotion is required;
+passing None degrades gracefully.
 
 Design Principles:
     - Pure functions for criteria evaluation (no I/O)
     - Protocol-based dependency injection for testability
     - Event-driven status changes via reducer (no direct SQL UPDATE)
     - Eventual consistency (status updated asynchronously)
+    - Graceful degradation when Kafka is unavailable
     - asyncpg-style positional parameters ($1, $2, etc.)
 
 Reference:
@@ -274,7 +279,7 @@ def build_gate_snapshot(pattern: Mapping[str, Any]) -> ModelGateSnapshot:
 
 async def check_and_promote_patterns(
     repository: ProtocolPatternRepository,
-    producer: ProtocolKafkaPublisher,
+    producer: ProtocolKafkaPublisher | None = None,
     *,
     dry_run: bool = False,
     min_injection_count: int = MIN_INJECTION_COUNT,
@@ -287,13 +292,14 @@ async def check_and_promote_patterns(
     This is the main entry point for the promotion workflow. It:
     1. Fetches all provisional patterns (not disabled, is_current)
     2. Evaluates each against promotion gates
-    3. If not dry_run: promotes eligible patterns and emits lifecycle events to Kafka
+    3. If not dry_run and producer is not None: promotes eligible patterns and emits lifecycle events to Kafka
     4. Returns aggregated result with all promotion details
 
     Args:
         repository: Database repository implementing ProtocolPatternRepository.
-        producer: Kafka producer implementing ProtocolKafkaPublisher. Required
-            infrastructure — Kafka is the only promotion path.
+        producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
+            When None, lifecycle events are skipped and a warning is logged.
+            Kafka is optional — the operation succeeds without it.
         dry_run: If True, return what WOULD be promoted without mutating.
         min_injection_count: Minimum number of injections required for promotion.
             Defaults to MIN_INJECTION_COUNT (5).
@@ -397,6 +403,29 @@ async def check_and_promote_patterns(
                 dry_run=True,
             )
             promotion_results.append(result)
+        elif producer is None:
+            # Kafka producer not available — skip emission, log warning
+            logger.warning(
+                "Kafka producer not available — skipping lifecycle event for pattern. "
+                "Pattern will not be promoted via event-driven flow.",
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None,
+                    "pattern_id": str(pattern_id),
+                    "pattern_signature": pattern_signature,
+                },
+            )
+            skipped_result = ModelPromotionResult(
+                pattern_id=pattern_id,
+                pattern_signature=pattern_signature,
+                from_status="provisional",
+                to_status="validated",
+                promoted_at=None,
+                reason="promotion_skipped: kafka_producer_unavailable",
+                gate_snapshot=build_gate_snapshot(pattern),
+                dry_run=False,
+            )
+            promotion_results.append(skipped_result)
+            continue
         else:
             # Actual promotion - isolated per-pattern error handling
             try:
@@ -461,21 +490,22 @@ async def check_and_promote_patterns(
 
 
 async def promote_pattern(
-    producer: ProtocolKafkaPublisher,
+    producer: ProtocolKafkaPublisher | None,
     pattern_id: UUID,
     pattern_data: Mapping[str, Any],
     correlation_id: UUID | None = None,
 ) -> ModelPromotionResult:
     """Promote a single pattern from provisional to validated status.
 
-    Emits a ``ModelPatternLifecycleEvent`` to Kafka for the reducer to process.
-    The reducer validates the FSM transition and the effect node applies the
-    database UPDATE. This function returns immediately after emitting the event
-    (eventual consistency).
+    Emits a ``ModelPatternLifecycleEvent`` to Kafka for the reducer to process
+    when a producer is available. The reducer validates the FSM transition and
+    the effect node applies the database UPDATE. This function returns immediately
+    after emitting the event (eventual consistency).
 
     Args:
-        producer: Kafka producer implementing ProtocolKafkaPublisher. Required
-            infrastructure — there is no fallback path.
+        producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
+            When None, the Kafka emit is skipped and ``promoted_at`` is None.
+            Kafka is optional — check producer is not None before publishing.
         pattern_id: The pattern ID to promote.
         pattern_data: Pattern record from SQL query (for gate snapshot).
         correlation_id: Optional correlation ID for tracing.
@@ -508,24 +538,45 @@ async def promote_pattern(
         },
     )
 
-    # Emit lifecycle event to Kafka for reducer to process (required infrastructure)
-    await _emit_lifecycle_event(
-        producer=producer,
-        pattern_id=pattern_id,
-        gate_snapshot=gate_snapshot,
-        request_time=request_time,
-        correlation_id=correlation_id,
-    )
+    if producer is not None:
+        # Emit lifecycle event to Kafka for reducer to process
+        await _emit_lifecycle_event(
+            producer=producer,
+            pattern_id=pattern_id,
+            gate_snapshot=gate_snapshot,
+            request_time=request_time,
+            correlation_id=correlation_id,
+        )
 
-    logger.info(
-        "Pattern promotion requested via lifecycle event",
-        extra={
-            "correlation_id": str(correlation_id) if correlation_id else None,
-            "pattern_id": str(pattern_id),
-            "pattern_signature": pattern_signature,
-            "success_rate": gate_snapshot.success_rate_rolling_20,
-        },
-    )
+        logger.info(
+            "Pattern promotion requested via lifecycle event",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "pattern_id": str(pattern_id),
+                "pattern_signature": pattern_signature,
+                "success_rate": gate_snapshot.success_rate_rolling_20,
+            },
+        )
+    else:
+        # Kafka unavailable — skip emission, operation degrades gracefully
+        logger.warning(
+            "Kafka producer not available — lifecycle event skipped for pattern",
+            extra={
+                "correlation_id": str(correlation_id) if correlation_id else None,
+                "pattern_id": str(pattern_id),
+                "pattern_signature": pattern_signature,
+            },
+        )
+        return ModelPromotionResult(
+            pattern_id=pattern_id,
+            pattern_signature=pattern_signature,
+            from_status="provisional",
+            to_status="validated",
+            promoted_at=None,  # Not promoted — no Kafka producer
+            reason="promotion_skipped: kafka_producer_unavailable",
+            gate_snapshot=gate_snapshot,
+            dry_run=False,
+        )
 
     return ModelPromotionResult(
         pattern_id=pattern_id,

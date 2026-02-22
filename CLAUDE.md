@@ -27,7 +27,7 @@ These rules are non-negotiable. Violations will cause production issues or archi
 | Invariant | Rationale |
 |-----------|-----------|
 | Node classes must be **thin shells** (<100 lines) | Declarative pattern; logic belongs in handlers |
-| Effect nodes must **never block** on Kafka | Kafka is **required infrastructure**; emit events asynchronously — never block the calling thread waiting for acks |
+| Effect nodes must **never block** on Kafka | Kafka is optional; do not block on it — accept an optional producer and skip/log events when absent; emit asynchronously |
 | All event schemas are **frozen** (`frozen=True`) | Events are immutable after emission |
 | Handlers must **return structured errors**, not raise | Domain errors are data, not exceptions |
 | `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
@@ -471,7 +471,7 @@ class ProtocolPatternRepository(Protocol):
 
 ### Non-Blocking Kafka Emission
 
-Kafka is **required infrastructure** — but event emission must never block the primary operation. Fire-and-forget: the database write succeeds regardless of Kafka ack timing:
+Kafka is optional — event emission must never block the primary operation. Always check `producer is not None` before publishing. Fire-and-forget: the primary operation succeeds regardless of Kafka availability:
 
 ```python
 # Emit asynchronously — do not await a Kafka ack before returning
@@ -585,7 +585,7 @@ dependencies:
   - name: "kafka_producer"
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
-    required: true  # Kafka is required infrastructure
+    required: false  # Kafka is optional; handlers must degrade gracefully when absent
 
 # =============================================================================
 # IDEMPOTENCY
