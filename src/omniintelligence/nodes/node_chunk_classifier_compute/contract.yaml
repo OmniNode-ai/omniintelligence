@@ -1,3 +1,4 @@
+---
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
 #
@@ -28,8 +29,10 @@ node_type: "COMPUTE_GENERIC"
 status: "active"
 # Description
 description: >
-  Stream B pure compute node. Classifies raw chunks using the v1 frozen deterministic rule set (7 priority-ordered rules, first match wins). Extracts 6 tag types per chunk and computes SHA-256 content fingerprint and version hash for deduplication and replay safety. Pure function, no I/O. Returns ordered ClassifiedChunk list for EmbeddingGenerationEffect.
-
+  Stream B pure compute node. Classifies raw chunks using the v1 frozen deterministic rule set (7 priority-ordered
+  rules, first match wins). Extracts 6 tag types per chunk and computes SHA-256 content fingerprint and
+  version hash for deduplication and replay safety. Pure function, no I/O. Returns ordered ClassifiedChunk
+  list for EmbeddingGenerationEffect. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelChunkClassifyInput"
@@ -95,7 +98,8 @@ classification_config:
   rule_version: "v1"
   frozen: true
   description: >
-    Rule order is frozen per contract version. A change to rule order or trigger strings requires a version bump. Without frozen rule order, promotion history is non-replayable.
+    Rule order is frozen per contract version. A change to rule order or trigger strings requires a version
+    bump. Without frozen rule order, promotion history is non-replayable.
 
   rules:
     - priority: 1
@@ -214,7 +218,8 @@ error_handling:
 idempotency:
   enabled: true
   description: >
-    Pure function with frozen rule set — same input always produces same output. Fully replay-safe. content_fingerprint and version_hash enable deduplication.
+    Pure function with frozen rule set — same input always produces same output. Fully replay-safe. content_fingerprint
+    and version_hash enable deduplication.
 
 # =============================================================================
 # HEALTH CHECK
