@@ -33,11 +33,9 @@ status: "active"
 
 # Description
 description: >
-  Stream B terminal effect node. Receives EmbeddedChunks and writes them idempotently
-  to PostgreSQL (context_items + context_items_content), Qdrant (context_items_v1),
-  and Memgraph. Assigns bootstrap tier per source_ref pattern. Emits
-  document-indexed.v1 event after successful write.
-
+  Stream B terminal effect node. Receives EmbeddedChunks and writes them idempotently to PostgreSQL (context_items
+  + context_items_content), Qdrant (context_items_v1), and Memgraph. Assigns bootstrap tier per source_ref
+  pattern. Emits document-indexed.v1 event after successful write. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelContextItemWriteInput"
