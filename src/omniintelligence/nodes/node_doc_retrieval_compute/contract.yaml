@@ -1,3 +1,4 @@
+---
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
 #
@@ -27,8 +28,9 @@ node_type: "COMPUTE_GENERIC"
 status: "active"
 # Description
 description: >
-  Stream C retrieval compute node. Re-ranks document-derived ContextItem candidates from Qdrant using scope-aware scoring, tier multipliers, and intent-based adaptive token budgeting. Pure compute -- does NOT query Qdrant or emit attribution signals.
-
+  Stream C retrieval compute node. Re-ranks document-derived ContextItem candidates from Qdrant using
+  scope-aware scoring, tier multipliers, and intent-based adaptive token budgeting. Pure compute -- does
+  NOT query Qdrant or emit attribution signals. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelDocRetrievalInput"
@@ -104,8 +106,8 @@ scoring:
     org_wide: 0.80
   tier_multiplier:
     shared: 1.15
-    validated_earned: 1.00 # bootstrap_confidence == 0.0
-    validated_bootstrapped: 0.85 # bootstrap_confidence > 0.0
+    validated_earned: 1.00  # bootstrap_confidence == 0.0
+    validated_bootstrapped: 0.85  # bootstrap_confidence > 0.0
     quarantine: 0.70
   adaptive_budget_fractions:
     architecture: 0.40
