@@ -207,9 +207,7 @@ def _is_failure_pattern(content: str, heading: str | None) -> bool:
     for trigger in _FAILURE_PATTERN_STRINGS:
         if trigger in content:
             return True
-    if heading and _FAILURE_HEADING_PATTERN.search(heading):
-        return True
-    return False
+    return bool(heading and _FAILURE_HEADING_PATTERN.search(heading))
 
 
 # ---------------------------------------------------------------------------
@@ -228,9 +226,7 @@ def _is_example(content: str, heading: str | None, has_code_fence: bool) -> bool
     """
     if has_code_fence and re.search(r"Example:", content):
         return True
-    if heading and _EXAMPLE_HEADING_PATTERN.search(heading):
-        return True
-    return False
+    return bool(heading and _EXAMPLE_HEADING_PATTERN.search(heading))
 
 
 # ---------------------------------------------------------------------------
@@ -246,12 +242,9 @@ _REPO_MAP_HEADING_PATTERN = re.compile(
 
 def _is_repo_map(content: str, heading: str | None) -> bool:
     """Return True if content matches REPO_MAP triggers (priority 6)."""
-    for tree_char in _REPO_MAP_TREE_CHARS:
-        if tree_char in content:
-            return True
-    if heading and _REPO_MAP_HEADING_PATTERN.search(heading):
+    if any(tree_char in content for tree_char in _REPO_MAP_TREE_CHARS):
         return True
-    return False
+    return bool(heading and _REPO_MAP_HEADING_PATTERN.search(heading))
 
 
 # ---------------------------------------------------------------------------
