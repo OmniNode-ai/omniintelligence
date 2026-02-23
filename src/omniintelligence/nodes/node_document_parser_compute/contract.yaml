@@ -1,0 +1,176 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDocumentParserCompute
+#
+# Stream B pure compute node. Receives raw document content from
+# DocumentFetchEffect and splits it into typed chunks using document-type-
+# specific strategies for downstream processing by ChunkClassifierCompute.
+#
+# Reference: OMN-2390 - DocumentParserCompute
+
+# Contract identifiers
+name: "node_document_parser_compute"
+contract_name: "document_parser_compute"
+node_name: "document_parser_compute"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "COMPUTE_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Stream B pure compute node. Splits raw markdown into typed chunks using document-type-specific strategies.
+  CLAUDE_MD: section-boundary split. DESIGN_DOC/ARCHITECTURE_DOC: heading split with fence preservation
+  and prose sliding window. GENERAL_MARKDOWN: graceful fallback. Pure function, no I/O. Returns ordered
+  list of RawChunk objects for ChunkClassifierCompute.
+# Strongly typed I/O models
+input_model:
+  name: "ModelDocumentParseInput"
+  module: "omniintelligence.nodes.node_document_parser_compute.models"
+  description: "Parse request with doc_meta (type, source, scope) and raw_content."
+
+output_model:
+  name: "ModelDocumentParseOutput"
+  module: "omniintelligence.nodes.node_document_parser_compute.models"
+  description: "Ordered list of raw chunks with token estimates and section headings."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_document_parse"
+    module: "omniintelligence.nodes.node_document_parser_compute.handlers.handler_document_parser"
+    type: "sync"
+    description: "Main entry point: dispatch by doc_type to chunking strategy"
+  handlers:
+    - operation: "parse_document"
+      handler:
+        function: "handle_document_parse"
+        module: "omniintelligence.nodes.node_document_parser_compute.handlers.handler_document_parser"
+        type: "sync"
+      description: "Split raw markdown into typed chunks"
+      actions:
+        - "dispatch by doc_type (CLAUDE_MD, DESIGN_DOC, ARCHITECTURE_DOC, GENERAL_MARKDOWN)"
+        - "CLAUDE_MD: section-boundary split at ## with subsection merging"
+        - "DESIGN_DOC/ARCHITECTURE_DOC: heading split with fence preservation + prose sliding window"
+        - "GENERAL_MARKDOWN: headings -> paragraphs -> sliding window fallback"
+        - "apply 1,200-token fence atomicity cap across all strategies"
+        - "merge chunks below 100 tokens upward"
+        - "return ordered list of RawChunk objects"
+
+  default_handler:
+    function: "handle_document_parse"
+    module: "omniintelligence.nodes.node_document_parser_compute.handlers.handler_document_parser"
+    type: "sync"
+    description: "Default to parse_document operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "parse_document"
+    description: "Split raw markdown into typed chunks using doc-type-specific strategy"
+    input_model: "ModelDocumentParseInput"
+    output_model: "ModelDocumentParseOutput"
+    input_fields:
+      - doc_meta
+      - raw_content
+    output_fields:
+      - chunks
+      - source_ref
+      - total_token_estimate
+      - correlation_id
+
+# =============================================================================
+# CHUNKING STRATEGY PARAMETERS
+# =============================================================================
+chunking_config:
+  token_estimation: "len(content) // 4"
+  min_chunk_tokens: 100
+  max_prose_tokens: 700
+  max_code_tokens: 1200
+  strategies:
+    claude_md:
+      primary_split: "## headings"
+      subsection_merge_threshold: 800
+      fence_cap: 1200
+    design_doc:
+      primary_split: "## headings"
+      fence_preservation: true
+      prose_overflow_strategy: "sliding_window"
+      sliding_window_target: 600
+      sliding_window_overlap: 100
+      fence_cap: 1200
+    general_markdown:
+      primary_split: "## and ### headings"
+      fallback: "paragraph_breaks"
+      final_fallback: "sliding_window"
+      sliding_window_target: 500
+      sliding_window_overlap: 100
+      fence_cap: 1200
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 0
+    description: "Pure compute node — no retries needed"
+
+  error_types:
+    - name: "EmptyContentError"
+      error_code: "DOCPARSE_001"
+      description: "Input raw_content is empty — returns empty chunk list"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  description: >
+    Pure function — same input always produces same output. Fully replay-safe.
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: false
+  description: "Pure compute node — no health check needed"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - compute
+    - document
+    - parser
+    - chunking
+    - omnimemory
+    - stream-b
+    - pure-function
+  references:
+    - ticket: "OMN-2390"
+      url: "https://linear.app/omninode/issue/OMN-2390"
+      description: "DocumentParserCompute: pure markdown chunking"

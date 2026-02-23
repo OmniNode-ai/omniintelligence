@@ -115,7 +115,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
-    # Computes (9)
+    # Computes (10)
+    "NodeDocumentParserCompute": (
+        "omniintelligence.nodes.node_document_parser_compute.node",
+        "NodeDocumentParserCompute",
+    ),
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.node_execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
@@ -184,6 +188,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
         NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
+    )
+    from omniintelligence.nodes.node_document_parser_compute.node import (
+        NodeDocumentParserCompute as NodeDocumentParserCompute,
     )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
@@ -292,7 +299,8 @@ __all__ = [
     # Nodes — Reducers (2)
     "NodeDocPromotionReducer",
     "NodeIntelligenceReducer",
-    # Nodes — Computes (9)
+    # Nodes — Computes (10)
+    "NodeDocumentParserCompute",
     "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
     "NodeIntentDriftDetectCompute",
