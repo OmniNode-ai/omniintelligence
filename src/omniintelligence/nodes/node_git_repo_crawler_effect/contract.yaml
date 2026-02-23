@@ -1,0 +1,257 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeGitRepoCrawlerEffect
+#
+# Discovers and tracks .md document changes across git repositories.
+# Uses HEAD SHA as a cheap repo-level fast-path before file-level diffing.
+#
+# Reference: OMN-2387 - GitRepoCrawlerEffect
+
+# Contract identifiers
+name: "node_git_repo_crawler_effect"
+contract_name: "git_repo_crawler_effect"
+node_name: "git_repo_crawler_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node that discovers and tracks .md document changes across git repositories. Uses HEAD SHA as
+  a cheap O(1) fast-path to skip unchanged repos before performing file-level diffing. Emits document.discovered.v1,
+  document.changed.v1, and document.removed.v1 events. Updates omnimemory_crawl_state after each crawl.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelGitRepoCrawlInput"
+  module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
+  description: "Crawl request with repo_path and trigger metadata."
+
+output_model:
+  name: "ModelGitRepoCrawlOutput"
+  module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
+  description: "Aggregate result with discovered/changed/removed lists."
+
+output_models:
+  - name: "ModelDocumentDiscoveredEvent"
+    module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
+    operation: "crawl_repo"
+    topic: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    description: "Emitted when a .md file is found that has no entry in crawl_state."
+  - name: "ModelDocumentChangedEvent"
+    module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
+    operation: "crawl_repo"
+    topic: "{env}.onex.evt.omnimemory.document-changed.v1"
+    description: "Emitted when a .md file's content fingerprint has changed."
+  - name: "ModelDocumentRemovedEvent"
+    module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
+    operation: "crawl_repo"
+    topic: "{env}.onex.evt.omnimemory.document-removed.v1"
+    description: "Emitted when a tracked .md file is no longer in the git tree."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_git_repo_crawl"
+    module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
+    type: "async"
+    description: "Main entry point: git HEAD fast-path + file-level diffing"
+  handlers:
+    - operation: "crawl_repo"
+      handler:
+        function: "handle_git_repo_crawl"
+        module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
+        type: "async"
+      description: "Detect .md file changes and emit document lifecycle events"
+      actions:
+        - "check HEAD SHA fast-path"
+        - "run git diff --name-only for changed .md files"
+        - "compute file-level SHA and content fingerprint per file"
+        - "emit document.discovered.v1 for new files"
+        - "emit document.changed.v1 for changed files"
+        - "emit document.removed.v1 for removed files"
+        - "update omnimemory_crawl_state"
+
+  default_handler:
+    function: "handle_git_repo_crawl"
+    module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
+    type: "async"
+    description: "Default to crawl_repo operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "crawl_repo"
+    description: "Detect .md document changes in a git repository"
+    input_model: "ModelGitRepoCrawlInput"
+    output_model: "ModelGitRepoCrawlOutput"
+    input_fields:
+      - repo_path
+      - trigger_source
+      - correlation_id
+    output_fields:
+      - repo_path
+      - head_sha
+      - skipped
+      - discovered
+      - changed
+      - removed
+      - errors
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka)
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omnimemory.document-discovered.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    event_type: "DocumentDiscovered"
+    trigger: "New .md file found with no entry in crawl_state"
+    description: "Emitted when a .md file is encountered for the first time."
+
+  - topic_suffix: "onex.evt.omnimemory.document-changed.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-changed.v1"
+    event_type: "DocumentChanged"
+    trigger: "Existing .md file has a different content fingerprint"
+    description: "Emitted when the SHA-256 of a tracked .md file differs from the stored value."
+
+  - topic_suffix: "onex.evt.omnimemory.document-removed.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-removed.v1"
+    event_type: "DocumentRemoved"
+    trigger: "Tracked .md file is no longer in the git tree"
+    description: "Emitted when a tracked file disappears from the repository."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "{env}.onex.evt.omnimemory.crawl-requested.v1"
+
+  publish_topics:
+    - "{env}.onex.evt.omnimemory.document-discovered.v1"
+    - "{env}.onex.evt.omnimemory.document-changed.v1"
+    - "{env}.onex.evt.omnimemory.document-removed.v1"
+
+  subscribe_topic_metadata:
+    "{env}.onex.evt.omnimemory.crawl-requested.v1":
+      schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelGitRepoCrawlInput"
+      description: "Crawl request events from CrawlSchedulerEffect or git post-commit hook."
+      content_type: "application/json"
+
+  publish_topic_metadata:
+    "{env}.onex.evt.omnimemory.document-discovered.v1":
+      schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelDocumentDiscoveredEvent"
+      description: "New .md file discovery event"
+      content_type: "application/json"
+    "{env}.onex.evt.omnimemory.document-changed.v1":
+      schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelDocumentChangedEvent"
+      description: "Changed .md file event with old and new fingerprints"
+      content_type: "application/json"
+    "{env}.onex.evt.omnimemory.document-removed.v1":
+      schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelDocumentRemovedEvent"
+      description: "Removed .md file event"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "crawl_state"
+    type: "protocol"
+    class_name: "ProtocolCrawlStateStore"
+    module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.protocol_crawl_state"
+    description: "Crawl state persistence for omnimemory_crawl_state"
+    required: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 500
+    max_delay_ms: 10000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "RuntimeError"
+
+  error_types:
+    - name: "GitCommandError"
+      error_code: "GITCRAWL_001"
+      description: "git subprocess command failed"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "FileReadError"
+      error_code: "GITCRAWL_002"
+      description: "Cannot read file content for fingerprint computation"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "CrawlStateError"
+      error_code: "GITCRAWL_003"
+      description: "Failed to read or update omnimemory_crawl_state"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "head_sha_tracking"
+  hash_fields: ["repo_path", "head_sha"]
+  description: >
+    Repos are identified by (repo_path, head_sha). Re-processing the same HEAD SHA for a repo is idempotent
+    — the HEAD fast-path returns skipped=True.
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - effect
+    - git
+    - crawler
+    - omnimemory
+    - change-detection
+  references:
+    - ticket: "OMN-2387"
+      url: "https://linear.app/omninode/issue/OMN-2387"
+      description: "GitRepoCrawlerEffect: git-based change detection"
