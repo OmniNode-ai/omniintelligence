@@ -35,6 +35,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_doc_staleness_detector_effect.node",
         "NodeDocStalenessDetectorEffect",
     ),
+    "NodeGitRepoCrawlerEffect": (
+        "omniintelligence.nodes.node_git_repo_crawler_effect.node",
+        "NodeGitRepoCrawlerEffect",
+    ),
     "NodeEnforcementFeedbackEffect": (
         "omniintelligence.nodes.node_enforcement_feedback_effect.node",
         "NodeEnforcementFeedbackEffect",
@@ -99,7 +103,7 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
-    # Computes (8)
+    # Computes (9)
     "NodeExecutionTraceParserCompute": (
         "omniintelligence.nodes.node_execution_trace_parser_compute.node",
         "NodeExecutionTraceParserCompute",
@@ -107,6 +111,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodeIntentClassifierCompute": (
         "omniintelligence.nodes.node_intent_classifier_compute.node",
         "NodeIntentClassifierCompute",
+    ),
+    "NodeIntentDriftDetectCompute": (
+        "omniintelligence.nodes.node_intent_drift_detect_compute.node",
+        "NodeIntentDriftDetectCompute",
     ),
     "NodePatternExtractionCompute": (
         "omniintelligence.nodes.node_pattern_extraction_compute.node",
@@ -165,6 +173,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_execution_trace_parser_compute.node import (
         NodeExecutionTraceParserCompute as NodeExecutionTraceParserCompute,
     )
+    from omniintelligence.nodes.node_git_repo_crawler_effect.node import (
+        NodeGitRepoCrawlerEffect as NodeGitRepoCrawlerEffect,
+    )
     from omniintelligence.nodes.node_intelligence_orchestrator.node import (
         NodeIntelligenceOrchestrator as NodeIntelligenceOrchestrator,
     )
@@ -173,6 +184,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_intent_classifier_compute.node import (
         NodeIntentClassifierCompute as NodeIntentClassifierCompute,
+    )
+    from omniintelligence.nodes.node_intent_drift_detect_compute.node import (
+        NodeIntentDriftDetectCompute as NodeIntentDriftDetectCompute,
     )
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,
@@ -256,9 +270,10 @@ __all__ = [
     "NodePatternAssemblerOrchestrator",
     # Nodes — Reducers (1)
     "NodeIntelligenceReducer",
-    # Nodes — Computes (8)
+    # Nodes — Computes (9)
     "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
+    "NodeIntentDriftDetectCompute",
     "NodePatternExtractionCompute",
     "NodePatternLearningCompute",
     "NodePatternMatchingCompute",
@@ -267,6 +282,7 @@ __all__ = [
     "NodeSuccessCriteriaMatcherCompute",
     # Nodes — Effects (8)
     "NodeDocStalenessDetectorEffect",
+    "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodePatternComplianceEffect",
     "NodePatternDemotionEffect",

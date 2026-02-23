@@ -9,6 +9,7 @@ Intelligence-specific initialization code for kernel bootstrap.
 The plugin handles:
     - PostgreSQL pool creation for pattern storage
     - Message type registration with RegistryMessageType (OMN-2039)
+    - Boot-time handshake validation: DB ownership (B1) and schema fingerprint (B2) (OMN-2435)
     - Pattern lifecycle management handler wiring
     - Session feedback processing handler wiring
     - Claude hook event processing handler wiring
@@ -43,6 +44,21 @@ Configuration:
       calls publish_intelligence_introspection() and starts heartbeat loops for the
       same UUID5-derived node IDs, producing 3x the expected heartbeat traffic.
 
+    - OMNIINTELLIGENCE_CONSUMER_GROUP: Shared Kafka consumer group ID for all
+      intelligence topic consumers. Defaults to "omniintelligence-hooks".
+      All runtime containers MUST use the same group ID so Kafka load-balances
+      topic partitions across the group rather than delivering each message to
+      every container independently.
+
+      Rationale (OMN-2439): All runtime containers (omninode-runtime,
+      omninode-runtime-effects, runtime-worker-*) previously derived their
+      consumer group from ONEX_GROUP_ID, producing three distinct groups
+      (onex-runtime-main-intelligence, onex-runtime-effects-intelligence,
+      onex-runtime-workers-intelligence). Kafka delivered every hook event to
+      all three groups independently, causing 3x intent-classified events per
+      correlation_id. This env var provides a single fixed group ID used by
+      all containers, ensuring exactly one delivery per message.
+
 Example Usage:
     ```python
     from omniintelligence.runtime.plugin import PluginIntelligence
@@ -60,7 +76,10 @@ Example Usage:
     plugin = registry.get("intelligence")
 
     if plugin and plugin.should_activate(config):
-        await plugin.initialize(config)
+        result = await plugin.initialize(config)
+        if not result.success:
+            return  # or raise/abort — do not silently continue
+        await plugin.validate_handshake(config)  # caller/kernel handles raised errors
         await plugin.wire_handlers(config)
         await plugin.wire_dispatchers(config)
         await plugin.start_consumers(config)
@@ -92,16 +111,37 @@ if TYPE_CHECKING:
         IntelligenceNodeIntrospectionProxy,
     )
 
+from omnibase_infra.errors import (
+    DbOwnershipMismatchError,
+    DbOwnershipMissingError,
+    RuntimeHostError,
+    SchemaFingerprintMismatchError,
+    SchemaFingerprintMissingError,
+)
+from omnibase_infra.runtime.models.model_handshake_check_result import (
+    ModelHandshakeCheckResult,
+)
+from omnibase_infra.runtime.models.model_handshake_result import (
+    ModelHandshakeResult,
+)
 from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginConfig,
     ModelDomainPluginResult,
     ProtocolDomainPlugin,
+)
+from omnibase_infra.runtime.util_db_ownership import validate_db_ownership
+from omnibase_infra.runtime.util_schema_fingerprint import (
+    compute_schema_fingerprint,
+    validate_schema_fingerprint,
 )
 from pydantic import BaseModel
 
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
     collect_subscribe_topics_from_contracts,
+)
+from omniintelligence.runtime.model_schema_manifest import (
+    OMNIINTELLIGENCE_SCHEMA_MANIFEST,
 )
 from omniintelligence.utils.db_url import safe_db_url_display as _safe_db_url_display
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -110,6 +150,64 @@ logger = logging.getLogger(__name__)
 
 _PUBLISH_INTROSPECTION_ENV_VAR = "OMNIINTELLIGENCE_PUBLISH_INTROSPECTION"
 _TRUTHY_VALUES = frozenset({"true", "1", "yes"})
+
+# Shared consumer group for all intelligence topic consumers (OMN-2439).
+#
+# All runtime containers (omninode-runtime, omninode-runtime-effects,
+# runtime-worker-*) share the same x-runtime-env block and each start
+# an intelligence consumer via PluginIntelligence.  Without a fixed
+# shared group ID, each container derives its own group from the
+# container-specific ONEX_GROUP_ID, producing three independent
+# consumer groups.  Kafka then delivers every message to ALL three
+# groups independently, causing 3x processing of each hook event and
+# 3x duplicate intent-classified events per correlation_id.
+#
+# Using a fixed constant group ID ensures all containers join the same
+# Kafka consumer group.  Kafka will load-balance topic partitions across
+# the group members so each message is delivered to exactly ONE consumer.
+#
+# Override via OMNIINTELLIGENCE_CONSUMER_GROUP if the deployment needs
+# a custom group name (e.g., per-environment isolation in staging).
+_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR = "OMNIINTELLIGENCE_CONSUMER_GROUP"
+_INTELLIGENCE_CONSUMER_GROUP_DEFAULT = "omniintelligence-hooks"
+
+
+def _intelligence_consumer_group() -> str:
+    """Return the shared Kafka consumer group ID for all intelligence consumers.
+
+    Reads OMNIINTELLIGENCE_CONSUMER_GROUP from the environment.  Falls back
+    to the constant ``omniintelligence-hooks`` when the variable is absent or
+    empty.
+
+    All runtime containers must use the same consumer group so that Kafka
+    load-balances claude-hook-event messages across workers rather than
+    delivering each message to every container independently (OMN-2439).
+
+    Returns:
+        Consumer group ID string.  Never empty.
+
+    Raises:
+        ValueError: If the resolved group contains any whitespace character.
+    """
+    group = os.getenv(_INTELLIGENCE_CONSUMER_GROUP_ENV_VAR, "").strip()
+    group = group if group else _INTELLIGENCE_CONSUMER_GROUP_DEFAULT
+    if any(c.isspace() for c in group):
+        raise ValueError(
+            f"OMNIINTELLIGENCE_CONSUMER_GROUP must not contain whitespace; got: {group!r}"
+        )
+    return group
+
+
+# SQL to stamp (or re-stamp) the schema fingerprint on first boot.
+# Extracted to module level to avoid repeated string allocation on each call.
+# updated_at is intentionally omitted — the BEFORE UPDATE trigger
+# trigger_db_metadata_updated_at (migration 015) sets it automatically.
+_STAMP_SCHEMA_FINGERPRINT_QUERY = (
+    "UPDATE public.db_metadata "
+    "SET expected_schema_fingerprint = $1, "
+    "    expected_schema_fingerprint_generated_at = NOW() "
+    "WHERE id = TRUE"
+)
 
 
 class SettingsPluginIntrospection(BaseModel):
@@ -222,6 +320,7 @@ class PluginIntelligence:
         self._idempotency_store: StoreIdempotencyPostgres | None = None
         self._unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._shutdown_in_progress: bool = False
+        self._handshake_validated: bool = False
         self._services_registered: list[str] = []
         self._dispatch_engine: MessageDispatchEngine | None = None
         self._message_type_registry: RegistryMessageType | None = None
@@ -441,12 +540,229 @@ class PluginIntelligence:
                 duration_seconds=duration,
             )
 
+    # NOTE: validate_handshake() is intentionally NOT part of ProtocolDomainPlugin.
+    # The kernel detects and calls it via hasattr() — callers holding a protocol
+    # reference must cast to PluginIntelligence or use hasattr() before calling.
+    async def validate_handshake(
+        self,
+        config: ModelDomainPluginConfig,
+    ) -> ModelHandshakeResult:
+        """Run B1-B2 prerequisite checks before handler wiring.
+
+        Validates:
+            B1: Database ownership (OMN-2085) -- prevents operating on a
+                database owned by another service.
+            B2: Schema fingerprint (OMN-2087) -- prevents operating on a
+                database whose schema has drifted from what code expects.
+
+        Args:
+            config: Plugin configuration with container and correlation_id.
+
+        Returns:
+            ModelHandshakeResult indicating whether all checks passed.
+            On failure, the kernel aborts before wiring handlers.
+
+        Raises:
+            RuntimeHostError: Pool is None -- initialize() did not run or failed.
+            DbOwnershipMismatchError: B1 failure -- wrong database owner.
+            DbOwnershipMissingError: B1 failure -- no ownership record.
+            SchemaFingerprintMismatchError: B2 failure -- schema drift detected.
+
+        Note:
+            SchemaFingerprintMissingError (NULL fingerprint in db_metadata) is
+            handled internally as a first-boot condition: the live fingerprint is
+            auto-stamped and validation proceeds without raising.
+        """
+        correlation_id = config.correlation_id
+        checks: list[ModelHandshakeCheckResult] = []
+
+        if self._pool is None:
+            logger.error(
+                "Cannot validate handshake: _pool is None -- "
+                "initialize() did not run or failed (correlation_id=%s)",
+                correlation_id,
+            )
+            await self._cleanup_on_failure(config)
+            raise RuntimeHostError(
+                "Cannot validate handshake: PostgreSQL pool not initialized "
+                "(initialize() did not run or failed)"
+            )
+
+        # self._pool was set in initialize() from StoreIdempotencyPostgres._pool,
+        # which is always an asyncpg.Pool (created via asyncpg.create_pool()).
+        # No cast needed — the pool object is the correct type at runtime.
+        pool = self._pool
+
+        # B1: Validate DB ownership
+        expected_owner = OMNIINTELLIGENCE_SCHEMA_MANIFEST.owner_service
+        try:
+            await validate_db_ownership(
+                pool=pool,
+                expected_owner=expected_owner,
+                correlation_id=correlation_id,
+            )
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="db_ownership",
+                    passed=True,
+                    message=f"Database owned by {expected_owner}",
+                )
+            )
+        except (DbOwnershipMismatchError, DbOwnershipMissingError) as e:
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="db_ownership",
+                    passed=False,
+                    message=str(e),
+                )
+            )
+            # Intentional short-circuit: B2 (schema fingerprint) is not
+            # attempted when B1 (DB ownership) fails.  Operating on a
+            # database owned by another service would risk schema
+            # misinterpretation, so the kernel aborts immediately.
+            # B2 is only meaningful if we can be sure we own the database.
+            logger.warning(
+                "validate_handshake failed: check_name=%s passed=%s error=%s",
+                checks[-1].check_name,
+                checks[-1].passed,
+                str(e),
+                extra={"correlation_id": str(correlation_id)},
+            )
+            await self._cleanup_on_failure(config)
+            raise
+
+        # B2: Validate schema fingerprint
+        #
+        # First-boot handling: if expected_schema_fingerprint is NULL in db_metadata
+        # (inserted by migration 015 without a fingerprint), we auto-stamp the live
+        # schema fingerprint rather than raising.  This is safe because B1 already
+        # confirmed db_metadata exists and is owned by this service — SchemaFingerprintMissingError
+        # at this point can only mean the column is NULL (not yet stamped), not that
+        # the table is missing.
+        try:
+            await validate_schema_fingerprint(
+                pool=pool,
+                manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
+                correlation_id=correlation_id,
+            )
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="schema_fingerprint",
+                    passed=True,
+                    message="Schema fingerprint matches manifest",
+                )
+            )
+        except SchemaFingerprintMissingError:
+            # First boot: fingerprint is NULL in db_metadata.  Compute the live
+            # fingerprint and stamp it so subsequent boots validate normally.
+            logger.info(
+                "Schema fingerprint not yet stamped (first boot) — "
+                "auto-stamping live fingerprint (correlation_id=%s)",
+                correlation_id,
+            )
+            try:
+                fingerprint_result = await compute_schema_fingerprint(
+                    pool=pool,
+                    manifest=OMNIINTELLIGENCE_SCHEMA_MANIFEST,
+                    correlation_id=correlation_id,
+                )
+                manifest_table_count = len(OMNIINTELLIGENCE_SCHEMA_MANIFEST.tables)
+                # Only abort if fewer tables than expected — extra tables (from other
+                # services sharing the public schema) are acceptable and should not block boot.
+                if fingerprint_result.table_count < manifest_table_count:
+                    logger.warning(
+                        "Auto-stamp aborted: live schema has %d tables, manifest expects %d "
+                        "— ensure omnibase_infra migrations have run (correlation_id=%s)",
+                        fingerprint_result.table_count,
+                        manifest_table_count,
+                        correlation_id,
+                    )
+                    raise RuntimeHostError(
+                        f"Schema fingerprint auto-stamp aborted: live schema has "
+                        f"{fingerprint_result.table_count} tables but manifest expects "
+                        f"{manifest_table_count}. "
+                        f"Ensure all service migrations (including omnibase_infra) have run "
+                        f"before starting this service."
+                    )
+                # Race condition note: two simultaneous first-boot instances could both
+                # detect NULL fingerprint and both execute this UPDATE.  The race is
+                # benign: both instances compute the same fingerprint from the same live
+                # schema, so the final stored value is identical regardless of ordering.
+                # The UPDATE is effectively idempotent (same value, same WHERE clause).
+                async with pool.acquire() as _conn:  # type: ignore[attr-defined]
+                    status = await _conn.execute(
+                        _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
+                    )
+                if status == "UPDATE 0":
+                    raise RuntimeHostError(
+                        "Failed to stamp schema fingerprint: db_metadata row not found — "
+                        "migration 015 may not have run or row was deleted"
+                    )
+            except Exception:
+                # Any exception in the auto-stamp path (compute failure, pool error,
+                # table count mismatch, UPDATE 0, or unexpected error) — clean up
+                # resources, then re-raise. The exception propagates to the kernel.
+                await self._cleanup_on_failure(config)
+                raise
+            logger.info(
+                "Schema fingerprint auto-stamped: %s (tables=%d, correlation_id=%s)",
+                fingerprint_result.fingerprint[:16],
+                fingerprint_result.table_count,
+                correlation_id,
+            )
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="schema_fingerprint",
+                    passed=True,
+                    message=(
+                        f"First boot: schema fingerprint auto-stamped "
+                        f"({fingerprint_result.fingerprint[:16]}...)"
+                    ),
+                )
+            )
+        except SchemaFingerprintMismatchError as e:
+            checks.append(
+                ModelHandshakeCheckResult(
+                    check_name="schema_fingerprint",
+                    passed=False,
+                    message=str(e),
+                )
+            )
+            logger.warning(
+                "validate_handshake failed: check_name=%s passed=%s error=%s",
+                checks[-1].check_name,
+                checks[-1].passed,
+                str(e),
+                extra={"correlation_id": str(correlation_id)},
+            )
+            await self._cleanup_on_failure(config)
+            raise
+
+        check_names = ", ".join(c.check_name for c in checks)
+        logger.info(
+            "validate_handshake passed: %d checks (%s) (correlation_id=%s)",
+            len(checks),
+            check_names,
+            correlation_id,
+            extra={
+                "check_names": [c.check_name for c in checks],
+                "all_passed": all(c.passed for c in checks),
+            },
+        )
+
+        self._handshake_validated = True
+        return ModelHandshakeResult.all_passed(
+            plugin_id=self.plugin_id,
+            checks=checks,
+        )
+
     async def _cleanup_on_failure(self, config: ModelDomainPluginConfig) -> None:
         """Clean up resources if initialization fails."""
         correlation_id = config.correlation_id
 
         self._message_type_registry = None
         self._pattern_runtime = None
+        self._handshake_validated = False
 
         # Pool is owned by idempotency store -- just clear the reference
         self._pool = None
@@ -481,6 +797,12 @@ class PluginIntelligence:
 
         start_time = time.time()
         correlation_id = config.correlation_id
+
+        if not self._handshake_validated:
+            raise RuntimeError(
+                "wire_handlers() called before validate_handshake() — "
+                "kernel bootstrap sequence violated"
+            )
 
         if self._pool is None:
             return ModelDomainPluginResult.failed(
@@ -568,6 +890,12 @@ class PluginIntelligence:
         start_time = time.time()
         correlation_id = config.correlation_id
 
+        if not self._handshake_validated:
+            raise RuntimeError(
+                "wire_dispatchers() called before validate_handshake() — "
+                "kernel bootstrap sequence violated"
+            )
+
         if self._pool is None or self._pattern_runtime is None:
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
@@ -625,6 +953,9 @@ class PluginIntelligence:
                 kafka_producer=kafka_publisher,
                 publish_topics=publish_topics,
                 pattern_upsert_store=pattern_upsert_store,
+                # pattern_query_store: AdapterPatternStore implements ProtocolPatternQueryStore
+                # via query_patterns(). Pass it explicitly so the projection handler is wired.
+                pattern_query_store=pattern_upsert_store,
             )
 
             # Publish introspection events for all intelligence nodes
@@ -760,6 +1091,12 @@ class PluginIntelligence:
         start_time = time.time()
         correlation_id = config.correlation_id
 
+        if not self._handshake_validated:
+            raise RuntimeError(
+                "start_consumers() called before validate_handshake() — "
+                "kernel bootstrap sequence violated"
+            )
+
         # Strict gating: no dispatch engine = no consumers
         if self._dispatch_engine is None:
             return ModelDomainPluginResult.skipped(
@@ -773,6 +1110,11 @@ class PluginIntelligence:
                 plugin_id=self.plugin_id,
                 reason="Event bus does not support subscribe",
             )
+
+        # Resolve the shared consumer group before entering the topic loop so
+        # that a ValueError from a bad env var propagates as a hard startup
+        # error rather than a soft failed() result (OMN-2438).
+        intelligence_group = _intelligence_consumer_group()
 
         try:
             # Build per-topic handler map (dispatch engine guaranteed non-None)
@@ -796,9 +1138,13 @@ class PluginIntelligence:
                     topic,
                     correlation_id,
                 )
+                # Use the shared consumer group ID so all runtime containers
+                # join the same Kafka consumer group.  This ensures Kafka
+                # load-balances partitions across the group rather than
+                # delivering each message to every container (OMN-2439).
                 unsub = await config.event_bus.subscribe(
                     topic=topic,
-                    group_id=f"{config.consumer_group}-intelligence",
+                    group_id=intelligence_group,
                     on_message=handler,
                 )
                 unsubscribe_callbacks.append(unsub)
@@ -809,7 +1155,7 @@ class PluginIntelligence:
             logger.info(
                 "Intelligence consumers started: %d topics "
                 "(all dispatched, correlation_id=%s)",
-                len(INTELLIGENCE_SUBSCRIBE_TOPICS),
+                len(unsubscribe_callbacks),
                 correlation_id,
             )
 
@@ -818,7 +1164,7 @@ class PluginIntelligence:
                 success=True,
                 message=(
                     f"Intelligence consumers started "
-                    f"({len(INTELLIGENCE_SUBSCRIBE_TOPICS)} dispatched)"
+                    f"({len(unsubscribe_callbacks)} dispatched)"
                 ),
                 duration_seconds=duration,
                 unsubscribe_callbacks=unsubscribe_callbacks,
@@ -1003,6 +1349,7 @@ class PluginIntelligence:
         self._services_registered = []
         self._dispatch_engine = None
         self._message_type_registry = None
+        self._handshake_validated = False
         self._event_bus = None
         self._introspection_nodes = []
         self._introspection_proxies = []

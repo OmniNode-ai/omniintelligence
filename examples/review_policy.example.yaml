@@ -1,0 +1,94 @@
+---
+# Code Intelligence Review Bot - Example Policy
+# Copy this file to your repository root as review_policy.yaml and customize.
+#
+# Schema: https://omninode.io/schemas/review_policy.json
+# Docs: https://docs.omninode.io/review-bot/policy
+
+version: "1.0"
+
+# enforcement_mode controls how violations affect CI:
+#   observe - silent, findings logged but CI always passes (default for new repos)
+#   warn    - findings posted as PR comments, CI always passes
+#   block   - BLOCKER findings cause CI to fail
+enforcement_mode: observe
+
+rules:
+  # -----------------------------------------------------------------------
+  # BLOCKER rules: Must be resolved before merge in BLOCK mode
+  # -----------------------------------------------------------------------
+
+  - id: no-bare-except
+    severity: BLOCKER
+    pattern: "except:"
+    message: >
+      Bare except clause catches all exceptions including KeyboardInterrupt and SystemExit. Use specific
+      exception types (e.g., `except ValueError:`) or `except Exception:` at minimum.
+  - id: no-hardcoded-secrets
+    severity: BLOCKER
+    pattern: "(?i)(password|secret|api_key|token)\\s*=\\s*.{8,}"
+    message: >
+      Possible hardcoded secret detected. Use environment variables or a secrets manager instead. If this
+      is a false positive, add an exemption with an expiry date.
+    slow: true
+
+  - id: no-eval
+    severity: BLOCKER
+    pattern: '\beval\s*\('
+    message: >
+      eval() is a security risk and should never be used in production code. Refactor to use safer alternatives.
+
+  # -----------------------------------------------------------------------
+  # WARNING rules: Visible in PR comments but non-blocking
+  # -----------------------------------------------------------------------
+
+  - id: no-print-statements
+    severity: WARNING
+    pattern: '\bprint\s*\('
+    message: >
+      print() statements should not be used in production code. Use structured logging (e.g., `logger.info(...)`)
+      instead.
+  - id: no-fixme
+    severity: WARNING
+    pattern: '(?i)(FIXME|HACK|XXX):'
+    message: >
+      Found a FIXME/HACK/XXX comment. Create a Linear ticket to track this technical debt and replace
+      the comment with the ticket reference (e.g., `# TODO: OMN-1234`).
+  - id: missing-type-annotations
+    severity: WARNING
+    pattern: '^def \w+\([^)]*\)\s*:'
+    message: >
+      Function is missing return type annotation. Add a return type for better code documentation and
+      type safety (e.g., `def foo() -> None:`).
+    slow: true
+
+  # -----------------------------------------------------------------------
+  # INFO rules: Informational only, never affects CI
+  # -----------------------------------------------------------------------
+
+  - id: todo-without-ticket
+    severity: INFO
+    pattern: '(?i)#\s*TODO(?!.*OMN-\d+)'
+    message: >
+      Found a TODO comment without a Linear ticket reference. Consider linking to a ticket (e.g., `# TODO:
+      OMN-1234 - description`).
+  - id: long-line
+    severity: INFO
+    pattern: '^.{121,}$'
+    message: >
+      Line exceeds 120 characters. Consider breaking it up for readability. This is advisory only and
+      not enforced by ruff.
+exemptions:
+  # Exemptions suppress a rule for specific paths with a required expiry date.
+  # Expired exemptions produce a WARNING but are not errors.
+
+  - rule: no-print-statements
+    path: scripts/
+    expires: "2026-12-01"
+    reason: >
+      Utility scripts intentionally use print() for CLI output. Tracked for migration in OMN-2000.
+  - rule: missing-type-annotations
+    path: tests/
+    expires: "2026-09-01"
+    reason: >
+      Test files are being gradually annotated as part of the type cleanup sprint. Tracked in OMN-2100.

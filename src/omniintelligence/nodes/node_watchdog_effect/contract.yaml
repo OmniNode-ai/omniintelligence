@@ -1,0 +1,283 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeWatchdogEffect
+#
+# Real-time filesystem watcher for unversioned critical files not caught by
+# GitRepoCrawlerEffect (e.g. ~/.claude/CLAUDE.md).  Uses FSEvents (macOS)
+# or inotify (Linux) for OS-level change notifications, falling back to
+# polling when native APIs are unavailable.
+#
+# Design: omni_save/design/DESIGN_OMNIMEMORY_DOCUMENT_INGESTION_PIPELINE.md §4
+# Reference: OMN-2386
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_watchdog_effect"
+contract_name: "node_watchdog_effect"
+node_name: "node_watchdog_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node that provides real-time filesystem change detection using OS-level APIs (FSEvents on macOS,
+  inotify on Linux) via the watchdog library.  Watches ~/.claude/ and other configured paths that are
+  not tracked by git, emitting crawl-requested.v1 commands on file create, modify, or delete.  Delegates
+  deduplication to CrawlSchedulerEffect (30-second debounce window).  Falls back to 5-second polling observer
+  when native APIs are unavailable.  Does NOT emit document events directly — delegates to FilesystemCrawlerEffect.
+
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelWatchdogConfig"
+  module: "omniintelligence.nodes.node_watchdog_effect.models"
+  description: "Configuration for watched paths, polling interval, and crawl scope"
+
+output_model:
+  name: "ModelWatchdogResult"
+  module: "omniintelligence.nodes.node_watchdog_effect.models"
+  description: "Result of a watchdog operation with status STARTED, STOPPED, or ERROR"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    # Start the OS-level filesystem observer
+    - operation: "start_watching"
+      handler:
+        function: "start_watching"
+        module: "omniintelligence.nodes.node_watchdog_effect.handlers.handler_watchdog"
+        type: "async"
+      description: >
+        Selects the best available observer backend (FSEvents → inotify → polling), schedules recursive
+        watches for all configured paths, and starts the observer in a background thread.  The event handler
+        bridges OS events to async Kafka publishes via loop.call_soon_threadsafe().
+      output_fields:
+        - status
+        - observer_type
+        - watched_paths
+        - correlation_id
+        - processed_at
+        - error_message
+
+    # Stop the active filesystem observer
+    - operation: "stop_watching"
+      handler:
+        function: "stop_watching"
+        module: "omniintelligence.nodes.node_watchdog_effect.handlers.handler_watchdog"
+        type: "async"
+      description: >
+        Gracefully stops the active observer: calls observer.stop() then observer.join() and clears the
+        module-level registry.  No-op if no observer is registered.
+      output_fields:
+        - status
+        - observer_type
+        - correlation_id
+        - processed_at
+        - error_message
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "start_watching"
+    description: "Start OS-level filesystem observer for configured watched paths"
+    input_fields:
+      - config
+      - correlation_id
+      - kafka_publisher
+      - observer_factory
+    output_fields:
+      - status
+      - observer_type
+      - watched_paths
+      - correlation_id
+      - processed_at
+      - error_message
+
+  - operation: "stop_watching"
+    description: "Gracefully stop the active filesystem observer"
+    input_fields:
+      - correlation_id
+    output_fields:
+      - status
+      - observer_type
+      - correlation_id
+      - processed_at
+      - error_message
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.cmd.omnimemory.crawl-requested.v1"
+    full_topic_pattern: "{env}.onex.cmd.omnimemory.crawl-requested.v1"
+    event_type: "CrawlRequested"
+    trigger: "File create, modify, or delete detected in a watched path"
+    description: >
+      Command emitted to CrawlSchedulerEffect when a filesystem change event is detected. CrawlSchedulerEffect
+      applies the per-source debounce guard (30-second window for WATCHDOG type) before forwarding as
+      crawl-tick.v1.  WatchdogEffect never emits document events directly — all crawl delegation passes
+      through the scheduler.
+    payload_fields:
+      - name: "crawl_type"
+        type: "string"
+        description: "Always 'watchdog' — identifies this as a watchdog-triggered request"
+      - name: "crawl_scope"
+        type: "string"
+        description: "Logical scope for the crawl (configurable, default: omninode/shared/global-standards)"
+      - name: "source_ref"
+        type: "string"
+        description: "Absolute path of the changed file"
+      - name: "correlation_id"
+        type: "uuid"
+        description: "Correlation ID for distributed tracing"
+      - name: "requested_at_utc"
+        type: "string"
+        description: "ISO-8601 UTC timestamp of when the change was detected"
+      - name: "trigger_source"
+        type: "string"
+        description: "Always 'filesystem_watch'"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  # WatchdogEffect is driven by OS events, not Kafka — no subscribe topics
+  subscribe_topics: []
+
+  # Topics this node publishes to (sends events to)
+  # DEGRADED MODE: when kafka_publisher dependency is absent (required=false),
+  # the filesystem observer starts and detects changes but NO events are emitted
+  # to these topics.  Files are watched but crawl-requested.v1 is silently
+  # suppressed.  See dependencies.kafka_publisher and error_handling.kafka_absent_behavior.
+  publish_topics:
+    - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "{env}.onex.cmd.omnimemory.crawl-requested.v1":
+      schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlRequestedEvent"
+      description: "Crawl request commands consumed by CrawlSchedulerEffect"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "kafka_publisher"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting crawl-requested.v1 commands"
+    required: false  # Graceful degradation: observer runs but no events emitted
+
+  - name: "watchdog_config"
+    type: "model"
+    class_name: "ModelWatchdogConfig"
+    module: "omniintelligence.nodes.node_watchdog_effect.models"
+    description: "Configurable watched paths, polling interval, and crawl scope"
+    required: false  # Defaults to ~/.claude/
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+
+  observer_fallback_behavior: >
+    When native FSEvents (macOS) or inotify (Linux) is unavailable, WatchdogEffect falls back to PollingObserver
+    with a 5-second poll interval.  This ensures the node starts successfully in VMs, CI environments,
+    and non-native containers. The fallback is logged at INFO level so operators are aware of degraded
+    performance.
+
+  kafka_absent_behavior: >
+    When kafka_publisher is None, the observer starts and detects filesystem changes but does NOT publish
+    crawl-requested.v1 events.  This is logged at WARNING level.  Runtime re-wiring is NOT supported —
+    events will never be emitted until the observer is restarted via stop_watching() + start_watching()
+    with a valid kafka_publisher.
+
+  error_types:
+    - name: "ObserverStartError"
+      description: "Failed to start the filesystem observer"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "KafkaPublishError"
+      description: "Failed to publish crawl-requested.v1 (per-event error)"
+      recoverable: true
+      retry_strategy: "none"  # Next file change event will trigger a fresh publish
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: false
+  strategy: "none"
+  description: >
+    WatchdogEffect does not implement its own idempotency.  Deduplication is handled by CrawlSchedulerEffect
+    (30-second debounce window for WATCHDOG type). Rapid file changes that trigger multiple crawl-requested.v1
+    events will be debounced by the scheduler before any crawl-tick.v1 is emitted.
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "realtime_file_watching"
+    description: "OS-level file change detection via FSEvents/inotify (sub-second latency)"
+  - name: "platform_adaptive_observer"
+    description: "Selects best available observer: FSEvents (macOS) → inotify (Linux) → polling"
+  - name: "polling_fallback"
+    description: "5-second polling observer when native OS APIs are unavailable"
+  - name: "ignored_file_filtering"
+    description: "Silently skip editor swap files (.swp, .tmp, .bak, ~) and other noise"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-21"
+  updated: "2026-02-21"
+  tags:
+    - effect
+    - watchdog
+    - filesystem
+    - omnimemory
+    - stream-a
+    - document-ingestion
+    - realtime
+  references:
+    - ticket: "OMN-2386"
+      url: "https://linear.app/omninode/issue/OMN-2386"
+      description: "WatchdogEffect FSEvents/inotify real-time file watching"
+    - ticket: "OMN-2384"
+      url: "https://linear.app/omninode/issue/OMN-2384"
+      description: "CrawlSchedulerEffect (debounce consumer)"

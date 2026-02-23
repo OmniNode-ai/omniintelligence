@@ -59,6 +59,7 @@ environment_variables:
     - INTELLIGENCE_RUNTIME_HEALTH_CHECK_PORT
     - INTELLIGENCE_RUNTIME_METRICS_ENABLED
     - INTELLIGENCE_RUNTIME_METRICS_PORT
+    - OMNIINTELLIGENCE_CONSUMER_GROUP
 
 # Default configuration values
 # Note: These defaults apply when loading from this YAML contract.
@@ -67,13 +68,13 @@ environment_variables:
 # This divergence is intentional: the YAML contract declares production intent
 # while the model defaults provide safe code-level fallbacks.
 defaults:
-  runtime_name: "intelligence-runtime"
+  runtime_name: "omniintelligence"
   log_level: "INFO"
 
   event_bus:
     enabled: true
     bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
-    consumer_group: "intelligence-runtime"
+    consumer_group: "omniintelligence"
     topics:
       commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
       events: "onex.evt.omniintelligence.intent-classified.v1"
@@ -174,7 +175,7 @@ environments:
     log_level: "DEBUG"
     event_bus:
       bootstrap_servers: "localhost:9092"
-      consumer_group: "intelligence-dev"
+      consumer_group: "omniintelligence-dev"
       topics:
         commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
         events: "onex.evt.omniintelligence.intent-classified.v1"
@@ -184,7 +185,7 @@ environments:
     log_level: "INFO"
     event_bus:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
-      consumer_group: "intelligence-staging"
+      consumer_group: "omniintelligence-staging"
       topics:
         commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
         events: "onex.evt.omniintelligence.intent-classified.v1"
@@ -194,7 +195,7 @@ environments:
     log_level: "INFO"
     event_bus:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
-      consumer_group: "intelligence-prod"
+      consumer_group: "omniintelligence-prod"
       topics:
         commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
         events: "onex.evt.omniintelligence.intent-classified.v1"

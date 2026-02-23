@@ -44,10 +44,19 @@ class ModelEventBusConfig(BaseModel):
         ],
     )
 
+    # NOTE(OMN-2438/OMN-2439): PluginIntelligence.start_consumers() bypasses this
+    # field entirely and reads OMNIINTELLIGENCE_CONSUMER_GROUP directly so that all
+    # runtime containers share a single Kafka consumer group regardless of how this
+    # model is instantiated.  This field is retained for documentation purposes and
+    # for consumers that configure their own event bus independently of the plugin.
     consumer_group: str = Field(
-        default="intelligence-runtime",
-        description="Consumer group identifier for load balancing",
-        examples=["intelligence-runtime", "intelligence-dev", "intelligence-prod"],
+        default="omniintelligence",
+        description=(
+            "Consumer group identifier for load balancing. "
+            "Note: PluginIntelligence.start_consumers() bypasses this field and "
+            "reads OMNIINTELLIGENCE_CONSUMER_GROUP directly (OMN-2438/OMN-2439)."
+        ),
+        examples=["omniintelligence", "omniintelligence-dev", "omniintelligence-prod"],
     )
 
     topics: ModelTopicConfig = Field(
