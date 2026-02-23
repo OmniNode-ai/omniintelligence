@@ -35,7 +35,7 @@ description: >
   Stream B pure compute node. Splits raw markdown into typed chunks using document-type-specific strategies.
   CLAUDE_MD: section-boundary split. DESIGN_DOC/ARCHITECTURE_DOC: heading split with fence preservation
   and prose sliding window. GENERAL_MARKDOWN: graceful fallback. Pure function, no I/O. Returns ordered
-  list of RawChunk objects for ChunkClassifierCompute. #magic___^_^___line
+  list of RawChunk objects for ChunkClassifierCompute.
 # Strongly typed I/O models
 input_model:
   name: "ModelDocumentParseInput"

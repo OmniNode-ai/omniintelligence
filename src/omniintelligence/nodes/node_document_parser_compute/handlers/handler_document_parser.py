@@ -270,8 +270,7 @@ def _sliding_window_split(
     overlap_tokens: int,
 ) -> list[_Segment]:
     """Split text using a sliding window, breaking at paragraph or sentence boundaries."""
-    words = text.split()
-    if not words:
+    if not text.strip():
         return []
 
     segments: list[_Segment] = []
