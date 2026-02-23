@@ -72,8 +72,8 @@ files:
   # DocumentFetchEffect (OMN-2389) — reads file content from disk for filesystem
   # and git_repo crawl sources. File I/O is the core responsibility of this Effect node.
   - path: "src/omniintelligence/nodes/node_document_fetch_effect/handlers/handler_document_fetch.py"
-    reason: "Effect node reads document content from disk (filesystem and git_repo sources); file I/O is the
-      intended responsibility of this Effect node"
+    reason: "Effect node reads document content from disk (filesystem and git_repo sources); file I/O
+      is the intended responsibility of this Effect node"
     allowed_rules:
       - "file-io"
 
