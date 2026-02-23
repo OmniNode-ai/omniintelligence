@@ -31,6 +31,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "NodeIntelligenceReducer",
     ),
     # Effects (8)
+    "NodeContextItemWriterEffect": (
+        "omniintelligence.nodes.node_context_item_writer_effect.node",
+        "NodeContextItemWriterEffect",
+    ),
     "NodeGitRepoCrawlerEffect": (
         "omniintelligence.nodes.node_git_repo_crawler_effect.node",
         "NodeGitRepoCrawlerEffect",
@@ -160,6 +164,9 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_context_item_writer_effect.node import (
+        NodeContextItemWriterEffect as NodeContextItemWriterEffect,
+    )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
     )
@@ -274,6 +281,7 @@ __all__ = [
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
     # Nodes — Effects (8)
+    "NodeContextItemWriterEffect",
     "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodePatternComplianceEffect",
