@@ -214,7 +214,7 @@ def _is_failure_pattern(content: str, heading: str | None) -> bool:
 # Rule 5: EXAMPLE
 # ---------------------------------------------------------------------------
 
-_EXAMPLE_HEADING_PATTERN = re.compile(r"\bexample|usage|how.to\b", re.IGNORECASE)
+_EXAMPLE_HEADING_PATTERN = re.compile(r"\b(?:example|usage|how[- ]to)\b", re.IGNORECASE)
 
 
 def _is_example(content: str, heading: str | None, has_code_fence: bool) -> bool:
@@ -471,7 +471,6 @@ def handle_chunk_classify(
 
 __all__ = [
     "RULE_VERSION",
-    "_classify_chunk_v1",
     "extract_tags",
     "handle_chunk_classify",
 ]
