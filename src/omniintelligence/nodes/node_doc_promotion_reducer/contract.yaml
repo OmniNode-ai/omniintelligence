@@ -1,0 +1,178 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDocPromotionReducer
+#
+# Stream C reducer node. Evaluates ContextItem promotion candidates against
+# source-type-aware threshold sets and produces tier transition decisions.
+#
+# Reference: OMN-2395 - Promotion model: source-type-aware thresholds
+
+# Contract identifiers
+name: "node_doc_promotion_reducer"
+contract_name: "doc_promotion_reducer"
+node_name: "doc_promotion_reducer"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "REDUCER_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Stream C promotion reducer. Evaluates ContextItem candidates for tier promotion using source-type-aware
+  thresholds. Applies demotion (VALIDATED->QUARANTINE), Q->V, and V->S gates. Enforces signal floor for
+  document items. Pure reducer -- does NOT persist transitions. #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "ModelDocPromotionInput"
+  module: "omniintelligence.nodes.node_doc_promotion_reducer.models"
+  description: "Batch of promotion candidates with attribution signals."
+
+output_model:
+  name: "ModelDocPromotionOutput"
+  module: "omniintelligence.nodes.node_doc_promotion_reducer.models"
+  description: "Per-candidate promotion decisions with aggregate counts."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_doc_promotion"
+    module: "omniintelligence.nodes.node_doc_promotion_reducer.handlers.handler_doc_promotion"
+    type: "async"
+    description: "Main entry point: evaluate candidates and return tier decisions"
+  handlers:
+    - operation: "evaluate_promotion"
+      handler:
+        function: "handle_doc_promotion"
+        module: "omniintelligence.nodes.node_doc_promotion_reducer.handlers.handler_doc_promotion"
+        type: "async"
+      description: "Evaluate promotion gates for a batch of ContextItem candidates"
+      actions:
+        - "dispatch on source_type to select PromotionThresholdSet"
+        - "accumulate recent attribution signals into running totals"
+        - "apply demotion check (VALIDATED->QUARANTINE) first"
+        - "apply QUARANTINE->VALIDATED gate if scored_runs >= threshold"
+        - "apply VALIDATED->SHARED gates (runs + used_rate + signal_floor)"
+        - "return decisions without persisting transitions"
+
+  default_handler:
+    function: "handle_doc_promotion"
+    module: "omniintelligence.nodes.node_doc_promotion_reducer.handlers.handler_doc_promotion"
+    type: "async"
+    description: "Default to evaluate_promotion operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "evaluate_promotion"
+    description: "Evaluate promotion candidates and return tier decisions"
+    input_model: "ModelDocPromotionInput"
+    output_model: "ModelDocPromotionOutput"
+    input_fields:
+      - candidates
+      - dry_run
+      - correlation_id
+    output_fields:
+      - decisions
+      - items_promoted
+      - items_demoted
+      - items_unchanged
+      - dry_run
+      - correlation_id
+
+# =============================================================================
+# THRESHOLD SETS
+# =============================================================================
+threshold_sets:
+  static_standards:
+    quarantine_to_validated_runs: null  # starts VALIDATED
+    validated_to_shared_runs: 10
+    validated_to_shared_used_rate: 0.10
+    validated_to_shared_signal_floor: 5
+    validated_to_quarantine_hurt_rate: 0.40
+    note: "Lower used_rate bar — rules followed implicitly without citation"
+
+  repo_derived:
+    quarantine_to_validated_runs: 5
+    validated_to_shared_runs: 20
+    validated_to_shared_used_rate: 0.15
+    validated_to_shared_signal_floor: 5
+    validated_to_quarantine_hurt_rate: 0.45
+
+  memory_hook:
+    quarantine_to_validated_runs: 10
+    validated_to_shared_runs: 30
+    validated_to_shared_used_rate: 0.25
+    validated_to_shared_signal_floor: 0
+    validated_to_quarantine_hurt_rate: 0.50
+    note: "v0 hook-derived thresholds — unchanged"
+
+# =============================================================================
+# ATTRIBUTION SIGNALS
+# =============================================================================
+attribution_signals:
+  rule_followed:
+    trigger: "compliance_report passes rule_id tag"
+    strength_explicit: 0.9
+    strength_implicit: 0.5
+    signal_class: "positive"
+
+  standard_cited:
+    trigger: "source_ref in tool invocations"
+    strength_exact: 1.0
+    strength_rule_id: 0.8
+    strength_title: 0.6
+    signal_class: "positive"
+
+  pattern_violated:
+    trigger: "compliance_report fails rule_id tag"
+    strength: 1.0
+    signal_class: "negative"
+    note: "Primary driver of hurt_rate — enables VALIDATED->QUARANTINE demotion"
+
+  doc_section_matched:
+    trigger: "embedding similarity at injection >= doc_min_similarity (0.65)"
+    strength: "= similarity score"
+    signal_class: "positive"
+    emission_rule: "ONLY emit when similarity >= 0.65 — do not pollute stats"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-23"
+  updated: "2026-02-23"
+  tags:
+    - reducer
+    - promotion
+    - omnimemory
+    - stream-c
+    - source-type-aware
+  references:
+    - ticket: "OMN-2395"
+      url: "https://linear.app/omninode/issue/OMN-2395"
+      description: "Promotion model: source-type-aware thresholds, signal floor"
+    - ticket: "OMN-2394"
+      description: "DocStalenessDetectorEffect (upstream)"
+    - ticket: "OMN-2393"
+      description: "ContextItemWriterEffect (writes new items)"
+    - ticket: "OMN-2383"
+      description: "DB migrations for context_items tables (INFRA)"
