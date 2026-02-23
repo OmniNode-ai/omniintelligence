@@ -31,11 +31,9 @@ status: "active"
 
 # Description
 description: >
-  Stream C staleness detector effect node. Evaluates ContextItem candidates
-  for staleness, classifies each case (FILE_DELETED, CONTENT_CHANGED_STATIC,
-  CONTENT_CHANGED_REPO, FILE_MOVED), and applies the appropriate policy.
-  CONTENT_CHANGED cases use a crash-safe atomic 3-step sequence persisted
-  in staleness_transition_log.
+  Stream C staleness detector effect node. Evaluates ContextItem candidates for staleness, classifies
+  each case (FILE_DELETED, CONTENT_CHANGED_STATIC, CONTENT_CHANGED_REPO, FILE_MOVED), and applies the
+  appropriate policy. CONTENT_CHANGED cases use a crash-safe atomic 3-step sequence persisted in staleness_transition_log.
 
 # Strongly typed I/O models
 input_model:
@@ -66,7 +64,8 @@ handler_routing:
         type: "async"
       description: "Evaluate candidates and apply staleness policies"
       actions:
-        - "classify each candidate into FILE_DELETED / CONTENT_CHANGED_STATIC / CONTENT_CHANGED_REPO / FILE_MOVED"
+        - "classify each candidate into FILE_DELETED / CONTENT_CHANGED_STATIC / CONTENT_CHANGED_REPO /
+          FILE_MOVED"
         - "FILE_DELETED: immediate blacklist transition"
         - "FILE_MOVED: in-place source_ref update"
         - "CONTENT_CHANGED: atomic 3-step (INDEX_NEW -> VERIFY_NEW -> BLACKLIST_OLD)"
