@@ -25,12 +25,28 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.node",
         "NodePatternAssemblerOrchestrator",
     ),
-    # Reducers (1)
+    # Reducers (2)
+    "NodeDocPromotionReducer": (
+        "omniintelligence.nodes.node_doc_promotion_reducer.node",
+        "NodeDocPromotionReducer",
+    ),
     "NodeIntelligenceReducer": (
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (7)
+    # Effects (10)
+    "NodeContextItemWriterEffect": (
+        "omniintelligence.nodes.node_context_item_writer_effect.node",
+        "NodeContextItemWriterEffect",
+    ),
+    "NodeDocStalenessDetectorEffect": (
+        "omniintelligence.nodes.node_doc_staleness_detector_effect.node",
+        "NodeDocStalenessDetectorEffect",
+    ),
+    "NodeGitRepoCrawlerEffect": (
+        "omniintelligence.nodes.node_git_repo_crawler_effect.node",
+        "NodeGitRepoCrawlerEffect",
+    ),
     "NodeEnforcementFeedbackEffect": (
         "omniintelligence.nodes.node_enforcement_feedback_effect.node",
         "NodeEnforcementFeedbackEffect",
@@ -156,11 +172,23 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_context_item_writer_effect.node import (
+        NodeContextItemWriterEffect as NodeContextItemWriterEffect,
+    )
+    from omniintelligence.nodes.node_doc_promotion_reducer.node import (
+        NodeDocPromotionReducer as NodeDocPromotionReducer,
+    )
+    from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
+        NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
+    )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
     )
     from omniintelligence.nodes.node_execution_trace_parser_compute.node import (
         NodeExecutionTraceParserCompute as NodeExecutionTraceParserCompute,
+    )
+    from omniintelligence.nodes.node_git_repo_crawler_effect.node import (
+        NodeGitRepoCrawlerEffect as NodeGitRepoCrawlerEffect,
     )
     from omniintelligence.nodes.node_intelligence_orchestrator.node import (
         NodeIntelligenceOrchestrator as NodeIntelligenceOrchestrator,
@@ -254,7 +282,8 @@ __all__ = [
     # Nodes — Orchestrators (2)
     "NodeIntelligenceOrchestrator",
     "NodePatternAssemblerOrchestrator",
-    # Nodes — Reducers (1)
+    # Nodes — Reducers (2)
+    "NodeDocPromotionReducer",
     "NodeIntelligenceReducer",
     # Nodes — Computes (9)
     "NodeExecutionTraceParserCompute",
@@ -266,7 +295,10 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (7)
+    # Nodes — Effects (10)
+    "NodeContextItemWriterEffect",
+    "NodeDocStalenessDetectorEffect",
+    "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodePatternComplianceEffect",
     "NodePatternDemotionEffect",

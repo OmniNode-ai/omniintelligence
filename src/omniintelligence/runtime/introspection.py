@@ -90,7 +90,8 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     # Orchestrators
     _NodeDescriptor("node_intelligence_orchestrator", EnumNodeKind.ORCHESTRATOR),
     _NodeDescriptor("node_pattern_assembler_orchestrator", EnumNodeKind.ORCHESTRATOR),
-    # Reducer
+    # Reducers
+    _NodeDescriptor("node_doc_promotion_reducer", EnumNodeKind.REDUCER),
     _NodeDescriptor("node_intelligence_reducer", EnumNodeKind.REDUCER),
     # Compute nodes
     _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE),
@@ -103,6 +104,8 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_execution_trace_parser_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
     # Effect nodes
+    _NodeDescriptor("node_context_item_writer_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_doc_staleness_detector_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_claude_hook_event_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_storage_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_promotion_effect", EnumNodeKind.EFFECT),
@@ -110,6 +113,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_pattern_feedback_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_lifecycle_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_projection_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_git_repo_crawler_effect", EnumNodeKind.EFFECT),
 )
 
 
