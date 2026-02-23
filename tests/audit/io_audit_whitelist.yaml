@@ -61,6 +61,14 @@ files:
     allowed_rules:
       - "env-access"
 
+  # Effect node for crawling git repositories — must read file bytes to compute
+  # content hashes. File I/O is the core purpose of this Effect node.
+  - path: "src/omniintelligence/nodes/node_git_repo_crawler_effect/handlers/handler_git_repo_crawl.py"
+    reason: "Effect node reads repository files to compute SHA-256 content hashes; file I/O is the intended
+      responsibility of this Effect node"
+    allowed_rules:
+      - "file-io"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"
