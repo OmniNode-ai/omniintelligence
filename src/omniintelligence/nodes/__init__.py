@@ -43,6 +43,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_doc_staleness_detector_effect.node",
         "NodeDocStalenessDetectorEffect",
     ),
+    "NodeDocumentFetchEffect": (
+        "omniintelligence.nodes.node_document_fetch_effect.node",
+        "NodeDocumentFetchEffect",
+    ),
     "NodeGitRepoCrawlerEffect": (
         "omniintelligence.nodes.node_git_repo_crawler_effect.node",
         "NodeGitRepoCrawlerEffect",
@@ -189,6 +193,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
         NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
     )
+    from omniintelligence.nodes.node_document_fetch_effect.node import (
+        NodeDocumentFetchEffect as NodeDocumentFetchEffect,
+    )
     from omniintelligence.nodes.node_document_parser_compute.node import (
         NodeDocumentParserCompute as NodeDocumentParserCompute,
     )
@@ -313,6 +320,7 @@ __all__ = [
     # Nodes — Effects (11)
     "NodeContextItemWriterEffect",
     "NodeDocStalenessDetectorEffect",
+    "NodeDocumentFetchEffect",
     "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodeLinearCrawlerEffect",
