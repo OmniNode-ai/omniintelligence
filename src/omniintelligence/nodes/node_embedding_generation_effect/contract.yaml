@@ -1,3 +1,4 @@
+---
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
 #
@@ -28,7 +29,9 @@ node_type: "EFFECT_GENERIC"
 status: "active"
 # Description
 description: >
-  Stream B effect node. Generates 1024-dimensional embeddings for classified chunks via the Qwen3-Embedding-8B-4bit server (port 8100). Skips empty chunks, batches via get_embeddings_batch, retries failed chunks individually, dead-letters persistent failures. Passes EmbeddedChunk list to ContextItemWriterEffect for Qdrant storage.
+  Stream B effect node. Generates 1024-dimensional embeddings for classified chunks via the Qwen3-Embedding-8B-4bit
+  server (port 8100). Skips empty chunks, batches via get_embeddings_batch, retries failed chunks individually,
+  dead-letters persistent failures. Passes EmbeddedChunk list to ContextItemWriterEffect for Qdrant storage.
 
 # Strongly typed I/O models
 input_model:
@@ -138,7 +141,8 @@ error_handling:
 idempotency:
   enabled: false
   description: >
-    Effect node with external I/O — not idempotent. Callers should use content_fingerprint from ModelClassifiedChunk for deduplication before calling.
+    Effect node with external I/O — not idempotent. Callers should use content_fingerprint from ModelClassifiedChunk
+    for deduplication before calling.
 
 # =============================================================================
 # HEALTH CHECK
