@@ -83,6 +83,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_storage_effect.node",
         "NodePatternStorageEffect",
     ),
+    "NodeEmbeddingGenerationEffect": (
+        "omniintelligence.nodes.node_embedding_generation_effect.node",
+        "NodeEmbeddingGenerationEffect",
+    ),
     "ClaudeSessionOutcome": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ClaudeSessionOutcome",
@@ -206,6 +210,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_document_parser_compute.node import (
         NodeDocumentParserCompute as NodeDocumentParserCompute,
+    )
+    from omniintelligence.nodes.node_embedding_generation_effect.node import (
+        NodeEmbeddingGenerationEffect as NodeEmbeddingGenerationEffect,
     )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
@@ -340,6 +347,7 @@ __all__ = [
     "NodePatternLifecycleEffect",
     "NodePatternPromotionEffect",
     "NodePatternStorageEffect",
+    "NodeEmbeddingGenerationEffect",
     # Protocols
     "ProtocolPatternRepository",
     # Handler functions
