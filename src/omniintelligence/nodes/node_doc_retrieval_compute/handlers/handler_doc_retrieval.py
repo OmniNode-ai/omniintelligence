@@ -21,7 +21,7 @@ Scoring:
     SHARED:                   1.15
     VALIDATED (earned):       1.00  (bootstrap_confidence == 0.0)
     VALIDATED (bootstrapped): 0.85  (bootstrap_confidence > 0.0)
-    QUARANTINE:               0.70  (only included if allow_bootstrap_validated=True)
+    QUARANTINE:               0.70  (never included — excluded by _ALLOWED_TIERS filter)
     other:                    1.00
 
   intent_weight (from DOCUMENT_INTENT_TYPE_WEIGHTS or default 1.0):
