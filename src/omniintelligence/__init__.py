@@ -16,17 +16,24 @@ Quick Start - Quality Scoring:
     0.65
 """
 
-from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    DEFAULT_WEIGHTS,
-    DimensionScores,
-    OnexStrictnessLevel,
-    QualityScoringComputeError,
-    QualityScoringResult,
-    QualityScoringValidationError,
-    score_code_quality,
-)
+import contextlib
 
-__version__ = "0.4.0"
+# omnibase_core is a required runtime dependency for full functionality.
+# This guard prevents hard failures in environments where omnibase_core is
+# not yet installed (e.g., pre-commit isolated venvs, CI without editable
+# installs). Callers that need these symbols must install omnibase_core.
+with contextlib.suppress(ImportError):  # pragma: no cover
+    from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+        DEFAULT_WEIGHTS,
+        DimensionScores,
+        OnexStrictnessLevel,
+        QualityScoringComputeError,
+        QualityScoringResult,
+        QualityScoringValidationError,
+        score_code_quality,
+    )
+
+__version__ = "0.5.0"
 
 __all__ = [
     # Configuration

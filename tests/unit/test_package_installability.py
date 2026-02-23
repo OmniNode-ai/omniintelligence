@@ -28,16 +28,18 @@ import pytest
 # Relative to project root; resolved via project_root fixture in tests.
 NODES_DIR = Path("src/omniintelligence/nodes")
 
-# All 18 node directories that MUST be importable for HandlerPluginLoader.
+# All 25 node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
     "node_compliance_evaluate_effect",
+    "node_crawl_scheduler_effect",
     "node_enforcement_feedback_effect",
     "node_execution_trace_parser_compute",
     "node_intelligence_orchestrator",
     "node_intelligence_reducer",
     "node_intent_classifier_compute",
+    "node_intent_drift_detect_compute",
     "node_pattern_assembler_orchestrator",
     "node_pattern_compliance_effect",
     "node_pattern_demotion_effect",
@@ -47,11 +49,15 @@ EXPECTED_NODE_DIRS = [
     "node_pattern_learning_effect",
     "node_pattern_lifecycle_effect",
     "node_pattern_matching_compute",
+    "node_pattern_projection_effect",
     "node_pattern_promotion_effect",
     "node_pattern_storage_effect",
     "node_quality_scoring_compute",
+    "node_routing_feedback_effect",
     "node_semantic_analysis_compute",
     "node_success_criteria_matcher_compute",
+    "node_watchdog_effect",
+    "node_git_repo_crawler_effect",
 ]
 
 # Handler functions/classes that HandlerPluginLoader resolves dynamically.
@@ -137,6 +143,15 @@ HANDLER_ENTRY_POINTS = [
     (
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers",
         "handle_pattern_assembly_orchestrate",
+    ),
+    # --- Effect nodes (continued) ---
+    (
+        "omniintelligence.nodes.node_watchdog_effect.handlers",
+        "start_watching",
+    ),
+    (
+        "omniintelligence.nodes.node_watchdog_effect.handlers",
+        "stop_watching",
     ),
 ]
 

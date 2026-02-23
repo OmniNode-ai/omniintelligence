@@ -83,6 +83,7 @@ class TestIntelligenceNodes:
             "node_pattern_learning_compute",
             "node_pattern_matching_compute",
             "node_intent_classifier_compute",
+            "node_intent_drift_detect_compute",
             "node_execution_trace_parser_compute",
             "node_success_criteria_matcher_compute",
             "node_claude_hook_event_effect",
@@ -91,6 +92,8 @@ class TestIntelligenceNodes:
             "node_pattern_demotion_effect",
             "node_pattern_feedback_effect",
             "node_pattern_lifecycle_effect",
+            "node_pattern_projection_effect",
+            "node_git_repo_crawler_effect",
         }
         assert node_names == expected_nodes
 

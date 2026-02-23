@@ -3,11 +3,11 @@
 """Integration test: kernel boots with intelligence plugin.
 
 Validates the complete wiring path from contract discovery to handler
-resolution for all 21 omniintelligence nodes. Uses EventBusInmemory
+resolution for all 25 omniintelligence nodes. Uses EventBusInmemory
 for topic subscription verification — no Docker or external services.
 
 Test Phases:
-    1. Contract Discovery — find all 21 node contracts
+    1. Contract Discovery — find all 25 node contracts
     2. Handler Import Resolution — verify all handler modules/functions import
     3. I/O Model Import Resolution — verify input/output models import
     4. EventBusInmemory Topic Wiring — subscribe to all intelligence topics
@@ -36,26 +36,28 @@ from omnibase_infra.models import ModelNodeIdentity
 # Constants
 # =============================================================================
 
-# Path to the nodes directory containing all 21 ONEX node contracts.
+# Path to the nodes directory containing all 25 ONEX node contracts.
 # Resolved relative to this test file to work in both local and CI environments.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 NODES_DIR = _PROJECT_ROOT / "src" / "omniintelligence" / "nodes"
 
 # Total number of node contracts expected in this repository.
-# Inventory (21 nodes):
+# Inventory (25 nodes):
 #   Orchestrators (2): node_intelligence_orchestrator, node_pattern_assembler_orchestrator
 #   Reducers (1):      node_intelligence_reducer
 #   Compute (8):       node_quality_scoring_compute, node_semantic_analysis_compute,
 #                      node_pattern_extraction_compute, node_pattern_learning_compute,
 #                      node_pattern_matching_compute, node_intent_classifier_compute,
 #                      node_execution_trace_parser_compute, node_success_criteria_matcher_compute
-#   Effect (10):       node_claude_hook_event_effect, node_pattern_storage_effect,
+#   Effect (14):       node_claude_hook_event_effect, node_pattern_storage_effect,
 #                      node_pattern_promotion_effect, node_pattern_demotion_effect,
 #                      node_pattern_feedback_effect, node_pattern_lifecycle_effect,
 #                      node_pattern_learning_effect, node_compliance_evaluate_effect,
-#                      node_enforcement_feedback_effect, node_pattern_compliance_effect
+#                      node_enforcement_feedback_effect, node_pattern_compliance_effect,
+#                      node_watchdog_effect, node_crawl_scheduler_effect,
+#                      node_pattern_projection_effect, node_routing_feedback_effect
 # Update this constant and inventory when adding or removing nodes.
-EXPECTED_CONTRACT_COUNT = 21
+EXPECTED_CONTRACT_COUNT = 25
 
 # Node types exempt from handler_routing (use workflow_coordination / inline FSM).
 HANDLER_ROUTING_EXEMPT_TYPES = frozenset({"ORCHESTRATOR_GENERIC", "REDUCER_GENERIC"})
@@ -259,17 +261,17 @@ class TestKernelBootsWithIntelligencePlugin:
 
     @pytest.fixture(scope="class")
     def contracts(self) -> list[tuple[Path, dict[str, Any]]]:
-        """Discover all 21 node contracts."""
+        """Discover all 25 node contracts."""
         return _discover_contracts()
 
     # -----------------------------------------------------------------
     # Phase 1: Contract Discovery
     # -----------------------------------------------------------------
 
-    def test_discovers_all_17_contracts(
+    def test_discovers_all_25_contracts(
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
-        """All 17 intelligence node contracts must be discoverable."""
+        """All 25 intelligence node contracts must be discoverable."""
         assert len(contracts) == EXPECTED_CONTRACT_COUNT, (
             f"Expected {EXPECTED_CONTRACT_COUNT} contracts, "
             f"found {len(contracts)}: "
@@ -369,9 +371,9 @@ class TestKernelBootsWithIntelligencePlugin:
     def test_handler_count_matches_expected(
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
-        """At least 19 nodes must resolve at least one handler entry point.
+        """At least 23 nodes must resolve at least one handler entry point.
 
-        21 total - 2 exempt (orchestrator, reducer) = 19 minimum with handlers.
+        25 total - 2 exempt (orchestrator, reducer) = 23 minimum with handlers.
         """
         nodes_with_handlers = 0
         for _path, data in contracts:
@@ -379,11 +381,11 @@ class TestKernelBootsWithIntelligencePlugin:
             if entry_points:
                 nodes_with_handlers += 1
 
-        # 19 = 21 total - 1 exempt orchestrator (intelligence_orchestrator)
+        # 23 = 25 total - 1 exempt orchestrator (intelligence_orchestrator)
         #                 - 1 exempt reducer (intelligence_reducer)
         # Note: node_pattern_assembler_orchestrator has handler_routing so is NOT exempt.
-        assert nodes_with_handlers >= 19, (
-            f"Expected at least 19 nodes with handler entry points, "
+        assert nodes_with_handlers >= 23, (
+            f"Expected at least 23 nodes with handler entry points, "
             f"found {nodes_with_handlers}"
         )
 

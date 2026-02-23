@@ -14,7 +14,7 @@ Test Coverage:
     - Failure increments failure_streak
 
 Infrastructure Requirements:
-    - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
+    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
     - Tables: learned_patterns, pattern_injections
 
 Safety Measures:

@@ -32,6 +32,9 @@ from omniintelligence.models.events.model_pattern_discovered_event import (
 from omniintelligence.models.events.model_pattern_lifecycle_event import (
     ModelPatternLifecycleEvent,
 )
+from omniintelligence.models.events.model_pattern_projection_event import (
+    ModelPatternProjectionEvent,
+)
 
 __all__ = [
     "ModelCodeAnalysisCompletedPayload",
@@ -39,4 +42,5 @@ __all__ = [
     "ModelCodeAnalysisRequestPayload",
     "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
+    "ModelPatternProjectionEvent",
 ]
