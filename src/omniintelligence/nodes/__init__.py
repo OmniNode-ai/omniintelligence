@@ -30,7 +30,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (8)
+    # Effects (9)
+    "NodeContextItemWriterEffect": (
+        "omniintelligence.nodes.node_context_item_writer_effect.node",
+        "NodeContextItemWriterEffect",
+    ),
     "NodeDocStalenessDetectorEffect": (
         "omniintelligence.nodes.node_doc_staleness_detector_effect.node",
         "NodeDocStalenessDetectorEffect",
@@ -164,6 +168,9 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_context_item_writer_effect.node import (
+        NodeContextItemWriterEffect as NodeContextItemWriterEffect,
+    )
     from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
         NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
     )
@@ -280,7 +287,8 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (8)
+    # Nodes — Effects (9)
+    "NodeContextItemWriterEffect",
     "NodeDocStalenessDetectorEffect",
     "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
