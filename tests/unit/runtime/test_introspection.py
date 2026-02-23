@@ -94,6 +94,7 @@ class TestIntelligenceNodes:
             "node_pattern_lifecycle_effect",
             "node_pattern_projection_effect",
             "node_git_repo_crawler_effect",
+            "node_linear_crawler_effect",
         }
         assert node_names == expected_nodes
 
