@@ -1,0 +1,203 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDocStalenessDetectorEffect
+#
+# Stream C effect node. Detects document staleness and triggers atomic
+# re-ingestion following the staleness policy.
+#
+# Reference: OMN-2394 - DocStalenessDetectorEffect
+
+# Contract identifiers
+name: "node_doc_staleness_detector_effect"
+contract_name: "doc_staleness_detector_effect"
+node_name: "doc_staleness_detector_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Stream C staleness detector effect node. Evaluates ContextItem candidates for staleness, classifies
+  each case (FILE_DELETED, CONTENT_CHANGED_STATIC, CONTENT_CHANGED_REPO, FILE_MOVED), and applies the
+  appropriate policy. CONTENT_CHANGED cases use a crash-safe atomic 3-step sequence persisted in staleness_transition_log.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelStalenessDetectInput"
+  module: "omniintelligence.nodes.node_doc_staleness_detector_effect.models"
+  description: "Batch of staleness candidates with policy configuration."
+
+output_model:
+  name: "ModelStalenessDetectOutput"
+  module: "omniintelligence.nodes.node_doc_staleness_detector_effect.models"
+  description: "Transition results with per-case counters."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_staleness_detection"
+    module: "omniintelligence.nodes.node_doc_staleness_detector_effect.handlers.handler_staleness_detector"
+    type: "async"
+    description: "Main entry point: classify and handle staleness candidates"
+  handlers:
+    - operation: "detect_staleness"
+      handler:
+        function: "handle_staleness_detection"
+        module: "omniintelligence.nodes.node_doc_staleness_detector_effect.handlers.handler_staleness_detector"
+        type: "async"
+      description: "Evaluate candidates and apply staleness policies"
+      actions:
+        - "classify each candidate into FILE_DELETED / CONTENT_CHANGED_STATIC / CONTENT_CHANGED_REPO /
+          FILE_MOVED"
+        - "FILE_DELETED: immediate blacklist transition"
+        - "FILE_MOVED: in-place source_ref update"
+        - "CONTENT_CHANGED: atomic 3-step (INDEX_NEW -> VERIFY_NEW -> BLACKLIST_OLD)"
+        - "CONTENT_CHANGED_REPO: stat carry if embedding_similarity >= threshold"
+        - "persist each step to staleness_transition_log for crash-safe resume"
+
+  default_handler:
+    function: "handle_staleness_detection"
+    module: "omniintelligence.nodes.node_doc_staleness_detector_effect.handlers.handler_staleness_detector"
+    type: "async"
+    description: "Default to detect_staleness operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "detect_staleness"
+    description: "Evaluate staleness candidates and apply policies"
+    input_model: "ModelStalenessDetectInput"
+    output_model: "ModelStalenessDetectOutput"
+    input_fields:
+      - candidates
+      - similarity_threshold
+      - stat_carry_fraction
+      - dry_run
+      - correlation_id
+    output_fields:
+      - transitions
+      - items_blacklisted
+      - items_moved
+      - items_reingested
+      - stat_carries_applied
+      - items_failed
+      - dry_run
+      - correlation_id
+
+# =============================================================================
+# STALENESS CASES
+# =============================================================================
+staleness_cases:
+  file_deleted:
+    action: "immediate BLACKLISTED transition"
+    steps: 1
+    crash_safe: true
+    note: "Single atomic operation — no new item created"
+
+  content_changed_static:
+    action: "atomic 3-step re-ingestion at VALIDATED tier"
+    steps: 3
+    crash_safe: true
+    step_1: "INDEX_NEW: trigger re-ingestion at VALIDATED bootstrap_confidence=0.85"
+    step_2: "VERIFY_NEW: confirm new item in PostgreSQL + Qdrant"
+    step_3: "BLACKLIST_OLD: blacklist old item ONLY after step 2 succeeds"
+
+  content_changed_repo:
+    action: "atomic 3-step re-ingestion at QUARANTINE tier"
+    steps: 3
+    crash_safe: true
+    step_1: "INDEX_NEW: trigger re-ingestion at QUARANTINE bootstrap_confidence=0.0"
+    step_2: "VERIFY_NEW: confirm new item; apply 70% stat carry if similarity >= 0.85"
+    step_3: "BLACKLIST_OLD: blacklist old item ONLY after step 2 succeeds"
+
+  file_moved:
+    action: "in-place source_ref update"
+    steps: 1
+    crash_safe: true
+    note: "No new item created. No tier change."
+
+# =============================================================================
+# ATOMICITY CONTRACT
+# =============================================================================
+atomicity:
+  strategy: "idempotent_state_machine"
+  log_table: "staleness_transition_log"
+  resume_key: "transition_id (= old_item_id for single-item candidates)"
+  invariant: "BLACKLIST_OLD only executes after VERIFY_NEW is confirmed"
+  crash_recovery: "On restart, load existing transition by ID and resume from current_step"
+
+# =============================================================================
+# STAT CARRY POLICY
+# =============================================================================
+stat_carry:
+  trigger: "embedding_similarity >= similarity_threshold (default 0.85)"
+  applies_to: "CONTENT_CHANGED_REPO only"
+  fields:
+    scored_runs: "old_value * carry_fraction (default 0.70)"
+    positive_signals: "old_value * carry_fraction (default 0.70)"
+    used_rate: "preserved as-is (not multiplied by fraction)"
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  error_types:
+    - name: "CandidateProcessingFailure"
+      error_code: "STALENESS_001"
+      description: "Individual candidate processing failed — counted in items_failed, not raised"
+      recoverable: true
+      retry_strategy: "none"
+
+    - name: "VerificationFailure"
+      error_code: "STALENESS_002"
+      description: "New item verification failed in PG or Qdrant — transition stays at INDEX_NEW for retry"
+      recoverable: true
+      retry_strategy: "retry_on_next_scan"
+
+    - name: "StoreConnectionFailure"
+      error_code: "STALENESS_003"
+      description: "Connection to PG/Qdrant failed — propagates to caller"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-23"
+  updated: "2026-02-23"
+  tags:
+    - effect
+    - staleness
+    - omnimemory
+    - stream-c
+    - idempotent
+    - crash-safe
+  references:
+    - ticket: "OMN-2394"
+      url: "https://linear.app/omninode/issue/OMN-2394"
+      description: "DocStalenessDetectorEffect: detect version hash mismatches"
+    - ticket: "OMN-2393"
+      description: "ContextItemWriterEffect (writes new items)"
+    - ticket: "OMN-2383"
+      description: "DB migrations for context_items tables (INFRA)"
