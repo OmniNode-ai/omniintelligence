@@ -1,0 +1,260 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeContextItemWriterEffect
+#
+# Stream B terminal node. Receives EmbeddedChunks from EmbeddingGenerationEffect,
+# writes them to PostgreSQL (context_items + context_items_content), Qdrant
+# (context_items_v1), and Memgraph with idempotent upsert semantics and
+# deterministic bootstrap tier assignment.
+#
+# Reference: OMN-2393 - ContextItemWriterEffect
+
+# Contract identifiers
+name: "node_context_item_writer_effect"
+contract_name: "context_item_writer_effect"
+node_name: "context_item_writer_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Stream B terminal effect node. Receives EmbeddedChunks and writes them idempotently
+  to PostgreSQL (context_items + context_items_content), Qdrant (context_items_v1),
+  and Memgraph. Assigns bootstrap tier per source_ref pattern. Emits
+  document-indexed.v1 event after successful write.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelContextItemWriteInput"
+  module: "omniintelligence.nodes.node_context_item_writer_effect.models"
+  description: "Embedded chunks with storage config and tier policy."
+
+output_model:
+  name: "ModelContextItemWriteOutput"
+  module: "omniintelligence.nodes.node_context_item_writer_effect.models"
+  description: "Per-document write statistics (created, updated, skipped, failed)."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_context_item_write"
+    module: "omniintelligence.nodes.node_context_item_writer_effect.handlers.handler_context_item_writer"
+    type: "async"
+    description: "Main entry point: idempotent write to all 3 stores"
+  handlers:
+    - operation: "write_context_items"
+      handler:
+        function: "handle_context_item_write"
+        module: "omniintelligence.nodes.node_context_item_writer_effect.handlers.handler_context_item_writer"
+        type: "async"
+      description: "Idempotent write of embedded chunks to PG + Qdrant + Memgraph"
+      actions:
+        - "assign bootstrap tier per source_ref pattern (first match wins)"
+        - "for each chunk: lookup existing record by (source_ref, offset_start, offset_end)"
+        - "CREATED: insert PG rows + upsert Qdrant + upsert Memgraph edge"
+        - "UPDATED: update PG fingerprint + replace Qdrant vector (Memgraph MERGE)"
+        - "SKIPPED: no-op if fingerprint unchanged"
+        - "FAILED: log warning, increment items_failed (non-fatal)"
+        - "emit document-indexed.v1 event on success (best-effort)"
+
+  default_handler:
+    function: "handle_context_item_write"
+    module: "omniintelligence.nodes.node_context_item_writer_effect.handlers.handler_context_item_writer"
+    type: "async"
+    description: "Default to write_context_items operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "write_context_items"
+    description: "Idempotent write of embedded chunks to all 3 stores"
+    input_model: "ModelContextItemWriteInput"
+    output_model: "ModelContextItemWriteOutput"
+    input_fields:
+      - embedded_chunks
+      - source_ref
+      - crawl_scope
+      - qdrant_collection
+      - qdrant_url
+      - emit_event
+      - tier_policies
+      - correlation_id
+    output_fields:
+      - source_ref
+      - items_created
+      - items_updated
+      - items_skipped
+      - items_failed
+      - event_emitted
+      - correlation_id
+
+# =============================================================================
+# IDEMPOTENCY CONTRACT
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "upsert"
+  keys:
+    primary: ["source_ref", "character_offset_start", "character_offset_end"]
+    secondary: ["source_ref", "version_hash"]
+  cases:
+    no_op:
+      condition: "source_ref + fingerprint already exists"
+      action: "skip — increment items_skipped"
+    soft_update:
+      condition: "source_ref + offsets exists but fingerprint differs"
+      action: "update version_hash, fingerprint, token_estimate; replace Qdrant vector"
+    fresh_insert:
+      condition: "no record exists"
+      action: "insert all stores — PG + Qdrant + Memgraph"
+
+# =============================================================================
+# BOOTSTRAP TIER POLICY
+# =============================================================================
+bootstrap_tier_policy:
+  strategy: "first_match_wins"
+  rules:
+    - pattern: "*/.claude/CLAUDE.md"
+      tier: "VALIDATED"
+      bootstrap_confidence: 0.85
+      expires_after_runs: 5
+    - pattern: "*/CLAUDE.md"
+      tier: "VALIDATED"
+      bootstrap_confidence: 0.85
+      expires_after_runs: 5
+    - pattern: "omni_save/design/*.md"
+      tier: "VALIDATED"
+      bootstrap_confidence: 0.75
+      expires_after_runs: 5
+    - pattern: "omni_save/plans/*.md"
+      tier: "QUARANTINE"
+      bootstrap_confidence: 0.65
+      expires_after_runs: null
+    - pattern: "*.md"
+      tier: "QUARANTINE"
+      bootstrap_confidence: 0.0
+      expires_after_runs: null
+    - pattern: "*"
+      tier: "QUARANTINE"
+      bootstrap_confidence: 0.0
+      expires_after_runs: null
+
+# =============================================================================
+# STORAGE CONFIGURATION
+# =============================================================================
+storage:
+  postgresql:
+    tables:
+      - context_items
+      - context_items_content
+    required_indexes:
+      - "UNIQUE (source_ref, character_offset_start, character_offset_end)"
+      - "UNIQUE (source_ref, version_hash)"
+    migration_ticket: "OMN-2383"
+
+  qdrant:
+    collection: "context_items_v1"
+    vector_dimension: 1024
+    distance: "Cosine"
+    payload_fields:
+      - source_ref
+      - content_fingerprint
+      - version_hash
+      - item_type
+      - tier
+      - bootstrap_confidence
+      - section_heading
+      - crawl_scope
+      - character_offset_start
+      - character_offset_end
+      - token_estimate
+      - tags
+    note: "NO raw content text in Qdrant payload"
+
+  memgraph:
+    node_type: "ContextItem"
+    edge_type: "SOURCED_FROM"
+    target_type: "Document"
+    merge_semantics: true
+
+# =============================================================================
+# EVENT EMISSION
+# =============================================================================
+events:
+  emitted:
+    - topic: "{env}.onex.evt.omnimemory.document-indexed.v1"
+      trigger: "successful write of all chunks"
+      payload_fields:
+        - source_ref
+        - items_created
+        - items_updated
+        - items_skipped
+        - items_failed
+        - correlation_id
+      best_effort: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  error_types:
+    - name: "ChunkWriteFailure"
+      error_code: "CTXWRITE_001"
+      description: "Individual chunk write failed — counted in items_failed, not raised"
+      recoverable: true
+      retry_strategy: "none"
+
+    - name: "EventEmissionFailure"
+      error_code: "CTXWRITE_002"
+      description: "document-indexed.v1 emission failed — logged, event_emitted=False"
+      recoverable: true
+      retry_strategy: "none"
+
+    - name: "StoreConnectionFailure"
+      error_code: "CTXWRITE_003"
+      description: "Connection to PG/Qdrant/Memgraph failed — propagates to caller"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - effect
+    - storage
+    - postgresql
+    - qdrant
+    - memgraph
+    - omnimemory
+    - stream-b
+    - idempotent
+  references:
+    - ticket: "OMN-2393"
+      url: "https://linear.app/omninode/issue/OMN-2393"
+      description: "ContextItemWriterEffect: idempotent write to PG + Qdrant + Memgraph"
+    - ticket: "OMN-2383"
+      description: "DB migrations for context_items tables (INFRA)"
