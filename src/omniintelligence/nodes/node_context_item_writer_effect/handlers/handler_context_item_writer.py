@@ -33,7 +33,7 @@ Ticket: OMN-2393
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.node_context_item_writer_effect.models.enum_write_outcome import (
@@ -52,9 +52,6 @@ from omniintelligence.nodes.node_context_item_writer_effect.models.model_tier_po
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedded_chunk import (
     ModelEmbeddedChunk,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
