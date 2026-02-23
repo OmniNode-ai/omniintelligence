@@ -98,9 +98,9 @@ def _accumulate_signals(
       - DOC_SECTION_MATCHED signals below DOC_MIN_SIMILARITY are skipped.
 
     The effective hurt_rate is recomputed as:
-        new_hurt_rate = (existing_hurt_count + new_hurts) / (scored_runs + 1)
-    where scored_runs + 1 approximates the denominator after this batch.
-    If scored_runs == 0, the denominator is 1.
+        new_hurt_rate = (existing_hurt_count + new_hurts) / max(scored_runs, 1)
+    using max(scored_runs, 1) as the denominator so a zero-run candidate
+    does not produce a division-by-zero error.
 
     Returns:
         (effective_positive_signals, effective_hurt_rate)
@@ -327,25 +327,14 @@ async def handle_doc_promotion(
             )
             continue
 
-        if input_data.dry_run:
-            # Compute decision without side effects
-            decision = _evaluate_candidate(candidate, thresholds)
-            decisions.append(decision)
-            if decision.promoted:
-                items_promoted += 1
-            elif decision.demoted:
-                items_demoted += 1
-            else:
-                items_unchanged += 1
+        decision = _evaluate_candidate(candidate, thresholds)
+        decisions.append(decision)
+        if decision.promoted:
+            items_promoted += 1
+        elif decision.demoted:
+            items_demoted += 1
         else:
-            decision = _evaluate_candidate(candidate, thresholds)
-            decisions.append(decision)
-            if decision.promoted:
-                items_promoted += 1
-            elif decision.demoted:
-                items_demoted += 1
-            else:
-                items_unchanged += 1
+            items_unchanged += 1
 
     logger.info(
         "DocPromotion: promoted=%d demoted=%d unchanged=%d dry_run=%s",
