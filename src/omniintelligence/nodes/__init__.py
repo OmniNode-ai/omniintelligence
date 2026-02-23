@@ -30,10 +30,14 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (8)
+    # Effects (9)
     "NodeContextItemWriterEffect": (
         "omniintelligence.nodes.node_context_item_writer_effect.node",
         "NodeContextItemWriterEffect",
+    ),
+    "NodeDocStalenessDetectorEffect": (
+        "omniintelligence.nodes.node_doc_staleness_detector_effect.node",
+        "NodeDocStalenessDetectorEffect",
     ),
     "NodeGitRepoCrawlerEffect": (
         "omniintelligence.nodes.node_git_repo_crawler_effect.node",
@@ -167,6 +171,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_context_item_writer_effect.node import (
         NodeContextItemWriterEffect as NodeContextItemWriterEffect,
     )
+    from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
+        NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
+    )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
     )
@@ -280,8 +287,9 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (8)
+    # Nodes — Effects (9)
     "NodeContextItemWriterEffect",
+    "NodeDocStalenessDetectorEffect",
     "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodePatternComplianceEffect",

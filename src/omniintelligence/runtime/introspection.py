@@ -104,6 +104,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
     # Effect nodes
     _NodeDescriptor("node_context_item_writer_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_doc_staleness_detector_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_claude_hook_event_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_storage_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_promotion_effect", EnumNodeKind.EFFECT),
