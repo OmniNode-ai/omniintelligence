@@ -90,7 +90,8 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     # Orchestrators
     _NodeDescriptor("node_intelligence_orchestrator", EnumNodeKind.ORCHESTRATOR),
     _NodeDescriptor("node_pattern_assembler_orchestrator", EnumNodeKind.ORCHESTRATOR),
-    # Reducer
+    # Reducers
+    _NodeDescriptor("node_doc_promotion_reducer", EnumNodeKind.REDUCER),
     _NodeDescriptor("node_intelligence_reducer", EnumNodeKind.REDUCER),
     # Compute nodes
     _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE),

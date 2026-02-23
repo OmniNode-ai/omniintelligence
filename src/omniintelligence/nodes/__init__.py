@@ -25,12 +25,16 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.node",
         "NodePatternAssemblerOrchestrator",
     ),
-    # Reducers (1)
+    # Reducers (2)
+    "NodeDocPromotionReducer": (
+        "omniintelligence.nodes.node_doc_promotion_reducer.node",
+        "NodeDocPromotionReducer",
+    ),
     "NodeIntelligenceReducer": (
         "omniintelligence.nodes.node_intelligence_reducer.node",
         "NodeIntelligenceReducer",
     ),
-    # Effects (9)
+    # Effects (10)
     "NodeContextItemWriterEffect": (
         "omniintelligence.nodes.node_context_item_writer_effect.node",
         "NodeContextItemWriterEffect",
@@ -171,6 +175,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_context_item_writer_effect.node import (
         NodeContextItemWriterEffect as NodeContextItemWriterEffect,
     )
+    from omniintelligence.nodes.node_doc_promotion_reducer.node import (
+        NodeDocPromotionReducer as NodeDocPromotionReducer,
+    )
     from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
         NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
     )
@@ -275,7 +282,8 @@ __all__ = [
     # Nodes — Orchestrators (2)
     "NodeIntelligenceOrchestrator",
     "NodePatternAssemblerOrchestrator",
-    # Nodes — Reducers (1)
+    # Nodes — Reducers (2)
+    "NodeDocPromotionReducer",
     "NodeIntelligenceReducer",
     # Nodes — Computes (9)
     "NodeExecutionTraceParserCompute",
@@ -287,7 +295,7 @@ __all__ = [
     "NodeQualityScoringCompute",
     "NodeSemanticAnalysisCompute",
     "NodeSuccessCriteriaMatcherCompute",
-    # Nodes — Effects (9)
+    # Nodes — Effects (10)
     "NodeContextItemWriterEffect",
     "NodeDocStalenessDetectorEffect",
     "NodeGitRepoCrawlerEffect",
