@@ -31,11 +31,9 @@ status: "active"
 
 # Description
 description: >
-  Stream C promotion reducer. Evaluates ContextItem candidates for tier
-  promotion using source-type-aware thresholds. Applies demotion
-  (VALIDATED->QUARANTINE), Q->V, and V->S gates. Enforces signal floor
-  for document items. Pure reducer -- does NOT persist transitions.
-
+  Stream C promotion reducer. Evaluates ContextItem candidates for tier promotion using source-type-aware
+  thresholds. Applies demotion (VALIDATED->QUARANTINE), Q->V, and V->S gates. Enforces signal floor for
+  document items. Pure reducer -- does NOT persist transitions. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelDocPromotionInput"
