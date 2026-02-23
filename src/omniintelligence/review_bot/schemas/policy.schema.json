@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://omninode.io/schemas/review_policy.json",
+  "title": "Code Intelligence Review Bot Policy",
+  "description": "Schema for the Code Intelligence Review Bot policy YAML file.",
+  "type": "object",
+  "required": ["version", "rules"],
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Policy schema version (semver string, e.g., '1.0' or '1.0.0')",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+      "examples": ["1.0", "1.0.0"]
+    },
+    "enforcement_mode": {
+      "type": "string",
+      "description": "How violations affect CI outcomes",
+      "enum": ["observe", "warn", "block"],
+      "default": "observe"
+    },
+    "rules": {
+      "type": "array",
+      "description": "List of review rules to apply",
+      "items": {
+        "$ref": "#/$defs/ReviewRule"
+      }
+    },
+    "exemptions": {
+      "type": "array",
+      "description": "Path-scoped rule exemptions",
+      "items": {
+        "$ref": "#/$defs/ReviewExemption"
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "ReviewRule": {
+      "type": "object",
+      "required": ["id", "severity", "pattern", "message"],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique rule identifier (e.g., 'no-bare-except')",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level for violations",
+          "enum": ["BLOCKER", "WARNING", "INFO"]
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Regex pattern to detect violations",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable explanation of the violation",
+          "minLength": 1
+        },
+        "slow": {
+          "type": "boolean",
+          "description": "If true, skip in pre-commit fast-path checks",
+          "default": false
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this rule is active",
+          "default": true
+        }
+      }
+    },
+    "ReviewExemption": {
+      "type": "object",
+      "required": ["rule", "path", "expires", "reason"],
+      "additionalProperties": true,
+      "properties": {
+        "rule": {
+          "type": "string",
+          "description": "The rule ID this exemption applies to",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "description": "File path or glob pattern to exempt (e.g., 'tests/' or '*.test.py')",
+          "minLength": 1
+        },
+        "expires": {
+          "type": "string",
+          "description": "ISO date string when exemption expires (YYYY-MM-DD)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "examples": ["2026-06-01"]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Human-readable justification for this exemption",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

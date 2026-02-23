@@ -1,5 +1,7 @@
 """Utility modules for omniintelligence."""
 
+import contextlib
+
 from omniintelligence.utils.db_url import safe_db_url_display
 from omniintelligence.utils.injection_safety import (
     MAX_LINE_LENGTH,
@@ -15,10 +17,14 @@ from omniintelligence.utils.log_sanitizer import (
     sanitize_logs,
 )
 from omniintelligence.utils.pg_status import parse_pg_status_count
-from omniintelligence.utils.util_token_counter import (
-    count_tokens,
-    get_tokenizer,
-)
+
+# tiktoken is an optional dependency for token counting; guard against
+# environments where it is not installed (e.g. pre-commit isolated venvs).
+with contextlib.suppress(ImportError):  # pragma: no cover
+    from omniintelligence.utils.util_token_counter import (
+        count_tokens,
+        get_tokenizer,
+    )
 
 __all__ = [
     # Database URL display

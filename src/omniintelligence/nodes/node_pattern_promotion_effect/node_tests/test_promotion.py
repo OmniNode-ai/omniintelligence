@@ -22,7 +22,7 @@ Reference:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -46,6 +46,10 @@ from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelGateSnapshot,
     ModelPromotionCheckResult,
     ModelPromotionResult,
+)
+from omniintelligence.nodes.node_pattern_promotion_effect.registry.registry_pattern_promotion_effect import (
+    RegistryPatternPromotionEffect,
+    RegistryPromotionHandlers,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
@@ -717,6 +721,7 @@ class TestDryRunMode:
     async def test_dry_run_does_not_mutate_database(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
     ) -> None:
         """Dry run does not call repository.execute() for promotion."""
@@ -734,7 +739,7 @@ class TestDryRunMode:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
-            producer=None,
+            producer=mock_producer,
             dry_run=True,
         )
 
@@ -780,6 +785,7 @@ class TestDryRunMode:
     async def test_dry_run_result_has_promoted_at_none(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
     ) -> None:
         """Dry run promotion results have promoted_at=None."""
@@ -797,6 +803,7 @@ class TestDryRunMode:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=True,
         )
 
@@ -810,6 +817,7 @@ class TestDryRunMode:
     async def test_dry_run_returns_correct_counts(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
     ) -> None:
         """Dry run returns correct checked/eligible counts."""
         # Arrange: 3 patterns - 2 eligible, 1 not
@@ -844,6 +852,7 @@ class TestDryRunMode:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=True,
         )
 
@@ -912,50 +921,10 @@ class TestActualPromotion:
         assert mock_repository.patterns[sample_pattern_id].status == "provisional"
 
     @pytest.mark.asyncio
-    async def test_without_producer_uses_fallback_direct_sql(
-        self,
-        mock_repository: MockPatternRepository,
-        sample_pattern_id: UUID,
-    ) -> None:
-        """Without Kafka producer, promotion proceeds via direct SQL (fallback mode).
-
-        ONEX Invariant: Effect nodes must never block on Kafka. When producer is
-        unavailable, promotion uses direct database UPDATE as fallback.
-        """
-        # Arrange
-        mock_repository.add_pattern(
-            PromotablePattern(
-                id=sample_pattern_id,
-                injection_count_rolling_20=10,
-                success_count_rolling_20=8,
-                failure_count_rolling_20=2,
-                failure_streak=0,
-            )
-        )
-
-        # Act
-        result = await check_and_promote_patterns(
-            repository=mock_repository,
-            producer=None,  # No Kafka producer - uses fallback
-            dry_run=False,
-        )
-
-        # Assert: Pattern promoted via direct SQL (fallback mode)
-        assert result.patterns_checked == 1
-        assert result.patterns_eligible == 1
-        assert len(result.patterns_promoted) == 1
-        # Promotion succeeded via fallback
-        assert (
-            result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
-        )
-        assert result.patterns_promoted[0].promoted_at is not None
-        # Database updated directly (fallback mode)
-        assert mock_repository.patterns[sample_pattern_id].status == "validated"
-
-    @pytest.mark.asyncio
     async def test_skips_ineligible_patterns(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
     ) -> None:
         """Ineligible patterns are not promoted."""
         # Arrange: Pattern fails success rate gate
@@ -973,6 +942,7 @@ class TestActualPromotion:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=False,
         )
 
@@ -1058,16 +1028,79 @@ class TestActualPromotion:
     async def test_empty_repository_returns_zero_counts(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
     ) -> None:
         """Empty repository returns zero counts."""
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=False,
         )
 
         assert result.patterns_checked == 0
         assert result.patterns_eligible == 0
         assert len(result.patterns_promoted) == 0
+
+    @pytest.mark.asyncio
+    async def test_kafka_failure_isolated_per_pattern(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Kafka publish failure for one pattern is isolated; other patterns still succeed.
+
+        Exercises the per-pattern except block in check_and_promote_patterns:
+        - Failed result has promoted_at=None and reason starting with 'promotion_failed:'
+        - patterns_failed == 1, patterns_succeeded == 1
+        - Both results appear in patterns_promoted list
+        """
+
+        class FailFirstPublisher:
+            """Publisher that raises on the first call, succeeds on subsequent calls."""
+
+            def __init__(self) -> None:
+                self.call_count = 0
+                self.published_events: list[tuple[str, str, dict[str, Any]]] = []
+
+            async def publish(
+                self, topic: str, key: str, value: dict[str, object]
+            ) -> None:
+                self.call_count += 1
+                if self.call_count == 1:
+                    raise OSError("Kafka broker unavailable")
+                self.published_events.append((topic, key, value))
+
+        failing_producer = FailFirstPublisher()
+        id1, id2 = uuid4(), uuid4()
+        for pid in (id1, id2):
+            mock_repository.add_pattern(
+                PromotablePattern(
+                    id=pid,
+                    injection_count_rolling_20=10,
+                    success_count_rolling_20=8,
+                    failure_count_rolling_20=2,
+                    failure_streak=0,
+                )
+            )
+
+        result = await check_and_promote_patterns(
+            repository=mock_repository,
+            producer=failing_producer,
+            dry_run=False,
+        )
+
+        assert result.patterns_eligible == 2
+        assert len(result.patterns_promoted) == 2
+        assert result.patterns_failed == 1
+        assert result.patterns_succeeded == 1
+        # Failed result: promoted_at is None, reason records the exception
+        failed = next(r for r in result.patterns_promoted if r.promoted_at is None)
+        assert failed.reason is not None
+        assert "promotion_failed:" in failed.reason
+        # Succeeded result: promoted_at is set
+        succeeded = next(
+            r for r in result.patterns_promoted if r.promoted_at is not None
+        )
+        assert succeeded.promoted_at is not None
 
 
 # =============================================================================
@@ -1325,7 +1358,6 @@ class TestPromotePatternDirect:
 
         # Act
         result = await promote_pattern(
-            repository=mock_repository,
             producer=mock_producer,
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
@@ -1337,74 +1369,17 @@ class TestPromotePatternDirect:
         assert result.dry_run is False
         # Event emitted to Kafka
         assert len(mock_producer.published_events) == 1
-        # Database NOT updated directly (async via reducer/effect)
+        # NOTE: Database status unchanged - actual update happens via reducer/effect
         assert mock_repository.patterns[sample_pattern_id].status == "provisional"
-
-    @pytest.mark.asyncio
-    async def test_promote_pattern_without_producer_uses_fallback(
-        self,
-        mock_repository: MockPatternRepository,
-        sample_pattern_id: UUID,
-    ) -> None:
-        """promote_pattern with producer=None uses direct SQL fallback.
-
-        ONEX Invariant: Effect nodes must never block on Kafka. When producer
-        is unavailable, promote_pattern performs direct database UPDATE.
-        """
-        # Arrange
-        mock_repository.add_pattern(
-            PromotablePattern(
-                id=sample_pattern_id,
-                injection_count_rolling_20=10,
-                success_count_rolling_20=8,
-                failure_count_rolling_20=2,
-                failure_streak=0,
-            )
-        )
-        pattern_data = MockRecord(
-            {
-                "id": sample_pattern_id,
-                "pattern_signature": "test_sig",
-                "injection_count_rolling_20": 10,
-                "success_count_rolling_20": 8,
-                "failure_count_rolling_20": 2,
-                "failure_streak": 0,
-            }
-        )
-
-        # Act
-        result = await promote_pattern(
-            repository=mock_repository,
-            producer=None,  # No Kafka producer - uses fallback
-            pattern_id=sample_pattern_id,
-            pattern_data=pattern_data,
-        )
-
-        # Assert: Promotion succeeded via direct SQL fallback
-        assert result.to_status == "validated"
-        assert result.promoted_at is not None  # Promotion actually happened
-        assert result.reason == "auto_promote_rolling_window_fallback"
-        # Database updated directly (fallback mode)
-        assert mock_repository.patterns[sample_pattern_id].status == "validated"
 
     @pytest.mark.asyncio
     async def test_promote_pattern_returns_gate_snapshot(
         self,
-        mock_repository: MockPatternRepository,
         mock_producer: MockKafkaPublisher,
         sample_pattern_id: UUID,
     ) -> None:
         """promote_pattern result includes gate snapshot."""
         # Arrange
-        mock_repository.add_pattern(
-            PromotablePattern(
-                id=sample_pattern_id,
-                injection_count_rolling_20=15,
-                success_count_rolling_20=12,
-                failure_count_rolling_20=3,
-                failure_streak=1,
-            )
-        )
         pattern_data = MockRecord(
             {
                 "id": sample_pattern_id,
@@ -1418,7 +1393,6 @@ class TestPromotePatternDirect:
 
         # Act
         result = await promote_pattern(
-            repository=mock_repository,
             producer=mock_producer,
             pattern_id=sample_pattern_id,
             pattern_data=pattern_data,
@@ -1453,6 +1427,152 @@ class TestProtocolCompliance:
     ) -> None:
         """MockKafkaPublisher satisfies ProtocolKafkaPublisher protocol."""
         assert isinstance(mock_producer, ProtocolKafkaPublisher)
+
+
+# =============================================================================
+# Test Class: RegistryPatternPromotionEffect Smoke Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestRegistryPatternPromotionEffectSmoke:
+    """Smoke tests for RegistryPatternPromotionEffect.create_registry.
+
+    Verifies that create_registry succeeds with valid mock dependencies and
+    returns a properly wired RegistryPromotionHandlers. These tests cover the
+    happy path through the registry factory — dependencies are validated at
+    construction time via isinstance guards, so invalid arguments raise
+    immediately rather than deferring failure to first use.
+    """
+
+    @pytest.fixture(autouse=True)
+    def clear_registry(self) -> Generator[None, None, None]:
+        """Clear module-level registry state before and after each test."""
+        RegistryPatternPromotionEffect.clear()
+        yield
+        RegistryPatternPromotionEffect.clear()
+
+    def test_create_registry_succeeds_with_valid_dependencies(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """create_registry returns a RegistryPromotionHandlers with valid deps."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert isinstance(registry, RegistryPromotionHandlers)
+        assert callable(registry.check_and_promote)
+
+    def test_create_registry_wires_check_and_promote_handler(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """check_and_promote attribute is a callable after create_registry."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert callable(registry.check_and_promote)
+
+    def test_create_registry_handler_accessible_by_operation_name(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """get_handler('check_and_promote_patterns') returns a callable."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        handler = registry.get_handler("check_and_promote_patterns")
+        assert handler is not None
+        assert callable(handler)
+
+    def test_create_registry_unknown_operation_returns_none(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """get_handler returns None for unknown operation names."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert registry.get_handler("nonexistent_operation") is None
+
+    def test_create_registry_stored_in_module_level_state(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """create_registry stores the registry so get_registry() returns it."""
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        stored = RegistryPatternPromotionEffect.get_registry()
+        assert stored is registry
+
+    def test_registry_is_frozen_after_creation(
+        self,
+        mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """RegistryPromotionHandlers is a frozen dataclass — mutation raises."""
+        import dataclasses
+
+        registry = RegistryPatternPromotionEffect.create_registry(
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
+            registry.check_and_promote = lambda _: None  # type: ignore[misc, assignment, return-value]
+
+    def test_create_registry_with_none_producer_raises_at_construction(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Passing None for producer raises TypeError immediately at registry construction via isinstance guard — fail-fast behavior."""
+        with pytest.raises(TypeError, match="must implement"):
+            RegistryPatternPromotionEffect.create_registry(
+                repository=mock_repository,
+                producer=None,  # type: ignore[arg-type]
+            )
+
+    def test_create_registry_with_none_repository_raises_at_construction(
+        self,
+        mock_producer: MockKafkaPublisher,
+    ) -> None:
+        """Passing None for repository raises TypeError immediately at registry construction via isinstance guard — fail-fast behavior."""
+        with pytest.raises(TypeError, match="must implement"):
+            RegistryPatternPromotionEffect.create_registry(
+                repository=None,  # type: ignore[arg-type]
+                producer=mock_producer,
+            )
+
+    def test_create_registry_with_wrong_type_producer_raises_at_construction(
+        self,
+        mock_repository: MockPatternRepository,
+    ) -> None:
+        """Passing a concrete wrong type (not None) for producer raises TypeError via isinstance guard.
+
+        This verifies the guard rejects any object that does not implement
+        ProtocolKafkaPublisher — not just None — at construction time.
+        """
+        with pytest.raises(TypeError, match="must implement"):
+            RegistryPatternPromotionEffect.create_registry(
+                repository=mock_repository,
+                producer="not-a-publisher",  # type: ignore[arg-type]
+            )
 
 
 # =============================================================================
@@ -1554,6 +1674,7 @@ class TestEdgeCases:
     async def test_pattern_already_promoted_not_updated_again(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
     ) -> None:
         """Pattern with status='validated' is not included in fetch results."""
         # Arrange: Pattern already validated
@@ -1572,6 +1693,7 @@ class TestEdgeCases:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=False,
         )
 
@@ -1583,6 +1705,7 @@ class TestEdgeCases:
     async def test_non_current_pattern_not_checked(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
     ) -> None:
         """Pattern with is_current=False is not included in fetch results."""
         # Arrange: Pattern not current version
@@ -1601,6 +1724,7 @@ class TestEdgeCases:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=False,
         )
 
@@ -1611,6 +1735,7 @@ class TestEdgeCases:
     async def test_large_batch_of_patterns(
         self,
         mock_repository: MockPatternRepository,
+        mock_producer: MockKafkaPublisher,
     ) -> None:
         """Handles large batch of patterns correctly."""
         # Arrange: 100 patterns, 50 eligible
@@ -1630,6 +1755,7 @@ class TestEdgeCases:
         # Act
         result = await check_and_promote_patterns(
             repository=mock_repository,
+            producer=mock_producer,
             dry_run=True,
         )
 
@@ -1656,60 +1782,6 @@ class TestEdgeCases:
             }
         )
         assert meets_promotion_criteria(pattern) is True
-
-    @pytest.mark.asyncio
-    async def test_kafka_unavailable_promotes_via_direct_sql(
-        self,
-        mock_repository: MockPatternRepository,
-    ) -> None:
-        """Promotion without Kafka uses direct SQL fallback (ONEX invariant).
-
-        ONEX Invariant: Effect nodes must never block on Kafka.
-
-        This tests the scenario where:
-        1. Pattern is fetched as 'provisional' (eligible for promotion)
-        2. Kafka producer is unavailable (None)
-        3. Promotion proceeds via direct SQL UPDATE (fallback mode)
-        4. Database status IS updated
-        5. Downstream Kafka consumers will NOT be notified
-
-        NOTE: With fallback mode, there is no event-driven reducer validation.
-        The promotion happens directly in the database.
-        """
-        # Arrange
-        pattern_id = uuid4()
-        mock_repository.add_pattern(
-            PromotablePattern(
-                id=pattern_id,
-                status="provisional",
-                injection_count_rolling_20=10,
-                success_count_rolling_20=8,
-                failure_count_rolling_20=2,
-                failure_streak=0,
-            )
-        )
-
-        # Act - No Kafka producer available, uses fallback
-        result = await check_and_promote_patterns(
-            repository=mock_repository,
-            producer=None,  # Kafka unavailable - uses direct SQL fallback
-            dry_run=False,
-        )
-
-        # Assert
-        # Pattern was checked and found eligible
-        assert result.patterns_checked == 1
-        assert result.patterns_eligible == 1
-
-        # Promotion succeeded via fallback
-        assert len(result.patterns_promoted) == 1
-        assert (
-            result.patterns_promoted[0].reason == "auto_promote_rolling_window_fallback"
-        )
-        assert result.patterns_promoted[0].promoted_at is not None
-
-        # Database status WAS updated (fallback mode)
-        assert mock_repository.patterns[pattern_id].status == "validated"
 
 
 # =============================================================================
@@ -1957,7 +2029,7 @@ class TestConfigurableThresholds:
         # Act with DEFAULT thresholds - none should be eligible
         result_default = await check_and_promote_patterns(
             repository=mock_repository,
-            producer=None,
+            producer=mock_producer,
             dry_run=True,
         )
 

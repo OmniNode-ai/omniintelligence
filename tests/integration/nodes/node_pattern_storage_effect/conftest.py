@@ -7,7 +7,7 @@ node with real and mock infrastructure. Infrastructure availability is detected
 at runtime to allow tests to run with or without real PostgreSQL/Kafka.
 
 Infrastructure Configuration (from .env):
-    - PostgreSQL: 192.168.86.200:5436 (database: omninode_bridge)
+    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
     - Kafka/Redpanda: 192.168.86.200:29092 (for host scripts)
 
 Reference:

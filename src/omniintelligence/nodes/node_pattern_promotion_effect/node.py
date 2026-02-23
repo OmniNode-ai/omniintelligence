@@ -35,7 +35,7 @@ The actual handler execution and routing is performed by:
 
 Handlers receive their dependencies directly via parameters:
     - check_and_promote_patterns(repository, producer, ...)
-    - promote_pattern(repository, producer, pattern_id, pattern_data, ...)
+    - promote_pattern(producer, pattern_id, pattern_data, ...)
     - meets_promotion_criteria(pattern) - pure function
 
 Related Modules:

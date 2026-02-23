@@ -176,6 +176,92 @@ class ProtocolPatternUpsertStore(Protocol):
 
 
 @runtime_checkable
+class ProtocolPatternQueryStore(Protocol):
+    """Protocol for querying validated/provisional patterns.
+
+    Used by NodePatternProjectionEffect to retrieve the full pattern set for
+    snapshot building. Implemented by AdapterPatternStore.query_patterns().
+
+    Reference: OMN-2424
+    """
+
+    async def query_patterns(
+        self,
+        *,
+        domain: str | None,
+        language: str | None,
+        min_confidence: float,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:  # any-ok: raw asyncpg row dicts from DB
+        """Query validated/provisional patterns with optional filters."""
+        ...
+
+
+@runtime_checkable
+class ProtocolDecisionRecordRepository(Protocol):
+    """Protocol for DecisionRecord persistence and querying.
+
+    Defines the interface for storing and retrieving DecisionRecord rows.
+    Implementations may be backed by in-memory storage (tests) or a real
+    database (production).
+
+    All public operations accept an optional ``correlation_id`` for end-to-end
+    tracing per the ONEX invariant.
+
+    Reference: OMN-2467
+    """
+
+    def store(self, record: Any, *, correlation_id: str | None = None) -> bool:
+        """Persist a DecisionRecord row.
+
+        Returns:
+            True if stored, False if duplicate (idempotent).
+        """
+        ...
+
+    def get_record(
+        self,
+        decision_id: str,
+        *,
+        include_rationale: bool = False,
+        correlation_id: str | None = None,
+    ) -> Any | None:
+        """Retrieve a DecisionRecord by decision_id."""
+        ...
+
+    def query_by_type(
+        self,
+        decision_type: str,
+        *,
+        since: Any = None,
+        until: Any = None,
+        limit: int = 50,
+        cursor: Any = None,
+        correlation_id: str | None = None,
+    ) -> Any:
+        """Query records by decision_type."""
+        ...
+
+    def query_by_candidate(
+        self,
+        selected_candidate: str,
+        *,
+        since: Any = None,
+        until: Any = None,
+        limit: int = 50,
+        cursor: Any = None,
+        correlation_id: str | None = None,
+    ) -> Any:
+        """Query records by selected_candidate."""
+        ...
+
+    def count(self) -> int:
+        """Return total number of stored records."""
+        ...
+
+
+@runtime_checkable
 class ProtocolIntentClassifier(Protocol):
     """Protocol for intent classification compute nodes.
 
@@ -200,9 +286,11 @@ class ProtocolIntentClassifier(Protocol):
 
 
 __all__ = [
+    "ProtocolDecisionRecordRepository",
     "ProtocolIdempotencyStore",
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
+    "ProtocolPatternQueryStore",
     "ProtocolPatternRepository",
     "ProtocolPatternUpsertStore",
 ]

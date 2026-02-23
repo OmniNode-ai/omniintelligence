@@ -203,7 +203,7 @@ class ProtocolApplyTransition(Protocol):
     The positional parameters mirror ``apply_transition()`` exactly:
         1. repository (ProtocolPatternRepository)
         2. idempotency_store (ProtocolIdempotencyStore | None)
-        3. producer (ProtocolKafkaPublisher | None)
+        3. producer (ProtocolKafkaPublisher)
 
     All remaining parameters are keyword-only.
     """
@@ -212,7 +212,7 @@ class ProtocolApplyTransition(Protocol):
         self,
         repository: ProtocolPatternRepository,
         idempotency_store: ProtocolIdempotencyStore | None,
-        producer: ProtocolKafkaPublisher | None,
+        producer: ProtocolKafkaPublisher,
         *,
         request_id: UUID,
         correlation_id: UUID,
@@ -432,7 +432,7 @@ async def handle_auto_promote_check(
     *,
     apply_transition_fn: ProtocolApplyTransition,
     idempotency_store: ProtocolIdempotencyStore | None = None,
-    producer: ProtocolKafkaPublisher | None = None,
+    producer: ProtocolKafkaPublisher,
     correlation_id: UUID | None = None,
     publish_topic: str | None = None,
 ) -> AutoPromoteCheckResult:
@@ -454,11 +454,17 @@ async def handle_auto_promote_check(
             May be None -- ``apply_transition()`` accepts an Optional
             idempotency store and skips deduplication when None.
             Callers that need idempotency should pass a concrete store.
-        producer: Optional Kafka producer for transition events.
+        producer: Kafka producer for transition events. Required infrastructure
+            — Kafka is the only transition path. Passing None is a programming
+            error. Must be passed as a keyword argument.
         correlation_id: Optional correlation ID for tracing. When None a
             single fallback UUID is generated and reused for every
             transition in this invocation to ensure consistent tracing.
-        publish_topic: Kafka topic for transition events (required if producer).
+        publish_topic: Kafka topic for transition events. When ``None``, the
+            ``apply_transition`` machinery uses its own default topic (typically
+            the contract-declared publish topic). Callers that need to override
+            the topic should pass an explicit string. ``None`` is a valid
+            "use the default" signal, not a programming error.
 
     Returns:
         AutoPromoteCheckResult with per-pattern promotion details.

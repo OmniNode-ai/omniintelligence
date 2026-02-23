@@ -1,40 +1,33 @@
-# CLAUDE.md - OmniIntelligence
+# CLAUDE.md
 
-> **Python**: 3.12+ | **Framework**: ONEX Intelligence | **Package Manager**: uv | **Shared Standards**: See **`~/.claude/CLAUDE.md`** for shared development standards (Python, Git, testing, architecture principles) and infrastructure configuration (PostgreSQL, Kafka/Redpanda, Docker networking, environment variables).
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+> **Shared Infrastructure**: For PostgreSQL, Kafka/Redpanda, remote server topology (192.168.86.200), Docker networking, and environment variables, see **`~/.claude/CLAUDE.md`**. This file covers OmniIntelligence-specific architecture only.
 
-## Table of Contents
+## Overview
 
-1. [Repo Invariants](#repo-invariants)
-2. [Non-Goals](#non-goals)
-3. [Quick Reference](#quick-reference)
-4. [Handler Output Constraints](#handler-output-constraints)
-5. [Forbidden Data Flow Patterns](#forbidden-data-flow-patterns)
-6. [Dependency Injection](#dependency-injection)
-7. [Error Handling](#error-handling)
-8. [Project Structure](#project-structure)
-9. [Node Inventory](#node-inventory)
-10. [Event-Driven Architecture](#event-driven-architecture)
-11. [Runtime Module](#runtime-module)
-12. [API Module](#api-module)
-13. [Repositories Module](#repositories-module)
-14. [Pydantic Model Standards](#pydantic-model-standards)
-15. [Code Quality](#code-quality)
-16. [Common Pitfalls](#common-pitfalls)
-17. [Documentation](#documentation)
+OmniIntelligence is the intelligence platform for the ONEX ecosystem, providing code quality analysis, pattern learning, semantic analysis, and Claude Code hook processing as first-class ONEX nodes. The system follows declarative node architecture where nodes are thin shells delegating all logic to handlers.
+
+**Key Capabilities**:
+- **Claude Code Hook Processing**: Receives and processes hook events from omniclaude
+- **Pattern Learning**: ML-based pattern extraction, clustering, and lifecycle management
+- **Quality Scoring**: Code quality assessment with ONEX compliance checking
+- **Intent Classification**: User prompt intent analysis (pure computation, pattern matching)
+
+> **Note**: Vector storage and graph operations (Qdrant, Memgraph) are handled by the `omnimemory` repository.
 
 ---
 
-## Repo Invariants
+## Repository Invariants
 
-These are non-negotiable architectural truths. Violations cause production issues or architectural drift.
+These rules are non-negotiable. Violations will cause production issues or architectural drift.
+
+**No backwards compatibility**: This repository has no external consumers. Schemas, APIs, and interfaces may change without deprecation periods. If something needs to change, change it.
 
 | Invariant | Rationale |
 |-----------|-----------|
-| **No backwards compatibility** — schemas, APIs, and interfaces may change without deprecation periods | This repo has no external consumers |
 | Node classes must be **thin shells** (<100 lines) | Declarative pattern; logic belongs in handlers |
-| Effect nodes must **never block** on Kafka | Async-only — never await synchronously in the calling thread; nodes must remain non-blocking |
+| Effect nodes must **never block** on Kafka | Kafka is optional; do not block on it — accept an optional producer and skip/log events when absent; emit asynchronously |
 | All event schemas are **frozen** (`frozen=True`) | Events are immutable after emission |
 | Handlers must **return structured errors**, not raise | Domain errors are data, not exceptions |
 | `correlation_id` must be **threaded through all operations** | End-to-end tracing is required |
@@ -42,16 +35,9 @@ These are non-negotiable architectural truths. Violations cause production issue
 | Subscribe topics declared in `contract.yaml`, not in `plugin.py` | `collect_subscribe_topics_from_contracts()` is the single source |
 | `PluginIntelligence.wire_dispatchers()` must run before `start_consumers()` | No dispatch engine = no consumers (hard gate) |
 | `AdapterPatternStore` ignores the `conn` parameter — each method is an independent transaction | External transaction control is not supported by this adapter |
+| **`omnibase_infra` migrations must run before this service starts** | `idempotency_records` is owned and migrated by `omnibase_infra` (not this repo's migrations) and is listed in `OMNIINTELLIGENCE_SCHEMA_MANIFEST`; **fingerprint ordering risk**: if `idempotency_records` does not exist when this service first boots, `validate_handshake` (B2) will auto-stamp a fingerprint that EXCLUDES the table — all subsequent boots will then hard-fail with `SchemaFingerprintMismatchError` because the live schema now includes `idempotency_records` but the stored fingerprint does not |
 
-**Mechanically enforced** (run `uv run pytest -m audit`):
-
-| Rule | Enforcement |
-|------|-------------|
-| Node line count < 100 | `tests/audit/test_io_violations.py` — AST analysis |
-| No `logging` import in `node.py` | `tests/audit/test_io_violations.py` — import audit |
-| No `container.get(` in node methods | `tests/audit/test_io_violations.py` — AST pattern match |
-| No `try/except` in `node.py` | `tests/audit/test_io_violations.py` — AST analysis |
-| Protocol conformance | `nodes/*/node_tests/conftest.py` — `isinstance()` checks |
+> **Note on `node_pattern_storage_effect`**: This node does not receive an injected Kafka producer. Instead, handlers return typed event models (`ModelPatternStoredEvent`, `ModelPatternPromotedEvent`) which `RuntimeHostProcess` publishes to the declared `publish_topics`. This is a valid alternative pattern for nodes where the runtime handles event emission transparently.
 
 ---
 
@@ -59,97 +45,176 @@ These are non-negotiable architectural truths. Violations cause production issue
 
 This system explicitly does NOT optimize for:
 
-- **Developer convenience** — Strictness over ergonomics. Boilerplate is acceptable if it enforces boundaries.
-- **Framework agnosticism** — ONEX-native only. No abstraction layers for hypothetical portability.
-- **Flexibility** — Determinism over configurability. One way to do things.
-- **Minimal code** — Explicit is better than clever. Verbose handlers over magic.
-- **Backwards compatibility** — No deprecation periods, no shims, no `_deprecated` suffixes.
-- **Business logic in nodes** — Nodes coordinate; handlers compute.
+- **Developer convenience** - Strictness over ergonomics. Boilerplate is acceptable if it enforces boundaries.
+- **Framework agnosticism** - This is ONEX-native. No abstraction layers for hypothetical portability.
+- **Flexibility** - Determinism and predictability over configurability. One way to do things.
+- **Minimal code** - Explicit is better than clever. Verbose handlers over magic.
+- **Backwards compatibility** - See Repository Invariants above. No deprecation periods, no shims.
 
 ---
 
-## Quick Reference
+## Development Commands
 
 ```bash
-# Setup
-uv sync --group all && pre-commit install
+# Install dependencies (using uv)
+uv sync --group dev        # Development dependencies
+uv sync --group core       # Core node system + infrastructure
+uv sync --group all        # Everything
 
-# Testing
-uv run pytest tests/                          # All tests
-uv run pytest tests/unit                      # Unit tests only
-uv run pytest tests/integration               # Integration tests (requires infrastructure)
-uv run pytest -m audit                        # I/O purity audit enforcement
-uv run pytest -m unit -xvs                    # Debug mode
-uv run pytest tests/ --cov=src/omniintelligence # With coverage
+# Run tests
+pytest                     # All tests
+pytest tests/unit          # Unit tests only
+pytest tests/integration   # Integration tests (requires infrastructure)
+pytest -k "test_name"      # Single test by name
+pytest -m unit             # Only @pytest.mark.unit tests
+pytest -m "not slow"       # Exclude slow tests
+pytest -m audit            # I/O audit tests only
+pytest --cov=src/omniintelligence --cov-report=html  # With coverage
 
-# Code Quality
-uv run mypy src/                              # Type checking (strict, 0 errors required)
-uv run ruff check src tests                   # Linting
-uv run ruff check --fix src tests             # Auto-fix lint issues
-uv run ruff format src tests                  # Format code
-pre-commit run --all-files                    # All hooks
+# Code quality
+ruff check src tests       # Lint (includes import sorting)
+ruff check --fix src tests # Auto-fix lint issues
+ruff format src tests      # Format code
+mypy src                   # Type check
 ```
 
-**Test markers**: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`, `@pytest.mark.audit`, `@pytest.mark.performance`
+---
+
+## Architecture
+
+### Node Types
+
+The system decomposes intelligence operations into specialized ONEX nodes:
+
+| Type | Purpose | Base Class |
+|------|---------|------------|
+| **Orchestrator** | Coordinate workflows, route operations | `NodeOrchestrator` |
+| **Reducer** | Manage FSM state transitions | `NodeReducer` |
+| **Compute** | Pure data processing, no side effects | `NodeCompute` |
+| **Effect** | External I/O (Kafka, PostgreSQL) | `NodeEffect` |
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|---------|
+| **Directory** | `node_{type}_{category}` | `node_pattern_storage_effect` |
+| **Class** | `Node{Type}{Category}` | `NodePatternStorageEffect` |
+| **Input Model** | `Model{NodeName}Input` | `ModelPatternStorageInput` |
+| **Output Model** | `Model{NodeName}Output` | `ModelPatternStorageOutput` |
+| **Handler** | `handle_{operation}` or `Handler{Domain}` | `handle_store_pattern` |
+
+**Directory naming is MANDATORY**: All node directories MUST start with `node_` prefix for consistency.
+
+### Complete Node Inventory
+
+**Orchestrators**:
+- `NodeIntelligenceOrchestrator` - Main workflow coordination (contract-driven)
+- `NodePatternAssemblerOrchestrator` - Pattern assembly from traces
+
+**Reducer**:
+- `NodeIntelligenceReducer` - Unified FSM handler (ingestion, pattern_learning, quality_assessment)
+
+**Compute Nodes**:
+- `NodeQualityScoringCompute` - Code quality scoring with ONEX compliance
+- `NodeSemanticAnalysisCompute` - Semantic code analysis
+- `NodePatternExtractionCompute` - Extract patterns from code
+- `NodePatternLearningCompute` - ML pattern learning pipeline
+- `NodePatternMatchingCompute` - Match patterns against code
+- `NodeIntentClassifierCompute` - User prompt intent classification
+- `NodeExecutionTraceParserCompute` - Parse execution traces
+- `NodeSuccessCriteriaMatcherCompute` - Match success criteria
+
+**Effect Nodes**:
+- `NodeClaudeHookEventEffect` - Process Claude Code hook events
+- `NodePatternStorageEffect` - Persist patterns to PostgreSQL
+- `NodePatternPromotionEffect` - Promote patterns (provisional → validated)
+- `NodePatternDemotionEffect` - Demote patterns (validated → deprecated)
+- `NodePatternFeedbackEffect` - Record session outcomes and metrics
+- `NodePatternLifecycleEffect` - Atomic pattern lifecycle transitions with audit trail
 
 ---
 
-## Handler Output Constraints
+## Declarative Node Pattern (CRITICAL)
 
-| Node Kind | Allowed | Forbidden |
-|-----------|---------|-----------|
-| **ORCHESTRATOR** | `events[]`, `intents[]` | `projections[]`, `result` |
-| **REDUCER** | `projections[]` | `events[]`, `intents[]`, `result` |
-| **EFFECT** | `events[]` | `intents[]`, `projections[]`, `result` |
-| **COMPUTE** | `result` (required) | `events[]`, `intents[]`, `projections[]` |
+**All nodes MUST be declarative, not imperative.** The node class is a thin shell (~20-50 lines) that:
+1. Declares dependencies via constructor or registry (not setters)
+2. Delegates ALL logic to handler functions
+3. Contains NO error handling, logging, or validation
 
-**Where logic belongs**:
+### Ideal Pattern: Thin Shell Compute Node
 
-| Component | Responsibility | Typical Lines |
-|-----------|----------------|---------------|
-| `node.py` | Type declarations, single delegation | 20–50 |
-| `handler_compute.py` | Orchestrate, error handling, timing | 100–350 |
-| `handler_{domain}.py` | Pure business logic | 200–1000 |
-| `protocols.py` | TypedDict, Protocol definitions | 50–150 |
-| `exceptions.py` | Domain-specific errors with codes | 30–60 |
+**File**: `nodes/node_quality_scoring_compute/node.py` (~22 lines)
 
----
+```python
+"""Quality Scoring Compute Node - Thin shell delegating to handler."""
+from omnibase_core.nodes.node_compute import NodeCompute
+from .handlers import handle_quality_scoring_compute
+from .models import ModelQualityScoringInput, ModelQualityScoringOutput
 
-## Forbidden Data Flow Patterns
 
-- Command → Reducer (bypasses orchestration)
-- Reducer → I/O (violates purity)
-- Orchestrator → Typed Result (only COMPUTE returns results)
-- Effect node blocking on Kafka (async-only — never await synchronously in the calling thread; use non-blocking publish patterns)
-- `set_repository()` setters in nodes (use constructor/registry injection)
-- `try/except` in `node.py` (error handling belongs in handlers)
-- `logger.info()` in `node.py` (logging belongs in handlers)
-- `self.container.get(X)` at runtime in nodes (use explicit constructor params)
-- Hardcoded topic lists in `plugin.py` (declare in `contract.yaml`, collect via `collect_subscribe_topics_from_contracts()`)
+class NodeQualityScoringCompute(
+    NodeCompute[ModelQualityScoringInput, ModelQualityScoringOutput]
+):
+    """Pure compute node for scoring code quality.
 
----
+    This node is a thin shell following the ONEX declarative pattern.
+    All computation logic is delegated to the handler function.
+    """
 
-## Dependency Injection
+    async def compute(
+        self, input_data: ModelQualityScoringInput
+    ) -> ModelQualityScoringOutput:
+        """Score code quality by delegating to handler function."""
+        return handle_quality_scoring_compute(input_data)
+```
 
-| Type | Purpose | In Node `__init__` |
-|------|---------|-------------------|
-| `ModelContainer[T]` | Value wrapper | **NEVER** |
-| `ModelONEXContainer` | Dependency injection | **ALWAYS** |
+### Effect Node with Handler Injection
 
-All I/O dependencies use `@runtime_checkable` Protocol classes:
+**File**: `nodes/node_claude_hook_event_effect/node.py` (~35 lines)
 
-| Protocol | Used By |
-|----------|---------|
-| `ProtocolKafkaPublisher` | Effect nodes publishing events |
-| `ProtocolPatternRepository` | Generic DB fetch/execute |
-| `ProtocolPatternStore` | Pattern-specific: store, query, check_exists |
-| `ProtocolPatternStateManager` | Lifecycle: promote, demote |
-| `ProtocolIdempotencyStore` | Idempotency checks (pattern lifecycle) |
+```python
+class NodeClaudeHookEventEffect(NodeEffect):
+    """Thin shell effect node for Claude Code hook event handling."""
 
-**Protocol design rule**: If you are creating a 4th protocol for the same resource, refactor existing ones first. Prefer aggregated protocols (`ProtocolPatternStore` = read + write + query) over single-method protocols.
+    def __init__(
+        self,
+        container: ModelONEXContainer,
+        handler: HandlerClaudeHookEvent,
+    ) -> None:
+        super().__init__(container)
+        self._handler = handler  # Handler injected, not created
 
-**Registry pattern** (frozen, immutable wiring):
+    async def execute(
+        self, event: ModelClaudeCodeHookEvent
+    ) -> ModelClaudeHookResult:
+        """Execute by delegating to handler - single line."""
+        return await self._handler.handle(event)
+```
 
+### Effect Node with Registry Pattern
+
+**File**: `nodes/node_pattern_promotion_effect/node.py` (~40 lines)
+
+```python
+class NodePatternPromotionEffect(NodeEffect):
+    """Pattern promotion with registry-wired handlers."""
+
+    def __init__(
+        self,
+        container: ModelONEXContainer,
+        registry: ServiceHandlerRegistry,  # Frozen dataclass
+    ) -> None:
+        super().__init__(container)
+        self._registry = registry
+
+    async def execute(
+        self, request: ModelPromotionCheckRequest
+    ) -> ModelPromotionCheckResult:
+        handler = self._registry.check_and_promote
+        return await handler(request)
+```
+
+**Registry Creation** (frozen, immutable):
 ```python
 registry = RegistryPatternPromotionEffect.create_registry(
     repository=db_connection,
@@ -158,109 +223,530 @@ registry = RegistryPatternPromotionEffect.create_registry(
 node = NodePatternPromotionEffect(container, registry)
 ```
 
+### Anti-Patterns to AVOID
+
+| Anti-Pattern | Why Wrong | Correct Approach |
+|--------------|-----------|------------------|
+| `set_repository()` setters | Mutable state, testing complexity | Constructor/registry injection |
+| `try/except` in node | Business logic in wrong place | Handler handles all errors |
+| `logger.info()` in node | Cross-cutting concern | Handler logs with context |
+| `if self._repo is None` | Validation is business logic | Handler validates |
+| `self.container.get(X)` at runtime | Implicit dependencies | Explicit constructor params |
+| Nodes > 100 lines | Violates thin shell | Refactor to handler |
+
+### Enforcement (CI/Audit)
+
+These rules are **mechanically enforced**, not just documented:
+
+| Rule | Enforcement | Location |
+|------|-------------|----------|
+| Node line count < 100 | `tests/audit/test_io_violations.py` | AST analysis |
+| No `logging` import in nodes | `tests/audit/test_io_violations.py` | Import audit |
+| No `container.get(` in node methods | `tests/audit/test_io_violations.py` | AST pattern match |
+| No `try/except` in node.py | `tests/audit/test_io_violations.py` | AST analysis |
+| Protocol conformance | `node_tests/conftest.py` | `isinstance()` checks |
+
+Run enforcement: `pytest -m audit`
+
+### Where Logic Belongs
+
+| Component | Responsibility | Typical Lines |
+|-----------|----------------|---------------|
+| **node.py** | Type declarations, single delegation | 20-50 |
+| **handler_compute.py** | Orchestrate, error handling, timing | 100-350 |
+| **handler_{domain}.py** | Pure business logic | 200-1000 |
+| **protocols.py** | TypedDict, Protocol definitions | 50-150 |
+| **exceptions.py** | Domain-specific errors with codes | 30-60 |
+
 ---
 
-## Error Handling
+## Handler System
 
+Handlers contain ALL business logic, error handling, and logging. Three patterns exist:
+
+### Pattern 1: Pure Module-Level Functions (Compute Nodes)
+
+```python
+# handlers/handler_quality_scoring.py
+def score_code_quality(
+    content: str,
+    language: str,
+    weights: dict[str, float] | None = None,
+    onex_threshold: float = 0.7,
+) -> QualityScoringResult:
+    """Pure function - no I/O, returns TypedDict."""
+    # All computation logic here
+    ...
+```
+
+### Pattern 2: Async Functions with Protocol Deps (Effect Nodes)
+
+```python
+# handlers/handler_store_pattern.py
+async def handle_store_pattern(
+    input_data: ModelPatternStorageInput,
+    *,
+    pattern_store: ProtocolPatternStore,  # Protocol, not concrete
+    conn: AsyncConnection,                 # External transaction control
+) -> ModelPatternStoredEvent:
+    """Dependencies injected via parameters."""
+    ...
+```
+
+### Pattern 3: Handler Classes (Complex Workflows)
+
+```python
+# handlers/handler_pattern_learning.py
+class HandlerPatternLearning:
+    """Stateless handler class with execute() interface."""
+
+    def handle(
+        self,
+        training_data: Sequence[TrainingDataItemDict],
+        parameters: LearningParametersDict | None = None,
+    ) -> PatternLearningResult:
+        return _execute_pipeline(...)
+```
+
+### Error Handling Pattern
+
+**Handlers must not raise domain or expected errors** - return structured error output instead.
+
+**Handlers MAY raise** for:
+- Invariant violations (data corruption, impossible states)
+- Schema violations (Pydantic validation at boundaries)
+- Unrecoverable infrastructure faults (connection pool exhausted)
+
+```python
+def handle_quality_scoring_compute(
+    input_data: ModelQualityScoringInput,
+) -> ModelQualityScoringOutput:
+    start_time = time.perf_counter()
+
+    try:
+        return _execute_scoring(input_data, start_time)
+
+    except QualityScoringValidationError as e:
+        # Domain error - return structured response, DO NOT RAISE
+        return _create_validation_error_output(str(e), _elapsed(start_time))
+
+    except SchemaCorruptionError:
+        # Invariant violation - MUST RAISE to halt orchestration
+        raise
+
+    except Exception as e:
+        # Unknown error - return structured, log for investigation
+        logger.exception("Unhandled exception...")
+        return _create_safe_error_output(f"Unhandled: {e}", _elapsed(start_time))
+```
+
+**Error Classification**:
 | Error Type | Action | Rationale |
 |------------|--------|-----------|
-| Domain / business errors | Return structured output | Expected, recoverable |
-| Validation errors | Return structured output | User / input issue |
-| Invariant violations | RAISE | System corruption — must halt |
+| Domain/business errors | Return structured output | Expected, recoverable |
+| Validation errors | Return structured output | User/input issue |
+| Invariant violations | RAISE | System corruption, must halt |
 | Schema corruption | RAISE | Data integrity at risk |
 | Infrastructure fatal | RAISE | Cannot continue safely |
 
-**Comment markers** (required when suppressing or accepting errors):
+### Handler Directory Structure
 
-- `# fallback-ok:` — Graceful degradation (e.g., optional telemetry service down)
-- `# boundary-ok:` — API boundary exception handling
-- `# cleanup-resilience-ok:` — Cleanup must complete even on error
+```
+nodes/node_quality_scoring_compute/
+├── node.py                     # Thin shell (~20-40 lines)
+├── models/
+│   ├── model_input.py
+│   └── model_output.py
+└── handlers/
+    ├── __init__.py             # Re-exports
+    ├── handler_compute.py      # Main orchestration, error handling
+    ├── handler_quality_scoring.py  # Pure scoring logic
+    ├── protocols.py            # TypedDict, Protocol definitions
+    ├── exceptions.py           # Domain-specific errors
+    └── presets.py              # Configuration presets
+```
 
 ---
 
-## Project Structure
+## Claude Code Hook System
+
+OmniIntelligence processes Claude Code hooks via `NodeClaudeHookEventEffect`.
+
+### Supported Hook Event Types
+
+| Hook Type | Handler | Status | Purpose |
+|-----------|---------|--------|---------|
+| `UserPromptSubmit` | `handle_user_prompt_submit()` | **ACTIVE** | Classify user intent, emit to Kafka |
+| `SessionStart` | `handle_no_op()` | DEFERRED | Session tracking |
+| `SessionEnd` | `handle_no_op()` | DEFERRED | Session summary |
+| `PreToolUse` | `handle_no_op()` | DEFERRED | Tool validation |
+| `PostToolUse` | `handle_no_op()` | DEFERRED | Result capture |
+| `Stop` | `handle_no_op()` | DEFERRED | Completion tracking |
+| `Notification` | `handle_no_op()` | IGNORED | No current use case |
+
+**Status Legend**:
+- **ACTIVE**: Implemented and emitting events
+- **DEFERRED**: Intentionally unimplemented, planned for future
+- **IGNORED**: Intentionally no-op, no planned implementation
+
+### Hook Event Flow
 
 ```
-src/omniintelligence/
-├── nodes/              # ONEX node shells (thin, <100 lines each)
-├── runtime/            # PluginIntelligence, MessageDispatchEngine wiring
-├── api/                # FastAPI pattern store query API (OMN-2253)
-├── repositories/       # omnibase_infra effect boundary adapter
-├── handlers/           # Shared handler functions (non-node-specific)
-├── models/             # Shared Pydantic models
-├── enums/              # Enum definitions
-├── protocols/          # Shared Protocol definitions
-├── utils/              # Utilities (log sanitizer, db_url, etc.)
-├── testing/            # Shared test helpers and fixtures
-├── tools/              # Internal tooling and scripts
-├── audit/              # Audit and compliance utilities
-├── _legacy/            # Legacy code (do not import)
-└── constants.py        # Module-level constants
+Claude Code Extension
+       │
+       ▼
+omniclaude (Hook Producer)
+  Publishes: onex.cmd.omniintelligence.claude-hook-event.v1
+       │
+       ▼
+NodeClaudeHookEventEffect
+  ├── route_hook_event()
+  │     ├── UserPromptSubmit → handle_user_prompt_submit()
+  │     │     ├── Call NodeIntentClassifierCompute
+  │     │     └── Emit to Kafka (intent-classified.v1)
+  │     └── Other events → handle_no_op()
+       │
+       ▼
+omnimemory (Graph Storage)
+  Consumes: onex.evt.omniintelligence.intent-classified.v1
+  Stores intent classifications in knowledge graph
 ```
-
-**File naming conventions**:
-
-| Directory | Required Prefix | Example |
-|-----------|----------------|---------|
-| `nodes/` | `node_` | `node_quality_scoring_compute/` |
-| `models/` | `model_` | `model_pattern_lifecycle.py` |
-| `enums/` | `enum_` | `enum_intelligence_operation_type.py` |
-| `protocols/` | `protocol_` | `protocol_pattern_store.py` |
-| `handlers/` | `handler_` | `handler_pattern_learning.py` |
-| `runtime/` | `plugin_`, `wiring_`, `dispatch_`, `adapter_`, `contract_`, `introspection_`, `message_type_`, `model_` | `dispatch_handler_pattern_learning.py` |
-| `repositories/` | `adapter_` | `adapter_pattern_store.py` |
-| `api/` | `router_`, `handler_`, `model_`, `app` | `router_patterns.py` |
-
-**Node directory naming is MANDATORY**: All node directories MUST start with `node_` prefix.
 
 ---
 
-## Node Inventory
+## Event-Driven Architecture
 
-**Orchestrators** (2):
+### Kafka Topics
 
-| Class | Directory | Purpose |
-|-------|-----------|---------|
-| `NodeIntelligenceOrchestrator` | `node_intelligence_orchestrator` | Main workflow coordination (contract-driven) |
-| `NodePatternAssemblerOrchestrator` | `node_pattern_assembler_orchestrator` | Pattern assembly from execution traces |
+**Topic Naming**: `{env}.onex.{kind}.{producer}.{event-name}.v{version}`
+- `kind=cmd` for commands/inputs
+- `kind=evt` for events/outputs
 
-**Reducer** (1):
+**Subscribed Topics** (consumed by this system):
 
-| Class | Directory | Purpose |
-|-------|-----------|---------|
-| `NodeIntelligenceReducer` | `node_intelligence_reducer` | Unified FSM handler (ingestion, pattern_learning, quality_assessment) |
+| Topic | Subscriber Node | Purpose |
+|-------|----------------|---------|
+| `onex.cmd.omniintelligence.claude-hook-event.v1` | `NodeClaudeHookEventEffect` | Claude Code hooks |
+| `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` | Pattern lifecycle transition intents from reducer |
 
-**Compute Nodes** (8):
+**Published Topics** (produced by this system):
 
-| Class | Directory | Purpose |
-|-------|-----------|---------|
-| `NodeQualityScoringCompute` | `node_quality_scoring_compute` | Code quality scoring with ONEX compliance |
-| `NodeSemanticAnalysisCompute` | `node_semantic_analysis_compute` | Semantic code analysis |
-| `NodePatternExtractionCompute` | `node_pattern_extraction_compute` | Extract patterns from code |
-| `NodePatternLearningCompute` | `node_pattern_learning_compute` | ML pattern learning pipeline |
-| `NodePatternMatchingCompute` | `node_pattern_matching_compute` | Match patterns against code |
-| `NodeIntentClassifierCompute` | `node_intent_classifier_compute` | User prompt intent classification |
-| `NodeExecutionTraceParserCompute` | `node_execution_trace_parser_compute` | Parse execution traces |
-| `NodeSuccessCriteriaMatcherCompute` | `node_success_criteria_matcher_compute` | Match success criteria |
+| Topic | Publisher Node | Purpose |
+|-------|---------------|---------|
+| `onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` | Classified intents |
+| `onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` | Pattern storage confirmations |
+| `onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternPromotionEffect` | Pattern promotions |
+| `onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` | Pattern demotions |
 
-**Effect Nodes** (10):
+### DLQ (Dead Letter Queue) Pattern
 
-| Class | Directory | Purpose | Has `node.py` |
-|-------|-----------|---------|---------------|
-| `NodeClaudeHookEventEffect` | `node_claude_hook_event_effect` | Process Claude Code hook events | Yes |
-| `NodePatternStorageEffect` | `node_pattern_storage_effect` | Persist patterns to PostgreSQL | Yes |
-| `NodePatternPromotionEffect` | `node_pattern_promotion_effect` | Promote patterns (provisional → validated) | Yes |
-| `NodePatternDemotionEffect` | `node_pattern_demotion_effect` | Demote patterns (validated → deprecated) | Yes |
-| `NodePatternFeedbackEffect` | `node_pattern_feedback_effect` | Record session outcomes and metrics | Yes |
-| `NodePatternLifecycleEffect` | `node_pattern_lifecycle_effect` | Atomic lifecycle transitions with audit trail | Yes |
-| `NodePatternLearningEffect` | `node_pattern_learning_effect` | Pattern extraction pipeline (contract-only node) | **No** |
-| `NodeComplianceEvaluateEffect` | `node_compliance_evaluate_effect` | Evaluate compliance rules against patterns | Yes |
-| `NodeEnforcementFeedbackEffect` | `node_enforcement_feedback_effect` | Record enforcement feedback and confidence adjustments | Yes |
-| `NodePatternComplianceEffect` | `node_pattern_compliance_effect` | Pattern compliance assessment pipeline | Yes |
+All effect nodes route failed messages to `{topic}.dlq` with:
+- Original envelope preserved
+- Error message and timestamp
+- Retry count and service metadata
+- Secret sanitization via `LogSanitizer`
 
-**Note on `NodePatternLearningEffect`**: This is a **contract-only node** — it has a `contract.yaml` but no `node.py`. It is runtime-wired by `PluginIntelligence` via `MessageDispatchEngine`. The dispatch handler lives at `runtime/dispatch_handler_pattern_learning.py`.
+### Correlation ID Tracing
 
-**FSM States** (`NodeIntelligenceReducer`):
+All operations thread `correlation_id` through:
+1. Input model (`correlation_id: UUID`)
+2. Handler logging (`extra={"correlation_id": ...}`)
+3. Kafka payloads (`"correlation_id": str(correlation_id)`)
+4. Output models (preserved for downstream)
+
+---
+
+## Infrastructure Patterns
+
+### Protocol-Based Dependencies
+
+All I/O uses `@runtime_checkable` Protocol classes:
+
+```python
+@runtime_checkable
+class ProtocolKafkaPublisher(Protocol):
+    async def publish(self, topic: str, key: str, value: dict) -> None: ...
+
+@runtime_checkable
+class ProtocolPatternRepository(Protocol):
+    async def fetch(self, query: str, *args: Any) -> list[Mapping]: ...
+    async def execute(self, query: str, *args: Any) -> str: ...
+```
+
+### Non-Blocking Kafka Emission
+
+Kafka is optional — event emission must never block the primary operation. Always check `producer is not None` before publishing. Fire-and-forget: the primary operation succeeds regardless of Kafka availability:
+
+```python
+# Emit asynchronously — do not await a Kafka ack before returning
+await _emit_promotion_event(producer=producer, ...)
+# Kafka emit is the transition path; caller returns immediately after (reducer detects duplicates)
+```
+
+### External Transaction Control
+
+Handlers accept `conn` parameter for caller-managed transactions:
+
+```python
+async def handle_store_pattern(
+    input_data: ModelPatternStorageInput,
+    *,
+    pattern_store: ProtocolPatternStore,
+    conn: AsyncConnection,  # External transaction control
+) -> ModelPatternStoredEvent:
+    # All operations use the provided connection
+    await pattern_store.store_pattern(..., conn=conn)
+```
+
+### Protocol Design Guidelines
+
+To prevent protocol explosion and mock fatigue:
+
+| When To | Guidance |
+|---------|----------|
+| **Create new protocol** | Only when existing protocols don't cover the I/O boundary |
+| **Reuse existing** | Prefer `ProtocolPatternRepository` over domain-specific repos |
+| **Aggregate protocols** | Combine related operations (e.g., `ProtocolPatternStore` = read + write + query) |
+| **Avoid** | Single-method protocols, overlapping responsibilities |
+
+**Protocol Hierarchy**:
+```
+ProtocolPatternRepository (generic DB ops)
+    └── ProtocolPatternStore (pattern-specific: store, query, check_exists)
+    └── ProtocolPatternStateManager (lifecycle: promote, demote)
+
+ProtocolKafkaPublisher (single publish method - intentionally minimal)
+```
+
+**Rule**: If you're creating a 4th protocol for the same resource, refactor existing ones first.
+
+---
+
+## Contract YAML Structure
+
+Each node has a `contract.yaml` defining behavior declaratively:
+
+```yaml
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_name"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version: {major: 1, minor: 0, patch: 0}
+node_type: "EFFECT_GENERIC"  # or COMPUTE_GENERIC, REDUCER_GENERIC, ORCHESTRATOR_GENERIC
+
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelNodeInput"
+  module: "omniintelligence.nodes.node_name.models"
+
+output_model:
+  name: "ModelNodeOutput"
+  module: "omniintelligence.nodes.node_name.models"
+
+# =============================================================================
+# HANDLER ROUTING (Effect/Orchestrator)
+# =============================================================================
+handler_routing:
+  routing_strategy: "event_type_match"  # or "operation_match"
+  handlers:
+    - operation: "operation_name"
+      handler:
+        function: "handle_operation"
+        module: "...handlers.handler_operation"
+        type: "async"
+
+# =============================================================================
+# EVENT BUS (Effect nodes)
+# =============================================================================
+event_bus:
+  event_bus_enabled: true
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.topic.v1"
+  publish_topics:
+    - "onex.evt.omniintelligence.topic.v1"
+
+# =============================================================================
+# STATE MACHINE (Reducer nodes)
+# =============================================================================
+state_machine:
+  state_machine_name: "fsm_name"
+  initial_state: "idle"
+  states:
+    - state_name: "state"
+      is_terminal: false
+  transitions:
+    - from_state: "a"
+      to_state: "b"
+      trigger: "action"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    required: false  # Kafka is optional; handlers must degrade gracefully when absent
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["pattern_id", "signature_hash"]
+```
+
+---
+
+## Running Nodes
+
+Nodes in this repository are **not standalone executables**. They are discovered and executed by `RuntimeHostProcess` from `omnibase_infra`.
+
+### Why No `__main__.py`?
+
+Nodes are thin shells that delegate to handlers. Infrastructure concerns (Kafka consumption, health checks, graceful shutdown, drain timeout) belong to the **runtime**, not individual nodes.
+
+| Anti-Pattern | Why Wrong | Correct Approach |
+|--------------|-----------|------------------|
+| `__main__.py` in node directory | Nodes shouldn't own infrastructure | Use `RuntimeHostProcess` |
+| Ad-hoc Kafka consumer loops | Duplicates runtime logic | Declare topics in `contract.yaml` |
+| Manual health check endpoints | Cross-cutting concern | `RuntimeHostProcess` handles |
+| Custom shutdown handlers | Inconsistent drain behavior | Runtime manages gracefully |
+
+### Correct Pattern: RuntimeHostProcess
+
+`RuntimeHostProcess` from `omnibase_infra.runtime` is the correct way to run effect nodes:
+
+```python
+import asyncio
+import signal
+
+from omnibase_infra.runtime import RuntimeHostProcess
+from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+
+shutdown_event = asyncio.Event()
+
+
+def handle_shutdown(sig, frame):
+    """Signal handler to trigger graceful shutdown."""
+    shutdown_event.set()
+
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
+
+
+async def main():
+    # RuntimeHostProcess discovers nodes and wires them automatically
+    process = RuntimeHostProcess(
+        event_bus=EventBusKafka.default(),
+        contract_paths=["src/omniintelligence/nodes/"],
+    )
+    await process.start()
+
+    # RuntimeHostProcess handles:
+    #   - Kafka subscription from contract.yaml event_bus config
+    #   - Handler routing based on handler_routing config
+    #   - Health checks at /health endpoint
+    #   - Graceful shutdown with configurable drain timeout
+    #   - DLQ routing for failed messages
+
+    await shutdown_event.wait()
+    await process.stop()
+```
+
+### Contract Configuration for Event Bus
+
+Each node's `contract.yaml` declares its event bus configuration (see Contract YAML Structure above):
+
+```yaml
+event_bus:
+  event_bus_enabled: true
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.claude-hook-event.v1"
+  publish_topics:
+    - "onex.evt.omniintelligence.intent-classified.v1"
+
+handler_routing:
+  routing_strategy: "event_type_match"
+  handlers:
+    - operation: "UserPromptSubmit"
+      handler:
+        function: "handle_user_prompt_submit"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers"
+        type: "async"
+```
+
+`RuntimeHostProcess` reads this configuration to:
+1. Subscribe to declared `subscribe_topics`
+2. Route incoming messages to handlers based on `handler_routing`
+3. Publish output events to `publish_topics`
+
+### Node Discovery
+
+`RuntimeHostProcess` discovers nodes by scanning `contract_paths` for `contract.yaml` files:
+
+```
+src/omniintelligence/nodes/
+├── node_claude_hook_event_effect/
+│   ├── contract.yaml          # Discovered by RuntimeHostProcess
+│   ├── node.py                # Thin shell
+│   └── handlers/              # Business logic
+├── node_pattern_feedback_effect/
+│   ├── contract.yaml          # Discovered by RuntimeHostProcess
+│   └── ...
+```
+
+Only nodes with `event_bus.event_bus_enabled: true` are wired to Kafka.
+
+### Testing Without RuntimeHostProcess
+
+For unit tests, instantiate nodes directly with mock dependencies:
+
+```python
+# Unit test - no RuntimeHostProcess needed
+async def test_handler():
+    handler = HandlerClaudeHookEvent(
+        intent_classifier=mock_classifier,
+        kafka_producer=mock_producer,
+    )
+    result = await handler.handle(sample_event)
+    assert result.success
+```
+
+For integration tests that need Kafka, use `EventBusInmemory` or the full `RuntimeHostProcess`:
+
+```python
+# Integration test with in-memory event bus
+process = RuntimeHostProcess(
+    event_bus=EventBusInmemory(),
+    contract_paths=["src/omniintelligence/nodes/"],
+)
+```
+
+---
+
+## Models and Enums
+
+### Intelligence Operations
+
+Defined in `EnumIntelligenceOperationType`:
+
+| Category | Operations |
+|----------|------------|
+| **Quality** | `assess_code_quality`, `analyze_document_quality`, `get_quality_patterns`, `check_architectural_compliance` |
+| **Pattern Learning** | `pattern_match`, `hybrid_score`, `semantic_analyze`, `get_pattern_metrics`, `get_cache_stats`, `clear_pattern_cache`, `get_pattern_health` |
+| **Performance** | `establish_performance_baseline`, `identify_optimization_opportunities`, `apply_performance_optimization`, `get_optimization_report`, `monitor_performance_trends` |
+| **Document Freshness** | `analyze_document_freshness`, `get_stale_documents`, `refresh_documents`, `get_freshness_stats`, `get_document_freshness`, `cleanup_freshness_data` |
+| **Vector** | `advanced_vector_search`, `quality_weighted_search`, `batch_index_documents`, `get_vector_stats`, `optimize_vector_index` |
+| **Traceability** | `track_pattern_lineage`, `get_pattern_lineage`, `get_execution_logs`, `get_execution_summary` |
+| **Autonomous** | `ingest_patterns`, `record_success_pattern`, `predict_agent`, `predict_execution_time`, `calculate_safety_score`, `get_autonomous_stats`, `get_autonomous_health` |
+
+### FSM Types
 
 | FSM Type | State Flow |
 |----------|-----------|
@@ -268,15 +754,34 @@ src/omniintelligence/
 | `PATTERN_LEARNING` | `idle → foundation → matching → validation → traceability → completed` |
 | `QUALITY_ASSESSMENT` | `idle → raw → assessing → scored → stored` |
 
-**Pattern Lifecycle**: `CANDIDATE → PROVISIONAL → VALIDATED → DEPRECATED`
+### Pattern Lifecycle States
+
+`EnumPatternLifecycleStatus`: `CANDIDATE → PROVISIONAL → VALIDATED → DEPRECATED`
+
+### Model Naming Conventions
+
+- **Input**: `Model{NodeName}Input`
+- **Output**: `Model{NodeName}Output`
+- **Event**: `Model{Event}Event` (e.g., `ModelPatternStoredEvent`)
+- **Payload**: `Model{FSM}Payload` (e.g., `ModelIngestionPayload`)
 
 ---
 
-## Event-Driven Architecture
+## Testing
 
-**Topic naming**: `{env}.onex.{kind}.{producer}.{event-name}.v{version}` where `kind=cmd` (inputs) or `kind=evt` (outputs).
+### Test Organization
 
-### Subscribed Topics (inputs)
+```
+tests/
+├── conftest.py              # Root fixtures
+├── fixtures/                # Shared test data
+├── audit/                   # I/O purity audit tests
+│   └── fixtures/io/         # AST test fixtures
+├── unit/                    # Unit tests (no infrastructure)
+│   └── nodes/               # Node-specific unit tests
+│       └── {node}/handlers/ # Handler tests
+└── integration/             # Integration tests
+    └── nodes/               # Node integration tests
 
 | Topic | Consumed By |
 |-------|-------------|
@@ -350,6 +855,7 @@ src/omniintelligence/
 |--------|-------------|-----------------|
 | `should_activate(config)` | Returns `True` if `OMNIINTELLIGENCE_DB_URL` is set | Always called |
 | `initialize(config)` | Creates `StoreIdempotencyPostgres` (owns pool), `PostgresRepositoryRuntime`, `RegistryMessageType` | Requires `OMNIINTELLIGENCE_DB_URL` |
+| `validate_handshake(config)` | B1: verifies DB ownership (`db_metadata.owner_service`); B2: verifies schema fingerprint matches manifest (auto-stamps on first boot if NULL) | Requires pool from `initialize()`; raises `RuntimeHostError` (pool absent), `DbOwnershipMismatchError`/`DbOwnershipMissingError` (B1), or `SchemaFingerprintMismatchError` (B2 drift) |
 | `wire_handlers(config)` | Delegates to `wire_intelligence_handlers()` | Requires pool from `initialize()` |
 | `wire_dispatchers(config)` | Builds `MessageDispatchEngine` with real adapters; publishes introspection events | Requires pool + pattern runtime |
 | `start_consumers(config)` | Subscribes to all contract-declared topics via dispatch engine | Requires dispatch engine from `wire_dispatchers()` |
@@ -444,90 +950,50 @@ src/omniintelligence/
 # TODO: Fix this later
 ```
 
-### Type Ignore Policy
+### Key Fixtures
 
-```python
-# Correct — specific code + explanation
-# NOTE(OMN-1234): mypy false-positive due to Protocol-based DI.
-value = container.get_service("ProtocolLogger")  # type: ignore[arg-type]
+| Fixture | Purpose |
+|---------|---------|
+| `correlation_id` | Fixed UUID for tracing tests |
+| `sample_code` | Python code snippet for analysis |
+| `mock_kafka_producer` | AsyncMock Kafka producer |
+| `mock_onex_container` | Mock ONEX container |
+| `db_conn` | asyncpg connection (auto-skip if unavailable) |
+| `sample_execution_trace` | JSON execution trace |
 
-# Wrong — generic ignore
-value = some_call()  # type: ignore
+### pytest Markers
+
+```bash
+pytest -m unit          # Unit tests only
+pytest -m integration   # Integration tests
+pytest -m slow          # Slow tests
+pytest -m audit         # I/O audit enforcement
+pytest -m performance   # Performance benchmarks
 ```
 
-### Docstring Guidelines
+### Protocol Mock Pattern
 
-- **Write** for: complex logic, non-obvious behavior, public APIs, edge cases
-- **Skip** for: simple getters, obvious signatures, private helpers
-- **Never tautological**: `def get_name(): """Get the name."""` adds no value
+```python
+class MockPatternStore:
+    """Mock implementation of ProtocolPatternStore."""
+    def __init__(self) -> None:
+        self.patterns: dict[UUID, dict] = {}
 
-### Enum vs Literal Policy
+    async def store_pattern(self, ...) -> UUID:
+        self.patterns[pattern_id] = {...}
+        return pattern_id
 
-| Context | Use |
-|---------|-----|
-| External contract surface | Enums |
-| Internal parsing glue | Literals allowed |
-| Cross-process boundaries | Enums only |
-
----
-
-## Common Pitfalls
-
-### Don't
-
-1. **Put logic in node.py**
-   ```python
-   # WRONG — node.py should be a single delegation call
-   async def execute(self, event):
-       if event.type == "A":
-           return await self._handler_a.handle(event)
-       return await self._handler_b.handle(event)
-   ```
-
-2. **Use setter injection**
-   ```python
-   def set_repository(self, repo):  # WRONG — use constructor injection
-       self._repo = repo
-   ```
-
-3. **Block the calling thread on Kafka**
-   ```python
-   producer.publish_sync(...)  # WRONG — synchronous/blocking publish
-   ```
-
-4. **Pass `conn` expecting transaction control with `AdapterPatternStore`**
-   ```python
-   # conn is IGNORED — each call is an independent transaction
-   await adapter.store_pattern(..., conn=conn)
-   ```
-
-5. **Hardcode subscribe topics in plugin.py**
-   ```python
-   TOPICS = ["onex.cmd.omniintelligence.claude-hook-event.v1"]  # WRONG
-   ```
-
-### Do
-
-1. Node `execute()` / `compute()` is a single delegation line
-2. Use constructor injection with protocols: `handler: HandlerClaudeHookEvent`
-3. Kafka publish is async/non-blocking — use `await producer.publish(...)` with non-blocking patterns
-4. Use `store_with_version_transition()` for atomic version upgrades
-5. Declare topics in `contract.yaml` under `event_bus.subscribe_topics`
-6. Use `uv run` for all Python commands
+# Verify mock conforms to protocol
+assert isinstance(MockPatternStore(), ProtocolPatternStore)
+```
 
 ---
 
-## Documentation
+## Key Dependencies
 
-| Topic | Document |
-|-------|----------|
-| Navigation index | `docs/INDEX.md` |
-| Node state transitions | `docs/NODE_STATE_POLICY.md` |
-| Contract validation | `docs/CONTRACT_VALIDATION_GUIDE.md` |
-| ONEX four-node architecture | `docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md` |
-| Naming conventions | `docs/conventions/NAMING_CONVENTIONS.md` |
-| Standard doc layout | `docs/standards/STANDARD_DOC_LAYOUT.md` |
-
----
-
-**Python**: 3.12+ | **Ready?** → `uv run pytest -m audit` to verify node purity
+| Package | Purpose |
+|---------|---------|
+| `omnibase_core` | ONEX node base classes, protocols, validation |
+| `omnibase_spi` | Service Provider Interface protocols |
+| `omnibase_infra` | Kafka, PostgreSQL infrastructure |
+| `asyncpg` | PostgreSQL async driver |
