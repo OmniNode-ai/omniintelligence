@@ -1,4 +1,3 @@
----
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
 #
@@ -22,31 +21,23 @@ node_version:
   major: 1
   minor: 0
   patch: 0
-
 # Node type
 node_type: "COMPUTE_GENERIC"
-
 # Status
 status: "active"
-
 # Description
 description: >
-  Stream C retrieval compute node. Re-ranks document-derived ContextItem
-  candidates from Qdrant using scope-aware scoring, tier multipliers, and
-  intent-based adaptive token budgeting. Pure compute -- does NOT query
-  Qdrant or emit attribution signals.
+  Stream C retrieval compute node. Re-ranks document-derived ContextItem candidates from Qdrant using scope-aware scoring, tier multipliers, and intent-based adaptive token budgeting. Pure compute -- does NOT query Qdrant or emit attribution signals.
 
 # Strongly typed I/O models
 input_model:
   name: "ModelDocRetrievalInput"
   module: "omniintelligence.nodes.node_doc_retrieval_compute.models"
   description: "Raw Qdrant results + query context for re-ranking."
-
 output_model:
   name: "ModelDocRetrievalOutput"
   module: "omniintelligence.nodes.node_doc_retrieval_compute.models"
   description: "Ranked, budget-capped document items for context assembly."
-
 # =============================================================================
 # HANDLER ROUTING
 # =============================================================================
@@ -74,13 +65,11 @@ handler_routing:
         - "deduplicate by content_fingerprint (first occurrence wins)"
         - "enforce adaptive token budget by intent_category"
         - "cap at max_doc_items (default 8)"
-
   default_handler:
     function: "handle_doc_retrieval"
     module: "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval"
     type: "async"
     description: "Default to rank_doc_items operation"
-
 # =============================================================================
 # IO OPERATIONS
 # =============================================================================
@@ -105,7 +94,6 @@ io_operations:
       - budget_fraction_used
       - intent_category
       - correlation_id
-
 # =============================================================================
 # SCORING CONSTANTS
 # =============================================================================
@@ -114,13 +102,11 @@ scoring:
     exact_repo_match: 1.20
     same_org_other_repo: 0.90
     org_wide: 0.80
-
   tier_multiplier:
     shared: 1.15
-    validated_earned: 1.00       # bootstrap_confidence == 0.0
+    validated_earned: 1.00 # bootstrap_confidence == 0.0
     validated_bootstrapped: 0.85 # bootstrap_confidence > 0.0
     quarantine: 0.70
-
   adaptive_budget_fractions:
     architecture: 0.40
     refactoring: 0.40
@@ -128,13 +114,11 @@ scoring:
     code_generation: 0.25
     debugging: 0.20
     default: 0.30
-
   doc_source_config_defaults:
     max_doc_items: 8
     doc_min_similarity: 0.65
     allow_bootstrap_validated: true
     allow_unscored_static_standards: true
-
 # =============================================================================
 # METADATA
 # =============================================================================
