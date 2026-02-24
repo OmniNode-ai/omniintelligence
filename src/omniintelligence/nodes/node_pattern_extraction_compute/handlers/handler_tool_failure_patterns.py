@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Tool failure pattern extraction from session data.
 
 Extracts failure patterns from structured tool execution records.

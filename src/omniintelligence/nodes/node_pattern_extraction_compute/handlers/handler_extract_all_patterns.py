@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for full pattern extraction workflow.
 
 This handler implements the main pattern extraction logic as a pure function.

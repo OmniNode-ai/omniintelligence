@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for EnumDomainTaxonomy.
 
 This module validates that the Python enum matches the database seed data

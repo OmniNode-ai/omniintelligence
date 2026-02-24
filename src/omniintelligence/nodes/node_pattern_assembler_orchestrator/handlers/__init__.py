@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handlers for Pattern Assembler Orchestrator Node.
 
 This package contains the business logic for the pattern assembler orchestrator,

@@ -5,6 +5,24 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-02-24
+
+### Added
+- MIT LICENSE and SPDX copyright headers (migrated from Apache-2.0)
+- CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md
+- GitHub issue templates and PR template
+- `.github/dependabot.yml`
+- `no-internal-ips` pre-commit hook
+
+### Changed
+- Bumped `omnibase-core` to 0.19.0, `omnibase-spi` to 0.12.0, `omnibase-infra` to 0.10.0
+- License changed from Apache-2.0 to MIT
+- Updated test registries to include new nodes: `node_document_parser_compute`, `node_doc_staleness_detector_effect`, `node_context_item_writer_effect`, `node_doc_promotion_reducer`
+
+### Fixed
+- Documentation cleanup: removed internal IP references, added Quick Start
+- All Apache-2.0 SPDX headers migrated to MIT
+
 ## [0.5.0] - 2026-02-20
 
 ### Added
@@ -265,6 +283,7 @@ hook processing as a kernel domain plugin.
 - `omnibase_spi` ^0.9.0
 - Python >=3.12
 
+[0.6.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.2.1...v0.3.0

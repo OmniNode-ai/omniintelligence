@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Extraction Compute Handlers.
 
 This module provides pure handler functions for pattern extraction operations.

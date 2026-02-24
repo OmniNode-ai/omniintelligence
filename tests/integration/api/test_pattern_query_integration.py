@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Integration tests for the pattern query API with real pattern store.
 
 Tests the full request path from HTTP endpoint through handler to

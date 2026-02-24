@@ -1,9 +1,11 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Fixtures for pattern_promotion_effect integration tests.
 
 Provides test data management for testing pattern promotion against real
-PostgreSQL (192.168.86.200:5436).
+PostgreSQL (localhost:5432).
 
 Inherits from tests/integration/conftest.py:
     - db_conn, db_pool: Database connection fixtures

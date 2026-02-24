@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ONEX configuration presets for quality scoring.
 
 This module provides pre-configured weight sets and thresholds for different

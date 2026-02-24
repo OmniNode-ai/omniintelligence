@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Domain models shared across omniintelligence.
 
 This module contains core domain models that are used across multiple nodes

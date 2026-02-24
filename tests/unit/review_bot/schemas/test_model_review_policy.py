@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for ModelReviewPolicy Pydantic models.
 
 Tests cover all acceptance criteria from OMN-2494:
@@ -277,7 +280,7 @@ class TestModelReviewPolicy:
             ModelReviewPolicy(version="v1.0", rules=[])
 
     def test_valid_version_formats(self) -> None:
-        for ver in ["1.0", "1.0.0", "2.1", "10.0.1"]:
+        for ver in ["1.0", "1.0.0", "2.1", "10.0.1"]:  # onex-allow-internal-ip
             policy = ModelReviewPolicy(version=ver, rules=[])
             assert policy.version == ver
 

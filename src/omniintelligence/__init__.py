@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """OmniIntelligence - ONEX-compliant intelligence nodes.
 
 This package provides code quality analysis and intelligence operations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Execution Trace Parser Compute Node.
 
 All models use strong typing with Pydantic BaseModel for type safety.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Lifecycle Reducer Input Model.
 
 Payload model for PATTERN_LIFECYCLE FSM operations in the intelligence reducer.

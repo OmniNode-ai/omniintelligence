@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Semantic Analysis Compute - Pure compute node for AST-based semantic analysis.
 
 This node performs deterministic semantic analysis on Python source code using

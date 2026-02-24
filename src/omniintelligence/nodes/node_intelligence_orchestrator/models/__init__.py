@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Intelligence Orchestrator Node."""
 
 from omniintelligence.nodes.node_intelligence_orchestrator.models.model_intent_receipt import (

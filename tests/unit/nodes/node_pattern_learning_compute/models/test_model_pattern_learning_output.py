@@ -1,5 +1,6 @@
-# SPDX-FileCopyrightText: 2025 OmniNode Team
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for ModelPatternLearningOutput.from_patterns() factory method.
 
 This module tests the factory method that splits patterns by lifecycle_state:

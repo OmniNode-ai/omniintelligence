@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handlers for Execution Trace Parser Compute Node.
 
 This module re-exports all public functions and types from the handler

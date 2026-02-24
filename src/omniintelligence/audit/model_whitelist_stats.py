@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelWhitelistStats - statistics about whitelist application for a file."""
 
 from __future__ import annotations

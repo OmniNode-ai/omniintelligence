@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """A node with file I/O violations.
 
 This fixture demonstrates forbidden patterns:

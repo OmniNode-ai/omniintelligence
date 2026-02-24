@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Trace metadata model for Execution Trace Parser Compute."""
 
 from __future__ import annotations

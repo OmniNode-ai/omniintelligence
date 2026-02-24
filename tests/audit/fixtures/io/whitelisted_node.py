@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """A node with whitelisted violations for testing whitelist functionality.
 
 This fixture tests:

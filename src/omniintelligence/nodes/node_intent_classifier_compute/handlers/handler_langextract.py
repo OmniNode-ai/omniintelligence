@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for semantic enrichment (pure computation).
 
 This module provides semantic analysis for intent classification enrichment.

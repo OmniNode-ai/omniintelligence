@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Generate comprehensive node status report for omniintelligence.
 
 This script scans all nodes in src/omniintelligence/nodes/ and generates

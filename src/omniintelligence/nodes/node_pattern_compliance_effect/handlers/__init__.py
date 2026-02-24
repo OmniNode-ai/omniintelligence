@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Compliance Compute Handlers.
 
 Provides handler functions for evaluating code against applicable patterns

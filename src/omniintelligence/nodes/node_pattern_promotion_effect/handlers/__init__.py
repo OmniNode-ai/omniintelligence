@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handlers for pattern_promotion_effect.
 
 This module exports handler functions for the pattern promotion effect node,

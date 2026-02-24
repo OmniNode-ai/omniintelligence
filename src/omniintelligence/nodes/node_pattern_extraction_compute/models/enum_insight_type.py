@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Insight type enumeration for pattern extraction.
 
 This module defines the types of insights that can be extracted from

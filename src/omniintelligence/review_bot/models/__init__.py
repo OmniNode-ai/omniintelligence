@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Domain models for the Code Intelligence Review Bot."""
 
 from omniintelligence.review_bot.models.model_review_finding import ModelReviewFinding

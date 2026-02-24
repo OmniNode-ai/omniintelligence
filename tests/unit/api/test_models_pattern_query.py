@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for pattern query API models.
 
 Tests Pydantic model validation, serialization, and frozen behavior.

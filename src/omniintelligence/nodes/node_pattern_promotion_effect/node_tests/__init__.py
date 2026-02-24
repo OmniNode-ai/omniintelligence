@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Node-specific tests for pattern_promotion_effect.
 
 This package contains unit and integration tests for the pattern promotion

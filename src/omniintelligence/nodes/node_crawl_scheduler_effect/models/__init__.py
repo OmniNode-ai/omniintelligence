@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for node_crawl_scheduler_effect.
 
 Exports all input/output models and enums used by the crawl scheduler.

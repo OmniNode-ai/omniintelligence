@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input models for pattern_demotion_effect.
 
 This module defines the request models for the pattern demotion effect node,

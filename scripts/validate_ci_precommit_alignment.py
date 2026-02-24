@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Validate alignment between CI path filters and pre-commit hook patterns.
 
 This script ensures that the CI workflow path filters (.github/workflows/ci.yaml)

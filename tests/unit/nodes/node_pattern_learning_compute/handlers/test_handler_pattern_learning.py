@@ -1,5 +1,6 @@
-# SPDX-FileCopyrightText: 2025 OmniNode Team
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Canary tests for handler_pattern_learning orchestration.
 
 These tests validate pipeline wiring before the full test suite lands.

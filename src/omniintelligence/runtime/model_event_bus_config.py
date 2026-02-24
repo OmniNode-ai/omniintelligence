@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Event bus configuration model for Kafka integration."""
 
 from typing import Literal
@@ -40,7 +43,7 @@ class ModelEventBusConfig(BaseModel):
         "Empty string is valid when event_bus is disabled.",
         examples=[
             "localhost:9092",
-            "192.168.86.200:29092",
+            "<kafka-broker>:9092",
         ],
     )
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Over-flagging detector for the Code Intelligence Review Bot.
 
 Detects rules with high rejection rates and marks them for automatic

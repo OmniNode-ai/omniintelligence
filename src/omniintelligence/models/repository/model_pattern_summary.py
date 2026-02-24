@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Model for pattern summary (subset of columns for list operations).
 
 Lightweight model containing only the fields returned by list_by_domain

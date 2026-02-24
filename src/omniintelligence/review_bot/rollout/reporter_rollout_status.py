@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Rollout status reporter for the Code Intelligence Review Bot.
 
 Generates PR summary and nightly audit reports showing current rollout

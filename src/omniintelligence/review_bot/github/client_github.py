@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Thin GitHub REST API wrapper for the Code Intelligence Review Bot.
 
 Provides a minimal interface for PR review comment operations.

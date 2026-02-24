@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Contract handler import validation tests.
 
 This module validates that all handler paths declared in contract.yaml files

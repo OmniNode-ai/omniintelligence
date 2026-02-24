@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Semantic Analysis Compute Node."""
 
 from omniintelligence.nodes.node_semantic_analysis_compute.models.enum_semantic_entity_type import (

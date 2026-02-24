@@ -1,5 +1,6 @@
-# SPDX-FileCopyrightText: 2025 OmniNode Team
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for anti-pattern detection false positive prevention.
 
 This module tests that anti-patterns in comments, docstrings, and string literals

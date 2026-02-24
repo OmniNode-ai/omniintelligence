@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Policy validation logic for the Code Intelligence Review Bot.
 
 Validates policy YAML files against the ModelReviewPolicy schema and

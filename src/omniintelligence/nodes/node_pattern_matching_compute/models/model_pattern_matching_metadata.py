@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelPatternMatchingMetadata - typed metadata for pattern matching output."""
 
 from __future__ import annotations

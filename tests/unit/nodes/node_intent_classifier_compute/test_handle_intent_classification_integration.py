@@ -1,5 +1,6 @@
-# SPDX-FileCopyrightText: 2025 OmniNode Team
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for handle_intent_classification — the orchestrating handler.
 
 These tests verify the integration of the langextract semantic enrichment

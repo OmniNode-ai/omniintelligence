@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Integration tests for node_pattern_feedback_effect.
 
 These tests verify event consumption from Kafka topics.

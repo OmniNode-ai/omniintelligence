@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Main orchestration handler for Pattern Assembler Orchestrator.
 
 This module is the entry point for pattern assembly orchestration.

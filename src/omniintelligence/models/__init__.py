@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Top-level models for OmniIntelligence.
 
 These models are shared across multiple nodes and provide common

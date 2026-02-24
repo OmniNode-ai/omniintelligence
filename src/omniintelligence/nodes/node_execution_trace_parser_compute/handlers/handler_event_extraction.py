@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Event extraction logic for Execution Trace Parser Compute.
 
 This module contains pure functions for extracting error events and

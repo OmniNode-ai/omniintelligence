@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelPromotionCheckResult - result of the promotion check operation."""
 
 from uuid import UUID

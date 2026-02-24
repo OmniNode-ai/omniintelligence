@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """A node with forbidden client import violations.
 
 This fixture demonstrates forbidden patterns:

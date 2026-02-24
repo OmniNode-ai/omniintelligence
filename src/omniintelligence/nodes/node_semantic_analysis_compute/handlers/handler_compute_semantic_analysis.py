@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for semantic analysis compute node.
 
 This module provides the main handler function for semantic analysis computation.

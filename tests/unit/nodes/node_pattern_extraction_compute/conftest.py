@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Shared fixtures for pattern_extraction_compute handler tests.
 
 These fixtures provide realistic session data for testing the pure handler

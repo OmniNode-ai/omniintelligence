@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Result model for EXISTS queries."""
 
 from pydantic import BaseModel, ConfigDict
