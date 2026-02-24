@@ -5,9 +5,7 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# =============================================================================
 # DEPENDENCY MANAGEMENT NOTES
-# =============================================================================
 # This project uses uv/PEP 621 dependency management.
 #
 # EDITABLE INSTALLS & uv.lock:
@@ -16,7 +14,6 @@ build-backend = "hatchling.build"
 #     1. Remove uv.lock: rm uv.lock
 #     2. Regenerate: uv lock
 #     3. Verify sync: uv sync --group dev
-# =============================================================================
 
 [project]
 name = "omninode-intelligence"
@@ -80,9 +77,9 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.18.1,<0.19.0",
-    "omnibase-spi>=0.10.0,<0.11.0",
-    "omnibase-infra>=0.9.0,<0.10.0",
+    "omnibase-core>=0.18.1,<0.20.0",
+    "omnibase-spi>=0.10.0,<0.13.0",
+    "omnibase-infra>=0.9.0,<0.11.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
