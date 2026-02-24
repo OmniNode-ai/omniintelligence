@@ -14,7 +14,38 @@ ONEX Compliance:
 
 from __future__ import annotations
 
-__all__ = ["get_extension"]
+__all__ = ["get_extension", "normalize_path"]
+
+
+def normalize_path(file_path: str) -> str:
+    """Normalize path separators to forward slashes for cross-platform compatibility.
+
+    Replaces backslash separators (Windows-style) with forward slashes so that
+    all downstream path comparisons and prefix operations work uniformly
+    regardless of the platform that produced the session data.
+
+    This is the canonical path normalization utility for all pattern extraction
+    handlers. Any handler that touches file paths should call this function
+    before performing directory splitting, prefix matching, or equality checks.
+
+    Args:
+        file_path: File path string, potentially containing backslash separators.
+
+    Returns:
+        Path string with all backslashes replaced by forward slashes.
+        Empty string is returned unchanged.
+
+    Examples:
+        >>> normalize_path("src/api/routes.py")
+        'src/api/routes.py'
+        >>> normalize_path("src\\\\api\\\\routes.py")
+        'src/api/routes.py'
+        >>> normalize_path("")
+        ''
+        >>> normalize_path("C:\\\\Users\\\\dev\\\\project\\\\file.py")
+        'C:/Users/dev/project/file.py'
+    """
+    return file_path.replace("\\", "/")
 
 
 def get_extension(file_path: str) -> str:
