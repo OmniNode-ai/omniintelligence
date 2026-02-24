@@ -28,8 +28,8 @@ version: "1.0.0"
 classes:
   REFACTOR:
     description: >-
-      Code refactoring, quality improvement, restructuring, cleanup, naming
-      conventions, module reorganization without changing behavior.
+      Code refactoring, quality improvement, restructuring, cleanup, naming conventions, module reorganization
+      without changing behavior.
     examples:
       - "Refactor the authentication module to reduce cyclomatic complexity"
       - "Rename variables for clarity and follow PEP 8 conventions"
@@ -41,8 +41,8 @@ classes:
 
   BUGFIX:
     description: >-
-      Bug fixing, error resolution, crash recovery, patching incorrect behavior,
-      fixing regressions, resolving test failures.
+      Bug fixing, error resolution, crash recovery, patching incorrect behavior, fixing regressions, resolving
+      test failures.
     examples:
       - "Fix the null pointer exception when user session expires"
       - "Resolve the race condition in the worker pool initialization"
@@ -54,8 +54,8 @@ classes:
 
   FEATURE:
     description: >-
-      New feature development, capability addition, implementing new
-      functionality, adding new endpoints or services.
+      New feature development, capability addition, implementing new functionality, adding new endpoints
+      or services.
     examples:
       - "Add a new REST endpoint for user preference management"
       - "Implement OAuth2 PKCE flow for mobile authentication"
@@ -67,8 +67,8 @@ classes:
 
   ANALYSIS:
     description: >-
-      Code review, investigation, evaluation, read-only analysis, feasibility
-      studies, performance profiling, explaining existing behavior.
+      Code review, investigation, evaluation, read-only analysis, feasibility studies, performance profiling,
+      explaining existing behavior.
     examples:
       - "Review the current database query patterns for bottlenecks"
       - "Analyze the impact of upgrading to Python 3.12"
@@ -80,8 +80,8 @@ classes:
 
   CONFIGURATION:
     description: >-
-      Configuration changes, environment settings, schema updates, settings
-      management, environment variable adjustments, deployment configs.
+      Configuration changes, environment settings, schema updates, settings management, environment variable
+      adjustments, deployment configs.
     examples:
       - "Update the Kafka consumer group timeout configuration"
       - "Add the new QDRANT_URL environment variable to all service configs"
@@ -93,8 +93,8 @@ classes:
 
   DOCUMENTATION:
     description: >-
-      Writing documentation, README files, docstrings, API guides, comments,
-      architecture decision records, changelogs, runbooks.
+      Writing documentation, README files, docstrings, API guides, comments, architecture decision records,
+      changelogs, runbooks.
     examples:
       - "Write the README for the new omniintelligence service"
       - "Add docstrings to all public methods in the classifier module"
@@ -106,8 +106,8 @@ classes:
 
   MIGRATION:
     description: >-
-      Database migrations, data transformations, schema migrations, data model
-      changes, Alembic migrations, data backfills, schema versioning.
+      Database migrations, data transformations, schema migrations, data model changes, Alembic migrations,
+      data backfills, schema versioning.
     examples:
       - "Create Alembic migration to add the user_preferences table"
       - "Backfill the missing correlation_id column in the audit_log table"
@@ -119,8 +119,8 @@ classes:
 
   SECURITY:
     description: >-
-      Security audits, authentication, authorization, encryption, permission
-      changes, vulnerability patching, secret rotation, least-privilege review.
+      Security audits, authentication, authorization, encryption, permission changes, vulnerability patching,
+      secret rotation, least-privilege review.
     examples:
       - "Audit the API endpoints for missing authentication checks"
       - "Rotate the Kafka SSL certificates before expiry"
