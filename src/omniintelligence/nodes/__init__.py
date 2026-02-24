@@ -43,6 +43,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_doc_staleness_detector_effect.node",
         "NodeDocStalenessDetectorEffect",
     ),
+    "NodeDocumentFetchEffect": (
+        "omniintelligence.nodes.node_document_fetch_effect.node",
+        "NodeDocumentFetchEffect",
+    ),
     "NodeGitRepoCrawlerEffect": (
         "omniintelligence.nodes.node_git_repo_crawler_effect.node",
         "NodeGitRepoCrawlerEffect",
@@ -78,6 +82,10 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
     "NodePatternStorageEffect": (
         "omniintelligence.nodes.node_pattern_storage_effect.node",
         "NodePatternStorageEffect",
+    ),
+    "NodeEmbeddingGenerationEffect": (
+        "omniintelligence.nodes.node_embedding_generation_effect.node",
+        "NodeEmbeddingGenerationEffect",
     ),
     "ClaudeSessionOutcome": (
         "omniintelligence.nodes.node_pattern_feedback_effect",
@@ -115,7 +123,16 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_pattern_feedback_effect",
         "ROLLING_WINDOW_SIZE",
     ),
-    # Computes (10)
+    # Stream B — Document Ingestion Pipeline
+    "NodeChunkClassifierCompute": (
+        "omniintelligence.nodes.node_chunk_classifier_compute.node",
+        "NodeChunkClassifierCompute",
+    ),
+    "NodeDocRetrievalCompute": (
+        "omniintelligence.nodes.node_doc_retrieval_compute.node",
+        "NodeDocRetrievalCompute",
+    ),
+    # Computes (11)
     "NodeDocumentParserCompute": (
         "omniintelligence.nodes.node_document_parser_compute.node",
         "NodeDocumentParserCompute",
@@ -180,17 +197,29 @@ def __dir__() -> list[str]:
 
 # Type checking imports for IDE support
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_chunk_classifier_compute.node import (
+        NodeChunkClassifierCompute as NodeChunkClassifierCompute,
+    )
     from omniintelligence.nodes.node_context_item_writer_effect.node import (
         NodeContextItemWriterEffect as NodeContextItemWriterEffect,
     )
     from omniintelligence.nodes.node_doc_promotion_reducer.node import (
         NodeDocPromotionReducer as NodeDocPromotionReducer,
     )
+    from omniintelligence.nodes.node_doc_retrieval_compute.node import (
+        NodeDocRetrievalCompute as NodeDocRetrievalCompute,
+    )
     from omniintelligence.nodes.node_doc_staleness_detector_effect.node import (
         NodeDocStalenessDetectorEffect as NodeDocStalenessDetectorEffect,
     )
+    from omniintelligence.nodes.node_document_fetch_effect.node import (
+        NodeDocumentFetchEffect as NodeDocumentFetchEffect,
+    )
     from omniintelligence.nodes.node_document_parser_compute.node import (
         NodeDocumentParserCompute as NodeDocumentParserCompute,
+    )
+    from omniintelligence.nodes.node_embedding_generation_effect.node import (
+        NodeEmbeddingGenerationEffect as NodeEmbeddingGenerationEffect,
     )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
@@ -299,7 +328,10 @@ __all__ = [
     # Nodes — Reducers (2)
     "NodeDocPromotionReducer",
     "NodeIntelligenceReducer",
-    # Nodes — Computes (10)
+    # Nodes — Stream B
+    "NodeChunkClassifierCompute",
+    "NodeDocRetrievalCompute",
+    # Nodes — Computes (11)
     "NodeDocumentParserCompute",
     "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
@@ -313,6 +345,7 @@ __all__ = [
     # Nodes — Effects (11)
     "NodeContextItemWriterEffect",
     "NodeDocStalenessDetectorEffect",
+    "NodeDocumentFetchEffect",
     "NodeGitRepoCrawlerEffect",
     "NodeEnforcementFeedbackEffect",
     "NodeLinearCrawlerEffect",
@@ -322,6 +355,7 @@ __all__ = [
     "NodePatternLifecycleEffect",
     "NodePatternPromotionEffect",
     "NodePatternStorageEffect",
+    "NodeEmbeddingGenerationEffect",
     # Protocols
     "ProtocolPatternRepository",
     # Handler functions

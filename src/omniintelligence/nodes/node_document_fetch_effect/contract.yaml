@@ -1,0 +1,234 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDocumentFetchEffect
+#
+# Stream B entry node. Fetches raw document content from disk (filesystem/git)
+# or blob store (linear) and passes it to DocumentParserCompute.
+#
+# Reference: OMN-2389 - DocumentFetchEffect
+
+# Contract identifiers
+name: "node_document_fetch_effect"
+contract_name: "document_fetch_effect"
+node_name: "document_fetch_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Stream B entry effect node that fetches raw document content from the appropriate source based on crawler_type.
+  FILESYSTEM/WATCHDOG: reads from absolute path on disk. GIT_REPO: reads from disk and resolves file-level
+  git SHA. LINEAR: fetches from blob store by source_ref. Emits document.removed.v1 if content is not
+  found at fetch time. Returns raw content for downstream processing by DocumentParserCompute (same-process,
+  not via Kafka). #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "ModelDocumentFetchInput"
+  module: "omniintelligence.nodes.node_document_fetch_effect.models"
+  description: "Fetch request built from document.discovered.v1 or document.changed.v1 events."
+
+output_model:
+  name: "ModelDocumentFetchOutput"
+  module: "omniintelligence.nodes.node_document_fetch_effect.models"
+  description: "Fetch result with raw content, resolved source_version, and optional removed event."
+
+output_models:
+  - name: "ModelDocumentRemovedEvent"
+    module: "omniintelligence.nodes.node_document_fetch_effect.models"
+    operation: "fetch_document"
+    topic: "{env}.onex.evt.omnimemory.document-removed.v1"
+    description: "Emitted when document is not found at fetch time (file deleted between crawl and fetch)."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_document_fetch"
+    module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
+    type: "async"
+    description: "Main entry point: dispatch based on crawler_type"
+  handlers:
+    - operation: "fetch_document"
+      handler:
+        function: "handle_document_fetch"
+        module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
+        type: "async"
+      description: "Fetch raw document content from disk or blob store"
+      actions:
+        - "route by crawler_type (filesystem/watchdog/git_repo/linear)"
+        - "FILESYSTEM/WATCHDOG: read from source_ref as absolute path"
+        - "GIT_REPO: read from repo_path+source_ref, resolve file-level git SHA"
+        - "LINEAR: fetch markdown from blob store by source_ref"
+        - "emit document.removed.v1 if file not found at fetch time"
+        - "return raw content to DocumentParserCompute in-process"
+
+  default_handler:
+    function: "handle_document_fetch"
+    module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
+    type: "async"
+    description: "Default to fetch_document operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "fetch_document"
+    description: "Fetch raw document content from disk or blob store"
+    input_model: "ModelDocumentFetchInput"
+    output_model: "ModelDocumentFetchOutput"
+    input_fields:
+      - source_ref
+      - crawler_type
+      - repo_path
+      - crawl_scope
+      - event_type
+      - correlation_id
+    output_fields:
+      - source_ref
+      - crawl_scope
+      - status
+      - raw_content
+      - resolved_source_version
+      - removed_event
+      - error
+      - correlation_id
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka)
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omnimemory.document-removed.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimemory.document-removed.v1"
+    event_type: "DocumentRemoved"
+    trigger: "Document file not found at fetch time (deleted between crawl and fetch)"
+    description: "Emitted when a document that was crawled is missing when the fetcher arrives."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "{env}.onex.evt.omnimemory.document-discovered.v1"
+    - "{env}.onex.evt.omnimemory.document-changed.v1"
+
+  publish_topics:
+    - "{env}.onex.evt.omnimemory.document-removed.v1"
+
+  subscribe_topic_metadata:
+    "{env}.onex.evt.omnimemory.document-discovered.v1":
+      schema_ref: "omniintelligence.nodes.node_document_fetch_effect.models.ModelDocumentFetchInput"
+      description: "New document discovery events from GitRepoCrawlerEffect or LinearCrawlerEffect."
+      content_type: "application/json"
+    "{env}.onex.evt.omnimemory.document-changed.v1":
+      schema_ref: "omniintelligence.nodes.node_document_fetch_effect.models.ModelDocumentFetchInput"
+      description: "Document change events requiring content re-fetch."
+      content_type: "application/json"
+
+  publish_topic_metadata:
+    "{env}.onex.evt.omnimemory.document-removed.v1":
+      schema_ref: "omniintelligence.nodes.node_document_fetch_effect.models.ModelDocumentRemovedEvent"
+      description: "Document removed at fetch time (race between crawl and fetch)"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "blob_store"
+    type: "protocol"
+    class_name: "ProtocolBlobStore"
+    module: "omniintelligence.nodes.node_document_fetch_effect.handlers.protocol_blob_store"
+    description: "Blob store for retrieving pre-fetched LINEAR document content"
+    required: false
+    required_when: "crawler_type == 'linear'"
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 500
+    max_delay_ms: 15000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "RuntimeError"
+
+  error_types:
+    - name: "FileNotFoundError"
+      error_code: "DOCFETCH_001"
+      description: "Document file not found at fetch time"
+      recoverable: false
+      retry_strategy: "none"
+      action: "emit document.removed.v1"
+    - name: "GitSHAError"
+      error_code: "DOCFETCH_002"
+      description: "Git SHA resolution failed; content still returned without version"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "BlobStoreFetchError"
+      error_code: "DOCFETCH_003"
+      description: "Blob store fetch failed for LINEAR document"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: false
+  description: >
+    Fetch operations are not idempotent by design — re-fetching returns the current disk state. The upstream
+    crawlers use their own deduplication.
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - effect
+    - document
+    - fetch
+    - omnimemory
+    - stream-b
+  references:
+    - ticket: "OMN-2389"
+      url: "https://linear.app/omninode/issue/OMN-2389"
+      description: "DocumentFetchEffect: raw document content fetcher"

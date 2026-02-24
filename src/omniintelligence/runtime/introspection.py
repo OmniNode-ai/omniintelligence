@@ -94,6 +94,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_doc_promotion_reducer", EnumNodeKind.REDUCER),
     _NodeDescriptor("node_intelligence_reducer", EnumNodeKind.REDUCER),
     # Compute nodes
+    _NodeDescriptor("node_doc_retrieval_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_document_parser_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_semantic_analysis_compute", EnumNodeKind.COMPUTE),
@@ -104,6 +105,8 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_intent_drift_detect_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_execution_trace_parser_compute", EnumNodeKind.COMPUTE),
     _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
+    # Stream B — Document Ingestion Pipeline
+    _NodeDescriptor("node_chunk_classifier_compute", EnumNodeKind.COMPUTE),
     # Effect nodes
     _NodeDescriptor("node_context_item_writer_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_doc_staleness_detector_effect", EnumNodeKind.EFFECT),
@@ -114,6 +117,8 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_pattern_feedback_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_lifecycle_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_projection_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_document_fetch_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_embedding_generation_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_git_repo_crawler_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_linear_crawler_effect", EnumNodeKind.EFFECT),
 )
