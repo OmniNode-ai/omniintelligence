@@ -30,6 +30,9 @@ tenacity = ">=8.2.0"
 confluent-kafka = ">=2.12.0,<3.0.0"
 pyyaml = ">=6.0"
 python-dotenv = ">=1.0.0"
+# Optional: accurate McCabe cyclomatic complexity (OMN-1452)
+# Falls back to AST approximation when not installed
+radon = {version = ">=6.0.0", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 # Versions aligned with [dependency-groups].dev for consistency
@@ -45,6 +48,8 @@ types-PyYAML = ">=6.0.0"
 requests = ">=2.31.0"
 factory-boy = ">=3.3.0"
 pre-commit = ">=4.5.0"
+# Optional radon included in dev for test coverage of radon code path (OMN-1452)
+radon = ">=6.0.0"
 
 [tool.poetry.group.core.dependencies]
 # ONEX private ecosystem dependencies (NOT on public PyPI)
@@ -118,6 +123,13 @@ dependencies = [
     "watchdog>=6.0.0",
 ]
 
+[project.optional-dependencies]
+# Optional analysis backend for accurate McCabe cyclomatic complexity (OMN-1452)
+# Install with: pip install omniintelligence[analysis]
+analysis = [
+    "radon>=6.0.0",
+]
+
 [project.entry-points."onex.domain_plugins"]
 intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
 
@@ -137,6 +149,8 @@ dev = [
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
     "pre-commit>=4.5.0",
+    # Optional radon dependency included in dev for test coverage of radon code path
+    "radon>=6.0.0",
 ]
 
 # Core node system dependencies

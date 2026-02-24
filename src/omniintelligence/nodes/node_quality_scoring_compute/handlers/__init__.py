@@ -95,6 +95,7 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_comput
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_quality_scoring import (
     ANALYSIS_VERSION,
     DEFAULT_WEIGHTS,
+    radon_available,
     score_code_quality,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import (
@@ -131,5 +132,6 @@ __all__ = [
     "get_threshold_for_preset",
     "get_weights_for_preset",
     "handle_quality_scoring_compute",
+    "radon_available",
     "score_code_quality",
 ]

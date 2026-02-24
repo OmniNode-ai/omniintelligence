@@ -5,7 +5,7 @@ ONEX-focused dimensions. All functions are side-effect-free and suitable
 for use in compute nodes.
 
 The scoring system evaluates Python code across six dimensions:
-    - complexity: Cyclomatic complexity approximation (0.20)
+    - complexity: McCabe cyclomatic complexity via radon (with AST fallback) (0.20)
     - maintainability: Code structure quality (function length, naming) (0.20)
     - documentation: Docstring and comment coverage (0.15)
     - temporal_relevance: Code freshness indicators (TODO/FIXME, deprecated) (0.15)
@@ -13,6 +13,12 @@ The scoring system evaluates Python code across six dimensions:
     - architectural: Module organization and structure (0.15)
 
 Default weights follow the six-dimension standard for balanced quality assessment.
+
+Complexity Scoring (OMN-1452):
+    When the optional ``radon`` library is installed, the complexity dimension
+    uses accurate McCabe cyclomatic complexity via ``radon.complexity.cc_visit``.
+    Without radon, the score falls back to an AST-based control-flow approximation.
+    Install radon with: ``pip install radon``
 
 Example:
     from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
@@ -24,6 +30,7 @@ Example:
         language="python",
     )
     print(f"Quality score: {result['quality_score']}")
+    print(f"Using radon: {result['metadata']['radon_complexity_enabled']}")
 """
 
 from __future__ import annotations
@@ -39,6 +46,16 @@ from .enum_onex_strictness_level import OnexStrictnessLevel
 from .exceptions import QualityScoringComputeError, QualityScoringValidationError
 from .presets import get_threshold_for_preset, get_weights_for_preset
 from .protocols import DimensionScores, QualityScoringResult
+
+# Optional radon integration (OMN-1452: complexity scoring refinement)
+# radon is not a required dependency; the AST-based approximation is the fallback.
+# Install with: pip install radon
+try:
+    from radon.complexity import average_complexity, cc_visit
+
+    _RADON_AVAILABLE: Final[bool] = True
+except ImportError:
+    _RADON_AVAILABLE = False
 
 # Type alias for valid dimension keys (matches DimensionScores TypedDict keys)
 DimensionKey = Literal[
@@ -57,7 +74,7 @@ DIMENSION_KEYS: Final[tuple[DimensionKey, ...]] = get_args(DimensionKey)
 # Constants
 # =============================================================================
 
-ANALYSIS_VERSION: Final[ModelSemVer] = ModelSemVer(major=1, minor=1, patch=0)
+ANALYSIS_VERSION: Final[ModelSemVer] = ModelSemVer(major=1, minor=2, patch=0)
 ANALYSIS_VERSION_STR: Final[str] = str(ANALYSIS_VERSION)
 
 # Six-dimension standard weights
@@ -156,6 +173,20 @@ NO_ITEMS_MAINTAINABILITY_SCORE: Final[float] = 0.7  # Score when no functions/cl
 MAX_RAW_COMPLEXITY: Final[int] = 20  # Max raw complexity for scoring
 # Rationale: 10 is the standard McCabe cyclomatic complexity threshold for maintainable code
 MAX_AVG_COMPLEXITY: Final[int] = 10
+
+# Radon-based complexity constants (OMN-1452: accurate McCabe cyclomatic complexity)
+# McCabe grades: A=1-5 (simple), B=6-10 (complex), C=11-15 (very complex), D+=16+
+# Rationale: grade A ceiling (5) is the "low risk" boundary per McCabe's original paper
+RADON_GRADE_A_MAX: Final[int] = 5
+# Rationale: grade B ceiling (10) — code above this threshold has high change-failure risk
+RADON_GRADE_B_MAX: Final[int] = 10
+# Rationale: grade C ceiling (15) — highly complex, should be refactored
+RADON_GRADE_C_MAX: Final[int] = 15
+# Score boundaries for McCabe grade mapping (0.0 = worst, 1.0 = best)
+RADON_GRADE_A_SCORE_MIN: Final[float] = 0.8  # A: 0.8 - 1.0 (linear within 1-5)
+RADON_GRADE_B_SCORE_MIN: Final[float] = 0.5  # B: 0.5 - 0.8 (linear within 6-10)
+RADON_GRADE_C_SCORE_MIN: Final[float] = 0.2  # C: 0.2 - 0.5 (linear within 11-15)
+# D/E/F grades map to 0.0 - 0.2 (linear within 16-20+)
 
 # Temporal relevance constants
 STALENESS_PENALTY_PER_INDICATOR: Final[float] = 0.1
@@ -470,6 +501,7 @@ def score_code_quality(
             recommendations=recommendations,
             source_language=normalized_language,
             analysis_version=ANALYSIS_VERSION_STR,
+            radon_complexity_enabled=bool(_RADON_AVAILABLE),
         )
 
     except SyntaxError as e:
@@ -511,8 +543,15 @@ def _compute_all_dimensions(content: str) -> DimensionScores:
     # Parse AST once for all dimensions that need it
     tree = ast.parse(content)
 
+    # Use radon for accurate McCabe cyclomatic complexity if available (OMN-1452),
+    # otherwise fall back to the AST approximation.
+    if _RADON_AVAILABLE:
+        complexity_score = _compute_radon_complexity_score(content)
+    else:
+        complexity_score = _compute_complexity_score(tree)
+
     return {
-        "complexity": _compute_complexity_score(tree),
+        "complexity": complexity_score,
         "maintainability": _compute_maintainability_score(tree),
         "documentation": _compute_documentation_score(tree, content),
         "temporal_relevance": _compute_temporal_relevance_score(content),
@@ -698,10 +737,93 @@ def _compute_maintainability_score(tree: ast.AST) -> float:
     return max(0.0, min(1.0, sum(scores) / len(scores)))
 
 
+def _mccabe_to_score(avg_complexity: float) -> float:
+    """Map average McCabe cyclomatic complexity to a 0.0-1.0 score.
+
+    Uses grade-band interpolation aligned to McCabe's original risk thresholds:
+      - Grade A (1-5):   score 0.8-1.0  (simple, low risk)
+      - Grade B (6-10):  score 0.5-0.8  (complex, moderate risk)
+      - Grade C (11-15): score 0.2-0.5  (very complex, high risk)
+      - Grade D+ (16+):  score 0.0-0.2  (untestable, very high risk)
+
+    Args:
+        avg_complexity: Average McCabe cyclomatic complexity across all functions.
+
+    Returns:
+        Score from 0.0 (very high complexity) to 1.0 (trivially simple).
+    """
+    if avg_complexity <= 1.0:
+        return 1.0
+    elif avg_complexity <= RADON_GRADE_A_MAX:
+        # Linear interpolation: cc=1 → 1.0, cc=5 → 0.8
+        progress = (avg_complexity - 1.0) / (RADON_GRADE_A_MAX - 1.0)
+        return 1.0 - progress * (1.0 - RADON_GRADE_A_SCORE_MIN)
+    elif avg_complexity <= RADON_GRADE_B_MAX:
+        # Linear interpolation: cc=5 → 0.8, cc=10 → 0.5
+        progress = (avg_complexity - RADON_GRADE_A_MAX) / (
+            RADON_GRADE_B_MAX - RADON_GRADE_A_MAX
+        )
+        return RADON_GRADE_A_SCORE_MIN - progress * (
+            RADON_GRADE_A_SCORE_MIN - RADON_GRADE_B_SCORE_MIN
+        )
+    elif avg_complexity <= RADON_GRADE_C_MAX:
+        # Linear interpolation: cc=10 → 0.5, cc=15 → 0.2
+        progress = (avg_complexity - RADON_GRADE_B_MAX) / (
+            RADON_GRADE_C_MAX - RADON_GRADE_B_MAX
+        )
+        return RADON_GRADE_B_SCORE_MIN - progress * (
+            RADON_GRADE_B_SCORE_MIN - RADON_GRADE_C_SCORE_MIN
+        )
+    else:
+        # Grade D/E/F: linear cc=15 → 0.2 to cc=30 → 0.0
+        over = avg_complexity - RADON_GRADE_C_MAX
+        return max(0.0, RADON_GRADE_C_SCORE_MIN - over / 15.0 * RADON_GRADE_C_SCORE_MIN)
+
+
+def _compute_radon_complexity_score(content: str) -> float:
+    """Compute accurate McCabe cyclomatic complexity score using radon.
+
+    Uses ``radon.complexity.cc_visit`` for per-function cyclomatic complexity,
+    then maps the average to a 0.0-1.0 score via grade-band interpolation.
+    If radon is not installed or raises an error, returns the neutral score 0.5.
+
+    This function is only called when ``_RADON_AVAILABLE`` is True.
+
+    Args:
+        content: Python source code to analyze.
+
+    Returns:
+        Score from 0.0 (high complexity) to 1.0 (low complexity).
+    """
+    try:
+        blocks = cc_visit(content)  # type: ignore[name-defined]  # guarded by _RADON_AVAILABLE
+        if not blocks:
+            # No analyzable functions/methods; treat as trivially simple
+            return 1.0
+        avg = average_complexity(blocks)  # type: ignore[name-defined]
+        return _mccabe_to_score(avg)
+    except Exception:
+        return NO_FUNCTIONS_NEUTRAL_SCORE
+
+
+def radon_available() -> bool:
+    """Return True if the radon library is installed and available.
+
+    This is exposed so callers can gate radon-specific behaviour (e.g. in
+    tests or the score_code_quality metadata block) without importing radon.
+
+    Returns:
+        True if radon can be used for complexity scoring, False otherwise.
+    """
+    return bool(_RADON_AVAILABLE)
+
+
 def _compute_complexity_score(tree: ast.AST) -> float:
     """Compute complexity score (inverted - lower complexity is better).
 
     Approximates cyclomatic complexity by counting control flow statements.
+    This is the fallback implementation used when radon is not installed.
+    When radon is available, ``_compute_radon_complexity_score`` is used instead.
 
     Args:
         tree: Parsed AST of the Python source code.

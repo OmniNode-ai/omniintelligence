@@ -200,7 +200,7 @@ class Example:
         result = score_code_quality("x = 1", "python")
 
         # Verify all required keys present
-        expected_keys = {
+        required_keys = {
             "success",
             "quality_score",
             "dimensions",
@@ -209,7 +209,13 @@ class Example:
             "source_language",
             "analysis_version",
         }
-        assert set(result.keys()) == expected_keys
+        assert required_keys.issubset(set(result.keys())), (
+            f"Missing required keys: {required_keys - set(result.keys())}"
+        )
+        # radon_complexity_enabled is an optional key added in OMN-1452
+        allowed_optional_keys = {"radon_complexity_enabled"}
+        unexpected_keys = set(result.keys()) - required_keys - allowed_optional_keys
+        assert not unexpected_keys, f"Unexpected keys in result: {unexpected_keys}"
 
     def test_scores_are_bounded(self) -> None:
         """All scores should be in valid range [0.0, 1.0]."""
