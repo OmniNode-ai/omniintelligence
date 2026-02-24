@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 # =============================================================================
 
 [project]
-name = "omniintelligence"
+name = "omninode-intelligence"
 version = "0.6.0"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 readme = "README.md"
