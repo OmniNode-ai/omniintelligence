@@ -1,0 +1,228 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeNavigationRetrieverEffect
+#
+# RAG retrieval effect node for local agent graph navigation.
+# Retrieves ranked prior successful navigation paths for similar goals
+# from OmniMemory (Qdrant), with hard filtering and staleness filtering.
+#
+# Reference: OMN-2579 - Retrieval-Augmented Navigation Using OmniMemory Prior Paths
+
+# Contract identifiers
+name: "node_navigation_retriever_effect"
+contract_name: "navigation_retriever_effect"
+node_name: "navigation_retriever_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+# Node type
+node_type: "EFFECT_GENERIC"
+# Status
+status: "active"
+# Description
+description: >
+  RAG retrieval effect node for local agent graph navigation. Embeds goal + current state structure
+  via Qwen3-Embedding-8B-4bit (port 8100), queries Qdrant navigation_paths collection with hard
+  filters (component type, datasource class, policy tier), applies staleness filtering (removes steps
+  not in current graph), and returns top-K ranked RetrievedPath list. Graceful timeout (2s default):
+  returns empty list without blocking navigation. Cold start (empty collection): returns empty list
+  without error. Retrieval is advisory only — does not override graph boundary enforcement.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelNavigationRetrieveInput"
+  module: "omniintelligence.nodes.node_navigation_retriever_effect.models"
+  description: "Goal condition, current contract state, graph, and retrieval config."
+output_model:
+  name: "ModelNavigationRetrieveOutput"
+  module: "omniintelligence.nodes.node_navigation_retriever_effect.models"
+  description: "Ranked retrieved paths (staleness-filtered) with diagnostics."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_navigation_retrieve"
+    module: "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve"
+    type: "async"
+    description: "Main entry point: retrieve ranked prior navigation paths"
+  handlers:
+    - operation: "retrieve_paths"
+      handler:
+        function: "handle_navigation_retrieve"
+        module: "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve"
+        type: "async"
+      description: "Retrieve ranked prior navigation paths from OmniMemory"
+      actions:
+        - "embed goal + current state structure via Qwen3-Embedding-8B"
+        - "apply hard filters: component_type, datasource_class, policy_tier"
+        - "query Qdrant navigation_paths collection for top-K similar paths"
+        - "apply staleness filtering: remove steps not in current graph"
+        - "sort by similarity score descending"
+        - "return top-K RetrievedPath objects with diagnostics"
+  default_handler:
+    function: "handle_navigation_retrieve"
+    module: "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve"
+    type: "async"
+    description: "Default to retrieve_paths operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "retrieve_paths"
+    description: "Retrieve ranked prior navigation paths for a given goal and state"
+    input_model: "ModelNavigationRetrieveInput"
+    output_model: "ModelNavigationRetrieveOutput"
+    input_fields:
+      - goal
+      - current_state
+      - graph
+      - embedding_url
+      - qdrant_url
+      - qdrant_collection
+      - top_k
+      - timeout_seconds
+      - correlation_id
+    output_fields:
+      - paths
+      - timed_out
+      - collection_exists
+      - total_candidates
+      - hard_filtered_count
+      - stale_steps_filtered
+      - correlation_id
+
+# =============================================================================
+# EMBEDDING CONFIGURATION
+# =============================================================================
+embedding_config:
+  model: "Qwen3-Embedding-8B-4bit"
+  dimension: 1024
+  distance: "Cosine"
+  endpoint_env_var: "LLM_EMBEDDING_URL"
+  default_endpoint: "http://192.168.86.200:8100"
+
+# =============================================================================
+# QDRANT CONFIGURATION
+# =============================================================================
+qdrant_config:
+  collection: "navigation_paths"
+  default_url: "http://localhost:6333"
+  dimension: 1024
+  distance: "Cosine"
+  payload_fields:
+    - name: "component_type"
+      description: "Component type of the goal (hard filter)"
+    - name: "datasource_class"
+      description: "Datasource class of the goal (hard filter)"
+    - name: "policy_tier"
+      description: "Policy tier of the goal (hard filter)"
+    - name: "outcome"
+      description: "Navigation outcome: success, failure, or unknown"
+    - name: "graph_fingerprint"
+      description: "Hash of the contract graph at time of recording"
+    - name: "steps_json"
+      description: "JSON-serialized list of PlanStep dicts"
+    - name: "goal_json"
+      description: "JSON-serialized GoalCondition dict"
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  timeout_policy:
+    timeout_seconds: 2.0
+    description: "Retrieval timeout — graceful fallback to empty list, never blocks navigation"
+  cold_start_policy:
+    description: "Empty collection returns empty list without error — not a failure condition"
+    creates_collection: true
+  error_types:
+    - name: "RetrievalTimeout"
+      error_code: "NAVRET_001"
+      description: "Retrieval exceeded timeout threshold — timed_out=True, paths=()"
+      recoverable: false
+      retry_strategy: "none"
+      propagates: false
+    - name: "EmbeddingFailure"
+      error_code: "NAVRET_002"
+      description: "Embedding server unreachable or returned error — empty list returned"
+      recoverable: false
+      retry_strategy: "none"
+      propagates: false
+    - name: "QdrantFailure"
+      error_code: "NAVRET_003"
+      description: "Qdrant query failed — empty list returned"
+      recoverable: false
+      retry_strategy: "none"
+      propagates: false
+    - name: "ColdStart"
+      error_code: "NAVRET_004"
+      description: "No prior paths in collection — empty list returned, not an error"
+      recoverable: false
+      retry_strategy: "none"
+      propagates: false
+    - name: "StaleTransition"
+      error_code: "NAVRET_005"
+      description: "Step filtered out — transition no longer in current graph"
+      recoverable: false
+      retry_strategy: "none"
+      propagates: false
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  description: >
+    Effect node is read-only with respect to Qdrant (search only). Repeated calls
+    with the same input return the same results (subject to collection contents).
+    Cold-start collection creation is idempotent.
+
+# =============================================================================
+# CONSTRAINTS
+# =============================================================================
+constraints:
+  - "Retrieval is advisory only — retrieved paths do not override graph boundary enforcement"
+  - "Timeout (default 2s) is non-negotiable — navigation must never block on retrieval"
+  - "Cold start (empty collection) must return empty list, not an error"
+  - "Stale steps (not in current graph) must be filtered before surfacing to model"
+  - "This node does not write to Qdrant — that is the navigation history storage ticket"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-24"
+  updated: "2026-02-24"
+  tags:
+    - effect
+    - navigation
+    - rag
+    - qdrant
+    - embedding
+    - qwen3
+    - graph-navigation
+    - omnimemory
+  references:
+    - ticket: "OMN-2579"
+      url: "https://linear.app/omninode/issue/OMN-2579"
+      description: "Retrieval-Augmented Navigation Using OmniMemory Prior Paths"
+    - ticket: "OMN-2540"
+      url: "https://linear.app/omninode/issue/OMN-2540"
+      description: "ContractGraph, ContractState, GoalCondition, PlanStep (omnibase_core)"
+    - ticket: "OMN-2365"
+      url: "https://linear.app/omninode/issue/OMN-2365"
+      description: "Local Agent Graph Navigation epic"
