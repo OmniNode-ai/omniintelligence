@@ -1,0 +1,148 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDocRetrievalCompute
+#
+# Stream C compute node. Re-ranks raw Qdrant search results using scope boost,
+# tier multiplier, and intent-type weights. Enforces adaptive token budget.
+#
+# Reference: OMN-2396 - Retrieval integration: ContextPolicyConfig extension
+
+# Contract identifiers
+name: "node_doc_retrieval_compute"
+contract_name: "doc_retrieval_compute"
+node_name: "doc_retrieval_compute"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+# Node type
+node_type: "COMPUTE_GENERIC"
+# Status
+status: "active"
+# Description
+description: >
+  Stream C retrieval compute node. Re-ranks document-derived ContextItem candidates from Qdrant using
+  scope-aware scoring, tier multipliers, and intent-based adaptive token budgeting. Pure compute -- does
+  NOT query Qdrant or emit attribution signals. #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "ModelDocRetrievalInput"
+  module: "omniintelligence.nodes.node_doc_retrieval_compute.models"
+  description: "Raw Qdrant results + query context for re-ranking."
+output_model:
+  name: "ModelDocRetrievalOutput"
+  module: "omniintelligence.nodes.node_doc_retrieval_compute.models"
+  description: "Ranked, budget-capped document items for context assembly."
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_doc_retrieval"
+    module: "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval"
+    type: "async"
+    description: "Main entry point: re-rank candidates and return budget-enforced items"
+  handlers:
+    - operation: "rank_doc_items"
+      handler:
+        function: "handle_doc_retrieval"
+        module: "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval"
+        type: "async"
+      description: "Score, re-rank, and budget-enforce document context items"
+      actions:
+        - "filter by similarity >= doc_min_similarity and tier in [validated, shared]"
+        - "compute scope_boost (exact=1.20, same-org=0.90, org-wide=0.80)"
+        - "compute tier_multiplier (shared=1.15, earned=1.00, bootstrapped=0.85)"
+        - "compute intent_weight from DOCUMENT_INTENT_TYPE_WEIGHTS table"
+        - "compute final_score = similarity * scope_boost * tier_multiplier * intent_weight"
+        - "sort descending by final_score"
+        - "deduplicate by content_fingerprint (first occurrence wins)"
+        - "enforce adaptive token budget by intent_category"
+        - "cap at max_doc_items (default 8)"
+  default_handler:
+    function: "handle_doc_retrieval"
+    module: "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval"
+    type: "async"
+    description: "Default to rank_doc_items operation"
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "rank_doc_items"
+    description: "Re-rank and budget-enforce document context items"
+    input_model: "ModelDocRetrievalInput"
+    output_model: "ModelDocRetrievalOutput"
+    input_fields:
+      - search_results
+      - query_scope
+      - intent_category
+      - total_token_budget
+      - config
+      - correlation_id
+    output_fields:
+      - ranked_items
+      - doc_token_budget
+      - tokens_used
+      - items_considered
+      - items_filtered
+      - budget_fraction_used
+      - intent_category
+      - correlation_id
+# =============================================================================
+# SCORING CONSTANTS
+# =============================================================================
+scoring:
+  scope_boost:
+    exact_repo_match: 1.20
+    same_org_other_repo: 0.90
+    org_wide: 0.80
+  tier_multiplier:
+    shared: 1.15
+    validated_earned: 1.00  # bootstrap_confidence == 0.0
+    validated_bootstrapped: 0.85  # bootstrap_confidence > 0.0
+    quarantine: 0.70
+  adaptive_budget_fractions:
+    architecture: 0.40
+    refactoring: 0.40
+    compliance: 0.40
+    code_generation: 0.25
+    debugging: 0.20
+    default: 0.30
+  doc_source_config_defaults:
+    max_doc_items: 8
+    doc_min_similarity: 0.65
+    allow_bootstrap_validated: true
+    allow_unscored_static_standards: true
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-23"
+  updated: "2026-02-23"
+  tags:
+    - compute
+    - retrieval
+    - omnimemory
+    - stream-c
+    - scope-aware
+    - adaptive-budget
+  references:
+    - ticket: "OMN-2396"
+      url: "https://linear.app/omninode/issue/OMN-2396"
+      description: "Retrieval integration: ContextPolicyConfig extension, scope boost, tier multiplier"
+    - ticket: "OMN-2395"
+      description: "DocPromotionReducer (promotion tier management)"
+    - ticket: "OMN-2393"
+      description: "ContextItemWriterEffect (writes items to Qdrant)"
+    - ticket: "OMN-2394"
+      description: "DocStalenessDetectorEffect (upstream staleness detection)"

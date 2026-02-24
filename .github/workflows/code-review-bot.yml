@@ -1,0 +1,109 @@
+---
+# Code Intelligence Review Bot - PR Gatekeeper
+#
+# Runs on PR open/update to detect code issues using policy rules.
+# CI behavior depends on enforcement_mode in review_policy.yaml:
+#   observe: always passes, findings logged to summary only
+#   warn:    always passes, findings posted as PR comments
+#   block:   fails if any BLOCKER findings are detected
+#
+# OMN-2496: PR Gatekeeper CI integration
+
+name: Code Intelligence Review Bot
+
+"on":
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review-bot:
+    name: Code Intelligence Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Get PR diff
+        id: get-diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+          echo "diff_path=/tmp/pr.diff" >> "$GITHUB_OUTPUT"
+
+      - name: Run Code Intelligence Review
+        id: review
+        run: |
+          uv run python -c "
+          import sys
+          import os
+
+          try:
+              from omniintelligence.review_bot.runner.runner_pr_review import RunnerPrReview
+          except ImportError as exc:
+              print(f'WARNING: review_bot runner unavailable ({exc}). Skipping review.')
+              print('This is expected when upstream PRs (e.g., OMN-2495 models) are not yet merged.')
+              sys.exit(0)
+
+          policy_path = 'review_policy.yaml'
+          diff_path = '${{ steps.get-diff.outputs.diff_path }}'
+
+          # Load policy (gracefully fails if missing)
+          runner = RunnerPrReview()
+          policy = runner.load_policy(policy_path)
+
+          if policy is None:
+              print('WARNING: No review_policy.yaml found at repo root. Skipping review.')
+              print('Create a review_policy.yaml to enable code intelligence review.')
+              sys.exit(0)
+
+          # Load diff
+          try:
+              with open(diff_path) as f:
+                  diff_content = f.read()
+          except OSError as exc:
+              print(f'WARNING: Could not read diff: {exc}')
+              sys.exit(0)
+
+          # Run review
+          result = runner.run(diff_content=diff_content, policy=policy)
+
+          # Write summary to GitHub Actions step summary
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY', '/tmp/summary.md')
+          with open(summary_path, 'w') as f:
+              f.write(result.summary)
+
+          # Print to stdout for workflow logs
+          print(result.summary)
+
+          # Exit based on CI pass/fail
+          sys.exit(0 if result.ci_passed else 1)
+          "
+        env:
+          OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA: "true"
+
+      - name: Post findings as PR comment (warn/block modes)
+        if: always() && steps.review.outcome != 'skipped'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // The actual comment posting is handled by OMN-2497 (poster_review_comment.py)
+            // This step is a placeholder that will be wired in after OMN-2497 is merged.
+            // In observe mode, no comment is posted.
+            console.log('Comment posting handled by poster_review_comment (OMN-2497)');

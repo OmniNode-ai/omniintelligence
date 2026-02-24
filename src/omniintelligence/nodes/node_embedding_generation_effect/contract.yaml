@@ -1,0 +1,174 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeEmbeddingGenerationEffect
+#
+# Stream B effect node. Receives classified chunks from ChunkClassifierCompute,
+# generates 1024-dimensional embeddings via Qwen3-Embedding-8B-4bit (port 8100),
+# and passes EmbeddedChunks to ContextItemWriterEffect for storage in Qdrant.
+#
+# Reference: OMN-2392 - EmbeddingGenerationEffect
+
+# Contract identifiers
+name: "node_embedding_generation_effect"
+contract_name: "embedding_generation_effect"
+node_name: "embedding_generation_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+# Node type
+node_type: "EFFECT_GENERIC"
+# Status
+status: "active"
+# Description
+description: >
+  Stream B effect node. Generates 1024-dimensional embeddings for classified chunks via the Qwen3-Embedding-8B-4bit
+  server (port 8100). Skips empty chunks, batches via get_embeddings_batch, retries failed chunks individually,
+  dead-letters persistent failures. Passes EmbeddedChunk list to ContextItemWriterEffect for Qdrant storage.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelEmbeddingGenerateInput"
+  module: "omniintelligence.nodes.node_embedding_generation_effect.models"
+  description: "Classified chunks with embedding server URL and source metadata."
+output_model:
+  name: "ModelEmbeddingGenerateOutput"
+  module: "omniintelligence.nodes.node_embedding_generation_effect.models"
+  description: "Embedded chunks with 1024-dim vectors and skip/fail counts."
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_embedding_generate"
+    module: "omniintelligence.nodes.node_embedding_generation_effect.handlers.handler_embedding_generate"
+    type: "async"
+    description: "Main entry point: batch embed classified chunks"
+  handlers:
+    - operation: "generate_embeddings"
+      handler:
+        function: "handle_embedding_generate"
+        module: "omniintelligence.nodes.node_embedding_generation_effect.handlers.handler_embedding_generate"
+        type: "async"
+      description: "Batch embed classified chunks via Qwen3-Embedding"
+      actions:
+        - "skip chunks with empty content (counted in skipped_chunks)"
+        - "batch embed via EmbeddingClient.get_embeddings_batch"
+        - "on batch failure: retry each chunk individually"
+        - "on persistent individual failure: dead-letter (counted in failed_chunks)"
+        - "attach 1024-dim embedding tuple to each successful chunk"
+        - "return ModelEmbeddingGenerateOutput with embedded_chunks and counts"
+  default_handler:
+    function: "handle_embedding_generate"
+    module: "omniintelligence.nodes.node_embedding_generation_effect.handlers.handler_embedding_generate"
+    type: "async"
+    description: "Default to generate_embeddings operation"
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "generate_embeddings"
+    description: "Generate 1024-dim embeddings for classified chunks"
+    input_model: "ModelEmbeddingGenerateInput"
+    output_model: "ModelEmbeddingGenerateOutput"
+    input_fields:
+      - classified_chunks
+      - embedding_url
+      - source_ref
+      - correlation_id
+    output_fields:
+      - embedded_chunks
+      - source_ref
+      - total_chunks
+      - skipped_chunks
+      - failed_chunks
+      - correlation_id
+# =============================================================================
+# EMBEDDING CONFIGURATION
+# =============================================================================
+embedding_config:
+  model: "Qwen3-Embedding-8B-4bit"
+  dimension: 1024
+  distance: "Cosine"
+  endpoint_env_var: "LLM_EMBEDDING_URL"
+  default_endpoint: "http://192.168.86.200:8100"
+  client_config:
+    timeout_seconds: 30.0
+    max_retries: 5
+    retry_base_delay: 0.5
+    max_concurrency: 5
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 5
+    strategy: "exponential_backoff"
+    base_delay_seconds: 0.5
+    description: "Per-chunk retry with exponential backoff"
+  error_types:
+    - name: "EmptyChunkSkip"
+      error_code: "EMBEDGEN_001"
+      description: "Chunk with empty content skipped — counted in skipped_chunks"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "BatchEmbeddingFailure"
+      error_code: "EMBEDGEN_002"
+      description: "Batch embedding failed — retried individually per chunk"
+      recoverable: true
+      retry_strategy: "individual_retry"
+    - name: "PersistentEmbeddingFailure"
+      error_code: "EMBEDGEN_003"
+      description: "Individual chunk failed after all retries — dead-lettered"
+      recoverable: false
+      retry_strategy: "dead_letter"
+    - name: "ConnectionFailure"
+      error_code: "EMBEDGEN_004"
+      description: "Endpoint unreachable — propagates to caller for document-level dead-letter"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: false
+  description: >
+    Effect node with external I/O — not idempotent. Callers should use content_fingerprint from ModelClassifiedChunk
+    for deduplication before calling.
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  description: "EmbeddingClient.health_check() pings the embedding server"
+  endpoint: "/embed"
+  method: "POST"
+  test_payload: '{"text": "health check"}'
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-22"
+  updated: "2026-02-22"
+  tags:
+    - effect
+    - embedding
+    - qwen3
+    - omnimemory
+    - stream-b
+    - qdrant
+  references:
+    - ticket: "OMN-2392"
+      url: "https://linear.app/omninode/issue/OMN-2392"
+      description: "EmbeddingGenerationEffect: batch chunk embeddings via Qwen3-Embedding-8B-4bit"
