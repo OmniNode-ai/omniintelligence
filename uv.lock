@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12, <4.0"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -2191,8 +2191,8 @@ all = [
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "omnibase-core", specifier = ">=0.18.1,<0.20.0" },
-    { name = "omnibase-infra", specifier = ">=0.9.0,<0.10.0" },
-    { name = "omnibase-spi", specifier = ">=0.10.0,<0.11.0" },
+    { name = "omnibase-infra", specifier = ">=0.9.0,<0.11.0" },
+    { name = "omnibase-spi", specifier = ">=0.10.0,<0.13.0" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
     { name = "pre-commit", specifier = ">=4.5.0" },
@@ -2232,8 +2232,8 @@ core = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "omnibase-core", specifier = ">=0.18.1,<0.20.0" },
-    { name = "omnibase-infra", specifier = ">=0.9.0,<0.10.0" },
-    { name = "omnibase-spi", specifier = ">=0.10.0,<0.11.0" },
+    { name = "omnibase-infra", specifier = ">=0.9.0,<0.11.0" },
+    { name = "omnibase-spi", specifier = ">=0.10.0,<0.13.0" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
