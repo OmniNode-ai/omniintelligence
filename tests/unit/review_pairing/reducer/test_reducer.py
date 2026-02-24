@@ -31,9 +31,7 @@ from omniintelligence.review_pairing.reducer import (
     PatternCandidateReducer,
     PatternClusterKey,
     PatternLifecycleState,
-    PromotionGateResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures and helpers
@@ -296,7 +294,7 @@ class TestCandidateToValidated:
         reducer = PatternCandidateReducer()
         candidate = _make_candidate_with_pairs(n=3)
 
-        candidate, result = reducer.try_validate(candidate)
+        candidate, _ = reducer.try_validate(candidate)
         assert candidate.validated_at is not None
 
     def test_try_validate_records_state_history(self) -> None:
