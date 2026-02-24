@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Token counting utility for pattern compilation.
 
 Uses tiktoken with cl100k_base encoding (GPT-3.5/4 compatible).

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Code analysis failed event payload model.
 
 This module defines the Pydantic model for CODE_ANALYSIS_FAILED events

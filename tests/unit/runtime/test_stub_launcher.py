@@ -1,4 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Tests for stub_launcher module.
 
 Covers argument parsing validation, HEALTH_PORT fallback,

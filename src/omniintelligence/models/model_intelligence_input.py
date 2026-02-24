@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input model for Intelligence operations.
 
 This model is used by the intelligence_adapter effect node

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Event payload models for code analysis Kafka events.
 
 This module contains Pydantic models for Kafka event payloads used in

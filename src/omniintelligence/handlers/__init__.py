@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handlers for omniintelligence operations.
 
 Handlers are stateless functions that perform specific operations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for RunnerPrReview and RunnerPrecommit.
 
 Tests cover OMN-2496 acceptance criteria:

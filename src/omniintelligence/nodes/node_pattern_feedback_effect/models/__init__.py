@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for node_pattern_feedback_effect.
 
 This module exports all input and output models for the pattern feedback

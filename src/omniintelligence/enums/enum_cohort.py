@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Cohort enum for A/B experiment assignment in pattern injection.
 
 Ticket: OMN-1670

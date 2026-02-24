@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Gate snapshot model for pattern promotion decisions.
 
 This model captures the promotion criteria values at the moment a pattern

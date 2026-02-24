@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Feedback handler for the Code Intelligence Review Bot learning loop.
 
 Consumes remediation_accepted / remediation_rejected signals and stores

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ONEX Intelligence Nodes.
 
 This module exports all canonical ONEX nodes for the intelligence system.

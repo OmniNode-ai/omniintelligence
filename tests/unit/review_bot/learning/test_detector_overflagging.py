@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for over-flagging detector.
 
 Tests cover OMN-2499 acceptance criteria:

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for EnumInjectionContext and EnumCohort.
 
 This module validates that the Python enums match the database CHECK constraints

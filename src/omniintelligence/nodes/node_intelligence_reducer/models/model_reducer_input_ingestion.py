@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input model for Intelligence Reducer - INGESTION FSM."""
 
 from __future__ import annotations

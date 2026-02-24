@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Default configuration presets for pattern learning.
 
 This module provides default values and constants for pattern learning operations.

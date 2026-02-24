@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Single pattern entry response model for the pattern query API.
 
 Ticket: OMN-2253

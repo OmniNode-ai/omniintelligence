@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Kafka event model for compliance-evaluated output.
 
 Ticket: OMN-2339

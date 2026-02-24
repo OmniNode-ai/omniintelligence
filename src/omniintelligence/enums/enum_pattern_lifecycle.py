@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern lifecycle status enum for OmniIntelligence.
 
 This module contains the canonical pattern lifecycle status enumeration

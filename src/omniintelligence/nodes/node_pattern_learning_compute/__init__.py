@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Learning Compute Node.
 
 This package provides the pattern learning (aggregation) compute node

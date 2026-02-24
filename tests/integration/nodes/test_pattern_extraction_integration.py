@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Integration Tests for Pattern Assembly Orchestration.
 
 Tests the complete pattern assembly orchestrator pipeline with real-world

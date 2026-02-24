@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Topic configuration model for event bus."""
 
 from pydantic import BaseModel, ConfigDict, Field

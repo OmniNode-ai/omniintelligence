@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Compliance violation payload model for compliance-evaluated events.
 
 Ticket: OMN-2339

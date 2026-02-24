@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Workflow coordination handler for Pattern Assembler Orchestrator.
 
 This module coordinates the 4-step workflow execution:

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Demotion check result model for pattern_demotion_effect."""
 
 from uuid import UUID

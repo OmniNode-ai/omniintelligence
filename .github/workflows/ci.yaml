@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 name: CI
 
 on:
@@ -107,6 +110,28 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
               - '.github/workflows/ci.yaml'
+
+  # Assert no Poetry artifacts - enforces uv-only build toolchain
+  assert-no-poetry:
+    name: Assert No Poetry Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Assert no Poetry artifacts
+        run: |
+          test ! -f poetry.lock || { echo "ERROR: poetry.lock must not exist — use uv.lock"; exit 1; }
+          python3 -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f: d = tomllib.load(f)
+          backend = d.get('build-system', {}).get('build-backend', '')
+          assert 'poetry' not in backend, f'ERROR: poetry build backend found: {backend}'
+          assert 'version' not in d.get('tool', {}).get('poetry', {}), 'ERROR: [tool.poetry].version must not exist'
+          print('OK: build config is clean')
+          "
 
   # Pre-commit hooks - comprehensive code quality validation
   pre-commit:
@@ -702,7 +727,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets]
+    needs: [assert-no-poetry, pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets]
     if: always()
 
     steps:
@@ -711,6 +736,7 @@ jobs:
           echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          nopoetry="${{ needs.assert-no-poetry.result }}"
           precommit="${{ needs.pre-commit.result }}"
           scopealign="${{ needs.scope-alignment.result }}"
           contracts="${{ needs.contract-validation.result }}"
@@ -723,6 +749,7 @@ jobs:
           # Report each check
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| No Poetry Artifacts | $nopoetry |" >> $GITHUB_STEP_SUMMARY
           echo "| Pre-commit Hooks | $precommit |" >> $GITHUB_STEP_SUMMARY
           echo "| Scope Alignment | $scopealign |" >> $GITHUB_STEP_SUMMARY
           echo "| Contract Validation | $contracts |" >> $GITHUB_STEP_SUMMARY
@@ -736,7 +763,7 @@ jobs:
           # check-handshake is skipped on fork PRs -- treat skipped as acceptable.
           FAILED=false
 
-          for check in "$precommit" "$scopealign" "$contracts" "$ioaudit" "$crossrepo" "$migrationfreeze" "$secrets"; do
+          for check in "$nopoetry" "$precommit" "$scopealign" "$contracts" "$ioaudit" "$crossrepo" "$migrationfreeze" "$secrets"; do
             if [[ "$check" != "success" ]]; then
               FAILED=true
             fi

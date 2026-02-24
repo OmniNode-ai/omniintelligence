@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Main orchestration handler for pattern learning pipeline.
 
 This handler wires together the existing pipeline handlers to produce

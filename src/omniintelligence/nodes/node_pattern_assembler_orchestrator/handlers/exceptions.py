@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Exception classes for Pattern Assembler Orchestrator.
 
 Domain-specific exceptions corresponding to error types defined in contract.yaml.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern assembly handler for Pattern Assembler Orchestrator.
 
 This module implements the final step (step 4) of the workflow:

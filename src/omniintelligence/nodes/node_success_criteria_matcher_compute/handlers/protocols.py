@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Type protocols for success criteria matching handler results.
 
 This module defines TypedDict structures and enums for type-safe handler responses,

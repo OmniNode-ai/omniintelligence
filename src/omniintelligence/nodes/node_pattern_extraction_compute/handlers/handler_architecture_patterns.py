@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Architecture pattern extraction from session data.
 
 This module implements a pure functional architecture pattern extraction

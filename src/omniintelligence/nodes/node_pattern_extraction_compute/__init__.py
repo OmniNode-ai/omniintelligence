@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Extraction Compute Node.
 
 This node extracts codebase patterns and insights from session snapshots.

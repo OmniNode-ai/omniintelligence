@@ -1,5 +1,6 @@
-# SPDX-FileCopyrightText: 2025 OmniNode Team
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for Union-Find (Disjoint-Set) data structure.
 
 This module tests the UnionFind class used for deterministic clustering:

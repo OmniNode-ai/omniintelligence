@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Adapter handler bridging omnibase_core pattern extraction models to local extractors.
 
 This handler accepts the canonical ``ModelPatternExtractionInput`` /

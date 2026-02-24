@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Intelligence Orchestrator - Declarative workflow orchestrator.
 
 This orchestrator follows the ONEX declarative pattern:

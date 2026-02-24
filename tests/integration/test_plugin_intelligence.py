@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Integration tests for PluginIntelligence domain plugin.
 
@@ -102,7 +104,7 @@ class TestPluginIntelligence:
         """Plugin should activate when OMNIINTELLIGENCE_DB_URL is set."""
         monkeypatch.setenv(
             "OMNIINTELLIGENCE_DB_URL",
-            "postgresql://postgres:pass@192.168.86.200:5436/omniintelligence",
+            "postgresql://postgres:pass@localhost:5432/omniintelligence",
         )
         plugin = PluginIntelligence()
         config = _make_config()

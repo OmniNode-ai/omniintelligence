@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for TF-IDF based intent classification.
 
 This module implements a pure functional TF-IDF based intent classification

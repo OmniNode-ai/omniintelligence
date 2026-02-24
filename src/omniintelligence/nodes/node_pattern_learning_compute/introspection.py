@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ONEX Introspection Support for Pattern Learning Compute Node.
 
 This module provides introspection capabilities for the pattern learning

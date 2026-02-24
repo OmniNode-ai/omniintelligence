@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pydantic models for the Code Intelligence Review Bot policy schema.
 
 The policy YAML schema defines rules, severities, patterns, and exemptions

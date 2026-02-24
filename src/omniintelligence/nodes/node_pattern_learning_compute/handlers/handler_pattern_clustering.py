@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern clustering handler for pattern learning compute node.
 
 This module provides the core clustering functionality for the pattern learning

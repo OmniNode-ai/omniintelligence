@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Code Intelligence Review Bot for OmniIntelligence.
 
 This package implements the review bot components including:

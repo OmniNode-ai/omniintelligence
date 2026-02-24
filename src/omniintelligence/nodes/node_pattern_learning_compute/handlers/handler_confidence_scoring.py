@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Confidence scoring handler for pattern learning compute node.
 
 This module computes decomposed confidence scores for pattern clusters,

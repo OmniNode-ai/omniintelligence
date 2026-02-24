@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for the pattern compliance compute handler.
 
 Tests the handler orchestration function that coordinates prompt building,

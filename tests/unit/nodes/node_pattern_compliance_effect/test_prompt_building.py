@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for compliance prompt building.
 
 Tests the pure prompt construction function that builds the LLM prompt

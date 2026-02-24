@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for LLM response parsing and violation extraction.
 
 Tests the pure parsing functions that convert raw LLM text responses

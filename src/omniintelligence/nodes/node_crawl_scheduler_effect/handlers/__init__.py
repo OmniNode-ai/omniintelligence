@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handlers for node_crawl_scheduler_effect."""
 
 from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.debounce_state import (

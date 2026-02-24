@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Output Model for Pattern Extraction Compute Node."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Codebase Insight Model for Pattern Extraction.
 
 This module defines the ModelCodebaseInsight model representing

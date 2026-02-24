@@ -1,4 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Intent Drift Detect Compute Node — thin shell delegating to handler.
 

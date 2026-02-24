@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Integration tests for pattern promotion against real PostgreSQL.
 
@@ -9,7 +11,7 @@ Run with:
     pytest tests/integration/nodes/pattern_promotion_effect -v -m integration
 
 Prerequisites:
-    - PostgreSQL running on 192.168.86.200:5436
+    - PostgreSQL running on localhost:5432
     - POSTGRES_PASSWORD environment variable set
     - Database migrations applied
 """
