@@ -390,8 +390,16 @@ class PatternInjector:
             "PatternInjector.compute_reward_signals: %d signals "
             "(%d violations, %d avoidances)",
             len(signals),
-            sum(1 for s in signals if s.signal_type == RewardSignalType.REPEATED_VIOLATION),
-            sum(1 for s in signals if s.signal_type == RewardSignalType.PREEMPTIVE_AVOIDANCE),
+            sum(
+                1
+                for s in signals
+                if s.signal_type == RewardSignalType.REPEATED_VIOLATION
+            ),
+            sum(
+                1
+                for s in signals
+                if s.signal_type == RewardSignalType.PREEMPTIVE_AVOIDANCE
+            ),
         )
 
         return signals

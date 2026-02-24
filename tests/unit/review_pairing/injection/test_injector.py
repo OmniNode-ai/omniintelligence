@@ -22,25 +22,18 @@ from __future__ import annotations
 import uuid
 from uuid import UUID
 
-import pytest
-
 from omniintelligence.review_pairing.injection import (
     InjectionContext,
-    InjectionResult,
     PatternConstraintCandidate,
     PatternInjector,
-    RewardSignal,
     RewardSignalType,
 )
 from omniintelligence.review_pairing.injection.injector import (
     MAX_INJECTION_TOKENS,
     REWARD_AVOIDANCE,
     REWARD_REPEATED_VIOLATION,
-    _FOOTER,
-    _HEADER,
     _estimate_tokens,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -253,9 +246,7 @@ class TestTokenBudget:
         high = _make_candidate(rule_id="mypy:return-value", score=0.95)
         low = _make_candidate(rule_id="ruff:E501", score=0.30)
 
-        result = injector.build_injection(
-            [high, low], _make_context(), max_tokens=50
-        )
+        result = injector.build_injection([high, low], _make_context(), max_tokens=50)
         # If any is truncated, it should be the low-scored one
         if result.patterns_truncated:
             assert low.pattern_id in result.patterns_truncated
@@ -381,7 +372,9 @@ class TestRewardSignals:
 
         signals = injector.compute_reward_signals(
             injected_patterns=[pid1],  # only pid1 was injected
-            violated_rule_ids={"mypy:return-value"},  # pid2's rule violated, not injected
+            violated_rule_ids={
+                "mypy:return-value"
+            },  # pid2's rule violated, not injected
             avoided_rule_ids=set(),
             session_id=uuid.uuid4(),
             injection_id=uuid.uuid4(),
