@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pure handler for pattern compliance evaluation.
 
 Contains the prompt construction, LLM response parsing, and violation

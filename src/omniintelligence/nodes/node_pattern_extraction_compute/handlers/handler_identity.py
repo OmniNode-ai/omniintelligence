@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Insight identity key generation for deduplication.
 
 This module provides functions for generating unique identity keys

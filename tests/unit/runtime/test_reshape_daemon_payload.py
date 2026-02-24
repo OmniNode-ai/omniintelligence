@@ -1,4 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025-2026 OmniNode Team
 """Unit-contract tests for _reshape_daemon_hook_payload_v1.
 

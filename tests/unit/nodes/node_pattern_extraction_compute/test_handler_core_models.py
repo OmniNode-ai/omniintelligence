@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for handler_core_models - core model adapter for pattern extraction.
 
 Tests the handler that bridges omnibase_core ModelPatternExtractionInput/Output

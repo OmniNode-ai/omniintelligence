@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """FastAPI router for pattern query endpoints.
 
 Provides GET /api/v1/patterns for querying validated/provisional patterns

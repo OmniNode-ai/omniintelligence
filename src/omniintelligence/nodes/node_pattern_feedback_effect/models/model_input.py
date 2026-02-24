@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input models for node_pattern_feedback_effect.
 
 This module re-exports the canonical input type for the pattern feedback effect node.

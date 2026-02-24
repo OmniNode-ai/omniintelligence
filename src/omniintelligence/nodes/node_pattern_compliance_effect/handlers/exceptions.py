@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Exceptions for pattern compliance handlers.
 
 Domain-specific exceptions for pattern compliance evaluation operations.

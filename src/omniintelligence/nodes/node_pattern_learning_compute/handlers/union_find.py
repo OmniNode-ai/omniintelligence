@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Union-Find (Disjoint-Set) data structure for clustering operations.
 
 This module provides a reusable Union-Find implementation optimized for

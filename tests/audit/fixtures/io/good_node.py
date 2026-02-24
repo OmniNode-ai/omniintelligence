@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """A clean compute node with no I/O violations.
 
 This fixture represents a properly designed ONEX compute node that:

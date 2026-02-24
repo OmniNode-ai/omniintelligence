@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Tests for generate_node_report.py script.
 
 This module tests the stub detection logic and report generation functions.

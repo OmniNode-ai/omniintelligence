@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pre-commit fast-path runner for the Code Intelligence Review Bot.
 
 Reuses RunnerPrReview core logic but skips slow rules for fast feedback

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Compliance Effect Node - Thin shell delegating to handler.
 
 Evaluates code against applicable patterns using Coder-14B (via ProtocolLlmClient).

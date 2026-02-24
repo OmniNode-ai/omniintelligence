@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """EnforcementMode enum for the Code Intelligence Review Bot rollout system.
 
 Controls how review findings affect CI across three phases:

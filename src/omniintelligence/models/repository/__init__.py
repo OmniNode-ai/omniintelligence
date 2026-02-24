@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Repository models for contract-driven database access.
 
 These models are used by the PostgresRepositoryRuntime to map database rows

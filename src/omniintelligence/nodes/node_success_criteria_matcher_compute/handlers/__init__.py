@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Success Criteria Matcher Compute Handlers.
 
 This module provides pure handler functions for success criteria matching operations.

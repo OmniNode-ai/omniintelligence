@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for lifecycle_state filter enforcement in learned_patterns repository contract.
 
 Tests verify that injection-eligible queries enforce the lifecycle_state filter:

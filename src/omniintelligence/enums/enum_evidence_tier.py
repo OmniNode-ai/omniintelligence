@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Re-export of EnumEvidenceTier from omnibase_core canonical location.
 
 OMN-2134 is resolved: omnibase_core now exports EnumEvidenceTier from

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Intent Classifier Compute - Pure compute node for TF-IDF intent classification.
 
 This node performs deterministic intent classification on text content using

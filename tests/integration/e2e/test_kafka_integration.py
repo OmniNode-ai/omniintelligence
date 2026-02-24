@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """E2E tests verifying real Kafka integration.
 
@@ -9,7 +11,7 @@ E2E fixtures. It verifies that:
 - The consumer can verify events were actually published
 - Topic isolation via prefix works correctly
 
-These tests require real Kafka infrastructure at 192.168.86.200:29092.
+These tests require real Kafka infrastructure at localhost:9092.
 Tests are skipped gracefully when Kafka is unavailable.
 
 Reference:

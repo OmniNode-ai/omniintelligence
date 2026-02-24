@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """
 Unit tests for LogSanitizer.
 
@@ -308,22 +311,22 @@ class TestLogSanitizerIPSanitization:
     def test_ip_sanitization_disabled_by_default(self):
         """Test IPs are NOT sanitized by default."""
         sanitizer = LogSanitizer()
-        text = "Connected from 192.168.1.100"
+        text = "Connected from 192.168.1.100"  # onex-allow-internal-ip
         result = sanitizer.sanitize(text)
-        assert "192.168.1.100" in result  # IP should remain
+        assert "192.168.1.100" in result  # IP should remain  # onex-allow-internal-ip
 
     def test_ip_sanitization_enabled_ipv4(self):
         """Test IPv4 addresses ARE sanitized when enabled (line 217)."""
         sanitizer = LogSanitizer(sanitize_ips=True)
-        text = "Connected from 192.168.1.100"
+        text = "Connected from 192.168.1.100"  # onex-allow-internal-ip
         result = sanitizer.sanitize(text)
         assert "[IP_ADDRESS]" in result
-        assert "192.168.1.100" not in result
+        assert "192.168.1.100" not in result  # onex-allow-internal-ip
 
     def test_ip_sanitization_multiple_ips(self):
         """Test multiple IP sanitization."""
         sanitizer = LogSanitizer(sanitize_ips=True)
-        text = "From 10.0.0.1 to 172.16.0.1"
+        text = "From 10.0.0.1 to 172.16.0.1"  # onex-allow-internal-ip
         result = sanitizer.sanitize(text)
         assert result.count("[IP_ADDRESS]") == 2
 
@@ -751,7 +754,7 @@ class TestLogSanitizerIntegration:
         )
 
         text = (
-            "User test@example.com from 192.168.1.1 "
+            "User test@example.com from 192.168.1.1 "  # onex-allow-internal-ip
             "using token sk-1234567890abcdefghijklmnop "
             "with internal id INTERNAL_ABC12345"
         )

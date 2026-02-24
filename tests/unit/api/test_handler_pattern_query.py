@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for the pattern query handler.
 
 Tests the handler logic in isolation using a mock AdapterPatternStore.

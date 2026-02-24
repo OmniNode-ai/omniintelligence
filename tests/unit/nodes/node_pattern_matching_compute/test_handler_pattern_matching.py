@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for pattern matching handler functions.
 
 Tests the pure matching logic without any I/O dependencies.

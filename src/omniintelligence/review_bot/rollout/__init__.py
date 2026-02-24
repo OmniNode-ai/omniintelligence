@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """OBSERVE -> WARN -> BLOCK rollout system for the Code Intelligence Review Bot.
 
 Three-phase rollout: OBSERVE (silent), WARN (visible), BLOCK (CI gate).

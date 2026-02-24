@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Package installability validation tests.
 
 Ensures omniintelligence installs cleanly and all handler modules are
@@ -28,18 +31,25 @@ import pytest
 # Relative to project root; resolved via project_root fixture in tests.
 NODES_DIR = Path("src/omniintelligence/nodes")
 
-# All 25 node directories that MUST be importable for HandlerPluginLoader.
+# All node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
     "node_claude_hook_event_effect",
     "node_compliance_evaluate_effect",
+    "node_context_item_writer_effect",
     "node_crawl_scheduler_effect",
+    "node_doc_promotion_reducer",
+    "node_doc_staleness_detector_effect",
+    "node_document_fetch_effect",
+    "node_document_parser_compute",
     "node_enforcement_feedback_effect",
     "node_execution_trace_parser_compute",
+    "node_git_repo_crawler_effect",
     "node_intelligence_orchestrator",
     "node_intelligence_reducer",
     "node_intent_classifier_compute",
     "node_intent_drift_detect_compute",
+    "node_linear_crawler_effect",
     "node_pattern_assembler_orchestrator",
     "node_pattern_compliance_effect",
     "node_pattern_demotion_effect",
@@ -57,9 +67,6 @@ EXPECTED_NODE_DIRS = [
     "node_semantic_analysis_compute",
     "node_success_criteria_matcher_compute",
     "node_watchdog_effect",
-    "node_git_repo_crawler_effect",
-    "node_document_fetch_effect",
-    "node_linear_crawler_effect",
 ]
 
 # Handler functions/classes that HandlerPluginLoader resolves dynamically.

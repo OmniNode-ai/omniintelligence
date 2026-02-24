@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelWhitelistEntry - a single whitelist entry for a file or pattern."""
 
 from __future__ import annotations

@@ -1,4 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 r"""Unit tests for the utils module.
 
 This package contains unit tests for src/omniintelligence/utils/.

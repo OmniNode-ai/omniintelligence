@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Pattern Learning Compute Node.
 
 Contract models (ModelLearnedPattern, etc.) are imported from omnibase_core.

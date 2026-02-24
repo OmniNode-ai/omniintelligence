@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Canonical enums for OmniIntelligence.
 
 This package contains type-safe enumerations used throughout

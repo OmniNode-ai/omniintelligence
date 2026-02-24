@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Pattern Extraction Compute Node.
 
 This module exports all models used by the pattern extraction compute node

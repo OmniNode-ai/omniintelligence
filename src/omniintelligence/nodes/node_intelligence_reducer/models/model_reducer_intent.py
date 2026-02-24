@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Reducer intent model for Intelligence Reducer."""
 
 from __future__ import annotations

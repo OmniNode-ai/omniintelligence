@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Demotion gate snapshot model for pattern_demotion_effect."""
 
 from pydantic import BaseModel, ConfigDict, Field

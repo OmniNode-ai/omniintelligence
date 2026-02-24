@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Confidence updater using exponential moving average (EMA).
 
 Updates rule confidence scores based on accumulated acceptance/rejection

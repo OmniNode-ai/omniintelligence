@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Quality Scoring Compute Handlers.
 
 This module provides pure handler functions for quality scoring operations.

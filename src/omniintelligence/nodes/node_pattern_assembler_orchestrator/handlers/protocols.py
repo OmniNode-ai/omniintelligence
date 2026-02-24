@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Protocol definitions and TypedDicts for Pattern Assembler Orchestrator.
 
 This module defines typed structures for intermediate results, step execution,

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for the pattern query router.
 
 Tests the FastAPI endpoint using httpx.AsyncClient with a mock adapter.

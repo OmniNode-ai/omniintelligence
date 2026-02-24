@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """FSM-related enums for OmniIntelligence.
 
 This module contains canonical FSM type enumerations for the intelligence system.

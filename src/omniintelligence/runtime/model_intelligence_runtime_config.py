@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Application-level configuration model for OmniIntelligence runtime host.
 
 Architecture Context:

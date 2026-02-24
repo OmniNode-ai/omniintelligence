@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests documenting AdapterPatternStore transaction isolation behavior.
 
 This module tests the transaction semantics of AdapterPatternStore, specifically:

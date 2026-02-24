@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Intent Classifier Compute Handlers.
 
 This module provides handler functions for intent classification operations,

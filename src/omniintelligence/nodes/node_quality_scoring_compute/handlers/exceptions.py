@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Exceptions for quality scoring handlers.
 
 This module defines domain-specific exceptions for quality scoring operations.

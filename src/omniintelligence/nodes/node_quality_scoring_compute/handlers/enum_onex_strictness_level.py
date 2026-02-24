@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ONEX strictness level enum.
 
 This module provides the OnexStrictnessLevel enum for quality scoring

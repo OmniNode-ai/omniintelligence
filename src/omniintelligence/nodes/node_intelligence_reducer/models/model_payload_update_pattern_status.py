@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Status Update Intent Payload.
 
 This payload is emitted by the reducer as a ModelIntent and consumed by

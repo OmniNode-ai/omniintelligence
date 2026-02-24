@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Semantic scoring config model for Intent Classifier Compute Node."""
 
 from __future__ import annotations

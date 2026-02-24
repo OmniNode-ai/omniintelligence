@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for signature_hash parameter in learned_patterns repository contract.
 
 Tests verify that signature_hash is properly defined in the contract YAML for:

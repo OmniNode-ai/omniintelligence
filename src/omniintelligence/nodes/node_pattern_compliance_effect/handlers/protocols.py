@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Protocols for pattern compliance handler dependencies.
 
 Defines the LLM client protocol used by the compliance handler.
