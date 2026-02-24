@@ -78,7 +78,10 @@ class TestIntelligenceNodes:
         expected_nodes = {
             "node_intelligence_orchestrator",
             "node_pattern_assembler_orchestrator",
+            "node_doc_promotion_reducer",
             "node_intelligence_reducer",
+            "node_doc_retrieval_compute",
+            "node_document_parser_compute",
             "node_quality_scoring_compute",
             "node_semantic_analysis_compute",
             "node_pattern_extraction_compute",
@@ -88,7 +91,9 @@ class TestIntelligenceNodes:
             "node_intent_drift_detect_compute",
             "node_execution_trace_parser_compute",
             "node_success_criteria_matcher_compute",
-            "node_document_parser_compute",
+            "node_chunk_classifier_compute",
+            "node_context_item_writer_effect",
+            "node_doc_staleness_detector_effect",
             "node_claude_hook_event_effect",
             "node_pattern_storage_effect",
             "node_pattern_promotion_effect",
@@ -97,11 +102,9 @@ class TestIntelligenceNodes:
             "node_pattern_lifecycle_effect",
             "node_pattern_projection_effect",
             "node_document_fetch_effect",
+            "node_embedding_generation_effect",
             "node_git_repo_crawler_effect",
             "node_linear_crawler_effect",
-            "node_doc_staleness_detector_effect",
-            "node_context_item_writer_effect",
-            "node_doc_promotion_reducer",
         }
         assert node_names == expected_nodes
 
