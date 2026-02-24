@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+
+jobs:
+  release:
+    uses: OmniNode-ai/omnibase_infra/.github/workflows/release-python-reusable.yml@release-workflow-v1
+    secrets: inherit
