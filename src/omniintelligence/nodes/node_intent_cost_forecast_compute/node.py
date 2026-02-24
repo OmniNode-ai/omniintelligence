@@ -71,7 +71,7 @@ class NodeIntentCostForecastCompute(
         Returns:
             Frozen ModelIntentCostForecast for attachment to session context.
         """
-        return compute_forecast(
+        return await compute_forecast(
             input_data,
             self._baselines,
             forecasted_at=datetime.now(tz=UTC),

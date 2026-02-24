@@ -135,107 +135,107 @@ class TestBaselineSeeding:
 class TestComputeForecast:
     """Tests for compute_forecast handler."""
 
-    def test_returns_frozen_forecast(self) -> None:
+    async def test_returns_frozen_forecast(self) -> None:
         """compute_forecast returns a frozen ModelIntentCostForecast."""
         from pydantic import ValidationError
 
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
 
         assert isinstance(forecast, ModelIntentCostForecast)
         with pytest.raises((TypeError, ValidationError)):
             forecast.session_id = "mutated"  # type: ignore[misc]
 
-    def test_forecast_session_id_matches_input(self) -> None:
+    async def test_forecast_session_id_matches_input(self) -> None:
         """Forecast session_id matches the input session_id."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.session_id == input_data.session_id
 
-    def test_forecast_intent_class_matches_input(self) -> None:
+    async def test_forecast_intent_class_matches_input(self) -> None:
         """Forecast intent_class matches the input intent_class."""
         input_data = _make_input(intent_class=EnumIntentClass.BUGFIX)
         baselines = {
             EnumIntentClass.BUGFIX: build_seeded_baseline(EnumIntentClass.BUGFIX)
         }
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.intent_class == EnumIntentClass.BUGFIX
 
-    def test_estimated_tokens_p50_positive(self) -> None:
+    async def test_estimated_tokens_p50_positive(self) -> None:
         """Estimated tokens p50 is positive for seeded baselines."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.estimated_tokens_p50 > 0
 
-    def test_token_percentiles_ordered(self) -> None:
+    async def test_token_percentiles_ordered(self) -> None:
         """Forecast p50 <= p90 <= p99."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.estimated_tokens_p50 <= forecast.estimated_tokens_p90
         assert forecast.estimated_tokens_p90 <= forecast.estimated_tokens_p99
 
-    def test_cost_usd_p50_positive(self) -> None:
+    async def test_cost_usd_p50_positive(self) -> None:
         """Estimated cost at p50 is positive."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.estimated_cost_usd_p50 > 0.0
 
-    def test_cost_usd_p90_gte_p50(self) -> None:
+    async def test_cost_usd_p90_gte_p50(self) -> None:
         """Cost at p90 >= cost at p50."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.estimated_cost_usd_p90 >= forecast.estimated_cost_usd_p50
 
-    def test_latency_p50_positive(self) -> None:
+    async def test_latency_p50_positive(self) -> None:
         """Estimated latency p50 is positive."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.estimated_latency_ms_p50 > 0
 
-    def test_escalation_threshold_equals_p90(self) -> None:
+    async def test_escalation_threshold_equals_p90(self) -> None:
         """Escalation threshold equals the p90 token estimate."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.escalation_threshold_tokens == forecast.estimated_tokens_p90
 
-    def test_baseline_sample_count_zero_for_seeded(self) -> None:
+    async def test_baseline_sample_count_zero_for_seeded(self) -> None:
         """Seeded baselines report sample_count=0 (no real observations yet)."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.baseline_sample_count == 0
 
-    def test_missing_baseline_uses_seeded_fallback(self) -> None:
+    async def test_missing_baseline_uses_seeded_fallback(self) -> None:
         """compute_forecast falls back to seeded baseline when class is absent."""
         input_data = _make_input(intent_class=EnumIntentClass.MIGRATION)
         baselines: dict[EnumIntentClass, ModelCostBaseline] = {}  # empty registry
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         # Should not raise; should produce valid forecast
         assert forecast.estimated_tokens_p50 > 0
 
-    def test_forecast_is_deterministic_for_same_baseline(self) -> None:
+    async def test_forecast_is_deterministic_for_same_baseline(self) -> None:
         """Same input + same baseline produces identical forecasts."""
         input_data = _make_input()
         baselines = _make_baselines()
         ts = _now()
-        f1 = compute_forecast(input_data, baselines, forecasted_at=ts)
-        f2 = compute_forecast(input_data, baselines, forecasted_at=ts)
+        f1 = await compute_forecast(input_data, baselines, forecasted_at=ts)
+        f2 = await compute_forecast(input_data, baselines, forecasted_at=ts)
         assert f1.estimated_tokens_p50 == f2.estimated_tokens_p50
         assert f1.confidence_interval == f2.confidence_interval
 
-    def test_event_type_is_literal(self) -> None:
+    async def test_event_type_is_literal(self) -> None:
         """Forecast event_type is 'IntentCostForecast'."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.event_type == "IntentCostForecast"
 
 
@@ -249,40 +249,40 @@ class TestComputeForecast:
 class TestConfidenceInterval:
     """Tests for confidence interval scaling with classification confidence."""
 
-    def test_high_confidence_produces_narrow_interval(self) -> None:
+    async def test_high_confidence_produces_narrow_interval(self) -> None:
         """High classification confidence (0.9) yields a narrow interval."""
         input_data = _make_input(confidence=0.9)
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.confidence_interval < 0.2
 
-    def test_low_confidence_produces_wide_interval(self) -> None:
+    async def test_low_confidence_produces_wide_interval(self) -> None:
         """Low classification confidence (0.3) yields a wide interval."""
         input_data = _make_input(confidence=0.3)
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.confidence_interval > 0.4
 
-    def test_perfect_confidence_yields_zero_interval(self) -> None:
+    async def test_perfect_confidence_yields_zero_interval(self) -> None:
         """Confidence=1.0 yields confidence_interval=0.0."""
         input_data = _make_input(confidence=1.0)
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.confidence_interval == 0.0
 
-    def test_zero_confidence_yields_max_interval(self) -> None:
+    async def test_zero_confidence_yields_max_interval(self) -> None:
         """Confidence=0.0 yields confidence_interval=0.8 (MAX_CONFIDENCE_INTERVAL)."""
         input_data = _make_input(confidence=0.0)
         baselines = _make_baselines()
-        forecast = compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert forecast.confidence_interval == pytest.approx(0.8)
 
-    def test_confidence_interval_monotonically_decreases(self) -> None:
+    async def test_confidence_interval_monotonically_decreases(self) -> None:
         """Higher confidence => narrower interval."""
         baselines = _make_baselines()
         ts = _now()
         forecasts = [
-            compute_forecast(_make_input(confidence=c), baselines, forecasted_at=ts)
+            await compute_forecast(_make_input(confidence=c), baselines, forecasted_at=ts)
             for c in [0.2, 0.5, 0.8, 1.0]
         ]
         intervals = [f.confidence_interval for f in forecasts]
@@ -339,20 +339,20 @@ class TestUpdateBaseline:
             update_baseline(baseline, actual_tokens=1000 + i, actual_latency_ms=5000.0)
         assert baseline.sample_count == 5
 
-    def test_updated_baseline_affects_subsequent_forecast(self) -> None:
+    async def test_updated_baseline_affects_subsequent_forecast(self) -> None:
         """After many high-token updates, the forecast p90 rises."""
         baseline = build_seeded_baseline(EnumIntentClass.REFACTOR)
         baselines = {EnumIntentClass.REFACTOR: baseline}
 
         input_data = _make_input()
-        before = compute_forecast(input_data, baselines, forecasted_at=_now())
+        before = await compute_forecast(input_data, baselines, forecasted_at=_now())
 
         for _ in range(30):
             update_baseline(
                 baseline, actual_tokens=100_000, actual_latency_ms=120_000.0
             )
 
-        after = compute_forecast(input_data, baselines, forecasted_at=_now())
+        after = await compute_forecast(input_data, baselines, forecasted_at=_now())
         assert after.estimated_tokens_p90 > before.estimated_tokens_p90
 
 
@@ -423,12 +423,12 @@ class TestCheckEscalation:
 class TestComputeAccuracyRecord:
     """Tests for compute_accuracy_record handler."""
 
-    def _make_forecast(self) -> ModelIntentCostForecast:
+    async def _make_forecast(self) -> ModelIntentCostForecast:
         input_data = _make_input()
         baselines = _make_baselines()
-        return compute_forecast(input_data, baselines, forecasted_at=_now())
+        return await compute_forecast(input_data, baselines, forecasted_at=_now())
 
-    def test_returns_frozen_accuracy_record(self) -> None:
+    async def test_returns_frozen_accuracy_record(self) -> None:
         """compute_accuracy_record returns a frozen ModelForecastAccuracyRecord."""
         from pydantic import ValidationError
 
@@ -436,7 +436,7 @@ class TestComputeAccuracyRecord:
             ModelForecastAccuracyRecord,
         )
 
-        forecast = self._make_forecast()
+        forecast = await self._make_forecast()
         record = compute_accuracy_record(
             session_id="sess-acc",
             correlation_id=str(uuid4()),
@@ -450,9 +450,9 @@ class TestComputeAccuracyRecord:
         with pytest.raises((TypeError, ValidationError)):
             record.actual_tokens = 0  # type: ignore[misc]
 
-    def test_accuracy_record_actual_tokens_stored(self) -> None:
+    async def test_accuracy_record_actual_tokens_stored(self) -> None:
         """Accuracy record stores actual_tokens correctly."""
-        forecast = self._make_forecast()
+        forecast = await self._make_forecast()
         record = compute_accuracy_record(
             session_id="s",
             correlation_id=str(uuid4()),
@@ -464,9 +464,9 @@ class TestComputeAccuracyRecord:
         )
         assert record.actual_tokens == 7777
 
-    def test_accuracy_record_escalation_triggered_when_exceeded(self) -> None:
+    async def test_accuracy_record_escalation_triggered_when_exceeded(self) -> None:
         """escalation_triggered is True when actual tokens exceed p90."""
-        forecast = self._make_forecast()
+        forecast = await self._make_forecast()
         # Force actual tokens above the threshold
         very_high_tokens = int(forecast.escalation_threshold_tokens) + 10000
 
@@ -481,9 +481,9 @@ class TestComputeAccuracyRecord:
         )
         assert record.escalation_triggered is True
 
-    def test_accuracy_record_no_escalation_when_under_threshold(self) -> None:
+    async def test_accuracy_record_no_escalation_when_under_threshold(self) -> None:
         """escalation_triggered is False when actual tokens are under the threshold."""
-        forecast = self._make_forecast()
+        forecast = await self._make_forecast()
         low_tokens = 1  # trivially below any threshold
 
         record = compute_accuracy_record(
@@ -497,9 +497,9 @@ class TestComputeAccuracyRecord:
         )
         assert record.escalation_triggered is False
 
-    def test_accuracy_record_forecast_fields_preserved(self) -> None:
+    async def test_accuracy_record_forecast_fields_preserved(self) -> None:
         """Accuracy record preserves forecast_tokens_p50 from the forecast."""
-        forecast = self._make_forecast()
+        forecast = await self._make_forecast()
         record = compute_accuracy_record(
             session_id="s",
             correlation_id=str(uuid4()),

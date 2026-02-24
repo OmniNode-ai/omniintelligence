@@ -35,7 +35,7 @@ from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_inten
 _MAX_CONFIDENCE_INTERVAL: float = 0.8
 
 
-def compute_forecast(
+async def compute_forecast(
     input_data: ModelIntentCostForecastInput,
     baselines: dict[EnumIntentClass, ModelCostBaseline],
     *,

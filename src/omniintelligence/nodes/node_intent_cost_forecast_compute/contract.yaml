@@ -53,9 +53,70 @@ handler_routing:
       handler:
         function: "compute_forecast"
         module: "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers"
-        type: "sync"
-# No event_bus section — this is a pure compute node (no Kafka I/O).
-# The orchestrator calls it synchronously after intent classification.
+        type: "async"
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+# Pure compute node — no Kafka I/O. Declared explicitly so contract tooling
+# can verify the absence of subscriptions/publications is intentional.
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: false
+  subscribe_topics: []
+  publish_topics: []
+# =============================================================================
+# STATE MACHINE SUBCONTRACT
+# =============================================================================
+# Pure compute node — stateless, no FSM required. Declared explicitly to
+# satisfy the contract schema requirement.
+state_machine:
+  state_machine_name: "intent_cost_forecast_fsm"
+  initial_state: "idle"
+  states:
+    - state_name: "idle"
+      description: "Waiting for forecast request"
+      is_terminal: false
+      entry_actions: []
+      exit_actions: []
+      required_data: []
+    - state_name: "forecasted"
+      description: "Forecast produced and returned to caller"
+      is_terminal: true
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "correlation_id"
+  transitions:
+    - from_state: "idle"
+      to_state: "forecasted"
+      trigger: "compute_forecast"
+      description: "Forecast computation completed"
+      actions: []
+    - from_state: "forecasted"
+      to_state: "idle"
+      trigger: "reset"
+      description: "Reset for next request"
+      actions: []
+  persistence_enabled: false
+  terminal_states:
+    - "forecasted"
+# =============================================================================
+# IDEMPOTENCY SUBCONTRACT
+# =============================================================================
+# Pure compute node — deterministic, no side effects. Idempotency is
+# structurally guaranteed by the pure function design.
+idempotency:
+  enabled: false
+  strategy: "event_id_tracking"
+  hash_fields:
+    - "correlation_id"
+    - "session_id"
+  description: >
+    Pure compute node. Idempotency is inherent — same inputs always produce
+    the same forecast output. No deduplication tracking needed.
 dependencies: []
 error_handling:
   error_types:
