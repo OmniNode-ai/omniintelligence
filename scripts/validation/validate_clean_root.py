@@ -112,6 +112,8 @@ ALLOWED_ROOT_DIRECTORIES: frozenset[str] = frozenset(
         "benchmarks",
         "tools",
         "bin",
+        # ML/AI label stores (versioned, PR-reviewed — e.g. intent_classes_v1.yaml)
+        "labels",
         # Hidden directories
         ".git",
         ".github",
