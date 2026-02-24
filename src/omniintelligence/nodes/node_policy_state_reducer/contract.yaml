@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - PolicyStateReducer node
+# =============================================================================
+# Implements: OMN-2557 (PolicyState REDUCER node)
+# Epic:       OMN-2361 (Objective Functions and Reward Architecture)
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_policy_state_reducer"
+node_type: "REDUCER"
+description: >-
+  REDUCER node for durable policy lifecycle state management. Consumes
+  RewardAssignedEvent from Kafka and applies lifecycle transitions
+  (candidate → validated → promoted → deprecated) to policy entries in PostgreSQL.
+  Supports four policy types: tool_reliability, pattern_effectiveness,
+  model_routing_confidence, retry_threshold. Emits PolicyStateUpdatedEvent
+  and system.alert.tool_degraded on auto-blacklist.
+input_model:
+  name: "ModelPolicyStateInput"
+  module: "omniintelligence.nodes.node_policy_state_reducer.models"
+  description: "RewardAssignedEvent + lifecycle transition thresholds."
+output_model:
+  name: "ModelPolicyStateOutput"
+  module: "omniintelligence.nodes.node_policy_state_reducer.models"
+  description: "Audit trail of the state mutation with old/new lifecycle states."
+operations:
+  - name: "reduce"
+    description: >-
+      Process a RewardAssignedEvent and apply policy lifecycle transitions.
+      Idempotent: replaying the same event produces no double-update.
+    input_fields:
+      - event
+      - thresholds
+    output_fields:
+      - policy_id
+      - policy_type
+      - old_lifecycle_state
+      - new_lifecycle_state
+      - transition_occurred
+      - blacklisted
+      - alert_emitted
+      - was_duplicate
+event_sources:
+  - topic: "{env}.onex.evt.omnimemory.reward-assigned.v1"
+    description: "RewardAssignedEvent from Kafka"
+    consumer_group: "policy-state-reducer"
+event_outputs:
+  - topic: "{env}.onex.evt.omniintelligence.policy-state-updated.v1"
+    description: "PolicyStateUpdatedEvent emitted after each lifecycle transition"
+  - topic: "system.alert.tool_degraded"
+    description: "Alert emitted when tool reliability falls below blacklist floor"
+dependencies:
+  - name: "policy_state_repository"
+    type: "protocol"
+    module: "omniintelligence.nodes.node_policy_state_reducer.handlers.protocols"
+    description: "PostgreSQL policy state persistence"
+  - name: "alert_publisher"
+    type: "protocol"
+    module: "omniintelligence.nodes.node_policy_state_reducer.handlers.protocols"
+    description: "Kafka alert publisher"
+migrations:
+  - path: "migrations/001_create_policy_state.sql"
+    description: "Creates policy_state, policy_state_audit, policy_state_processed_events tables"
+error_handling:
+  error_types:
+    - name: "PolicyStateValidationError"
+      error_code: "POLICY_001"
+      description: "Input validation failed (unknown policy_type, invalid event)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PolicyStatePersistenceError"
+      error_code: "POLICY_002"
+      description: "DB write failed"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-24"
+  updated: "2026-02-24"
+  tags:
+    - "ONEX"
+    - "reducer"
+    - "policy"
+    - "lifecycle"
+    - "reward"
+    - "OMN-2557"
+    - "OMN-2361"
