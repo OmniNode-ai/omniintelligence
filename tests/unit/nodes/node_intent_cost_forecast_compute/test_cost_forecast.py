@@ -282,7 +282,9 @@ class TestConfidenceInterval:
         baselines = _make_baselines()
         ts = _now()
         forecasts = [
-            await compute_forecast(_make_input(confidence=c), baselines, forecasted_at=ts)
+            await compute_forecast(
+                _make_input(confidence=c), baselines, forecasted_at=ts
+            )
             for c in [0.2, 0.5, 0.8, 1.0]
         ]
         intervals = [f.confidence_interval for f in forecasts]
