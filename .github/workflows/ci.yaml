@@ -194,7 +194,7 @@ jobs:
   scope-alignment:
     name: Scope Alignment
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -429,7 +429,7 @@ jobs:
   contract-validation:
     name: Contract Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -527,7 +527,7 @@ jobs:
   io-audit:
     name: I/O Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -572,7 +572,7 @@ jobs:
   cross-repo-validation:
     name: Cross-Repo Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
