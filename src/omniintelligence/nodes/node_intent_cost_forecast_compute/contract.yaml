@@ -1,0 +1,148 @@
+---
+# ONEX Node Contract - Intent Cost Forecast Compute Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_intent_cost_forecast_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Pure compute node that produces per-intent-class cost and latency forecasts immediately after classification.
+  Uses historical p50/p90/p99 token distributions seeded with synthetic baselines on first run. Escalation
+  signals fire when actual usage exceeds the p90 threshold (observational only).
+input_model:
+  name: "ModelIntentCostForecastInput"
+  module: "omniintelligence.nodes.node_intent_cost_forecast_compute.models"
+  description: "Session ID, intent class, classification confidence, and requested_at timestamp."
+output_model:
+  name: "ModelIntentCostForecast"
+  module: "omniintelligence.nodes.node_intent_cost_forecast_compute.models"
+  description: "Estimated token budget, cost, latency, and escalation threshold."
+operations:
+  - name: "forecast"
+    description: "Produce a cost and latency forecast for a classified intent"
+    input_fields:
+      - session_id
+      - correlation_id
+      - intent_class
+      - confidence
+      - requested_at
+    output_fields:
+      - session_id
+      - correlation_id
+      - intent_class
+      - estimated_tokens_p50
+      - estimated_tokens_p90
+      - estimated_tokens_p99
+      - estimated_cost_usd_p50
+      - estimated_cost_usd_p90
+      - estimated_latency_ms_p50
+      - estimated_latency_ms_p90
+      - confidence_interval
+      - escalation_threshold_tokens
+      - baseline_sample_count
+      - forecasted_at
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "forecast"
+      handler:
+        function: "compute_forecast"
+        module: "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers"
+        type: "async"
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+# Pure compute node — no Kafka I/O. Declared explicitly so contract tooling
+# can verify the absence of subscriptions/publications is intentional.
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: false
+  subscribe_topics: []
+  publish_topics: []
+# =============================================================================
+# STATE MACHINE SUBCONTRACT
+# =============================================================================
+# Pure compute node — stateless, no FSM required. Declared explicitly to
+# satisfy the contract schema requirement.
+state_machine:
+  state_machine_name: "intent_cost_forecast_fsm"
+  initial_state: "idle"
+  states:
+    - state_name: "idle"
+      description: "Waiting for forecast request"
+      is_terminal: false
+      entry_actions: []
+      exit_actions: []
+      required_data: []
+    - state_name: "forecasted"
+      description: "Forecast produced and returned to caller"
+      is_terminal: true
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "correlation_id"
+  transitions:
+    - from_state: "idle"
+      to_state: "forecasted"
+      trigger: "compute_forecast"
+      description: "Forecast computation completed"
+      actions: []
+    - from_state: "forecasted"
+      to_state: "idle"
+      trigger: "reset"
+      description: "Reset for next request"
+      actions: []
+  persistence_enabled: false
+  terminal_states:
+    - "forecasted"
+# =============================================================================
+# IDEMPOTENCY SUBCONTRACT
+# =============================================================================
+# Pure compute node — deterministic, no side effects. Idempotency is
+# structurally guaranteed by the pure function design.
+idempotency:
+  enabled: false
+  strategy: "event_id_tracking"
+  hash_fields:
+    - "correlation_id"
+    - "session_id"
+  description: >
+    Pure compute node. Idempotency is inherent — same inputs always produce the same forecast output.
+    No deduplication tracking needed.
+
+dependencies: []
+error_handling:
+  error_types:
+    - name: "ForecastValidationError"
+      error_code: "FORECAST_001"
+      description: "Input validation failed (missing intent class or invalid confidence)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ForecastComputeError"
+      error_code: "FORECAST_002"
+      description: "Error during forecast computation (e.g. empty baseline)"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-21"
+  updated: "2026-02-21"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "intent"
+    - "forecasting"
+    - "cost"
+    - "latency"
