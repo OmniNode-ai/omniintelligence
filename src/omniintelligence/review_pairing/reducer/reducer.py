@@ -58,7 +58,7 @@ MIN_OCCURRENCES: int = int(os.getenv("PATTERN_MIN_OCCURRENCES", "3"))
 TRANSFORM_SIMILARITY_THRESHOLD: float = float(
     os.getenv("PATTERN_TRANSFORM_SIMILARITY", "0.85")
 )
-"""Minimum edit-distance similarity (0–1) for transform convergence."""
+"""Minimum edit-distance similarity (0-1) for transform convergence."""
 
 MAX_REINTRODUCTION_RATE: float = float(
     os.getenv("PATTERN_MAX_REINTRODUCTION_RATE", "0.20")
@@ -425,8 +425,7 @@ class PatternCandidateReducer:
                 passed=False,
                 gate_name="min_occurrences",
                 gate_detail=(
-                    f"only {occurrence_count} confirmed pairs; "
-                    f"need ≥ {MIN_OCCURRENCES}"
+                    f"only {occurrence_count} confirmed pairs; need ≥ {MIN_OCCURRENCES}"
                 ),
                 occurrence_count=occurrence_count,
             )
@@ -479,11 +478,10 @@ class PatternCandidateReducer:
 
         # Gate 5: tool version stability
         if tool_version_map:
-            versions = [
-                tool_version_map.get(p.pair_id, "unknown") for p in pairs
-            ]
+            versions = [tool_version_map.get(p.pair_id, "unknown") for p in pairs]
             if versions:
                 from collections import Counter
+
                 counts = Counter(versions)
                 majority_count = counts.most_common(1)[0][1]
                 version_stability = majority_count / len(versions)
