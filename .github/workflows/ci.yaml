@@ -156,7 +156,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -171,7 +171,7 @@ jobs:
         run: uv sync --group dev --group core
 
       - name: Cache pre-commit hooks
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pre-commit
           key: >-
@@ -213,7 +213,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -259,7 +259,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -308,7 +308,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -326,7 +326,7 @@ jobs:
       # Without this cache, --incremental flag provides no benefit in CI (fresh containers)
       # Key includes Python version and source file hashes for cache invalidation
       - name: Cache mypy
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .mypy_cache
           key: >-
@@ -389,7 +389,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -448,7 +448,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -546,7 +546,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -591,7 +591,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
