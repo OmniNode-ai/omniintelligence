@@ -87,7 +87,7 @@ core = [
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.20",
     # Event bus (Kafka/Redpanda)
-    "aiokafka>=0.11.0,<0.12.0",
+    "aiokafka>=0.11.0,<0.14.0",
     "confluent-kafka>=2.12.0,<3.0.0",
     # Vector database
     "qdrant-client>=1.15.1",
