@@ -18,23 +18,18 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
-
 from omniintelligence.review_pairing.codemod import (
     AntiPatternValidator,
-    AntiPatternViolation,
     CodemodDefinition,
     CodemodGeneratorSpec,
     CodemodReplayValidator,
     CodemodStatus,
     ReplayCase,
-    ReplayResult,
 )
 from omniintelligence.review_pairing.codemod.generator import (
     make_anti_pattern_validator,
     make_codemod_definition,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
