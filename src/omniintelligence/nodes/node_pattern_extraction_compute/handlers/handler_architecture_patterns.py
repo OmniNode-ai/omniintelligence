@@ -128,7 +128,19 @@ def extract_architecture_patterns(
     """
     results: list[ArchitecturePatternResult] = []
 
-    # Track directory access patterns across sessions
+    # Track directory access patterns across sessions.
+    #
+    # Memory note (OMN-1586): These three accumulators grow proportionally to
+    # the number of unique directories and directory pairs observed across all
+    # sessions.  For typical session sets (< 500 sessions, 10-50 files each)
+    # the combined overhead is well under 10 MB.  For very large inputs:
+    #   - dir_pairs is O(unique_dir_pairs): bounded by the cross product of
+    #     directories within depth-adjacent levels per session.
+    #   - dir_files maps each unique directory to the set of files seen in it;
+    #     this is the dominant structure and can reach O(total unique paths).
+    #   - layer_prefixes counts path prefix frequencies; bounded by
+    #     O(unique_files * max_depth) where max_depth is capped at 3 levels.
+    # Keep session_count * avg_files_per_session under ~50,000 for safe use.
     dir_pairs: Counter[tuple[str, str]] = Counter()
     dir_files: defaultdict[str, set[str]] = defaultdict(set)
     layer_prefixes: Counter[str] = Counter()

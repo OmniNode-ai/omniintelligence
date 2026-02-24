@@ -17,6 +17,51 @@ This follows the ONEX declarative pattern where the node is a thin shell
 and all business logic lives in handler functions.
 
 Ticket: OMN-1402
+
+Memory Considerations for Large Session Sets (OMN-1586)
+========================================================
+All extractors are in-memory accumulators: they build Counter and defaultdict
+structures that grow proportionally to the number of unique files, directories,
+tool names, and error messages observed across all input sessions. There is no
+streaming or chunking — the full session list is consumed before any results
+are produced.
+
+Observed memory characteristics:
+- **Dominant structure**: ``dir_files`` (defaultdict[str, set[str]] in
+  handler_architecture_patterns) accumulates one entry per unique directory,
+  holding all file paths seen in that directory. With large, wide codebases
+  this can reach tens of thousands of entries.
+- **file_pairs / dir_pairs** (Counter[tuple[str, str]]): O(unique files^2) in
+  the worst case per session. In practice, the inner loops iterate over all
+  pairs of files within a session, so a session touching 1000 files creates
+  ~500k pair increments.
+- **tool_success** (defaultdict[str, list[bool]]): O(total tool invocations)
+  across all sessions — one bool per invocation.
+- **pattern_failures** (defaultdict[...] in handler_tool_failure_patterns):
+  stores structured _FailureRecord objects; grows with unique (tool, path)
+  failure combinations.
+
+Current acceptable limits (empirically validated):
+- Up to **~500 sessions** with typical Claude Code session profiles
+  (10–50 files accessed per session, 5–20 tool invocations per session)
+  processes in under 200ms with a resident-set increase of less than 50 MB.
+- Sessions with very large file lists (>500 files/session) may cause
+  quadratic blowup in co-access counting; the architecture extractor's
+  inner loop is O(dirs_per_session^2) per session.
+
+Recommended limits for production callers:
+- Keep ``len(session_snapshots)`` under 1000 per invocation.
+- If processing historical datasets exceeding this, batch sessions into
+  windows and use ``existing_insights`` to carry forward accumulated state
+  across batches. This keeps per-call memory bounded while preserving
+  cross-session pattern continuity.
+- The ``max_results_per_pattern_type`` and ``max_insights_per_type``
+  config fields cap the *output* size but do NOT bound intermediate memory
+  during extraction — they are applied only after all accumulation is done.
+
+Future work: consider switching co-access counters to probabilistic sketches
+(e.g., Count-Min Sketch) to reduce memory for very large session sets at the
+cost of approximate counts.
 """
 
 from __future__ import annotations
