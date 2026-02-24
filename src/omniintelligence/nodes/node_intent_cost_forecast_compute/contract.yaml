@@ -1,3 +1,4 @@
+---
 # ONEX Node Contract - Intent Cost Forecast Compute Node
 contract_version:
   major: 1
@@ -10,7 +11,9 @@ node_version:
 name: "node_intent_cost_forecast_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Pure compute node that produces per-intent-class cost and latency forecasts immediately after classification. Uses historical p50/p90/p99 token distributions seeded with synthetic baselines on first run. Escalation signals fire when actual usage exceeds the p90 threshold (observational only).
+  Pure compute node that produces per-intent-class cost and latency forecasts immediately after classification.
+  Uses historical p50/p90/p99 token distributions seeded with synthetic baselines on first run. Escalation
+  signals fire when actual usage exceeds the p90 threshold (observational only).
 input_model:
   name: "ModelIntentCostForecastInput"
   module: "omniintelligence.nodes.node_intent_cost_forecast_compute.models"
@@ -112,7 +115,8 @@ idempotency:
     - "correlation_id"
     - "session_id"
   description: >
-    Pure compute node. Idempotency is inherent — same inputs always produce the same forecast output. No deduplication tracking needed.
+    Pure compute node. Idempotency is inherent — same inputs always produce the same forecast output.
+    No deduplication tracking needed.
 
 dependencies: []
 error_handling:
