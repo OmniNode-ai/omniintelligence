@@ -29,28 +29,16 @@ Annotation level mapping:
 
 Confidence tier: ``semi_deterministic`` (has file+line but may lack rule_id)
 
-The adapter also supports fetching annotations directly from the GitHub REST
-API using ``httpx`` with ``GITHUB_TOKEN`` from the environment. The token
-is never logged.
+This adapter is a pure parser: it converts pre-fetched annotation dicts into
+``ReviewFindingObserved`` events. HTTP fetching belongs in the Effect layer
+(per ARCH-002: transport I/O must not appear in node source).
 
 Usage::
 
-    # From pre-fetched annotation dicts
     from omniintelligence.review_pairing.adapters.adapter_github_checks import parse_raw
 
     findings = parse_raw(annotations_list, repo="OmniNode-ai/omniintelligence",
                          pr_id=42, commit_sha="abc1234", check_run_name="Lint")
-
-    # Fetch from GitHub API
-    from omniintelligence.review_pairing.adapters.adapter_github_checks import (
-        fetch_and_parse,
-    )
-    findings = await fetch_and_parse(
-        repo="OmniNode-ai/omniintelligence",
-        pr_id=42,
-        commit_sha="abc1234",
-        github_token="ghp_...",
-    )
 
 Reference: OMN-2542
 """
@@ -59,7 +47,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -83,9 +71,6 @@ _LEVEL_MAP: dict[str, FindingSeverity] = {
     "warning": FindingSeverity.WARNING,
     "notice": FindingSeverity.INFO,
 }
-
-# GitHub API base URL
-_GITHUB_API_BASE = "https://api.github.com"
 
 
 def parse_raw(
@@ -198,8 +183,6 @@ def _parse_annotation(
         raw_message: str = str(annotation.get("message") or title or "")
 
         # Attempt to extract rule_id from message (e.g., "E501" or "[return-value]")
-        import re
-
         rule_match = re.search(r"\b([A-Z]\d{3,4}|[a-z-]+(?:-[a-z]+)+)\b", raw_message)
         rule_code = rule_match.group(1) if rule_match else "unknown"
         rule_id = f"github-checks:{rule_code}"
@@ -231,108 +214,6 @@ def _parse_annotation(
             annotation,
         )
         return None
-
-
-async def fetch_and_parse(
-    *,
-    repo: str,
-    pr_id: int,
-    commit_sha: str,
-    github_token: str | None = None,
-    check_run_name: str | None = None,
-) -> list[ReviewFindingObserved]:
-    """Fetch annotations from the GitHub Checks API and parse them.
-
-    Uses ``httpx`` for HTTP requests. The ``github_token`` is sourced from
-    ``GITHUB_TOKEN`` env var if not explicitly provided. The token is NEVER
-    logged.
-
-    Args:
-        repo: Repository slug in ``owner/name`` format (e.g. ``OmniNode-ai/omniintelligence``).
-        pr_id: Pull request number used to look up the associated commit.
-        commit_sha: Git SHA to fetch check runs for.
-        github_token: GitHub personal access token or app token. Falls back
-            to ``GITHUB_TOKEN`` environment variable.
-        check_run_name: Optional filter — only ingest annotations from the
-            check run with this name.
-
-    Returns:
-        List of ``ReviewFindingObserved`` events from all matching check runs.
-    """
-    try:
-        import httpx
-    except ImportError:
-        logger.error(
-            "github-checks adapter: httpx is required for fetch_and_parse. "
-            "Install it with: pip install httpx"
-        )
-        return []
-
-    token = github_token or os.environ.get("GITHUB_TOKEN")
-    if not token:
-        logger.warning(
-            "github-checks adapter: no GITHUB_TOKEN available; "
-            "unauthenticated requests are heavily rate-limited"
-        )
-
-    headers: dict[str, str] = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    if token:
-        # Never log the token value
-        headers["Authorization"] = f"Bearer {token}"
-
-    owner, repo_name = repo.split("/", 1) if "/" in repo else ("", repo)
-    findings: list[ReviewFindingObserved] = []
-
-    try:
-        async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
-            # Fetch check runs for the commit
-            url = f"{_GITHUB_API_BASE}/repos/{owner}/{repo_name}/commits/{commit_sha}/check-runs"
-            response = await client.get(url, params={"per_page": 100})
-            response.raise_for_status()
-            runs_data = response.json()
-
-            check_runs = runs_data.get("check_runs") or []
-
-            for run in check_runs:
-                run_name: str = str(run.get("name") or "")
-                if check_run_name and run_name != check_run_name:
-                    continue
-
-                run_id: int = int(run.get("id") or 0)
-                if not run_id:
-                    continue
-
-                # Fetch annotations for this check run
-                ann_url = f"{_GITHUB_API_BASE}/repos/{owner}/{repo_name}/check-runs/{run_id}/annotations"
-                ann_response = await client.get(ann_url, params={"per_page": 100})
-                ann_response.raise_for_status()
-                annotations: list[dict[str, Any]] = ann_response.json()
-
-                run_findings = parse_raw(
-                    annotations,
-                    repo=repo,
-                    pr_id=pr_id,
-                    commit_sha=commit_sha,
-                    check_run_name=run_name,
-                    tool_version=str(
-                        run.get("app", {}).get("slug") or _UNKNOWN_VERSION
-                    ),
-                )
-                findings.extend(run_findings)
-
-    except httpx.HTTPStatusError as exc:
-        logger.warning(
-            "github-checks adapter: HTTP error fetching annotations: %s", exc
-        )
-    except httpx.RequestError as exc:
-        logger.warning("github-checks adapter: request error: %s", exc)
-    except Exception as exc:
-        logger.warning("github-checks adapter: unexpected error: %s", exc)
-
-    return findings
 
 
 def get_confidence_tier() -> str:
