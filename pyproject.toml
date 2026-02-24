@@ -5,9 +5,7 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# =============================================================================
 # DEPENDENCY MANAGEMENT NOTES
-# =============================================================================
 # This project uses uv/PEP 621 dependency management.
 #
 # EDITABLE INSTALLS & uv.lock:
@@ -16,7 +14,6 @@ build-backend = "hatchling.build"
 #     1. Remove uv.lock: rm uv.lock
 #     2. Regenerate: uv lock
 #     3. Verify sync: uv sync --group dev
-# =============================================================================
 
 [project]
 name = "omninode-intelligence"
