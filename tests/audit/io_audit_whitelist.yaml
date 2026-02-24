@@ -79,6 +79,16 @@ files:
     allowed_rules:
       - "file-io"
 
+  # Adaptive classifier handler (OMN-2735) — reads the versioned label store YAML
+  # (labels/intent_classes_v1.yaml) once at module initialization time to bootstrap
+  # the AdaptiveClassifier centroid embeddings. This is one-time bootstrap I/O, not
+  # per-request I/O. A proper Effect node refactor is tracked in a follow-up ticket.
+  - path: "src/omniintelligence/nodes/node_intent_classifier_compute/handlers/handler_adaptive_classification.py"
+    reason: "Reads versioned label store YAML (labels/intent_classes_v1.yaml) once at module init to bootstrap
+      AdaptiveClassifier centroid embeddings; I/O is initialization-time only, not per-call"
+    allowed_rules:
+      - "file-io"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"
