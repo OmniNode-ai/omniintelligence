@@ -2062,7 +2062,7 @@ wheels = [
 ]
 
 [[package]]
-name = "omniintelligence"
+name = "omninode-intelligence"
 version = "0.6.0"
 source = { editable = "." }
 dependencies = [
@@ -2190,9 +2190,9 @@ all = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = ">=0.18.1,<0.19.0" },
-    { name = "omnibase-infra", specifier = ">=0.9.0,<0.10.0" },
-    { name = "omnibase-spi", specifier = ">=0.10.0,<0.11.0" },
+    { name = "omnibase-core", specifier = ">=0.18.1,<0.20.0" },
+    { name = "omnibase-infra", specifier = ">=0.9.0,<0.11.0" },
+    { name = "omnibase-spi", specifier = ">=0.10.0,<0.13.0" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
     { name = "pre-commit", specifier = ">=4.5.0" },
@@ -2231,9 +2231,9 @@ core = [
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = ">=0.18.1,<0.19.0" },
-    { name = "omnibase-infra", specifier = ">=0.9.0,<0.10.0" },
-    { name = "omnibase-spi", specifier = ">=0.10.0,<0.11.0" },
+    { name = "omnibase-core", specifier = ">=0.18.1,<0.20.0" },
+    { name = "omnibase-infra", specifier = ">=0.9.0,<0.11.0" },
+    { name = "omnibase-spi", specifier = ">=0.10.0,<0.13.0" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
