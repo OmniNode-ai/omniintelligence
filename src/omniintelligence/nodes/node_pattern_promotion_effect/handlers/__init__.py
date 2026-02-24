@@ -44,6 +44,9 @@ Reference:
     - OMN-1679: Contribution heuristics (dependency)
 """
 
+from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metrics import (
+    record_promotion_check_metrics,
+)
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
     AutoPromoteCheckResult,
     AutoPromoteResult,
@@ -80,4 +83,5 @@ __all__: list[str] = [
     "meets_promotion_criteria",
     "meets_provisional_to_validated_criteria",
     "promote_pattern",
+    "record_promotion_check_metrics",
 ]

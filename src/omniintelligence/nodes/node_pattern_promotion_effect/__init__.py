@@ -74,6 +74,7 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers import (
     check_and_promote_patterns,
     meets_promotion_criteria,
     promote_pattern,
+    record_promotion_check_metrics,
 )
 
 # Introspection support
@@ -122,4 +123,5 @@ __all__ = [
     "get_introspection_response",
     "meets_promotion_criteria",
     "promote_pattern",
+    "record_promotion_check_metrics",
 ]
