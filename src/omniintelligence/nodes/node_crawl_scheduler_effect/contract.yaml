@@ -204,6 +204,10 @@ event_bus:
   event_bus_enabled: true
 
   # Topics this node subscribes to (receives events from)
+  # Producer for crawl-requested.v1: node_watchdog_effect (omniintelligence) emits
+  # on filesystem change events.  Other potential producers: git post-commit hooks,
+  # CLI/MCP manual triggers.  The topic is internal to omniintelligence — no
+  # external producer from omnimemory or other repos is required (OMN-2719).
   subscribe_topics:
     - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
     - "{env}.onex.evt.omnimemory.document-indexed.v1"
@@ -216,7 +220,11 @@ event_bus:
   subscribe_topic_metadata:
     "{env}.onex.cmd.omnimemory.crawl-requested.v1":
       schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlRequestedEvent"
-      description: "Manual crawl trigger events from CLI, MCP, git hooks, and watchdog"
+      description: >
+        Manual crawl trigger events from CLI, MCP, git hooks, and filesystem watchdog. Producer: node_watchdog_effect
+        (omniintelligence) — emits on OS-level file change events. Additional producers: git post-commit
+        hooks, omniclaude MCP triggers. Ownership: trigger is internal to omniintelligence; no omnimemory
+        producer needed.
     "{env}.onex.evt.omnimemory.document-indexed.v1":
       schema_ref: "object"
       description: >
