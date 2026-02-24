@@ -151,7 +151,7 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "{env}.onex.evt.omnimemory.crawl-requested.v1"
+    - "{env}.onex.cmd.omnimemory.crawl-tick.v1"
 
   publish_topics:
     - "{env}.onex.evt.omnimemory.document-discovered.v1"
@@ -159,9 +159,12 @@ event_bus:
     - "{env}.onex.evt.omnimemory.document-removed.v1"
 
   subscribe_topic_metadata:
-    "{env}.onex.evt.omnimemory.crawl-requested.v1":
+    "{env}.onex.cmd.omnimemory.crawl-tick.v1":
       schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelGitRepoCrawlInput"
-      description: "Crawl request events from CrawlSchedulerEffect or git post-commit hook."
+      description: >
+        Crawl tick commands from CrawlSchedulerEffect (node_crawl_scheduler_effect). The scheduler emits
+        crawl-tick.v1 on periodic ticks and manual triggers. Previously incorrectly declared as onex.evt.omnimemory.crawl-requested.v1
+        (OMN-2719).
       content_type: "application/json"
 
   publish_topic_metadata:

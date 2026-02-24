@@ -46,6 +46,8 @@ EXPECTED_PATTERN_LIFECYCLE_TRANSITIONED = (
 )
 
 # OMN-2430: NodeWatchdogEffect has subscribe_topics: [] — OS-event driven, emits but never subscribes
+# OMN-2719: crawl-requested.v1 producer is node_watchdog_effect (omniintelligence) — no external
+# omnimemory producer is needed; the trigger chain is internal to omniintelligence.
 EXPECTED_CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
 EXPECTED_DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
 
