@@ -214,10 +214,14 @@ published_events:
   - topic_suffix: "onex.evt.omniintelligence.intent-classified.v1"
     full_topic_pattern: "{env}.onex.evt.omniintelligence.intent-classified.v1"
     event_type: "IntentClassified"
+    event_version: "1.1.0"
     trigger: "UserPromptSubmit processed successfully"
     description: "Emitted when a user prompt intent is successfully classified. Consumed by omnimemory
-      for graph storage."
+      for graph storage. Enriched with ModelSemVer provenance fields in v1.1.0 (OMN-1620)."
     payload_fields:
+      # -----------------------------------------------------------------------
+      # Original fields (v1.0.0) — unchanged for backward compatibility
+      # -----------------------------------------------------------------------
       - name: "event_type"
         type: "string"
         description: "Always 'IntentClassified'"
@@ -239,6 +243,30 @@ published_events:
       - name: "timestamp"
         type: "string"
         description: "ISO-8601 timestamp of when the event was emitted"
+      # -----------------------------------------------------------------------
+      # New fields (v1.1.0 — OMN-1620: ModelSemVer provenance enrichment)
+      # -----------------------------------------------------------------------
+      - name: "event_version"
+        type: "ModelSemVer"
+        description: "Event schema version as ModelSemVer structured dict {major, minor, patch}. Downstream:
+          ModelSemVer.model_validate(payload['event_version']). Current value: 1.1.0."
+        added_in: "OMN-1620"
+      - name: "secondary_intents"
+        type: "list[dict]"
+        description: "Secondary intent results from classifier. Each entry has intent_category, confidence,
+          keywords. Empty list when no secondary intents or no classifier."
+        added_in: "OMN-1620"
+      - name: "success"
+        type: "bool"
+        description: "Whether intent classification succeeded. False when classifier returned an error
+          result."
+        added_in: "OMN-1620"
+      - name: "provenance"
+        type: "dict"
+        description: "Structured provenance object for downstream tracing and debugging. Contains: source_system
+          (str), source_node (str), classifier_version (ModelSemVer structured dict {major, minor, patch}),
+          processing_time_ms (float)."
+        added_in: "OMN-1620"
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
