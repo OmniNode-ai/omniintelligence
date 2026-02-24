@@ -117,6 +117,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
     _NodeDescriptor("node_pattern_lifecycle_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_pattern_projection_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_document_fetch_effect", EnumNodeKind.EFFECT),
+    _NodeDescriptor("node_embedding_generation_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_git_repo_crawler_effect", EnumNodeKind.EFFECT),
     _NodeDescriptor("node_linear_crawler_effect", EnumNodeKind.EFFECT),
 )
