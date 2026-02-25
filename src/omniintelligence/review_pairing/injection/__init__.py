@@ -6,11 +6,12 @@
 Public API:
 
     from omniintelligence.review_pairing.injection import (
-        PatternConstraintCandidate,
         InjectionContext,
         InjectionResult,
-        RewardSignal,
+        PatternConstraintCandidate,
         PatternInjector,
+        RewardSignal,
+        RewardSignalType,
     )
 
 Reference: OMN-2577

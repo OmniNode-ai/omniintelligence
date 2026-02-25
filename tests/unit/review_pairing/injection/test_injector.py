@@ -22,6 +22,8 @@ from __future__ import annotations
 import uuid
 from uuid import UUID
 
+import pytest
+
 from omniintelligence.review_pairing.injection import (
     InjectionContext,
     PatternConstraintCandidate,
@@ -77,6 +79,7 @@ def _make_context(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEmptyCandidates:
     def test_no_candidates_returns_no_injection(self) -> None:
         injector = PatternInjector()
@@ -96,6 +99,7 @@ class TestEmptyCandidates:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestFiltering:
     def test_filters_by_repo(self) -> None:
         injector = PatternInjector()
@@ -166,6 +170,7 @@ class TestFiltering:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRanking:
     def test_candidates_ranked_by_score_descending(self) -> None:
         injector = PatternInjector()
@@ -210,6 +215,7 @@ class TestRanking:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTokenBudget:
     def test_constraint_block_respects_token_budget(self) -> None:
         injector = PatternInjector()
@@ -264,6 +270,7 @@ class TestTokenBudget:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestConstraintBlockFormat:
     def test_block_has_header_delimiter(self) -> None:
         injector = PatternInjector()
@@ -305,6 +312,7 @@ class TestConstraintBlockFormat:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRewardSignals:
     def test_repeated_violation_signal_emitted(self) -> None:
         injector = PatternInjector()

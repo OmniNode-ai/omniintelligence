@@ -413,7 +413,14 @@ class PatternInjector:
         candidates: list[PatternConstraintCandidate],
         context: InjectionContext,
     ) -> list[PatternConstraintCandidate]:
-        """Filter candidates by repo, language, and file path prefix."""
+        """Filter candidates by repo, language, and file path prefix.
+
+        Empty ``repo`` or ``language`` on a candidate is treated as a wildcard
+        and matches any context value.  This is intentional: cross-repo or
+        language-agnostic patterns can be stored with empty fields to make them
+        universally applicable.  ``file_path_prefix`` follows the same rule —
+        an empty prefix matches all file paths.
+        """
         result = []
         for c in candidates:
             if c.repo and c.repo != context.repo:
@@ -447,8 +454,11 @@ class PatternInjector:
         selected: list[PatternConstraintCandidate] = []
         truncated: list[PatternConstraintCandidate] = []
 
-        for i, candidate in enumerate(ranked):
-            line = f"{i + 1}. {candidate.natural_language_constraint}\n"
+        for candidate in ranked:
+            # Use the would-be selected index (1-based) to match _format_block
+            # numbering, so the token estimate reflects the actual formatted line.
+            selected_index = len(selected) + 1
+            line = f"{selected_index}. {candidate.natural_language_constraint}\n"
             cost = _estimate_tokens(line)
             if remaining >= cost:
                 selected.append(candidate)
