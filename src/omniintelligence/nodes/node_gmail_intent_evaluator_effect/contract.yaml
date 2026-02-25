@@ -1,0 +1,264 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# ONEX Node Contract
+# Node: NodeGmailIntentEvaluatorEffect
+#
+# Subscribes to gmail-intent-received.v1 events. Evaluates each signal
+# via URL fetch, omnimemory duplicate detection, and DeepSeek R1.
+# Posts to Slack on SURFACE verdict. Emits downstream evaluated/surfaced events.
+#
+# Reference:
+#   - OMN-2787: Gmail Intent Evaluator — Email-to-Initial-Plan Pipeline
+#   - OMN-2791: This node shell + contract
+
+# Contract identifiers
+name: "node_gmail_intent_evaluator_effect"
+contract_name: "node_gmail_intent_evaluator_effect"
+node_name: "node_gmail_intent_evaluator_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node that evaluates Gmail intent signals received via onex.evt.omnibase_infra.gmail-intent-received.v1.
+  Selects the best candidate URL, fetches content, queries omnimemory for duplicates, calls DeepSeek R1
+  for a SURFACE/WATCHLIST/SKIP verdict, posts to Slack on SURFACE (rate-limited 5/hour), and emits gmail-intent-evaluated.v1
+  (always) plus gmail-intent-surfaced.v1 (SURFACE only). Writes an idempotency record to gmail_intent_evaluations
+  table. #magic___^_^___line
+# Kafka subscriptions
+input_subscriptions:
+  - onex.evt.omnibase_infra.gmail-intent-received.v1
+
+# Kafka emissions
+emits:
+  - onex.evt.omniintelligence.gmail-intent-evaluated.v1
+  - onex.evt.omniintelligence.gmail-intent-surfaced.v1
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelGmailIntentEvaluatorConfig"
+  module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.models"
+  description: "Input populated from gmail-intent-received.v1 Kafka event payload."
+output_model:
+  name: "ModelGmailIntentEvaluationResult"
+  module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.models"
+  description: "Full evaluation result with verdict, reasoning, Slack/event state."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_gmail_intent_evaluate"
+    module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
+    type: "async"
+    description: "Main entry point: evaluate a single Gmail intent signal end-to-end"
+  handlers:
+    - operation: "gmail.evaluate_intent"
+      handler:
+        function: "handle_gmail_intent_evaluate"
+        module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
+        type: "async"
+      description: "Evaluate Gmail intent signal: URL fetch, omnimemory, LLM, Slack, Kafka"
+      actions:
+        - "compute evaluation_id via sha256(message_id:selected_url:resolver_version)"
+        - "check idempotency via gmail_intent_evaluations table; return early if exists"
+        - "select best URL via tier-based preference (Tier 1=github/arxiv, Tier 4=other)"
+        - "fetch URL content (512KB cap, HTML/JSON/text extraction)"
+        - "query omnimemory for top-5 hits with similarity_threshold=0.65"
+        - "build LLM prompt with duplicate hint if top score > 0.80"
+        - "call DeepSeek R1 at LLM_DEEPSEEK_R1_URL/v1/chat/completions"
+        - "parse + validate LLM JSON response (strict, then regex recovery)"
+        - "post to Slack if verdict=SURFACE and rate limit (5/hour) not exceeded"
+        - "append gmail-intent-evaluated.v1 and (SURFACE) gmail-intent-surfaced.v1 to pending_events"
+        - "write idempotency record to gmail_intent_evaluations with TTL-like created_at"
+  default_handler:
+    function: "handle_gmail_intent_evaluate"
+    module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
+    type: "async"
+    description: "Default to gmail.evaluate_intent operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "gmail.evaluate_intent"
+    description: "Evaluate a Gmail intent signal end-to-end"
+    input_model: "ModelGmailIntentEvaluatorConfig"
+    output_model: "ModelGmailIntentEvaluationResult"
+    input_fields:
+      - message_id
+      - subject
+      - body_text
+      - urls
+      - source_label
+      - sender
+      - received_at
+    output_fields:
+      - evaluation_id
+      - verdict
+      - reasoning
+      - relevance_score
+      - initial_plan
+      - selected_url
+      - url_candidates
+      - url_fetch_status
+      - memory_hits
+      - llm_parse_status
+      - slack_sent
+      - rate_limited
+      - errors
+      - pending_events
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "llm_deepseek_r1_url"
+    type: "environment"
+    env_var: "LLM_DEEPSEEK_R1_URL"
+    description: "DeepSeek R1 endpoint for LLM evaluation (e.g. http://192.168.86.200:8101)"
+    required: true
+  - name: "llm_embedding_url"
+    type: "environment"
+    env_var: "LLM_EMBEDDING_URL"
+    description: "Qwen3-Embedding endpoint for omnimemory queries (e.g. http://192.168.86.200:8100)"
+    required: true
+  - name: "slack_bot_token"
+    type: "environment"
+    env_var: "SLACK_BOT_TOKEN"
+    description: "Slack Bot Token for SURFACE notifications. Unset = local stdout mode."
+    required: false
+  - name: "slack_default_channel"
+    type: "environment"
+    env_var: "SLACK_DEFAULT_CHANNEL"
+    description: "Target Slack channel (e.g. #ai-signals). Unset = default channel."
+    required: false
+  - name: "httpx"
+    type: "library"
+    library: "httpx"
+    description: "Async HTTP client for URL fetch and LLM API calls"
+  - name: "omnimemory"
+    type: "service"
+    description: "omnimemory HandlerMemoryRetrieval for semantic duplicate detection"
+
+# =============================================================================
+# ERROR HANDLING / FALLBACK BEHAVIOR
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+  fallback_behavior:
+    omnimemory_unavailable: "proceed with empty hits; append error; no memory signals in prompt"
+    llm_unavailable: "verdict=WATCHLIST, reasoning='LLM unavailable', llm_parse_status=FAILED"
+    slack_delivery_fails: "SURFACE verdict kept, slack_sent=False, error appended"
+    url_fetch_fails: "url_fetch_status=FAILED; use subject+body_text only"
+    idempotency_store_unavailable: "log warning; proceed without idempotency guard (degraded mode)"
+  error_types:
+    - name: "URL_FETCH_FAILED"
+      description: "URL content fetch failed — fallback to subject+body_text"
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LLM_UNAVAILABLE"
+      description: "DeepSeek R1 endpoint unreachable — verdict demoted to WATCHLIST"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "LLM_PARSE_FAILED"
+      description: "LLM response could not be parsed as JSON — verdict=WATCHLIST"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "SLACK_DELIVERY_FAILED"
+      description: "Slack notification failed — verdict unchanged, slack_sent=False"
+      recoverable: true
+      retry_strategy: "none"
+    - name: "OMNIMEMORY_UNAVAILABLE"
+      description: "omnimemory query failed — proceed with empty memory_hits"
+      recoverable: true
+      retry_strategy: "none"
+    - name: "IDEMPOTENCY_CHECK_FAILED"
+      description: "Could not query idempotency table — proceed in degraded mode"
+      recoverable: true
+      retry_strategy: "none"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  key: "sha256(message_id:selected_url:resolver_version)"
+  storage: "postgresql:gmail_intent_evaluations"
+  description: >
+    evaluation_id is sha256(message_id:selected_url:resolver_version). Checked against gmail_intent_evaluations
+    table before processing. On hit: return prior verdict with slack_sent=False, no duplicate event.
+
+# =============================================================================
+# RATE LIMITING
+# =============================================================================
+rate_limiting:
+  slack_surface_posts:
+    max_per_hour: 5
+    storage: "valkey"
+    key_pattern: "gmail_eval_rate:{hour_bucket}"
+    behavior: "suppress Slack post, set rate_limited=True, verdict stays SURFACE"
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 300
+  checks:
+    - name: "llm_deepseek_r1_configured"
+      check_type: "environment"
+      env_var: "LLM_DEEPSEEK_R1_URL"
+      description: "Verify LLM_DEEPSEEK_R1_URL is set"
+    - name: "llm_embedding_configured"
+      check_type: "environment"
+      env_var: "LLM_EMBEDDING_URL"
+      description: "Verify LLM_EMBEDDING_URL is set"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-25"
+  updated: "2026-02-25"
+  tags:
+    - effect
+    - gmail
+    - intent-evaluator
+    - llm
+    - deepseek-r1
+    - slack
+    - kafka-consumer
+    - kafka-producer
+    - omnimemory
+  references:
+    - ticket: "OMN-2787"
+      url: "https://linear.app/omninode/issue/OMN-2787"
+      description: "Gmail Intent Evaluator — Email-to-Initial-Plan Pipeline"
+    - ticket: "OMN-2791"
+      url: "https://linear.app/omninode/issue/OMN-2791"
+      description: "node shell + contract"

@@ -14,3 +14,11 @@ Reference:
     - OMN-2791: Node shell + contract
     - OMN-2790: Handler
 """
+
+from __future__ import annotations
+
+from omniintelligence.nodes.node_gmail_intent_evaluator_effect.node import (
+    NodeGmailIntentEvaluatorEffect,
+)
+
+__all__ = ["NodeGmailIntentEvaluatorEffect"]

@@ -84,6 +84,9 @@ from uuid import UUID, uuid4
 from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
 from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.models.events import ModelPatternLifecycleEvent
+from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metrics import (
+    record_promotion_check_metrics,
+)
 from omniintelligence.nodes.node_pattern_promotion_effect.models import (
     ModelPromotionCheckResult,
     ModelPromotionResult,
@@ -487,6 +490,11 @@ async def check_and_promote_patterns(
             "dry_run": dry_run,
         },
     )
+
+    # Emit Prometheus-style observability metrics (OMN-1739).
+    # record_promotion_check_metrics is fire-and-forget — failures are logged
+    # at WARNING level and never propagate to the caller.
+    record_promotion_check_metrics(check_result)
 
     return check_result
 
