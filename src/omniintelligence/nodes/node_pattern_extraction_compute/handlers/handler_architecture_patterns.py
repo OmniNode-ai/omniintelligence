@@ -40,6 +40,9 @@ from uuid import uuid4
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols import (
     ArchitecturePatternResult,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.utils import (
+    normalize_path,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_extraction_compute.models import (
@@ -125,7 +128,19 @@ def extract_architecture_patterns(
     """
     results: list[ArchitecturePatternResult] = []
 
-    # Track directory access patterns across sessions
+    # Track directory access patterns across sessions.
+    #
+    # Memory note (OMN-1586): These three accumulators grow proportionally to
+    # the number of unique directories and directory pairs observed across all
+    # sessions.  For typical session sets (< 500 sessions, 10-50 files each)
+    # the combined overhead is well under 10 MB.  For very large inputs:
+    #   - dir_pairs is O(unique_dir_pairs): bounded by the cross product of
+    #     directories within depth-adjacent levels per session.
+    #   - dir_files maps each unique directory to the set of files seen in it;
+    #     this is the dominant structure and can reach O(total unique paths).
+    #   - layer_prefixes counts path prefix frequencies; bounded by
+    #     O(unique_files * max_depth) where max_depth is capped at 3 levels.
+    # Keep session_count * avg_files_per_session under ~50,000 for safe use.
     dir_pairs: Counter[tuple[str, str]] = Counter()
     dir_files: defaultdict[str, set[str]] = defaultdict(set)
     layer_prefixes: Counter[str] = Counter()
@@ -143,7 +158,7 @@ def extract_architecture_patterns(
                 continue
 
             # Normalize path separators for cross-platform compatibility
-            file_path = file_path.replace("\\", "/")
+            file_path = normalize_path(file_path)
 
             # Extract directory from file path
             dir_path = os.path.dirname(file_path)
@@ -152,8 +167,7 @@ def extract_architecture_patterns(
                 dir_files[dir_path].add(file_path)
 
                 # Track layer prefixes (path components)
-                # Split by both os.sep and forward slash for compatibility
-                parts = dir_path.replace("\\", "/").split("/")
+                parts = normalize_path(dir_path).split("/")
                 for i in range(1, min(4, len(parts) + 1)):
                     prefix = "/".join(parts[:i])
                     if prefix:

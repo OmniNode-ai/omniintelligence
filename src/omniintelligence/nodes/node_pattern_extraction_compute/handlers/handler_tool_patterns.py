@@ -303,7 +303,12 @@ def _get_session_context(files_accessed: tuple[str, ...] | list[str]) -> str:
             (".json", ".yaml", ".yml", ".toml")
         ):
             config_count += 1
-        elif "doc" in path_lower or path_lower.endswith(".md"):
+        elif (
+            "/doc/" in path_lower
+            or "/docs/" in path_lower
+            or path_lower.endswith(".md")
+            or path_lower.endswith(".rst")
+        ):
             doc_count += 1
 
     # Return dominant context
