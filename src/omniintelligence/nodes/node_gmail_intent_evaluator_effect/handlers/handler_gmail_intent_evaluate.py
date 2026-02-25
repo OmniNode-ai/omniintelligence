@@ -592,11 +592,44 @@ async def handle_gmail_intent_evaluate(
     )
     rate_check_fn = _slack_rate_check or _check_slack_rate_limit
 
-    # Resolve repository
+    # Resolve repository — track whether we created it so we can close it after use
     resolved_repository: ProtocolPatternRepository | None = repository
+    _internally_created_conn: Any = None  # asyncpg.Connection if we created it
     if resolved_repository is None:
         resolved_db_url = db_url or os.environ.get("OMNIBASE_INFRA_DB_URL")
         resolved_repository = await _make_asyncpg_repository(resolved_db_url)
+        if resolved_repository is not None:
+            _internally_created_conn = resolved_repository  # track for close()
+
+    try:
+        return await _handle_gmail_intent_evaluate_inner(
+            config=config,
+            resolved_repository=resolved_repository,
+            resolved_llm_url=resolved_llm_url,
+            resolved_embedding_url=resolved_embedding_url,
+            rate_check_fn=rate_check_fn,
+            errors=errors,
+            pending_events=pending_events,
+        )
+    finally:
+        if _internally_created_conn is not None:
+            try:
+                await _internally_created_conn.close()
+            except Exception as exc:
+                logger.warning("Failed to close DB connection: %s", exc)
+
+
+async def _handle_gmail_intent_evaluate_inner(
+    *,
+    config: ModelGmailIntentEvaluatorConfig,
+    resolved_repository: ProtocolPatternRepository | None,
+    resolved_llm_url: str,
+    resolved_embedding_url: str,
+    rate_check_fn: Callable[[], Any],
+    errors: list[str],
+    pending_events: list[Any],
+) -> ModelGmailIntentEvaluationResult:
+    """Inner implementation — separated to allow try/finally connection cleanup."""
 
     # -------------------------------------------------------------------------
     # Step 1: Compute evaluation_id
