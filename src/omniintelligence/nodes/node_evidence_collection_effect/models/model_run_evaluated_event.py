@@ -42,15 +42,20 @@ class ModelRunEvaluatedEvent(BaseModel):
         score_maintainability: Maintainability dimension of the score vector.
         score_human_time: Human time saved dimension of the score vector.
         evaluated_at_utc: ISO-8601 UTC timestamp when evaluation completed.
+        correlation_id: Correlation ID for distributed tracing across services.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     run_id: str = Field(
         description="The run that was evaluated (matches EvidenceBundle.run_id)."
     )
     session_id: str = Field(
         description="Claude Code session identifier (opaque string from upstream API)."
+    )
+    correlation_id: str = Field(
+        default="",
+        description="Correlation ID for distributed tracing. Propagated from the STOP event.",
     )
     task_class: str = Field(
         default="default",

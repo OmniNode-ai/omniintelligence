@@ -48,7 +48,7 @@ class ModelGateCheckResult(BaseModel):
         pass_count: Number of checks that passed.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     gate_id: str = Field(
         description="Unique gate identifier (e.g., 'pre_commit', 'mypy_strict')."
@@ -90,7 +90,7 @@ class ModelTestRunResult(BaseModel):
         duration_seconds: Test suite wall-clock duration.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     test_suite: str = Field(
         description="Test suite identifier (e.g., 'unit', 'integration', 'smoke')."
@@ -131,7 +131,7 @@ class ModelStaticAnalysisResult(BaseModel):
             Binary: either the tool passes or it doesn't (for strict mode).
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     tool: str = Field(
         description="Static analysis tool identifier (e.g., 'mypy', 'ruff')."
@@ -168,15 +168,20 @@ class ModelSessionCheckResults(BaseModel):
         latency_seconds: End-to-end session duration (latency_telemetry source).
             None if latency telemetry is unavailable.
         collected_at_utc: ISO-8601 UTC timestamp when check results were collected.
+        correlation_id: Correlation ID for distributed tracing. Propagated from the STOP event.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     run_id: str = Field(
         description="Unique identifier for the agent session run (e.g., correlation_id as str)."
     )
     session_id: str = Field(
         description="Claude Code session identifier (opaque string from upstream API)."
+    )
+    correlation_id: str = Field(
+        default="",
+        description="Correlation ID for distributed tracing. Propagated from the STOP event.",
     )
     gate_results: tuple[ModelGateCheckResult, ...] = Field(
         default=(),
