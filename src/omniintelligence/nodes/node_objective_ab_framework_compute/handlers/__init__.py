@@ -4,10 +4,10 @@
 """Handlers for ObjectiveABFrameworkCompute node (OMN-2571)."""
 
 from omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework import (
-    route_to_variant,
+    check_upgrade_ready,
     compute_score_delta,
     detect_divergence,
-    check_upgrade_ready,
+    route_to_variant,
     run_ab_evaluation,
 )
 

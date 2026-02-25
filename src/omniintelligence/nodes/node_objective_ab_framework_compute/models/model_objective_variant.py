@@ -74,7 +74,7 @@ class ModelObjectiveVariantRegistry(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_exactly_one_active(self) -> "ModelObjectiveVariantRegistry":
+    def validate_exactly_one_active(self) -> ModelObjectiveVariantRegistry:
         active_count = sum(1 for v in self.variants if v.role == EnumVariantRole.ACTIVE)
         if active_count != 1:
             raise ValueError(

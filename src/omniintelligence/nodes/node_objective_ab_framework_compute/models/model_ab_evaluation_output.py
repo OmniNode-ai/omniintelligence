@@ -20,14 +20,22 @@ class ModelVariantEvaluationResult(BaseModel):
     variant_id: str = Field(description="The variant that produced this result.")
     objective_id: str = Field(description="Objective spec ID.")
     objective_version: str = Field(description="Objective spec version.")
-    role: EnumVariantRole = Field(description="Whether this was the active or shadow variant.")
+    role: EnumVariantRole = Field(
+        description="Whether this was the active or shadow variant."
+    )
     passed: bool = Field(description="Whether the evaluation passed all hard gates.")
-    score_correctness: float = Field(default=0.0, description="Correctness score component.")
+    score_correctness: float = Field(
+        default=0.0, description="Correctness score component."
+    )
     score_safety: float = Field(default=0.0, description="Safety score component.")
     score_cost: float = Field(default=0.0, description="Cost score component.")
     score_latency: float = Field(default=0.0, description="Latency score component.")
-    score_maintainability: float = Field(default=0.0, description="Maintainability score component.")
-    score_human_time: float = Field(default=0.0, description="Human time score component.")
+    score_maintainability: float = Field(
+        default=0.0, description="Maintainability score component."
+    )
+    score_human_time: float = Field(
+        default=0.0, description="Human time score component."
+    )
     drives_policy_state: bool = Field(
         description="True only for ACTIVE variant — this result updates policy state."
     )
