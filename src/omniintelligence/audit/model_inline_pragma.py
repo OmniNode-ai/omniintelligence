@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelInlinePragma - parsed inline pragma comment."""
 
 from __future__ import annotations

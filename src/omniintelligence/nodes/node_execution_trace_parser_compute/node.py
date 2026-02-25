@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Execution Trace Parser Compute Node.
 
 Thin shell compute node for parsing execution traces. All logic is

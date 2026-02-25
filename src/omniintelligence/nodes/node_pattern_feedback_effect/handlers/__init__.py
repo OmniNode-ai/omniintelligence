@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handlers for node_pattern_feedback_effect.
 
 This module exports handler functions for the pattern feedback effect node,

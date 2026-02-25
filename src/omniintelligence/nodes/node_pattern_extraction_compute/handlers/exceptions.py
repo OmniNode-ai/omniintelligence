@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern extraction compute exceptions with contract-defined error codes.
 
 This module defines domain-specific exceptions for pattern extraction operations.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for apply_operator() covering all 11 operators.
 
 This module tests the operator application logic in the success criteria

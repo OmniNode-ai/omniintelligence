@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Lifecycle Event Model.
 
 This event is published by handlers (promotion, demotion) to request

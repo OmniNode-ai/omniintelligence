@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ReviewScore Pydantic model for Code Intelligence Review Bot.
 
 ReviewScore is a deterministic aggregate of review findings. Given the same

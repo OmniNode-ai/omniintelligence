@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 # Note: Methods in this module use noqa: ARG002 on individual parameters
 # for interface compatibility with ProtocolPatternStore. See class docstring.
 """Adapter bridging PostgresRepositoryRuntime to ProtocolPatternStore.

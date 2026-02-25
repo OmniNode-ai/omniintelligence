@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Replay artifact emission for pattern learning handlers.
 
 This module provides a protocol for emitting structured replay artifacts

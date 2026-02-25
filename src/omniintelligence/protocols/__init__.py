@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Shared protocol definitions for OmniIntelligence handlers.
 
 These protocols define the interfaces for database and event bus operations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Tool usage pattern extraction from session data.
 
 This module implements a pure functional handler for extracting tool usage

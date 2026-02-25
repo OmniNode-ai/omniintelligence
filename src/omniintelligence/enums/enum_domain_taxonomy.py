@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Domain taxonomy enum for OmniIntelligence.
 
 This module contains the canonical domain taxonomy enumeration for pattern classification.

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unified validation script for omniintelligence.
 
 This script runs the ONEX validation suite from omnibase_core plus

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Rollout readiness evaluator for the Code Intelligence Review Bot.
 
 Computes advisory readiness signals to inform human graduation decisions

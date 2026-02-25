@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """I/O Audit implementation for ONEX node purity enforcement.
 
 This module provides AST-based static analysis to detect I/O violations

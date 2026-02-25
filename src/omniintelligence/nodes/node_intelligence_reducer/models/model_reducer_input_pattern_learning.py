@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input model for Intelligence Reducer - PATTERN_LEARNING FSM."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Applicable pattern model for compliance evaluation.
 
 Ticket: OMN-2256

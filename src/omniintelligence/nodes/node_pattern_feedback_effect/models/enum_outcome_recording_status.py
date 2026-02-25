@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Outcome recording status enum for node_pattern_feedback_effect."""
 
 from enum import Enum

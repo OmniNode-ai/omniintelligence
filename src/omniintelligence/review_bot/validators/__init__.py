@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Policy validation for the Code Intelligence Review Bot."""
 
 from omniintelligence.review_bot.validators.validator_policy import (

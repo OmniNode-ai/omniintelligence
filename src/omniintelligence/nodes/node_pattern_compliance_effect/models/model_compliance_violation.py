@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Compliance violation model for Pattern Compliance Compute Node.
 
 Ticket: OMN-2256

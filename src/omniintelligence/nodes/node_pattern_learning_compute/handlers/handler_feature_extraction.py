@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """AST-based feature extraction handler for pattern learning.
 
 This handler extracts features from training data items to enable pattern clustering.

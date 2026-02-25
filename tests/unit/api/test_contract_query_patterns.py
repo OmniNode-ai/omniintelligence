@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for the query_patterns contract operation.
 
 Validates the contract YAML definition for the query_patterns operation

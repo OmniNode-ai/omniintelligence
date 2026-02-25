@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
 ---
 # I/O Audit Whitelist Configuration
 #
@@ -74,6 +76,16 @@ files:
   - path: "src/omniintelligence/nodes/node_document_fetch_effect/handlers/handler_document_fetch.py"
     reason: "Effect node reads document content from disk (filesystem and git_repo sources); file I/O
       is the intended responsibility of this Effect node"
+    allowed_rules:
+      - "file-io"
+
+  # Adaptive classifier handler (OMN-2735) — reads the versioned label store YAML
+  # (labels/intent_classes_v1.yaml) once at module initialization time to bootstrap
+  # the AdaptiveClassifier centroid embeddings. This is one-time bootstrap I/O, not
+  # per-request I/O. A proper Effect node refactor is tracked in a follow-up ticket.
+  - path: "src/omniintelligence/nodes/node_intent_classifier_compute/handlers/handler_adaptive_classification.py"
+    reason: "Reads versioned label store YAML (labels/intent_classes_v1.yaml) once at module init to bootstrap
+      AdaptiveClassifier centroid embeddings; I/O is initialization-time only, not per-call"
     allowed_rules:
       - "file-io"
 

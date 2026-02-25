@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for boundary mapping functions (OMN-1763).
 
 Tests the conversion from ClaudeSessionOutcome events to handler arguments.

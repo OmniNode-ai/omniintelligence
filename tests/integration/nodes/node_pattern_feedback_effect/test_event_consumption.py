@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Integration tests for session-outcome event consumption (OMN-1763).
 
 These tests verify that pattern_feedback_effect correctly consumes
@@ -457,7 +460,7 @@ class TestDLQRouting:
         # execute() raises with a descriptive error
         error_detail = (
             "could not connect to server: Connection refused\n"
-            "\tIs the server running on host 192.168.86.200 and accepting\n"
+            "\tIs the server running on host db-server and accepting\n"
             "\tTCP/IP connections on port 5436?"
         )
         failing_repo.execute = AsyncMock(side_effect=ConnectionError(error_detail))
@@ -480,7 +483,7 @@ class TestDLQRouting:
         assert "Connection refused" in error_str, (
             "Error should contain connection details for DLQ debugging"
         )
-        assert "192.168.86.200" in error_str or "server" in error_str, (
+        assert "db-server" in error_str or "server" in error_str, (
             "Error should contain server identification"
         )
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ReviewFinding Pydantic model for Code Intelligence Review Bot.
 
 A ReviewFinding represents a single detected code issue. Findings are

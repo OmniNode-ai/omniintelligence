@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input model for Pattern Compliance Compute Node.
 
 Defines the request structure for evaluating code against applicable patterns.

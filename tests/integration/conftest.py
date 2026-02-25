@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Shared fixtures for all integration tests.
 
@@ -7,8 +9,8 @@ the project's .env file. All integration tests can use these fixtures without
 needing to manually set up environment variables.
 
 Infrastructure Configuration (from .env):
-    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
-    - Kafka/Redpanda: 192.168.86.200:29092 (for host scripts)
+    - PostgreSQL: configured via DATABASE_URL env var
+    - Kafka/Redpanda: configured via KAFKA_BOOTSTRAP_SERVERS env var
 
 Usage:
     @pytest.mark.integration
@@ -118,10 +120,8 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
 # Kafka Configuration
 # =============================================================================
 
-KAFKA_BOOTSTRAP_SERVERS: str = os.getenv(
-    "KAFKA_BOOTSTRAP_SERVERS", "192.168.86.200:29092"
-)
-"""Kafka bootstrap servers. Default: 192.168.86.200:29092 (external port)."""
+KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+"""Kafka bootstrap servers. Configure via KAFKA_BOOTSTRAP_SERVERS env var."""
 
 KAFKA_REQUEST_TIMEOUT_MS: int = int(os.getenv("KAFKA_REQUEST_TIMEOUT_MS", "30000"))
 """Kafka request timeout in milliseconds. Default: 30000."""

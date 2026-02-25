@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """GitHub API integration for the Code Intelligence Review Bot."""
 
 from omniintelligence.review_bot.github.client_github import GitHubClient

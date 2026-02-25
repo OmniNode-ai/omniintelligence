@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """TC4: Feedback loop updates - E2E integration tests for OMN-1800.
 
@@ -14,7 +16,7 @@ Test Coverage:
     - Failure increments failure_streak
 
 Infrastructure Requirements:
-    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
+    - PostgreSQL: localhost:5432 (database: omniintelligence)
     - Tables: learned_patterns, pattern_injections
 
 Safety Measures:

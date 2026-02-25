@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Quality Scoring Compute Node.
 
 This module provides type-safe input and output models for quality scoring.

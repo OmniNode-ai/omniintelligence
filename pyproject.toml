@@ -1,11 +1,12 @@
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
 
-# =============================================================================
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 # DEPENDENCY MANAGEMENT NOTES
-# =============================================================================
-# This project supports both Poetry and uv/PEP 621 dependency management.
+# This project uses uv/PEP 621 dependency management.
 #
 # EDITABLE INSTALLS & uv.lock:
 #   Editable installs (pip install -e .) bypass uv.lock resolution.
@@ -13,105 +14,17 @@ build-backend = "poetry.core.masonry.api"
 #     1. Remove uv.lock: rm uv.lock
 #     2. Regenerate: uv lock
 #     3. Verify sync: uv sync --group dev
-# =============================================================================
-
-[tool.poetry]
-# Metadata defined in [project] section below (PEP 621 standard)
-# Only Poetry-specific settings (like packages) go here
-packages = [{include = "omniintelligence", from = "src"}]
-
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-# Versions aligned with [project.dependencies] for consistency
-pydantic = ">=2.12.5,<3.0.0"
-pydantic-settings = ">=2.7.0,<3.0.0"
-httpx = ">=0.28.1"
-tenacity = ">=8.2.0"
-confluent-kafka = ">=2.12.0,<3.0.0"
-pyyaml = ">=6.0"
-python-dotenv = ">=1.0.0"
-# Optional: accurate McCabe cyclomatic complexity (OMN-1452)
-# Falls back to AST approximation when not installed
-radon = {version = ">=6.0.0", optional = true}
-
-[tool.poetry.group.dev.dependencies]
-# Versions aligned with [dependency-groups].dev for consistency
-pytest = ">=8.0.0"
-pytest-asyncio = ">=0.24.0"
-pytest-cov = ">=6.2.1"
-pytest-mock = ">=3.12.0"
-pytest-timeout = ">=2.3.0"
-pytest-xdist = ">=3.5.0"
-ruff = ">=0.12.5"
-mypy = ">=1.17.0"
-types-PyYAML = ">=6.0.0"
-requests = ">=2.31.0"
-factory-boy = ">=3.3.0"
-pre-commit = ">=4.5.0"
-# Optional radon included in dev for test coverage of radon code path (OMN-1452)
-radon = ">=6.0.0"
-
-[tool.poetry.group.core.dependencies]
-# ONEX private ecosystem dependencies (NOT on public PyPI)
-# Installed via editable installs from sibling repos or private registry.
-# Version constraints use caret syntax: ^0.9.10 = >=0.9.10,<0.10.0
-omnibase-core = "^0.18.1"
-omnibase-spi = "^0.10.0"
-omnibase-infra = "^0.9.0"
-# Core runtime dependencies (also in base [tool.poetry.dependencies] for minimal installs)
-# Included here for self-contained --only core installs
-pydantic = ">=2.12.5,<3.0.0"
-pydantic-settings = ">=2.7.0,<3.0.0"
-httpx = ">=0.28.1"
-pyyaml = ">=6.0"
-python-dotenv = ">=1.0.0"
-tenacity = ">=8.2.0"
-confluent-kafka = ">=2.12.0,<3.0.0"
-# Web framework for API endpoints
-fastapi = ">=0.104.0"
-uvicorn = ">=0.24.0"
-python-multipart = ">=0.0.20"
-# Event bus (Kafka/Redpanda)
-aiokafka = ">=0.11.0,<0.12.0"
-# Vector database
-qdrant-client = ">=1.15.1"
-# Graph database
-neo4j = ">=5.28.2"
-# PostgreSQL
-asyncpg = ">=0.29.0"
-# Document processing
-pypdf2 = ">=3.0.1"
-pdfplumber = ">=0.11.6"
-python-docx = ">=1.1.2"
-markdown = ">=3.8"
-# AI/ML
-openai = ">=1.71.0"
-sentence-transformers = ">=4.1.0"
-torch = ">=2.0.0"
-transformers = ">=4.30.0"
-tiktoken = ">=0.5.0"
-# Utilities
-cachetools = ">=5.3.0"
-redis = {extras = ["hiredis"], version = ">=5.0.0"}
-# Logging and monitoring
-logfire = ">=0.30.0"
-structlog = ">=23.1.0"
-prometheus-client = ">=0.19.0"
-psutil = ">=5.9.0"
-# Filesystem watching
-watchdog = ">=6.0.0"
-
-[tool.poetry.plugins."onex.domain_plugins"]
-intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
 
 [project]
-name = "omniintelligence"
-version = "0.5.0"
+name = "omninode-intelligence"
+version = "0.6.0"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
-authors = [{name = "OmniNode Team", email = "team@omninode.ai"}]
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-# Versions aligned with [tool.poetry.dependencies] for consistency
+license = { text = "MIT" }
+authors = [{ name = "OmniNode.ai", email = "contact@omninode.ai" }]
+keywords = ["omninode", "intelligence", "intent", "routing", "onex", "llm"]
+# Versions aligned with [dependency-groups].core for consistency
 dependencies = [
     "httpx>=0.28.1",
     "pyyaml>=6.0",
@@ -121,6 +34,7 @@ dependencies = [
     "confluent-kafka>=2.12.0,<3.0.0",
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
+    "adaptive-classifier>=0.1.2",
 ]
 
 [project.optional-dependencies]
@@ -130,8 +44,18 @@ analysis = [
     "radon>=6.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/OmniNode-ai/omniintelligence"
+Repository = "https://github.com/OmniNode-ai/omniintelligence"
+Documentation = "https://github.com/OmniNode-ai/omniintelligence/tree/main/docs"
+Issues = "https://github.com/OmniNode-ai/omniintelligence/issues"
+Changelog = "https://github.com/OmniNode-ai/omniintelligence/blob/main/CHANGELOG.md"
+
 [project.entry-points."onex.domain_plugins"]
 intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omniintelligence"]
 
 [dependency-groups]
 # Development dependencies for linting and testing
@@ -154,7 +78,7 @@ dev = [
 ]
 
 # Core node system dependencies
-# Version constraints aligned with [tool.poetry.group.core.dependencies] caret syntax:
+# Version constraints aligned with caret syntax:
 #   ^0.18.1 = >=0.18.1,<0.19.0  (compatible releases within 0.18.x)
 #   ^0.10.0 = >=0.10.0,<0.11.0  (compatible releases within 0.10.x)
 #   ^0.9.0 = >=0.9.0,<0.10.0  (compatible releases within 0.9.x)
@@ -162,9 +86,9 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.18.1,<0.19.0",
-    "omnibase-spi>=0.10.0,<0.11.0",
-    "omnibase-infra>=0.9.0,<0.10.0",
+    "omnibase-core>=0.18.1,<0.20.0",
+    "omnibase-spi>=0.10.0,<0.13.0",
+    "omnibase-infra>=0.9.0,<0.11.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
@@ -296,4 +220,8 @@ markers = [
     "unit: marks tests as unit tests",
     "audit: marks tests as I/O audit enforcement tests",
     "drift: marks tests for intent drift detection logic",
+    "forecast: marks tests for intent cost and latency forecasting logic",
+    "baseline: marks tests for historical cost/latency baseline management",
+    "intent_graph: marks tests for intent graph accumulation logic",
+    "transition: marks tests for intent transition edge accumulation",
 ]

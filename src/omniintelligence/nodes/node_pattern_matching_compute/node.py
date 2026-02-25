@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Matching Compute Node - Thin shell delegating to handler.
 
 This node follows the ONEX declarative pattern where the node class is a thin

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Injection safety validators for compiled patterns.
 
 Validates that compiled snippets are safe for manifest injection.

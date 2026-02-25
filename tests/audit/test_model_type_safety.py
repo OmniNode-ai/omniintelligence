@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Model Type Safety Audit Tests.
 
 This module verifies that all models comply with ONEX type safety standards:

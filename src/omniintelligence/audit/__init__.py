@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ONEX node I/O audit module.
 
 Provides AST-based static analysis to enforce node purity constraints.

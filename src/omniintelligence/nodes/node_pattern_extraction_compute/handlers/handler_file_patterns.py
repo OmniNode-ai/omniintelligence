@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """File access pattern extraction from session data.
 
 This module implements a pure functional handler that extracts file access patterns
