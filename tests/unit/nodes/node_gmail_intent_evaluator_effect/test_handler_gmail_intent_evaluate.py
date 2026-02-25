@@ -29,8 +29,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-pytestmark = pytest.mark.unit
-
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate import (
     handle_gmail_intent_evaluate,
 )
@@ -41,6 +39,8 @@ from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models.model_gmai
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models.model_gmail_intent_evaluator_config import (
     ModelGmailIntentEvaluatorConfig,
 )
+
+pytestmark = pytest.mark.unit
 
 # ---------------------------------------------------------------------------
 # Helpers / Factories
