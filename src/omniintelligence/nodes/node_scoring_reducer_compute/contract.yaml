@@ -17,10 +17,10 @@ node_version:
 name: "node_scoring_reducer_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Pure COMPUTE node for objective-function evaluation. Evaluates an EvidenceBundle
-  against an ObjectiveSpec using a two-stage pipeline: (1) hard gates that all must
-  pass, and (2) shaped reward terms producing a ScoreVector. Zero I/O, zero side effects.
-  Identical inputs always produce bit-identical outputs (replay invariant).
+  Pure COMPUTE node for objective-function evaluation. Evaluates an EvidenceBundle against an ObjectiveSpec
+  using a two-stage pipeline: (1) hard gates that all must pass, and (2) shaped reward terms producing
+  a ScoreVector. Zero I/O, zero side effects. Identical inputs always produce bit-identical outputs (replay
+  invariant).
 input_model:
   name: "ModelScoringInput"
   module: "omniintelligence.nodes.node_scoring_reducer_compute.models"
@@ -32,9 +32,8 @@ output_model:
 operations:
   - name: "evaluate_run"
     description: >-
-      Evaluate an evidence bundle against an objective spec. Returns passed=True with
-      ScoreVector when all gates pass; passed=False with ScoreVector.zero() and
-      failing gate IDs when any gate fails.
+      Evaluate an evidence bundle against an objective spec. Returns passed=True with ScoreVector when
+      all gates pass; passed=False with ScoreVector.zero() and failing gate IDs when any gate fails.
     input_fields:
       - evidence
       - spec
