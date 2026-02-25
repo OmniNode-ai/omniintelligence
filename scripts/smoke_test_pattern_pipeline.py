@@ -119,8 +119,7 @@ def _emit_metrics(
             f"[{ts}] [{status_symbol}] "
             f"marker={marker} "
             f"latency={latency_ms:.1f}ms "
-            f"insights={insights_extracted}"
-            + (f" error={error!r}" if error else ""),
+            f"insights={insights_extracted}" + (f" error={error!r}" if error else ""),
             flush=True,
         )
 
@@ -160,7 +159,7 @@ def _build_smoke_session(marker: str, base_time: datetime) -> ModelSessionSnapsh
             "src/smoke/module_a.py",
             "src/smoke/module_b.py",
         ),
-        tools_used=("Read", "Edit", "Read", "Edit", "Bash", "Read"),
+        tools_used=("Read", "Edit", "Read", "Edit", "Edit", "Bash"),
         tool_executions=(
             ModelToolExecution(
                 tool_name="Read",
@@ -254,9 +253,7 @@ def run_smoke_test(
 
         # Validate latency budget
         if latency_ms > timeout_ms:
-            error = (
-                f"Extraction exceeded timeout: {latency_ms:.1f}ms > {timeout_ms}ms"
-            )
+            error = f"Extraction exceeded timeout: {latency_ms:.1f}ms > {timeout_ms}ms"
             _emit_metrics(
                 success=False,
                 latency_ms=latency_ms,
@@ -292,7 +289,7 @@ def run_smoke_test(
         )
         return True
 
-    except Exception as exc:  # noqa: BLE001 — smoke test must catch all errors
+    except Exception as exc:  # smoke test must catch all errors
         latency_ms = (time.monotonic() - start) * 1000
         error = f"{type(exc).__name__}: {exc}"
         _emit_metrics(
