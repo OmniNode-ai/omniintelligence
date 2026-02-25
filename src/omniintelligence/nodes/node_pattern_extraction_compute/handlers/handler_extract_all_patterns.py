@@ -43,7 +43,7 @@ Observed memory characteristics:
 
 Current acceptable limits (empirically validated):
 - Up to **~500 sessions** with typical Claude Code session profiles
-  (10–50 files accessed per session, 5–20 tool invocations per session)
+  (10-50 files accessed per session, 5-20 tool invocations per session)
   processes in under 200ms with a resident-set increase of less than 50 MB.
 - Sessions with very large file lists (>500 files/session) may cause
   quadratic blowup in co-access counting; the architecture extractor's
