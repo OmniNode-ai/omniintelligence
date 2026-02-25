@@ -81,18 +81,20 @@ def _make_pair(finding: ReviewFindingObserved) -> FindingFixPair:
 def _make_post_fix(
     *,
     findings: list[PostFixFinding] | None = None,
-    files_modified_by_fix: set[str] | None = None,
-    files_in_pr: set[str] | None = None,
+    files_modified_by_fix: set[str] | frozenset[str] | None = None,
+    files_in_pr: set[str] | frozenset[str] | None = None,
     ci_run_id: str = "run-12345",
 ) -> PostFixCIFindings:
     return PostFixCIFindings(
         commit_sha=_SHA_POST,
-        findings=findings or [],
+        findings=tuple(findings) if findings is not None else (),
         ci_run_id=ci_run_id,
-        files_modified_by_fix=files_modified_by_fix
+        files_modified_by_fix=frozenset(files_modified_by_fix)
         if files_modified_by_fix is not None
-        else {_FILE},
-        files_in_pr=files_in_pr if files_in_pr is not None else {_FILE},
+        else frozenset({_FILE}),
+        files_in_pr=frozenset(files_in_pr)
+        if files_in_pr is not None
+        else frozenset({_FILE}),
         verification_source="ci_rerun",
     )
 
@@ -327,19 +329,19 @@ class TestVerifierDisappearsWithoutMod:
         assert result.outcome != VerificationOutcome.DISAPPEARS_WITHOUT_MOD
 
     @pytest.mark.unit
-    def test_empty_files_modified_no_disappears_without_mod(self) -> None:
-        """If files_modified_by_fix is empty, can't infer disappears_without_mod."""
+    def test_empty_files_modified_treated_as_disappears_without_mod(self) -> None:
+        """If files_modified_by_fix is empty, provenance is missing → DISAPPEARS_WITHOUT_MOD."""
         verifier = FindingDisappearanceVerifier()
         finding = _make_finding()
         pair = _make_pair(finding)
         post_fix = _make_post_fix(
             findings=[],
-            files_modified_by_fix=set(),  # empty → can't determine
+            files_modified_by_fix=frozenset(),  # empty → cannot confirm fix touched correct file
         )
 
         result = verifier.verify(finding=finding, pair=pair, post_fix_ci=post_fix)
-        # empty files_modified_by_fix → condition len > 0 is False → not disappears_without_mod
-        assert result.outcome != VerificationOutcome.DISAPPEARS_WITHOUT_MOD
+        # empty files_modified_by_fix → cannot confirm file provenance → DISAPPEARS_WITHOUT_MOD
+        assert result.outcome == VerificationOutcome.DISAPPEARS_WITHOUT_MOD
 
 
 # ---------------------------------------------------------------------------
@@ -406,3 +408,42 @@ class TestVerifierIdempotency:
         assert result1.outcome == result2.outcome
         assert result1.disappearance_confirmed == result2.disappearance_confirmed
         assert result1.confidence_delta == result2.confidence_delta
+
+    @pytest.mark.unit
+    def test_explicit_resolution_id_and_verified_at_are_used(self) -> None:
+        """Injected resolution_id and verified_at appear in the resolved event."""
+        from uuid import UUID
+
+        verifier = FindingDisappearanceVerifier()
+        finding = _make_finding()
+        pair = _make_pair(finding)
+        post_fix = _make_post_fix(findings=[])
+
+        fixed_id = UUID("12345678-1234-5678-1234-567812345678")
+        fixed_at = datetime(2026, 6, 1, 0, 0, 0, tzinfo=UTC)
+
+        result = verifier.verify(
+            finding=finding,
+            pair=pair,
+            post_fix_ci=post_fix,
+            resolution_id=fixed_id,
+            verified_at=fixed_at,
+        )
+
+        assert result.resolved_event is not None
+        assert result.resolved_event.resolution_id == fixed_id
+        assert result.resolved_event.resolved_at == fixed_at
+
+    @pytest.mark.unit
+    def test_mismatched_finding_id_raises_value_error(self) -> None:
+        """verify() raises ValueError when pair.finding_id != finding.finding_id."""
+        verifier = FindingDisappearanceVerifier()
+        finding = _make_finding()
+        # Build a pair that references a different (random) finding_id
+        mismatched_pair = _make_pair(
+            _make_finding()
+        )  # different finding → different id
+        post_fix = _make_post_fix(findings=[])
+
+        with pytest.raises(ValueError, match="does not match"):
+            verifier.verify(finding=finding, pair=mismatched_pair, post_fix_ci=post_fix)

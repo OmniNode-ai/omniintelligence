@@ -82,27 +82,30 @@ class PostFixFinding:
     tool_name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class PostFixCIFindings:
     """Container for post-fix CI results used by the verifier.
 
+    Immutable value object: all fields are set at construction time and must
+    not change afterwards (consistent with ``PostFixFinding``).
+
     Attributes:
         commit_sha: Git SHA of the post-fix commit that was checked.
-        findings: List of findings from post-fix CI runs.
+        findings: Tuple of findings from post-fix CI runs.
         ci_run_id: Identifier of the CI run (e.g. GitHub Actions run ID).
-        files_modified_by_fix: Set of files modified by the fix commit.
+        files_modified_by_fix: Frozenset of files modified by the fix commit.
             Used for ``disappears_without_mod`` detection.
-        files_in_pr: Set of all files modified across the entire PR.
+        files_in_pr: Frozenset of all files modified across the entire PR.
             Used for config change detection.
         verification_source: How the verification was done.
             One of: ``ci_rerun``, ``lint_rerun``, ``merge_commit``, ``manual``.
     """
 
     commit_sha: str
-    findings: list[PostFixFinding] = field(default_factory=list)
+    findings: tuple[PostFixFinding, ...] = field(default_factory=tuple)
     ci_run_id: str = "unknown"
-    files_modified_by_fix: set[str] = field(default_factory=set)
-    files_in_pr: set[str] = field(default_factory=set)
+    files_modified_by_fix: frozenset[str] = field(default_factory=frozenset)
+    files_in_pr: frozenset[str] = field(default_factory=frozenset)
     verification_source: str = "ci_rerun"
 
 
@@ -161,6 +164,9 @@ class FindingDisappearanceVerifier:
         finding: ReviewFindingObserved,
         pair: FindingFixPair,
         post_fix_ci: PostFixCIFindings,
+        *,
+        resolution_id: UUID | None = None,
+        verified_at: datetime | None = None,
     ) -> VerificationResult:
         """Verify whether a finding has disappeared after a fix.
 
@@ -168,10 +174,29 @@ class FindingDisappearanceVerifier:
             finding: The original ``ReviewFindingObserved`` event.
             pair: The ``FindingFixPair`` to verify (must reference the same finding).
             post_fix_ci: Post-fix CI results to compare against.
+            resolution_id: UUID for the ``ReviewFindingResolved`` event. Defaults to
+                ``uuid4()``. Pass an explicit value for idempotent re-runs.
+            verified_at: UTC timestamp of verification. Defaults to ``datetime.now(UTC)``.
+                Pass an explicit value for idempotent re-runs.
 
         Returns:
             ``VerificationResult`` describing the outcome.
+
+        Raises:
+            ValueError: If ``pair.finding_id != finding.finding_id``.
         """
+        if pair.finding_id != finding.finding_id:
+            raise ValueError(
+                f"pair.finding_id={pair.finding_id!r} does not match "
+                f"finding.finding_id={finding.finding_id!r}; "
+                "verify() requires the pair and finding to reference the same finding"
+            )
+
+        _resolution_id: UUID = resolution_id if resolution_id is not None else uuid4()
+        _verified_at: datetime = (
+            verified_at if verified_at is not None else datetime.now(tz=UTC)
+        )
+
         # Check if the finding still appears in post-fix CI results
         still_present = self._finding_still_present(finding, post_fix_ci)
 
@@ -208,9 +233,30 @@ class FindingDisappearanceVerifier:
                 notes="finding disappeared but a tool config file was modified in the PR",
             )
 
+        # When files_modified_by_fix is empty the caller did not provide file-level
+        # provenance. Treat this as a suspicious case (cannot confirm the fix touched
+        # the right file) rather than silently promoting to CONFIRMED.
+        if not post_fix_ci.files_modified_by_fix:
+            logger.warning(
+                "FindingDisappearanceVerifier: finding=%s disappeared but "
+                "files_modified_by_fix is empty; treating as DISAPPEARS_WITHOUT_MOD",
+                finding.finding_id,
+            )
+            return VerificationResult(
+                pair_id=pair.pair_id,
+                finding_id=finding.finding_id,
+                outcome=VerificationOutcome.DISAPPEARS_WITHOUT_MOD,
+                disappearance_confirmed=False,
+                confidence_delta=-0.15,
+                verification_source=post_fix_ci.verification_source,
+                notes=(
+                    "finding disappeared but files_modified_by_fix was not provided; "
+                    "cannot confirm the fix touched the correct file"
+                ),
+            )
+
         disappears_without_mod = (
-            len(post_fix_ci.files_modified_by_fix) > 0
-            and finding.file_path not in post_fix_ci.files_modified_by_fix
+            finding.file_path not in post_fix_ci.files_modified_by_fix
         )
         if disappears_without_mod:
             logger.info(
@@ -232,12 +278,12 @@ class FindingDisappearanceVerifier:
 
         # Confirmed: finding is absent and the fix touched the right file
         resolved_event = ReviewFindingResolved(
-            resolution_id=uuid4(),
+            resolution_id=_resolution_id,
             finding_id=finding.finding_id,
             fix_commit_sha=pair.fix_commit_sha,
             verified_at_commit_sha=post_fix_ci.commit_sha,
             ci_run_id=post_fix_ci.ci_run_id,
-            resolved_at=datetime.now(tz=UTC),
+            resolved_at=_verified_at,
         )
 
         logger.info(
