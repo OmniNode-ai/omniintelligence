@@ -24,13 +24,13 @@ from omniintelligence.nodes.node_scoring_reducer_compute.models.enum_policy_type
 from omniintelligence.nodes.node_scoring_reducer_compute.models.enum_reward_target_type import (
     EnumRewardTargetType,
 )
+from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation_result import (
+    ModelEvaluationResult,
+)
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evidence_bundle import (
     KNOWN_EVIDENCE_SOURCES,
     ModelEvidenceBundle,
     ModelEvidenceItem,
-)
-from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation_result import (
-    ModelEvaluationResult,
 )
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_objective_spec import (
     ModelGateSpec,

@@ -62,7 +62,7 @@ class ModelScoreVector(BaseModel):
     )
 
     @classmethod
-    def zero(cls) -> "ModelScoreVector":
+    def zero(cls) -> ModelScoreVector:
         """Return an all-zero ScoreVector (the additive identity)."""
         return cls(
             correctness=0.0,

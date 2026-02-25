@@ -46,9 +46,7 @@ from omniintelligence.nodes.node_scoring_reducer_compute.models.model_scoring_ou
 )
 
 
-class NodeScoringReducerCompute(
-    NodeCompute[ModelScoringInput, ModelScoringOutput]
-):
+class NodeScoringReducerCompute(NodeCompute[ModelScoringInput, ModelScoringOutput]):
     """Pure COMPUTE node for objective-function evaluation.
 
     Evaluates an EvidenceBundle against an ObjectiveSpec in two stages:
@@ -72,9 +70,7 @@ class NodeScoringReducerCompute(
         ```
     """
 
-    async def compute(
-        self, input_data: ModelScoringInput
-    ) -> ModelScoringOutput:
+    async def compute(self, input_data: ModelScoringInput) -> ModelScoringOutput:
         """Evaluate evidence against objective spec.
 
         Delegates entirely to the pure ``evaluate_run`` handler.

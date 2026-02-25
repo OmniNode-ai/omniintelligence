@@ -34,7 +34,7 @@ class ModelScoreRange(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_range(self) -> "ModelScoreRange":
+    def validate_range(self) -> ModelScoreRange:
         if self.minimum > self.maximum:
             raise ValueError(
                 f"minimum ({self.minimum}) must be <= maximum ({self.maximum})"
@@ -142,7 +142,14 @@ class ModelShapedTermSpec(BaseModel):
     @field_validator("score_dimension")
     @classmethod
     def validate_score_dimension(cls, v: str) -> str:
-        valid = {"correctness", "safety", "cost", "latency", "maintainability", "human_time"}
+        valid = {
+            "correctness",
+            "safety",
+            "cost",
+            "latency",
+            "maintainability",
+            "human_time",
+        }
         if v not in valid:
             raise ValueError(f"score_dimension '{v}' must be one of {sorted(valid)}")
         return v
@@ -162,9 +169,7 @@ class ModelObjectiveSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     objective_id: str = Field(description="Unique objective identifier.")
-    version: str = Field(
-        description="Semantic version string (e.g., '1.0.0')."
-    )
+    version: str = Field(description="Semantic version string (e.g., '1.0.0').")
     gates: tuple[ModelGateSpec, ...] = Field(
         default=(),
         description="Hard gates that must ALL pass before shaped reward is evaluated.",
@@ -178,7 +183,14 @@ class ModelObjectiveSpec(BaseModel):
         description="Valid score range for this objective.",
     )
     lexicographic_priority: tuple[str, ...] = Field(
-        default=("correctness", "safety", "cost", "latency", "maintainability", "human_time"),
+        default=(
+            "correctness",
+            "safety",
+            "cost",
+            "latency",
+            "maintainability",
+            "human_time",
+        ),
         description=(
             "Ordered list of ScoreVector dimension names for lexicographic comparison. "
             "Earlier dimensions are compared first."
@@ -186,7 +198,7 @@ class ModelObjectiveSpec(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_shaped_term_weights(self) -> "ModelObjectiveSpec":
+    def validate_shaped_term_weights(self) -> ModelObjectiveSpec:
         """Validate that shaped term weights sum to 1.0 per ScoreVector dimension."""
         from collections import defaultdict
 

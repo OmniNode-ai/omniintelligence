@@ -23,9 +23,6 @@ from omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scorin
 from omniintelligence.nodes.node_scoring_reducer_compute.models.enum_gate_type import (
     EnumGateType,
 )
-from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation_result import (
-    ModelEvaluationResult,
-)
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evidence_bundle import (
     ModelEvidenceBundle,
     ModelEvidenceItem,
@@ -33,13 +30,11 @@ from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evidence_b
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_objective_spec import (
     ModelGateSpec,
     ModelObjectiveSpec,
-    ModelScoreRange,
     ModelShapedTermSpec,
 )
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_score_vector import (
     ModelScoreVector,
 )
-
 
 # =============================================================================
 # Helpers / fixtures
@@ -50,9 +45,7 @@ def _make_item(item_id: str, source: str, value: float) -> ModelEvidenceItem:
     return ModelEvidenceItem(item_id=item_id, source=source, value=value)
 
 
-def _make_bundle(
-    run_id: str, items: list[ModelEvidenceItem]
-) -> ModelEvidenceBundle:
+def _make_bundle(run_id: str, items: list[ModelEvidenceItem]) -> ModelEvidenceBundle:
     t = tuple(items)
     fingerprint = ModelEvidenceBundle.fingerprint(t)
     return ModelEvidenceBundle(
@@ -124,7 +117,7 @@ class TestScoreVectorZero:
 
         z = ModelScoreVector.zero()
         with pytest.raises(ValidationError):
-            z.correctness = 1.0  # noqa: ERA001 — direct attribute set raises ValidationError on frozen model
+            z.correctness = 1.0
 
 
 # =============================================================================
@@ -176,7 +169,7 @@ class TestGateFailPath:
         bundle = _make_bundle(
             "run-003",
             [
-                _make_item("i1", "test_result", 0.1),   # gate fails
+                _make_item("i1", "test_result", 0.1),  # gate fails
                 _make_item("i2", "coverage_report", 0.99),  # shaped term
             ],
         )
@@ -271,7 +264,7 @@ class TestShapedRewardTerms:
         bundle = _make_bundle(
             "run-020",
             [
-                _make_item("i1", "test_result", 1.0),   # gate
+                _make_item("i1", "test_result", 1.0),  # gate
                 _make_item("i2", "coverage_report", 0.8),
             ],
         )
@@ -291,15 +284,13 @@ class TestShapedRewardTerms:
         bundle = _make_bundle(
             "run-021",
             [
-                _make_item("i1", "test_result", 1.0),   # gate
+                _make_item("i1", "test_result", 1.0),  # gate
                 _make_item("i2", "cost_measurement", 0.3),  # cost=0.3 → inverted=0.7
             ],
         )
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.5)],
-            shaped_terms=[
-                _shaped_term("t1", "cost_measurement", "minimize", "cost")
-            ],
+            shaped_terms=[_shaped_term("t1", "cost_measurement", "minimize", "cost")],
         )
         result = evaluate_run(bundle, spec)
 
@@ -320,8 +311,12 @@ class TestShapedRewardTerms:
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.5)],
             shaped_terms=[
-                _shaped_term("t1", "lint_result", "maximize", "correctness", weight=0.4),
-                _shaped_term("t2", "coverage_report", "maximize", "correctness", weight=0.6),
+                _shaped_term(
+                    "t1", "lint_result", "maximize", "correctness", weight=0.4
+                ),
+                _shaped_term(
+                    "t2", "coverage_report", "maximize", "correctness", weight=0.6
+                ),
             ],
         )
         result = evaluate_run(bundle, spec)
@@ -450,12 +445,12 @@ class TestGatesDominateMatrix:
     @pytest.mark.parametrize(
         "gate_value,shaped_value,should_pass",
         [
-            (0.0, 1.0, False),    # gate fails, high shaped → still fail
-            (0.1, 0.99, False),   # gate fails, very high shaped → still fail
+            (0.0, 1.0, False),  # gate fails, high shaped → still fail
+            (0.1, 0.99, False),  # gate fails, very high shaped → still fail
             (0.49, 0.99, False),  # just below threshold → fail
-            (0.5, 0.0, True),     # gate passes, zero shaped → pass
-            (0.5, 1.0, True),     # gate passes, max shaped → pass
-            (1.0, 0.5, True),     # perfect gate, mid shaped → pass
+            (0.5, 0.0, True),  # gate passes, zero shaped → pass
+            (0.5, 1.0, True),  # gate passes, max shaped → pass
+            (1.0, 0.5, True),  # perfect gate, mid shaped → pass
         ],
     )
     def test_gate_dominance(
@@ -496,12 +491,16 @@ class TestEvidenceBundleFingerprint:
             _make_item("a", "test_result", 0.8),
             _make_item("b", "lint_result", 0.9),
         )
-        assert ModelEvidenceBundle.fingerprint(items1) == ModelEvidenceBundle.fingerprint(items2)
+        assert ModelEvidenceBundle.fingerprint(
+            items1
+        ) == ModelEvidenceBundle.fingerprint(items2)
 
     def test_different_values_produce_different_fingerprint(self) -> None:
         items1 = (_make_item("a", "test_result", 0.8),)
         items2 = (_make_item("a", "test_result", 0.9),)
-        assert ModelEvidenceBundle.fingerprint(items1) != ModelEvidenceBundle.fingerprint(items2)
+        assert ModelEvidenceBundle.fingerprint(
+            items1
+        ) != ModelEvidenceBundle.fingerprint(items2)
 
     def test_different_order_produces_different_fingerprint(self) -> None:
         items1 = (
@@ -513,7 +512,9 @@ class TestEvidenceBundleFingerprint:
             _make_item("a", "test_result", 0.8),
         )
         # Order matters — different order → different fingerprint
-        assert ModelEvidenceBundle.fingerprint(items1) != ModelEvidenceBundle.fingerprint(items2)
+        assert ModelEvidenceBundle.fingerprint(
+            items1
+        ) != ModelEvidenceBundle.fingerprint(items2)
 
     def test_fingerprint_is_64_char_hex(self) -> None:
         items = (_make_item("a", "test_result", 0.5),)
