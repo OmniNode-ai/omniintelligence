@@ -81,10 +81,7 @@ Examples:
     parser.add_argument(
         "input",
         metavar="INPUT",
-        help=(
-            "Path to JSON file containing session data, "
-            "or '-' to read from stdin."
-        ),
+        help=("Path to JSON file containing session data, or '-' to read from stdin."),
     )
 
     # Confidence / occurrence thresholds
@@ -335,9 +332,7 @@ def _format_summary(result: Any) -> str:
         if result.metadata.status:
             lines.append(f"Completion status: {result.metadata.status}")
         if result.metadata.processing_time_ms is not None:
-            lines.append(
-                f"Processing time: {result.metadata.processing_time_ms:.1f}ms"
-            )
+            lines.append(f"Processing time: {result.metadata.processing_time_ms:.1f}ms")
         if result.metadata.message:
             lines.append(f"Message: {result.metadata.message}")
 

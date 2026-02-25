@@ -58,10 +58,13 @@ files:
   # This is the proper location for bootstrap configuration - values are then
   # passed to nodes via constructor injection, maintaining node purity.
   - path: "src/omniintelligence/nodes/*/__main__.py"
-    # Entry point files (__main__.py) are allowed to read environment variables.
-    reason: "Entry point files bootstrap configuration from environment variables"
+    # Entry point files (__main__.py) are allowed to read environment variables
+    # and perform file I/O (reading input JSON files, writing output files).
+    reason: "Entry point files bootstrap configuration from environment variables and handle CLI file
+      I/O (reading input data, writing output results)"
     allowed_rules:
       - "env-access"
+      - "file-io"
 
   # Effect node for crawling git repositories — must read file bytes to compute
   # content hashes. File I/O is the core purpose of this Effect node.
