@@ -42,7 +42,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 from omnibase_infra.handlers.handler_slack_webhook import HandlerSlackWebhook
@@ -107,33 +107,44 @@ _SKIP_DOMAINS: frozenset[str] = frozenset(
 _SKIP_PARAMS: frozenset[str] = frozenset(["utm_source", "utm_medium", "utm_campaign"])
 
 
+def _host_matches(host: str, pattern: str) -> bool:
+    """Return True if host exactly equals pattern or is a subdomain of it.
+
+    Uses host-boundary matching to prevent false positives like
+    "notgithub.com" matching "github.com".
+    """
+    host = host.lower()
+    pattern = pattern.lower()
+    return host == pattern or host.endswith("." + pattern)
+
+
 def _url_tier(url: str) -> int:
     """Return URL tier (1=best, 4=lowest, 99=skip)."""
     try:
         from urllib.parse import urlparse
 
         parsed = urlparse(url)
-        domain = parsed.netloc.lower()
+        host = parsed.hostname or ""
         query = parsed.query
 
         # Deprioritize tracking params
         if any(p in query for p in _SKIP_PARAMS):
             return 99
 
-        # Known redirectors
-        if any(d in domain for d in _SKIP_DOMAINS):
+        # Known redirectors — exact/subdomain match only
+        if any(_host_matches(host, d) for d in _SKIP_DOMAINS):
             return 99
 
         # Tier 1: GitHub, arxiv, huggingface, paperswithcode
-        if any(d in domain for d in _TIER_1_DOMAINS):
+        if any(_host_matches(host, d) for d in _TIER_1_DOMAINS):
             return 1
 
         # Tier 2: docs sites
-        if any(d in domain for d in _TIER_2_DOMAINS):
+        if any(_host_matches(host, d) for d in _TIER_2_DOMAINS):
             return 2
 
         # Tier 3: blogs
-        if any(d in domain for d in _TIER_3_DOMAINS):
+        if any(_host_matches(host, d) for d in _TIER_3_DOMAINS):
             return 3
 
         return 4
@@ -162,6 +173,26 @@ def _select_url(urls: list[str]) -> tuple[str | None, list[str]]:
 
 _EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 _PHONE_PATTERN = re.compile(r"(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}")
+
+
+def _sanitize_sender(sender: str) -> str:
+    """Return a PII-safe sender representation (domain only).
+
+    Strips the local-part (username) from email addresses to avoid
+    exposing PII in LLM prompts. Returns just the domain portion.
+
+    Examples:
+        "jonah@example.com" → "sender@example.com"
+        "John Doe <john@corp.example>" → "sender@corp.example"
+        "noatsign" → "noatsign"
+    """
+    # Extract bare email if in "Name <email>" format
+    angle_match = re.search(r"<([^>]+)>", sender)
+    addr = angle_match.group(1) if angle_match else sender
+    if "@" in addr:
+        domain = addr.split("@", 1)[1].strip()
+        return f"sender@{domain}"
+    return sender
 
 
 def _strip_pii(text: str, sender: str) -> str:
@@ -312,9 +343,10 @@ def _build_user_prompt(
         elif top_score >= 0.80:
             duplicate_hint = f"\nNOTE: top score {top_score:.2f} — partial overlap; bias WATCHLIST unless novel angle"
 
+    safe_sender = _sanitize_sender(config.sender)
     prompt = (
         f"Subject: {config.subject}\n"
-        f"Sender: {config.sender} | Received: {config.received_at}\n"
+        f"Sender: {safe_sender} | Received: {config.received_at}\n"
         f"URL: {selected_url or '(none)'}\n"
         f"\nBody:\n{clean_body[:2000]}\n"
         f"\nFetched content:\n{url_content[:2000]}\n"
@@ -563,7 +595,7 @@ async def handle_gmail_intent_evaluate(
     db_url: str | None = None,
     llm_url: str | None = None,
     embedding_url: str | None = None,
-    _slack_rate_check: Callable[[], Any] | None = None,
+    _slack_rate_check: Callable[[], Awaitable[bool]] | None = None,
 ) -> ModelGmailIntentEvaluationResult:
     """Evaluate a Gmail intent signal end-to-end.
 
@@ -575,7 +607,7 @@ async def handle_gmail_intent_evaluate(
             Defaults to OMNIBASE_INFRA_DB_URL env.
         llm_url: DeepSeek R1 endpoint. Defaults to LLM_DEEPSEEK_R1_URL env.
         embedding_url: Embedding endpoint. Defaults to LLM_EMBEDDING_URL env.
-        _slack_rate_check: Override for rate limit check (testing).
+        _slack_rate_check: Override for rate limit check (testing); must be async.
 
     Returns:
         ModelGmailIntentEvaluationResult with verdict and all pipeline state.
@@ -625,7 +657,7 @@ async def _handle_gmail_intent_evaluate_inner(
     resolved_repository: ProtocolPatternRepository | None,
     resolved_llm_url: str,
     resolved_embedding_url: str,
-    rate_check_fn: Callable[[], Any],
+    rate_check_fn: Callable[[], Awaitable[bool]],
     errors: list[str],
     pending_events: list[Any],
 ) -> ModelGmailIntentEvaluationResult:

@@ -20,9 +20,12 @@ Reference:
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
+import socket
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlparse
 
 import httpx
 
@@ -30,6 +33,69 @@ if TYPE_CHECKING:
     from omniintelligence.protocols import ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# SSRF protection
+# ---------------------------------------------------------------------------
+
+# Reserved IP ranges that must not be fetched (SSRF guard)
+_BLOCKED_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
+    ipaddress.IPv4Network("127.0.0.0/8"),  # loopback
+    ipaddress.IPv4Network("10.0.0.0/8"),  # RFC1918
+    ipaddress.IPv4Network("172.16.0.0/12"),  # RFC1918
+    ipaddress.IPv4Network("192.168.0.0/16"),  # RFC1918
+    ipaddress.IPv4Network("169.254.0.0/16"),  # link-local
+    ipaddress.IPv4Network("100.64.0.0/10"),  # shared address space
+    ipaddress.IPv4Network("0.0.0.0/8"),  # "this" network
+    ipaddress.IPv4Network("224.0.0.0/4"),  # multicast
+    ipaddress.IPv4Network("240.0.0.0/4"),  # reserved
+    ipaddress.IPv6Network("::1/128"),  # IPv6 loopback
+    ipaddress.IPv6Network("fc00::/7"),  # IPv6 unique local
+    ipaddress.IPv6Network("fe80::/10"),  # IPv6 link-local
+    ipaddress.IPv6Network("ff00::/8"),  # IPv6 multicast
+)
+
+
+def _is_safe_fetch_target(url: str) -> bool:
+    """Return True if url is safe to fetch (not SSRF-able).
+
+    Checks:
+    - Scheme must be http or https
+    - Hostname must resolve to a non-reserved IP address
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Resolve all IPs for this hostname
+        try:
+            results = socket.getaddrinfo(hostname, None)
+        except socket.gaierror:
+            return False  # Cannot resolve → block
+
+        for result in results:
+            addr_str = result[4][0]
+            try:
+                addr = ipaddress.ip_address(addr_str)
+            except ValueError:
+                return False
+            for network in _BLOCKED_NETWORKS:
+                if addr in network:
+                    logger.warning(
+                        "SSRF guard blocked %s: resolved to reserved IP %s",
+                        hostname,
+                        addr_str,
+                    )
+                    return False
+        return True
+    except Exception as exc:
+        logger.warning("SSRF check failed for %s: %s", url, exc)
+        return False
+
 
 # ---------------------------------------------------------------------------
 # URL content fetch
@@ -46,17 +112,30 @@ async def fetch_url_content(url: str) -> tuple[str, str]:
     """Fetch URL content with 512KB cap and HTML stripping.
 
     Returns (content, status) where status is "OK" or "FAILED".
+    Performs SSRF validation before fetching.
     """
     try:
+        # SSRF guard: reject private/internal addresses
+        if not _is_safe_fetch_target(url):
+            logger.warning("URL fetch blocked by SSRF guard: %s", url)
+            return "", "FAILED"
+
         headers = {"User-Agent": "Mozilla/5.0 (compatible; OmniNode/1.0)"}
+        raw_buf = bytearray()
+        content_type = ""
+
         async with httpx.AsyncClient(
             follow_redirects=True, timeout=_URL_FETCH_TIMEOUT_SECONDS
         ) as client:
-            r = await client.get(url, headers=headers)
-            r.raise_for_status()
+            async with client.stream("GET", url, headers=headers) as r:
+                r.raise_for_status()
+                content_type = r.headers.get("content-type", "")
+                async for chunk in r.aiter_bytes():
+                    raw_buf.extend(chunk)
+                    if len(raw_buf) >= _URL_FETCH_MAX_BYTES:
+                        break
 
-        content_type = r.headers.get("content-type", "")
-        raw = r.content[:_URL_FETCH_MAX_BYTES]
+        raw = bytes(raw_buf)[:_URL_FETCH_MAX_BYTES]
 
         if "text/html" in content_type:
             text = raw.decode("utf-8", errors="replace")
