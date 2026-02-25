@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 name: CI
 
 on:
@@ -90,7 +93,7 @@ jobs:
       production_code: ${{ steps.filter.outputs.production_code }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check for production code changes
         uses: dorny/paths-filter@v3
@@ -108,6 +111,28 @@ jobs:
               - 'uv.lock'
               - '.github/workflows/ci.yaml'
 
+  # Assert no Poetry artifacts - enforces uv-only build toolchain
+  assert-no-poetry:
+    name: Assert No Poetry Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Assert no Poetry artifacts
+        run: |
+          test ! -f poetry.lock || { echo "ERROR: poetry.lock must not exist — use uv.lock"; exit 1; }
+          python3 -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f: d = tomllib.load(f)
+          backend = d.get('build-system', {}).get('build-backend', '')
+          assert 'poetry' not in backend, f'ERROR: poetry build backend found: {backend}'
+          assert 'version' not in d.get('tool', {}).get('poetry', {}), 'ERROR: [tool.poetry].version must not exist'
+          print('OK: build config is clean')
+          "
+
   # Pre-commit hooks - comprehensive code quality validation
   pre-commit:
     name: Pre-commit Hooks
@@ -116,22 +141,22 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -146,7 +171,7 @@ jobs:
         run: uv sync --group dev --group core
 
       - name: Cache pre-commit hooks
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pre-commit
           key: >-
@@ -169,26 +194,26 @@ jobs:
   scope-alignment:
     name: Scope Alignment
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -213,28 +238,28 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: changes
     if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -262,28 +287,28 @@ jobs:
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: changes
     if: needs.changes.outputs.production_code == 'true'
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -301,7 +326,7 @@ jobs:
       # Without this cache, --incremental flag provides no benefit in CI (fresh containers)
       # Key includes Python version and source file hashes for cache invalidation
       - name: Cache mypy
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .mypy_cache
           key: >-
@@ -349,22 +374,22 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -404,26 +429,26 @@ jobs:
   contract-validation:
     name: Contract Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -502,26 +527,26 @@ jobs:
   io-audit:
     name: I/O Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -547,26 +572,26 @@ jobs:
   cross-repo-validation:
     name: Cross-Repo Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: >-
@@ -596,7 +621,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check migration freeze
         run: ./scripts/check_migration_freeze.sh --ci
@@ -612,10 +637,10 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout omnibase_core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: OmniNode-ai/omnibase_core
           path: omnibase_core
@@ -643,10 +668,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -702,7 +727,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets]
+    needs: [assert-no-poetry, pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets]
     if: always()
 
     steps:
@@ -711,6 +736,7 @@ jobs:
           echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          nopoetry="${{ needs.assert-no-poetry.result }}"
           precommit="${{ needs.pre-commit.result }}"
           scopealign="${{ needs.scope-alignment.result }}"
           contracts="${{ needs.contract-validation.result }}"
@@ -723,6 +749,7 @@ jobs:
           # Report each check
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| No Poetry Artifacts | $nopoetry |" >> $GITHUB_STEP_SUMMARY
           echo "| Pre-commit Hooks | $precommit |" >> $GITHUB_STEP_SUMMARY
           echo "| Scope Alignment | $scopealign |" >> $GITHUB_STEP_SUMMARY
           echo "| Contract Validation | $contracts |" >> $GITHUB_STEP_SUMMARY
@@ -736,7 +763,7 @@ jobs:
           # check-handshake is skipped on fork PRs -- treat skipped as acceptable.
           FAILED=false
 
-          for check in "$precommit" "$scopealign" "$contracts" "$ioaudit" "$crossrepo" "$migrationfreeze" "$secrets"; do
+          for check in "$nopoetry" "$precommit" "$scopealign" "$contracts" "$ioaudit" "$crossrepo" "$migrationfreeze" "$secrets"; do
             if [[ "$check" != "success" ]]; then
               FAILED=true
             fi

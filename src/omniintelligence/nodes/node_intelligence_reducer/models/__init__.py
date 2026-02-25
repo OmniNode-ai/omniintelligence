@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Intelligence Reducer Node.
 
 This module provides type-safe input and output models for the intelligence reducer.

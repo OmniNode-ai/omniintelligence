@@ -1,9 +1,11 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """TC5: Full-chain pattern learning pipeline integration test.
 
 Tests the complete pipeline: Learn -> Store -> Feedback -> Promote
-Uses real PostgreSQL (192.168.86.200:5436) and real Kafka (192.168.86.200:29092).
+Uses real PostgreSQL (localhost:5432) and real Kafka (localhost:9092).
 
 Chain:
   1. Pattern learning produces learned patterns from training data
@@ -27,8 +29,8 @@ Design Decision - Single Test Function:
     are not independently meaningful.
 
 Infrastructure Requirements:
-    - PostgreSQL: 192.168.86.200:5436 (database: omniintelligence)
-    - Kafka/Redpanda: 192.168.86.200:29092
+    - PostgreSQL: localhost:5432 (database: omniintelligence)
+    - Kafka/Redpanda: localhost:9092
 
 Reference:
     - OMN-1800: E2E integration tests for pattern learning pipeline

@@ -1,19 +1,24 @@
-"""Event payload models for code analysis Kafka events.
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Event payload models for Kafka events.
 
 This module contains Pydantic models for Kafka event payloads used in
-the OmniIntelligence code analysis event bus:
+the OmniIntelligence event bus:
 
+Code analysis topics:
 - ModelCodeAnalysisRequestPayload: Incoming analysis request events
 - ModelCodeAnalysisCompletedPayload: Successful analysis result events
 - ModelCodeAnalysisFailedPayload: Failed analysis error events
 
-These models define the contracts for the following Kafka topics:
-- {env}.onex.cmd.omniintelligence.code-analysis.v1
-- {env}.onex.evt.omniintelligence.code-analysis-completed.v1
-- {env}.onex.evt.omniintelligence.code-analysis-failed.v1
+Intent Intelligence topics (OMN-2487):
+- ModelIntentClassifiedEnvelope: onex.evt.intent.classified.v1
+- ModelIntentDriftDetectedEnvelope: onex.evt.intent.drift.detected.v1
+- ModelIntentOutcomeLabeledEnvelope: onex.evt.intent.outcome.labeled.v1
+- ModelIntentPatternPromotedEnvelope: onex.evt.intent.pattern.promoted.v1
 
 Migration Note:
-    These models were extracted from the monolithic
+    Code analysis models were extracted from the monolithic
     node_intelligence_adapter_effect.py as part of OMN-1437.
 """
 
@@ -25,6 +30,12 @@ from omniintelligence.models.events.model_code_analysis_failed import (
 )
 from omniintelligence.models.events.model_code_analysis_request import (
     ModelCodeAnalysisRequestPayload,
+)
+from omniintelligence.models.events.model_intent_event_envelopes import (
+    ModelIntentClassifiedEnvelope,
+    ModelIntentDriftDetectedEnvelope,
+    ModelIntentOutcomeLabeledEnvelope,
+    ModelIntentPatternPromotedEnvelope,
 )
 from omniintelligence.models.events.model_pattern_discovered_event import (
     ModelPatternDiscoveredEvent,
@@ -40,6 +51,10 @@ __all__ = [
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
+    "ModelIntentClassifiedEnvelope",
+    "ModelIntentDriftDetectedEnvelope",
+    "ModelIntentOutcomeLabeledEnvelope",
+    "ModelIntentPatternPromotedEnvelope",
     "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
     "ModelPatternProjectionEvent",

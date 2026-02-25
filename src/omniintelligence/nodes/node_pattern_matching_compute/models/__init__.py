@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Models for Pattern Matching Compute Node."""
 
 from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_context import (

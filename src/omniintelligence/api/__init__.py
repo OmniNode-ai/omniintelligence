@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """REST API for OmniIntelligence pattern queries.
 
 This package provides FastAPI routers for querying the pattern store.

@@ -1,4 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Fixtures for quality_scoring_compute integration tests.
 
 This module provides pytest fixtures for testing the NodeQualityScoringCompute

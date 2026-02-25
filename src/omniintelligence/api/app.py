@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """FastAPI application factory for OmniIntelligence API.
 
 Provides create_app() to construct a configured FastAPI application

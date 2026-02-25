@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Internal type protocols for pattern learning handler results.
 
 This module defines TypedDict structures for type-safe handler responses,

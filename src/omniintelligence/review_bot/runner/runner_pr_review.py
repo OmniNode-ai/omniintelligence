@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Core PR review runner for the Code Intelligence Review Bot.
 
 Runs a full review against a PR diff, produces ReviewFindings, computes a

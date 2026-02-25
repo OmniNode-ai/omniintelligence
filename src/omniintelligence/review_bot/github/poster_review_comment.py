@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """GitHub PR comment poster for the Code Intelligence Review Bot.
 
 Posts ReviewFinding results as inline review comments on GitHub PRs.

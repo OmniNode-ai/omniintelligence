@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Error codes for Pattern Assembler Orchestrator Node.
 
 This module defines the error codes used by the pattern_assembler_orchestrator

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pure pattern matching handler functions.
 
 This module provides pure functions for matching code against patterns.

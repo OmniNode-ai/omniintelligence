@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Intelligence Reducer - FSM-driven reducer with handler routing.
 
 This reducer follows the ONEX declarative pattern with FSM type routing:

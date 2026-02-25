@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Input model for Pattern Assembler Orchestrator.
 
 This module defines the input models for the pattern assembly orchestrator,

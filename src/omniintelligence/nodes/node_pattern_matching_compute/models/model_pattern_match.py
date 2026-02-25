@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelPatternMatch - detailed information about a single pattern match."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelPatternContext - structured context for pattern matching operations."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for quality scoring compute node orchestration.
 
 This module provides the compute handler that orchestrates quality scoring

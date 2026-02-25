@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """AST-based Purity Validator for ONEX Node Files.
 
 This module enforces the "pure shell" invariant for ONEX node.py files.

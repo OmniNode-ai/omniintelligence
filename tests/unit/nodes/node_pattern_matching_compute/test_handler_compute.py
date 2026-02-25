@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for pattern matching compute handler.
 
 Tests the orchestration layer that bridges models and pure matching logic.

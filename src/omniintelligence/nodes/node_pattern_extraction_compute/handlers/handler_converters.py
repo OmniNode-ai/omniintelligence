@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Converter handlers for pattern extraction results.
 
 This module provides pure converter functions that transform raw pattern

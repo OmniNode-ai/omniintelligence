@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Domain candidate model for pattern classification."""
 
 from pydantic import BaseModel, ConfigDict, Field

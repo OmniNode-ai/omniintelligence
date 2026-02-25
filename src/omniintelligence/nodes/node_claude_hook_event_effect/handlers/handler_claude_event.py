@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Handler for Claude Code hook event processing.
 
@@ -564,6 +566,9 @@ async def handle_user_prompt_submit(
     confidence = 0.0
     keywords: list[str] = []
     secondary_intents: list[dict[str, object]] = []
+    classification_success = False
+    classification_processing_time_ms = 0.0
+    classification_classifier_version = "unknown"
 
     if intent_classifier is not None:
         try:
@@ -599,6 +604,19 @@ async def handle_user_prompt_submit(
                 if isinstance(raw_secondary, list)
                 else []
             )
+
+            # Provenance fields
+            classification_success = bool(classification_result.get("success", True))
+            raw_proc_time = classification_result.get("processing_time_ms", 0.0)
+            try:
+                classification_processing_time_ms = float(raw_proc_time)
+            except (TypeError, ValueError):
+                classification_processing_time_ms = 0.0
+            raw_version = classification_result.get("classifier_version", "unknown")
+            classification_classifier_version = (
+                str(raw_version) if raw_version is not None else "unknown"
+            )
+
             metadata["classification_source"] = "intent_classifier_compute"
         except Exception as e:
             metadata["classification_error"] = get_log_sanitizer().sanitize(str(e))
@@ -616,6 +634,10 @@ async def handle_user_prompt_submit(
                 intent_category=intent_category,
                 confidence=confidence,
                 keywords=keywords,
+                secondary_intents=secondary_intents,
+                success=classification_success,
+                processing_time_ms=classification_processing_time_ms,
+                classifier_version_str=classification_classifier_version,
                 correlation_id=correlation_id,
                 producer=kafka_producer,
                 topic=publish_topic,
@@ -708,7 +730,37 @@ async def _classify_intent(
             }
             for si in (result.secondary_intents or [])
         ],
+        "success": result.success,
+        "processing_time_ms": result.processing_time_ms,
+        "classifier_version": result.classifier_version,
     }
+
+
+def _parse_semver_str(version_str: str) -> dict[str, int]:
+    """Parse a semver string into a ModelSemVer-compatible structured dict.
+
+    Produces the same shape as ``ModelSemVer.model_dump()`` — a plain dict
+    with integer fields ``{major, minor, patch}`` — without requiring
+    ``omnibase_core`` to be importable at parse time.
+
+    Downstream consumers can validate with:
+    ``ModelSemVer.model_validate(payload["provenance"]["classifier_version"])``
+
+    Args:
+        version_str: Semver string (e.g. ``"1.0.0"``). Non-semver strings
+            (e.g. ``"unknown"``) default to ``{major: 0, minor: 0, patch: 0}``.
+
+    Returns:
+        Dict with keys ``major``, ``minor``, ``patch`` (all int).
+    """
+    parts = version_str.split(".")
+    try:
+        major = int(parts[0]) if len(parts) > 0 else 0
+        minor = int(parts[1]) if len(parts) > 1 else 0
+        patch = int(parts[2]) if len(parts) > 2 else 0
+        return {"major": major, "minor": minor, "patch": patch}
+    except (ValueError, IndexError):
+        return {"major": 0, "minor": 0, "patch": 0}
 
 
 async def _emit_intent_to_kafka(
@@ -716,24 +768,49 @@ async def _emit_intent_to_kafka(
     intent_category: str,
     confidence: float,
     keywords: list[str],
+    secondary_intents: list[dict[str, object]],
+    success: bool,
+    processing_time_ms: float,
+    classifier_version_str: str,
     correlation_id: UUID,
     producer: ProtocolKafkaPublisher,
     *,
     topic: str,
 ) -> None:
-    """Emit the classified intent to Kafka.
+    """Emit the classified intent to Kafka with enriched provenance payload.
+
+    Payload schema: intent-classified.v1 (event_version 1.1.0).
+
+    New fields in v1.1.0 (OMN-1620):
+        - ``event_version``: ModelSemVer-compatible structured dict
+        - ``secondary_intents``: array from classifier output
+        - ``success``: boolean classification success flag
+        - ``provenance``: structured provenance object with:
+            - ``source_system``: always ``"omniintelligence"``
+            - ``source_node``: always ``"claude_hook_event_effect"``
+            - ``classifier_version``: ModelSemVer-compatible structured dict
+            - ``processing_time_ms``: float, classifier processing time
+
+    Backward compatible: all original fields (event_type, session_id,
+    correlation_id, intent_category, confidence, keywords, timestamp)
+    are preserved unchanged.
 
     Args:
         session_id: Session ID.
         intent_category: Classified intent category.
         confidence: Classification confidence.
         keywords: Keywords extracted from intent classification.
+        secondary_intents: Secondary intent results from classifier.
+        success: Whether classification succeeded.
+        processing_time_ms: Classifier processing time in milliseconds.
+        classifier_version_str: Classifier version string (e.g. ``"1.0.0"``).
         correlation_id: Correlation ID for tracing.
         producer: Kafka producer implementing ProtocolKafkaPublisher.
         topic: Full Kafka topic name for intent classification events.
             Source of truth is the contract's event_bus.publish_topics.
     """
-    event_payload = {
+    event_payload: dict[str, object] = {
+        # Original fields (v1.0.0) — unchanged for backward compatibility
         "event_type": "IntentClassified",
         "session_id": session_id,
         "correlation_id": str(correlation_id),
@@ -741,6 +818,16 @@ async def _emit_intent_to_kafka(
         "confidence": confidence,
         "keywords": keywords,
         "timestamp": datetime.now(UTC).isoformat(),
+        # New fields (v1.1.0 — OMN-1620)
+        "event_version": {"major": 1, "minor": 1, "patch": 0},
+        "secondary_intents": secondary_intents,
+        "success": success,
+        "provenance": {
+            "source_system": "omniintelligence",
+            "source_node": "claude_hook_event_effect",
+            "classifier_version": _parse_semver_str(classifier_version_str),
+            "processing_time_ms": processing_time_ms,
+        },
     }
 
     await producer.publish(
@@ -754,6 +841,7 @@ __all__ = [
     "HandlerClaudeHookEvent",
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
+    "_parse_semver_str",
     "handle_no_op",
     "handle_stop",
     "handle_user_prompt_submit",

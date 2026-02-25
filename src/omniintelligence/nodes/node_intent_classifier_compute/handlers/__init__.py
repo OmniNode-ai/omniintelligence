@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Intent Classifier Compute Handlers.
 
 This module provides handler functions for intent classification operations,
@@ -84,6 +87,13 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.exceptions i
     IntentClassificationValidationError,
     SemanticAnalysisError,
 )
+from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_adaptive_classification import (
+    UNKNOWN_CONFIDENCE_THRESHOLD,
+    AdaptiveClassificationResult,
+    classify_intent_adaptive,
+    get_classifier_version,
+    reset_classifier,
+)
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification import (
     DEFAULT_CLASSIFICATION_CONFIG,
     INTENT_PATTERNS,
@@ -97,19 +107,32 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_lang
     create_empty_semantic_result,
     map_semantic_to_intent_boost,
 )
+from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
+    DEFAULT_TYPED_CONFIDENCE_THRESHOLD,
+    get_category_to_typed_class_mapping,
+    resolve_typed_intent,
+)
 
 __all__ = [
     "DEFAULT_CLASSIFICATION_CONFIG",
     "DEFAULT_SEMANTIC_CONFIG",
+    "DEFAULT_TYPED_CONFIDENCE_THRESHOLD",
     "INTENT_PATTERNS",
     "IntentClassificationComputeError",
     "IntentClassificationError",
     "IntentClassificationValidationError",
     "SemanticAnalysisError",
     "SemanticResult",
+    "UNKNOWN_CONFIDENCE_THRESHOLD",
+    "AdaptiveClassificationResult",
     "analyze_semantics",
     "classify_intent",
+    "classify_intent_adaptive",
     "create_empty_semantic_result",
+    "get_category_to_typed_class_mapping",
+    "get_classifier_version",
     "handle_intent_classification",
     "map_semantic_to_intent_boost",
+    "reset_classifier",
+    "resolve_typed_intent",
 ]

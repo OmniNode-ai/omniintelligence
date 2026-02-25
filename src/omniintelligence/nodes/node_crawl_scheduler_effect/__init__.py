@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """CrawlSchedulerEffect — periodic crawl trigger coordinator for Stream A.
 
 Emits crawl-tick.v1 commands and enforces per-source debounce windows

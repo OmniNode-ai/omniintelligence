@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Output model for Pattern Assembler Orchestrator."""
 
 from __future__ import annotations

@@ -1,4 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
+
 # Copyright (c) 2025 OmniNode Team
 """Integration tests for Claude Hook Event Effect event bus routing.
 
@@ -169,12 +171,11 @@ class TestUserPromptSubmitFullFlow:
         """Test intent-classified event has correct structure.
 
         Verifies output event contains:
-        - event_type
-        - session_id
-        - correlation_id
-        - intent_category
-        - confidence
-        - timestamp
+        - Original fields (v1.0.0): event_type, session_id, correlation_id,
+          intent_category, confidence, timestamp
+        - New fields (v1.1.0, OMN-1620): event_version, secondary_intents,
+          success, provenance (source_system, source_node, classifier_version,
+          processing_time_ms)
         """
         received_outputs: list[ModelEventMessage] = []
 
@@ -203,7 +204,9 @@ class TestUserPromptSubmitFullFlow:
             # Parse and verify output event structure
             output_event = json.loads(received_outputs[0].value)
 
-            # Required fields
+            # ----------------------------------------------------------------
+            # Original fields (v1.0.0) — unchanged for backward compatibility
+            # ----------------------------------------------------------------
             assert "event_type" in output_event
             assert output_event["event_type"] == "IntentClassified"
 
@@ -226,6 +229,53 @@ class TestUserPromptSubmitFullFlow:
             assert "timestamp" in output_event
             # Timestamp should be ISO format
             assert isinstance(output_event["timestamp"], str)
+
+            # ----------------------------------------------------------------
+            # New fields (v1.1.0 — OMN-1620: ModelSemVer provenance)
+            # ----------------------------------------------------------------
+
+            # event_version: ModelSemVer structured dict
+            assert "event_version" in output_event, "event_version missing from payload"
+            event_version = output_event["event_version"]
+            assert isinstance(event_version, dict), "event_version must be a dict"
+            assert event_version.get("major") == 1
+            assert event_version.get("minor") == 1
+            assert event_version.get("patch") == 0
+
+            # secondary_intents: list (empty when no classifier)
+            assert "secondary_intents" in output_event, "secondary_intents missing"
+            assert isinstance(output_event["secondary_intents"], list)
+
+            # success: boolean
+            assert "success" in output_event, "success missing from payload"
+            assert isinstance(output_event["success"], bool)
+
+            # provenance: structured dict with source_system, source_node,
+            # classifier_version, processing_time_ms
+            assert "provenance" in output_event, "provenance missing from payload"
+            provenance = output_event["provenance"]
+            assert isinstance(provenance, dict), "provenance must be a dict"
+            assert provenance.get("source_system") == "omniintelligence"
+            assert provenance.get("source_node") == "claude_hook_event_effect"
+
+            # classifier_version: ModelSemVer structured dict
+            classifier_version = provenance.get("classifier_version")
+            assert isinstance(classifier_version, dict), (
+                "provenance.classifier_version must be a dict"
+            )
+            assert "major" in classifier_version
+            assert "minor" in classifier_version
+            assert "patch" in classifier_version
+            assert all(
+                isinstance(classifier_version[k], int)
+                for k in ("major", "minor", "patch")
+            ), "classifier_version fields must be integers"
+
+            # processing_time_ms: float
+            assert "processing_time_ms" in provenance, (
+                "provenance.processing_time_ms missing"
+            )
+            assert isinstance(provenance["processing_time_ms"], float | int)
 
             await unsubscribe()
 

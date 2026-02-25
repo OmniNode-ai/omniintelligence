@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Output model for Pattern Learning Compute.
 
 Uses contract models from omnibase_core for canonical pattern representations.

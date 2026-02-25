@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Extraction Compute - Thin declarative COMPUTE node shell.
 
 This node follows the ONEX declarative pattern where the node is a thin shell

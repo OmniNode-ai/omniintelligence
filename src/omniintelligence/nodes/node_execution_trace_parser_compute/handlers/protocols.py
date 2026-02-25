@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """TypedDict structures for trace parsing handlers.
 
 These structures define the contracts between pure functions and orchestrators.

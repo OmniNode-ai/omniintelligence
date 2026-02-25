@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Exceptions for pattern learning handlers.
 
 This module defines domain-specific exceptions for pattern learning operations.

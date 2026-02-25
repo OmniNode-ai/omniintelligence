@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Shared utility functions for pattern learning handlers.
 
 This module provides common utility functions used across multiple

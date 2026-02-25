@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Orchestration handler for Execution Trace Parser Compute.
 
 This module coordinates the trace parsing workflow:

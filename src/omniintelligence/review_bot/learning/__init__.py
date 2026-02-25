@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """OmniMemory learning loop for the Code Intelligence Review Bot.
 
 Stores acceptance/rejection decisions and updates rule confidence scores

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for rollout readiness evaluator and enforcement mode.
 
 Tests cover OMN-2500 acceptance criteria:

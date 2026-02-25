@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for pattern compliance compute node orchestration.
 
 This module bridges the node's typed input/output models and the pure

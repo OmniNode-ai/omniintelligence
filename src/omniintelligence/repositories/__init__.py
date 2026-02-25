@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Repository contracts for omniintelligence.
 
 This module contains YAML contract files defining database repository

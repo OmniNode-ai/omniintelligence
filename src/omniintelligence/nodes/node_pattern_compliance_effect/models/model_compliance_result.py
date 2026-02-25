@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Output model for Pattern Compliance Compute Node.
 
 Defines the result structure for pattern compliance evaluation,

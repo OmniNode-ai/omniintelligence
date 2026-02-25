@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ReviewSeverity enum for Code Intelligence Review Bot.
 
 Defines severity levels for review findings. Severity governs how findings

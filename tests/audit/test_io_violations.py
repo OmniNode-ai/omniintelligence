@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """I/O Audit Tests for ONEX Node Purity.
 
 This module enforces the "pure compute / no I/O" invariant for ONEX nodes

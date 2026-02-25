@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern Learning Compute Handlers.
 
 This module provides pure handler functions for pattern learning (aggregation) operations.

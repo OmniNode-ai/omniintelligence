@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pattern deduplication handler for pattern learning compute node.
 
 This module provides pattern deduplication with versioned signatures and policy

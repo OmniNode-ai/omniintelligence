@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Audit test: Forbid direct pattern status updates outside effect node.
 
 This test enforces OMN-1805's architectural invariant:
