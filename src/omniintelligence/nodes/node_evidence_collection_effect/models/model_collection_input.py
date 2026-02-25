@@ -30,7 +30,7 @@ class ModelCollectionInput(BaseModel):
             ObjectiveSpec. If None, a default/fallback spec is used.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     check_results: ModelSessionCheckResults = Field(
         description="Aggregated structured check results for the session."

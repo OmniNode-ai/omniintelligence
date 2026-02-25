@@ -30,7 +30,7 @@ class ModelCollectionOutput(BaseModel):
         skip_reason: Human-readable reason for skip (only set when skipped=True).
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     run_id: str = Field(description="The run that was evaluated.")
     session_id: str = Field(description="Claude Code session identifier.")
