@@ -32,8 +32,12 @@ class ModelGoodhartViolationAlert(BaseModel):
     objective_id: str = Field(description="Objective spec used in evaluation.")
     improving_metric: str = Field(description="ScoreVector dimension that improved.")
     degrading_metric: str = Field(description="Correlated metric that degraded.")
-    improvement_delta: float = Field(description="How much the improving metric improved.")
-    degradation_delta: float = Field(description="How much the degrading metric degraded.")
+    improvement_delta: float = Field(
+        description="How much the improving metric improved."
+    )
+    degradation_delta: float = Field(
+        description="How much the degrading metric degraded."
+    )
     threshold: float = Field(description="The configured divergence threshold.")
     occurred_at_utc: str = Field(description="ISO-8601 UTC timestamp.")
 
@@ -51,7 +55,9 @@ class ModelRewardHackingAlert(BaseModel):
     objective_id: str = Field(description="Objective spec used in evaluation.")
     score_improvement: float = Field(description="How much correctness improved.")
     acceptance_rate_delta: float = Field(description="Change in human acceptance rate.")
-    threshold: float = Field(description="Correctness improvement threshold that triggered alert.")
+    threshold: float = Field(
+        description="Correctness improvement threshold that triggered alert."
+    )
     occurred_at_utc: str = Field(description="ISO-8601 UTC timestamp.")
 
 
@@ -85,7 +91,9 @@ class ModelDiversityConstraintViolation(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    alert_type: EnumAlertType = Field(default=EnumAlertType.DIVERSITY_CONSTRAINT_VIOLATION)
+    alert_type: EnumAlertType = Field(
+        default=EnumAlertType.DIVERSITY_CONSTRAINT_VIOLATION
+    )
     run_id: str = Field(description="The run that triggered this violation.")
     objective_id: str = Field(description="Objective spec used in evaluation.")
     present_sources: tuple[str, ...] = Field(

@@ -7,11 +7,11 @@ from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.enum_aler
     EnumAlertType,
 )
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_alert_event import (
-    ModelGoodhartViolationAlert,
-    ModelRewardHackingAlert,
+    ModelAntiGamingAlertUnion,
     ModelDistributionalShiftAlert,
     ModelDiversityConstraintViolation,
-    ModelAntiGamingAlertUnion,
+    ModelGoodhartViolationAlert,
+    ModelRewardHackingAlert,
 )
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_guardrail_config import (
     ModelCorrelationPair,

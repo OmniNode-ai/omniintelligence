@@ -44,15 +44,13 @@ class NodeAntiGamingGuardrailsCompute(
       3. Distributional shift: evidence distribution drift from baseline
       4. Diversity constraint: minimum distinct evidence source types (VETO)
 
-    Guards 1–3 emit non-blocking alerts.
+    Guards 1-3 emit non-blocking alerts.
     Guard 4 is a VETO: output.should_veto=True means reject the evaluation.
 
     This node is a thin declarative shell delegating to run_all_guardrails.
     """
 
-    async def compute(
-        self, input_data: ModelGuardrailInput
-    ) -> ModelGuardrailOutput:
+    async def compute(self, input_data: ModelGuardrailInput) -> ModelGuardrailOutput:
         """Run all anti-gaming guardrail checks."""
         return run_all_guardrails(input_data)
 

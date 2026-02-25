@@ -20,8 +20,12 @@ class ModelCorrelationPair(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    metric_a: str = Field(description="First ScoreVector dimension (the one that may improve).")
-    metric_b: str = Field(description="Second ScoreVector dimension (the correlated peer).")
+    metric_a: str = Field(
+        description="First ScoreVector dimension (the one that may improve)."
+    )
+    metric_b: str = Field(
+        description="Second ScoreVector dimension (the correlated peer)."
+    )
     divergence_threshold: float = Field(
         gt=0.0,
         le=1.0,

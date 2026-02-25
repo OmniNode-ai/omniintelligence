@@ -23,7 +23,7 @@ Four structural defenses against metric gaming:
    Fewer than N → DiversityConstraintViolation (VETO).
 
 Constraints:
-  - Guards 1–3 emit alerts only (non-blocking).
+  - Guards 1-3 emit alerts only (non-blocking).
   - Guard 4 (diversity) is a veto.
   - All thresholds from ModelGuardrailConfig (zero hardcoded numbers).
   - Pure functions: identical inputs → identical outputs.
@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_alert_event import (
     ModelAntiGamingAlertUnion,
@@ -88,14 +88,12 @@ def check_goodhart_violation(
     alerts: list[ModelGoodhartViolationAlert] = []
 
     for pair in config.correlation_pairs:
-        delta_a = (
-            current_score.get_dimension(pair.metric_a)
-            - previous_score.get_dimension(pair.metric_a)
-        )
-        delta_b = (
-            current_score.get_dimension(pair.metric_b)
-            - previous_score.get_dimension(pair.metric_b)
-        )
+        delta_a = current_score.get_dimension(
+            pair.metric_a
+        ) - previous_score.get_dimension(pair.metric_a)
+        delta_b = current_score.get_dimension(
+            pair.metric_b
+        ) - previous_score.get_dimension(pair.metric_b)
 
         # Goodhart violation: A improves while B degrades
         if delta_a > 0 and delta_b < 0:
@@ -161,9 +159,7 @@ def check_reward_hacking(
         # Cannot check without acceptance rate data
         return None
 
-    correctness_improvement = (
-        current_score.correctness - previous_score.correctness
-    )
+    correctness_improvement = current_score.correctness - previous_score.correctness
 
     if correctness_improvement <= config.reward_hacking_score_threshold:
         return None  # Not enough correctness improvement to trigger check
@@ -192,9 +188,7 @@ def check_reward_hacking(
     return None
 
 
-def _symmetric_kl_divergence(
-    p: dict[str, float], q: dict[str, float]
-) -> float:
+def _symmetric_kl_divergence(p: dict[str, float], q: dict[str, float]) -> float:
     """Compute symmetric KL-divergence between two probability distributions.
 
     Uses a simple approximation: 0.5 * (KL(p||q) + KL(q||p)).
@@ -214,8 +208,14 @@ def _symmetric_kl_divergence(
     p_total = max(sum(p.values()), _KL_EPSILON)
     q_total = max(sum(q.values()), _KL_EPSILON)
 
-    p_norm = {k: (p.get(k, 0.0) + _KL_EPSILON) / (p_total + len(all_keys) * _KL_EPSILON) for k in all_keys}
-    q_norm = {k: (q.get(k, 0.0) + _KL_EPSILON) / (q_total + len(all_keys) * _KL_EPSILON) for k in all_keys}
+    p_norm = {
+        k: (p.get(k, 0.0) + _KL_EPSILON) / (p_total + len(all_keys) * _KL_EPSILON)
+        for k in all_keys
+    }
+    q_norm = {
+        k: (q.get(k, 0.0) + _KL_EPSILON) / (q_total + len(all_keys) * _KL_EPSILON)
+        for k in all_keys
+    }
 
     kl_pq = sum(p_norm[k] * math.log(p_norm[k] / q_norm[k]) for k in all_keys)
     kl_qp = sum(q_norm[k] * math.log(q_norm[k] / p_norm[k]) for k in all_keys)
@@ -261,7 +261,9 @@ def check_distributional_shift(
         baseline_val = baseline_dist.get(source, 0.0)
         current_val = current_dist.get(source, 0.0)
         if baseline_val > 0:
-            relative_change = abs(current_val - baseline_val) / (baseline_val + _KL_EPSILON)
+            relative_change = abs(current_val - baseline_val) / (
+                baseline_val + _KL_EPSILON
+            )
             if relative_change > 0.5:
                 shifted.append(source)
         elif current_val > 0:
@@ -345,7 +347,7 @@ def run_all_guardrails(input_data: ModelGuardrailInput) -> ModelGuardrailOutput:
     Returns:
         ModelGuardrailOutput with all detected alerts and veto flag.
     """
-    now_utc = datetime.now(tz=timezone.utc).isoformat()
+    now_utc = datetime.now(tz=UTC).isoformat()
     config = input_data.config
     objective_id = config.objective_id
 
@@ -360,7 +362,7 @@ def run_all_guardrails(input_data: ModelGuardrailInput) -> ModelGuardrailOutput:
 
     alerts: list[ModelAntiGamingAlertUnion] = []
 
-    # 2–4 only run with previous score available
+    # 2-4 only run with previous score available
     if input_data.previous_score is not None:
         # 2. Goodhart's Law detection
         goodhart_alerts = check_goodhart_violation(

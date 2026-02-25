@@ -17,11 +17,10 @@ node_version:
 name: "node_anti_gaming_guardrails_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Pure COMPUTE node for anti-gaming guardrail evaluation. Implements four structural
-  defenses: (1) Goodhart's Law detection — correlated metric divergence; (2) reward
-  hacking detection — score improves without human acceptance; (3) distributional shift
-  detection — evidence distribution drift; (4) diversity constraint — minimum distinct
-  evidence source types (VETO). Guards 1-3 are non-blocking alerts. Guard 4 is a veto.
+  Pure COMPUTE node for anti-gaming guardrail evaluation. Implements four structural defenses: (1) Goodhart's
+  Law detection — correlated metric divergence; (2) reward hacking detection — score improves without
+  human acceptance; (3) distributional shift detection — evidence distribution drift; (4) diversity constraint
+  — minimum distinct evidence source types (VETO). Guards 1-3 are non-blocking alerts. Guard 4 is a veto.
 input_model:
   name: "ModelGuardrailInput"
   module: "omniintelligence.nodes.node_anti_gaming_guardrails_compute.models"

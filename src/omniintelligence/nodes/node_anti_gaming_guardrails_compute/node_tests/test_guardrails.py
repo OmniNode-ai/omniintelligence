@@ -15,8 +15,8 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails import (
-    check_diversity_constraint,
     check_distributional_shift,
+    check_diversity_constraint,
     check_goodhart_violation,
     check_reward_hacking,
     run_all_guardrails,
@@ -40,7 +40,9 @@ from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_gua
 _CONFIG = ModelGuardrailConfig(
     objective_id="test-objective",
     correlation_pairs=(
-        ModelCorrelationPair(metric_a="correctness", metric_b="safety", divergence_threshold=0.2),
+        ModelCorrelationPair(
+            metric_a="correctness", metric_b="safety", divergence_threshold=0.2
+        ),
     ),
     reward_hacking_score_threshold=0.1,
     reward_hacking_acceptance_floor=0.0,
@@ -51,9 +53,14 @@ _CONFIG = ModelGuardrailConfig(
 _NOW = "2026-02-24T00:00:00Z"
 
 
-def _score(correctness: float = 0.5, safety: float = 0.5, cost: float = 0.5,
-           latency: float = 0.5, maintainability: float = 0.5, human_time: float = 0.5
-           ) -> ModelScoreVectorSnapshot:
+def _score(
+    correctness: float = 0.5,
+    safety: float = 0.5,
+    cost: float = 0.5,
+    latency: float = 0.5,
+    maintainability: float = 0.5,
+    human_time: float = 0.5,
+) -> ModelScoreVectorSnapshot:
     return ModelScoreVectorSnapshot(
         correctness=correctness,
         safety=safety,
@@ -73,19 +80,23 @@ def _score(correctness: float = 0.5, safety: float = 0.5, cost: float = 0.5,
 class TestGoodhartViolation:
     def test_no_alert_when_both_improve(self) -> None:
         alerts = check_goodhart_violation(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_score=_score(correctness=0.8, safety=0.7),
             previous_score=_score(correctness=0.5, safety=0.5),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert alerts == []
 
     def test_no_alert_when_both_degrade(self) -> None:
         alerts = check_goodhart_violation(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_score=_score(correctness=0.3, safety=0.3),
             previous_score=_score(correctness=0.5, safety=0.5),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert alerts == []
 
@@ -93,20 +104,24 @@ class TestGoodhartViolation:
         """Divergence below threshold: no alert."""
         # correctness +0.05, safety -0.05 → divergence=0.1, threshold=0.2
         alerts = check_goodhart_violation(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_score=_score(correctness=0.55, safety=0.45),
             previous_score=_score(correctness=0.5, safety=0.5),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert alerts == []
 
     def test_alert_fires_when_divergence_exceeds_threshold(self) -> None:
         """correctness +0.3, safety -0.2 → divergence=0.5 > threshold=0.2."""
         alerts = check_goodhart_violation(
-            run_id="r2", objective_id="obj-1",
+            run_id="r2",
+            objective_id="obj-1",
             current_score=_score(correctness=0.8, safety=0.3),
             previous_score=_score(correctness=0.5, safety=0.5),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert len(alerts) == 1
         assert alerts[0].alert_type == EnumAlertType.GOODHART_VIOLATION
@@ -118,10 +133,12 @@ class TestGoodhartViolation:
             objective_id="test", correlation_pairs=()
         )
         alerts = check_goodhart_violation(
-            run_id="r1", objective_id="test",
+            run_id="r1",
+            objective_id="test",
             current_score=_score(correctness=1.0, safety=0.0),
             previous_score=_score(correctness=0.0, safety=1.0),
-            config=config_no_pairs, occurred_at_utc=_NOW,
+            config=config_no_pairs,
+            occurred_at_utc=_NOW,
         )
         assert alerts == []
 
@@ -135,48 +152,56 @@ class TestGoodhartViolation:
 class TestRewardHacking:
     def test_no_alert_without_acceptance_data(self) -> None:
         result = check_reward_hacking(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_score=_score(correctness=0.9),
             previous_score=_score(correctness=0.5),
             human_acceptance_rate=None,
             previous_acceptance_rate=None,
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_no_alert_when_correctness_improvement_below_threshold(self) -> None:
         """correctness +0.05, which is < threshold=0.1"""
         result = check_reward_hacking(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_score=_score(correctness=0.55),
             previous_score=_score(correctness=0.5),
             human_acceptance_rate=0.6,
             previous_acceptance_rate=0.6,
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_no_alert_when_acceptance_also_improves(self) -> None:
         """Both correctness and acceptance improved — no alert."""
         result = check_reward_hacking(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_score=_score(correctness=0.8),
             previous_score=_score(correctness=0.5),
             human_acceptance_rate=0.9,
             previous_acceptance_rate=0.6,
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_alert_fires_when_correctness_up_acceptance_flat(self) -> None:
         """Correctness +0.4 but acceptance flat."""
         result = check_reward_hacking(
-            run_id="r2", objective_id="obj-1",
+            run_id="r2",
+            objective_id="obj-1",
             current_score=_score(correctness=0.9),
             previous_score=_score(correctness=0.5),
             human_acceptance_rate=0.5,
             previous_acceptance_rate=0.5,  # no improvement
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is not None
         assert result.alert_type == EnumAlertType.REWARD_HACKING
@@ -185,12 +210,14 @@ class TestRewardHacking:
     def test_alert_fires_when_acceptance_decreases(self) -> None:
         """Correctness up, acceptance down — strong reward hacking signal."""
         result = check_reward_hacking(
-            run_id="r3", objective_id="obj-1",
+            run_id="r3",
+            objective_id="obj-1",
             current_score=_score(correctness=0.9),
             previous_score=_score(correctness=0.5),
             human_acceptance_rate=0.3,
             previous_acceptance_rate=0.6,
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is not None
         assert result.acceptance_rate_delta < 0
@@ -205,40 +232,48 @@ class TestRewardHacking:
 class TestDistributionalShift:
     def test_no_alert_without_baseline(self) -> None:
         result = check_distributional_shift(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_dist={"test_result": 0.9},
             baseline_dist=None,
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_no_alert_when_identical_distributions(self) -> None:
         dist = {"test_result": 0.9, "lint_result": 0.8}
         result = check_distributional_shift(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_dist=dist,
             baseline_dist=dict(dist),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_no_alert_when_drift_below_threshold(self) -> None:
         """Small drift below threshold."""
         result = check_distributional_shift(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             current_dist={"test_result": 0.85},
             baseline_dist={"test_result": 0.9},
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_alert_fires_on_large_drift(self) -> None:
         """Large distributional shift triggers alert."""
         result = check_distributional_shift(
-            run_id="r2", objective_id="obj-1",
+            run_id="r2",
+            objective_id="obj-1",
             current_dist={"test_result": 0.1, "new_source": 0.9},
             baseline_dist={"test_result": 0.9, "lint_result": 0.9},
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is not None
         assert result.alert_type == EnumAlertType.DISTRIBUTIONAL_SHIFT
@@ -254,25 +289,31 @@ class TestDistributionalShift:
 class TestDiversityConstraint:
     def test_no_violation_with_sufficient_sources(self) -> None:
         result = check_diversity_constraint(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             evidence_sources=("test_result", "lint_result"),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_no_violation_with_exactly_min_sources(self) -> None:
         result = check_diversity_constraint(
-            run_id="r1", objective_id="obj-1",
+            run_id="r1",
+            objective_id="obj-1",
             evidence_sources=("test_result", "lint_result"),  # exactly 2
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is None
 
     def test_violation_with_single_source(self) -> None:
         result = check_diversity_constraint(
-            run_id="r2", objective_id="obj-1",
+            run_id="r2",
+            objective_id="obj-1",
             evidence_sources=("test_result",),  # only 1, need 2
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is not None
         assert result.alert_type == EnumAlertType.DIVERSITY_CONSTRAINT_VIOLATION
@@ -280,18 +321,22 @@ class TestDiversityConstraint:
 
     def test_violation_with_empty_sources(self) -> None:
         result = check_diversity_constraint(
-            run_id="r3", objective_id="obj-1",
+            run_id="r3",
+            objective_id="obj-1",
             evidence_sources=(),
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is not None
 
     def test_duplicate_sources_counted_once(self) -> None:
         """Duplicate source types count as one distinct type."""
         result = check_diversity_constraint(
-            run_id="r4", objective_id="obj-1",
+            run_id="r4",
+            objective_id="obj-1",
             evidence_sources=("test_result", "test_result"),  # duplicates = 1 distinct
-            config=_CONFIG, occurred_at_utc=_NOW,
+            config=_CONFIG,
+            occurred_at_utc=_NOW,
         )
         assert result is not None  # Only 1 distinct source, need 2
 
@@ -362,7 +407,9 @@ class TestRunAllGuardrails:
         config_low_threshold = ModelGuardrailConfig(
             objective_id="test-obj",
             correlation_pairs=(
-                ModelCorrelationPair(metric_a="correctness", metric_b="safety", divergence_threshold=0.05),
+                ModelCorrelationPair(
+                    metric_a="correctness", metric_b="safety", divergence_threshold=0.05
+                ),
             ),
             reward_hacking_score_threshold=0.05,
             reward_hacking_acceptance_floor=0.0,
@@ -384,11 +431,14 @@ class TestRunAllGuardrails:
         assert output.alert_count >= 2  # At least goodhart + reward hacking
         assert not output.should_veto  # Still passes diversity (2 sources)
 
-    @pytest.mark.parametrize("sources,should_veto", [
-        (("test_result",), True),
-        (("test_result", "lint_result"), False),
-        (("test_result", "lint_result", "coverage_report"), False),
-    ])
+    @pytest.mark.parametrize(
+        "sources,should_veto",
+        [
+            (("test_result",), True),
+            (("test_result", "lint_result"), False),
+            (("test_result", "lint_result", "coverage_report"), False),
+        ],
+    )
     def test_diversity_parametric(
         self, sources: tuple[str, ...], should_veto: bool
     ) -> None:
