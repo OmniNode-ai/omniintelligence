@@ -39,6 +39,8 @@ from omniintelligence.nodes.node_evidence_collection_effect.models.model_session
     ModelTestRunResult,
 )
 
+pytestmark = pytest.mark.unit
+
 # ============================================================================
 # Fixtures
 # ============================================================================
