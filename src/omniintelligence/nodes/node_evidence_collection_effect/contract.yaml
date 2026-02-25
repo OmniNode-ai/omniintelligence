@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeEvidenceCollectionEffect
+#
+# Wires objective evaluation into agent execution trace by constructing
+# EvidenceBundle from ChangeFrame check results at session end and feeding
+# it into the scoring pipeline (ScoringReducerCompute → PolicyStateReducer).
+#
+# Reference:
+#   - OMN-2578: Wire objective evaluation into agent execution trace
+#   - OMN-2537: Core data models (ObjectiveSpec, ScoreVector, EvidenceBundle)
+#   - OMN-2545: NodeScoringReducerCompute (evaluation engine)
+#   - OMN-2361: [Epic] Objective Functions and Reward Architecture
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_evidence_collection_effect"
+contract_name: "node_evidence_collection_effect"
+node_name: "node_evidence_collection_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node that collects structured evidence from agent session check results
+  (gate outputs, test results, static analysis, cost/latency telemetry) and
+  drives the objective evaluation pipeline at session end. Constructs an
+  EvidenceBundle with deterministic bundle_fingerprint, evaluates it against
+  the applicable ObjectiveSpec via ScoringReducerCompute, emits RunEvaluatedEvent
+  to Kafka, and stores EvaluationResult in the objective_evaluations table.
+  Evaluation is non-blocking: dispatched as asyncio.create_task from handle_stop.
+
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelCollectionInput"
+  module: "omniintelligence.nodes.node_evidence_collection_effect.models"
+  description: "Session check results and optional task class for spec selection"
+
+output_model:
+  name: "ModelCollectionOutput"
+  module: "omniintelligence.nodes.node_evidence_collection_effect.models"
+  description: "Evaluation outcome with bundle fingerprint, pass/fail, and emission status"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "collect_and_evaluate"
+      handler:
+        module: "omniintelligence.nodes.node_evidence_collection_effect.handlers"
+        function: "collect_and_evaluate"
+      description: "Full pipeline: collect evidence → evaluate → emit Kafka → store DB"
+    - operation: "fire_and_forget"
+      handler:
+        module: "omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection"
+        function: "fire_and_forget_evaluate"
+      description: "Non-blocking wrapper for handle_stop integration"
+
+# =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  publish_topics:
+    - name: "run_evaluated"
+      topic: "onex.evt.omniintelligence.run-evaluated.v1"
+      description: "Emitted after each successful objective evaluation"
+      partition_key_field: "run_id"
+  subscribe_topics: []
+
+# =============================================================================
+# RUNTIME CONSTRAINTS
+# =============================================================================
+runtime:
+  timeout_ms: 5000
+  max_retries: 0
+  non_blocking: true
+  description: >
+    Non-blocking: dispatched as asyncio.create_task from handle_stop.
+    Session completion is never delayed by evaluation.
+    Errors are logged and swallowed.
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "node_scoring_reducer_compute"
+    version: ">=1.0.0"
+    optional: true
+    description: >
+      ScoringReducerCompute evaluation engine (OMN-2545).
+      Optional: evaluation is skipped gracefully if not available.
+  - name: "kafka_publisher"
+    version: ">=1.0.0"
+    optional: true
+    description: "Kafka publisher for RunEvaluatedEvent emission. Optional — skips Kafka if None."
+  - name: "postgresql"
+    version: ">=14.0"
+    optional: true
+    description: "PostgreSQL for objective_evaluations table storage. Optional — skips DB if None."
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  ticket: "OMN-2578"
+  epic: "OMN-2361"
+  author: "omninode"
+  created_at: "2026-02-24"
+  realm: "omniintelligence"
+  topic: "objective_evaluation"
