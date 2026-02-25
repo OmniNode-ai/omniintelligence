@@ -92,6 +92,17 @@ files:
     allowed_rules:
       - "file-io"
 
+  # NavigationRetrieverEffect (OMN-2579) — production client wrapper for Qdrant.
+  # This file is the designated transport layer for the Effect node, separated from
+  # the handler to maintain ARCH-002 compliance. Direct qdrant_client usage is the
+  # intended responsibility of this file; the handler itself remains free of transport
+  # dependencies and uses dependency injection.
+  - path: "src/omniintelligence/nodes/node_navigation_retriever_effect/handlers/_production_clients.py"
+    reason: "Effect node production client wrapper — qdrant_client usage is the intended responsibility
+      of this file. Handler uses dependency injection; this file is the transport layer (ARCH-002 compliant)."
+    allowed_rules:
+      - "net-client"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"

@@ -115,7 +115,9 @@ class ProductionNavigationVectorStore:
                 return True
 
         except Exception as exc:
-            logger.warning("Failed to ensure Qdrant collection '%s': %s", collection, exc)
+            logger.warning(
+                "Failed to ensure Qdrant collection '%s': %s", collection, exc
+            )
             return False
 
     async def search_similar(

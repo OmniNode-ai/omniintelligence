@@ -92,7 +92,8 @@ def _make_state(
         datasource_class=datasource_class,
         policy_tier=policy_tier,
         graph_fingerprint=graph_fingerprint,
-        available_transitions=available_transitions or frozenset(["to_auth", "to_cache"]),
+        available_transitions=available_transitions
+        or frozenset(["to_auth", "to_cache"]),
     )
 
 
@@ -436,9 +437,7 @@ class TestStalenessFiltering:
 
     def test_valid_step_kept(self) -> None:
         step = _make_step(from_node="node-start", action="to_auth")
-        graph = _make_graph(
-            valid_transitions=frozenset([("node-start", "to_auth")])
-        )
+        graph = _make_graph(valid_transitions=frozenset([("node-start", "to_auth")]))
 
         filtered, stale_count = _filter_stale_steps([step], graph)
 
@@ -447,9 +446,7 @@ class TestStalenessFiltering:
 
     def test_stale_step_removed(self) -> None:
         step = _make_step(from_node="node-start", action="to_old_endpoint")
-        graph = _make_graph(
-            valid_transitions=frozenset([("node-start", "to_auth")])
-        )
+        graph = _make_graph(valid_transitions=frozenset([("node-start", "to_auth")]))
 
         filtered, stale_count = _filter_stale_steps([step], graph)
 
@@ -459,9 +456,7 @@ class TestStalenessFiltering:
     def test_mixed_steps_partial_filter(self) -> None:
         valid_step = _make_step(from_node="node-start", action="to_auth")
         stale_step = _make_step(from_node="node-start", action="to_deprecated")
-        graph = _make_graph(
-            valid_transitions=frozenset([("node-start", "to_auth")])
-        )
+        graph = _make_graph(valid_transitions=frozenset([("node-start", "to_auth")]))
 
         filtered, stale_count = _filter_stale_steps([valid_step, stale_step], graph)
 
@@ -492,9 +487,7 @@ class TestStalenessFiltering:
             )
         ]
 
-        graph = _make_graph(
-            valid_transitions=frozenset([("node-start", "to_auth")])
-        )
+        graph = _make_graph(valid_transitions=frozenset([("node-start", "to_auth")]))
 
         embedder = _make_mock_embedder()
         vector_store = _make_mock_vector_store(search_results=result_data)

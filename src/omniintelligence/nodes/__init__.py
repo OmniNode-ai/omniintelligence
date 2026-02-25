@@ -228,9 +228,6 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_embedding_generation_effect.node import (
         NodeEmbeddingGenerationEffect as NodeEmbeddingGenerationEffect,
     )
-    from omniintelligence.nodes.node_navigation_retriever_effect.node import (
-        NodeNavigationRetrieverEffect as NodeNavigationRetrieverEffect,
-    )
     from omniintelligence.nodes.node_enforcement_feedback_effect.node import (
         NodeEnforcementFeedbackEffect as NodeEnforcementFeedbackEffect,
     )
@@ -254,6 +251,9 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_linear_crawler_effect.node import (
         NodeLinearCrawlerEffect as NodeLinearCrawlerEffect,
+    )
+    from omniintelligence.nodes.node_navigation_retriever_effect.node import (
+        NodeNavigationRetrieverEffect as NodeNavigationRetrieverEffect,
     )
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.node import (
         NodePatternAssemblerOrchestrator as NodePatternAssemblerOrchestrator,

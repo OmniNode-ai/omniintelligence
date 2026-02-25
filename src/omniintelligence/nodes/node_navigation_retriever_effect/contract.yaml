@@ -29,13 +29,12 @@ node_type: "EFFECT_GENERIC"
 status: "active"
 # Description
 description: >
-  RAG retrieval effect node for local agent graph navigation. Embeds goal + current state structure
-  via Qwen3-Embedding-8B-4bit (port 8100), queries Qdrant navigation_paths collection with hard
-  filters (component type, datasource class, policy tier), applies staleness filtering (removes steps
-  not in current graph), and returns top-K ranked RetrievedPath list. Graceful timeout (2s default):
-  returns empty list without blocking navigation. Cold start (empty collection): returns empty list
-  without error. Retrieval is advisory only — does not override graph boundary enforcement.
-
+  RAG retrieval effect node for local agent graph navigation. Embeds goal + current state structure via
+  Qwen3-Embedding-8B-4bit (port 8100), queries Qdrant navigation_paths collection with hard filters (component
+  type, datasource class, policy tier), applies staleness filtering (removes steps not in current graph),
+  and returns top-K ranked RetrievedPath list. Graceful timeout (2s default): returns empty list without
+  blocking navigation. Cold start (empty collection): returns empty list without error. Retrieval is advisory
+  only — does not override graph boundary enforcement. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelNavigationRetrieveInput"
@@ -185,9 +184,8 @@ error_handling:
 idempotency:
   enabled: true
   description: >
-    Effect node is read-only with respect to Qdrant (search only). Repeated calls
-    with the same input return the same results (subject to collection contents).
-    Cold-start collection creation is idempotent.
+    Effect node is read-only with respect to Qdrant (search only). Repeated calls with the same input
+    return the same results (subject to collection contents). Cold-start collection creation is idempotent.
 
 # =============================================================================
 # CONSTRAINTS
