@@ -53,10 +53,11 @@ from .protocols import DimensionScores, QualityScoringResult
 # Optional radon integration (OMN-1452: complexity scoring refinement)
 # radon is not a required dependency; the AST-based approximation is the fallback.
 # Install with: pip install radon
+_RADON_AVAILABLE: bool
 try:
     from radon.complexity import average_complexity, cc_visit
 
-    _RADON_AVAILABLE: Final[bool] = True
+    _RADON_AVAILABLE = True
 except ImportError:
     _RADON_AVAILABLE = False
 
@@ -799,11 +800,11 @@ def _compute_radon_complexity_score(content: str) -> float:
         Score from 0.0 (high complexity) to 1.0 (low complexity).
     """
     try:
-        blocks = cc_visit(content)  # type: ignore[name-defined]  # guarded by _RADON_AVAILABLE
+        blocks = cc_visit(content)  # guarded by _RADON_AVAILABLE
         if not blocks:
             # No analyzable functions/methods; treat as trivially simple
             return 1.0
-        avg = average_complexity(blocks)  # type: ignore[name-defined]
+        avg = average_complexity(blocks)
         return _mccabe_to_score(avg)
     except Exception:
         return NO_FUNCTIONS_NEUTRAL_SCORE
