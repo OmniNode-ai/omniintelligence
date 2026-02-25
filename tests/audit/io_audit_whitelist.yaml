@@ -103,6 +103,22 @@ files:
     allowed_rules:
       - "net-client"
 
+  # Gmail Intent Evaluator handler (OMN-2790) — Effect node that performs network
+  # I/O (httpx URL fetch, httpx LLM API call), Qdrant vector search, asyncpg DB
+  # writes, and reads env vars for LLM/DB endpoints. All I/O is the intended
+  # responsibility of this Effect node; the node exists specifically to perform
+  # these external operations.
+  - path: "src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py"
+    reason: >
+      Effect node for Gmail intent evaluation. Requires: httpx for URL fetch and LLM API calls (DeepSeek
+      R1, Qwen3-Embedding), AsyncQdrantClient for semantic duplicate detection, asyncpg for idempotency
+      table writes, os.environ.get() for endpoint resolution (LLM_DEEPSEEK_R1_URL, LLM_EMBEDDING_URL,
+      OMNIBASE_INFRA_DB_URL). All I/O is the intended responsibility of this Effect node. Tracked: OMN-2790
+      (OMN-2787 epic).
+    allowed_rules:
+      - "net-client"
+      - "env-access"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"

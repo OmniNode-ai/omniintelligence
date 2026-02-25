@@ -288,6 +288,23 @@ class ProtocolIntentClassifier(Protocol):
     ) -> ModelIntentClassificationOutput: ...
 
 
+@runtime_checkable
+class ProtocolSlackNotifier(Protocol):
+    """Protocol for Slack notification delivery.
+
+    Defines the minimal interface required by gmail_intent_evaluate handler
+    to post alert messages to Slack. Enables injection of test doubles
+    without coupling to HandlerSlackWebhook's concrete implementation.
+
+    Reference:
+        - OMN-2790: HandlerGmailIntentEvaluate — SURFACE alert posting
+    """
+
+    async def handle(self, alert: Any) -> Any:
+        """Send a Slack alert. Returns a result with a .success bool."""
+        ...
+
+
 __all__ = [
     "ProtocolDecisionRecordRepository",
     "ProtocolIdempotencyStore",
@@ -296,4 +313,5 @@ __all__ = [
     "ProtocolPatternQueryStore",
     "ProtocolPatternRepository",
     "ProtocolPatternUpsertStore",
+    "ProtocolSlackNotifier",
 ]
