@@ -50,6 +50,9 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols i
     ContextFeatures,
     ErrorPatternResult,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.utils import (
+    normalize_path,
+)
 
 # =============================================================================
 # Constants
@@ -845,16 +848,7 @@ def _extract_path_value(params: Mapping[str, object] | None) -> str | None:
     return None
 
 
-def _normalize_path(path: str) -> str:
-    """Normalize path to posix separators.
-
-    Args:
-        path: File path string.
-
-    Returns:
-        Path with forward slashes.
-    """
-    return path.replace("\\", "/")
+# _normalize_path was extracted to handlers/utils.py as normalize_path (OMN-1584)
 
 
 def _extract_extension(path: str | None) -> str | None:
@@ -869,7 +863,7 @@ def _extract_extension(path: str | None) -> str | None:
     if not path:
         return None
 
-    path = _normalize_path(path)
+    path = normalize_path(path)
     filename = path.rsplit("/", 1)[-1]
 
     if "." in filename:
@@ -891,7 +885,7 @@ def _extract_top_level_dir(path: str | None) -> str | None:
     if not path:
         return None
 
-    path = _normalize_path(path).lstrip("/")
+    path = normalize_path(path).lstrip("/")
     if not path:
         return None
 
@@ -915,7 +909,7 @@ def _extract_directory(params: Mapping[str, object] | None) -> str | None:
     if not path:
         return None
 
-    path = _normalize_path(path)
+    path = normalize_path(path)
 
     # Find last slash to get directory
     if "/" in path:
@@ -1004,7 +998,7 @@ def _extract_primary_param(params: JsonType | None) -> str:
         return ""
     path = _extract_path_value(params)
     if path:
-        return _normalize_path(path).lower()
+        return normalize_path(path).lower()
     return ""
 
 
@@ -1021,7 +1015,7 @@ def _extract_affected_files(failures: list[_FailureRecord]) -> set[str]:
     for failure in failures:
         path = _extract_path_value(failure.tool_parameters)
         if path:
-            files.add(_normalize_path(path))
+            files.add(normalize_path(path))
     return files
 
 

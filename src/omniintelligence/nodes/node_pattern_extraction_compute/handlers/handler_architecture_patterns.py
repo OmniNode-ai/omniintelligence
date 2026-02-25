@@ -40,6 +40,9 @@ from uuid import uuid4
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols import (
     ArchitecturePatternResult,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.utils import (
+    normalize_path,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_extraction_compute.models import (
@@ -143,7 +146,7 @@ def extract_architecture_patterns(
                 continue
 
             # Normalize path separators for cross-platform compatibility
-            file_path = file_path.replace("\\", "/")
+            file_path = normalize_path(file_path)
 
             # Extract directory from file path
             dir_path = os.path.dirname(file_path)
@@ -152,8 +155,7 @@ def extract_architecture_patterns(
                 dir_files[dir_path].add(file_path)
 
                 # Track layer prefixes (path components)
-                # Split by both os.sep and forward slash for compatibility
-                parts = dir_path.replace("\\", "/").split("/")
+                parts = normalize_path(dir_path).split("/")
                 for i in range(1, min(4, len(parts) + 1)):
                     prefix = "/".join(parts[:i])
                     if prefix:
