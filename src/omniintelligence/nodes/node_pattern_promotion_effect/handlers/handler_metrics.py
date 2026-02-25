@@ -103,7 +103,7 @@ def _init_metrics() -> None:
     ``_METRICS_INITIALIZED`` guard and prometheus_client's own registry
     deduplication.
     """
-    global _METRICS_INITIALIZED  # noqa: PLW0603 - intentional module-level singleton
+    global _METRICS_INITIALIZED
 
     if _METRICS_INITIALIZED:
         return
