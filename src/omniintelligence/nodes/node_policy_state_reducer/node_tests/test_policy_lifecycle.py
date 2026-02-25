@@ -143,7 +143,7 @@ class TestComputeNextLifecycleState:
         result = compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.VALIDATED,
             reliability_0_1=0.35,  # below floor — degradation fires
-            run_count=50,   # would also qualify for promotion
+            run_count=50,  # would also qualify for promotion
             positive_signal_ratio=0.9,
             thresholds=_THRESHOLDS,
         )
@@ -215,8 +215,8 @@ class TestApplyRewardDelta:
     def test_failure_count_increments_only_on_negative_delta(self) -> None:
         _, _, new_failures_pos = apply_reward_delta(0.5, 0.1, 10, 2)
         _, _, new_failures_neg = apply_reward_delta(0.5, -0.1, 10, 2)
-        assert new_failures_pos == 2   # positive delta: no failure
-        assert new_failures_neg == 3   # negative delta: +1 failure
+        assert new_failures_pos == 2  # positive delta: no failure
+        assert new_failures_neg == 3  # negative delta: +1 failure
 
 
 # =============================================================================
@@ -345,7 +345,7 @@ class TestNodePolicyStateReducer:
 
     @pytest.mark.asyncio
     async def test_first_event_creates_candidate_state(self) -> None:
-        reducer, repo, _ = self._make_reducer()
+        reducer, _repo, _ = self._make_reducer()
         event = self._make_event()
         output = await reducer.reduce(ModelPolicyStateInput(event=event))
 
@@ -355,7 +355,7 @@ class TestNodePolicyStateReducer:
 
     @pytest.mark.asyncio
     async def test_duplicate_event_returns_was_duplicate(self) -> None:
-        reducer, repo, _ = self._make_reducer()
+        reducer, _repo, _ = self._make_reducer()
         event = self._make_event(event_id="evt-dup")
         inp = ModelPolicyStateInput(event=event)
 
@@ -385,7 +385,11 @@ class TestNodePolicyStateReducer:
 
         # Set up initial state with very low reliability
         repo._state[("tool-bad", "tool_reliability")] = json.dumps(
-            {"lifecycle_state": "promoted", "reliability_0_1": 0.35, "blacklisted": False}
+            {
+                "lifecycle_state": "promoted",
+                "reliability_0_1": 0.35,
+                "blacklisted": False,
+            }
         )
         repo._counts[("tool-bad", "tool_reliability")] = (100, 70)
 

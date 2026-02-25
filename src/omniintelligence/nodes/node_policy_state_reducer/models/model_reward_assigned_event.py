@@ -40,7 +40,9 @@ class ModelRewardAssignedEvent(BaseModel):
     objective_id: str = Field(
         description="The ObjectiveSpec ID used to compute this reward."
     )
-    occurred_at_utc: str = Field(description="ISO-8601 UTC timestamp when the event occurred.")
+    occurred_at_utc: str = Field(
+        description="ISO-8601 UTC timestamp when the event occurred."
+    )
     idempotency_key: str = Field(
         description=(
             "Hash of (event_id, policy_id, run_id) used for idempotency. "

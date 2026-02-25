@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle import (
     apply_reward_delta,
@@ -97,9 +97,7 @@ class NodePolicyStateReducer:
         self._repository = repository
         self._alert_publisher = alert_publisher
 
-    async def reduce(
-        self, input_data: ModelPolicyStateInput
-    ) -> ModelPolicyStateOutput:
+    async def reduce(self, input_data: ModelPolicyStateInput) -> ModelPolicyStateOutput:
         """Process a RewardAssignedEvent and apply policy lifecycle transitions.
 
         Args:
@@ -110,7 +108,7 @@ class NodePolicyStateReducer:
         """
         event = input_data.event
         thresholds = input_data.thresholds
-        now_utc = datetime.now(tz=timezone.utc).isoformat()
+        now_utc = datetime.now(tz=UTC).isoformat()
 
         # Idempotency check — skip if already processed
         if await self._repository.is_duplicate_event(event.idempotency_key):
@@ -143,7 +141,9 @@ class NodePolicyStateReducer:
 
         # Compute initial state from existing state or defaults
         old_state = self._parse_state(old_state_json, event.policy_type)
-        old_lifecycle = old_state.get("lifecycle_state", EnumPolicyLifecycleState.CANDIDATE.value)
+        old_lifecycle = old_state.get(
+            "lifecycle_state", EnumPolicyLifecycleState.CANDIDATE.value
+        )
         old_lifecycle_enum = EnumPolicyLifecycleState(old_lifecycle)
         raw_reliability = old_state.get("reliability_0_1", 1.0)
         old_reliability = float(raw_reliability)  # type: ignore[arg-type]

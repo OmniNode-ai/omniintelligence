@@ -71,13 +71,13 @@ class ModelModelRoutingConfidenceState(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model_id: str = Field(description="Unique model identifier.")
-    task_class: str = Field(description="Task classification this confidence applies to.")
+    task_class: str = Field(
+        description="Task classification this confidence applies to."
+    )
     confidence_0_1: float = Field(
         ge=0.0, le=1.0, description="Current routing confidence score [0.0, 1.0]."
     )
-    cost_per_token: float = Field(
-        ge=0.0, description="Observed cost per token in USD."
-    )
+    cost_per_token: float = Field(ge=0.0, description="Observed cost per token in USD.")
     lifecycle_state: EnumPolicyLifecycleState = Field(
         default=EnumPolicyLifecycleState.CANDIDATE,
         description="Current lifecycle state.",
@@ -91,8 +91,12 @@ class ModelRetryThresholdState(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    context_class: str = Field(description="Context classification this threshold applies to.")
-    max_retries: int = Field(ge=0, description="Maximum number of retries before escalation.")
+    context_class: str = Field(
+        description="Context classification this threshold applies to."
+    )
+    max_retries: int = Field(
+        ge=0, description="Maximum number of retries before escalation."
+    )
     escalation_after: int = Field(
         ge=0, description="Number of failures after which to escalate."
     )
@@ -113,8 +117,12 @@ class ModelPolicyState(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    policy_id: str = Field(description="Unique policy identifier (e.g., tool_id or pattern_id).")
-    policy_type: EnumPolicyType = Field(description="Which policy type this state represents.")
+    policy_id: str = Field(
+        description="Unique policy identifier (e.g., tool_id or pattern_id)."
+    )
+    policy_type: EnumPolicyType = Field(
+        description="Which policy type this state represents."
+    )
     state_json: str = Field(
         description=(
             "JSON-serialized typed state payload. "
