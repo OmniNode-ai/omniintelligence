@@ -49,6 +49,7 @@ class RetrievedPath(BaseModel):
     )
     original_step_count: int = Field(
         description="Total steps before staleness filtering.",
+        ge=0,
     )
     goal: GoalCondition = Field(
         description="The goal condition this path was solving.",

@@ -11,7 +11,7 @@ Ticket: OMN-2579
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ContractState(BaseModel):
@@ -29,7 +29,7 @@ class ContractState(BaseModel):
         available_transitions: Set of transition action names currently available.
     """
 
-    model_config = {"frozen": True, "extra": "ignore"}
+    model_config = ConfigDict(frozen=True, extra="ignore")
 
     node_id: str = Field(
         description="Current node identifier in the contract graph.",

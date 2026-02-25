@@ -11,7 +11,7 @@ Ticket: OMN-2579
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlanStep(BaseModel):
@@ -29,7 +29,7 @@ class PlanStep(BaseModel):
         policy_tier: Policy tier active during this transition.
     """
 
-    model_config = {"frozen": True, "extra": "ignore"}
+    model_config = ConfigDict(frozen=True, extra="ignore")
 
     from_node_id: str = Field(
         description="Identifier of the source node in the contract graph.",

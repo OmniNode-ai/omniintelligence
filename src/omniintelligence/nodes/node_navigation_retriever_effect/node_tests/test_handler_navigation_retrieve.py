@@ -86,14 +86,18 @@ def _make_state(
     graph_fingerprint: str = "sha256:abc123",
     available_transitions: frozenset[str] | None = None,
 ) -> ContractState:
+    resolved = (
+        frozenset(["to_auth", "to_cache"])
+        if available_transitions is None
+        else available_transitions
+    )
     return ContractState(
         node_id=node_id,
         component_type=component_type,
         datasource_class=datasource_class,
         policy_tier=policy_tier,
         graph_fingerprint=graph_fingerprint,
-        available_transitions=available_transitions
-        or frozenset(["to_auth", "to_cache"]),
+        available_transitions=resolved,
     )
 
 

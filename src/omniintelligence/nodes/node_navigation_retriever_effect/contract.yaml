@@ -179,10 +179,72 @@ error_handling:
       propagates: false
 
 # =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: false
+  subscribe_topics: []
+  publish_topics: []
+
+# =============================================================================
+# STATE MACHINE
+# =============================================================================
+# Read-only effect node — stateless, no FSM required. Declared explicitly to
+# satisfy the contract schema requirement.
+state_machine:
+  state_machine_name: "navigation_retriever_fsm"
+  initial_state: "idle"
+  states:
+    - state_name: "idle"
+      description: "Waiting for retrieval request"
+      is_terminal: false
+      entry_actions: []
+      exit_actions: []
+      required_data: []
+    - state_name: "retrieved"
+      description: "Paths retrieved (or gracefully empty) and returned to caller"
+      is_terminal: true
+      entry_actions: []
+      exit_actions: []
+      required_data:
+        - "correlation_id"
+  transitions:
+    - from_state: "idle"
+      to_state: "retrieved"
+      trigger: "retrieve_paths"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "embedder"
+    type: "protocol"
+    class_name: "ProtocolNavigationEmbedder"
+    module: "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve"
+    required: true
+    description: >-
+      Embedding client for goal + state text. Injected for testing; production path creates ProductionNavigationEmbedder
+      from LLM_EMBEDDING_URL. Failures are caught and trigger graceful empty-list fallback.
+  - name: "vector_store"
+    type: "protocol"
+    class_name: "ProtocolNavigationVectorStore"
+    module: "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve"
+    required: true
+    description: >-
+      Qdrant navigation path store. Injected for testing; production path creates ProductionNavigationVectorStore
+      from qdrant_url. Failures are caught and trigger graceful empty-list fallback.
+
+# =============================================================================
 # IDEMPOTENCY
 # =============================================================================
 idempotency:
   enabled: true
+  strategy: "correlation_id_tracking"
+  hash_fields: ["correlation_id", "goal", "current_state", "graph"]
   description: >
     Effect node is read-only with respect to Qdrant (search only). Repeated calls with the same input
     return the same results (subject to collection contents). Cold-start collection creation is idempotent.

@@ -407,9 +407,9 @@ async def _retrieve_paths(
         query_vector = await embedder.embed_text(embedding_text)
     except Exception as exc:
         logger.warning(
-            "Embedding failed for navigation query (correlation_id=%s): %s",
-            input_data.correlation_id,
+            "Embedding failed for navigation query: %s",
             exc,
+            extra={"correlation_id": input_data.correlation_id},
         )
         return ModelNavigationRetrieveOutput(
             paths=(),
@@ -432,7 +432,11 @@ async def _retrieve_paths(
 
     total_candidates = len(raw_results)
 
-    # Build RetrievedPath objects with staleness filtering
+    # Build RetrievedPath objects with staleness filtering.
+    # Note: hard filters (component_type, datasource_class, policy_tier) are applied
+    # at the Qdrant query level via filter_must. hard_filtered_count here tracks
+    # results that could not be deserialized (parse failures), not Qdrant-level
+    # hard-filter exclusions.
     paths: list[RetrievedPath] = []
     hard_filtered_count = 0
     total_stale_steps = 0
@@ -440,6 +444,7 @@ async def _retrieve_paths(
     for result in raw_results:
         built = _build_retrieved_path(result, input_data.graph)
         if built is None:
+            # Count parse/deserialization failures separately from Qdrant hard filters
             hard_filtered_count += 1
             continue
         path, stale_count = built
