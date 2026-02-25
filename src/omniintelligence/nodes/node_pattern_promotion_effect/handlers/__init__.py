@@ -53,6 +53,9 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_
     meets_candidate_to_provisional_criteria,
     meets_provisional_to_validated_criteria,
 )
+from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metrics import (
+    record_promotion_check_metrics,
+)
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
@@ -80,4 +83,5 @@ __all__: list[str] = [
     "meets_promotion_criteria",
     "meets_provisional_to_validated_criteria",
     "promote_pattern",
+    "record_promotion_check_metrics",
 ]
