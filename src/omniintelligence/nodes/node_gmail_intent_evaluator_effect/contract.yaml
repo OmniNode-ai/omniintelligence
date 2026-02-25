@@ -34,14 +34,11 @@ status: "active"
 
 # Description
 description: >
-  Effect node that evaluates Gmail intent signals received via
-  onex.evt.omnibase_infra.gmail-intent-received.v1. Selects the best candidate
-  URL, fetches content, queries omnimemory for duplicates, calls DeepSeek R1 for
-  a SURFACE/WATCHLIST/SKIP verdict, posts to Slack on SURFACE (rate-limited
-  5/hour), and emits gmail-intent-evaluated.v1 (always) plus
-  gmail-intent-surfaced.v1 (SURFACE only). Writes an idempotency record to
-  gmail_intent_evaluations table.
-
+  Effect node that evaluates Gmail intent signals received via onex.evt.omnibase_infra.gmail-intent-received.v1.
+  Selects the best candidate URL, fetches content, queries omnimemory for duplicates, calls DeepSeek R1
+  for a SURFACE/WATCHLIST/SKIP verdict, posts to Slack on SURFACE (rate-limited 5/hour), and emits gmail-intent-evaluated.v1
+  (always) plus gmail-intent-surfaced.v1 (SURFACE only). Writes an idempotency record to gmail_intent_evaluations
+  table. #magic___^_^___line
 # Kafka subscriptions
 input_subscriptions:
   - onex.evt.omnibase_infra.gmail-intent-received.v1
@@ -210,9 +207,8 @@ idempotency:
   key: "sha256(message_id:selected_url:resolver_version)"
   storage: "postgresql:gmail_intent_evaluations"
   description: >
-    evaluation_id is sha256(message_id:selected_url:resolver_version).
-    Checked against gmail_intent_evaluations table before processing.
-    On hit: return prior verdict with slack_sent=False, no duplicate event.
+    evaluation_id is sha256(message_id:selected_url:resolver_version). Checked against gmail_intent_evaluations
+    table before processing. On hit: return prior verdict with slack_sent=False, no duplicate event.
 
 # =============================================================================
 # RATE LIMITING
