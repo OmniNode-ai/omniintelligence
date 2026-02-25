@@ -14,6 +14,7 @@ Tests cover:
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework import (
     check_upgrade_ready,
@@ -102,20 +103,24 @@ def _result(
 @pytest.mark.unit
 class TestTrafficSplitting:
     def test_same_run_id_always_routes_same_variant(self) -> None:
-        reg = _registry([
-            _variant("v1", EnumVariantRole.ACTIVE, weight=0.9),
-            _variant("v2", EnumVariantRole.SHADOW, weight=0.1),
-        ])
+        reg = _registry(
+            [
+                _variant("v1", EnumVariantRole.ACTIVE, weight=0.9),
+                _variant("v2", EnumVariantRole.SHADOW, weight=0.1),
+            ]
+        )
         route1 = route_to_variant("run-abc-123", reg)
         route2 = route_to_variant("run-abc-123", reg)
         assert route1.variant_id == route2.variant_id
 
     def test_different_run_ids_may_route_differently(self) -> None:
         """Not guaranteed, but different run_ids should produce different routes."""
-        reg = _registry([
-            _variant("v1", EnumVariantRole.ACTIVE, weight=0.5),
-            _variant("v2", EnumVariantRole.SHADOW, weight=0.5),
-        ])
+        reg = _registry(
+            [
+                _variant("v1", EnumVariantRole.ACTIVE, weight=0.5),
+                _variant("v2", EnumVariantRole.SHADOW, weight=0.5),
+            ]
+        )
         # With 50/50 split and many run_ids, some should route to v2
         routes = set()
         for i in range(100):
@@ -125,19 +130,23 @@ class TestTrafficSplitting:
         assert len(routes) == 2  # Both variants got traffic
 
     def test_100_percent_active_always_routes_to_active(self) -> None:
-        reg = _registry([
-            _variant("v1", EnumVariantRole.ACTIVE, weight=1.0),
-        ])
+        reg = _registry(
+            [
+                _variant("v1", EnumVariantRole.ACTIVE, weight=1.0),
+            ]
+        )
         for i in range(20):
             v = route_to_variant(f"run-{i}", reg)
             assert v.variant_id == "v1"
 
     def test_routing_is_consistent_across_calls(self) -> None:
         """Same run_id, same registry → same result every time."""
-        reg = _registry([
-            _variant("active", EnumVariantRole.ACTIVE, weight=0.7),
-            _variant("shadow", EnumVariantRole.SHADOW, weight=0.3),
-        ])
+        reg = _registry(
+            [
+                _variant("active", EnumVariantRole.ACTIVE, weight=0.7),
+                _variant("shadow", EnumVariantRole.SHADOW, weight=0.3),
+            ]
+        )
         results = [route_to_variant("stable-run-id", reg).variant_id for _ in range(10)]
         assert len(set(results)) == 1  # All same
 
@@ -189,20 +198,35 @@ class TestScoreDelta:
     def test_max_possible_delta(self) -> None:
         """Max delta: all zeros vs all ones = sqrt(6)."""
         r1 = ModelVariantEvaluationResult(
-            variant_id="v1", objective_id="o", objective_version="1",
-            role=EnumVariantRole.ACTIVE, passed=True,
-            score_correctness=0.0, score_safety=0.0, score_cost=0.0,
-            score_latency=0.0, score_maintainability=0.0, score_human_time=0.0,
+            variant_id="v1",
+            objective_id="o",
+            objective_version="1",
+            role=EnumVariantRole.ACTIVE,
+            passed=True,
+            score_correctness=0.0,
+            score_safety=0.0,
+            score_cost=0.0,
+            score_latency=0.0,
+            score_maintainability=0.0,
+            score_human_time=0.0,
             drives_policy_state=True,
         )
         r2 = ModelVariantEvaluationResult(
-            variant_id="v2", objective_id="o", objective_version="2",
-            role=EnumVariantRole.SHADOW, passed=True,
-            score_correctness=1.0, score_safety=1.0, score_cost=1.0,
-            score_latency=1.0, score_maintainability=1.0, score_human_time=1.0,
+            variant_id="v2",
+            objective_id="o",
+            objective_version="2",
+            role=EnumVariantRole.SHADOW,
+            passed=True,
+            score_correctness=1.0,
+            score_safety=1.0,
+            score_cost=1.0,
+            score_latency=1.0,
+            score_maintainability=1.0,
+            score_human_time=1.0,
             drives_policy_state=False,
         )
         import math
+
         assert abs(compute_score_delta(r1, r2) - math.sqrt(6)) < 1e-6
 
 
@@ -215,7 +239,10 @@ class TestScoreDelta:
 class TestUpgradeReady:
     def test_not_ready_below_min_runs(self) -> None:
         reg = _registry(
-            [_variant("v1", EnumVariantRole.ACTIVE), _variant("v2", EnumVariantRole.SHADOW)],
+            [
+                _variant("v1", EnumVariantRole.ACTIVE),
+                _variant("v2", EnumVariantRole.SHADOW),
+            ],
             min_runs=100,
             significance_threshold=0.05,
         )
@@ -224,7 +251,10 @@ class TestUpgradeReady:
 
     def test_ready_when_significance_threshold_met(self) -> None:
         reg = _registry(
-            [_variant("v1", EnumVariantRole.ACTIVE), _variant("v2", EnumVariantRole.SHADOW)],
+            [
+                _variant("v1", EnumVariantRole.ACTIVE),
+                _variant("v2", EnumVariantRole.SHADOW),
+            ],
             min_runs=10,
             significance_threshold=0.05,  # need win_rate >= 0.95
         )
@@ -233,7 +263,10 @@ class TestUpgradeReady:
 
     def test_not_ready_when_win_rate_low(self) -> None:
         reg = _registry(
-            [_variant("v1", EnumVariantRole.ACTIVE), _variant("v2", EnumVariantRole.SHADOW)],
+            [
+                _variant("v1", EnumVariantRole.ACTIVE),
+                _variant("v2", EnumVariantRole.SHADOW),
+            ],
             min_runs=10,
             significance_threshold=0.05,
         )
@@ -243,7 +276,10 @@ class TestUpgradeReady:
     def test_exact_threshold_boundary(self) -> None:
         """Win rate exactly at threshold → ready."""
         reg = _registry(
-            [_variant("v1", EnumVariantRole.ACTIVE), _variant("v2", EnumVariantRole.SHADOW)],
+            [
+                _variant("v1", EnumVariantRole.ACTIVE),
+                _variant("v2", EnumVariantRole.SHADOW),
+            ],
             min_runs=10,
             significance_threshold=0.1,  # need win_rate >= 0.9
         )
@@ -260,10 +296,12 @@ class TestUpgradeReady:
 @pytest.mark.unit
 class TestRunABEvaluation:
     def test_both_variants_evaluated(self) -> None:
-        reg = _registry([
-            _variant("active", EnumVariantRole.ACTIVE, weight=0.9),
-            _variant("shadow", EnumVariantRole.SHADOW, weight=0.1),
-        ])
+        reg = _registry(
+            [
+                _variant("active", EnumVariantRole.ACTIVE, weight=0.9),
+                _variant("shadow", EnumVariantRole.SHADOW, weight=0.1),
+            ]
+        )
         inp = ModelABEvaluationInput(
             run_id="run-001",
             evidence_bundle={"metadata": {"passed": True}},
@@ -273,18 +311,24 @@ class TestRunABEvaluation:
         assert len(output.variant_results) == 2
 
     def test_active_variant_drives_policy_state(self) -> None:
-        reg = _registry([
-            _variant("active", EnumVariantRole.ACTIVE, weight=0.9),
-            _variant("shadow", EnumVariantRole.SHADOW, weight=0.1),
-        ])
+        reg = _registry(
+            [
+                _variant("active", EnumVariantRole.ACTIVE, weight=0.9),
+                _variant("shadow", EnumVariantRole.SHADOW, weight=0.1),
+            ]
+        )
         inp = ModelABEvaluationInput(
             run_id="run-002",
             evidence_bundle={"metadata": {"passed": True}},
             registry=reg,
         )
         output = run_ab_evaluation(inp)
-        active_results = [r for r in output.variant_results if r.role == EnumVariantRole.ACTIVE]
-        shadow_results = [r for r in output.variant_results if r.role == EnumVariantRole.SHADOW]
+        active_results = [
+            r for r in output.variant_results if r.role == EnumVariantRole.ACTIVE
+        ]
+        shadow_results = [
+            r for r in output.variant_results if r.role == EnumVariantRole.SHADOW
+        ]
         assert all(r.drives_policy_state for r in active_results)
         assert all(not r.drives_policy_state for r in shadow_results)
 
@@ -340,15 +384,23 @@ class TestRunABEvaluation:
         assert output.divergence_detected is False
         assert len(output.variant_results) == 1
 
-    @pytest.mark.parametrize("run_id", [
-        "run-aaa", "run-bbb", "run-ccc", "run-xyz-999",
-    ])
+    @pytest.mark.parametrize(
+        "run_id",
+        [
+            "run-aaa",
+            "run-bbb",
+            "run-ccc",
+            "run-xyz-999",
+        ],
+    )
     def test_deterministic_routing_per_run_id(self, run_id: str) -> None:
         """Each run_id routes deterministically across repeated calls."""
-        reg = _registry([
-            _variant("v1", EnumVariantRole.ACTIVE, weight=0.5),
-            _variant("v2", EnumVariantRole.SHADOW, weight=0.5),
-        ])
+        reg = _registry(
+            [
+                _variant("v1", EnumVariantRole.ACTIVE, weight=0.5),
+                _variant("v2", EnumVariantRole.SHADOW, weight=0.5),
+            ]
+        )
         inp = ModelABEvaluationInput(
             run_id=run_id,
             evidence_bundle={"metadata": {"passed": True}},
@@ -369,19 +421,23 @@ class TestRunABEvaluation:
 class TestRegistryValidation:
     def test_registry_requires_exactly_one_active(self) -> None:
         """Registry with no active variant should raise."""
-        with pytest.raises(Exception):
-            _registry([
-                _variant("v1", EnumVariantRole.SHADOW, weight=0.5),
-                _variant("v2", EnumVariantRole.SHADOW, weight=0.5),
-            ])
+        with pytest.raises(ValidationError):
+            _registry(
+                [
+                    _variant("v1", EnumVariantRole.SHADOW, weight=0.5),
+                    _variant("v2", EnumVariantRole.SHADOW, weight=0.5),
+                ]
+            )
 
     def test_registry_with_one_active_is_valid(self) -> None:
         reg = _registry([_variant("v1", EnumVariantRole.ACTIVE, weight=1.0)])
         assert reg.registry_id == "test-registry"
 
     def test_registry_with_active_and_shadow_is_valid(self) -> None:
-        reg = _registry([
-            _variant("v1", EnumVariantRole.ACTIVE, weight=0.9),
-            _variant("v2", EnumVariantRole.SHADOW, weight=0.1),
-        ])
+        reg = _registry(
+            [
+                _variant("v1", EnumVariantRole.ACTIVE, weight=0.9),
+                _variant("v2", EnumVariantRole.SHADOW, weight=0.1),
+            ]
+        )
         assert len(reg.variants) == 2

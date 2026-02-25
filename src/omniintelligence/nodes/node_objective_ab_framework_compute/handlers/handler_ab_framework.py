@@ -33,7 +33,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
-from datetime import datetime, timezone
 from typing import Any
 
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.enum_variant_role import (
@@ -116,7 +115,11 @@ def compute_score_delta(
         ("score_safety", result_a.score_safety, result_b.score_safety),
         ("score_cost", result_a.score_cost, result_b.score_cost),
         ("score_latency", result_a.score_latency, result_b.score_latency),
-        ("score_maintainability", result_a.score_maintainability, result_b.score_maintainability),
+        (
+            "score_maintainability",
+            result_a.score_maintainability,
+            result_b.score_maintainability,
+        ),
         ("score_human_time", result_a.score_human_time, result_b.score_human_time),
     ]
     return math.sqrt(sum((a - b) ** 2 for _, a, b in dims))
@@ -147,7 +150,7 @@ def detect_divergence(
 
 
 def check_upgrade_ready(
-    shadow_variant_id: str,
+    _shadow_variant_id: str,
     run_count: int,
     shadow_wins: int,
     registry: ModelObjectiveVariantRegistry,
@@ -162,10 +165,10 @@ def check_upgrade_ready(
     would be more rigorous, but this provides a practical threshold.
 
     Args:
-        shadow_variant_id: Shadow variant ID being checked.
-        run_count:         Total runs evaluated for this variant.
-        shadow_wins:       Runs where shadow outperformed active.
-        registry:          Registry containing threshold config.
+        _shadow_variant_id: Shadow variant ID being checked (reserved for future use).
+        run_count:          Total runs evaluated for this variant.
+        shadow_wins:        Runs where shadow outperformed active.
+        registry:           Registry containing threshold config.
 
     Returns:
         True if the shadow variant is ready for promotion.
@@ -251,7 +254,9 @@ def run_ab_evaluation(input_data: ModelABEvaluationInput) -> ModelABEvaluationOu
         variant_results.append(result)
 
     # Find active and shadow results for divergence detection
-    active_result = next((r for r in variant_results if r.role == EnumVariantRole.ACTIVE), None)
+    active_result = next(
+        (r for r in variant_results if r.role == EnumVariantRole.ACTIVE), None
+    )
     shadow_results = [r for r in variant_results if r.role == EnumVariantRole.SHADOW]
 
     divergence_detected = False
@@ -261,7 +266,9 @@ def run_ab_evaluation(input_data: ModelABEvaluationInput) -> ModelABEvaluationOu
     if active_result is not None:
         for shadow_result in shadow_results:
             # Check divergence
-            if detect_divergence(active_result, shadow_result, registry.divergence_threshold):
+            if detect_divergence(
+                active_result, shadow_result, registry.divergence_threshold
+            ):
                 divergence_detected = True
                 logger.info(
                     "Variant divergence detected (run=%s): active=%s shadow=%s",
@@ -272,10 +279,12 @@ def run_ab_evaluation(input_data: ModelABEvaluationInput) -> ModelABEvaluationOu
 
             # Check upgrade-ready signal
             run_count = input_data.run_count_by_variant.get(shadow_result.variant_id, 0)
-            shadow_wins = input_data.shadow_win_count_by_variant.get(shadow_result.variant_id, 0)
+            shadow_wins = input_data.shadow_win_count_by_variant.get(
+                shadow_result.variant_id, 0
+            )
 
             if check_upgrade_ready(
-                shadow_variant_id=shadow_result.variant_id,
+                shadow_result.variant_id,
                 run_count=run_count,
                 shadow_wins=shadow_wins,
                 registry=registry,
