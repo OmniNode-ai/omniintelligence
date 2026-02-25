@@ -27,7 +27,7 @@ class ModelMemoryHit(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     item_id: str
-    score: float
+    score: float = Field(ge=0.0, le=1.0)
     snippet: str = ""
 
 
@@ -59,7 +59,7 @@ class ModelGmailIntentEvaluationResult(BaseModel):
     evaluation_id: str  # sha256(message_id:selected_url:resolver_version)
     verdict: Literal["SURFACE", "WATCHLIST", "SKIP"]
     reasoning: str
-    relevance_score: float
+    relevance_score: float = Field(ge=0.0, le=1.0)
     initial_plan: str | None  # Non-None only when verdict=SURFACE
     selected_url: str | None  # URL actually fetched and evaluated
     url_candidates: list[str]  # All candidate URLs considered
