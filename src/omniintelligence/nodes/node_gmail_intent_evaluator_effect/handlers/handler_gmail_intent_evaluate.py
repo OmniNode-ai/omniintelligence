@@ -70,7 +70,7 @@ from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models.model_gmai
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models.model_gmail_intent_evaluator_config import (
     ModelGmailIntentEvaluatorConfig,
 )
-from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.protocols import ProtocolPatternRepository, ProtocolSlackNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ def _select_url(urls: list[str]) -> tuple[str | None, list[str]]:
 
     tiered = sorted(urls, key=_url_tier)
     candidates = [u for u in tiered if _url_tier(u) <= 3][:3]
-    selected = tiered[0] if _url_tier(tiered[0]) <= 4 else None
+    selected = tiered[0] if _url_tier(tiered[0]) <= 3 else None
     return selected, candidates
 
 
@@ -484,8 +484,15 @@ async def _post_to_slack(
     initial_plan: str | None,
     evaluation_id: str,
     errors: list[str],
+    slack_notifier: ProtocolSlackNotifier | None = None,
 ) -> bool:
-    """Post SURFACE notification to Slack. Returns True if sent."""
+    """Post SURFACE notification to Slack. Returns True if sent.
+
+    Args:
+        slack_notifier: Optional pre-built notifier. If None, constructs a
+            HandlerSlackWebhook from environment variables (production path).
+            Injecting a notifier enables testing without the concrete impl.
+    """
     bot_token = os.environ.get("SLACK_BOT_TOKEN", "")
     default_channel = os.environ.get("SLACK_DEFAULT_CHANNEL", "#ai-signals")
 
@@ -495,7 +502,7 @@ async def _post_to_slack(
         f"*New Technical Signal* — {url_label}\n\n"
         f"{reasoning}\n\n"
         f"*Verdict:* SURFACE  |  relevance: {relevance_score:.0%}\n"
-        f"*From:* {config.sender}  |  *Received:* {config.received_at}\n"
+        f"*From:* {_sanitize_sender(config.sender)}  |  *Received:* {config.received_at}\n"
     )
 
     if initial_plan:
@@ -507,23 +514,27 @@ async def _post_to_slack(
     if len(message_body) > _SLACK_MESSAGE_MAX_CHARS:
         message_body = message_body[: _SLACK_MESSAGE_MAX_CHARS - 3] + "..."
 
-    if not bot_token:
+    if not bot_token and slack_notifier is None:
         # Local mode: print to stdout
         print(f"[GMAIL SIGNAL] {message_body}")
         return False
 
     try:
-        handler = HandlerSlackWebhook(
-            bot_token=bot_token,
-            default_channel=default_channel,
-        )
+        notifier: ProtocolSlackNotifier
+        if slack_notifier is not None:
+            notifier = slack_notifier
+        else:
+            notifier = HandlerSlackWebhook(
+                bot_token=bot_token,
+                default_channel=default_channel,
+            )
         alert = ModelSlackAlert(
             severity=EnumAlertSeverity.INFO,
             message=message_body,
             title=f"Gmail Signal: {config.subject[:100]}",
             channel=default_channel,
         )
-        result = await handler.handle(alert)
+        result = await notifier.handle(alert)
         if not result.success:
             errors.append(f"Slack delivery failed: {result.error_message}")
             return False
@@ -595,6 +606,7 @@ async def handle_gmail_intent_evaluate(
     db_url: str | None = None,
     llm_url: str | None = None,
     embedding_url: str | None = None,
+    slack_notifier: ProtocolSlackNotifier | None = None,
     _slack_rate_check: Callable[[], Awaitable[bool]] | None = None,
 ) -> ModelGmailIntentEvaluationResult:
     """Evaluate a Gmail intent signal end-to-end.
@@ -607,6 +619,9 @@ async def handle_gmail_intent_evaluate(
             Defaults to OMNIBASE_INFRA_DB_URL env.
         llm_url: DeepSeek R1 endpoint. Defaults to LLM_DEEPSEEK_R1_URL env.
         embedding_url: Embedding endpoint. Defaults to LLM_EMBEDDING_URL env.
+        slack_notifier: Optional Slack notifier implementing ProtocolSlackNotifier.
+            If None, constructs HandlerSlackWebhook from environment at post time.
+            Injecting allows tests to verify Slack calls without real credentials.
         _slack_rate_check: Override for rate limit check (testing); must be async.
 
     Returns:
@@ -640,6 +655,7 @@ async def handle_gmail_intent_evaluate(
             resolved_llm_url=resolved_llm_url,
             resolved_embedding_url=resolved_embedding_url,
             rate_check_fn=rate_check_fn,
+            slack_notifier=slack_notifier,
             errors=errors,
             pending_events=pending_events,
         )
@@ -658,6 +674,7 @@ async def _handle_gmail_intent_evaluate_inner(
     resolved_llm_url: str,
     resolved_embedding_url: str,
     rate_check_fn: Callable[[], Awaitable[bool]],
+    slack_notifier: ProtocolSlackNotifier | None,
     errors: list[str],
     pending_events: list[Any],
 ) -> ModelGmailIntentEvaluationResult:
@@ -773,6 +790,7 @@ async def _handle_gmail_intent_evaluate_inner(
                 initial_plan=initial_plan,
                 evaluation_id=evaluation_id,
                 errors=errors,
+                slack_notifier=slack_notifier,
             )
 
     # -------------------------------------------------------------------------
