@@ -10,4 +10,8 @@ Reference:
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate import (
+    handle_gmail_intent_evaluate,
+)
+
+__all__ = ["handle_gmail_intent_evaluate"]
