@@ -61,10 +61,9 @@ Design Notes
   no return value. It is safe to call from async handlers because
   prometheus_client counter/gauge operations are thread-safe and do not
   block.
-- The ``_METRICS_ENABLED`` flag (default True) can be set to False in test
-  environments to suppress registration errors when multiple test processes
-  share a registry. Tests should prefer importing
-  ``record_promotion_check_metrics`` and calling it directly.
+- Tests should prefer importing ``record_promotion_check_metrics`` and calling
+  it directly. Duplicate-registration errors are handled by the ``ValueError``
+  catch in ``_init_metrics()``.
 - All metric names follow the Prometheus naming convention:
   ``<namespace>_<subsystem>_<name>_<unit_suffix>``.
 
