@@ -71,15 +71,15 @@ dev = [
 # Core node system dependencies
 # Version constraints aligned with caret syntax:
 #   ^0.18.1 = >=0.18.1,<0.19.0  (compatible releases within 0.18.x)
+#   ^0.11.0 = >=0.11.0,<0.12.0  (compatible releases within 0.11.x)
 #   ^0.10.0 = >=0.10.0,<0.11.0  (compatible releases within 0.10.x)
-#   ^0.9.0 = >=0.9.0,<0.10.0  (compatible releases within 0.9.x)
 core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.18.1,<0.20.0",
-    "omnibase-spi>=0.10.0,<0.13.0",
-    "omnibase-infra>=0.9.0,<0.11.0",
+    "omnibase-core>=0.20.0,<0.21.0",
+    "omnibase-spi>=0.13.0,<0.14.0",
+    "omnibase-infra>=0.11.0,<0.12.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
