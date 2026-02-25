@@ -17,12 +17,10 @@ node_version:
 name: "node_policy_state_reducer"
 node_type: "REDUCER"
 description: >-
-  REDUCER node for durable policy lifecycle state management. Consumes
-  RewardAssignedEvent from Kafka and applies lifecycle transitions
-  (candidate → validated → promoted → deprecated) to policy entries in PostgreSQL.
-  Supports four policy types: tool_reliability, pattern_effectiveness,
-  model_routing_confidence, retry_threshold. Emits PolicyStateUpdatedEvent
-  and system.alert.tool_degraded on auto-blacklist.
+  REDUCER node for durable policy lifecycle state management. Consumes RewardAssignedEvent from Kafka
+  and applies lifecycle transitions (candidate → validated → promoted → deprecated) to policy entries
+  in PostgreSQL. Supports four policy types: tool_reliability, pattern_effectiveness, model_routing_confidence,
+  retry_threshold. Emits PolicyStateUpdatedEvent and system.alert.tool_degraded on auto-blacklist.
 input_model:
   name: "ModelPolicyStateInput"
   module: "omniintelligence.nodes.node_policy_state_reducer.models"
@@ -34,8 +32,8 @@ output_model:
 operations:
   - name: "reduce"
     description: >-
-      Process a RewardAssignedEvent and apply policy lifecycle transitions.
-      Idempotent: replaying the same event produces no double-update.
+      Process a RewardAssignedEvent and apply policy lifecycle transitions. Idempotent: replaying the
+      same event produces no double-update.
     input_fields:
       - event
       - thresholds
