@@ -186,6 +186,9 @@ ignore = [
 # Test intentionally catches broad exceptions for validation error testing
 "tests/nodes/pattern_extraction_compute/test_handlers.py" = ["B017"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["omniintelligence"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
