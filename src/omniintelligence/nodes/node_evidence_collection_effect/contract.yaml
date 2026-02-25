@@ -34,14 +34,12 @@ node_type: "EFFECT_GENERIC"
 
 # Description
 description: >
-  Effect node that collects structured evidence from agent session check results
-  (gate outputs, test results, static analysis, cost/latency telemetry) and
-  drives the objective evaluation pipeline at session end. Constructs an
-  EvidenceBundle with deterministic bundle_fingerprint, evaluates it against
-  the applicable ObjectiveSpec via ScoringReducerCompute, emits RunEvaluatedEvent
-  to Kafka, and stores EvaluationResult in the objective_evaluations table.
-  Evaluation is non-blocking: dispatched as asyncio.create_task from handle_stop.
-
+  Effect node that collects structured evidence from agent session check results (gate outputs, test results,
+  static analysis, cost/latency telemetry) and drives the objective evaluation pipeline at session end.
+  Constructs an EvidenceBundle with deterministic bundle_fingerprint, evaluates it against the applicable
+  ObjectiveSpec via ScoringReducerCompute, emits RunEvaluatedEvent to Kafka, and stores EvaluationResult
+  in the objective_evaluations table. Evaluation is non-blocking: dispatched as asyncio.create_task from
+  handle_stop. #magic___^_^___line
 # =============================================================================
 # I/O MODELS
 # =============================================================================
@@ -91,9 +89,8 @@ runtime:
   max_retries: 0
   non_blocking: true
   description: >
-    Non-blocking: dispatched as asyncio.create_task from handle_stop.
-    Session completion is never delayed by evaluation.
-    Errors are logged and swallowed.
+    Non-blocking: dispatched as asyncio.create_task from handle_stop. Session completion is never delayed
+    by evaluation. Errors are logged and swallowed.
 
 # =============================================================================
 # DEPENDENCIES
@@ -103,8 +100,8 @@ dependencies:
     version: ">=1.0.0"
     optional: true
     description: >
-      ScoringReducerCompute evaluation engine (OMN-2545).
-      Optional: evaluation is skipped gracefully if not available.
+      ScoringReducerCompute evaluation engine (OMN-2545). Optional: evaluation is skipped gracefully if
+      not available.
   - name: "kafka_publisher"
     version: ">=1.0.0"
     optional: true

@@ -15,9 +15,9 @@ from omniintelligence.nodes.node_evidence_collection_effect.errors import (
     DisallowedEvidenceSourceError,
 )
 from omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection import (
-    EvidenceCollector,
     _COST_NORMALIZATION_MAX_USD,
     _LATENCY_NORMALIZATION_MAX_SECONDS,
+    EvidenceCollector,
 )
 from omniintelligence.nodes.node_evidence_collection_effect.models.model_session_check_results import (
     ModelGateCheckResult,
@@ -163,7 +163,9 @@ class TestStaticAnalysisExtraction:
             error_count=0,
             clean_rate=1.0,
         )
-        items = EvidenceCollector().collect(_results(static_analysis_results=(analysis,)))
+        items = EvidenceCollector().collect(
+            _results(static_analysis_results=(analysis,))
+        )
         assert items[0]["source"] == "static_analysis"
         assert items[0]["value"] == pytest.approx(1.0)
 
@@ -173,12 +175,16 @@ class TestStaticAnalysisExtraction:
             error_count=5,
             clean_rate=0.0,
         )
-        items = EvidenceCollector().collect(_results(static_analysis_results=(analysis,)))
+        items = EvidenceCollector().collect(
+            _results(static_analysis_results=(analysis,))
+        )
         assert items[0]["value"] == pytest.approx(0.0)
 
     def test_analysis_tool_name_in_item_id(self) -> None:
         analysis = ModelStaticAnalysisResult(tool="pylint", clean_rate=1.0)
-        items = EvidenceCollector().collect(_results(static_analysis_results=(analysis,)))
+        items = EvidenceCollector().collect(
+            _results(static_analysis_results=(analysis,))
+        )
         assert items[0]["item_id"] == "static_pylint"
 
 
